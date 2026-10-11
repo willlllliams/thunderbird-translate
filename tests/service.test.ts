@@ -1,15 +1,19 @@
 import { describe, expect, it, vi } from "vitest"
 import { CACHE_STORAGE_KEY, cacheKey, LruCache, PersistentCache } from "../src/background/cache"
-import type { LlmImpl } from "../src/background/service"
-import { BatchParseError, llmAnalyzeMail, llmTranslateBatch, llmTranslateSingle } from "../src/background/translators/llm"
-import type { Segment } from "../src/background/translators/llm-prompt"
-import { createDefaultSettings, type Settings } from "../src/shared/settings"
+import { errorContext, type LlmImpl, type TranslationService } from "../src/background/service"
+import { BatchParseError, type LlmCallOptions, llmAnalyzeMail, llmTranslateBatch, llmTranslateSingle } from "../src/background/translators/llm"
+import { MAX_PREFIX_TEXT_CHARS, type Segment } from "../src/background/translators/llm-prompt"
+import { ENGLISH } from "../src/shared/i18n"
+import { createMailContext } from "../src/shared/mail-context"
+import type { TranslateRequest, TranslateResponse } from "../src/shared/messages"
+import type { Tier } from "../src/shared/providers"
+import { createDefaultSettings, type ResolvedProvider, type Settings } from "../src/shared/settings"
 import { asFetch, chatCompletion, createService, jsonResponse, memoryStorage } from "./helpers"
 
-function setup(over: (s: Settings) => void = () => {}, extra: { llm?: LlmImpl; fetchFn?: unknown } = {}) {
+function setup(over: (s: Settings) => void = () => {}, extra: { llm?: LlmImpl; fetchFn?: unknown; cache?: PersistentCache } = {}) {
   const settings = createDefaultSettings()
   over(settings)
-  return createService(settings, { llm: extra.llm, fetchFn: asFetch(extra.fetchFn) })
+  return createService(settings, { llm: extra.llm, fetchFn: asFetch(extra.fetchFn), ...(extra.cache ? { cache: extra.cache } : {}) })
 }
 
 describe("LRU cache", () => {
@@ -207,5 +211,175 @@ describe("TranslationService with an LLM", () => {
     const out = await Promise.all(["Good morning", "Good night"].map((t) => service.translate({ text: t, targetLang: "zh-CN", providerId: "openai" })))
     expect(out).toEqual(["早上好", "晚安"])
     expect(fetchFn).toHaveBeenCalledTimes(3)
+  })
+})
+
+describe("TranslationService: tiers, caps and precise mode details", () => {
+  const googleEcho = () =>
+    vi.fn(async (_url: string, init: RequestInit) => jsonResponse(new URLSearchParams(String(init.body)).getAll("q").map((q) => [`G(${q})`, "en"])))
+  const page = (tiers: Tier[]): TranslateRequest => ({ text: "Hello", sourceLang: "auto", targetLang: "zh-CN", tiers })
+
+  it("reports an unknown service per tier and asks nothing when no tier is requested", async () => {
+    const { service } = setup((s) => (s.tiers.ai = "no-such-service"), { fetchFn: googleEcho() })
+    const reports: [Tier, TranslateResponse][] = []
+    await service.translateForPage(page(["machine", "ai"]), (tier, result) => reports.push([tier, result]))
+    expect(reports).toEqual([
+      ["ai", { ok: false, error: ENGLISH.t("errUnknownProvider", ["no-such-service"]) }],
+      ["machine", { ok: true, text: "G(Hello)" }],
+    ])
+    reports.length = 0
+    await service.translateForPage(page(["dictionary"]), (tier, result) => reports.push([tier, result]))
+    expect(reports).toEqual([])
+  })
+
+  it.each([
+    // [service, paragraphs, characters each, user cap on items, requests]
+    ["google-free", 150, 10, 500, 2],
+    ["google-free", 10, 1200, 500, 3],
+    ["microsoft-free", 101, 10, 500, 2],
+    ["google-free", 6, 10, 4, 2],
+  ])("caps %s: %i paragraphs of %i characters, user cap %i items → %i requests", async (id, n, chars, maxItems, requests) => {
+    const fetchFn = vi.fn(async (url: string, init: RequestInit) => {
+      if (url.includes("microsoft")) return jsonResponse((JSON.parse(String(init.body)) as string[]).map((text) => ({ translations: [{ text }] })))
+      return jsonResponse(new URLSearchParams(String(init.body)).getAll("q").map((q) => [q, "en"]))
+    })
+    const { service } = setup((s) => {
+      s.batch.maxItemsPerBatch = maxItems
+      s.batch.maxCharsPerBatch = 100_000
+    }, { fetchFn })
+    const texts = Array.from({ length: n }, (_, i) => String(i).padStart(chars, "x"))
+    expect(await Promise.all(texts.map((text) => service.translate({ text, targetLang: "zh-CN", providerId: id })))).toEqual(texts)
+    expect(fetchFn).toHaveBeenCalledTimes(requests)
+  })
+
+  it("sends DeepLX one request per paragraph", async () => {
+    const fetchFn = vi.fn(async (_url: string, init: RequestInit) => jsonResponse({ code: 200, data: `D(${JSON.parse(String(init.body)).text})` }))
+    const { service } = setup((s) => (s.providers.deeplx.baseURL = "https://deeplx.example/translate"), { fetchFn })
+    const out = await Promise.all(["a", "b", "c"].map((text) => service.translate({ text, targetLang: "zh-CN", providerId: "deeplx" })))
+    expect(out).toEqual(["D(a)", "D(b)", "D(c)"])
+    expect(fetchFn).toHaveBeenCalledTimes(3)
+  })
+
+  it("falls back to one call per paragraph when the batch answer has the wrong length", async () => {
+    const llm: LlmImpl = {
+      batch: vi.fn(async (segs: Segment[]) => segs.slice(1).map((g) => g.text)),
+      single: vi.fn(async (g: Segment) => `ZH(${g.text})`),
+      analyze: vi.fn(async () => null),
+    }
+    const { service } = setup((s) => {
+      s.tiers.ai = "openai"
+      s.providers.openai.apiKey = "sk"
+    }, { llm })
+    expect(await Promise.all(["a", "b"].map((text) => service.translate({ text, targetLang: "zh-CN", providerId: "openai" })))).toEqual(["ZH(a)", "ZH(b)"])
+    expect(llm.single).toHaveBeenCalledTimes(2)
+  })
+
+  describe("precise mode", () => {
+    const precise = (s: Settings) => {
+      s.tiers.ai = "openai"
+      s.providers.openai.apiKey = "sk"
+      s.precise.enabled = true
+      s.batch.maxCharsPerBatch = 30
+    }
+    const ANALYSIS = { summary: "A note.", glossary: [], tone: "" }
+    const fakeLlm = (analysis: typeof ANALYSIS | null) => {
+      const prefixes: (string | undefined)[] = []
+      const answer = (g: Segment, opts: LlmCallOptions) => {
+        prefixes.push(opts.contextPrefix)
+        return `AI(${g.text})`
+      }
+      const llm = {
+        batch: vi.fn(async (segs: Segment[], opts: LlmCallOptions) => segs.map((g) => answer(g, opts))),
+        single: vi.fn(async (g: Segment, opts: LlmCallOptions) => answer(g, opts)),
+        analyze: vi.fn(async () => analysis),
+      }
+      return { llm, prefixes }
+    }
+    const translateMail = async (service: TranslationService, paragraphs: string[], targets = paragraphs.map((_, i) => i)) => {
+      const context = createMailContext(paragraphs, targets)
+      service.setContext(context)
+      return Promise.all(targets.map((i) => service.translate({ text: paragraphs[i], targetLang: "zh-CN", providerId: "openai", context: { id: context.id, index: i } })))
+    }
+    const PARAGRAPHS = ["First paragraph of the mail.", "Second paragraph of the mail.", "Third one."]
+
+    it("reuses a stored analysis instead of asking again", async () => {
+      const storage = memoryStorage()
+      const first = fakeLlm(ANALYSIS)
+      await translateMail(setup(precise, { llm: first.llm, cache: new PersistentCache(storage, 100, 0) }).service, PARAGRAPHS)
+      expect(first.llm.analyze).toHaveBeenCalledTimes(1)
+      // A new background script over the same storage, with the analysis kept and the translations gone.
+      await vi.waitFor(() => expect(storage.data.get(CACHE_STORAGE_KEY)).toHaveLength(PARAGRAPHS.length + 1))
+      const entries = storage.data.get(CACHE_STORAGE_KEY) as [string, string][]
+      storage.data.set(CACHE_STORAGE_KEY, entries.filter(([key]) => key.includes("|analysis|")))
+      const second = fakeLlm(ANALYSIS)
+      await translateMail(setup(precise, { llm: second.llm, cache: new PersistentCache(storage, 100, 0) }).service, PARAGRAPHS)
+      expect(second.llm.analyze).not.toHaveBeenCalled()
+      expect(second.prefixes.length).toBeGreaterThan(0)
+      expect(second.prefixes.every((p) => p?.includes("Summary: A note."))).toBe(true)
+    })
+
+    it("does not store an unusable analysis, and leaves a long message out of the prefix", async () => {
+      const paragraphs = ["x".repeat(MAX_PREFIX_TEXT_CHARS), "Short one, but not that short.", "Another short one."]
+      const { llm, prefixes } = fakeLlm(null)
+      const { service, cache } = setup(precise, { llm })
+      await translateMail(service, paragraphs, [1, 2])
+      expect(llm.analyze).toHaveBeenCalledTimes(1)
+      expect(await cache.size()).toBe(2)
+      expect(new Set(prefixes)).toEqual(new Set([""]))
+    })
+
+    it("counts targets outside the message as empty", async () => {
+      const { llm } = fakeLlm(null)
+      const { service } = setup((s) => {
+        precise(s)
+        s.batch.maxItemsPerBatch = 2
+      }, { llm })
+      const context = createMailContext(["Hello"], [0, 5])
+      service.setContext(context)
+      expect(await service.translate({ text: "Hello", targetLang: "zh-CN", providerId: "openai", context: { id: context.id, index: 0 } })).toBe("AI(Hello)")
+      expect(llm.analyze).not.toHaveBeenCalled()
+    })
+
+    it("sends the message context in the system message, without Anthropic's cache mark to other services", async () => {
+      const bodies: { messages: { role: string; content: unknown }[] }[] = []
+      const isAnalysis = (system: unknown) => String(system).startsWith("You prepare the translation")
+      const fetchFn = vi.fn(async (_url: string, init?: RequestInit) => {
+        const body = JSON.parse(String(init?.body))
+        bodies.push(body)
+        return chatCompletion(isAnalysis(body.messages[0].content) ? JSON.stringify(ANALYSIS) : "译文")
+      })
+      const { service } = setup(precise, { fetchFn, llm: { batch: llmTranslateBatch, single: llmTranslateSingle, analyze: llmAnalyzeMail } })
+      await translateMail(service, PARAGRAPHS)
+      const translations = bodies.filter((b) => !isAnalysis(b.messages[0].content))
+      expect(translations.length).toBeGreaterThan(1)
+      for (const b of translations) {
+        expect(b.messages.filter((m) => m.role === "system")).toHaveLength(1)
+        expect(b.messages[0].content).toContain("Summary: A note.")
+        expect(JSON.stringify(b)).not.toContain("cache_control")
+      }
+    })
+  })
+})
+
+describe("errorContext", () => {
+  const provider = (id: string, over: Partial<ResolvedProvider> = {}): ResolvedProvider => ({
+    id,
+    apiKey: "",
+    baseURL: "https://x.example",
+    model: "m",
+    temperature: null,
+    thinking: false,
+    mode: "free",
+    region: "",
+    ...over,
+  })
+
+  it.each([
+    ["an unknown service", provider("nope"), { baseURL: "https://x.example" }],
+    ["an AI service", provider("deepseek"), { service: "DeepSeek", kind: "llm", baseURL: "https://x.example", model: "m", keyMode: false }],
+    ["Microsoft, free", provider("microsoft-free"), { service: "Microsoft Translator", kind: "microsoft", baseURL: undefined, model: undefined, keyMode: false }],
+    ["Microsoft, key", provider("microsoft-free", { mode: "key" }), { service: "Microsoft Translator", kind: "microsoft", baseURL: "https://x.example", keyMode: true }],
+  ])("describes %s", (_name, p, expected) => {
+    expect(errorContext(p)).toMatchObject(expected)
   })
 })

@@ -1,6 +1,6 @@
 {
   "name": "thunderbird-translate",
-  "version": "1.5.0",
+  "version": "1.5.1",
   "private": true,
   "description": "Thunderbird MailExtension that translates email bodies in place (bilingual or translation-only), with free translators and 20+ AI providers.",
   "license": "GPL-3.0-or-later",
@@ -16,7 +16,9 @@
     "typecheck": "tsc --noEmit",
     "live-test": "node scripts/live-test.mjs",
     "locales:check": "node scripts/locales.mjs",
-    "fetch:bergamot": "node scripts/fetch-bergamot.mjs"
+    "fetch:bergamot": "node scripts/fetch-bergamot.mjs",
+    "test:coverage": "vitest run --coverage",
+    "e2e": "node e2e/run.mjs"
   },
   "dependencies": {
     "@ai-sdk/alibaba": "^2.0.65",
@@ -42,6 +44,7 @@
   "devDependencies": {
     "@types/firefox-webext-browser": "^143.0.1",
     "@types/node": "^26.6.5",
+    "@vitest/coverage-v8": "^5.0.3",
     "esbuild": "^0.28.2",
     "fake-indexeddb": "^6.2.5",
     "fflate": "^0.8.3",

@@ -1,4 +1,5 @@
 /** Test doubles shared by the test files. */
+import { createHash } from "node:crypto"
 import { readFileSync } from "node:fs"
 import { join } from "node:path"
 import { vi } from "vitest"
@@ -7,6 +8,9 @@ import { type KeyValueStorage, PersistentCache } from "../src/background/cache"
 import { type ServiceDeps, TranslationService } from "../src/background/service"
 import type { BackgroundRequest } from "../src/shared/messages"
 import type { Settings } from "../src/shared/settings"
+
+/** Hex SHA-256, as in dict-index.json and the Bergamot model records. */
+export const sha256Hex = (data: Uint8Array) => createHash("sha256").update(data).digest("hex")
 
 /** A vi.fn() or any other stand-in used as fetch. */
 export const asFetch = (f: unknown) => f as typeof fetch
@@ -67,6 +71,8 @@ export async function openPage(
     fetchUrl,
     connect,
     stored: other = {},
+    activeTab,
+    currentTab = { id: 7 },
   }: {
     uiLanguage?: string
     respond?: (req: BackgroundRequest) => unknown
@@ -75,6 +81,10 @@ export async function openPage(
     stored?: Record<string, unknown>
     /** Answers fetch() for URLs other than the packaged messages, e.g. the dictionary index; a failed request otherwise. */
     fetchUrl?: (url: string) => Promise<Response>
+    /** The tab that tabs.query() reports as active (the popup's message tab); none by default. */
+    activeTab?: { id?: number }
+    /** What tabs.getCurrent() reports, e.g. {} for a page without a tab id. */
+    currentTab?: { id?: number }
   } = {},
 ) {
   const html = readFileSync(join(__dirname, "..", "static", `${page}.html`), "utf8")
@@ -86,12 +96,14 @@ export async function openPage(
   const listeners: ((changes: object, area: string) => void)[] = []
   const notify = () => listeners.forEach((l) => l({ settings: { newValue: structuredClone(stored) } }, "local"))
   const sendMessage = vi.fn(async (req: BackgroundRequest) => respond?.(req) ?? (req.type === "cacheStats" ? { size: 0 } : undefined))
+  const openOptionsPage = vi.fn()
+  const close = vi.fn()
   vi.stubGlobal("browser", {
-    runtime: { sendMessage, getURL: (path: string) => `moz-extension://test/${path}`, openOptionsPage: vi.fn(), connect },
+    runtime: { sendMessage, getURL: (path: string) => `moz-extension://test/${path}`, openOptionsPage, connect },
     tabs: {
-      query: async () => [],
+      query: async () => (activeTab ? [activeTab] : []),
       create: vi.fn(async ({ url }: { url: string }) => void created.push(url)),
-      getCurrent: async () => ({ id: 7 }),
+      getCurrent: async () => currentTab,
       remove: async (id: number) => void removed.push(id),
     },
     storage: {
@@ -110,7 +122,7 @@ export async function openPage(
     },
     i18n: { getUILanguage: () => uiLanguage },
   })
-  vi.stubGlobal("close", () => {})
+  vi.stubGlobal("close", close)
   // _locales/<locale>/messages.json packaged with the extension.
   vi.stubGlobal("fetch", async (url: string) => {
     const locale = localeSources[url.split("/").at(-2)!]
@@ -124,6 +136,9 @@ export async function openPage(
     created,
     removed,
     sendMessage,
+    /** runtime.openOptionsPage() and window.close(). */
+    openOptionsPage,
+    close,
     stored: () => stored,
     /** Other storage.local keys, e.g. the welcome page's state. */
     local: (key: string) => local[key],
@@ -131,6 +146,10 @@ export async function openPage(
     external(change: (s: Settings) => void, announce = true) {
       change(stored)
       if (announce) notify()
+    },
+    /** A raw storage change event, e.g. of another storage area. */
+    emitChange(changes: object, area: string) {
+      listeners.forEach((l) => l(changes, area))
     },
   }
 }

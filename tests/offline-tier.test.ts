@@ -98,3 +98,24 @@ describe("model management in the background script", () => {
     expect(engine.removeBergamotPair).toHaveBeenCalledWith("ja", "en")
   })
 })
+
+describe("model management failures", () => {
+  it("describes a list or removal that fails", async () => {
+    engine.listBergamotPairs.mockRejectedValueOnce(new Error("offline"))
+    expect(await handleBergamot({ type: "bergamotList" })).toEqual({ ok: false, error: "offline" })
+    expect(engine.listBergamotPairs).toHaveBeenCalledWith(false)
+    engine.removeBergamotPair.mockRejectedValueOnce(new Error("locked"))
+    expect(await handleBergamot({ type: "bergamotRemove", src: "ja", tgt: "en" })).toEqual({ ok: false, error: "locked" })
+  })
+
+  it.each([
+    ["auto", "en"],
+    ["", "de"],
+  ])("needs nothing for the languages %j → %j", async (src, tgt) => {
+    expect(await handleBergamot({ type: "bergamotRequired", src, tgt })).toEqual({ required: [], missing: [] })
+  })
+
+  it("ignores cancelling a pair that is not being installed", async () => {
+    expect(await handleBergamot({ type: "bergamotCancel", src: "xx", tgt: "en" })).toBeUndefined()
+  })
+})

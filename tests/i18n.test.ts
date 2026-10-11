@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { readdirSync, readFileSync, statSync } from "node:fs"
 import { join } from "node:path"
-import { describe, expect, it } from "vitest"
+import { afterEach, describe, expect, it, vi } from "vitest"
 import { checkLocales, literalTokens, placeholderNumbers, readLocaleSources, toMessagesJson } from "../scripts/locales.mjs"
 import { describeError, LocalizedError } from "../src/shared/errors"
 import {
@@ -24,6 +24,7 @@ import {
   textDirection,
   type UiLocale,
 } from "../src/shared/locales"
+import { getLanguage, LANGUAGES } from "../src/shared/languages"
 import { PROVIDER_PRESETS, providerDisplayName } from "../src/shared/providers"
 import { defaultTargetLang, normalizeSettings } from "../src/shared/settings"
 
@@ -356,7 +357,8 @@ describe("no hard-coded interface text", () => {
     })
   }
 
-  const sourceFiles = listFiles(join(root, "src"), ".ts")
+  // The test-build hooks under src/e2e are stripped from release builds and never show anything to the user.
+  const sourceFiles = listFiles(join(root, "src"), ".ts").filter((f) => !/[\\/]src[\\/]e2e[\\/]/.test(f))
   const code = (file: string) =>
     readFileSync(file, "utf8")
       .replace(/\/\*[\s\S]*?\*\//g, "")
@@ -404,5 +406,107 @@ describe("no hard-coded interface text", () => {
   it("nothing reads interface text through browser.i18n.getMessage", () => {
     const hits = sourceFiles.filter((f) => /getMessage\s*\(/.test(code(f)))
     expect(hits).toEqual([])
+  })
+})
+
+/* ---------- edge cases of the runtime ---------- */
+
+describe("i18n runtime edge cases", () => {
+  it("reads only message entries and keeps $$ and unknown placeholders", () => {
+    expect(compileMessagesJson(null)).toEqual({})
+    expect(compileMessagesJson("text")).toEqual({})
+    expect(compileMessagesJson({ a: { message: "$$5 for $X$ and $Y$", placeholders: { x: { content: "$1" }, y: { content: 2 } } }, b: null })).toEqual({
+      a: "$$5 for $1 and $Y$",
+    })
+  })
+
+  it("takes a single substitution without a list and formats it as a number", () => {
+    expect(ENGLISH.t("popupFailed", 1500)).toBe(ENGLISH.t("popupFailed", ["1,500"]))
+    expect(ENGLISH.t("popupFailed", "many")).toBe(ENGLISH.t("popupFailed", ["many"]))
+  })
+
+  it("prints numbers and language names plainly when Intl does not know the language", () => {
+    const broken = new I18n("x_" as UiLocale, { cacheCount: "$1 entries" })
+    expect(broken.lang).toBe("x-")
+    expect(broken.t("cacheCount", [12345])).toBe("12345 entries")
+    expect(broken.languageName("ja", "日本語")).toBe("日本語")
+    expect(ENGLISH.languageName("not a code", "Native")).toBe("Native")
+  })
+
+  it("falls back to the first language for an unknown code", () => {
+    expect(getLanguage("de").english).toBe("German")
+    expect(getLanguage("xx")).toBe(LANGUAGES[0])
+  })
+})
+
+describe("localizeDocument", () => {
+  it("fills text, placeholder, title and aria-label and sets <html lang dir>", () => {
+    const doc = new DOMParser().parseFromString(
+      '<p data-i18n="saved"></p><input data-i18n-placeholder="bergamotFilter"><button data-i18n-title="buttonTest" data-i18n-aria-label="buttonTest"></button>',
+      "text/html",
+    )
+    localizeDocument(i18nFor("ja"), doc)
+    expect(doc.querySelector("p")!.textContent).toBe(sources.ja.saved)
+    expect(doc.querySelector("input")!.placeholder).toBe(sources.ja.bergamotFilter)
+    expect(doc.querySelector("button")!.title).toBe(sources.ja.buttonTest)
+    expect(doc.querySelector("button")!.getAttribute("aria-label")).toBe(sources.ja.buttonTest)
+    localizeDocument(new I18n("en", { saved: "Saved" }), doc)
+    expect(doc.documentElement.lang).toBe("en")
+  })
+})
+
+describe("extension glue", () => {
+  afterEach(() => {
+    vi.unstubAllGlobals()
+    vi.resetModules()
+  })
+
+  async function glue(getUILanguage: () => string, fetchImpl: (url: string) => Promise<Response>) {
+    vi.stubGlobal("browser", { i18n: { getUILanguage }, runtime: { getURL: (p: string) => `moz-extension://test/${p}` } })
+    vi.stubGlobal("fetch", vi.fn(fetchImpl))
+    vi.resetModules()
+    return { ext: await import("../src/shared/i18n-ext"), i18n: await import("../src/shared/i18n") }
+  }
+
+  it("loads the packaged messages of Thunderbird's language and makes them current", async () => {
+    const { ext, i18n } = await glue(
+      () => "zh-TW",
+      async (url) => new Response(JSON.stringify(toMessagesJson(sources[url.split("/").at(-2)!]))),
+    )
+    expect(ext.thunderbirdUiLanguage()).toBe("zh-TW")
+    const loaded = await ext.loadExtensionI18n("auto")
+    expect(loaded.locale).toBe("zh_TW")
+    expect(i18n.getI18n()).toBe(loaded)
+    expect(i18n.t("popupSettings")).toBe(sources.zh_TW.popupSettings)
+    expect(fetch).toHaveBeenCalledWith("moz-extension://test/_locales/zh_TW/messages.json")
+  })
+
+  it("uses English when the file is missing or Thunderbird's language is unavailable", async () => {
+    const { ext } = await glue(
+      () => {
+        throw new Error("not available")
+      },
+      async () => new Response("", { status: 404 }),
+    )
+    expect(ext.thunderbirdUiLanguage()).toBe("en")
+    await expect(ext.fetchPackagedMessages("de")).rejects.toThrow("HTTP 404")
+    expect((await ext.loadExtensionI18n("de")).locale).toBe("en")
+  })
+})
+
+describe("keyboard shortcuts", () => {
+  const manifest = JSON.parse(readFileSync(join(root, "static", "manifest.json"), "utf8"))
+  const commands = manifest.commands as Record<string, { suggested_key: { default: string }; description: string }>
+
+  it("describe both commands with their own keys", () => {
+    expect(Object.fromEntries(Object.entries(commands).map(([id, c]) => [id, c.description]))).toEqual({
+      "toggle-translation": "__MSG_commandToggle__",
+      "toggle-display-mode": "__MSG_commandMode__",
+    })
+  })
+
+  it.each(SUPPORTED_LOCALES)("%s: names the suggested keys in the popup hint and describes each command", (locale) => {
+    for (const c of Object.values(commands)) expect(sources[locale].popupShortcuts).toContain(c.suggested_key.default)
+    expect(sources[locale].commandToggle).not.toBe(sources[locale].commandMode)
   })
 })

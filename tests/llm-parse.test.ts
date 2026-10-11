@@ -1,9 +1,12 @@
 import { describe, expect, it } from "vitest"
 import {
+  buildAnalysisPrompt,
   buildBatchPrompt,
+  buildContextBlock,
   buildSinglePrompt,
   buildSystemPrompt,
   cleanSingleOutput,
+  parseAnalysis,
   parseBatchOutput,
   repairJsonStrings,
 } from "../src/background/translators/llm-prompt"
@@ -108,5 +111,48 @@ describe("temperature support", () => {
     expect(modelRejectsTemperature("anthropic", "claude-opus-4-8")).toBe(true)
     expect(modelRejectsTemperature("anthropic", "claude-haiku-4-5")).toBe(false)
     expect(modelRejectsTemperature("openai", "gpt-4.1-mini")).toBe(false)
+  })
+})
+
+describe("parsing details", () => {
+  it("keeps escaped quotes and escapes raw tabs and carriage returns inside strings", () => {
+    expect(repairJsonStrings('["say \\"hi\\"\tnow\r\nok"]')).toBe(String.raw`["say \"hi\"\tnow\r\nok"]`)
+    expect(parseBatchOutput('["a \\"b\\"\n c", "d\te"]', 2)).toEqual(['a "b"\n c', "d\te"])
+  })
+
+  it("reads numbers and objects with a text field as translations", () => {
+    expect(parseBatchOutput("[1, 2]", 2)).toEqual(["1", "2"])
+    expect(parseBatchOutput('[{"content": "一"}, {"value": "二"}]', 2)).toEqual(["一", "二"])
+    expect(parseBatchOutput('{"1": "一", "2": "二"}', 2)).toEqual(["一", "二"])
+    expect(parseBatchOutput('{"1": "一"}', 2)).toBeNull()
+  })
+
+  it("keeps the order of the answer when ids are out of range", () => {
+    expect(parseBatchOutput('[{"id": 5, "text": "一"}, {"id": 1, "text": "二"}]', 2)).toEqual(["一", "二"])
+  })
+
+  it("joins continuation lines of numbered answers and rejects chatter before the first number", () => {
+    expect(parseBatchOutput("1. 一\n续\n2. 二", 2)).toEqual(["一\n续", "二"])
+    expect(parseBatchOutput("Here you go:\n1. 一\n2. 二", 2)).toBeNull()
+  })
+})
+
+describe("mail analysis", () => {
+  it("reads the analysis from fenced or wrapped JSON and drops incomplete glossary entries", () => {
+    const raw = 'Sure!\n```json\n{"summary": " A request. ", "tone": "formal", "glossary": [{"source": "Acme", "target": "艾克米"}, {"source": "x"}, null]}\n```'
+    expect(parseAnalysis(raw)).toEqual({ summary: "A request.", tone: "formal", glossary: [{ source: "Acme", target: "艾克米" }] })
+    expect(parseAnalysis('Result: {"tone": "casual"} done')).toEqual({ summary: "", tone: "casual", glossary: [] })
+  })
+
+  it("returns null for answers without content", () => {
+    for (const raw of ["", "no json here", "[1, 2]", '{"summary": "", "glossary": []}', "{broken"]) expect(parseAnalysis(raw), raw).toBeNull()
+  })
+
+  it("builds no context block from nothing, and the analysis prompt around the text", () => {
+    expect(buildContextBlock(null, "")).toBe("")
+    const block = buildContextBlock({ summary: "", tone: "Friendly", glossary: [] }, "Hi")
+    expect(block).toContain("Tone and form of address: Friendly")
+    expect(block).toContain("<email>\nHi\n</email>")
+    expect(buildAnalysisPrompt("Hi")).toBe("<email>\nHi\n</email>")
   })
 })

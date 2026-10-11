@@ -19,8 +19,10 @@ import { type KeyValueStorage, PersistentCache } from "./cache"
 import { Dictionary } from "./dictionary"
 import { TranslationService } from "./service"
 import { openWelcomeOnInstall } from "./welcome"
+import { setUpE2e } from "../e2e/background"
 
 declare const __DEBUG__: boolean
+declare const __E2E__: boolean
 
 const uiLang = thunderbirdUiLanguage()
 let settings: Settings = readSettings(undefined)
@@ -41,7 +43,11 @@ function adoptSettings(stored: unknown): void {
   cache.configure(settings.cache.enabled, settings.cache.maxEntries)
 }
 
+// Test build (npm run e2e): settings and dictionary pack of the local mock server, before anything is translated.
+const e2eReady = __E2E__ ? setUpE2e({ storage, dictionary, runCommand }) : undefined
+
 const settingsReady = (async () => {
+  await e2eReady
   const stored = await storage.get(SETTINGS_KEY)
   adoptSettings(stored)
   // A fresh installation, or settings of 1.3 and earlier: store them in the current form.
@@ -54,7 +60,9 @@ async function applyUiLanguage(): Promise<void> {
   if (__DEBUG__) console.info("[thunderbird-translate] interface language", settings.uiLanguage, uiLang, "→", i18n.locale, i18n.t("actionTitle"))
   try {
     // Global title of the message header button; the manifest default follows Thunderbird only.
-    await ext.messageDisplayAction.setTitle({ title: i18n.t("actionTitle") })
+    // Not awaited: when Thunderbird starts with a message on screen, the call can stay pending
+    // for a long time, and the settings (and with them every translation) must not wait for it.
+    ext.messageDisplayAction.setTitle({ title: i18n.t("actionTitle") }).catch(() => {})
   } catch {
     // Not available in this Thunderbird version.
   }
@@ -182,7 +190,7 @@ ext.runtime.onMessage.addListener((message: unknown) => {
 
 /* ---------- keyboard shortcuts ---------- */
 
-ext.commands.onCommand.addListener(async (command: string, tab?: browser.tabs.Tab) => {
+async function runCommand(command: string, tab?: browser.tabs.Tab): Promise<void> {
   await settingsReady
   if (command === "toggle-translation") {
     const tabId = tab?.id ?? (await ext.tabs.query({ active: true, currentWindow: true }))[0]?.id
@@ -190,7 +198,9 @@ ext.commands.onCommand.addListener(async (command: string, tab?: browser.tabs.Ta
   } else if (command === "toggle-display-mode") {
     await updateSettings((s) => (s.mode = s.mode === "bilingual" ? "translation-only" : "bilingual"))
   }
-})
+}
+
+ext.commands.onCommand.addListener((command: string, tab?: browser.tabs.Tab) => runCommand(command, tab))
 
 /* ---------- installation ---------- */
 

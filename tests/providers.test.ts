@@ -2,7 +2,7 @@ import { generateText } from "ai"
 import { describe, expect, it } from "vitest"
 import { buildProviderSettings, createLanguageModel } from "../src/background/providers/factory"
 import { supportsThinkingControl, thinkingOptions } from "../src/background/providers/thinking"
-import { llmTranslateSingle } from "../src/background/translators/llm"
+import { BatchParseError, llmAnalyzeMail, llmTranslateBatch, llmTranslateSingle } from "../src/background/translators/llm"
 import { PROVIDER_PRESETS } from "../src/shared/providers"
 import { createDefaultSettings, resolveProvider, resolveProviderConfig } from "../src/shared/settings"
 import { anthropicMessage, chatCompletion, jsonResponse } from "./helpers"
@@ -98,11 +98,11 @@ describe("provider factory", () => {
 
   it.each(LLM_PRESETS.map((p) => [p.id, p]))("%s sends its request to the configured endpoint", async (_id, preset) => {
     const resolved = configFor(preset.id)
-    const seen: { url: string; headers: Record<string, string> }[] = []
+    const seen: { url: string; headers: Record<string, string>; body: string }[] = []
     const fetchFn = (async (input: RequestInfo | URL, init?: RequestInit) => {
       const url = typeof input === "string" ? input : input instanceof URL ? input.href : input.url
       const headers = Object.fromEntries(new Headers(init?.headers).entries())
-      seen.push({ url, headers })
+      seen.push({ url, headers, body: String(init?.body) })
       return fakeResponse(url)
     }) as typeof fetch
     const model = createLanguageModel(resolved, fetchFn)
@@ -110,6 +110,11 @@ describe("provider factory", () => {
     expect(result.text).toBe("你好")
     expect(seen).toHaveLength(1)
     expect(seen[0].url.startsWith(`${resolved.baseURL}/`)).toBe(true)
+    // The model goes in the body, or in the URL for Gemini and Azure deployments.
+    const body = JSON.parse(seen[0].body) as { model?: string }
+    if (preset.sdk === "google" || (preset.sdk === "azure" && body.model === undefined)) expect(decodeURIComponent(seen[0].url)).toContain(resolved.model)
+    else expect(body.model).toBe(resolved.model)
+    expect(JSON.stringify(body)).toContain("Hello")
     if (preset.sdk === "anthropic") {
       expect(seen[0].headers["anthropic-dangerous-direct-browser-access"]).toBe("true")
       expect(seen[0].headers["x-api-key"]).toBe("test-key")
@@ -208,5 +213,76 @@ describe("thinking switch", () => {
     expect((await requestBody("openai", false)).reasoning_effort).toBeUndefined()
     expect((await requestBody("dashscope", false)).enable_thinking).toBe(false)
     expect((await requestBody("ollama", false)).reasoning_effort).toBe("none")
+  })
+})
+
+describe("LLM calls", () => {
+  /** Chat Completions endpoint that records request bodies and answers `content`. */
+  function recorder(content = "你好") {
+    const bodies: Record<string, unknown>[] = []
+    const fetchFn = (async (_input: RequestInfo | URL, init?: RequestInit) => {
+      bodies.push(JSON.parse(String(init?.body)))
+      return chatCompletion(content)
+    }) as typeof fetch
+    return { bodies, fetchFn }
+  }
+  const opts = (provider: ReturnType<typeof configFor>, fetchFn: typeof fetch) => ({ provider, systemPrompt: "Into {{to}}.", targetLanguageName: "Chinese", fetchFn })
+
+  it("refuses services that are not AI services", () => {
+    for (const id of ["google-free", "deeplx", "no-such"]) {
+      expect(() => buildProviderSettings({ ...configFor("openai"), id })).toThrow(/no-such|google-free|deeplx/)
+    }
+  })
+
+  it("sends a placeholder key to local servers without a key", async () => {
+    const seen: Headers[] = []
+    const fetchFn = (async (_input: RequestInfo | URL, init?: RequestInit) => {
+      seen.push(new Headers(init?.headers))
+      return chatCompletion("你好")
+    }) as typeof fetch
+    const provider = resolveProviderConfig("ollama", { apiKey: "", baseURL: "", model: "" })
+    await generateText({ model: createLanguageModel(provider, fetchFn), prompt: "Hello", maxRetries: 0 })
+    expect(seen[0].get("authorization")).toBe("Bearer not-needed")
+  })
+
+  it("sends the temperature of the settings, and none when it is null", async () => {
+    const { bodies, fetchFn } = recorder()
+    await llmTranslateSingle({ text: "Hello" }, opts({ ...configFor("openai"), temperature: 0.2 }, fetchFn))
+    await llmTranslateSingle({ text: "Hello" }, opts({ ...configFor("openai"), temperature: null }, fetchFn))
+    expect(bodies.map((b) => b.temperature)).toEqual([0.2, undefined])
+    expect((bodies[0].messages as { role: string; content: string }[])[0]).toEqual({ role: "system", content: "Into Chinese." })
+  })
+
+  it("leaves the temperature out for Claude models that reject it", async () => {
+    let body: Record<string, unknown> = {}
+    const fetchFn = (async (_input: RequestInfo | URL, init?: RequestInit) => {
+      body = JSON.parse(String(init?.body))
+      return anthropicMessage("你好")
+    }) as typeof fetch
+    await llmTranslateSingle({ text: "Hello" }, opts({ ...configFor("anthropic"), model: "claude-haiku-5-5", temperature: 0.3 }, fetchFn))
+    expect(body.temperature).toBeUndefined()
+    await llmTranslateSingle({ text: "Hello" }, opts({ ...configFor("anthropic"), model: "claude-haiku-4-5", temperature: 0.3 }, fetchFn))
+    expect(body.temperature).toBe(0.3)
+  })
+
+  it("rejects an empty answer", async () => {
+    const { fetchFn } = recorder("```\n```")
+    await expect(llmTranslateSingle({ text: "Hello" }, opts(configFor("openai"), fetchFn))).rejects.toThrow(/empty/i)
+  })
+
+  it("sends a batch of one as a single request and reports a batch that does not line up", async () => {
+    const one = recorder("你好")
+    expect(await llmTranslateBatch([{ text: "Hello" }], opts(configFor("openai"), one.fetchFn))).toEqual(["你好"])
+    expect(JSON.stringify(one.bodies[0])).not.toContain("exactly")
+    const bad = recorder('["只有一条"]')
+    await expect(llmTranslateBatch([{ text: "a" }, { text: "b" }], opts(configFor("openai"), bad.fetchFn))).rejects.toBeInstanceOf(BatchParseError)
+  })
+
+  it("asks for the analysis in the target language and reads it", async () => {
+    const { bodies, fetchFn } = recorder('{"summary": "Greeting.", "tone": "", "glossary": []}')
+    expect(await llmAnalyzeMail("Hello", opts(configFor("openai"), fetchFn))).toEqual({ summary: "Greeting.", tone: "", glossary: [] })
+    const messages = bodies[0].messages as { role: string; content: string }[]
+    expect(messages[0].content).toContain("Chinese")
+    expect(messages[0].content).not.toContain("{{to}}")
   })
 })

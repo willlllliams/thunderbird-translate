@@ -1,7 +1,7 @@
 import { zstdCompressSync } from "node:zlib"
 import { describe, expect, it, vi } from "vitest"
 import type { WorkerModelFile } from "../src/offline/bergamot/protocol"
-import { type BergamotModule, createEngineHandler } from "../src/offline/bergamot/worker-core"
+import { type BergamotLoadOptions, type BergamotModule, createEngineHandler, instantiateBergamot } from "../src/offline/bergamot/worker-core"
 
 /** A stand-in for the embind classes that records what the handler does. */
 function fakeBergamot() {
@@ -121,5 +121,53 @@ describe("worker engine handler", () => {
     expect(await handle({ id: 1, type: "load", key: "de>en", src: "de", tgt: "en", files })).toEqual({ id: 1, ok: false, error: "wasm compile failed" })
     expect(await handle({ id: 2, type: "load", key: "de>en", src: "de", tgt: "en", files: [file("model", "m"), file("vocab", "v")] })).toMatchObject({ ok: true })
     expect(await handle({ id: 3, type: "load", key: "fr>en", src: "fr", tgt: "en", files: [file("model", "m")] })).toEqual({ id: 3, ok: false, error: "no vocabulary for fr → en" })
+  })
+})
+
+describe("worker engine edge cases", () => {
+  const files = () => [file("model", "m"), file("vocab", "v")]
+
+  it("replaces a loaded pair, needs a model file, and takes one or two pairs per translation", async () => {
+    const { module, events } = fakeBergamot()
+    const handle = createEngineHandler(async () => module)
+    await handle({ id: 1, type: "load", key: "de>en", src: "de", tgt: "en", files: files() })
+    await handle({ id: 2, type: "load", key: "de>en", src: "de", tgt: "en", files: files() })
+    expect(events).toEqual(["model de>en align=256/undefined vocabs=1", "delete de>en", "model de>en align=256/undefined vocabs=1"])
+    expect(await handle({ id: 3, type: "load", key: "fr>en", src: "fr", tgt: "en", files: [file("vocab", "v")] })).toEqual({ id: 3, ok: false, error: "no model file for fr → en" })
+    for (const keys of [[], ["de>en", "de>en", "de>en"]]) {
+      expect(await handle({ id: 4, type: "translate", keys, texts: ["x"] })).toMatchObject({ ok: false, error: `models not loaded: ${keys.join(", ")}` })
+    }
+    expect(await handle({ id: 5, type: "unload", key: "nothing" })).toEqual({ id: 5, ok: true })
+  })
+
+  it("reports errors that are not Error objects, and errors without a message", async () => {
+    const handle = createEngineHandler(() => Promise.reject("out of memory"))
+    expect(await handle({ id: 1, type: "translate", keys: ["a"], texts: [] })).toEqual({ id: 1, ok: false, error: "out of memory" })
+    const unnamed = createEngineHandler(() => Promise.reject(new RangeError()))
+    expect(await unnamed({ id: 2, type: "load", key: "a", src: "a", tgt: "b", files: [] })).toEqual({ id: 2, ok: false, error: "RangeError" })
+  })
+})
+
+describe("instantiateBergamot", () => {
+  const wasm = new Uint8Array([0, 97, 115, 109])
+
+  it("passes the wasm and resolves with the module once it is initialized, even synchronously", async () => {
+    const { module } = fakeBergamot()
+    const load = vi.fn((options: BergamotLoadOptions) => {
+      options.print("log")
+      options.printErr("err")
+      options.onRuntimeInitialized()
+      return module
+    })
+    expect(await instantiateBergamot(load, wasm)).toBe(module)
+    expect(load.mock.calls[0]![0]).toMatchObject({ wasmBinary: wasm, INITIAL_MEMORY: 41_943_040 })
+  })
+
+  it("rejects when the wasm aborts", async () => {
+    const load = (options: BergamotLoadOptions) => {
+      queueMicrotask(() => options.onAbort("OOM"))
+      return {} as BergamotModule
+    }
+    await expect(instantiateBergamot(load, wasm)).rejects.toThrow("Bergamot wasm aborted: OOM")
   })
 })

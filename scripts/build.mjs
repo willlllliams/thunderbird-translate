@@ -8,10 +8,19 @@ import { checkLocales, readLocaleSources, writeLocales } from "./locales.mjs"
 import { BERGAMOT_WASM_FILE, ensureBergamotWasm } from "./fetch-bergamot.mjs"
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..")
-const dist = join(root, "dist")
-const artifacts = join(root, "web-ext-artifacts")
 // --debug: content script starts translating on load and logs progress to the console.
 const debug = process.argv.includes("--debug")
+// --e2e <server>: test build for npm run e2e, with the hooks of src/e2e/ talking to the mock server; built into .cache/e2e/.
+const e2eIndex = process.argv.indexOf("--e2e")
+const e2eServer = e2eIndex === -1 ? "" : process.argv[e2eIndex + 1]
+if (e2eIndex !== -1 && !/^http:\/\/127\.0\.0\.1:\d+$/.test(e2eServer ?? "")) {
+  console.error("--e2e needs the mock server, e.g. --e2e http://127.0.0.1:8080")
+  process.exit(1)
+}
+const e2e = e2eIndex !== -1
+const dist = e2e ? join(root, ".cache", "e2e", "dist") : join(root, "dist")
+const artifacts = e2e ? join(root, ".cache", "e2e") : join(root, "web-ext-artifacts")
+const E2E_MARKER = "tt-e2e-hook"
 
 const pkg = JSON.parse(readFileSync(join(root, "package.json"), "utf8"))
 const manifest = JSON.parse(readFileSync(join(root, "static", "manifest.json"), "utf8"))
@@ -65,13 +74,23 @@ const result = await esbuild.build({
   charset: "utf8",
   logLevel: "info",
   metafile: true,
-  define: { "process.env.NODE_ENV": '"production"', __DEBUG__: String(debug) },
+  define: { "process.env.NODE_ENV": '"production"', __DEBUG__: String(debug), __E2E__: String(e2e), __E2E_SERVER__: JSON.stringify(e2eServer) },
 })
 
 // Guard: a Node built-in in a bundle means it would fail inside Thunderbird.
 const nodeImports = Object.keys(result.metafile.inputs).filter((p) => p.startsWith("node:") || /^(fs|path|crypto|stream|http|https|zlib|os)$/.test(p))
 if (nodeImports.length) {
   console.error("Bundles reference Node built-ins:", nodeImports)
+  process.exit(1)
+}
+// Guard: the e2e hooks exist only in the e2e build.
+const withHooks = Object.keys(result.metafile.outputs).filter((file) => file.endsWith(".js") && readFileSync(join(root, file), "utf8").includes(E2E_MARKER))
+if (!e2e && withHooks.length) {
+  console.error("e2e hooks in a regular build:", withHooks)
+  process.exit(1)
+}
+if (e2e && withHooks.length === 0) {
+  console.error("e2e build without the e2e hooks")
   process.exit(1)
 }
 for (const [file, info] of Object.entries(result.metafile.outputs)) {
@@ -91,6 +110,6 @@ walk(dist)
 if (!files["manifest.json"]) throw new Error("manifest.json missing from dist")
 const zip = zipSync(files, { level: 9, mtime: new Date("2026-01-01T00:00:00Z") })
 if (!existsSync(artifacts)) mkdirSync(artifacts, { recursive: true })
-const out = join(artifacts, `thunderbird-translate-${manifest.version}${debug ? "-debug" : ""}.xpi`)
+const out = join(artifacts, `thunderbird-translate-${manifest.version}${e2e ? "-e2e" : debug ? "-debug" : ""}.xpi`)
 writeFileSync(out, zip)
 console.log(`packed ${relative(root, out)} (${(zip.length / 1024).toFixed(0)} KiB, ${Object.keys(files).length} files)`)

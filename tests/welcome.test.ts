@@ -3,12 +3,14 @@
 import { IDBFactory } from "fake-indexeddb"
 import { afterEach, describe, expect, it, vi } from "vitest"
 import { ENGLISH } from "../src/shared/i18n"
-import type { BackgroundRequest, PortPush, PortReport } from "../src/shared/messages"
+import type { BackgroundRequest, PortReport } from "../src/shared/messages"
 import { neededPackIds } from "../src/options/dictionaries"
 import { getPromptPreset, presetBlock } from "../src/shared/prompt-presets"
 import { DEFAULT_PROMPTS } from "../src/shared/prompts"
 import { createDefaultSettings, type Settings, toPublicSettings } from "../src/shared/settings"
 import { neighbourStep, resumeStep, stepNeeded, trialLanguage, WELCOME_KEY } from "../src/welcome/steps"
+import { readLocaleSources } from "../scripts/locales.mjs"
+import { fakePort } from "./fixtures/content"
 import { jsonResponse, openPage } from "./helpers"
 
 afterEach(() => {
@@ -323,22 +325,21 @@ describe("welcome page", () => {
     expect($("presetStatus").textContent).toBe(ENGLISH.t("presetApplied", [ENGLISH.t("labelPrecise")]))
   })
 
+  /** The background script's end of the content script Port: answers every paragraph with "[zh] <text>". */
+  function answeringPort() {
+    const port = fakePort()
+    port.postMessage.mockImplementation((m: PortReport) => {
+      if (m.type !== "translate") return
+      queueMicrotask(() => {
+        for (const tier of m.request.tiers) port.push({ type: "tier", id: m.id, tier, result: { ok: true, text: `[zh] ${m.request.text}` } })
+        port.push({ type: "done", id: m.id })
+      })
+    })
+    return { port, emit: port.push, connect: vi.fn(() => port) }
+  }
+
   it("translates the sample message with the content script's modules through the background script", async () => {
-    const posted: PortReport[] = []
-    const listeners: ((m: PortPush) => void)[] = []
-    const emit = (m: PortPush) => listeners.forEach((l) => l(m))
-    const connect = vi.fn(() => ({
-      onMessage: { addListener: (l: (m: PortPush) => void) => listeners.push(l) },
-      onDisconnect: { addListener: () => {} },
-      postMessage: (m: PortReport) => {
-        posted.push(m)
-        if (m.type !== "translate") return
-        queueMicrotask(() => {
-          for (const tier of m.request.tiers) emit({ type: "tier", id: m.id, tier, result: { ok: true, text: `[zh] ${m.request.text}` } })
-          emit({ type: "done", id: m.id })
-        })
-      },
-    }))
+    const { port, emit, connect } = answeringPort()
     const s = settings()
     await openPage("welcome", s, { stored: { [WELCOME_KEY]: { step: "finish" } }, connect })
     await vi.waitFor(() => expect(current()).toBe("finish"))
@@ -347,12 +348,120 @@ describe("welcome page", () => {
     // The background script answers the connection with the settings.
     emit({ type: "settings", settings: toPublicSettings(s) })
     await vi.waitFor(() => expect(document.querySelectorAll("#trySample .tt-translation")).toHaveLength(4))
-    const requests = posted.filter((m) => m.type === "translate")
+    const requests = port.posted("translate")
     expect(requests.map((m) => m.request.text)[1]).toContain("Thanks for sending the draft")
     expect(requests.every((m) => m.request.targetLang === "zh-CN" && m.request.tiers.join() === "machine")).toBe(true)
     expect(document.querySelector("#trySample .tt-translation")!.textContent).toBe("[zh] Hi Anna,")
     expect($("tryIt").textContent).toBe(ENGLISH.t("popupShowOriginal"))
     $("tryIt").click()
     expect(document.querySelectorAll("#trySample .tt-translation")).toHaveLength(0)
+  })
+
+  it("keeps the trial button in the new interface language while the trial runs", async () => {
+    const { emit, connect } = answeringPort()
+    const s = settings()
+    await openPage("welcome", s, { stored: { [WELCOME_KEY]: { step: "finish" } }, connect })
+    await vi.waitFor(() => expect(current()).toBe("finish"))
+    $("tryIt").click()
+    emit({ type: "settings", settings: toPublicSettings(s) })
+    await vi.waitFor(() => expect(document.querySelectorAll("#trySample .tt-translation")).toHaveLength(4))
+    choose("uiLanguage", "ko")
+    await vi.waitFor(() => expect(document.documentElement.lang).toBe("ko"))
+    expect($("tryIt").textContent).toBe(readLocaleSources().ko.popupShowOriginal)
+  })
+
+  it("switches the interface language on the first step and saves it", async () => {
+    const de = readLocaleSources().de
+    const page = await openPage("welcome", settings())
+    await ready()
+    choose("uiLanguage", "de")
+    await vi.waitFor(() => expect(document.documentElement.lang).toBe("de"))
+    expect(stepButtons()[0].textContent).toBe(`1. ${de.stepLanguage}`)
+    expect($("nextStep").textContent).toBe(de.buttonNext)
+    await vi.waitFor(() => expect(page.stored().uiLanguage).toBe("de"))
+  })
+
+  it("explains the skipped steps and marks the current one", async () => {
+    await openPage("welcome", settings())
+    await ready()
+    const [first, , , offline] = stepButtons()
+    expect(first.getAttribute("aria-current")).toBe("step")
+    expect(offline.title).toBe(ENGLISH.t("stepNotNeeded"))
+    expect(offline.parentElement!.className).toBe("skipped")
+    expect($("progressTrack").getAttribute("aria-valuemax")).toBe("5")
+    expect($("progressTrack").getAttribute("aria-valuenow")).toBe("1")
+  })
+
+  it("takes over changes made in another page", async () => {
+    const ja = readLocaleSources().ja
+    const page = await openPage("welcome", settings(), { stored: { [WELCOME_KEY]: { step: "display" } } })
+    await vi.waitFor(() => expect(current()).toBe("display"))
+    page.external((s) => (s.mode = "translation-only"))
+    expect(document.querySelector<HTMLInputElement>('input[name="mode"]:checked')!.value).toBe("translation-only")
+    expect(document.querySelectorAll("#modePreview .tt-translation.tt-only")).toHaveLength(2)
+    page.external((s) => {
+      s.tiers.ai = "openai"
+      s.sourceLang = "zh-CN"
+    })
+    expect($<HTMLSelectElement>("tier-ai").value).toBe("openai")
+    expect(stepButtons().filter((b) => b.disabled)).toHaveLength(1)
+    expect($("sameLanguage").hidden).toBe(false)
+    page.external((s) => (s.uiLanguage = "ja"))
+    await vi.waitFor(() => expect(document.documentElement.lang).toBe("ja"))
+    expect(stepButtons()[1].textContent).toBe(`2. ${ja.stepDisplay}`)
+  })
+
+  it("does not redraw the step the user is typing in", async () => {
+    const page = await openPage("welcome", settings((s) => (s.tiers.ai = "openai")), { stored: { [WELCOME_KEY]: { step: "ai" } } })
+    await vi.waitFor(() => expect(current()).toBe("ai"))
+    const key = document.querySelector<HTMLInputElement>('#aiPanel input[type="password"]')!
+    key.focus()
+    page.external((s) => (s.mode = "translation-only"))
+    expect(document.querySelector('#aiPanel input[type="password"]')).toBe(key)
+  })
+
+  it("saves the switch of the last step and opens the settings page", async () => {
+    const page = await openPage("welcome", settings(), { stored: { [WELCOME_KEY]: { step: "finish" } } })
+    await vi.waitFor(() => expect(current()).toBe("finish"))
+    $<HTMLInputElement>("autoTranslate").click()
+    await vi.waitFor(() => expect(page.stored().autoTranslate).toBe(true))
+    $("openOptions").click()
+    expect(page.openOptionsPage).toHaveBeenCalledTimes(1)
+  })
+
+  it("closes the window when the page has no tab of its own", async () => {
+    const page = await openPage("welcome", settings(), { currentTab: {} })
+    await ready()
+    $("exitGuide").click()
+    await vi.waitFor(() => expect(page.close).toHaveBeenCalledTimes(1))
+    expect(page.removed).toEqual([])
+  })
+
+  it("adds the online translator when its endpoint is typed, and ignores an emptied field", async () => {
+    const s = settings((s) => (s.tiers.machine = "deeplx"))
+    const page = await openPage("welcome", s, { stored: { [WELCOME_KEY]: { step: "machine" } } })
+    await vi.waitFor(() => expect(current()).toBe("machine"))
+    const endpoint = document.querySelector<HTMLInputElement>('#machinePanel input[type="text"]')!
+    endpoint.value = ""
+    endpoint.dispatchEvent(new Event("input"))
+    endpoint.value = "https://deeplx.example.com/translate"
+    endpoint.dispatchEvent(new Event("input"))
+    await vi.waitFor(() => expect(page.stored().providers.deeplx).toMatchObject({ enabled: true, baseURL: "https://deeplx.example.com/translate" }))
+  })
+
+  it("shows only the offline lists of the offline services in use", async () => {
+    vi.stubGlobal("indexedDB", new IDBFactory())
+    const requests: BackgroundRequest[] = []
+    const respond = (req: BackgroundRequest) => {
+      requests.push(req)
+      return req.type === "bergamotList" ? { ok: true, pairs: [] } : req.type === "bergamotRequired" ? { required: [], missing: [] } : undefined
+    }
+    await openPage("welcome", settings((s) => (s.tiers.dictionary = "dictionary")), { stored: { [WELCOME_KEY]: { step: "offline" } }, respond })
+    await vi.waitFor(() => expect(current()).toBe("offline"))
+    expect($("offlineDictionary").hidden).toBe(false)
+    expect($("offlineBergamot").hidden).toBe(true)
+    $("downloadPicked").click()
+    await vi.waitFor(() => expect($<HTMLButtonElement>("downloadPicked").disabled).toBe(false))
+    expect(requests.some((r) => r.type === "bergamotInstall")).toBe(false)
   })
 })

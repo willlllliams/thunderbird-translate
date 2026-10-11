@@ -497,6 +497,8 @@ $$
 
 ```bash
 npm test               # vitest 單元測試
+npm run test:coverage  # 含覆蓋率的單元測試，低於 vitest.config.ts 中的門檻即失敗
+npm run e2e            # 無介面 Thunderbird（THUNDERBIRD_BIN）對接本機模擬服務：三層翻譯、模式切換、還原原文
 npm run typecheck      # TypeScript 型別檢查
 npm run locales:check  # 以 locales/en.json 為基準檢查各語言檔案
 npm run live-test      # 以擴充套件本身的翻譯模組呼叫真實的 Google 和 Microsoft 端點，含指定來源語言的情況
@@ -534,12 +536,14 @@ src/
   welcome/       新手導覽：步驟與導覽
   offline/       Bergamot 引擎模組：模型清單、下載、儲存、Worker
   shared/        共用的設定、服務商預設組態、提示詞、語言表與語言偵測、訊息型別、i18n 執行階段
+  e2e/           e2e 測試建置的鉤子（其他建置不包含）
 locales/         介面文字，每種語言一個 JSON 檔案，en.json 為基準
 static/          manifest.json、HTML、CSS、SVG 圖示
 scripts/         建置、語言檔案產生與檢查、真實端點測試
 readmes/         本文件的各語言版本
 docs/            本文件使用的示範 GIF
 tests/           vitest 測試
+e2e/             真實 Thunderbird 中的端對端測試：執行腳本、模擬服務、範例郵件
 ```
 
 ## 翻譯介面文字

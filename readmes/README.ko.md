@@ -492,6 +492,8 @@ $$
 
 ```bash
 npm test               # vitest unit tests
+npm run test:coverage  # unit tests with coverage; fails below the thresholds in vitest.config.ts
+npm run e2e            # headless Thunderbird (THUNDERBIRD_BIN) against a local mock server: three tiers, mode switch, restore
 npm run typecheck      # TypeScript type check
 npm run locales:check  # check every locales/<language>.json against locales/en.json
 npm run live-test      # call the real Google and Microsoft endpoints through the extension's own modules, with and without a source language
@@ -512,12 +514,14 @@ src/
   welcome/       setup guide: steps and navigation
   offline/       Bergamot engine module: model list, download, storage, worker
   shared/        shared settings, provider presets, prompts, language table and detection, message types, i18n runtime
+  e2e/           hooks of the e2e test build (left out of every other build)
 locales/         interface text, one JSON file per language; en.json is the reference
 static/          manifest.json, HTML, CSS, SVG icon
 scripts/         build, locale generation and checks, live endpoint test
 readmes/         translated versions of this README
 docs/            demo GIF used in this README
 tests/           vitest tests
+e2e/             end-to-end test in a real Thunderbird: runner, mock server, fixture messages
 ```
 
 ## 인터페이스 번역

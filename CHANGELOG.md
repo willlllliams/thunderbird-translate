@@ -2,6 +2,23 @@
 
 All notable changes to this project are documented in this file. Versions follow [Semantic Versioning](https://semver.org/).
 
+## 1.5.1
+
+### Fixed
+
+- After a restart of Thunderbird with a message on screen, nothing was translated: the background script waited for `messageDisplayAction.setTitle()` before it sent the settings to the content script, and in this situation the call stayed pending. The title is now set without waiting for it.
+- Quotes of plain-text messages were split into one paragraph per line. Thunderbird puts a `<span class="moz-txt-citetags">` before every quoted line, and a line break followed by such an element ended the paragraph. A single line break no longer ends a paragraph when the line continues with an element.
+- In a plain-text message with a quote block inside its `<pre>`, the paragraphs after the quote came before the quoted ones. Paragraphs are now in document order, which the neighbouring paragraphs of precise translation rely on.
+- `Retry-After` given as an HTTP date was ignored, and so was the `Retry-After` of AI services, whose errors come from the AI SDK. Both now set the wait before the retry (at most 30 seconds, as before).
+- Clearing a number field on the settings page, or typing an invalid number, saved the field's minimum (for example a cache of 0 entries). The field now shows the stored value again and nothing is saved.
+
+### Tests and CI
+
+- Unit tests: 1023, up from 485. New tests cover the background script entry (ports, requests, shortcuts, installation, script registration), the content script client and controller, paragraph detection and exact restoring, the popup and every settings page control, settings migration from every earlier version, the three-way merge between pages, the request queue (Retry-After, backoff, concurrency), the cache, the Bergamot manager and its facade, and the dictionary and Bergamot sections of the settings page.
+- `npm run test:coverage` (vitest with V8 coverage). Lines 91.9 % → 99.9 %, branches 80.9 % → 96.5 %. CI fails below 99 % lines and statements, 96 % branches and 98 % functions. Not measured: `src/offline/bergamot/worker.ts`, which only hands the real wasm to the covered `worker-core.ts`, and `src/e2e/`.
+- `npm run e2e`: an end-to-end test in a real, headless Thunderbird with a temporary profile. A local mock server stands in for Google, an OpenAI-compatible AI service and the dictionary release. A test build (`scripts/build.mjs --e2e`, with hooks from `src/e2e/` that every other build leaves out, checked by the build) sets the tiers to dictionary, Google and AI. For an HTML and a plain-text message it checks the number of paragraphs, the order dictionary → Google → AI for every paragraph, the provisional translations of the lower tiers, the final AI translation, that switching to translation-only asks only the AI tier again with the translation-only prompt, and that restoring gives back the original DOM. It also starts the Bergamot worker, which has to load its wasm before it rejects a request without model files.
+- CI: the build job runs the tests with coverage; a new `e2e` job runs the end-to-end test on Linux with Thunderbird 128.14.0esr, 140.17.0esr, 153.4.0esr and 157.0.1. The nightly pre-release and the versioned release are published only when the build and every e2e run pass.
+
 ## 1.5.0
 
 ### Added

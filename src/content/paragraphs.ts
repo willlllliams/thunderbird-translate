@@ -136,6 +136,8 @@ export function extractText(root: Node, pre = false, skipCode = false): string {
 type Piece =
   | { kind: "node"; node: Node }
   | { kind: "sep"; node: Node }
+  /** A single line break at the edge of a text node. */
+  | { kind: "newline"; node: Node }
   | { kind: "block"; node: Element }
 
 export function collectParagraphs(root: HTMLElement): Collected {
@@ -183,9 +185,9 @@ export function collectParagraphs(root: HTMLElement): Collected {
           }
           // Move leading/trailing newlines out of the paragraph.
           const m = /^(\s*\n)?([\s\S]*?)(\n\s*)?$/.exec(part)!
-          if (m[1]) pieces.push({ kind: "sep", node: doc.createTextNode(m[1]) })
+          if (m[1]) pieces.push({ kind: "newline", node: doc.createTextNode(m[1]) })
           if (m[2]) pieces.push({ kind: "node", node: doc.createTextNode(m[2]) })
-          if (m[3]) pieces.push({ kind: "sep", node: doc.createTextNode(m[3]) })
+          if (m[3]) pieces.push({ kind: "newline", node: doc.createTextNode(m[3]) })
         })
       } else if (child.nodeType === 1 && isBlockish(child as Element)) {
         pieces.push({ kind: "block", node: child as Element })
@@ -195,7 +197,6 @@ export function collectParagraphs(root: HTMLElement): Collected {
     }
 
     const out: Node[] = []
-    const blocks: Element[] = []
     let current: Node[] = []
     const flush = () => {
       if (current.length === 0) return
@@ -208,17 +209,27 @@ export function collectParagraphs(root: HTMLElement): Collected {
       }
       current = []
     }
+    /** Line breaks after the current paragraph; they join it only when more inline content follows. */
+    let newlines: Node[] = []
     for (const p of pieces) {
-      if (p.kind === "node") current.push(p.node)
-      else {
+      if (p.kind === "newline") newlines.push(p.node)
+      else if (p.kind === "node") {
+        // Inline content after a single line break, e.g. the "> " tag of the next quoted line, continues the paragraph.
+        if (current.length > 0) current.push(...newlines)
+        else out.push(...newlines)
+        newlines = []
+        current.push(p.node)
+      } else {
         flush()
-        out.push(p.node)
-        if (p.kind === "block") blocks.push(p.node)
+        out.push(...newlines, p.node)
+        newlines = []
+        // Segment a nested block (a quote) in place, so units stay in document order.
+        if (p.kind === "block" && !isSkipped(p.node)) segmentPre(p.node)
       }
     }
     flush()
+    out.push(...newlines)
     rebuild(container, original, out)
-    for (const b of blocks) if (!isSkipped(b)) segmentPre(b)
   }
 
   /** Inline-only container: paragraphs are separated by two or more <br>. */

@@ -19,8 +19,10 @@ import {
 } from "../shared/messages"
 import type { Tier } from "../shared/providers"
 import { TranslationController } from "./controller"
+import { createE2eProbe } from "../e2e/content"
 
 declare const __DEBUG__: boolean
+declare const __E2E__: boolean
 
 export interface ClientOptions {
   root: () => HTMLElement | null
@@ -67,6 +69,7 @@ export function connectContent({ root, contentScript = false }: ClientOptions): 
         const first = root()?.querySelector(".tt-translation")?.textContent ?? ""
         console.info("[thunderbird-translate] state", JSON.stringify(state), first.slice(0, 80))
       }
+      if (__E2E__) probe?.state(state)
       try {
         post({ type: "state", state })
       } catch {
@@ -74,6 +77,9 @@ export function connectContent({ root, contentScript = false }: ClientOptions): 
       }
     },
   })
+
+  // Test build (npm run e2e): runs the end-to-end scenario on the displayed message instead of auto-translation.
+  const probe = __E2E__ && contentScript ? createE2eProbe(root, controller) : null
 
   let markReady!: () => void
   const ready = new Promise<void>((resolve) => (markReady = resolve))
@@ -94,7 +100,8 @@ export function connectContent({ root, contentScript = false }: ClientOptions): 
         if (!firstSettings) return
         firstSettings = false
         markReady()
-        if (contentScript) void (__DEBUG__ ? controller.start() : controller.maybeAutoStart())
+        if (__E2E__ && probe) void probe.run()
+        else if (contentScript) void (__DEBUG__ ? controller.start() : controller.maybeAutoStart())
       })
     } else if (msg.type === "toggle") {
       void controller.toggle()
@@ -102,6 +109,7 @@ export function connectContent({ root, contentScript = false }: ClientOptions): 
       const request = pending.get(msg.id)
       request?.tiers.delete(msg.tier)
       request?.onTier(msg.tier, msg.result)
+      if (__E2E__) probe?.tier(msg.id, msg.tier, msg.result)
     } else if (msg.type === "done") {
       pending.get(msg.id)?.resolve()
       pending.delete(msg.id)

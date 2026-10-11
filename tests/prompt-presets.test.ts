@@ -2,6 +2,8 @@
 import { describe, expect, it, vi } from "vitest"
 import { llmAnalyzeMail, llmTranslateBatch, llmTranslateSingle } from "../src/background/translators/llm"
 import { applyPreset, availablePresets, getPromptPreset, presetBlock, presetOptions, PROMPT_PRESETS, type PromptPreset } from "../src/shared/prompt-presets"
+import { ENGLISH } from "../src/shared/i18n"
+import { LANGUAGES } from "../src/shared/languages"
 import { DEFAULT_PROMPTS, PROMPT_KINDS } from "../src/shared/prompts"
 import { createDefaultSettings } from "../src/shared/settings"
 import { chatCompletion, createService } from "./helpers"
@@ -66,6 +68,21 @@ describe("applying a preset", () => {
       expect(out.endsWith(presetBlock(preset("keepTerms")))).toBe(true)
     }
   })
+
+  it("finds its own block again after edits of the white space around it", () => {
+    const keep = preset("keepTerms")
+    const edited = `${base}\n \t\n  ${presetBlock(keep)}\n\nMy own rule.`
+    const out = applyPreset(edited, keep)
+    expect(out.split(keep.heading)).toHaveLength(2)
+    expect(out).toBe(`${base}\n\nMy own rule.\n\n${presetBlock(keep)}`)
+  })
+
+  it("inserts the rule of the option literally and leaves no placeholder without an option", () => {
+    const style = preset("style")
+    const dollar = { ...option(style, "plain"), rule: "Write $& and $1 as they are." }
+    expect(presetBlock(style, dollar)).toContain("- Write $& and $1 as they are.")
+    expect(presetBlock(style)).toBe(`${style.heading}\n${style.rules.replace("{{option}}", "")}`)
+  })
 })
 
 describe("batch format with presets", () => {
@@ -115,5 +132,23 @@ describe("batch format with presets", () => {
     expect(fetchFn).toHaveBeenCalledTimes(1)
     expect(out[0]).toBe(outputs[0].replace("〔", "\n〔"))
     expect(out.slice(1)).toEqual(outputs.slice(1))
+  })
+})
+
+describe("preset texts", () => {
+  it("have a name, a description and an example for every preset and option, and unique ids", () => {
+    const keys = PROMPT_PRESETS.flatMap((p) => [p.nameKey, p.hintKey, ...(p.options ? [] : [p.exampleKey]), ...(p.options ?? []).flatMap((o) => [o.nameKey, o.exampleKey ?? null])])
+    for (const key of keys.filter((k) => k !== null)) expect(ENGLISH.t(key!), key).not.toBe(key)
+    for (const p of PROMPT_PRESETS) {
+      for (const o of p.options ?? []) expect(o.example ?? o.exampleKey, `${p.id}/${o.id}`).toBeTruthy()
+      const ids = (p.options ?? []).map((o) => o.id)
+      expect(new Set(ids).size).toBe(ids.length)
+    }
+    expect(new Set(PROMPT_PRESETS.map((p) => p.heading)).size).toBe(PROMPT_PRESETS.length)
+  })
+
+  it("offer only target languages of the settings", () => {
+    const codes = new Set(LANGUAGES.map((l) => l.code))
+    for (const o of PROMPT_PRESETS.flatMap((p) => p.options ?? [])) for (const t of o.targets ?? []) expect(codes.has(t), t).toBe(true)
   })
 })

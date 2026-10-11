@@ -481,6 +481,8 @@ Os tokens de entrada caem cerca de 63%, e o número de requisições cai de 20 p
 
 ```bash
 npm test               # testes unitários do vitest
+npm run test:coverage  # testes unitários com cobertura; falham abaixo dos limites de vitest.config.ts
+npm run e2e            # Thunderbird sem interface (THUNDERBIRD_BIN) contra um servidor simulado local: três camadas, troca de modo, restauração
 npm run typecheck      # verificação de tipos do TypeScript
 npm run locales:check  # verifica cada locales/<language>.json em relação a locales/en.json
 npm run live-test      # chama os endpoints reais do Google e da Microsoft pelos módulos da própria extensão, com e sem idioma de origem
@@ -501,12 +503,14 @@ src/
   welcome/       guia de configuração: etapas e navegação
   offline/       módulo do mecanismo Bergamot: lista de modelos, download, armazenamento, worker
   shared/        configurações compartilhadas, predefinições de provedores, prompts, tabela e detecção de idiomas, tipos de mensagem, runtime de i18n
+  e2e/           ganchos do build de teste e2e (fora de todos os outros builds)
 locales/         textos da interface, um arquivo JSON por idioma; en.json é a referência
 static/          manifest.json, HTML, CSS, ícone SVG
 scripts/         build, geração e verificação das traduções, teste dos endpoints reais
 readmes/         versões traduzidas deste README
 docs/            GIF de demonstração usado neste README
 tests/           testes do vitest
+e2e/             teste de ponta a ponta num Thunderbird real: executor, servidor simulado, mensagens de exemplo
 ```
 
 ## Traduzir a interface

@@ -1,20 +1,18 @@
-import { createHash } from "node:crypto"
 import { zstdCompressSync } from "node:zlib"
 import { IDBFactory } from "fake-indexeddb"
 import { afterEach, describe, expect, it, vi } from "vitest"
 import { LocalizedError } from "../src/shared/errors"
 import { detectSourceLanguage, mapDetectedLanguage } from "../src/offline/bergamot/detect"
-import { BergamotEngine, type WorkerLike } from "../src/offline/bergamot/engine"
+import { BergamotEngine } from "../src/offline/bergamot/engine"
 import { BergamotError } from "../src/offline/bergamot/errors"
 import { normalizeBergamotLang, requiredPairs } from "../src/offline/bergamot/languages"
 import { BergamotManager } from "../src/offline/bergamot/manager"
-import type { WorkerRequest, WorkerResponse } from "../src/offline/bergamot/protocol"
 import { compareVersions, type ModelRecord, modelConfig, selectPairs } from "../src/offline/bergamot/records"
 import { BergamotStore, type StoredPair } from "../src/offline/bergamot/store"
 import { prepareTexts } from "../src/offline/bergamot/text"
 import { verifyModelFile } from "../src/offline/bergamot/verify"
-
-const sha = (b: Uint8Array) => createHash("sha256").update(b).digest("hex")
+import { FakeWorker, makeManager, triple } from "./fixtures/bergamot"
+import { sha256Hex } from "./helpers"
 
 let recordId = 0
 function rec(src: string, tgt: string, fileType: string, version = "3.0", extra: Partial<ModelRecord> = {}): ModelRecord {
@@ -191,7 +189,7 @@ describe("detectSourceLanguage", () => {
 describe("verifyModelFile", () => {
   const raw = new TextEncoder().encode("model bytes ".repeat(100))
   const compressed = new Uint8Array(zstdCompressSync(raw))
-  const expected = { name: "model.bin", hash: sha(compressed), decompressedHash: sha(raw), decompressedSize: raw.byteLength }
+  const expected = { name: "model.bin", hash: sha256Hex(compressed), decompressedHash: sha256Hex(raw), decompressedSize: raw.byteLength }
 
   it("accepts matching hashes", async () => {
     expect(await verifyModelFile(compressed, expected)).toEqual({ ok: true })
@@ -202,7 +200,7 @@ describe("verifyModelFile", () => {
     expect(await verifyModelFile(compressed, { ...expected, decompressedHash: "00" })).toMatchObject({ ok: false, stage: "decompressed" })
     expect(await verifyModelFile(compressed, { ...expected, decompressedSize: 5 })).toMatchObject({ ok: false, stage: "decompressed" })
     const junk = new Uint8Array([1, 2, 3, 4, 5, 6])
-    expect(await verifyModelFile(junk, { ...expected, hash: sha(junk) })).toMatchObject({ ok: false, stage: "zstd" })
+    expect(await verifyModelFile(junk, { ...expected, hash: sha256Hex(junk) })).toMatchObject({ ok: false, stage: "zstd" })
   })
 })
 
@@ -259,35 +257,6 @@ describe("BergamotStore", () => {
 })
 
 /* ---------- worker protocol ---------- */
-
-/** Fake worker: "translates" by tagging each text with the pair keys. */
-class FakeWorker implements WorkerLike {
-  onmessage: WorkerLike["onmessage"] = null
-  onerror: WorkerLike["onerror"] = null
-  terminated = false
-  readonly log: string[] = []
-  readonly transfers: number[] = []
-  failNext: string | null = null
-
-  postMessage(message: WorkerRequest, transfer: Transferable[] = []): void {
-    this.transfers.push(transfer.length)
-    this.log.push(message.type === "translate" ? `translate:${message.keys.join("+")}` : `${message.type}:${message.key}`)
-    let response: WorkerResponse
-    if (this.failNext) {
-      response = { id: message.id, ok: false, error: this.failNext }
-      this.failNext = null
-    } else if (message.type === "translate") {
-      response = { id: message.id, ok: true, result: message.texts.map((t) => `[${message.keys.join("+")}]${t}`), wasmHeapBytes: 1234 }
-    } else {
-      response = { id: message.id, ok: true }
-    }
-    queueMicrotask(() => this.onmessage?.({ data: response }))
-  }
-
-  terminate(): void {
-    this.terminated = true
-  }
-}
 
 function fakeEngine(options: { idleMs?: number } = {}) {
   const workers: FakeWorker[] = []
@@ -391,78 +360,6 @@ describe("BergamotEngine", () => {
 })
 
 /* ---------- manager: list, install, remove, translate ---------- */
-
-interface FakeFile {
-  record: ModelRecord
-  /** null: the CDN answers 404. */
-  body: Uint8Array | null
-}
-
-function modelFile(src: string, tgt: string, fileType: string, version = "3.0"): FakeFile {
-  const raw = new TextEncoder().encode(`${src}${tgt}-${fileType}-${version} `.repeat(50))
-  const body = new Uint8Array(zstdCompressSync(raw))
-  const name = `${fileType}.${src}${tgt}.bin`
-  return {
-    body,
-    record: {
-      name,
-      sourceLanguage: src,
-      targetLanguage: tgt,
-      fileType,
-      version,
-      architecture: "base-memory",
-      filter_expression: "",
-      attachment: { location: `ws/${src}${tgt}/${name}.zst`, hash: sha(body), size: body.byteLength },
-      decompressedHash: sha(raw),
-      decompressedSize: raw.byteLength,
-    },
-  }
-}
-
-function fakeServer(files: FakeFile[]) {
-  const SERVER = "https://rs.example/v1/"
-  const CDN = "https://cdn.example/"
-  const calls: string[] = []
-  let offline = false
-  const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
-    const url = String(input)
-    calls.push(url)
-    if (offline) throw new TypeError("NetworkError when attempting to fetch resource.")
-    if (url === SERVER) return Response.json({ capabilities: { attachments: { base_url: CDN } } })
-    if (url === `${SERVER}buckets/main/collections/translations-models-v2/records`) return Response.json({ data: files.map((f) => f.record) })
-    const f = files.find((x) => `${CDN}${x.record.attachment.location}` === url)
-    if (!f?.body) return new Response("not found", { status: 404 })
-    return new Response(f.body.slice())
-  })
-  return {
-    fetch: fetchMock as unknown as typeof fetch,
-    calls,
-    setOffline: (v: boolean) => {
-      offline = v
-    },
-    SERVER,
-  }
-}
-
-const triple = (src: string, tgt: string, version = "3.0") => ["model", "lex", "vocab"].map((t) => modelFile(src, tgt, t, version))
-
-function makeManager(files: FakeFile[], detector?: (t: string) => Promise<{ isReliable: boolean; languages: { language: string; percentage: number }[] }>) {
-  const server = fakeServer(files)
-  const workers: FakeWorker[] = []
-  const store = new BergamotStore(new IDBFactory())
-  const manager = new BergamotManager({
-    store,
-    fetch: server.fetch,
-    serverUrl: server.SERVER,
-    detector,
-    createWorker: () => {
-      const w = new FakeWorker()
-      workers.push(w)
-      return w
-    },
-  })
-  return { manager, server, store, workers }
-}
 
 describe("BergamotManager", () => {
   it("lists available pairs with sizes and the installed state", async () => {

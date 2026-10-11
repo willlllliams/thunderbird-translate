@@ -10,6 +10,7 @@ import type { MailContext } from "../src/shared/mail-context"
 import type { TabState, TranslateRequest, TranslateResponse } from "../src/shared/messages"
 import type { Tier } from "../src/shared/providers"
 import type { PublicSettings } from "../src/shared/settings"
+import { answering, manualTranslate, publicSettings, tieredSettings } from "./fixtures/content"
 
 const HTML_MAIL = `
 <div class="moz-text-html">
@@ -181,33 +182,9 @@ describe("language detection", () => {
 })
 
 describe("controller", () => {
-  const settings = (over: Partial<PublicSettings> = {}): PublicSettings => ({
-    uiLanguage: "auto",
-    sourceLang: "auto",
-    targetLang: "zh-CN",
-    mode: "bilingual",
-    autoTranslate: false,
-    tiers: ["machine"],
-    signatures: { machine: "google-free" },
-    precise: false,
-    style: { preset: "border", color: "#4c8bf5", opacity: 0.85, fontScale: 1 },
-    ...over,
-  })
+  const settings = publicSettings
   /** Dictionary, machine translation and AI in use; the AI signature follows the display mode. */
-  const threeTiers = (over: Partial<PublicSettings> = {}) => {
-    const mode = over.mode ?? "bilingual"
-    return settings({
-      tiers: ["dictionary", "machine", "ai"],
-      signatures: { dictionary: "dictionary", machine: "google-free", ai: `openai|${mode}` },
-      ...over,
-    })
-  }
-
-  /** translate() that answers every requested tier at once. */
-  const answering = (answer: (text: string, tier: Tier) => TranslateResponse) =>
-    vi.fn(async (req: TranslateRequest, onTier: (tier: Tier, result: TranslateResponse) => void) => {
-      for (const tier of req.tiers) onTier(tier, answer(req.text, tier))
-    })
+  const threeTiers = (over: Partial<PublicSettings> = {}) => tieredSettings(["dictionary", "machine", "ai"], over)
   const zh = (text: string): TranslateResponse => ({ ok: true, text: `ZH:${text}` })
 
   it("translates, switches mode without new requests, and restores on stop", async () => {
@@ -345,18 +322,7 @@ describe("controller", () => {
   /* ---------- tiers ---------- */
 
   /** translate() whose tiers answer when the test says so. */
-  function manual() {
-    const waiting = new Map<string, { onTier: (tier: Tier, result: TranslateResponse) => void; done: () => void }>()
-    const translate = vi.fn(
-      (req: TranslateRequest, onTier: (tier: Tier, result: TranslateResponse) => void) =>
-        new Promise<void>((done) => waiting.set(req.text, { onTier, done })),
-    )
-    return {
-      translate,
-      answer: (text: string, tier: Tier, result: TranslateResponse) => waiting.get(text)!.onTier(tier, result),
-      done: (text: string) => waiting.get(text)!.done(),
-    }
-  }
+  const manual = manualTranslate
   const texts = () => Array.from(document.querySelectorAll(".tt-translation")).map((el) => el.firstChild?.textContent)
 
   it("shows a lower tier as provisional, labelled with its tier, until the highest tier replaces it", async () => {

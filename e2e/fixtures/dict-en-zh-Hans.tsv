@@ -1,0 +1,25 @@
+#dict	en	zh-Hans	1	E2E fixture	CC0-1.0
+w	hello	你好
+w	thank you	谢谢
+w	report	报告
+w	quarterly report	季度报告
+w	meeting	会议
+w	client	客户
+w	budget	预算
+w	contract	合同
+w	please	请
+w	send	发送
+w	review	审阅
+w	thursday	星期四
+w	morning	早上
+w	move	移动
+w	week	周
+w	project	项目
+w	room	房间
+w	time	时间
+w	ready	准备好的
+w	confirm	确认
+w	help	帮助
+f	moved	move
+f	reports	report
+f	meetings	meeting

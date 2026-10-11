@@ -1,0 +1,26 @@
+From: Alice Walker <alice@example.com>
+To: Bob Stone <bob@example.com>
+Subject: Quarterly report and the client meeting
+Date: Sat, 10 Oct 2026 10:00:00 +0000
+Message-ID: <tt-e2e-html@example.com>
+MIME-Version: 1.0
+Content-Type: text/html; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+<html>
+<head><meta charset="utf-8"></head>
+<body>
+<p>Hello Bob, thank you for sending the quarterly report yesterday afternoon.</p>
+<p>The meeting with the client has been moved to Thursday morning because they asked for more time.</p>
+<ul>
+<li>Please review the budget before the meeting on Thursday.</li>
+<li>Please send the updated contract to the client this week.</li>
+</ul>
+<table border="1">
+<tr><td>The project review takes place in the large meeting room.</td><td>The report must be ready before the meeting starts.</td></tr>
+</table>
+<blockquote type="cite">Could you please confirm that the report will be ready before the meeting with the client?</blockquote>
+<pre><code>npm run build --production</code></pre>
+<p>这是一段已经使用中文书写的段落，它已经是目标语言，所以不需要再次翻译。</p>
+</body>
+</html>

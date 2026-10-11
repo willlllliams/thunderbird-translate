@@ -3,8 +3,8 @@ import { APICallError, JSONParseError, NoContentGeneratedError, RetryError } fro
 import { afterEach, describe, expect, it, vi } from "vitest"
 import { compileMessagesJson, ENGLISH, I18n } from "../src/shared/i18n"
 import { readLocaleSources, toMessagesJson } from "../scripts/locales.mjs"
-import { analyzeError, describeError, type ErrorContext, firstLine, httpStatusLine, NetworkError, summarizeResponseBody } from "../src/shared/errors"
-import { checkBaseURL, getPreset, PROVIDER_PRESETS } from "../src/shared/providers"
+import { analyzeError, describeError, type ErrorContext, firstLine, httpStatusLine, LocalizedError, NetworkError, renderErrorText, summarizeResponseBody } from "../src/shared/errors"
+import { checkBaseURL, getPreset, PROVIDER_PRESETS, sameEndpoint, urlHost } from "../src/shared/providers"
 import { errorContext } from "../src/background/service"
 import { HttpError } from "../src/background/queue/request-queue"
 import { googleTranslateBatch } from "../src/background/translators/google"
@@ -278,5 +278,105 @@ describe("settings page", () => {
     input.dispatchEvent(new Event("change"))
     expect(warning.hidden).toBe(false)
     expect(warning.textContent).toContain(zh.t("warnBaseUrlInvalid"))
+  })
+})
+
+describe("describeError: every kind of error", () => {
+  const t = (key: Parameters<typeof ENGLISH.t>[0], args: string[] = []) => ENGLISH.t(key, args)
+  const named = (name: string, props: Record<string, unknown> = {}) => Object.assign(new Error(String(props.message ?? "")), { name }, props)
+  const circular: Record<string, unknown> = {}
+  circular.self = circular
+
+  it.each<[string, unknown, ErrorContext, Partial<ReturnType<typeof analyzeError>>]>([
+    ["LocalizedError with a hint", new LocalizedError("errDictionaryMissing", ["fr → de"], undefined, "hintDictionaryDownload"), {}, { reason: t("errDictionaryMissing", ["fr → de"]), hints: [t("hintDictionaryDownload")] }],
+    ["LocalizedError with a detail", new LocalizedError("errUnknownProvider", ["x"], "more"), {}, { reason: `${t("errUnknownProvider", ["x"])} - more`, hints: [] }],
+    ["NetworkError without cause", new NetworkError("https://platform.deepseek.com/v1/chat"), { service: "DeepSeek" }, { reason: t("errNetwork", ["DeepSeek", "platform.deepseek.com"]), serverMessage: undefined, hints: [t("hintNetwork"), t("hintWebHost", ["platform.deepseek.com"])] }],
+    ["APICallError without status", named("AI_APICallError", { message: "fetch failed" }), { baseURL: "https://api.x.example/v1" }, { reason: t("errNetwork", ["api.x.example", "api.x.example"]), serverMessage: "fetch failed" }],
+    ["TypeError without URL", new TypeError("Failed to fetch"), {}, { reason: t("errNetworkNoHost", ["API"]), serverMessage: "Failed to fetch" }],
+    ["empty response body", named("AI_EmptyResponseBodyError"), { service: "Groq" }, { reason: t("errNoContent", ["Groq"]), hints: [] }],
+    ["invalid response data", named("AI_InvalidResponseDataError", { data: { foo: 1 } }), { service: "Groq" }, { reason: t("errUnreadableResponse", ["Groq"]), serverMessage: '{"foo":1}', hints: [t("hintNotApi")] }],
+    ["type validation", named("AI_TypeValidationError", { value: { error: { message: "bad" } } }), { service: "Groq" }, { serverMessage: "bad", hints: [t("hintNotApi")] }],
+    ["no such model, model known", named("AI_NoSuchModelError", { message: "No such model: x" }), { model: "x" }, { reason: "No such model: x", hints: [t("hintModel", ["x"])] }],
+    ["no such model, no message", named("AI_NoSuchModelError"), {}, { reason: "AI_NoSuchModelError", hints: [t("hintModelGeneric")] }],
+    ["missing API key", named("AI_LoadAPIKeyError", { message: "API key is missing" }), {}, { reason: "API key is missing", hints: [t("hintAuth")] }],
+    ["service code 401 without request details", Object.assign(new Error("DeepLX: unauthorized"), { status: 401 }), {}, { reason: "DeepLX: unauthorized", hints: [t("hintAuth")] }],
+    ["service code 503", Object.assign(new Error("busy"), { status: 503 }), {}, { hints: [t("hintServerError")] }],
+    ["timeout", new DOMException("The operation timed out.", "TimeoutError"), {}, { reason: "The operation timed out." }],
+    ["empty error with a cause", new Error("", { cause: new Error("inner reason") }), {}, { reason: "inner reason" }],
+    ["object with its own text", { toString: () => "custom text" }, {}, { reason: "custom text" }],
+    ["circular object", circular, {}, { reason: t("errUnknown") }],
+    ["blank string", "   ", {}, { reason: t("errUnknown") }],
+  ])("%s", (_name, error, ctx, expected) => {
+    const report = analyzeError(error, ENGLISH, ctx)
+    expect(report).toMatchObject(expected)
+    expect(describeError(error, ENGLISH, ctx).trim()).not.toBe("")
+  })
+
+  it("reads HTTP failures: status phrase for an empty statusText, server message, hints and URL", () => {
+    const http = (status: number, responseBody: unknown, message = "") =>
+      Object.assign(new Error(message), { statusCode: status, statusText: "", url: "https://api.x.example/v1/chat", responseBody })
+    const ctx: ErrorContext = { service: "X", kind: "llm", baseURL: "https://api.x.example/v1", defaultBaseURL: "https://api.x.example/v1" }
+    expect(analyzeError(http(404, ""), ENGLISH, ctx)).toEqual({
+      reason: t("errHttp", ["X", "404 Not Found"]),
+      serverMessage: undefined,
+      hints: [t("hintEndpoint"), t("hintEndpointDefault", ["X", "https://api.x.example/v1"])],
+      url: "https://api.x.example/v1/chat",
+    })
+    expect(analyzeError(http(502, undefined, "upstream down"), ENGLISH, ctx)).toMatchObject({ serverMessage: "upstream down", hints: [t("hintServerError")] })
+    expect(analyzeError(http(500, "Internal Server Error"), ENGLISH, ctx).serverMessage).toBeUndefined()
+    expect(analyzeError(http(402, '{"error":{"code":1},"error_msg":"balance"}'), ENGLISH, ctx)).toMatchObject({ serverMessage: "balance", hints: [t("hintRateLimit")] })
+    expect(analyzeError(http(400, "{not json"), ENGLISH, ctx).serverMessage).toBe("{not json")
+    // A status outside HTTP is not an HTTP failure.
+    expect(analyzeError(Object.assign(new Error("odd"), { statusCode: 42, url: "https://x" }), ENGLISH).reason).toBe("odd")
+    expect(analyzeError({ status: 500, data: { message: "from data" }, url: "https://x.example" }, ENGLISH).serverMessage).toBe("from data")
+  })
+
+  it("summarizes bodies of every type", () => {
+    expect(summarizeResponseBody(null)).toEqual({ kind: "none" })
+    expect(summarizeResponseBody({})).toEqual({ kind: "none" })
+    expect(summarizeResponseBody({ error: { message: "deep" } })).toEqual({ kind: "text", text: "deep" })
+    expect(summarizeResponseBody([{ msg: "first" }])).toEqual({ kind: "text", text: "first" })
+    expect(summarizeResponseBody({ error: { code: 1 }, errors: [] })).toEqual({ kind: "text", text: '{"error":{"code":1},"errors":[]}' })
+    expect(summarizeResponseBody(circularBody())).toEqual({ kind: "none" })
+    expect(summarizeResponseBody('"just text"')).toEqual({ kind: "text", text: '"just text"' })
+    // A blank message is no message: the body is quoted, whitespace collapsed.
+    expect(summarizeResponseBody('{"error":"  "}')).toEqual({ kind: "text", text: '{"error":" "}' })
+    expect(summarizeResponseBody("<!DOCTYPE html><title>x</title>")).toEqual({ kind: "html" })
+    expect(summarizeResponseBody(42)).toEqual({ kind: "text", text: "42" })
+  })
+
+  it("takes the first line of a description", () => {
+    expect(firstLine("a\nb")).toBe("a")
+    expect(firstLine("")).toBe("")
+  })
+})
+
+function circularBody() {
+  const o: Record<string, unknown> = { code: 1 }
+  o.self = o
+  return o
+}
+
+describe("describeError: remaining shapes", () => {
+  it("covers bare texts, causes and bodies without a message", () => {
+    expect(renderErrorText({ key: "errUnknown" }, ENGLISH)).toBe(ENGLISH.t("errUnknown"))
+    expect(new NetworkError("not a url", "plain cause").message).toBe("Could not connect to not a url")
+    expect(new NetworkError("https://a.example/x", new Error("")).message).toBe("Could not connect to a.example")
+    expect(summarizeResponseBody('["  "]')).toEqual({ kind: "text", text: '[" "]' })
+    expect(summarizeResponseBody('["first"]')).toEqual({ kind: "text", text: "first" })
+    expect(summarizeResponseBody({ detail: { loc: 1 }, msg: "later key" })).toEqual({ kind: "text", text: "later key" })
+    expect(analyzeError({ statusCode: 500, responseBody: "down" }, ENGLISH)).toMatchObject({ reason: ENGLISH.t("errHttp", ["API", "500 Internal Server Error"]), url: undefined })
+    const apiCall = Object.assign(new Error(""), { name: "AI_APICallError", url: "https://a.example/v1", cause: new Error("ECONNREFUSED") })
+    expect(analyzeError(apiCall, ENGLISH).serverMessage).toBe("ECONNREFUSED")
+    expect(analyzeError(Object.assign(new Error(""), { name: "AI_LoadAPIKeyError" }), ENGLISH).reason).toBe("AI_LoadAPIKeyError")
+  })
+
+  it("compares endpoints and reads hosts of malformed URLs", () => {
+    expect(urlHost("not a url")).toBe("")
+    expect(urlHost(undefined)).toBe("")
+    expect(urlHost("https://x.example/{{apiKey}}/t")).toBe("x.example")
+    expect(sameEndpoint("https://API.example.com/v1/", "https://api.example.com/v1")).toBe(true)
+    expect(sameEndpoint(" not a url/ ", "not a url")).toBe(true)
+    expect(sameEndpoint("https://a.example/v1", "https://a.example/v2")).toBe(false)
   })
 })

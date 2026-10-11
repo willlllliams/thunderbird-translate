@@ -126,3 +126,41 @@ describe("DeepLX", () => {
     expect(await deeplxTranslate("Hello", "ZH", "https://d.example/translate", "", { fetchFn: asFetch(fetchFn) })).toBe("你好")
   })
 })
+
+describe("edge cases of the free translators", () => {
+  const never = () => vi.fn(async () => jsonResponse([]))
+
+  it("send nothing for no paragraphs", async () => {
+    const fetchFn = never()
+    expect(await googleTranslateBatch([], "zh-CN", { fetchFn: asFetch(fetchFn) })).toEqual([])
+    expect(await microsoftTranslateBatch([], "zh-Hans", { fetchFn: asFetch(fetchFn) })).toEqual([])
+    expect(fetchFn).not.toHaveBeenCalled()
+  })
+
+  it("Google: names a missing entry, rejects other single shapes and skips chunks without text", () => {
+    expect(() => parseGoogleBatchResponse([["你好", "en"], [null]], 2)).toThrow(/2/)
+    expect(() => parseGoogleSingleResponse({ sentences: [] })).toThrow()
+    expect(() => parseGoogleSingleResponse([null])).toThrow()
+    expect(parseGoogleSingleResponse([[["你好", "Hello"], [null, null, "Nǐ hǎo"], "x"]])).toBe("你好")
+  })
+
+  it("Google: uses a custom endpoint and the chosen source language on the fallback route too", async () => {
+    const fetchFn = vi.fn(async (url: string) => (url.includes("/translate_a/t") ? jsonResponse(null) : jsonResponse([[["你好", "Hallo"]]])))
+    expect(await googleTranslateBatch(["Hallo"], "zh-CN", { fetchFn: asFetch(fetchFn), baseURL: "https://gt.example.com/", source: "de" })).toEqual(["你好"])
+    const urls = fetchFn.mock.calls.map(([url]) => new URL(url))
+    expect(urls.map((u) => u.origin + u.pathname)).toEqual(["https://gt.example.com/translate_a/t", "https://gt.example.com/translate_a/single"])
+    expect(urls.map((u) => u.searchParams.get("sl"))).toEqual(["de", "de"])
+  })
+
+  it("Microsoft: rejects an answer that is not a list", () => {
+    expect(() => parseMicrosoftResponse({ error: { code: 401000 } }, 1)).toThrow(/unexpected/i)
+  })
+
+  it("DeepLX: reports a service code without a message", () => {
+    expect(() => parseDeepLXResponse({ code: 503 })).toThrow(expect.objectContaining({ status: 503, i18nText: { key: "errServiceCode", args: ["DeepLX", "503"] } }))
+  })
+})
+
+it("Microsoft: decodes decimal character references", () => {
+  expect(decodeHtml("&#20320;&#22909; &quot;x&quot; &apos;y&apos;")).toBe(`你好 "x" 'y'`)
+})

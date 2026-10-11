@@ -12,6 +12,9 @@ permissions:
 jobs:
   build:
     runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+      sha: ${{ steps.version.outputs.sha }}
     steps:
       - uses: actions/checkout@v5
 
@@ -23,7 +26,8 @@ jobs:
       - run: npm ci
       - run: npm run typecheck
       - run: npm run locales:check
-      - run: npm test
+      # Unit tests with the coverage thresholds of vitest.config.ts.
+      - run: npm run test:coverage
       - run: npm run build
 
       - name: Read version
@@ -39,12 +43,66 @@ jobs:
           path: web-ext-artifacts/*.xpi
           retention-days: 30
 
+  # The test build in a real, headless Thunderbird against a local mock server (npm run e2e).
+  e2e:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        # 128 and 140: older ESR still in use; 153: current ESR; 157: latest release.
+        thunderbird: [128.14.0esr, 140.17.0esr, 153.4.0esr, 157.0.1]
+    name: e2e (Thunderbird ${{ matrix.thunderbird }})
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 24
+          cache: npm
+
+      - run: npm ci
+
+      - name: Libraries Thunderbird needs
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends libgtk-3-0t64 libdbus-glib-1-2 libasound2t64 libx11-xcb1 libxtst6
+
+      - name: Download Thunderbird ${{ matrix.thunderbird }}
+        env:
+          TB_VERSION: ${{ matrix.thunderbird }}
+        run: |
+          base="https://ftp.mozilla.org/pub/thunderbird/releases/$TB_VERSION/linux-x86_64/en-US"
+          # Releases from 135 on are .tar.xz, older ones .tar.bz2.
+          for ext in tar.xz tar.bz2; do
+            if curl -fsSL -o "$RUNNER_TEMP/thunderbird.$ext" "$base/thunderbird-$TB_VERSION.$ext"; then
+              tar -xf "$RUNNER_TEMP/thunderbird.$ext" -C "$RUNNER_TEMP"
+              break
+            fi
+          done
+          test -x "$RUNNER_TEMP/thunderbird/thunderbird"
+          echo "THUNDERBIRD_BIN=$RUNNER_TEMP/thunderbird/thunderbird" >> "$GITHUB_ENV"
+
+      - run: npm run e2e
+
+  release:
+    needs: [build, e2e]
+    if: github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    env:
+      VERSION: ${{ needs.build.outputs.version }}
+      SHA: ${{ needs.build.outputs.sha }}
+    steps:
+      - name: Download build artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: thunderbird-translate-${{ needs.build.outputs.version }}-${{ needs.build.outputs.sha }}
+          path: web-ext-artifacts
+
       - name: Update nightly pre-release
         if: github.event_name == 'push'
         env:
           GH_TOKEN: ${{ github.token }}
-          VERSION: ${{ steps.version.outputs.version }}
-          SHA: ${{ steps.version.outputs.sha }}
         run: |
           file="web-ext-artifacts/thunderbird-translate-$VERSION-$SHA.xpi"
           cp "web-ext-artifacts/thunderbird-translate-$VERSION.xpi" "$file"
@@ -54,25 +112,24 @@ jobs:
             --notes "Automatic build of commit $GITHUB_SHA. For testing; use the latest versioned release for daily use."
 
       - name: Check whether the release exists
-        if: github.event_name != 'pull_request'
         id: check
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          if gh release view "v${{ steps.version.outputs.version }}" --repo "$GITHUB_REPOSITORY" > /dev/null 2>&1; then
+          if gh release view "v$VERSION" --repo "$GITHUB_REPOSITORY" > /dev/null 2>&1; then
             echo "exists=true" >> "$GITHUB_OUTPUT"
           else
             echo "exists=false" >> "$GITHUB_OUTPUT"
           fi
 
       - name: Create release and upload xpi
-        if: github.event_name != 'pull_request' && steps.check.outputs.exists == 'false'
+        if: steps.check.outputs.exists == 'false'
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: v${{ steps.version.outputs.version }}
-          name: v${{ steps.version.outputs.version }}
+          tag_name: v${{ needs.build.outputs.version }}
+          name: v${{ needs.build.outputs.version }}
           target_commitish: ${{ github.sha }}
           generate_release_notes: true
           make_latest: true
-          files: web-ext-artifacts/thunderbird-translate-${{ steps.version.outputs.version }}.xpi
+          files: web-ext-artifacts/thunderbird-translate-${{ needs.build.outputs.version }}.xpi
           fail_on_unmatched_files: true

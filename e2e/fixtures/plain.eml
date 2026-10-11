@@ -1,0 +1,23 @@
+From: Alice Walker <alice@example.com>
+To: Bob Stone <bob@example.com>
+Subject: The meeting has been moved
+Date: Sat, 10 Oct 2026 11:00:00 +0000
+Message-ID: <tt-e2e-plain@example.com>
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8; format=fixed
+Content-Transfer-Encoding: 8bit
+
+Hello Bob,
+
+The meeting with the client has been moved to Thursday morning because they
+asked for more time to read the quarterly report.
+
+Please review the budget before the meeting and send the updated contract to
+the client this week.
+
+> Could you please confirm that the report will be ready before the meeting
+> with the client on Thursday?
+
+这是一段已经使用中文书写的段落，它已经是目标语言，所以不需要再次翻译。
+
+Thank you for your help with the report.

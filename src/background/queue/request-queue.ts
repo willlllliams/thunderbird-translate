@@ -40,6 +40,25 @@ export function backoffDelay(attempt: number, baseMs = 500, maxMs = 8000, random
   return Math.round(exp / 2 + (random() * exp) / 2)
 }
 
+/** Retry-After header value: delay in seconds or an HTTP date (RFC 9110, section 10.2.3), in ms. */
+export function parseRetryAfter(value: string | null | undefined, now = Date.now()): number | undefined {
+  if (!value) return undefined
+  const seconds = Number(value)
+  if (Number.isFinite(seconds)) return seconds * 1000
+  const date = Date.parse(value)
+  return Number.isFinite(date) ? Math.max(0, date - now) : undefined
+}
+
+/** Wait requested by the server: HttpError of fetchOk(), or the response headers of an AI SDK APICallError. */
+function retryAfterOf(error: unknown): number | undefined {
+  const e = error as { retryAfterMs?: number; responseHeaders?: Record<string, string> }
+  if (e.retryAfterMs !== undefined) return e.retryAfterMs
+  const headers = e.responseHeaders
+  if (!headers) return undefined
+  const ms = Number(headers["retry-after-ms"])
+  return Number.isFinite(ms) && ms > 0 ? ms : parseRetryAfter(headers["retry-after"])
+}
+
 export interface RequestQueueOptions {
   concurrency: () => number
   maxRetries: () => number
@@ -67,7 +86,7 @@ export class RequestQueue {
         return await this.withSlot(task)
       } catch (error) {
         if (attempt >= maxRetries || !isRetryableError(error)) throw error
-        const retryAfter = (error as HttpError).retryAfterMs
+        const retryAfter = retryAfterOf(error)
         const delay = retryAfter && retryAfter > 0 ? Math.min(retryAfter, 30000) : backoffDelay(attempt, this.options.baseDelayMs)
         await this.sleep(delay)
       }
@@ -123,13 +142,11 @@ export async function fetchOk(fetchFn: typeof fetch | undefined, { url, init }: 
   }
   if (resp.ok) return resp
   const body = await resp.text().catch(() => "")
-  const retryAfterHeader = resp.headers?.get?.("retry-after")
-  const retryAfterSec = retryAfterHeader ? Number(retryAfterHeader) : NaN
   const text: ErrorText = { key: "errHttp", args: [label, String(resp.status)], detail: body ? body.slice(0, 300) : undefined }
   throw new HttpError(
     renderErrorText(text, ENGLISH),
     resp.status,
-    Number.isFinite(retryAfterSec) ? retryAfterSec * 1000 : undefined,
+    parseRetryAfter(resp.headers?.get?.("retry-after")),
     text,
     resp.url || url,
     body,
