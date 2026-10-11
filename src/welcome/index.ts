@@ -24,9 +24,13 @@ import { h } from "../options/dom"
 import { PromptEditor } from "../options/prompt-editor"
 import { type PanelState, providerConfig, providerFields, providerTitle, testButton, testResult } from "../options/provider-panel"
 import { SettingsSession } from "../options/session"
+import { WELCOME_PROBE_QUERY } from "../e2e/marker"
+import { runWelcomeProbe } from "../e2e/welcome"
+import { releaseFetch } from "../e2e/release"
 import { neighbourStep, resumeStep, STEP_IDS, STEP_TITLE_KEYS, type StepId, stepNeeded, TRY_MAIL, trialLanguage, WELCOME_KEY, type WelcomeState } from "./steps"
 
 declare const __DEBUG__: boolean
+declare const __E2E__: boolean
 
 let session: SettingsSession
 let settings: Settings
@@ -267,7 +271,7 @@ async function main(): Promise<void> {
   session.onRemoteChange = remoteChanged
   session.onSaved = showSaved
   const languages = () => ({ source: settings.sourceLang, target: settings.targetLang })
-  dictionaries = new DictionarySection({ tag: () => settings.dictionary.releaseTag, list: $("dictList"), status: $("dictStatus"), needed: languages })
+  dictionaries = new DictionarySection({ tag: () => settings.dictionary.releaseTag, list: $("dictList"), status: $("dictStatus"), needed: languages, fetchFn: __E2E__ ? releaseFetch : undefined })
   bergamot = new BergamotSection({ languages, list: $("bergamotList"), status: $("bergamotStatus"), needed: $("bergamotNeeded"), pick: true })
   prompts = new PromptEditor($("promptEditor"), session)
   await loadExtensionI18n(settings.uiLanguage)
@@ -332,6 +336,8 @@ async function main(): Promise<void> {
   applyLanguage()
   await go(step, false)
   if (__DEBUG__) console.info("[thunderbird-translate] welcome page open at step", step)
+  // Test build (npm run e2e): the background script opens the page with this query to have the offline step walked through.
+  if (__E2E__ && location.search === WELCOME_PROBE_QUERY) void runWelcomeProbe()
 }
 
 void main()

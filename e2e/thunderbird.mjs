@@ -66,9 +66,9 @@ export function removeProfile(dir) {
   rmSync(dir, { recursive: true, force: true, maxRetries: 10, retryDelay: 500 })
 }
 
-/** Start Thunderbird on the profile and open `eml`; output goes to `logFile`. */
+/** Start Thunderbird on the profile and open `eml` (none: just start); output goes to `logFile`. */
 export function launch(bin, profile, eml, logFile) {
-  const args = ["--headless", "--new-instance", "--no-remote", "--profile", profile, "-file", eml]
+  const args = ["--headless", "--new-instance", "--no-remote", "--profile", profile, ...(eml ? ["-file", eml] : [])]
   const child = spawn(bin, args, {
     stdio: ["ignore", "pipe", "pipe"],
     // Own process group on Linux and macOS, so that stop() reaches the content processes too.

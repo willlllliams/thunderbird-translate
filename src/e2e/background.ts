@@ -8,16 +8,21 @@
  * Google, an OpenAI-compatible AI service) and installs the dictionary pack
  * the server publishes. Afterwards it runs the keyboard commands the content
  * script asks for and forwards the content script's report to the server.
+ *
+ * In the "welcome" scenario (GET /scenario) it stores settings with the two
+ * offline services instead, leaves every dictionary pack uninstalled and opens
+ * the setup guide; the guide's probe (src/e2e/welcome.ts) downloads the packs.
  */
 
 import { ext } from "../shared/ext"
 import { SETTINGS_KEY } from "../shared/settings"
 import { readSettings } from "../shared/settings-store"
 import type { KeyValueStorage } from "../background/cache"
-import { fetchDictionaryIndex, installPack, releaseUrl } from "../background/dictionary/download"
+import { fetchDictionaryIndex, installPack } from "../background/dictionary/download"
 import { DictionaryStore } from "../background/dictionary/store"
 import { pairKey } from "../shared/languages"
-import { E2E_MARKER } from "./marker"
+import { E2E_MARKER, WELCOME_PROBE_QUERY } from "./marker"
+import { DICT_TAG, releaseFetch } from "./release"
 import { WORKER_FILE, type WorkerResponse } from "../offline/bergamot/protocol"
 
 declare const __E2E_SERVER__: string
@@ -28,20 +33,12 @@ export type E2eMessage =
   | { e2e: "report"; report: unknown }
   | { e2e: "log"; message: string }
 
-const DICT_TAG = "e2e"
-
 async function post(path: string, body: unknown): Promise<void> {
   try {
     await fetch(`${__E2E_SERVER__}${path}`, { method: "POST", headers: { "Content-Type": "text/plain" }, body: JSON.stringify(body) })
   } catch (error) {
     console.error(`[${E2E_MARKER}] cannot reach the mock server`, error)
   }
-}
-
-/** GitHub release URLs of the dictionary packs, answered by the mock server. */
-const releaseFetch: typeof fetch = (input, init) => {
-  const url = String(input).replace(releaseUrl(DICT_TAG, ""), `${__E2E_SERVER__}/releases/`)
-  return fetch(url, init)
 }
 
 async function installDictionary(dictionary: { invalidate(): void }): Promise<string[]> {
@@ -76,6 +73,13 @@ function probeBergamotWorker(): Promise<string> {
   })
 }
 
+/** Empty the dictionary store, so that the setup guide has packs to download. */
+async function uninstallDictionary(dictionary: { invalidate(): void }): Promise<void> {
+  const store = new DictionaryStore()
+  for (const pack of await store.list()) await store.remove(pack.id)
+  dictionary.invalidate()
+}
+
 export interface E2eDeps {
   storage: KeyValueStorage
   dictionary: { invalidate(): void }
@@ -94,16 +98,26 @@ export async function setUpE2e({ storage, dictionary, runCommand }: E2eDeps): Pr
   })
   try {
     const settings = readSettings(await storage.get(SETTINGS_KEY))
-    settings.sourceLang = "auto"
+    const welcome = (await (await fetch(`${__E2E_SERVER__}/scenario`)).text()) === "welcome"
+    settings.sourceLang = welcome ? "en" : "auto"
     settings.targetLang = "zh-CN"
     settings.mode = "bilingual"
     settings.autoTranslate = false
     settings.precise.enabled = false
-    settings.tiers = { dictionary: "dictionary", machine: "google-free", ai: "custom" }
+    settings.dictionary.releaseTag = DICT_TAG
+    settings.tiers = { dictionary: "dictionary", machine: welcome ? "bergamot" : "google-free", ai: welcome ? null : "custom" }
     settings.providers["google-free"] = { ...settings.providers["google-free"], enabled: true, baseURL: `${__E2E_SERVER__}/google` }
     settings.providers.custom = { enabled: true, apiKey: "e2e-test-key", baseURL: `${__E2E_SERVER__}/v1`, model: "e2e-model" }
     settings.providers.dictionary = { ...settings.providers.dictionary, enabled: true }
+    if (welcome) settings.providers.bergamot = { ...settings.providers.bergamot, enabled: true }
     await storage.set(SETTINGS_KEY, settings)
+    if (welcome) {
+      await uninstallDictionary(dictionary)
+      await post("/ready", { scenario: "welcome", version: ext.runtime.getManifest().version })
+      // Not awaited: the page needs this script to finish its set-up.
+      ext.tabs.create({ url: ext.runtime.getURL(`welcome.html${WELCOME_PROBE_QUERY}`) }).catch((error) => post("/log", { message: `cannot open the setup guide: ${error}` }))
+      return
+    }
     const packs = await installDictionary(dictionary)
     const bergamotWorker = await probeBergamotWorker()
     await post("/ready", { packs, bergamotWorker, version: ext.runtime.getManifest().version })

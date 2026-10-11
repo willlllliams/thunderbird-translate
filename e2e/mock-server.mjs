@@ -2,13 +2,15 @@
 // - Google's free endpoint (translate_a/t, translate_a/single): "[G] <text>"
 // - an OpenAI-compatible chat completions API: "[AI <mode>] <text>", the mode read from the system prompt
 // - the dictionary packs of a GitHub release (dict-index.json and one pack built from fixtures/)
-// - what the extension reports: /ready, /mark, /log, /report
+// - Mozilla Remote Settings for Bergamot (/bergamot/v1/): the server root, the model records of en -> zh-Hans
+//   and the zstd-compressed attachments, all made of fake bytes
+// - what the extension reports: /ready, /mark, /log, /report, and which scenario to run: /scenario
 // Answers are delayed so that the tiers arrive in a fixed order: dictionary, Google, AI.
 import { createHash } from "node:crypto"
 import { readFileSync } from "node:fs"
 import { createServer } from "node:http"
 import { join } from "node:path"
-import { gzipSync } from "node:zlib"
+import { gzipSync, zstdCompressSync } from "node:zlib"
 
 /** System prompt phrases of the two display modes (src/shared/prompts.ts). */
 const PROMPT_MODES = [
@@ -55,14 +57,56 @@ function dictionaryRelease(fixtures) {
   return { index, files: { [file]: gz } }
 }
 
+/** Deterministic pseudo-random bytes: they compress poorly, so the compressed files have a size worth a progress bar. */
+function fakeBytes(label, length) {
+  const parts = []
+  for (let i = 0; i * 32 < length; i++) parts.push(createHash("sha256").update(`${label}:${i}`).digest())
+  return Buffer.concat(parts).subarray(0, length)
+}
+
+const sha256 = (data) => createHash("sha256").update(data).digest("hex")
+
+/** Files of the model en -> zh-Hans: Remote Settings records (the attachment host comes from the server root) and the compressed attachments by location. */
+function bergamotModels() {
+  const specs = [
+    { fileType: "model", name: "model.enzh.intgemm.alphas.bin", size: 24 * 1024 },
+    { fileType: "lex", name: "lex.50.50.enzh.s2t.bin", size: 4 * 1024 },
+    { fileType: "vocab", name: "vocab.enzh.spm", size: 4 * 1024 },
+  ]
+  const attachments = {}
+  const records = specs.map(({ fileType, name, size }) => {
+    const raw = fakeBytes(name, size)
+    const compressed = zstdCompressSync(raw)
+    const location = `main-workspace/translations-models-v2/${name}.zst`
+    attachments[location] = compressed
+    return {
+      id: `e2e-${fileType}`,
+      name,
+      sourceLanguage: "en",
+      targetLanguage: "zh-Hans",
+      fileType,
+      version: "3.0",
+      architecture: "e2e",
+      filter_expression: "",
+      attachment: { location, hash: sha256(compressed), size: compressed.length, mimetype: "application/octet-stream", filename: `${name}.zst` },
+      decompressedHash: sha256(raw),
+      decompressedSize: raw.length,
+    }
+  })
+  return { records, attachments }
+}
+
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms))
 
 /**
  * Start the server on 127.0.0.1 and a free port. `calls` lists, in order, the
  * Google and AI requests, the dictionary downloads and the command marks.
  */
-export async function startMockServer({ fixtures, googleDelayMs = 300, aiDelayMs = 1500, log = () => {} }) {
+export async function startMockServer({ fixtures, googleDelayMs = 300, aiDelayMs = 1500, chunkDelayMs = 250, log = () => {} }) {
   const release = dictionaryRelease(fixtures)
+  const bergamot = bergamotModels()
+  /** What the extension is asked to do (GET /scenario); set by the runner before each launch. */
+  let scenario = "message"
   const calls = []
   const posted = new Map()
   const waiters = new Map()
@@ -76,6 +120,17 @@ export async function startMockServer({ fixtures, googleDelayMs = 300, aiDelayMs
   const send = (res, status, body, type = "application/json") => {
     res.writeHead(status, { "Content-Type": type, "Access-Control-Allow-Origin": "*" })
     res.end(typeof body === "string" || Buffer.isBuffer(body) ? body : JSON.stringify(body))
+  }
+
+  /** A file in four chunks with a pause between them, so that the page can show the progress. */
+  const sendInChunks = async (res, data, type) => {
+    res.writeHead(200, { "Content-Type": type, "Content-Length": data.length, "Access-Control-Allow-Origin": "*" })
+    const step = Math.ceil(data.length / 4)
+    for (let at = 0; at < data.length; at += step) {
+      if (at > 0) await sleep(chunkDelayMs)
+      res.write(data.subarray(at, at + step))
+    }
+    res.end()
   }
 
   const server = createServer(async (req, res) => {
@@ -124,8 +179,23 @@ export async function startMockServer({ fixtures, googleDelayMs = 300, aiDelayMs
         const data = release.files[file]
         if (!data) return send(res, 404, "not found", "text/plain")
         calls.push({ type: "download", file, at: Date.now() })
-        res.writeHead(200, { "Content-Type": "application/gzip", "Content-Length": data.length })
-        return res.end(data)
+        return sendInChunks(res, data, "application/gzip")
+      }
+      if (req.method === "GET" && url.pathname === "/scenario") return send(res, 200, scenario, "text/plain")
+      if (req.method === "GET" && url.pathname === "/bergamot/v1/") {
+        calls.push({ type: "bergamot", what: "server root", at: Date.now() })
+        return send(res, 200, { capabilities: { attachments: { base_url: `http://${req.headers.host}/bergamot/attachments/` } } })
+      }
+      if (req.method === "GET" && url.pathname === "/bergamot/v1/buckets/main/collections/translations-models-v2/records") {
+        calls.push({ type: "bergamot", what: "records", at: Date.now() })
+        return send(res, 200, { data: bergamot.records })
+      }
+      if (req.method === "GET" && url.pathname.startsWith("/bergamot/attachments/")) {
+        const location = decodeURIComponent(url.pathname.slice("/bergamot/attachments/".length))
+        const data = bergamot.attachments[location]
+        if (!data) return send(res, 404, "not found", "text/plain")
+        calls.push({ type: "bergamot", what: location, at: Date.now() })
+        return sendInChunks(res, data, "application/octet-stream")
       }
       if (req.method === "POST" && ["/ready", "/mark", "/log", "/report"].includes(url.pathname)) {
         const body = JSON.parse(raw || "null")
@@ -145,6 +215,10 @@ export async function startMockServer({ fixtures, googleDelayMs = 300, aiDelayMs
   return {
     url: `http://127.0.0.1:${server.address().port}`,
     calls,
+    /** The test the next Thunderbird runs: "message" (translate a displayed message) or "welcome" (download from the setup guide). */
+    setScenario(name) {
+      scenario = name
+    },
     /** The next body posted to `path`, or a rejection after `timeoutMs`. */
     next(path, timeoutMs) {
       const queued = posted.get(path)

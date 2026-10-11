@@ -8,6 +8,10 @@
 // 3. The content script translates, switches to translation-only and restores the
 //    original, then reports what it saw; this script checks the report together
 //    with the requests the mock server received.
+// 4. A last Thunderbird, started without a message, opens the setup guide
+//    (src/welcome/), where the probe of src/e2e/welcome.ts clicks through to the
+//    offline step, downloads the dictionary pack and the Bergamot model from the
+//    mock server (Remote Settings stand-in), deletes them again and reports.
 //
 // THUNDERBIRD_BIN selects the Thunderbird binary. Exit code 1 on any failure.
 import { execFileSync } from "node:child_process"
@@ -30,6 +34,9 @@ const CASES = [
   // 4 paragraphs and 1 quote; the Chinese paragraph is skipped.
   { name: "plain", eml: "plain.eml", paragraphs: 5 },
 ]
+
+/** The scenario after the messages: the offline downloads of the setup guide. */
+const WELCOME = { name: "welcome", scenario: "welcome" }
 
 const TIER_ORDER = ["dictionary", "machine", "ai"]
 const CJK = /[一-鿿]/
@@ -107,6 +114,49 @@ function check(c, ready, report, calls) {
   return failures
 }
 
+/** Check the report of the setup guide; returns the failures. */
+function checkWelcome(ready, report, calls) {
+  const failures = []
+  const expect = (ok, message, detail) => {
+    if (!ok) failures.push(detail === undefined ? message : `${message}: ${JSON.stringify(detail)}`)
+  }
+  expect(!ready.error && ready.scenario === "welcome", "setup of the welcome scenario failed", ready)
+  if (report.error) {
+    failures.push(`setup guide: ${report.error}`)
+    failures.push(`page at the time: ${JSON.stringify(report.screen)}`)
+    return failures
+  }
+
+  // The offline step offers the recommended pack and model, ticked, and nothing is installed yet.
+  const only = (list) => (list?.rows.length === 1 ? list.rows[0] : null)
+  for (const kind of ["dictionary", "bergamot"]) {
+    const row = only(report.offered?.[kind])
+    expect(row && !row.installed && row.checkbox?.checked === true && row.checkbox.disabled === false, `${kind}: expected one ticked row to download`, report.offered?.[kind])
+  }
+  const empty = { bergamotInstalled: [], bergamotMissing: ["en>zh-Hans"], dictionaryInstalled: [], bergamotRecords: { pairs: 0, files: 0 }, dictionaryRecords: { packs: 0, data: 0 } }
+  expect(JSON.stringify(report.initial) === JSON.stringify(empty), "something was installed before the download", report.initial)
+
+  // The click starts the download; the lists show the progress and then the installed state.
+  expect(report.disabledWhileDownloading === true, "the Download selected button stayed enabled while downloading")
+  for (const kind of ["dictionary", "bergamot"]) {
+    const seen = report.progress?.[kind] ?? []
+    expect(seen.length > 0 && seen.includes(0) && seen.some((p) => p > 0 && p < 100), `${kind}: no progress between 0 and 100 % on the page`, seen)
+    const row = only(report.finished?.[kind])
+    expect(row?.installed === true && row.checkbox === null && row.error === null, `${kind}: the page does not show the download as finished`, report.finished?.[kind])
+  }
+
+  // Stored for real: the answers of the background script and the object stores of the two databases.
+  const done = { bergamotInstalled: ["en>zh-Hans"], bergamotMissing: [], dictionaryInstalled: ["en>zh-Hans"], bergamotRecords: { pairs: 1, files: 3 }, dictionaryRecords: { packs: 1, data: 1 } }
+  expect(JSON.stringify(report.downloaded) === JSON.stringify(done), "stored data after the download", report.downloaded)
+  expect(JSON.stringify(report.removed) === JSON.stringify(empty), "data left after the deletion", report.removed)
+
+  // What the mock server saw: model list, three model files, the pack.
+  const seen = calls.filter((x) => x.type === "bergamot").map((x) => x.what)
+  expect(seen.includes("server root") && seen.includes("records") && seen.filter((w) => w.endsWith(".zst")).length === 3, "Remote Settings requests of the mock server", seen)
+  expect(calls.some((x) => x.type === "download" && x.file === "dict-en-zh-Hans.tsv.gz"), "the dictionary pack was not downloaded")
+  return failures
+}
+
 function tail(file, lines = 60) {
   try {
     return readFileSync(file, "utf8").split(/\r?\n/).filter(Boolean).slice(-lines).join("\n")
@@ -131,22 +181,31 @@ async function main() {
 
   let failed = 0
   try {
-    for (const c of CASES) {
+    for (const c of [...CASES, WELCOME]) {
       server.reset()
+      server.setScenario(c.scenario ?? "message")
       extensionLog.length = 0
       const logFile = join(work, `thunderbird-${c.name}.log`)
       const started = Date.now()
-      const tb = launch(bin, profile, join(fixtures, c.eml), logFile)
+      const tb = launch(bin, profile, c.eml && join(fixtures, c.eml), logFile)
       let failures
       try {
         // A Thunderbird that fails to start (missing libraries, crash) ends the wait early.
         const crashed = tb.exited.then((code) => (code ? Promise.reject(new Error(`Thunderbird exited with code ${code}`)) : new Promise(() => {})))
         const ready = await Promise.race([server.next("/ready", STEP_TIMEOUT_MS), crashed])
         const report = await Promise.race([server.next("/report", STEP_TIMEOUT_MS), crashed])
-        failures = check(c, ready, report, server.calls)
-        if (failures.length) failures.push(`message body as displayed:\n${report.originalHtml}`)
-        const firstRequest = report.events?.filter((e) => e.phase === "translate" && e.id === report.events[0].id).map((e) => `${e.tier} ${e.at} ms`)
-        console.log(`  ${c.name}: ${report.translated?.state?.total ?? "?"} paragraphs; first paragraph: ${firstRequest?.join(" → ")}; Bergamot worker: ${ready.bergamotWorker}`)
+        if (c.scenario === "welcome") {
+          failures = checkWelcome(ready, report, server.calls)
+          if (failures.length) failures.push(`report of the page:
+${JSON.stringify(report, null, 2)}`)
+          const { dictionary, bergamot } = report.progress ?? {}
+          console.log(`  ${c.name}: progress of the pack ${dictionary?.join(", ")} %, of the model ${bergamot?.join(", ")} %; stored ${JSON.stringify(report.downloaded?.bergamotRecords)}, then deleted`)
+        } else {
+          failures = check(c, ready, report, server.calls)
+          if (failures.length) failures.push(`message body as displayed:\n${report.originalHtml}`)
+          const firstRequest = report.events?.filter((e) => e.phase === "translate" && e.id === report.events[0].id).map((e) => `${e.tier} ${e.at} ms`)
+          console.log(`  ${c.name}: ${report.translated?.state?.total ?? "?"} paragraphs; first paragraph: ${firstRequest?.join(" → ")}; Bergamot worker: ${ready.bergamotWorker}`)
+        }
       } catch (error) {
         failures = [String(error.message ?? error)]
       } finally {
@@ -168,7 +227,7 @@ async function main() {
     removeProfile(profile)
     await server.close()
   }
-  console.log(failed === 0 ? `e2e: all ${CASES.length} messages passed` : `e2e: ${failed} of ${CASES.length} messages failed`)
+  console.log(failed === 0 ? `e2e: all ${CASES.length + 1} runs passed` : `e2e: ${failed} of ${CASES.length + 1} runs failed`)
   process.exit(failed === 0 ? 0 : 1)
 }
 
