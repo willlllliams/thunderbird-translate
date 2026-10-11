@@ -168,7 +168,7 @@ describe("thinking switch", () => {
     ["zhipu", "glm-4-flash", undefined, undefined],
     ["zhipu", "glm-4.5-air", { zhipu: { thinking: { type: "disabled" } } }, { zhipu: { thinking: { type: "enabled" } } }],
     ["siliconflow", "Qwen/Qwen3-8B", { siliconflow: { enable_thinking: false } }, { siliconflow: { enable_thinking: true } }],
-    ["doubao", "doubao-seed-1-6-flash-250615", { doubao: { thinking: { type: "disabled" } } }, { doubao: { thinking: { type: "enabled" } } }],
+    ["doubao", "doubao-seed-2-0-mini-260428", { doubao: { thinking: { type: "disabled" } } }, { doubao: { thinking: { type: "enabled" } } }],
     ["doubao", "doubao-1-5-pro-32k-250115", undefined, undefined],
   ])("%s %s", (id, model, expectedOff, expectedOn) => {
     expect(off(id, model)).toEqual(expectedOff)

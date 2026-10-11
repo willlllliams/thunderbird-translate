@@ -362,7 +362,7 @@ Bergamot 服務在本機翻譯，使用 Firefox Translations 的引擎和翻譯�
 | 智谱 GLM | `@ai-sdk/openai-compatible` | `https://open.bigmodel.cn/api/paas/v4` | `glm-4-flash` | 是 |
 | 通义千问 / 阿里云百炼 | `@ai-sdk/alibaba` | `https://dashscope.aliyuncs.com/compatible-mode/v1` | `qwen-plus` | 是 |
 | 硅基流动 SiliconFlow | `@ai-sdk/openai-compatible` | `https://api.siliconflow.cn/v1` | `Qwen/Qwen2.5-7B-Instruct` | 是 |
-| 火山引擎豆包 | `@ai-sdk/openai-compatible` | `https://ark.cn-beijing.volces.com/api/v3` | `doubao-1-5-pro-32k-250115` | 是 |
+| 火山引擎豆包 | `@ai-sdk/openai-compatible` | `https://ark.cn-beijing.volces.com/api/v3` | `doubao-seed-2-0-mini-260428` | 是 |
 | Azure OpenAI | `@ai-sdk/azure` | 需自行填寫 | `gpt-4.1-mini` | 是 |
 | LM Studio（本機） | `@ai-sdk/openai-compatible` | `http://localhost:1234/v1` | `qwen2.5-7b-instruct` | 否 |
 | 自訂 OpenAI 相容服務 | `@ai-sdk/openai-compatible` | 需自行填寫 | 需自行填寫 | 否 |

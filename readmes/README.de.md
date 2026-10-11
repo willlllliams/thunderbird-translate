@@ -346,7 +346,7 @@ Alle KI-Anbieter werden über `generateText` des Vercel AI SDK aufgerufen. Anbie
 | 智谱 GLM (Zhipu) | `@ai-sdk/openai-compatible` | `https://open.bigmodel.cn/api/paas/v4` | `glm-4-flash` | Ja |
 | 通义千问 / 阿里云百炼 (DashScope) | `@ai-sdk/alibaba` | `https://dashscope.aliyuncs.com/compatible-mode/v1` | `qwen-plus` | Ja |
 | 硅基流动 SiliconFlow | `@ai-sdk/openai-compatible` | `https://api.siliconflow.cn/v1` | `Qwen/Qwen2.5-7B-Instruct` | Ja |
-| 火山引擎豆包 (Volcengine Ark) | `@ai-sdk/openai-compatible` | `https://ark.cn-beijing.volces.com/api/v3` | `doubao-1-5-pro-32k-250115` | Ja |
+| 火山引擎豆包 (Volcengine Ark) | `@ai-sdk/openai-compatible` | `https://ark.cn-beijing.volces.com/api/v3` | `doubao-seed-2-0-mini-260428` | Ja |
 | Azure OpenAI | `@ai-sdk/azure` | Muss ausgefüllt werden | `gpt-4.1-mini` | Ja |
 | LM Studio (lokal) | `@ai-sdk/openai-compatible` | `http://localhost:1234/v1` | `qwen2.5-7b-instruct` | Nein |
 | Benutzerdefiniert (OpenAI-kompatibel) | `@ai-sdk/openai-compatible` | Muss ausgefüllt werden | Muss ausgefüllt werden | Nein |

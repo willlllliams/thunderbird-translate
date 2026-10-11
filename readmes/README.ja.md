@@ -357,7 +357,7 @@ Bergamot サービスは、Firefox Translations のエンジンと翻訳モデ�
 | 智谱 GLM (Zhipu) | `@ai-sdk/openai-compatible` | `https://open.bigmodel.cn/api/paas/v4` | `glm-4-flash` | 必要 |
 | 通义千问 / 阿里云百炼 (DashScope) | `@ai-sdk/alibaba` | `https://dashscope.aliyuncs.com/compatible-mode/v1` | `qwen-plus` | 必要 |
 | 硅基流动 SiliconFlow | `@ai-sdk/openai-compatible` | `https://api.siliconflow.cn/v1` | `Qwen/Qwen2.5-7B-Instruct` | 必要 |
-| 火山引擎豆包 (Volcengine Ark) | `@ai-sdk/openai-compatible` | `https://ark.cn-beijing.volces.com/api/v3` | `doubao-1-5-pro-32k-250115` | 必要 |
+| 火山引擎豆包 (Volcengine Ark) | `@ai-sdk/openai-compatible` | `https://ark.cn-beijing.volces.com/api/v3` | `doubao-seed-2-0-mini-260428` | 必要 |
 | Azure OpenAI | `@ai-sdk/azure` | 入力が必要 | `gpt-4.1-mini` | 必要 |
 | LM Studio（ローカル） | `@ai-sdk/openai-compatible` | `http://localhost:1234/v1` | `qwen2.5-7b-instruct` | 不要 |
 | カスタム OpenAI 互換 | `@ai-sdk/openai-compatible` | 入力が必要 | 入力が必要 | 不要 |

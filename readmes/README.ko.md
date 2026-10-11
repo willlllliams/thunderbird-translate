@@ -357,7 +357,7 @@ Bergamot 서비스는 Firefox Translations의 엔진과 모델로 사용자의 �
 | 智谱 GLM (Zhipu) | `@ai-sdk/openai-compatible` | `https://open.bigmodel.cn/api/paas/v4` | `glm-4-flash` | 예 |
 | 通义千问 / 阿里云百炼 (DashScope) | `@ai-sdk/alibaba` | `https://dashscope.aliyuncs.com/compatible-mode/v1` | `qwen-plus` | 예 |
 | 硅基流动 SiliconFlow | `@ai-sdk/openai-compatible` | `https://api.siliconflow.cn/v1` | `Qwen/Qwen2.5-7B-Instruct` | 예 |
-| 火山引擎豆包 (Volcengine Ark) | `@ai-sdk/openai-compatible` | `https://ark.cn-beijing.volces.com/api/v3` | `doubao-1-5-pro-32k-250115` | 예 |
+| 火山引擎豆包 (Volcengine Ark) | `@ai-sdk/openai-compatible` | `https://ark.cn-beijing.volces.com/api/v3` | `doubao-seed-2-0-mini-260428` | 예 |
 | Azure OpenAI | `@ai-sdk/azure` | 직접 입력 필요 | `gpt-4.1-mini` | 예 |
 | LM Studio (로컬) | `@ai-sdk/openai-compatible` | `http://localhost:1234/v1` | `qwen2.5-7b-instruct` | 아니요 |
 | 사용자 지정 OpenAI 호환 | `@ai-sdk/openai-compatible` | 직접 입력 필요 | 직접 입력 필요 | 아니요 |
