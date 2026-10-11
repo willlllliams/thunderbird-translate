@@ -235,3 +235,13 @@ describe("public settings", () => {
     expect(JSON.stringify(pub)).not.toContain("SECRET")
   })
 })
+
+describe("muted notices about missing offline data", () => {
+  it("keeps service and language pair entries once each, and hands them to content scripts", () => {
+    const s = normalizeSettings({ offlineMutedPairs: ["dictionary:ja>zh-Hans", "bergamot:de>en", "dictionary:ja>zh-Hans", "google:de>en", "ja>zh-Hans", 3, null] })
+    expect(s.offlineMutedPairs).toEqual(["dictionary:ja>zh-Hans", "bergamot:de>en"])
+    expect(normalizeSettings({ offlineMutedPairs: "dictionary:ja>zh-Hans" }).offlineMutedPairs).toEqual([])
+    expect(createDefaultSettings().offlineMutedPairs).toEqual([])
+    expect(toPublicSettings(s).offlineMutedPairs).toEqual(["dictionary:ja>zh-Hans", "bergamot:de>en"])
+  })
+})

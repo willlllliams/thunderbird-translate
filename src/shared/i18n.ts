@@ -9,7 +9,7 @@
  */
 
 import enSource from "../../locales/en.json"
-import { languageTag } from "./languages"
+import { appLang, LANGUAGES, languageTag } from "./languages"
 import { DEFAULT_LOCALE, localeToLanguageTag, resolveUiLocale, textDirection, type UiLocale } from "./locales"
 
 export type MessageKey = keyof typeof enSource
@@ -102,6 +102,22 @@ export class I18n {
     local = local.charAt(0).toLocaleUpperCase(this.lang) + local.slice(1)
     if (local.toLocaleLowerCase(this.lang) === native.toLocaleLowerCase(this.lang)) return native
     return this.t("languageNameFormat", [local, native])
+  }
+
+  /** Name of a language tag of the dictionary packs and offline models (en, zh-Hans, nb…). */
+  tagName(tag: string): string {
+    const known = LANGUAGES.find((l) => l.code === appLang(tag))
+    if (known) return this.languageName(known.code, known.native)
+    try {
+      return new Intl.DisplayNames([this.lang, "en"], { type: "language" }).of(tag) ?? tag
+    } catch {
+      return tag
+    }
+  }
+
+  /** Name of a direction: "en>zh-Hans" → "English → 简体中文". */
+  pairName(pair: string): string {
+    return pair.split(">").map((tag) => this.tagName(tag)).join(" → ")
   }
 }
 

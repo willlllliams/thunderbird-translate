@@ -19,6 +19,7 @@ import {
 } from "../shared/messages"
 import type { Tier } from "../shared/providers"
 import { TranslationController } from "./controller"
+import { MissingNotice } from "./notice"
 import { createE2eProbe } from "../e2e/content"
 
 declare const __DEBUG__: boolean
@@ -26,7 +27,7 @@ declare const __E2E__: boolean
 
 export interface ClientOptions {
   root: () => HTMLElement | null
-  /** Content script: load the labels of the interface language through the background and decide on auto-translation. Extension pages load their labels themselves. */
+  /** Content script: load the labels of the interface language through the background, decide on auto-translation and show the notice about missing offline data. Extension pages load their labels themselves. */
   contentScript?: boolean
 }
 
@@ -53,8 +54,17 @@ export function connectContent({ root, contentScript = false }: ClientOptions): 
   /** Translation requests that are not complete yet, with the tiers that have not answered. */
   const pending = new Map<number, { resolve: () => void; onTier: (tier: Tier, result: TranslateResponse) => void; tiers: Set<Tier> }>()
   let nextId = 0
+  let mutedPairs: string[] = []
+  const notice = contentScript
+    ? new MissingNotice({
+        root,
+        muted: () => mutedPairs,
+        send: (req) => void ext.runtime.sendMessage(req).catch(() => {}),
+      })
+    : undefined
 
   const controller = new TranslationController({
+    notice,
     root,
     translate: (request, onTier) =>
       new Promise((resolve) => {
@@ -79,7 +89,7 @@ export function connectContent({ root, contentScript = false }: ClientOptions): 
   })
 
   // Test build (npm run e2e): runs the end-to-end scenario on the displayed message instead of auto-translation.
-  const probe = __E2E__ && contentScript ? createE2eProbe(root, controller) : null
+  const probe = __E2E__ && contentScript ? createE2eProbe(root, controller, notice) : null
 
   let markReady!: () => void
   const ready = new Promise<void>((resolve) => (markReady = resolve))
@@ -91,6 +101,8 @@ export function connectContent({ root, contentScript = false }: ClientOptions): 
     const msg = raw as PortPush
     if (msg.type === "settings") {
       const next = msg.settings
+      mutedPairs = next.offlineMutedPairs
+      if (__E2E__) probe?.settings(next)
       settingsApplied = settingsApplied.then(async () => {
         if (contentScript && next.uiLanguage !== uiLanguage) {
           uiLanguage = next.uiLanguage

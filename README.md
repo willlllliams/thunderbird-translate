@@ -77,7 +77,7 @@ Each step asks for one decision and saves it at once. "Back", "Next" and "Skip t
 | 1 Languages | interface language, source language ("Detect automatically" by default), target language | always |
 | 2 Display | bilingual or translation only, with a preview of a sample message in the current translation style | always |
 | 3 Translation tiers | speed, quality, privacy and cost of the dictionary, machine translation and AI tiers; the service of each tier or "Not used", at least one tier with a service | always |
-| 4 Offline translation | the dictionary packs and Bergamot directions the languages of step 1 need, with size, license and attribution; tick the ones to download, then "Download selected" with progress | the dictionary tier is used or the machine tier uses Bergamot |
+| 4 Offline translation | every dictionary pack and Bergamot direction with size, license and attribution, those of your languages first and ticked; tick the ones to download, then "Download selected" with progress, or "Download common languages" | the dictionary tier is used or the machine tier uses Bergamot |
 | 5 Online machine translation | the fields of the machine translator: nothing to fill in for Google, free or Azure key mode for Microsoft, endpoint and token for DeepLX; "Test connection" | the machine tier uses Google, Microsoft or DeepLX |
 | 6 AI translation | the AI provider, its API key, model, temperature and thinking mode, "Test connection", and the precise translation switch; a note that thinking mode and precise translation make translation slower and more expensive | the AI tier is used |
 | 7 Prompts | the three prompts and the preset library (see Prompt presets) | the AI tier is used |
@@ -85,7 +85,12 @@ Each step asks for one decision and saves it at once. "Back", "Next" and "Skip t
 
 A step that the earlier choices do not need stays in the list, struck through, and the navigation passes over it. Choosing an AI service in step 3, for example, brings steps 6 and 7 back.
 
-For a source language set to Japanese and a target language set to Simplified Chinese, step 4 lists the dictionary pack Japanese → Chinese when the release has it, otherwise Japanese → English and English → Chinese, and the Bergamot directions ja → en and en → zh-Hans, since every Bergamot model has English on one side. With "Detect automatically" it lists the packs and directions from English, and a note asks for the direction into English of every other language you receive.
+Step 4 lists every direction of both catalogs; the order and the labels are described under [Offline lists](#offline-lists). What is ticked depends on the source language:
+
+- A fixed source language: the directions the pair needs. For Japanese → Simplified Chinese these are the dictionary pack Japanese → Chinese when the release has it, otherwise Japanese → English and English → Chinese, and the Bergamot directions ja → en and en → zh-Hans, since every Bergamot model has English on one side.
+- "Detect automatically": the directions of the recommended languages in both directions with English. A note explains the route: a message in another language goes into English with "language → English" and from there with "English → target language".
+
+"Download selected" is disabled while nothing is ticked, and the line next to it then says "Tick the items to download first.". During the download it shows "Downloading N items…", at the end "Downloads finished." or the number of failed downloads; each failed row shows its reason.
 
 "Translate the sample message" in step 8 renders a short email in the page, in the source language when it is English or German, otherwise in English, or in German when the target language is English, and translates it with the current settings. The page uses the paragraph detection and rendering of the content script and sends the requests to the background script over the same connection as a displayed message, so the result shows what a real message will look like, including the tiers in use.
 
@@ -98,7 +103,7 @@ Open a message. A "Translate message" button appears in the message header toolb
 - "Translate this message": starts translating. While a translation is running or shown, the button reads "Show original" and restores the original when clicked.
 - Display: switches between bilingual and translation-only; the change applies to the current message immediately.
 - Source language and target language: "Detect automatically" is the default source language. After a change of either, a message being translated is translated again. A note appears when both are the same language.
-- Translation tiers: one list per tier (1 dictionary, 2 machine translation, 3 AI translation), each with "Not used" and the added services of that tier. At least one tier needs a service; choosing "Not used" for the last one is refused with a note. "+ Add translation service" below the lists opens the settings page at the translation services.
+- Translation tiers: one list per tier (1 dictionary, 2 machine translation, 3 AI translation), each with "Not used", the added services of that tier and, as last entry, "+ Add translation service…". That entry opens the settings page at the translation services of the tier and leaves the list at its value. At least one tier needs a service; choosing "Not used" for the last one is refused with a note. A selected dictionary or Bergamot that lacks data for the current languages is marked, see [Missing offline data](#missing-offline-data).
 - Precise translation: shown while the AI tier has a service.
 - Automatically translate messages not in the target language: when checked, a message whose body is not in the target language is translated as soon as it is opened.
 - Setup guide: opens the setup guide in a new tab.
@@ -116,10 +121,10 @@ Open the settings page with the "Options" button of this extension in the Add-on
 | Section | Contents |
 | --- | --- |
 | General | Interface language, source language, target language, default display mode, the switch "Automatically translate messages not in the target language" |
-| Translation tiers | The service of each tier or "Not used"; precise translation |
-| Translation services | Services in two groups, "Added" and "Available to add"; endpoint, API key, model, temperature and thinking mode of each service; "Test connection", "Add", "Use this service" and "Remove" buttons |
-| Dictionaries | Language pairs of the dictionary tier with size, license and attribution; download and delete; release tag of the packs (advanced) |
-| Offline translation models (Bergamot) | Direction pairs of the Bergamot models with size and version; filter by language; download, update, cancel and delete; the directions the current languages need |
+| Translation tiers | The service of each tier or "Not used", with the mark of an offline service that lacks data; precise translation; the muted notices about missing offline data, with "Remind me again" |
+| Translation services | Services in two groups, "Added" and "Available to add", filtered by tier; endpoint, API key, model, temperature and thinking mode of each service; "Test connection", "Add", "Use this service" and "Remove" buttons |
+| Dictionaries | Every pack of the release with size, license and attribution, those of the recommended languages first; filter; "Download common languages"; download and delete; release tag of the packs (advanced) |
+| Offline translation models (Bergamot) | Every direction of the Bergamot models with size and version, those of the recommended languages first; filter; "Download common languages"; download, update, cancel and delete; the directions the current languages need |
 | Prompts (AI tier) | The preset library; the prompts for bilingual display, translation-only display and precise translation, each with "Restore built-in prompt" |
 | Request batching | Collection window, maximum characters and paragraphs per request, concurrency, retries, request timeout (60 seconds by default; three times as long for Ollama, LM Studio and thinking mode), whether to merge AI requests |
 | Translation style | Left border, dashed left border, highlight or plain; accent color, text opacity, font size ratio; live preview |
@@ -204,6 +209,7 @@ The preset library sits above the three prompts on the settings page and in step
 
 | Preset | Variants | Rule added to the prompt |
 | --- | --- | --- |
+| Plain (no added rules), the first entry | none | none: applying it removes every block that a preset added to the prompt and keeps the text you wrote; a prompt that is then the built-in one is stored as empty again |
 | Dialect or regional usage | by target language: Cantonese (Hong Kong) and Sichuanese for Simplified Chinese; Cantonese (Hong Kong) and Taiwan usage for Traditional Chinese; British and American English; Brazilian and European Portuguese; Mexican Spanish and Spanish of Spain; Canadian French (Quebec); Swiss Standard German | write in that variety, with its spelling, vocabulary and forms of address |
 | Difficult words with the original | none | translate normally and put the original term in parentheses after each difficult word or technical term, once per paragraph, for example 尽职调查（due diligence） |
 | Explanations of difficult words | none | translate the paragraph, then explain its difficult words in the target language at the end of the same paragraph in one bracket: 〔Note: term: explanation; …〕 |
@@ -265,7 +271,44 @@ The packs are built from Wiktionary, extracted by wiktextract and published by k
 
 The Bergamot service translates on your computer with the engine and the models of Firefox Translations, published by Mozilla under MPL-2.0. The engine ships with the extension; each translation direction is downloaded once from Mozilla, 13 to 48 MB, and stored in the extension's IndexedDB. A loaded direction takes about 200 MB of memory and is released after five minutes without use. Every model has English on one side, so Japanese to Chinese uses Japanese → English and English → Chinese.
 
-The section "Offline translation models (Bergamot)" of the settings page lists the 114 direction pairs among 58 languages with size and version, filtered by language. It names the directions the current source and target language need and lists them first. Downloads show their progress and can be canceled; the model list fails after 30 seconds without an answer, and a download that receives no data for 30 seconds stops with an error; an installed pair with a newer version offered by Mozilla shows "Update". Deleting a pair that the current languages need asks for confirmation. Installation, translation and removal run in the background script, where the engine lives. [docs/bergamot.md](docs/bergamot.md) describes model selection, verification, storage and the engine.
+The section "Offline translation models (Bergamot)" of the settings page lists the 114 direction pairs among 58 languages with size and version, in the order described under [Offline lists](#offline-lists). It names the directions the current source and target language need. Downloads show their progress and can be canceled; the model list fails after 30 seconds without an answer, and a download that receives no data for 30 seconds stops with an error; an installed pair with a newer version offered by Mozilla shows "Update". Deleting a pair that the current languages need asks for confirmation. Installation, translation and removal run in the background script, where the engine lives. [docs/bergamot.md](docs/bergamot.md) describes model selection, verification, storage and the engine.
+
+## Offline lists
+
+The dictionary list and the Bergamot list, on the settings page and in step 4 of the setup guide, show every direction of their catalog and the installed ones. A filter field takes language names or directions such as `ja>en`; several terms are separated by commas.
+
+The directions of the recommended languages come first. A recommended language comes from one or more of these sources, in this order of importance:
+
+1. the target language;
+2. the source language, when it is fixed;
+3. the interface language of the extension ("Follow Thunderbird" counts as Thunderbird's language);
+4. Thunderbird's interface language;
+5. the system languages (`i18n.getPreferredSystemLanguages()`; Thunderbird versions without it use the locale of the `Intl` formats).
+
+For every recommended language X other than English, the directions X → English and English → X are recommended, and for the dictionary also the direct packs between X and the target language when the release has them. Each recommended row carries its sources as labels, plus "Direct" for a direction into the target language and "Via English" for one into English that serves the route through English. The other directions follow by name.
+
+"Download common languages" downloads the directions to and from English of eight fixed languages: Simplified Chinese, Spanish, French, German, Japanese, Portuguese, Russian and Korean, as far as the catalog has them. Before downloading it lists the directions and their total size; installed directions are left out. When all are installed, the button is disabled and says "The common languages are all installed.".
+
+## Missing offline data
+
+The rule for what a language pair needs is the same everywhere:
+
+| Service | Pair with English on one side | Pair without English |
+| --- | --- | --- |
+| Dictionary | the direct pack | the direct pack when the release has it, otherwise source → English and English → target |
+| Bergamot | the direct direction | source → English and English → target |
+
+Simplified ↔ Traditional Chinese and pairs whose directions the catalog does not offer are unsupported: there is nothing to download, and the paragraphs go to the other tiers.
+
+When the dictionary tier or Bergamot in the machine tier fails for paragraphs of a message because a pack or model is missing, a notice appears above the message once the first translation round has finished. It appears once per message and only for the offline tiers in use. It lists one line per service and language pair, for example "Dictionary: Japanese → Simplified Chinese, missing Japanese → English and English → Simplified Chinese", and has three controls:
+
+- "Download in settings" opens the settings page with both offline lists filtered to the missing directions.
+- "Don't remind me for these languages" mutes the listed entries, per service and language pair. The muted entries are listed under "Translation tiers" on the settings page, and "Remind me again" brings them back.
+- "Close" removes the notice.
+
+Paragraphs whose language was only guessed, network errors and unsupported pairs do not count. The paragraphs still get the translations of the other tiers; with only offline tiers in use they stay failed.
+
+In the popup and on the settings page, a selected dictionary or Bergamot that lacks what the current languages need reads "Dictionary (local model not downloaded)" or "Bergamot (local model not downloaded)" in red, and a line under the tier lists names the missing directions with a "Download" link to the filtered lists. With automatic detection the direction from English into the target language counts; for English as target, at least one direction into English. An unsupported pair is named on that line without red. The marks follow installations and deletions made on other pages.
 
 ## Interface language
 

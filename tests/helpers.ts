@@ -109,8 +109,11 @@ export async function openPage(
     stored: other = {},
     activeTab,
     currentTab = { id: 7 },
+    systemLanguages = [],
   }: {
     uiLanguage?: string
+    /** i18n.getPreferredSystemLanguages(); null: a Thunderbird without it. */
+    systemLanguages?: string[] | null
     respond?: (req: BackgroundRequest) => unknown
     /** runtime.connect(), for the content script's Port. */
     connect?: (info: { name: string }) => unknown
@@ -130,12 +133,19 @@ export async function openPage(
   const created: string[] = []
   const removed: number[] = []
   const listeners: ((changes: object, area: string) => void)[] = []
+  const messageListeners: ((message: unknown) => void)[] = []
   const notify = () => listeners.forEach((l) => l({ settings: { newValue: structuredClone(stored) } }, "local"))
   const sendMessage = vi.fn(async (req: BackgroundRequest) => respond?.(req) ?? (req.type === "cacheStats" ? { size: 0 } : undefined))
   const openOptionsPage = vi.fn()
   const close = vi.fn()
   vi.stubGlobal("browser", {
-    runtime: { sendMessage, getURL: (path: string) => `moz-extension://test/${path}`, openOptionsPage, connect },
+    runtime: {
+      sendMessage,
+      getURL: (path: string) => `moz-extension://test/${path}`,
+      openOptionsPage,
+      connect,
+      onMessage: { addListener: (l: (message: unknown) => void) => void messageListeners.push(l) },
+    },
     tabs: {
       query: async () => (activeTab ? [activeTab] : []),
       create: vi.fn(async ({ url }: { url: string }) => void created.push(url)),
@@ -156,7 +166,7 @@ export async function openPage(
       },
       onChanged: { addListener: (l: (changes: object, area: string) => void) => void listeners.push(l) },
     },
-    i18n: { getUILanguage: () => uiLanguage },
+    i18n: { getUILanguage: () => uiLanguage, ...(systemLanguages ? { getPreferredSystemLanguages: async () => systemLanguages } : {}) },
   })
   vi.stubGlobal("close", close)
   // _locales/<locale>/messages.json packaged with the extension.
@@ -184,6 +194,10 @@ export async function openPage(
     external(change: (s: Settings) => void, announce = true) {
       change(stored)
       if (announce) notify()
+    },
+    /** A message of the background script to the extension pages, e.g. { type: "offlineDataChanged" }. */
+    notify(message: unknown) {
+      messageListeners.forEach((l) => l(message))
     },
     /** A raw storage change event, e.g. of another storage area. */
     emitChange(changes: object, area: string) {

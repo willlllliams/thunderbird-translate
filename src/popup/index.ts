@@ -3,8 +3,8 @@ import { ext } from "../shared/ext"
 import { t } from "../shared/i18n"
 import { localizeDocument } from "../shared/i18n-dom"
 import { loadExtensionI18n } from "../shared/i18n-ext"
-import { IDLE_TAB_STATE, type TabState } from "../shared/messages"
-import { $, fillSelect, fillTierSelects, languageOptions, onTierChange, send, sourceLanguageOptions } from "../shared/page"
+import { IDLE_TAB_STATE, type OfflineStatus, type OptionsPlace, optionsPath, type PageNotice, type TabState } from "../shared/messages"
+import { $, fillSelect, fillTierSelects, languageOptions, offlineStatus, onTierChange, send, showOfflineHint, sourceLanguageOptions } from "../shared/page"
 import { type DisplayMode, SETTINGS_KEY } from "../shared/settings"
 import { loadSettings, readSettings, updateSettings } from "../shared/settings-store"
 
@@ -24,10 +24,22 @@ async function main(): Promise<void> {
   const autoTranslate = $<HTMLInputElement>("autoTranslate")
   const preciseEnabled = $<HTMLInputElement>("preciseEnabled")
 
+  /** Open the settings page at a place and close the popup. */
+  const openOptions = (place: OptionsPlace) => {
+    void ext.tabs.create({ url: ext.runtime.getURL(optionsPath(place)) })
+    window.close()
+  }
+  // A selected offline service without the data for the languages is marked in its selector, with a link to the downloads.
+  let offline: OfflineStatus = {}
   const fillSelects = () => {
     fillSelect(sourceLang, sourceLanguageOptions(), settings.sourceLang)
     fillSelect(targetLang, languageOptions(), settings.targetLang)
-    fillTierSelects(settings)
+    fillTierSelects(settings, false, offline)
+    showOfflineHint($("offlineMissing"), settings, offline, openOptions)
+  }
+  const refreshOffline = async () => {
+    offline = await offlineStatus(settings)
+    fillSelects()
   }
   const modeRadios = Array.from(document.querySelectorAll<HTMLInputElement>('input[name="mode"]'))
   // The switches follow settings changed elsewhere, e.g. on the settings page. Precise translation applies to the AI tier only.
@@ -51,6 +63,7 @@ async function main(): Promise<void> {
   onTierChange(
     () => settings.tiers,
     (tier, value) => void updateSettings((s) => (s.tiers[tier] = value)),
+    (tier) => openOptions({ section: "providers", tier }),
   )
   autoTranslate.addEventListener("change", () => void updateSettings((s) => (s.autoTranslate = autoTranslate.checked)))
   preciseEnabled.addEventListener("change", () => void updateSettings((s) => (s.precise.enabled = preciseEnabled.checked)))
@@ -62,10 +75,6 @@ async function main(): Promise<void> {
   $("openWelcome").addEventListener("click", (e) => {
     e.preventDefault()
     void ext.tabs.create({ url: ext.runtime.getURL("welcome.html") })
-    window.close()
-  })
-  $("addProvider").addEventListener("click", () => {
-    void ext.tabs.create({ url: ext.runtime.getURL("options.html#providers") })
     window.close()
   })
 
@@ -98,8 +107,11 @@ async function main(): Promise<void> {
   // The popup and the settings page change the settings; the interface language may change too.
   ext.storage.onChanged.addListener((changes, area) => {
     if (area !== "local" || !changes[SETTINGS_KEY]) return
+    const before = settings
     settings = readSettings(changes[SETTINGS_KEY].newValue)
     showSwitches()
+    const languages = (s: typeof settings) => JSON.stringify([s.sourceLang, s.targetLang, s.tiers])
+    if (languages(settings) !== languages(before)) void refreshOffline()
     if (settings.uiLanguage === uiLanguage) {
       fillSelects()
       return
@@ -117,6 +129,12 @@ async function main(): Promise<void> {
     await send({ type: "toggleTab", tabId })
     setTimeout(refresh, 150)
   })
+
+  // Packs or models were installed or deleted on another page.
+  ext.runtime.onMessage.addListener((message: unknown) => {
+    if ((message as PageNotice | undefined)?.type === "offlineDataChanged") void refreshOffline()
+  })
+  void refreshOffline()
 
   await refresh()
   setInterval(refresh, 500)

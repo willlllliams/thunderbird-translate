@@ -17,7 +17,7 @@
  */
 
 import { getBergamot } from "../offline/bergamot"
-import { describeError, type ErrorContext } from "../shared/errors"
+import { describeError, type ErrorContext, type MissingData, missingData } from "../shared/errors"
 import { hashText } from "../shared/hash"
 import { ENGLISH, type I18n } from "../shared/i18n"
 import type { LanguageDetector } from "../shared/lang-detect"
@@ -38,7 +38,8 @@ import type { LlmCallOptions } from "./translators/llm"
 import { BatchParseError, buildContextBlock, type MailAnalysis, MAX_PREFIX_TEXT_CHARS, parseAnalysis, type Segment } from "./translators/llm-prompt"
 import { AZURE_LIMITS, microsoftTranslateBatch } from "./translators/microsoft"
 
-type ItemResult = { ok: true; text: string } | { ok: false; error: string }
+/** Result of one paragraph; a failure for lack of a dictionary pack or offline model names what is missing. */
+type ItemResult = { ok: true; text: string } | { ok: false; error: string; missing?: MissingData }
 
 interface Job {
   text: string
@@ -226,7 +227,7 @@ export class TranslationService {
     // A part without text holds the whitespace at the start of the paragraph; joinParts() puts it back.
     const results = await Promise.all(parts.map(({ text }): ItemResult | Promise<ItemResult> => (text ? this.batchQueue.enqueue({ ...job, text }) : { ok: true, text: "" })))
     const texts = results.map((result) => {
-      if (!result.ok) throw new Error(result.error)
+      if (!result.ok) throw Object.assign(new Error(result.error), { missing: result.missing })
       return result.text
     })
     const text = joinParts(parts, texts, job.targetLang)
@@ -238,8 +239,14 @@ export class TranslationService {
     try {
       return { ok: true, text: await this.run(job) }
     } catch (error) {
-      return { ok: false, error: this.errorMessage(error) }
+      return this.failure(error)
     }
+  }
+
+  /** A failed result; one caused by a missing pack or model says which. */
+  private failure(error: unknown, provider?: ResolvedProvider): { ok: false; error: string; missing?: MissingData } {
+    const missing = missingData(error)
+    return { ok: false, error: this.errorMessage(error, provider), ...(missing ? { missing } : {}) }
   }
 
   /**
@@ -361,7 +368,7 @@ export class TranslationService {
     const fetchOpts = { fetchFn: this.deps.fetchFn, timeoutMs: this.timeoutMs(first.provider) }
 
     const ok = (text: string): ItemResult => ({ ok: true, text })
-    const fail = (error: unknown): ItemResult => ({ ok: false, error: this.errorMessage(error, first.provider) })
+    const fail = (error: unknown): ItemResult => this.failure(error, first.provider)
     const failAll = (error: unknown) => jobs.map(() => fail(error))
     /** One request for the whole batch, answering for every paragraph on its own. */
     const settled = (fn: () => Promise<PromiseSettledResult<string>[]>): Promise<ItemResult[]> =>

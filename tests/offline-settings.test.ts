@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-/** The "Dictionaries" and "Offline models" panels of the settings and welcome pages, driven directly with a fake background script. */
+/** The "Dictionaries" and "Offline models" lists of the settings and welcome pages, driven directly with a fake background script. */
 import { Blob as NodeBlob } from "node:buffer"
 import { IDBFactory } from "fake-indexeddb"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
@@ -8,6 +8,8 @@ import type { BergamotPairInfo } from "../src/offline/bergamot"
 import { describeError } from "../src/shared/errors"
 import { ENGLISH } from "../src/shared/i18n"
 import type { BackgroundRequest } from "../src/shared/messages"
+import { languageTag } from "../src/shared/languages"
+import type { SourcedLanguage } from "../src/shared/offline-needs"
 import { gz, packEntry, releaseServer, tsv } from "./fixtures/dictionary"
 import { asFetch, jsonResponse } from "./helpers"
 
@@ -22,7 +24,8 @@ const sendMessage = vi.hoisted(() => {
 vi.stubGlobal("Blob", NodeBlob)
 
 const { BergamotSection } = await import("../src/options/bergamot")
-const { DictionarySection, neededPackIds } = await import("../src/options/dictionaries")
+const { DictionarySection } = await import("../src/options/dictionaries")
+const { loadSystemLanguages, recommendedFor } = await import("../src/options/offline-list")
 
 /** Background script stand-in: `answers` by request type; records every request. */
 function background(answers: Partial<Record<BackgroundRequest["type"], (req: BackgroundRequest) => unknown>>) {
@@ -40,10 +43,23 @@ function panel() {
   const status = document.createElement("div")
   const needed = document.createElement("div")
   const filter = document.createElement("input")
-  document.body.replaceChildren(list, status, needed, filter)
+  const common = document.createElement("div")
+  document.body.replaceChildren(list, status, needed, filter, common)
   const rows = () => Array.from(list.querySelectorAll("li"))
   const row = (start: string) => rows().find((li) => li.textContent!.startsWith(start))!
-  return { list, status, needed, filter, rows, row }
+  const names = () => rows().map((li) => li.querySelector(".dict-name")!.textContent)
+  /** Names of the rows whose check box is ticked. */
+  const ticked = () => rows().filter((li) => li.querySelector<HTMLInputElement>("input[type=checkbox]")?.checked).map((li) => li.querySelector(".dict-name")!.textContent)
+  const labels = (start: string) => Array.from(row(start).querySelectorAll(".lang-sources .tag"), (el) => el.textContent)
+  const commonButton = () => Array.from(common.querySelectorAll("button")).find((b) => b.textContent === ENGLISH.t("buttonDownloadCommon"))!
+  return { list, status, needed, filter, common, rows, row, names, ticked, labels, commonButton }
+}
+
+/** Options shared by both lists: languages of the settings, recommended languages, welcome page. */
+interface ListOptions {
+  languages?: { source: string; target: string }
+  recommended?: SourcedLanguage[]
+  pick?: boolean
 }
 const button = (li: Element, text: string) => Array.from(li.querySelectorAll("button")).find((b) => b.textContent === text)
 const unknownError = describeError(undefined, ENGLISH)
@@ -55,36 +71,33 @@ afterEach(() => vi.useRealTimers())
 
 /* ---------- dictionaries ---------- */
 
+/* ---------- dictionaries ---------- */
+
 const EN_DE = tsv("en", "de", { hello: "hallo" })
 const FR_EN = tsv("fr", "en", { bonjour: "hello" })
+const EN_FR = tsv("en", "fr", { hello: "bonjour" })
 const EN_JA = tsv("en", "ja", { hello: "こんにちは" })
+const DE_EN = tsv("de", "en", { hallo: "hello" })
 
-function dictionaries(texts: string[], options: { needed?: { source: string; target: string }; fetchFn?: typeof fetch } = {}) {
+function dictionaries(texts: string[], options: ListOptions & { fetchFn?: typeof fetch } = {}) {
   const p = panel()
   const store = new DictionaryStore(() => new IDBFactory())
   const section = new DictionarySection({
     tag: () => "dicts-v1",
     list: p.list,
     status: p.status,
+    common: p.common,
+    filter: p.filter,
     store,
     fetchFn: options.fetchFn ?? asFetch(releaseServer(texts)),
-    needed: options.needed && (() => options.needed!),
+    languages: () => options.languages ?? { source: "de", target: "en" },
+    recommended: () => options.recommended ?? [],
+    pick: options.pick,
   })
   return { ...p, store, section }
 }
 
-describe("dictionary panel", () => {
-  it.each([
-    ["auto", "zh-CN", [], ["en>zh-Hans"]],
-    ["fr", "de", [], ["fr>en", "en>de"]],
-    ["fr", "de", [{ src: "fr", tgt: "de" }], ["fr>de"]],
-    ["de", "en", [], ["de>en"]],
-    ["en", "en-GB", [], []],
-    ["it", "en", [], []],
-  ])("needs for %s → %s the packs %j → %j", (source, target, available, ids) => {
-    expect(neededPackIds(source, target, available)).toEqual(ids)
-  })
-
+describe("dictionary list", () => {
   it("says while loading, and when the release has no packs", async () => {
     const d = dictionaries([])
     const loading = d.section.load()
@@ -153,7 +166,7 @@ describe("dictionary panel", () => {
     const other = dictionaries([FR_EN])
     await other.store.put({ ...(await d.store.list())[0]! }, gz(EN_DE).buffer)
     await other.section.load()
-    expect(other.rows().map((li) => li.querySelector(".dict-name")!.textContent)).toEqual(["French (Français) → English", "English → German (Deutsch)"])
+    expect(other.names()).toEqual(["English → German (Deutsch)", "French (Français) → English"])
     const remove = vi.spyOn(other.store, "remove").mockRejectedValueOnce(new Error("database locked"))
     button(other.row("English"), ENGLISH.t("buttonDelete"))!.click()
     await vi.waitFor(() => expect(other.row("English").querySelector(".test-result")?.textContent).toBe("database locked"))
@@ -164,30 +177,89 @@ describe("dictionary panel", () => {
     expect(requests).toEqual([{ type: "dictionaryChanged" }])
   })
 
-  it("on the welcome page lists only the needed packs, with check boxes, and downloads the picked ones", async () => {
+  it("on the welcome page lists every pack with a check box, ticks those the language pair needs and downloads the ticked ones", async () => {
     background({})
-    const d = dictionaries([EN_DE, FR_EN, EN_JA], { needed: { source: "fr", target: "de" } })
+    const d = dictionaries([EN_DE, FR_EN, EN_JA], { languages: { source: "fr", target: "de" }, pick: true })
     await d.section.load()
-    expect(d.rows().map((li) => li.querySelector(".dict-name")!.textContent)).toEqual(["French (Français) → English", "English → German (Deutsch)"])
+    expect(d.names()).toEqual(["English → German (Deutsch)", "English → Japanese (日本語)", "French (Français) → English"])
     expect(d.rows().every((li) => li.querySelector("input[type=checkbox]") && !li.querySelector("button"))).toBe(true)
-    const box = d.row("English").querySelector<HTMLInputElement>("input")!
-    box.checked = false
-    box.dispatchEvent(new Event("change"))
-    box.checked = true
-    box.dispatchEvent(new Event("change"))
+    expect(d.ticked()).toEqual(["English → German (Deutsch)", "French (Français) → English"])
     const fr = d.row("French").querySelector<HTMLInputElement>("input")!
     fr.checked = false
     fr.dispatchEvent(new Event("change"))
-    await d.section.downloadPicked()
+    expect(d.section.picked().map((p) => p.id)).toEqual(["en>de"])
+    expect(await d.section.downloadPicked()).toBe(0)
     expect((await d.store.list()).map((p) => p.id)).toEqual(["en>de"])
-    expect(d.row("English").querySelector("input")).toBeNull()
-    expect(d.row("English").textContent).toContain(ENGLISH.t("dictInstalled"))
+    expect(d.row("English → German").querySelector("input")).toBeNull()
+    expect(d.row("English → German").textContent).toContain(ENGLISH.t("dictInstalled"))
+    // New languages: the check boxes start from the new recommendation.
+    fr.checked = false
+    d.section.resetChoice()
+    d.section.render()
+    expect(d.ticked()).toEqual(["French (Français) → English"])
   })
 
-  it("on the welcome page says when no pack covers the languages", async () => {
-    const d = dictionaries([EN_DE], { needed: { source: "en", target: "ko" } })
+  it("counts the ticked packs that fail to download", async () => {
+    background({})
+    const fetchFn = asFetch(async (url: string) => (url.endsWith("dict-index.json") ? jsonResponse({ version: 1, packs: [packEntry(EN_DE, { sha256: "0".repeat(64) })] }) : new Response(gz(EN_DE))))
+    const d = dictionaries([], { languages: { source: "en", target: "de" }, pick: true, fetchFn })
     await d.section.load()
-    expect(d.status.textContent).toBe(ENGLISH.t("dictNoneForPair"))
+    expect(await d.section.downloadPicked()).toBe(1)
+    expect(d.row("English").querySelector(".test-result.fail")).not.toBeNull()
+  })
+
+  it("with automatic detection puts the packs of the recommended languages first, labelled, and ticks them", async () => {
+    background({})
+    const recommended: SourcedLanguage[] = [
+      { tag: "de", sources: ["target"] },
+      { tag: "fr", sources: ["thunderbird", "system"] },
+      { tag: "en", sources: ["addon"] },
+    ]
+    const d = dictionaries([EN_JA, FR_EN, EN_FR, EN_DE, DE_EN], { languages: { source: "auto", target: "de" }, recommended, pick: true })
+    await d.section.load()
+    expect(d.names()).toEqual(["English → German (Deutsch)", "German (Deutsch) → English", "English → French (Français)", "French (Français) → English", "English → Japanese (日本語)"])
+    expect(d.labels("English → German")).toEqual([ENGLISH.t("langSourceTarget"), ENGLISH.t("routeDirect")])
+    expect(d.labels("French")).toEqual([ENGLISH.t("langSourceThunderbird"), ENGLISH.t("langSourceSystem"), ENGLISH.t("routeViaEnglish")])
+    expect(d.labels("English → Japanese")).toEqual([])
+    expect(d.ticked()).toEqual(d.names().slice(0, 4))
+  })
+
+  it("filters by language name or direction, several terms separated by commas", async () => {
+    background({})
+    const d = dictionaries([EN_JA, FR_EN, EN_DE])
+    await d.section.load()
+    d.filter.value = "japanese"
+    d.section.render()
+    expect(d.names()).toEqual(["English → Japanese (日本語)"])
+    d.filter.value = "fr>en, EN>DE"
+    d.section.render()
+    expect(d.names()).toEqual(["English → German (Deutsch)", "French (Français) → English"])
+    d.filter.value = "klingon"
+    d.section.render()
+    expect(d.rows()).toEqual([])
+    expect(d.status.textContent).toBe(ENGLISH.t("offlineNoMatch"))
+  })
+
+  it("downloads the common languages after showing what and how much, leaving out the installed packs", async () => {
+    const requests = background({})
+    const d = dictionaries([EN_DE, DE_EN, FR_EN, EN_JA, tsv("en", "vi", { hello: "xin chào" })])
+    await d.section.load()
+    button(d.row("German"), ENGLISH.t("buttonDownload"))!.click()
+    await vi.waitFor(() => expect(d.row("German").textContent).toContain(ENGLISH.t("dictInstalled")))
+    d.commonButton().click()
+    const confirm = d.common.querySelector(".common-confirm")!
+    const total = ([EN_DE, FR_EN, EN_JA].map((t) => packEntry(t).bytes).reduce((a, b) => a + b) / 1048576).toFixed(1)
+    expect(confirm.querySelector("p")!.textContent).toBe(ENGLISH.t("commonConfirm", [3, total]))
+    // Vietnamese is not a common language.
+    expect(Array.from(confirm.querySelectorAll("li"), (li) => li.textContent!.split(" · ")[0]).sort()).toEqual(["English → German (Deutsch)", "English → Japanese (日本語)", "French (Français) → English"])
+    button(confirm, ENGLISH.t("buttonCancel"))!.click()
+    expect(d.common.querySelector(".common-confirm")).toBeNull()
+    d.commonButton().click()
+    button(d.common.querySelector(".common-confirm")!, ENGLISH.t("buttonConfirmDownload"))!.click()
+    await vi.waitFor(() => expect(d.common.textContent).toContain(ENGLISH.t("commonAllInstalled")))
+    expect(d.commonButton().disabled).toBe(true)
+    expect((await d.store.list()).map((p) => p.id).sort()).toEqual(["de>en", "en>de", "en>ja", "fr>en"])
+    expect(requests.filter((r) => r.type === "dictionaryChanged")).toHaveLength(4)
   })
 })
 
@@ -204,16 +276,25 @@ const pair = (src: string, tgt: string, over: Partial<BergamotPairInfo> = {}): B
   ...over,
 })
 
-function models(languages: { source: string; target: string }, pick = false) {
+function models(options: ListOptions = {}) {
   const p = panel()
-  const section = new BergamotSection({ languages: () => languages, list: p.list, status: p.status, needed: p.needed, filter: pick ? undefined : p.filter, pick, pollMs: 5 })
+  const section = new BergamotSection({
+    languages: () => options.languages ?? { source: "de", target: "en" },
+    recommended: () => options.recommended ?? [],
+    list: p.list,
+    status: p.status,
+    common: p.common,
+    needed: p.needed,
+    filter: p.filter,
+    pick: options.pick,
+    pollMs: 5,
+  })
   return { ...p, section }
 }
-
-describe("offline model panel", () => {
+describe("offline model list", () => {
   it("shows why the list could not be loaded", async () => {
     background({ bergamotList: () => ({ ok: false, error: "Mozilla is unreachable" }) })
-    const m = models({ source: "de", target: "en" })
+    const m = models()
     await m.section.load()
     expect(m.status.textContent).toBe("Mozilla is unreachable")
 
@@ -223,22 +304,27 @@ describe("offline model panel", () => {
     expect(m.rows()).toEqual([])
   })
 
-  it("names the needed directions for automatic detection, and lists without them when that request fails", async () => {
-    const requests = background({ bergamotList: () => ({ ok: true, pairs: [pair("en", "de")] }), bergamotRequired: () => ({ required: [["en", "de"]], missing: [] }) })
-    const m = models({ source: "auto", target: "de" })
-    await m.section.load()
-    expect(requests).toContainEqual({ type: "bergamotRequired", src: "en", tgt: "de" })
+  it("names the directions the languages need: from English with automatic detection, through English between two other languages", async () => {
+    background({ bergamotList: () => ({ ok: true, pairs: [pair("en", "de"), pair("ja", "en")] }) })
+    let languages = { source: "auto", target: "de" }
+    const m = panel()
+    const section = new BergamotSection({ languages: () => languages, recommended: () => [], list: m.list, status: m.status, common: m.common, needed: m.needed })
+    await section.load()
     expect(m.needed.textContent).toBe(ENGLISH.t("bergamotNeededAuto", ["English → German (Deutsch)"]))
-
-    background({ bergamotList: () => ({ ok: true, pairs: [pair("en", "de")] }), bergamotRequired: () => Promise.reject(new Error("gone")) })
-    await m.section.load()
+    languages = { source: "auto", target: "en" }
+    section.render()
     expect(m.needed.textContent).toBe(ENGLISH.t("bergamotNeededAutoEnglish"))
-    expect(m.rows()).toHaveLength(1)
+    languages = { source: "ja", target: "de" }
+    section.render()
+    expect(m.needed.textContent).toBe(ENGLISH.t("bergamotNeeded", ["Japanese (日本語)", "German (Deutsch)", "Japanese (日本語) → English, English → German (Deutsch)"]))
+    languages = { source: "de", target: "de" }
+    section.render()
+    expect(m.needed.textContent).toBe("")
   })
 
   it("names languages the interface does not list, and shows unknown tags as they are", async () => {
     background({ bergamotList: () => ({ ok: true, pairs: [pair("be", "en"), pair("en", "x!y")] }) })
-    const m = models({ source: "de", target: "en" })
+    const m = models()
     await m.section.load()
     expect(m.rows().map((li) => li.querySelector(".dict-name")!.textContent)).toEqual(["Belarusian → English", "English → x!y"])
   })
@@ -251,7 +337,7 @@ describe("offline model panel", () => {
       bergamotInstall: () => new Promise((r) => (finish = r)),
       bergamotProgress: () => progress(),
     })
-    const m = models({ source: "de", target: "en" })
+    const m = models()
     await m.section.load()
     button(m.rows()[0]!, ENGLISH.t("buttonDownload"))!.click()
     // A failed poll counts as no progress.
@@ -273,7 +359,7 @@ describe("offline model panel", () => {
     ["a lost connection", () => Promise.reject(new Error("port closed")), describeError(new Error("port closed"), ENGLISH)],
   ])("describes an installation that ends with %s", async (_, answer, text) => {
     background({ bergamotList: () => ({ ok: true, pairs: [pair("de", "en")] }), bergamotInstall: answer })
-    const m = models({ source: "de", target: "en" })
+    const m = models()
     await m.section.load()
     button(m.rows()[0]!, ENGLISH.t("buttonDownload"))!.click()
     await vi.waitFor(() => expect(m.rows()[0]?.querySelector(".test-result")?.textContent).toBe(text))
@@ -281,7 +367,7 @@ describe("offline model panel", () => {
 
   it("updates an installed pair", async () => {
     const requests = background({ bergamotList: () => ({ ok: true, pairs: [pair("de", "en", { installed: true, installedVersion: "2.9" })] }), bergamotInstall: () => ({ ok: true }) })
-    const m = models({ source: "de", target: "en" })
+    const m = models()
     await m.section.load()
     button(m.rows()[0]!, ENGLISH.t("buttonUpdate"))!.click()
     await vi.waitFor(() => expect(requests).toContainEqual({ type: "bergamotInstall", src: "de", tgt: "en" }))
@@ -291,10 +377,9 @@ describe("offline model panel", () => {
     let removeAnswer = (): unknown => ({ ok: false, error: "locked" })
     const requests = background({
       bergamotList: () => ({ ok: true, pairs: [pair("de", "en", { installed: true }), pair("fr", "en", { installed: true })] }),
-      bergamotRequired: () => ({ required: [["de", "en"]], missing: [] }),
       bergamotRemove: () => removeAnswer(),
     })
-    const m = models({ source: "de", target: "en" })
+    const m = models()
     await m.section.load()
     expect(m.needed.textContent).toBe(ENGLISH.t("bergamotNeeded", ["German (Deutsch)", "English", "German (Deutsch) → English"]))
     button(m.row("German"), ENGLISH.t("buttonDelete"))!.click()
@@ -312,17 +397,22 @@ describe("offline model panel", () => {
     await vi.waitFor(() => expect(m.row("French").querySelector(".test-result")?.textContent).toBe(describeError(new Error("port closed"), ENGLISH)))
   })
 
-  it("on the welcome page lists the needed directions with check boxes and downloads the picked ones", async () => {
+  it("on the welcome page ticks the directions the language pair needs and downloads the ticked ones", async () => {
     const requests = background({
       bergamotList: () => ({ ok: true, pairs: [pair("ja", "en"), pair("en", "zh-Hans"), pair("de", "en"), pair("en", "ko", { installed: true })] }),
-      bergamotRequired: () => ({ required: [["ja", "en"], ["en", "zh-Hans"]], missing: [] }),
       bergamotInstall: () => ({ ok: true }),
     })
-    const m = models({ source: "ja", target: "zh-CN" }, true)
+    const recommended: SourcedLanguage[] = [
+      { tag: "zh-CN", sources: ["target"] },
+      { tag: "ja", sources: ["source"] },
+    ]
+    const m = models({ languages: { source: "ja", target: "zh-CN" }, recommended, pick: true })
     await m.section.load()
-    expect(m.rows().map((li) => li.querySelector(".dict-name")!.textContent)).toEqual(["Japanese (日本語) → English", "English → Simplified Chinese (简体中文)"])
+    expect(m.names()).toEqual(["English → Simplified Chinese (简体中文)", "Japanese (日本語) → English", "English → Korean (한국어)", "German (Deutsch) → English"])
+    expect(m.labels("Japanese")).toEqual([ENGLISH.t("langSourceSource"), ENGLISH.t("routeViaEnglish")])
+    expect(m.ticked()).toEqual(["English → Simplified Chinese (简体中文)", "Japanese (日本語) → English"])
     expect(m.rows().every((li) => !li.querySelector("button"))).toBe(true)
-    const box = m.row("English").querySelector<HTMLInputElement>("input")!
+    const box = m.row("English → Simplified").querySelector<HTMLInputElement>("input")!
     box.checked = false
     box.dispatchEvent(new Event("change"))
     await m.section.downloadPicked()
@@ -333,10 +423,46 @@ describe("offline model panel", () => {
     expect(requests.filter((r) => r.type === "bergamotInstall")).toHaveLength(3)
   })
 
-  it("on the welcome page says when the languages need no model", async () => {
-    background({ bergamotList: () => ({ ok: true, pairs: [pair("de", "en")] }), bergamotRequired: () => ({ required: [], missing: [] }) })
-    const m = models({ source: "en", target: "en" }, true)
+  it("downloads the common languages that are not installed, after the confirmation", async () => {
+    const installed = new Set(["en>de"])
+    const requests = background({
+      bergamotList: () => ({ ok: true, pairs: [pair("en", "de"), pair("de", "en"), pair("en", "fr", { bytes: 2 * 1048576 }), pair("en", "vi")].map((p) => ({ ...p, installed: installed.has(`${p.src}>${p.tgt}`) })) }),
+      bergamotInstall: (r) => {
+        const { src, tgt } = r as { src: string; tgt: string }
+        installed.add(`${src}>${tgt}`)
+        return { ok: true }
+      },
+    })
+    const m = models()
     await m.section.load()
-    expect(m.status.textContent).toBe(ENGLISH.t("bergamotNoneNeeded"))
+    m.commonButton().click()
+    expect(m.common.querySelector(".common-confirm p")!.textContent).toBe(ENGLISH.t("commonConfirm", [2, "12.0"]))
+    button(m.common.querySelector(".common-confirm")!, ENGLISH.t("buttonConfirmDownload"))!.click()
+    await vi.waitFor(() => expect(m.common.textContent).toContain(ENGLISH.t("commonAllInstalled")))
+    expect(requests.filter((r) => r.type === "bergamotInstall").map((r) => r.type === "bergamotInstall" && `${r.src}>${r.tgt}`).sort()).toEqual(["de>en", "en>fr"])
+  })
+})
+
+/* ---------- recommended languages of a page ---------- */
+
+describe("recommended languages of a page", () => {
+  const api = (globalThis as unknown as { browser: Record<string, unknown> }).browser
+  const tags = (s: Parameters<typeof recommendedFor>[0]) => recommendedFor(s).map((l) => `${l.tag}:${l.sources.join("+")}`)
+
+  it("come from the settings, the interface languages and the system", async () => {
+    api.i18n = { getUILanguage: () => "de-DE", getPreferredSystemLanguages: async () => ["fr-FR", "en-US"] }
+    await loadSystemLanguages()
+    expect(tags({ sourceLang: "auto", targetLang: "zh-CN", uiLanguage: "auto" })).toEqual(["zh-Hans:target", "de:addon+thunderbird", "fr:system", "en:system"])
+    expect(tags({ sourceLang: "ja", targetLang: "zh-CN", uiLanguage: "ko" })).toEqual(["zh-Hans:target", "ja:source", "ko:addon", "de:thunderbird", "fr:system", "en:system"])
+  })
+
+  it("take the locale of the Intl formats for the system's languages in a Thunderbird without getPreferredSystemLanguages", async () => {
+    api.i18n = { getUILanguage: () => "de-DE" }
+    await loadSystemLanguages()
+    const system = languageTag(Intl.DateTimeFormat().resolvedOptions().locale)
+    expect(recommendedFor({ sourceLang: "auto", targetLang: "ja", uiLanguage: "auto" }).find((l) => l.sources.includes("system"))?.tag).toBe(system)
+    api.i18n = { getUILanguage: () => "de-DE", getPreferredSystemLanguages: async () => Promise.reject(new Error("unavailable")) }
+    await loadSystemLanguages()
+    expect(tags({ sourceLang: "auto", targetLang: "ja", uiLanguage: "auto" })).toEqual(["ja:target", "de:addon+thunderbird"])
   })
 })

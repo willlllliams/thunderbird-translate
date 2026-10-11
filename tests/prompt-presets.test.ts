@@ -1,7 +1,7 @@
 /** Prompt presets: options by target language, composition with a prompt, and the batch format with every preset applied. */
 import { describe, expect, it, vi } from "vitest"
 import { llmAnalyzeMail, llmTranslateBatch, llmTranslateSingle } from "../src/background/translators/llm"
-import { applyPreset, availablePresets, getPromptPreset, presetBlock, presetOptions, PROMPT_PRESETS, type PromptPreset } from "../src/shared/prompt-presets"
+import { applyPreset, availablePresets, getPromptPreset, NO_PRESET, presetBlock, presetOptions, PROMPT_PRESETS, type PromptPreset, removePresets } from "../src/shared/prompt-presets"
 import { ENGLISH } from "../src/shared/i18n"
 import { LANGUAGES } from "../src/shared/languages"
 import { DEFAULT_PROMPTS, PROMPT_KINDS } from "../src/shared/prompts"
@@ -150,5 +150,16 @@ describe("preset texts", () => {
   it("offer only target languages of the settings", () => {
     const codes = new Set(LANGUAGES.map((l) => l.code))
     for (const o of PROMPT_PRESETS.flatMap((p) => p.options ?? [])) for (const t of o.targets ?? []) expect(codes.has(t), t).toBe(true)
+  })
+})
+
+describe("Plain: no preset", () => {
+  it("removes every block a preset added and keeps the blocks the user wrote, wherever they are", () => {
+    const [dialect, , , style] = PROMPT_PRESETS
+    const own = "Keep greetings short.\nNever translate product names."
+    const prompt = [DEFAULT_PROMPTS.bilingual, presetBlock(dialect, dialect.options![0]), own, `  ${presetBlock(style, style.options![2])}  `].join("\n\n")
+    expect(removePresets(prompt)).toBe(`${DEFAULT_PROMPTS.bilingual}\n\n${own}`)
+    expect(removePresets(DEFAULT_PROMPTS.precise)).toBe(DEFAULT_PROMPTS.precise)
+    expect(getPromptPreset(NO_PRESET)).toBeUndefined()
   })
 })

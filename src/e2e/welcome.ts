@@ -2,32 +2,42 @@
  * End-to-end test probe of the setup guide, compiled only into the e2e build
  * (see src/e2e/background.ts).
  *
- * On the page opened by the "welcome" scenario it goes to the offline step
- * with a click, downloads the dictionary pack and the Bergamot model that the
- * step has ticked by clicking "Download selected", and watches the lists while
- * the files arrive. Then it reads what was stored, through the background
- * script and in IndexedDB itself, deletes both downloads and reads again. The
- * report goes to the mock server; the test runner (e2e/run.mjs) makes the
- * assertions.
+ * On the page opened by a "welcome" scenario it goes to the offline step with
+ * a click and waits for both lists (dictionary packs and Bergamot models of
+ * the mock server: en → zh-Hans and zh-Hans → en).
+ * - "welcome" (source language English): "Download selected" downloads the
+ *   ticked direction en → zh-Hans of both lists; the probe watches the lists
+ *   while the files arrive.
+ * - "welcome-auto" (automatic detection, target Simplified Chinese): both
+ *   directions of the target language are recommended and ticked. "Download
+ *   common languages" of the dictionary list downloads its two packs after
+ *   the confirmation; then the probe clicks a check box of the model list off
+ *   and on again and downloads the models with "Download selected".
+ * Then it reads what was stored, through the background script and in
+ * IndexedDB itself, deletes the downloads and reads again. The report goes to
+ * the mock server; the test runner (e2e/run.mjs) makes the assertions.
  */
 
 import { DictionaryStore } from "../background/dictionary/store"
 import { ext } from "../shared/ext"
-import type { BergamotRequired, BergamotResult } from "../shared/messages"
+import { t } from "../shared/i18n"
+import type { BergamotResult } from "../shared/messages"
 import { $, send } from "../shared/page"
 import { STEP_IDS } from "../welcome/steps"
 import type { E2eMessage } from "./background"
 import { E2E_MARKER } from "./marker"
 
 const TIMEOUT_MS = 60_000
-const PACK = { id: "en>zh-Hans", src: "en", tgt: "zh-Hans" }
+const DIRECTIONS = ["en>zh-Hans", "zh-Hans>en"]
 
 /** What a list row shows. */
 interface Row {
-  text: string
-  /** The check box in front of the name; null once the pack is installed. */
+  id: string
+  /** The check box in front of the name; null once the direction is installed. */
   checkbox: { checked: boolean; disabled: boolean } | null
   installed: boolean
+  /** Labels of a recommended direction: where its language comes from, its route. */
+  labels: number
   error: string | null
 }
 
@@ -42,22 +52,30 @@ async function until(what: string, test: () => boolean): Promise<void> {
 }
 
 function rows(list: HTMLElement): Row[] {
-  return Array.from(list.children, (li) => {
+  return Array.from(list.querySelectorAll<HTMLElement>("li[data-id]"), (li) => {
     const box = li.querySelector("input[type=checkbox]")
     return {
-      text: li.textContent ?? "",
+      id: li.dataset.id!,
       checkbox: box instanceof HTMLInputElement ? { checked: box.checked, disabled: box.disabled } : null,
       installed: li.querySelector(".tag.active") !== null,
+      labels: li.querySelectorAll(".lang-sources .tag").length,
       error: li.querySelector(".test-result.fail")?.textContent ?? null,
     }
   })
 }
 
-/** Both lists and their status lines. */
+const LISTS = { dictionary: "dictList", bergamot: "bergamotList" } as const
+type ListName = keyof typeof LISTS
+
+/** Both lists, their status lines and the download line. */
 const screen = () => ({
-  dictionary: { status: $("dictStatus").textContent, rows: rows($("dictList")) },
-  bergamot: { status: $("bergamotStatus").textContent, rows: rows($("bergamotList")) },
+  dictionary: { status: $("dictStatus").textContent, rows: rows($("dictList")), common: $("dictCommon").textContent },
+  bergamot: { status: $("bergamotStatus").textContent, rows: rows($("bergamotList")), common: $("bergamotCommon").textContent },
+  download: $("downloadStatus").textContent,
 })
+
+const row = (list: ListName, id: string) => rows($(LISTS[list])).find((r) => r.id === id)
+const done = (list: ListName, ids: string[]) => ids.every((id) => row(list, id)?.installed || row(list, id)?.error)
 
 /** The percentages the list showed, in order ("Downloading… 40%"). */
 function watchProgress(list: HTMLElement): number[] {
@@ -94,45 +112,78 @@ function countRecords(database: string, stores: string[]): Promise<Record<string
 /** What the extension holds: the answers of the background script and the object stores themselves. */
 async function stored() {
   const list = await send<BergamotResult>({ type: "bergamotList" })
-  const required = await send<BergamotRequired>({ type: "bergamotRequired", src: PACK.src, tgt: "zh-CN" })
   return {
     bergamotInstalled: list.ok ? (list.pairs ?? []).filter((p) => p.installed).map((p) => `${p.src}>${p.tgt}`) : list.error,
-    bergamotMissing: required.missing.map(([s, t]) => `${s}>${t}`),
-    dictionaryInstalled: (await new DictionaryStore().list()).map((p) => p.id),
+    dictionaryInstalled: (await new DictionaryStore().list()).map((p) => p.id).sort(),
     bergamotRecords: await countRecords("tt-bergamot", ["pairs", "files"]),
     dictionaryRecords: await countRecords("tt-dictionary", ["packs", "data"]),
   }
 }
 
-export async function runWelcomeProbe(): Promise<void> {
-  const report: Record<string, unknown> = { hook: E2E_MARKER, scenario: "welcome", url: location.href }
+/** "Download selected", then wait until it reports how it ended. */
+async function downloadSelected(report: Record<string, unknown>): Promise<void> {
+  const download = $<HTMLButtonElement>("downloadPicked")
+  download.click()
+  report.disabledWhileDownloading = download.disabled
+  report.statusWhileDownloading = $("downloadStatus").textContent
+  const running = $("downloadStatus").textContent
+  await until("Download selected to end", () => !["", running].includes($("downloadStatus").textContent ?? ""))
+  report.downloadStatus = $("downloadStatus").textContent === t("downloadDone") ? "done" : $("downloadStatus").textContent
+}
+
+async function welcome(report: Record<string, unknown>): Promise<string[]> {
+  const progress = { dictionary: watchProgress($("dictList")), bergamot: watchProgress($("bergamotList")) }
+  await downloadSelected(report)
+  await until("the downloads to show as finished", () => done("dictionary", ["en>zh-Hans"]) && done("bergamot", ["en>zh-Hans"]))
+  report.progress = progress
+  return ["en>zh-Hans"]
+}
+
+async function welcomeAuto(report: Record<string, unknown>): Promise<string[]> {
+  report.autoHint = !$("offlineAutoHint").hidden
+  // Dictionary: "Download common languages", the confirmation, then the download.
+  const common = $("dictCommon")
+  common.querySelector("button")!.click()
+  const confirm = common.querySelector(".common-confirm")
+  report.commonConfirm = confirm ? { items: confirm.querySelectorAll("li").length, text: confirm.querySelector("p")?.textContent } : null
+  confirm!.querySelector<HTMLButtonElement>("button.primary")!.click()
+  await until("the common dictionary packs", () => done("dictionary", DIRECTIONS))
+  report.commonAfter = { allInstalled: (common.textContent ?? "").includes(t("commonAllInstalled")), disabled: common.querySelector("button")!.disabled }
+  // Models: a check box clicked off and on again, then "Download selected".
+  const box = () => $("bergamotList").querySelector<HTMLInputElement>('li[data-id="zh-Hans>en"] input[type=checkbox]')!
+  box().click()
+  report.untickedPicks = !box().checked && $<HTMLButtonElement>("downloadPicked").disabled === false
+  box().click()
+  report.retickedPicks = box().checked
+  await downloadSelected(report)
+  await until("the models to show as installed", () => done("bergamot", DIRECTIONS))
+  return DIRECTIONS
+}
+
+export async function runWelcomeProbe(scenario: string): Promise<void> {
+  const report: Record<string, unknown> = { hook: E2E_MARKER, scenario, url: location.href }
   try {
+    const i18n = ext.i18n as typeof ext.i18n & { getPreferredSystemLanguages?: () => Promise<string[]> }
+    report.systemLanguages = i18n.getPreferredSystemLanguages ? await i18n.getPreferredSystemLanguages() : "no getPreferredSystemLanguages()"
     // Step 4 of the guide, reached through the progress list.
     const offline = $("stepList").querySelectorAll("button")[STEP_IDS.indexOf("offline")]
     await until("the offline step in the progress list", () => !offline.disabled)
     offline.click()
     await until("the offline step", () => !(document.querySelector('section[data-step="offline"]') as HTMLElement).hidden)
-    await until("the pack and the model to be offered", () => $("dictList").querySelector("input") !== null && $("bergamotList").querySelector("input") !== null)
+    await until("both directions in both lists", () => DIRECTIONS.every((id) => row("dictionary", id) && row("bergamot", id)))
     report.offered = screen()
     report.initial = await stored()
 
-    const progress = { dictionary: watchProgress($("dictList")), bergamot: watchProgress($("bergamotList")) }
-    const download = $<HTMLButtonElement>("downloadPicked")
-    download.click()
-    report.disabledWhileDownloading = download.disabled
-    const finished = () => {
-      const { dictionary, bergamot } = screen()
-      const all = [...dictionary.rows, ...bergamot.rows]
-      return !download.disabled && all.length > 0 && all.every((r) => r.installed || r.error !== null)
-    }
-    await until("the downloads to finish", finished)
-    report.progress = progress
+    const downloaded = scenario === "welcome-auto" ? await welcomeAuto(report) : await welcome(report)
     report.finished = screen()
     report.downloaded = await stored()
 
     // The guide has no delete button; remove the downloads the way the settings page does.
-    await send({ type: "bergamotRemove", src: PACK.src, tgt: PACK.tgt })
-    await new DictionaryStore().remove(PACK.id)
+    for (const id of downloaded) {
+      const [src, tgt] = id.split(">")
+      await send({ type: "bergamotRemove", src, tgt })
+      await new DictionaryStore().remove(id)
+    }
     await send({ type: "dictionaryChanged" })
     report.removed = await stored()
   } catch (error) {

@@ -18,9 +18,11 @@
  * mode, is requested again while the other tiers keep their results.
  * Results are kept for the message on screen, so showing it again asks
  * nothing; they are forgotten when dictionary packs or offline models change.
+ * A paragraph that an offline tier could not translate for lack of a
+ * dictionary pack or offline model is reported to the notice (notice.ts).
  */
 
-import { describeError } from "../shared/errors"
+import { describeError, type MissingData } from "../shared/errors"
 import { getI18n, t } from "../shared/i18n"
 import { isInTargetLanguage, type LanguageDetector } from "../shared/lang-detect"
 import { createMailContext, type MailContext } from "../shared/mail-context"
@@ -39,6 +41,8 @@ export interface ControllerDeps {
   setContext?: (context: MailContext) => void
   detect?: LanguageDetector
   report?: (state: Omit<TabState, "connected">) => void
+  /** Told when a translation starts and when every paragraph has its answers, of each paragraph without a dictionary pack or offline model, and when the translation stops. */
+  notice?: { begin(): void; add(missing: MissingData): void; end(): void; clear(): void }
 }
 
 /** What one tier has for one paragraph. */
@@ -166,6 +170,7 @@ export class TranslationController {
     if (session !== this.session) return
     const candidates = all.filter((_, i) => !inTarget[i])
     this.units = candidates
+    this.deps.notice?.begin()
     if (s.precise && candidates.length > 0) {
       this.context = createMailContext(
         all.map((u) => u.text),
@@ -175,6 +180,7 @@ export class TranslationController {
     }
     this.report()
     await Promise.all(candidates.map((unit) => this.translateUnit(unit, session)))
+    if (session === this.session) this.deps.notice?.end()
   }
 
   stop(): void {
@@ -188,6 +194,7 @@ export class TranslationController {
     this.context = null
     this.results.clear()
     this.lastError = ""
+    this.deps.notice?.clear()
     this.root()?.ownerDocument.getElementById(STYLE_ID)?.remove()
     this.report()
   }
@@ -242,6 +249,7 @@ export class TranslationController {
       } else {
         state[tier] = { status: "error", error: res.error }
         if (tier === this.settings!.tiers.at(-1)) this.lastError = res.error
+        if (res.missing) this.deps.notice?.add(res.missing)
       }
       this.renderResult(unit)
       this.report()

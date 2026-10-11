@@ -217,9 +217,70 @@ button.primary {
   min-width: 200px;
 }
 
-#bergamotList {
+#bergamotList,
+#dictList {
   max-height: 420px;
   overflow-y: auto;
+}
+
+/* "Download common languages" and its confirmation. */
+.common {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 12px;
+  margin: 8px 0;
+}
+
+.common-confirm {
+  flex-basis: 100%;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 4px 12px 10px;
+}
+
+.common-confirm ul {
+  margin: 0 0 8px;
+  padding-inline-start: 1.2em;
+}
+
+/* Where a recommended language comes from, and the route of the direction. */
+.lang-sources {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.lang-sources .tag {
+  font-size: 11px;
+}
+
+/* A selected offline service lacks its data: the selector and the line under it, in red and in words. */
+select.missing,
+option.missing,
+.offline-hint.missing {
+  color: #c5221f;
+}
+
+select.missing option:not(.missing) {
+  color: CanvasText;
+}
+
+.offline-hint {
+  margin: 4px 0;
+  color: #b06000;
+}
+
+@media (prefers-color-scheme: dark) {
+  select.missing,
+  option.missing,
+  .offline-hint.missing {
+    color: #f28b82;
+  }
+
+  .offline-hint {
+    color: #fdd663;
+  }
 }
 
 .field-group {

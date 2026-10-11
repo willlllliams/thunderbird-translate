@@ -2,6 +2,26 @@
 
 All notable changes to this project are documented in this file. Versions follow [Semantic Versioning](https://semver.org/).
 
+## 1.7.0
+
+### Added
+
+- Notice about missing offline data. When the dictionary tier or Bergamot in the machine tier cannot translate paragraphs of a message because a pack or model for the detected language pair is not installed, a notice appears above the message after the first translation round, once per message. It lists one line per service and language pair with the directions to download (for example "Dictionary: Japanese → Simplified Chinese, missing Japanese → English and English → Simplified Chinese"), opens the settings page with both offline lists filtered to these directions, and offers "Don't remind me for these languages", stored per service and language pair (`offlineMutedPairs`). The settings page lists the muted entries under the tiers and brings them back with "Remind me again". Only the offline tiers in use count, only missing packs or models count (network errors, pairs without anything to download and paragraphs whose language was guessed do not), and the paragraphs still get the translations of the other tiers.
+- The tier selectors of the popup and the settings page mark a selected dictionary or Bergamot service that lacks what the current languages need: the entry reads "Dictionary (local model not downloaded)" or "Bergamot (local model not downloaded)" in red, and a line under the selectors names the missing directions with a "Download" link to the filtered lists. With automatic detection the direction from English into the target language counts; into English, at least one direction into English. A pair the service does not offer is named as unsupported, without red. The marks follow installations and deletions made on other pages.
+- Both offline lists, on the settings page and in the setup guide, show every direction of the catalog. The directions of the recommended languages come first, labelled with their source: target language, fixed source language, add-on interface language, Thunderbird language, system language (`i18n.getPreferredSystemLanguages()`, or the locale of the `Intl` formats in Thunderbird versions without it); a direction into the target language is labelled "Direct", one into English "Via English". A filter takes language names or directions such as `ja>en`, several separated by commas.
+- "Download common languages" in both lists downloads the directions to and from English of eight fixed languages (Simplified Chinese, Spanish, French, German, Japanese, Portuguese, Russian, Korean) as far as the catalog has them. It first lists what it would download with the total size; installed directions are left out, and when all are installed the button is disabled and says so.
+- Prompt presets: "Plain (no added rules)" is the first entry of the preset list. Applied to a prompt it removes every rule block that a preset added and keeps the text the user wrote; a prompt that is then the built-in one is stored as empty again.
+- The tier selectors of the popup and the settings page end with "+ Add translation service…". It opens the service list of the settings page filtered to the services of that tier and leaves the selector at its value. The service list has a filter by tier.
+
+### Fixed
+
+- Setup guide, offline step, with automatic detection of the source language: the step only looked for English → target. With English as target language, the default for a Thunderbird in English, both lists were empty ("No dictionary pack covers these languages"), and languages changed in the popup while the step was open were not taken over. "Download selected" then had nothing ticked, returned at once and showed nothing. The step now lists every direction, ticks those of the recommended languages (with a fixed source language, those the pair needs), explains the route through English, follows language changes made elsewhere, keeps "Download selected" disabled with "Tick the items to download first." while nothing is ticked, and reports "Downloading N items…", then success or the number of failed downloads.
+
+### Changed
+
+- The "+ Add translation service" link of the popup is replaced by the last entry of each tier selector.
+- One module (`src/shared/offline-needs.ts`) decides what a language pair needs from the dictionary and Bergamot: the direct pack when English is on one side, otherwise the direct dictionary pack when the release offers it, else the two directions through English; Simplified ↔ Traditional Chinese and directions the catalog does not offer are unsupported. The background script, the tier marks and the setup guide use it.
+
 ## 1.6.2
 
 ### Changed

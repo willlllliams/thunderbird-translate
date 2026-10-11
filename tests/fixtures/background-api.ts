@@ -61,6 +61,8 @@ export function stubBackgroundApi({
       onConnect: connect,
       onMessage: message,
       onInstalled: installed,
+      /** Messages of the background script to the extension pages. */
+      sendMessage: vi.fn(async (_message: unknown) => {}),
     },
     storage: {
       local: {

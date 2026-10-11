@@ -1,6 +1,7 @@
 /**
  * The three prompts of the AI tier with their "Restore built-in prompt"
- * buttons, and the preset library that adds rules to one of them. Shared by
+ * buttons, and the preset library that adds rules to one of them; its first
+ * entry, "Plain", removes the rules that presets added. Shared by
  * the settings page and the welcome page. Static texts carry data-i18n, so
  * localizeDocument() translates them; refresh() fills what depends on the
  * interface or target language. A box shows the built-in prompt while the
@@ -10,7 +11,7 @@
 
 import { type MessageKey, t } from "../shared/i18n"
 import { fillSelect } from "../shared/page"
-import { applyPreset, availablePresets, getPromptPreset, PRESET_EXAMPLE_SOURCE, type PresetOption, presetOptions, type PromptPreset } from "../shared/prompt-presets"
+import { applyPreset, availablePresets, getPromptPreset, NO_PRESET, PRESET_EXAMPLE_SOURCE, type PresetOption, presetOptions, type PromptPreset, removePresets } from "../shared/prompt-presets"
 import { DEFAULT_PROMPTS, PROMPT_KINDS, type PromptKind, promptText } from "../shared/prompts"
 import { promptKindFor } from "../shared/settings"
 import { h } from "./dom"
@@ -87,33 +88,35 @@ export class PromptEditor {
     this.session.save()
   }
 
-  private current(): { preset: PromptPreset; option?: PresetOption } {
-    const preset = getPromptPreset(this.preset.value)!
-    return { preset, option: presetOptions(preset, this.session.settings.targetLang).find((o) => o.id === this.option.value) }
+  /** The chosen preset and option; no preset for "Plain". */
+  private current(): { preset?: PromptPreset; option?: PresetOption } {
+    const preset = getPromptPreset(this.preset.value)
+    return { preset, option: preset && presetOptions(preset, this.session.settings.targetLang).find((o) => o.id === this.option.value) }
   }
 
   /** Fill the lists for the interface and target language, keeping the choices that are still offered. */
   refresh(): void {
     const presets = availablePresets(this.session.settings.targetLang)
-    const chosen = presets.some((p) => p.id === this.preset.value) ? this.preset.value : presets[0].id
-    fillSelect(this.preset, presets.map((p) => new Option(t(p.nameKey), p.id)), chosen)
+    const chosen = presets.some((p) => p.id === this.preset.value) ? this.preset.value : NO_PRESET
+    fillSelect(this.preset, [new Option(t("presetNone"), NO_PRESET), ...presets.map((p) => new Option(t(p.nameKey), p.id))], chosen)
     fillSelect(this.kind, PROMPT_KINDS.map((k) => new Option(t(KIND_NAMES[k]), k)), this.kind.value || promptKindFor(this.session.settings))
     this.showPreset()
   }
 
   private showPreset(): void {
-    const preset = getPromptPreset(this.preset.value)!
-    const options = presetOptions(preset, this.session.settings.targetLang)
+    const preset = getPromptPreset(this.preset.value)
+    const options = preset ? presetOptions(preset, this.session.settings.targetLang) : []
     const chosen = options.some((o) => o.id === this.option.value) ? this.option.value : (options[0]?.id ?? "")
     fillSelect(this.option, options.map((o) => new Option(t(o.nameKey), o.id)), chosen)
     this.optionField.hidden = options.length === 0
-    this.hint.textContent = t(preset.hintKey)
+    this.hint.textContent = t(preset?.hintKey ?? "presetNoneHint")
     this.showExample()
   }
 
   /** "Example: source → expected translation". */
   private showExample(): void {
     const { preset, option } = this.current()
+    if (!preset) return void this.example.replaceChildren(t("presetNoneExample"))
     const exampleKey = option?.exampleKey ?? preset.exampleKey
     const [source, result] = option?.example ?? [PRESET_EXAMPLE_SOURCE, exampleKey ? t(exampleKey) : ""]
     this.example.replaceChildren(h("span", { text: t("presetExample") }), " ", h("q", {}, source), " → ", h("q", {}, result))
@@ -122,7 +125,15 @@ export class PromptEditor {
   private apply(): void {
     const { preset, option } = this.current()
     const kind = this.kind.value as PromptKind
-    this.setPrompt(kind, applyPreset(promptText(this.session.settings.prompts, kind), preset, option))
-    this.status.textContent = t("presetApplied", [t(KIND_NAMES[kind])])
+    const prompt = promptText(this.session.settings.prompts, kind)
+    if (preset) {
+      this.setPrompt(kind, applyPreset(prompt, preset, option))
+      this.status.textContent = t("presetApplied", [t(KIND_NAMES[kind])])
+      return
+    }
+    // What is left may be the built-in prompt itself, which is stored as "".
+    const plain = removePresets(prompt)
+    this.setPrompt(kind, plain === DEFAULT_PROMPTS[kind].trim() ? "" : plain)
+    this.status.textContent = t("presetRemoved", [t(KIND_NAMES[kind])])
   }
 }

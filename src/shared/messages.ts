@@ -1,9 +1,11 @@
 import type { BergamotPairInfo } from "../offline/bergamot"
+import type { MissingData } from "./errors"
+import type { OfflineService, OfflineState } from "./offline-needs"
 import type { MessageTable } from "./i18n"
 import type { UiLanguageSetting, UiLocale } from "./locales"
 import type { MailContext } from "./mail-context"
 import type { Tier } from "./providers"
-import type { ProviderConfig, PublicSettings } from "./settings"
+import type { ProviderConfig, PublicSettings, TierSettings } from "./settings"
 
 /** Requests sent with runtime.sendMessage to the background script. */
 export type BackgroundRequest =
@@ -15,7 +17,41 @@ export type BackgroundRequest =
   | { type: "getLocaleMessages"; uiLanguage: UiLanguageSetting }
   /** The settings page installed or deleted dictionary packs. */
   | { type: "dictionaryChanged" }
+  /** A content script opens the settings page (content scripts cannot), e.g. at the offline downloads filtered to what a message needs. */
+  | { type: "openOptions"; place: OptionsPlace }
+  /** The notice about missing offline data stays away (or comes back) for these services and language pairs ("dictionary:ja>zh-Hans"). */
+  | { type: "muteOfflinePairs"; pairs: string[]; muted: boolean }
+  /** Answer: OfflineStatus of the offline services among the tiers, for these languages. */
+  | { type: "offlineStatus"; sourceLang: string; targetLang: string; tiers: TierSettings }
   | BergamotRequest
+
+/** Sent by the background script to the extension pages (popup, settings page, welcome page). */
+export type PageNotice =
+  /** Dictionary packs or offline models were installed or removed. */
+  { type: "offlineDataChanged" }
+
+/** State of the offline services in use (dictionary tier, Bergamot in the machine tier). */
+export type OfflineStatus = Partial<Record<OfflineService, OfflineState>>
+
+/** A place on the settings page: a section, the filters of the two offline lists, the tier whose services the service list shows. */
+export interface OptionsPlace {
+  section: "providers" | "dictionaries" | "bergamot"
+  /** Filter terms of the dictionary list: language pairs ("en>zh-Hans") or parts of them. */
+  dictionaries?: string[]
+  /** Filter terms of the offline model list. */
+  bergamot?: string[]
+  tier?: Tier
+}
+
+/** Address of the settings page at a place: options.html?dict=…&bergamot=…&tier=…#section. */
+export function optionsPath({ section, dictionaries, bergamot, tier }: OptionsPlace): string {
+  const query = new URLSearchParams()
+  if (dictionaries?.length) query.set("dict", dictionaries.join(","))
+  if (bergamot?.length) query.set("bergamot", bergamot.join(","))
+  if (tier) query.set("tier", tier)
+  const search = query.size > 0 ? `?${query}` : ""
+  return `options.html${search}#${section}`
+}
 
 /** Offline models, handled by the background script where the engine runs. */
 export type BergamotRequest =
@@ -59,8 +95,8 @@ export interface TranslateRequest {
   context?: { id: string; index: number }
 }
 
-/** Result of one tier for one paragraph, and the answer to testProvider. */
-export type TranslateResponse = { ok: true; text: string } | { ok: false; error: string }
+/** Result of one tier for one paragraph, and the answer to testProvider. A failure for lack of a dictionary pack or offline model names what is missing. */
+export type TranslateResponse = { ok: true; text: string } | { ok: false; error: string; missing?: MissingData }
 
 export interface TabState {
   connected: boolean

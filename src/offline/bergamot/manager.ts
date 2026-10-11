@@ -4,9 +4,10 @@
  */
 
 import { downloadBody, IDLE_TIMEOUT_MS, LIST_TIMEOUT_MS } from "../../shared/download"
-import { LocalizedError, TimeoutError } from "../../shared/errors"
+import { LocalizedError, MissingDataError, TimeoutError } from "../../shared/errors"
 import { hashText } from "../../shared/hash"
 import { pairKey } from "../../shared/languages"
+import { type Catalog, pairNeeds } from "../../shared/offline-needs"
 import { BergamotEngine, type EngineOptions, type WorkerLike } from "./engine"
 import { normalizeBergamotLang, requiredPairs } from "./languages"
 import { type ModelFileType, type ModelRecord, type PairFiles, selectPairs } from "./records"
@@ -324,6 +325,19 @@ export class BergamotManager {
 
   /* ---------- translation ---------- */
 
+  /** Keys of the installed pairs ("en>zh-Hans"). */
+  async installedKeys(): Promise<Set<string>> {
+    return new Set((await this.listInstalled()).map((p) => p.key))
+  }
+
+  /** Keys of the pairs Mozilla offers; null when the list cannot be read. */
+  catalog(): Promise<Catalog> {
+    return this.availablePairs().then(
+      (pairs) => new Set(pairs.keys()),
+      () => null,
+    )
+  }
+
   /** Language pairs among `pairs` that are not installed. */
   async missingPairs(pairs: Array<[string, string]>): Promise<Array<[string, string]>> {
     const installed = new Set((await this.listInstalled()).map((p) => p.key))
@@ -340,7 +354,12 @@ export class BergamotManager {
 
     const pairs = requiredPairs(source, target)
     const missing = await this.missingPairs(pairs)
-    if (missing.length) throw new LocalizedError("bergamotModelMissing", [source, target, missing.map(([s, t]) => `${s} → ${t}`).join(", ")])
+    if (missing.length) {
+      const needs = pairNeeds("bergamot", source, target, await this.catalog(), await this.installedKeys())
+      if (needs.unsupported) throw new LocalizedError("bergamotUnsupportedPair", [source, target])
+      const list = missing.map(([s, t]) => `${s} → ${t}`).join(", ")
+      throw new MissingDataError("bergamotModelMissing", [source, target, list], { service: "bergamot", pair: pairKey(source, target), models: needs.missing })
+    }
 
     const prepared = prepareTexts(texts, source)
     if (prepared.inputs.length === 0) return texts.slice()

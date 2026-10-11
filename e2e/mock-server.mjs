@@ -1,9 +1,9 @@
 // Local stand-in for every service the e2e build talks to:
 // - Google's free endpoint (translate_a/t, translate_a/single): "[G] <text>"
 // - an OpenAI-compatible chat completions API: "[AI <mode>] <text>", the mode read from the system prompt
-// - the dictionary packs of a GitHub release (dict-index.json and one pack built from fixtures/)
-// - Mozilla Remote Settings for Bergamot (/bergamot/v1/): the server root, the model records of en -> zh-Hans
-//   and the zstd-compressed attachments, all made of fake bytes
+// - the dictionary packs of a GitHub release (dict-index.json and the packs en -> zh-Hans and zh-Hans -> en built from fixtures/)
+// - Mozilla Remote Settings for Bergamot (/bergamot/v1/): the server root, the model records of en -> zh-Hans and
+//   zh-Hans -> en and the zstd-compressed attachments, all made of fake bytes
 // - what the extension reports: /ready, /mark, /log, /report, and which scenario to run: /scenario
 // Answers are delayed so that the tiers arrive in a fixed order: dictionary, Google, AI.
 import { createHash } from "node:crypto"
@@ -32,29 +32,31 @@ export function segmentsOf(prompt) {
 }
 
 function dictionaryRelease(fixtures) {
-  const file = "dict-en-zh-Hans.tsv.gz"
-  const tsv = readFileSync(join(fixtures, "dict-en-zh-Hans.tsv"), "utf8")
-  const gz = gzipSync(Buffer.from(tsv, "utf8"))
-  const lines = tsv.split("\n")
-  const index = {
-    version: 1,
-    packs: [
-      {
-        src: "en",
-        tgt: "zh-Hans",
-        file,
-        bytes: gz.length,
-        rawBytes: Buffer.byteLength(tsv),
-        entries: lines.filter((l) => l.startsWith("w\t")).length,
-        forms: lines.filter((l) => l.startsWith("f\t")).length,
-        sha256: createHash("sha256").update(gz).digest("hex"),
-        source: "E2E fixture",
-        license: "CC0-1.0",
-        attribution: "Test data",
-      },
-    ],
-  }
-  return { index, files: { [file]: gz } }
+  const files = {}
+  const packs = [
+    ["en", "zh-Hans"],
+    ["zh-Hans", "en"],
+  ].map(([src, tgt]) => {
+    const file = `dict-${src}-${tgt}.tsv.gz`
+    const tsv = readFileSync(join(fixtures, `dict-${src}-${tgt}.tsv`), "utf8")
+    const gz = gzipSync(Buffer.from(tsv, "utf8"))
+    const lines = tsv.split("\n")
+    files[file] = gz
+    return {
+      src,
+      tgt,
+      file,
+      bytes: gz.length,
+      rawBytes: Buffer.byteLength(tsv),
+      entries: lines.filter((l) => l.startsWith("w\t")).length,
+      forms: lines.filter((l) => l.startsWith("f\t")).length,
+      sha256: createHash("sha256").update(gz).digest("hex"),
+      source: "E2E fixture",
+      license: "CC0-1.0",
+      attribution: "Test data",
+    }
+  })
+  return { index: { version: 1, packs }, files }
 }
 
 /** Deterministic pseudo-random bytes: they compress poorly, so the compressed files have a size worth a progress bar. */
@@ -66,24 +68,27 @@ function fakeBytes(label, length) {
 
 const sha256 = (data) => createHash("sha256").update(data).digest("hex")
 
-/** Files of the model en -> zh-Hans: Remote Settings records (the attachment host comes from the server root) and the compressed attachments by location. */
+/** Files of the models en -> zh-Hans and zh-Hans -> en: Remote Settings records (the attachment host comes from the server root) and the compressed attachments by location. */
 function bergamotModels() {
   const specs = [
-    { fileType: "model", name: "model.enzh.intgemm.alphas.bin", size: 24 * 1024 },
-    { fileType: "lex", name: "lex.50.50.enzh.s2t.bin", size: 4 * 1024 },
-    { fileType: "vocab", name: "vocab.enzh.spm", size: 4 * 1024 },
-  ]
+    ["en", "zh-Hans", "enzh"],
+    ["zh-Hans", "en", "zhen"],
+  ].flatMap(([src, tgt, short]) => [
+    { src, tgt, fileType: "model", name: `model.${short}.intgemm.alphas.bin`, size: 24 * 1024 },
+    { src, tgt, fileType: "lex", name: `lex.50.50.${short}.s2t.bin`, size: 4 * 1024 },
+    { src, tgt, fileType: "vocab", name: `vocab.${short}.spm`, size: 4 * 1024 },
+  ])
   const attachments = {}
-  const records = specs.map(({ fileType, name, size }) => {
+  const records = specs.map(({ src, tgt, fileType, name, size }) => {
     const raw = fakeBytes(name, size)
     const compressed = zstdCompressSync(raw)
     const location = `main-workspace/translations-models-v2/${name}.zst`
     attachments[location] = compressed
     return {
-      id: `e2e-${fileType}`,
+      id: `e2e-${name}`,
       name,
-      sourceLanguage: "en",
-      targetLanguage: "zh-Hans",
+      sourceLanguage: src,
+      targetLanguage: tgt,
       fileType,
       version: "3.0",
       architecture: "e2e",

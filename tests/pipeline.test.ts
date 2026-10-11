@@ -15,7 +15,7 @@ vi.mock("../src/offline/bergamot", async (importOriginal) => ({ ...(await import
 import type { LlmImpl, TranslationService } from "../src/background/service"
 import { type LlmCallOptions, llmAnalyzeMail, llmTranslateBatch, llmTranslateSingle } from "../src/background/translators/llm"
 import type { Segment } from "../src/background/translators/llm-prompt"
-import { LocalizedError, TimeoutError } from "../src/shared/errors"
+import { LocalizedError, MissingDataError, TimeoutError } from "../src/shared/errors"
 import { ENGLISH } from "../src/shared/i18n"
 import { createMailContext } from "../src/shared/mail-context"
 import type { TranslateRequest, TranslateResponse } from "../src/shared/messages"
@@ -113,6 +113,27 @@ describe("tiers side by side", () => {
       Bonjour: { ok: false, error: ENGLISH.t("errDictionaryMissing", ["fr → zh-Hans"]) },
       World: { ok: true, text: "D(World)" },
     })
+  })
+
+  it("passes on what a paragraph lacks, also for a paragraph long enough to go in pieces; other failures carry nothing", async () => {
+    const missing = { service: "dictionary" as const, pair: "fr>zh-Hans", models: ["en>zh-Hans"] }
+    const dictionary = {
+      translate: vi.fn(async (texts: string[]) =>
+        texts.map((t): PromiseSettledResult<string> => ({
+          status: "rejected",
+          reason: t.startsWith("Bonjour") ? new MissingDataError("errDictionaryMissing", ["fr → zh-Hans"], missing, "hintDictionaryDownload") : new LocalizedError("errDictionaryUnsupported", ["it"]),
+        })),
+      ),
+      signature: vi.fn(async () => "packs"),
+    }
+    const { service } = setup((s) => (s.tiers.dictionary = "dictionary"), { dictionary })
+    const long = `Bonjour ${"et merci. ".repeat(6000)}`
+    const { done, of } = translateAll(service, ["Bonjour", long, "Ciao"], ["dictionary"])
+    await done
+    const results = new Map(of("dictionary").map((r) => [r.text, r.result]))
+    expect(results.get("Bonjour")).toMatchObject({ ok: false, missing })
+    expect(results.get(long)).toMatchObject({ ok: false, missing })
+    expect(results.get("Ciao")).toEqual({ ok: false, error: ENGLISH.t("errDictionaryUnsupported", ["it"]) })
   })
 
   it("translates a batch of mixed languages offline language by language, in the original order", async () => {

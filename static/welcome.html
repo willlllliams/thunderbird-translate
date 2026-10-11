@@ -104,9 +104,14 @@
       <section class="step" data-step="offline" hidden>
         <h2 tabindex="-1" data-i18n="stepOffline"></h2>
         <p data-i18n="welcomeOfflineIntro"></p>
+        <p id="offlineAutoHint" class="hint" data-i18n="offlineAutoHint" hidden></p>
         <div id="offlineDictionary">
           <h3 data-i18n="sectionDictionaries"></h3>
           <p class="hint" data-i18n="dictionaryAttribution"></p>
+          <div class="row">
+            <input type="search" id="dictFilter" data-i18n-placeholder="bergamotFilter" spellcheck="false" />
+          </div>
+          <div id="dictCommon" class="common"></div>
           <p id="dictStatus" class="hint" role="status"></p>
           <ul id="dictList" class="dict-list"></ul>
         </div>
@@ -114,10 +119,17 @@
           <h3 data-i18n="sectionBergamot"></h3>
           <p class="hint" data-i18n="bergamotHint"></p>
           <p id="bergamotNeeded" class="hint"></p>
+          <div class="row">
+            <input type="search" id="bergamotFilter" data-i18n-placeholder="bergamotFilter" spellcheck="false" />
+          </div>
+          <div id="bergamotCommon" class="common"></div>
           <p id="bergamotStatus" class="hint" role="status"></p>
           <ul id="bergamotList" class="dict-list"></ul>
         </div>
-        <button type="button" id="downloadPicked" class="primary" data-i18n="buttonDownloadSelected"></button>
+        <div class="row">
+          <button type="button" id="downloadPicked" class="primary" data-i18n="buttonDownloadSelected"></button>
+          <span id="downloadStatus" role="status"></span>
+        </div>
       </section>
 
       <section class="step" data-step="machine" hidden>

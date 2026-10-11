@@ -38,6 +38,37 @@ export class LocalizedError extends Error {
   }
 }
 
+/** An offline service lacks data for a paragraph: the service, the language pair ("ja>zh-Hans") and the packs or models to download (pair keys). */
+export interface MissingData {
+  service: "dictionary" | "bergamot"
+  pair: string
+  models: string[]
+}
+
+/** A dictionary pack or offline model the translation needs is not installed. */
+export class MissingDataError extends LocalizedError {
+  constructor(
+    key: MessageKey,
+    args: string[],
+    readonly missing: MissingData,
+    hint?: MessageKey,
+  ) {
+    super(key, args, undefined, hint)
+  }
+}
+
+/** The same error without its missing data, for a paragraph whose language was guessed rather than detected. */
+export function withoutMissing(error: unknown): unknown {
+  if (!(error instanceof MissingDataError)) return error
+  const { key, args, detail, hint } = error.i18nText
+  return new LocalizedError(key, args, detail, hint)
+}
+
+/** The missing data an error carries, also after it was passed on as text with the data attached. */
+export function missingData(error: unknown): MissingData | undefined {
+  return (error as { missing?: MissingData } | null)?.missing
+}
+
 /** fetch() failed before any HTTP response arrived (DNS, TLS, refused connection, CORS, proxy). */
 export class NetworkError extends Error {
   readonly isRetryable = true

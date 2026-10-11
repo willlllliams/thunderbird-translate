@@ -17,6 +17,7 @@ export const publicSettings = (over: Partial<PublicSettings> = {}): PublicSettin
   signatures: { machine: "google-free" },
   precise: false,
   style: { preset: "border", color: "#4c8bf5", opacity: 0.85, fontScale: 1 },
+  offlineMutedPairs: [],
   ...over,
 })
 

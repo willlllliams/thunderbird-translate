@@ -21,10 +21,11 @@ import { addProvidersInUse, type DisplayMode, type Settings } from "../shared/se
 import { BergamotSection } from "../options/bergamot"
 import { DictionarySection } from "../options/dictionaries"
 import { h } from "../options/dom"
+import { loadSystemLanguages, recommendedFor } from "../options/offline-list"
 import { PromptEditor } from "../options/prompt-editor"
 import { type PanelState, providerConfig, providerFields, providerTitle, testButton, testResult } from "../options/provider-panel"
 import { SettingsSession } from "../options/session"
-import { WELCOME_PROBE_QUERY } from "../e2e/marker"
+import { WELCOME_PROBE_PARAM } from "../e2e/marker"
 import { runWelcomeProbe } from "../e2e/welcome"
 import { releaseFetch } from "../e2e/release"
 import { neighbourStep, resumeStep, STEP_IDS, STEP_TITLE_KEYS, type StepId, stepNeeded, TRY_MAIL, trialLanguage, WELCOME_KEY, type WelcomeState } from "./steps"
@@ -39,8 +40,12 @@ let dictionaries: DictionarySection
 let bergamot: BergamotSection
 let prompts: PromptEditor
 let client: ContentClient | null = null
-/** Languages the offline lists were last loaded for. */
+/** Languages the offline lists were last drawn for; "" before they are loaded. */
 let offlineLanguages = ""
+/** Number of directions "Download selected" is downloading; 0 when it does not run. */
+let downloading = 0
+/** How the last "Download selected" ended. */
+let downloadResult = ""
 
 /** Paragraph elements of a message; a line break inside a paragraph becomes <br>. */
 function paragraphs(texts: string[]): HTMLParagraphElement[] {
@@ -159,31 +164,50 @@ function setTier(tier: Tier, id: string | null): void {
 
 /* ---------- step 4: offline translation ---------- */
 
+/** The lists are loaded once; new languages start the check boxes from the new recommendation. */
 function enterOffline(): void {
   $("offlineDictionary").hidden = settings.tiers.dictionary === null
   $("offlineBergamot").hidden = settings.tiers.machine === null || getPreset(settings.tiers.machine)?.kind !== "bergamot"
+  $("offlineAutoHint").hidden = settings.sourceLang !== "auto"
   const languages = `${settings.sourceLang}>${settings.targetLang}`
-  if (languages === offlineLanguages) {
+  const first = offlineLanguages === ""
+  if (languages !== offlineLanguages) {
+    offlineLanguages = languages
+    dictionaries.resetChoice()
+    bergamot.resetChoice()
+  }
+  if (!first) {
     dictionaries.render()
     bergamot.render()
     return
   }
-  offlineLanguages = languages
   void dictionaries.load()
   void bergamot.load()
 }
 
+/** The lists shown on the offline step. */
+const offlineLists = () => [...($("offlineDictionary").hidden ? [] : [dictionaries]), ...($("offlineBergamot").hidden ? [] : [bergamot])]
+
+/** "Download selected" needs a ticked direction; the line beside it says why it is disabled, what runs and how it ended. */
+function showDownloadState(): void {
+  // The lists draw themselves before the page has all of them.
+  if (!dictionaries || !bergamot) return
+  const picked = offlineLists().reduce((n, list) => n + list.picked().length, 0)
+  $<HTMLButtonElement>("downloadPicked").disabled = downloading > 0 || picked === 0
+  let status = downloadResult
+  if (downloading > 0) status = t("downloadRunning", [downloading])
+  else if (!status && picked === 0) status = t("downloadNothingPicked")
+  $("downloadStatus").textContent = status
+}
+
 async function downloadPicked(): Promise<void> {
-  const button = $<HTMLButtonElement>("downloadPicked")
-  button.disabled = true
-  try {
-    await Promise.all([
-      $("offlineDictionary").hidden ? null : dictionaries.downloadPicked(),
-      $("offlineBergamot").hidden ? null : bergamot.downloadPicked(),
-    ])
-  } finally {
-    button.disabled = false
-  }
+  downloading = offlineLists().reduce((n, list) => n + list.picked().length, 0)
+  downloadResult = ""
+  showDownloadState()
+  const failed = (await Promise.all(offlineLists().map((list) => list.downloadPicked()))).reduce((a, b) => a + b, 0)
+  downloading = 0
+  downloadResult = failed > 0 ? t("downloadFailed", [failed]) : t("downloadDone")
+  showDownloadState()
 }
 
 /* ---------- steps 5 and 6: services ---------- */
@@ -260,8 +284,9 @@ function remoteChanged(before: Settings): void {
   renderStepList()
   showSameLanguage()
   const section = document.querySelector(`section[data-step="${step}"]`)
+  const shown = (s: Settings) => JSON.stringify([s.tiers, s.mode, s.style, s.sourceLang, s.targetLang])
   // Redraw the step unless the user is typing in it.
-  if (JSON.stringify([settings.tiers, settings.mode, settings.style]) !== JSON.stringify([before.tiers, before.mode, before.style]) && !section?.contains(document.activeElement)) enterStep()
+  if (shown(settings) !== shown(before) && !section?.contains(document.activeElement)) enterStep()
 }
 
 async function main(): Promise<void> {
@@ -270,11 +295,31 @@ async function main(): Promise<void> {
   session.onRemoteChange = remoteChanged
   session.onSaved = showSaved
   session.onSaveError = showSaveError
-  const languages = () => ({ source: settings.sourceLang, target: settings.targetLang })
-  dictionaries = new DictionarySection({ tag: () => settings.dictionary.releaseTag, list: $("dictList"), status: $("dictStatus"), needed: languages, fetchFn: __E2E__ ? releaseFetch : undefined })
-  bergamot = new BergamotSection({ languages, list: $("bergamotList"), status: $("bergamotStatus"), needed: $("bergamotNeeded"), pick: true })
+  const lists = {
+    languages: () => ({ source: settings.sourceLang, target: settings.targetLang }),
+    recommended: () => recommendedFor(settings),
+    pick: true,
+    onRender: showDownloadState,
+  }
+  dictionaries = new DictionarySection({
+    ...lists,
+    tag: () => settings.dictionary.releaseTag,
+    list: $("dictList"),
+    status: $("dictStatus"),
+    common: $("dictCommon"),
+    filter: $<HTMLInputElement>("dictFilter"),
+    fetchFn: __E2E__ ? releaseFetch : undefined,
+  })
+  bergamot = new BergamotSection({
+    ...lists,
+    list: $("bergamotList"),
+    status: $("bergamotStatus"),
+    common: $("bergamotCommon"),
+    needed: $("bergamotNeeded"),
+    filter: $<HTMLInputElement>("bergamotFilter"),
+  })
   prompts = new PromptEditor($("promptEditor"), session)
-  await loadExtensionI18n(settings.uiLanguage)
+  await Promise.all([loadExtensionI18n(settings.uiLanguage), loadSystemLanguages()])
 
   // Step 1
   const uiLanguage = $<HTMLSelectElement>("uiLanguage")
@@ -305,6 +350,8 @@ async function main(): Promise<void> {
 
   // Step 4
   $("downloadPicked").addEventListener("click", () => void downloadPicked())
+  $("dictFilter").addEventListener("input", () => dictionaries.render())
+  $("bergamotFilter").addEventListener("input", () => bergamot.render())
 
   // Step 6
   const aiService = $<HTMLSelectElement>("aiService")
@@ -336,8 +383,11 @@ async function main(): Promise<void> {
   applyLanguage()
   await go(step, false)
   if (__DEBUG__) console.info("[thunderbird-translate] welcome page open at step", step)
-  // Test build (npm run e2e): the background script opens the page with this query to have the offline step walked through.
-  if (__E2E__ && location.search === WELCOME_PROBE_QUERY) void runWelcomeProbe()
+  // Test build (npm run e2e): the background script opens the page with ?e2e=<scenario> to have the offline step walked through.
+  if (__E2E__) {
+    const scenario = new URLSearchParams(location.search).get(WELCOME_PROBE_PARAM)
+    if (scenario) void runWelcomeProbe(scenario)
+  }
 }
 
 void main()

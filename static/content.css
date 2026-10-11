@@ -93,7 +93,51 @@
   cursor: help;
 }
 
+/* Notice above the message: an offline tier lacks a dictionary pack or model (notice.ts). */
+.tt-notice {
+  margin: 0 0 1em;
+  padding: 0.5em 0.9em;
+  border-left: 3px solid var(--tt-color, #4c8bf5);
+  border-radius: 4px;
+  background: color-mix(in srgb, var(--tt-color, #4c8bf5) 10%, transparent);
+  color: inherit;
+  font: 13px/1.5 system-ui, sans-serif;
+}
+
+.tt-notice ul {
+  margin: 0.3em 0;
+  padding-inline-start: 1.4em;
+}
+
+.tt-notice p {
+  margin: 0.3em 0;
+  opacity: 0.8;
+}
+
+.tt-notice-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.4em 1em;
+}
+
+.tt-notice-actions label {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3em;
+}
+
+.tt-notice button {
+  padding: 0.15em 0.8em;
+  font: inherit;
+  cursor: pointer;
+}
+
 @media (prefers-color-scheme: dark) {
+  .tt-notice {
+    background: color-mix(in srgb, var(--tt-color, #4c8bf5) 18%, transparent);
+  }
+
   .tt-error {
     color: #f28b82;
   }

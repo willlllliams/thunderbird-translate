@@ -4,8 +4,7 @@ import { IDBFactory } from "fake-indexeddb"
 import { afterEach, describe, expect, it, vi } from "vitest"
 import { ENGLISH } from "../src/shared/i18n"
 import type { BackgroundRequest, PortReport } from "../src/shared/messages"
-import { neededPackIds } from "../src/options/dictionaries"
-import { getPromptPreset, presetBlock } from "../src/shared/prompt-presets"
+import { getPromptPreset, NO_PRESET, presetBlock, removePresets } from "../src/shared/prompt-presets"
 import { DEFAULT_PROMPTS } from "../src/shared/prompts"
 import { createDefaultSettings, type Settings, toPublicSettings } from "../src/shared/settings"
 import { neighbourStep, resumeStep, stepNeeded, trialLanguage, WELCOME_KEY } from "../src/welcome/steps"
@@ -102,28 +101,6 @@ describe("steps", () => {
   })
 })
 
-describe("offline recommendations", () => {
-  const index = [
-    { src: "ja", tgt: "en" },
-    { src: "en", tgt: "zh-Hans" },
-    { src: "en", tgt: "ja" },
-    { src: "ja", tgt: "zh-Hans" },
-  ]
-
-  it("recommends the direct dictionary pack, else the two packs through English", () => {
-    expect(neededPackIds("ja", "zh-CN", index)).toEqual(["ja>zh-Hans"])
-    expect(neededPackIds("ja", "zh-CN", index.slice(0, 2))).toEqual(["ja>en", "en>zh-Hans"])
-    expect(neededPackIds("en", "ja", index)).toEqual(["en>ja"])
-    expect(neededPackIds("auto", "zh-TW", index)).toEqual(["en>zh-Hant"])
-    expect(neededPackIds("de", "de", index)).toEqual([])
-    expect(neededPackIds("it", "zh-CN", index)).toEqual([])
-  })
-
-  it("M2: recommends no packs between Simplified and Traditional Chinese, which the dictionary does not translate", () => {
-    expect(neededPackIds("zh-TW", "zh-CN", index)).toEqual([])
-    expect(neededPackIds("zh-CN", "zh-TW", index)).toEqual([])
-  })
-})
 
 describe("welcome page", () => {
   const $ = <T extends HTMLElement>(id: string) => document.getElementById(id) as T
@@ -291,6 +268,92 @@ describe("welcome page", () => {
     expect(document.querySelectorAll('#machinePanel input[name="microsoftMode"]')).toHaveLength(2)
   })
 
+  /** Release index and Bergamot list of the offline step: `installed` Bergamot pairs; records the requests and fetched URLs. */
+  function offlineServices(installed: string[] = []) {
+    const pack = (src: string, tgt: string) => ({
+      src,
+      tgt,
+      file: `dict-${src}-${tgt}.tsv.gz`,
+      bytes: 1048576,
+      rawBytes: 1,
+      entries: 1000,
+      forms: 0,
+      sha256: "00".repeat(32),
+      source: "Wiktionary",
+      license: "CC BY-SA 4.0",
+      attribution: `Wiktionary ${src}-${tgt}`,
+    })
+    const index = { version: 1, packs: [pack("ja", "en"), pack("en", "zh-Hans"), pack("zh-Hans", "en"), pack("fr", "en"), pack("en", "de")] }
+    const urls: string[] = []
+    const requests: BackgroundRequest[] = []
+    const waiting: (() => void)[] = []
+    const respond = (req: BackgroundRequest) => {
+      requests.push(req)
+      switch (req.type) {
+        case "bergamotList": {
+          const pair = (src: string, tgt: string) => ({ src, tgt, version: "1", architecture: "base", bytes: 30e6, rawBytes: 1, installed: installed.includes(`${src}>${tgt}`) })
+          return { ok: true, pairs: [pair("ja", "en"), pair("en", "zh-Hans"), pair("zh-Hans", "en"), pair("fr", "en"), pair("en", "fr")] }
+        }
+        case "bergamotInstall":
+          return new Promise((resolve) => waiting.push(() => resolve({ ok: true })))
+        case "bergamotProgress":
+          return {}
+      }
+      return undefined
+    }
+    const fetchUrl = async (url: string) => {
+      urls.push(url)
+      return url.endsWith("dict-index.json") ? jsonResponse(index) : new Response("missing", { status: 404 })
+    }
+    return { urls, requests, respond, fetchUrl, finish: () => waiting.splice(0).forEach((done) => done()) }
+  }
+
+  it("with automatic detection lists everything, the recommended languages first and ticked, and reports the download", async () => {
+    vi.stubGlobal("indexedDB", new IDBFactory())
+    const services = offlineServices()
+    const s = settings((s) => (s.tiers = { dictionary: "dictionary", machine: "bergamot", ai: null }))
+    await openPage("welcome", s, { stored: { [WELCOME_KEY]: { step: "offline" } }, respond: services.respond, fetchUrl: services.fetchUrl, systemLanguages: ["fr-FR"] })
+    const names = (list: string) => Array.from(document.querySelectorAll(`#${list} .dict-name`)).map((el) => el.textContent)
+    const ticked = (list: string) => Array.from(document.querySelectorAll<HTMLInputElement>(`#${list} input[type=checkbox]`)).filter((b) => b.checked).length
+    await vi.waitFor(() => expect(names("dictList")).toHaveLength(5))
+    await vi.waitFor(() => expect(names("bergamotList")).toHaveLength(5))
+    expect($("offlineAutoHint").hidden).toBe(false)
+    // Target language (Simplified Chinese), then the system's French; Japanese and German are not recommended.
+    expect(names("dictList")).toEqual(["English → Simplified Chinese (简体中文)", "Simplified Chinese (简体中文) → English", "French (Français) → English", "English → German (Deutsch)", "Japanese (日本語) → English"])
+    expect(ticked("dictList")).toBe(3)
+    expect(ticked("bergamotList")).toBe(4)
+    expect($<HTMLButtonElement>("downloadPicked").disabled).toBe(false)
+    expect($("downloadStatus").textContent).toBe("")
+
+    $("downloadPicked").click()
+    expect($<HTMLButtonElement>("downloadPicked").disabled).toBe(true)
+    expect($("downloadStatus").textContent).toBe(ENGLISH.t("downloadRunning", [7]))
+    // The packs fail (the server has no files), the models are installed once the background script answers.
+    await vi.waitFor(() => expect(services.urls.filter((u) => u.endsWith(".tsv.gz"))).toHaveLength(3))
+    services.finish()
+    await vi.waitFor(() => expect($("downloadStatus").textContent).toBe(ENGLISH.t("downloadFailed", [3])))
+    expect(services.requests.filter((r) => r.type === "bergamotInstall")).toHaveLength(4)
+  })
+
+  it("says that nothing is ticked and keeps Download selected disabled until something is", async () => {
+    vi.stubGlobal("indexedDB", new IDBFactory())
+    const services = offlineServices(["en>zh-Hans"])
+    const s = settings((s) => {
+      s.sourceLang = "fr"
+      s.tiers = { dictionary: null, machine: "bergamot", ai: null }
+    })
+    await openPage("welcome", s, { stored: { [WELCOME_KEY]: { step: "offline" } }, respond: services.respond, fetchUrl: services.fetchUrl })
+    await vi.waitFor(() => expect(document.querySelectorAll("#bergamotList input[type=checkbox]")).toHaveLength(4))
+    const box = () => Array.from(document.querySelectorAll<HTMLInputElement>("#bergamotList input[type=checkbox]")).find((b) => b.checked)!
+    // fr → zh-CN needs fr → en (ticked) and en → zh-Hans (installed).
+    box().click()
+    expect($<HTMLButtonElement>("downloadPicked").disabled).toBe(true)
+    expect($("downloadStatus").textContent).toBe(ENGLISH.t("downloadNothingPicked"))
+    document.querySelector<HTMLInputElement>("#bergamotList input[type=checkbox]")!.click()
+    expect($<HTMLButtonElement>("downloadPicked").disabled).toBe(false)
+    expect($("downloadStatus").textContent).toBe("")
+  })
+
   it("recommends the dictionary packs and offline models the languages need and downloads the ticked ones", async () => {
     vi.stubGlobal("indexedDB", new IDBFactory())
     const pack = (src: string, tgt: string) => ({
@@ -343,21 +406,23 @@ describe("welcome page", () => {
       },
     })
     const names = (list: string) => Array.from(document.querySelectorAll(`#${list} .dict-name`)).map((el) => el.textContent)
-    await vi.waitFor(() => expect(names("dictList")).toHaveLength(2))
-    expect(names("dictList")[0]).toMatch(/^Japanese .*→ English$/)
-    expect(names("dictList")[1]).toMatch(/^English → .*简体中文/)
+    await vi.waitFor(() => expect(names("dictList")).toHaveLength(3))
+    // The target language first, then the source language, then the rest.
+    expect(names("dictList")[0]).toMatch(/^English → .*简体中文/)
+    expect(names("dictList")[1]).toMatch(/^Japanese .*→ English$/)
+    expect(names("dictList")[2]).toMatch(/^English → German/)
     expect(document.querySelector("#dictList")!.textContent).toContain("Wiktionary ja-en")
     expect(document.querySelector("#dictList")!.textContent).toContain(ENGLISH.t("dictPackMeta", ["1.0", "1,000", "CC BY-SA 4.0"]))
-    await vi.waitFor(() => expect(names("bergamotList")).toHaveLength(2))
-    expect(requests).toContainEqual({ type: "bergamotRequired", src: "ja", tgt: "zh-CN" })
-    // The installed direction has no check box; the missing one is ticked.
-    expect(document.querySelectorAll('#bergamotList input[type="checkbox"]')).toHaveLength(1)
+    await vi.waitFor(() => expect(names("bergamotList")).toHaveLength(3))
+    expect($("offlineAutoHint").hidden).toBe(true)
+    // The installed direction has no check box; the missing one is ticked, the one the languages do not need is not.
+    expect(Array.from(document.querySelectorAll<HTMLInputElement>('#bergamotList input[type="checkbox"]')).map((b) => b.checked)).toEqual([true, false])
     expect(document.querySelector("#bergamotList")!.textContent).toContain(ENGLISH.t("dictInstalled"))
 
     // Untick the second dictionary pack, then download.
     const dictBoxes = Array.from(document.querySelectorAll<HTMLInputElement>('#dictList input[type="checkbox"]'))
-    expect(dictBoxes.map((b) => b.checked)).toEqual([true, true])
-    dictBoxes[1].click()
+    expect(dictBoxes.map((b) => b.checked)).toEqual([true, true, false])
+    dictBoxes[0].click()
     $("downloadPicked").click()
     await vi.waitFor(() => expect(requests).toContainEqual({ type: "bergamotInstall", src: "ja", tgt: "en" }))
     await vi.waitFor(() => expect(urls.some((u) => u.endsWith("/dict-ja-en.tsv.gz"))).toBe(true))
@@ -368,6 +433,7 @@ describe("welcome page", () => {
   it("applies a preset to a prompt with the shared prompt editor", async () => {
     const page = await openPage("welcome", settings((s) => (s.tiers.ai = "openai")), { stored: { [WELCOME_KEY]: { step: "prompts" } } })
     await vi.waitFor(() => expect(current()).toBe("prompts"))
+    expect($<HTMLSelectElement>("presetId").value).toBe(NO_PRESET)
     choose("presetId", "style")
     choose("presetOption", "plain")
     choose("presetKind", "precise")
@@ -378,6 +444,34 @@ describe("welcome page", () => {
     expect($<HTMLTextAreaElement>("prompt-precise").value).toBe(expected)
     await vi.waitFor(() => expect(page.stored().prompts.precise).toBe(expected))
     expect($("presetStatus").textContent).toBe(ENGLISH.t("presetApplied", [ENGLISH.t("labelPrecise")]))
+  })
+
+  it("removes the preset rules with Plain and keeps the user's own text", async () => {
+    const own = "Always keep the greeting short."
+    const dialect = getPromptPreset("dialect")!
+    const style = getPromptPreset("style")!
+    const prompt = [DEFAULT_PROMPTS.bilingual, own, presetBlock(dialect, dialect.options![1]), presetBlock(style, style.options![0])].join("\n\n")
+    const page = await openPage("welcome", settings((s) => {
+      s.tiers.ai = "openai"
+      s.prompts.bilingual = prompt
+    }), { stored: { [WELCOME_KEY]: { step: "prompts" } } })
+    await vi.waitFor(() => expect(current()).toBe("prompts"))
+    choose("presetId", NO_PRESET)
+    expect($("presetHint").textContent).toBe(ENGLISH.t("presetNoneHint"))
+    expect($("presetExample").textContent).toBe(ENGLISH.t("presetNoneExample"))
+    expect(document.querySelector<HTMLElement>("#presetOption")!.closest("label")!.hidden).toBe(true)
+    choose("presetKind", "bilingual")
+    $("presetApply").click()
+    expect($<HTMLTextAreaElement>("prompt-bilingual").value).toBe(`${DEFAULT_PROMPTS.bilingual}\n\n${own}`)
+    await vi.waitFor(() => expect(page.stored().prompts.bilingual).toBe(`${DEFAULT_PROMPTS.bilingual}\n\n${own}`))
+    expect($("presetStatus").textContent).toBe(ENGLISH.t("presetRemoved", [ENGLISH.t("modeBilingual")]))
+    // Without the user's text the prompt is the built-in one again, stored as empty.
+    $<HTMLTextAreaElement>("prompt-bilingual").value = `${DEFAULT_PROMPTS.bilingual}\n\n${presetBlock(style, style.options![1])}`
+    $("prompt-bilingual").dispatchEvent(new Event("input"))
+    $("presetApply").click()
+    await vi.waitFor(() => expect(page.stored().prompts.bilingual).toBe(""))
+    expect($<HTMLTextAreaElement>("prompt-bilingual").value).toBe(DEFAULT_PROMPTS.bilingual)
+    expect(removePresets(prompt)).toBe(`${DEFAULT_PROMPTS.bilingual}\n\n${own}`)
   })
 
   /** The background script's end of the content script Port: answers every paragraph with "[zh] <text>". */
@@ -515,8 +609,10 @@ describe("welcome page", () => {
     await vi.waitFor(() => expect(current()).toBe("offline"))
     expect($("offlineDictionary").hidden).toBe(false)
     expect($("offlineBergamot").hidden).toBe(true)
-    $("downloadPicked").click()
-    await vi.waitFor(() => expect($<HTMLButtonElement>("downloadPicked").disabled).toBe(false))
+    // Nothing to tick (the release index cannot be fetched): the button stays disabled and says why.
+    await vi.waitFor(() => expect($("dictStatus").textContent).toContain(ENGLISH.t("dictIndexFailed", [""]).trim()))
+    expect($<HTMLButtonElement>("downloadPicked").disabled).toBe(true)
+    expect($("downloadStatus").textContent).toBe(ENGLISH.t("downloadNothingPicked"))
     expect(requests.some((r) => r.type === "bergamotInstall")).toBe(false)
   })
 })

@@ -7,20 +7,29 @@ import {
   CONTENT_PORT_NAME,
   IDLE_TAB_STATE,
   type LocaleMessages,
+  type OfflineStatus,
+  optionsPath,
+  type PageNotice,
   type PortPush,
   type PortReport,
   type TabState,
 } from "../shared/messages"
+import { pairKey } from "../shared/languages"
 import { resolveUiLocale } from "../shared/locales"
-import { SETTINGS_KEY, type Settings, toPublicSettings } from "../shared/settings"
+import { type Catalog, offlineState } from "../shared/offline-needs"
+import { getPreset } from "../shared/providers"
+import { SETTINGS_KEY, type Settings, type TierSettings, toPublicSettings } from "../shared/settings"
 import { readSettings, updateSettings } from "../shared/settings-store"
 import { sourceDetector } from "../shared/lang-detect"
+import { getBergamot } from "../offline/bergamot"
 import { handleBergamot } from "./bergamot-admin"
 import { type KeyValueStorage, PersistentCache } from "./cache"
 import { Dictionary } from "./dictionary"
+import { fetchDictionaryIndex } from "./dictionary/download"
 import { TranslationService } from "./service"
 import { openWelcomeOnInstall } from "./welcome"
 import { setUpE2e } from "../e2e/background"
+import { releaseFetch } from "../e2e/release"
 
 declare const __DEBUG__: boolean
 declare const __E2E__: boolean
@@ -37,7 +46,45 @@ const storage: KeyValueStorage = {
 const cache = new PersistentCache(storage, settings.cache.maxEntries)
 // The dictionary and the offline models name the source language of a paragraph the same way.
 const detect = sourceDetector(ext.i18n)
-const dictionary = new Dictionary(undefined, { detect })
+
+/** Pair keys of the dictionary packs of the release in the settings, read once per tag; null while the index cannot be read. */
+const dictionaryCatalogs = new Map<string, Promise<Catalog>>()
+function dictionaryCatalog(): Promise<Catalog> {
+  const tag = settings.dictionary.releaseTag
+  let catalog = dictionaryCatalogs.get(tag)
+  if (!catalog) {
+    catalog = fetchDictionaryIndex(tag, __E2E__ ? releaseFetch : undefined).then(
+      (packs) => new Set(packs.map((p) => pairKey(p.src, p.tgt))),
+      () => {
+        dictionaryCatalogs.delete(tag)
+        return null
+      },
+    )
+    dictionaryCatalogs.set(tag, catalog)
+  }
+  return catalog
+}
+
+const dictionary = new Dictionary(undefined, { detect, catalog: dictionaryCatalog })
+
+/** What the offline services among `tiers` lack for the languages; a store that cannot be read says nothing. */
+async function offlineStatus(sourceLang: string, targetLang: string, tiers: TierSettings): Promise<OfflineStatus> {
+  const status: OfflineStatus = {}
+  const kinds = [tiers.dictionary, tiers.machine].map((id) => (id ? getPreset(id)?.kind : undefined))
+  await Promise.all([
+    kinds.includes("dictionary") &&
+      Promise.all([dictionaryCatalog(), dictionary.installedIds()]).then(
+        ([catalog, installed]) => void (status.dictionary = offlineState("dictionary", sourceLang, targetLang, catalog, installed)),
+        () => {},
+      ),
+    kinds.includes("bergamot") &&
+      Promise.all([getBergamot().catalog(), getBergamot().installedKeys()]).then(
+        ([catalog, installed]) => void (status.bergamot = offlineState("bergamot", sourceLang, targetLang, catalog, installed)),
+        () => {},
+      ),
+  ])
+  return status
+}
 // Badge, button title and error messages use the current i18n instance, set by applyUiLanguage().
 const service = new TranslationService({ getSettings: () => settings, cache, dictionary, detect, i18n: getI18n })
 
@@ -97,6 +144,14 @@ function safePost(port: browser.runtime.Port, msg: PortPush): void {
   } catch {
     // The content script went away.
   }
+}
+
+/** Dictionary packs or offline models changed: content scripts forget their results, pages show the new state. */
+function offlineDataChanged(): void {
+  broadcast({ type: "dataChanged" })
+  ext.runtime.sendMessage({ type: "offlineDataChanged" } satisfies PageNotice).catch(() => {
+    // No page open.
+  })
 }
 
 function toggleTab(tabId: number): void {
@@ -191,13 +246,27 @@ async function handle(req: BackgroundRequest): Promise<unknown> {
       return localeMessages(req.uiLanguage)
     case "dictionaryChanged":
       dictionary.invalidate()
-      return broadcast({ type: "dataChanged" })
+      return offlineDataChanged()
     case "bergamotInstall":
     case "bergamotRemove": {
       const result = await handleBergamot(req)
-      broadcast({ type: "dataChanged" })
+      offlineDataChanged()
       return result
     }
+    case "offlineStatus":
+      return offlineStatus(req.sourceLang, req.targetLang, req.tiers)
+    case "openOptions":
+      return void (await ext.tabs.create({ url: ext.runtime.getURL(optionsPath(req.place)) }))
+    case "muteOfflinePairs":
+      // Nothing goes back: the settings hold API keys, and the request comes from a content script.
+      return void (await updateSettings((s) => {
+        const muted = new Set(s.offlineMutedPairs)
+        for (const pair of req.pairs) {
+          if (req.muted) muted.add(pair)
+          else muted.delete(pair)
+        }
+        s.offlineMutedPairs = [...muted]
+      }))
     case "bergamotList":
     case "bergamotProgress":
     case "bergamotCancel":

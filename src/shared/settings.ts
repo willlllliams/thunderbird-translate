@@ -78,6 +78,8 @@ export interface Settings {
   precise: { enabled: boolean }
   /** Release tag on GitHub that holds the dictionary packs. */
   dictionary: { releaseTag: string }
+  /** Offline service and language pair ("dictionary:ja>zh-Hans", "bergamot:ja>zh-Hans") for which a message shows no notice about missing dictionary packs or offline models. */
+  offlineMutedPairs: string[]
   batch: BatchSettings
   cache: { enabled: boolean; maxEntries: number }
   style: StyleSettings
@@ -114,11 +116,15 @@ export function createDefaultSettings(uiLang?: string): Settings {
     prompts: { bilingual: "", translationOnly: "", precise: "" },
     precise: { enabled: false },
     dictionary: { releaseTag: DEFAULT_DICT_TAG },
+    offlineMutedPairs: [],
     batch: { batchDelayMs: 50, maxCharsPerBatch: 3000, maxItemsPerBatch: 30, concurrency: 4, maxRetries: 3, timeoutSeconds: 60, llmBatchEnabled: true },
     cache: { enabled: true, maxEntries: 5000 },
     style: { preset: "border", color: "#4c8bf5", opacity: 0.85, fontScale: 1 },
   }
 }
+
+/** Offline service and language pair of a muted notice: "dictionary:ja>zh-Hans", "bergamot:ja>zh-Hans". */
+const MUTED_KEY = /^(dictionary|bergamot):[A-Za-z-]{2,12}>[A-Za-z-]{2,12}$/
 
 function num(value: unknown, fallback: number, min: number, max: number): number {
   const n = typeof value === "number" ? value : Number(value)
@@ -232,6 +238,7 @@ export function normalizeSettings(stored: unknown, uiLang?: string): Settings {
     prompts: normalizePrompts(s),
     precise: { enabled: s.precise?.enabled === true },
     dictionary: { releaseTag: tag || d.dictionary.releaseTag },
+    offlineMutedPairs: Array.isArray(s.offlineMutedPairs) ? [...new Set(s.offlineMutedPairs.filter((p): p is string => typeof p === "string" && MUTED_KEY.test(p)))] : [],
     batch: {
       batchDelayMs: num(b.batchDelayMs, d.batch.batchDelayMs, 0, 2000),
       maxCharsPerBatch: num(b.maxCharsPerBatch, d.batch.maxCharsPerBatch, 200, 50000),
@@ -364,6 +371,7 @@ export interface PublicSettings {
   /** Precise mode applies: the content script sends the message text as context. */
   precise: boolean
   style: StyleSettings
+  offlineMutedPairs: string[]
 }
 
 export function toPublicSettings(settings: Settings): PublicSettings {
@@ -387,5 +395,6 @@ export function toPublicSettings(settings: Settings): PublicSettings {
     signatures,
     precise: settings.precise.enabled && settings.tiers.ai !== null,
     style: settings.style,
+    offlineMutedPairs: settings.offlineMutedPairs,
   }
 }

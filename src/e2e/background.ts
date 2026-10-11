@@ -9,19 +9,25 @@
  * the server publishes. Afterwards it runs the keyboard commands the content
  * script asks for and forwards the content script's report to the server.
  *
- * In the "welcome" scenario (GET /scenario) it stores settings with the two
- * offline services instead, leaves every dictionary pack uninstalled and opens
- * the setup guide; the guide's probe (src/e2e/welcome.ts) downloads the packs.
+ * The scenario comes from GET /scenario:
+ * - "message": the settings above; the content script's probe translates.
+ * - "welcome", "welcome-auto": the two offline services (source language
+ *   English, or detected automatically), every dictionary pack uninstalled,
+ *   and the setup guide opened; its probe (src/e2e/welcome.ts) downloads.
+ * - "missing": the two offline services without any pack or model, so the
+ *   content script's probe sees the notice about missing data; it can switch
+ *   to Google without the dictionary ({ e2e: "settings", useGoogle }).
+ * Every ready report says whether i18n.getPreferredSystemLanguages() exists.
  */
 
 import { ext } from "../shared/ext"
 import { SETTINGS_KEY } from "../shared/settings"
-import { readSettings } from "../shared/settings-store"
+import { readSettings, updateSettings } from "../shared/settings-store"
 import type { KeyValueStorage } from "../background/cache"
 import { fetchDictionaryIndex, installPack } from "../background/dictionary/download"
 import { DictionaryStore } from "../background/dictionary/store"
 import { pairKey } from "../shared/languages"
-import { E2E_MARKER, WELCOME_PROBE_QUERY } from "./marker"
+import { E2E_MARKER, WELCOME_PROBE_PARAM } from "./marker"
 import { DICT_TAG, releaseFetch } from "./release"
 import { WORKER_FILE, type WorkerResponse } from "../offline/bergamot/protocol"
 
@@ -32,6 +38,10 @@ export type E2eMessage =
   | { e2e: "command"; command: "toggle-translation" | "toggle-display-mode" }
   | { e2e: "report"; report: unknown }
   | { e2e: "log"; message: string }
+  /** Answer: the scenario of the run. */
+  | { e2e: "scenario" }
+  /** Answer: the muted notices of the settings, after switching to Google without the dictionary when asked. */
+  | { e2e: "settings"; useGoogle?: boolean }
 
 async function post(path: string, body: unknown): Promise<void> {
   try {
@@ -88,39 +98,59 @@ export interface E2eDeps {
 
 /** Store the test settings and install the dictionary; never rejects, failures go to the server. */
 export async function setUpE2e({ storage, dictionary, runCommand }: E2eDeps): Promise<void> {
+  let scenario = ""
   ext.runtime.onMessage.addListener((raw: unknown, sender: browser.runtime.MessageSender) => {
     const msg = raw as E2eMessage
     if (!msg || typeof msg !== "object" || !("e2e" in msg)) return undefined
     // The mark separates the requests before and after the command in the server's log.
     if (msg.e2e === "command") return post("/mark", { command: msg.command }).then(() => runCommand(msg.command, sender.tab))
     if (msg.e2e === "report") return post("/report", { ...(msg.report as object), userAgent: navigator.userAgent })
+    if (msg.e2e === "scenario") return Promise.resolve(scenario)
+    if (msg.e2e === "settings") {
+      return updateSettings((s) => {
+        if (!msg.useGoogle) return
+        s.tiers = { dictionary: null, machine: "google-free", ai: null }
+        s.offlineMutedPairs = []
+      }).then((s) => s.offlineMutedPairs)
+    }
     return post("/log", { message: msg.message })
   })
+  const i18n = ext.i18n as typeof ext.i18n & { getPreferredSystemLanguages?: () => Promise<string[]> }
+  const systemLanguagesApi = typeof i18n.getPreferredSystemLanguages === "function"
   try {
     const settings = readSettings(await storage.get(SETTINGS_KEY))
-    const welcome = (await (await fetch(`${__E2E_SERVER__}/scenario`)).text()) === "welcome"
-    settings.sourceLang = welcome ? "en" : "auto"
+    scenario = await (await fetch(`${__E2E_SERVER__}/scenario`)).text()
+    const welcome = scenario.startsWith("welcome")
+    const offline = welcome || scenario === "missing"
+    settings.sourceLang = scenario === "welcome" ? "en" : "auto"
     settings.targetLang = "zh-CN"
     settings.mode = "bilingual"
     settings.autoTranslate = false
     settings.precise.enabled = false
     settings.dictionary.releaseTag = DICT_TAG
-    settings.tiers = { dictionary: "dictionary", machine: welcome ? "bergamot" : "google-free", ai: welcome ? null : "custom" }
+    settings.tiers = { dictionary: "dictionary", machine: offline ? "bergamot" : "google-free", ai: offline ? null : "custom" }
     settings.providers["google-free"] = { ...settings.providers["google-free"], enabled: true, baseURL: `${__E2E_SERVER__}/google` }
     settings.providers.custom = { enabled: true, apiKey: "e2e-test-key", baseURL: `${__E2E_SERVER__}/v1`, model: "e2e-model" }
     settings.providers.dictionary = { ...settings.providers.dictionary, enabled: true }
-    if (welcome) settings.providers.bergamot = { ...settings.providers.bergamot, enabled: true }
+    if (offline) settings.providers.bergamot = { ...settings.providers.bergamot, enabled: true }
+    // The earlier runs share the profile: Google has to answer this run itself, not the cache.
+    if (scenario === "missing") settings.cache.enabled = false
     await storage.set(SETTINGS_KEY, settings)
+    if (offline) await uninstallDictionary(dictionary)
     if (welcome) {
-      await uninstallDictionary(dictionary)
-      await post("/ready", { scenario: "welcome", version: ext.runtime.getManifest().version })
+      await post("/ready", { scenario, systemLanguagesApi, version: ext.runtime.getManifest().version })
       // Not awaited: the page needs this script to finish its set-up.
-      ext.tabs.create({ url: ext.runtime.getURL(`welcome.html${WELCOME_PROBE_QUERY}`) }).catch((error) => post("/log", { message: `cannot open the setup guide: ${error}` }))
+      const url = ext.runtime.getURL(`welcome.html?${WELCOME_PROBE_PARAM}=${scenario}`)
+      ext.tabs.create({ url }).catch((error) => post("/log", { message: `cannot open the setup guide: ${error}` }))
+      return
+    }
+    if (offline) {
+      await post("/ready", { scenario, systemLanguagesApi, version: ext.runtime.getManifest().version })
       return
     }
     const packs = await installDictionary(dictionary)
     const bergamotWorker = await probeBergamotWorker()
-    await post("/ready", { packs, bergamotWorker, version: ext.runtime.getManifest().version })
+    await post("/ready", { scenario, packs, bergamotWorker, systemLanguagesApi, version: ext.runtime.getManifest().version })
     // Diagnostics for the run log: the tabs a content script could run in.
     setTimeout(async () => {
       const tabs = await ext.tabs.query({})

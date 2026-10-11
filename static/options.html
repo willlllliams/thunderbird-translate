@@ -55,15 +55,19 @@
           <label><span id="tierLabel-ai"></span><select id="tier-ai"></select></label>
         </div>
         <p id="tiersEmpty" class="field-warning" data-i18n="tiersEmpty" hidden></p>
+        <p id="offlineMissing" class="offline-hint" role="status" hidden></p>
         <label class="check">
           <input type="checkbox" id="preciseEnabled" />
           <span data-i18n="labelPrecise"></span>
         </label>
         <p class="hint" data-i18n="hintPrecise"></p>
+        <h3 data-i18n="mutedPairsTitle"></h3>
+        <p class="row"><span id="mutedPairs" class="hint"></span> <button type="button" id="clearMuted" data-i18n="buttonClearMuted"></button></p>
       </section>
 
       <section id="providers">
         <h2 data-i18n="sectionProviders"></h2>
+        <label class="row"><span data-i18n="providerFilterLabel"></span><select id="providerTierFilter"></select></label>
         <div class="providers">
           <ul id="providerList" class="provider-list"></ul>
           <div id="providerPanel" class="provider-panel"></div>
@@ -74,6 +78,10 @@
         <h2 data-i18n="sectionDictionaries"></h2>
         <p class="hint" data-i18n="dictionaryHint"></p>
         <p class="hint" data-i18n="dictionaryAttribution"></p>
+        <div class="row">
+          <input type="search" id="dictFilter" data-i18n-placeholder="bergamotFilter" spellcheck="false" />
+        </div>
+        <div id="dictCommon" class="common"></div>
         <p id="dictStatus" class="hint" role="status"></p>
         <ul id="dictList" class="dict-list"></ul>
         <details>
@@ -93,6 +101,7 @@
           <input type="search" id="bergamotFilter" data-i18n-placeholder="bergamotFilter" spellcheck="false" />
           <button type="button" id="bergamotReload" data-i18n="buttonReloadList"></button>
         </div>
+        <div id="bergamotCommon" class="common"></div>
         <p id="bergamotStatus" class="hint" role="status"></p>
         <ul id="bergamotList" class="dict-list"></ul>
       </section>

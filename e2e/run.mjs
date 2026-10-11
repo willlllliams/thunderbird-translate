@@ -8,10 +8,16 @@
 // 3. The content script translates, switches to translation-only and restores the
 //    original, then reports what it saw; this script checks the report together
 //    with the requests the mock server received.
-// 4. A last Thunderbird, started without a message, opens the setup guide
+// 4. The "missing" run opens a message with the dictionary and Bergamot tiers and
+//    nothing installed: the notice about missing offline data appears, is muted,
+//    stays away when translating again, and stays away with Google instead.
+// 5. Two Thunderbirds started without a message open the setup guide
 //    (src/welcome/), where the probe of src/e2e/welcome.ts clicks through to the
-//    offline step, downloads the dictionary pack and the Bergamot model from the
-//    mock server (Remote Settings stand-in), deletes them again and reports.
+//    offline step and downloads dictionary packs and Bergamot models from the
+//    mock server (Remote Settings stand-in): with English as source language
+//    the ticked direction, with automatic detection the recommended directions
+//    through "Download common languages" and "Download selected". Then it
+//    deletes them again and reports.
 //
 // THUNDERBIRD_BIN selects the Thunderbird binary. Exit code 1 on any failure.
 import { execFileSync } from "node:child_process"
@@ -35,8 +41,12 @@ const CASES = [
   { name: "plain", eml: "plain.eml", paragraphs: 5 },
 ]
 
-/** The scenario after the messages: the offline downloads of the setup guide. */
-const WELCOME = { name: "welcome", scenario: "welcome" }
+/** The scenarios after the messages: the notice about missing offline data, the offline downloads of the setup guide. */
+const SCENARIOS = [
+  { name: "missing", eml: "html.eml", scenario: "missing", paragraphs: 7 },
+  { name: "welcome", scenario: "welcome" },
+  { name: "welcome-auto", scenario: "welcome-auto" },
+]
 
 const TIER_ORDER = ["dictionary", "machine", "ai"]
 const CJK = /[一-鿿]/
@@ -114,46 +124,99 @@ function check(c, ready, report, calls) {
   return failures
 }
 
+/** Check the report of the "missing" run; returns the failures. */
+function checkMissing(c, ready, report, calls) {
+  const failures = []
+  const expect = (ok, message, detail) => {
+    if (!ok) failures.push(detail === undefined ? message : `${message}: ${JSON.stringify(detail)}`)
+  }
+  expect(!ready.error && ready.scenario === "missing", "setup of the missing scenario failed", ready)
+  if (report.error) return [...failures, `content script: ${report.error}`]
+  const both = ["bergamot:en>zh-Hans", "dictionary:en>zh-Hans"]
+
+  // Both offline tiers lack en -> zh-Hans: one notice above the message with a line for each; every paragraph is failed.
+  const first = report.first
+  expect(first?.state?.total === c.paragraphs && first.state.failed === c.paragraphs, `expected ${c.paragraphs} failed paragraphs`, first?.state)
+  expect(first?.notice?.lines?.length === 2 && first.notice.first === true, "expected the notice above the message with two lines", first?.notice)
+  expect(JSON.stringify(first?.entries) === JSON.stringify(both), "the notice lists the wrong entries", first?.entries)
+
+  // "Don't remind me" stores both entries; the notice closes and stays away when translating again.
+  expect(JSON.stringify(report.muted) === JSON.stringify(both), "the settings do not hold the muted entries", report.muted)
+  expect(report.closed === true, "the close button left the notice on screen")
+  expect(report.again?.notice === null && report.again.entries?.length === 0, "a notice or unmuted entries after translating again", report.again)
+
+  // Google without the dictionary (mutes cleared): no offline tier, no notice, every paragraph translated by Google.
+  const google = report.google
+  expect(google?.notice === null && google.entries?.length === 0, "a notice or entries with Google and no dictionary", google)
+  expect(google?.state?.done === c.paragraphs && google.state.failed === 0, "not every paragraph has the Google translation", google?.state)
+  expect(google?.shown?.every((s) => s.text.startsWith("[G] ")), "a paragraph shows something other than the Google translation", google?.shown?.slice(0, 3))
+  expect(calls.some((x) => x.type === "google"), "Google was not requested")
+  return failures
+}
+
 /** Check the report of the setup guide; returns the failures. */
 function checkWelcome(ready, report, calls) {
   const failures = []
   const expect = (ok, message, detail) => {
     if (!ok) failures.push(detail === undefined ? message : `${message}: ${JSON.stringify(detail)}`)
   }
-  expect(!ready.error && ready.scenario === "welcome", "setup of the welcome scenario failed", ready)
+  const auto = report.scenario === "welcome-auto"
+  expect(!ready.error && ready.scenario === report.scenario, "setup of the welcome scenario failed", ready)
   if (report.error) {
     failures.push(`setup guide: ${report.error}`)
     failures.push(`page at the time: ${JSON.stringify(report.screen)}`)
     return failures
   }
+  const row = (screen, kind, id) => screen?.[kind]?.rows.find((r) => r.id === id)
+  const ids = auto ? ["en>zh-Hans", "zh-Hans>en"] : ["en>zh-Hans"]
 
-  // The offline step offers the recommended pack and model, ticked, and nothing is installed yet.
-  const only = (list) => (list?.rows.length === 1 ? list.rows[0] : null)
+  // The offline step lists both directions of the mock server in both lists. With English as source language
+  // en -> zh-Hans is ticked and zh-Hans -> en is not; with automatic detection both are recommended, labelled and ticked.
   for (const kind of ["dictionary", "bergamot"]) {
-    const row = only(report.offered?.[kind])
-    expect(row && !row.installed && row.checkbox?.checked === true && row.checkbox.disabled === false, `${kind}: expected one ticked row to download`, report.offered?.[kind])
+    for (const id of ["en>zh-Hans", "zh-Hans>en"]) {
+      const r = row(report.offered, kind, id)
+      const ticked = ids.includes(id)
+      expect(r && !r.installed && r.checkbox?.checked === ticked && r.checkbox.disabled === false, `${kind} ${id}: expected a row ${ticked ? "ticked" : "not ticked"}`, report.offered?.[kind])
+      if (auto) expect(r?.labels > 0, `${kind} ${id}: a recommended direction without labels`, r)
+    }
   }
-  const empty = { bergamotInstalled: [], bergamotMissing: ["en>zh-Hans"], dictionaryInstalled: [], bergamotRecords: { pairs: 0, files: 0 }, dictionaryRecords: { packs: 0, data: 0 } }
+  if (auto) expect(report.autoHint === true, "the hint about automatic detection is hidden")
+  const empty = { bergamotInstalled: [], dictionaryInstalled: [], bergamotRecords: { pairs: 0, files: 0 }, dictionaryRecords: { packs: 0, data: 0 } }
   expect(JSON.stringify(report.initial) === JSON.stringify(empty), "something was installed before the download", report.initial)
 
-  // The click starts the download; the lists show the progress and then the installed state.
-  expect(report.disabledWhileDownloading === true, "the Download selected button stayed enabled while downloading")
+  if (auto) {
+    // "Download common languages": the confirmation lists the two packs; afterwards they are installed.
+    expect(report.commonConfirm?.items === 2, "the confirmation of Download common languages does not list two packs", report.commonConfirm)
+    expect(report.commonAfter?.allInstalled === true && report.commonAfter.disabled === true, "Download common languages does not say that all are installed", report.commonAfter)
+    expect(report.untickedPicks === true && report.retickedPicks === true, "the check box of a model did not follow the clicks", { untickedPicks: report.untickedPicks, retickedPicks: report.retickedPicks })
+  } else {
+    for (const kind of ["dictionary", "bergamot"]) {
+      const seen = report.progress?.[kind] ?? []
+      expect(seen.length > 0 && seen.includes(0) && seen.some((p) => p > 0 && p < 100), `${kind}: no progress between 0 and 100 % on the page`, seen)
+    }
+  }
+  // "Download selected" is disabled while it runs, says so, and reports the end.
+  expect(report.disabledWhileDownloading === true && report.statusWhileDownloading, "Download selected stayed enabled or silent while downloading", report.statusWhileDownloading)
+  expect(report.downloadStatus === "done", "Download selected did not report success", report.downloadStatus)
   for (const kind of ["dictionary", "bergamot"]) {
-    const seen = report.progress?.[kind] ?? []
-    expect(seen.length > 0 && seen.includes(0) && seen.some((p) => p > 0 && p < 100), `${kind}: no progress between 0 and 100 % on the page`, seen)
-    const row = only(report.finished?.[kind])
-    expect(row?.installed === true && row.checkbox === null && row.error === null, `${kind}: the page does not show the download as finished`, report.finished?.[kind])
+    for (const id of ids) {
+      const r = row(report.finished, kind, id)
+      expect(r?.installed === true && r.checkbox === null && r.error === null, `${kind} ${id}: the page does not show the download as finished`, report.finished?.[kind])
+    }
   }
 
   // Stored for real: the answers of the background script and the object stores of the two databases.
-  const done = { bergamotInstalled: ["en>zh-Hans"], bergamotMissing: [], dictionaryInstalled: ["en>zh-Hans"], bergamotRecords: { pairs: 1, files: 3 }, dictionaryRecords: { packs: 1, data: 1 } }
+  const done = { bergamotInstalled: ids, dictionaryInstalled: ids, bergamotRecords: { pairs: ids.length, files: 3 * ids.length }, dictionaryRecords: { packs: ids.length, data: ids.length } }
   expect(JSON.stringify(report.downloaded) === JSON.stringify(done), "stored data after the download", report.downloaded)
   expect(JSON.stringify(report.removed) === JSON.stringify(empty), "data left after the deletion", report.removed)
 
-  // What the mock server saw: model list, three model files, the pack.
+  // What the mock server saw: model list, three model files per direction, the packs.
   const seen = calls.filter((x) => x.type === "bergamot").map((x) => x.what)
-  expect(seen.includes("server root") && seen.includes("records") && seen.filter((w) => w.endsWith(".zst")).length === 3, "Remote Settings requests of the mock server", seen)
-  expect(calls.some((x) => x.type === "download" && x.file === "dict-en-zh-Hans.tsv.gz"), "the dictionary pack was not downloaded")
+  expect(seen.includes("server root") && seen.includes("records") && seen.filter((w) => w.endsWith(".zst")).length === 3 * ids.length, "Remote Settings requests of the mock server", seen)
+  for (const id of ["en>zh-Hans", "zh-Hans>en"]) {
+    const file = `dict-${id.replace(">", "-")}.tsv.gz`
+    expect(calls.some((x) => x.type === "download" && x.file === file) === ids.includes(id), `the dictionary pack ${file} was ${ids.includes(id) ? "not " : ""}downloaded`)
+  }
   return failures
 }
 
@@ -179,9 +242,11 @@ async function main() {
   const profile = createProfile(xpi, manifest.browser_specific_settings.gecko.id)
   console.log(`profile: ${profile}`)
 
+  // E2E_ONLY=name,name runs some of the runs only.
+  const runs = [...CASES, ...SCENARIOS].filter((c) => !process.env.E2E_ONLY || process.env.E2E_ONLY.split(",").includes(c.name))
   let failed = 0
   try {
-    for (const c of [...CASES, WELCOME]) {
+    for (const c of runs) {
       server.reset()
       server.setScenario(c.scenario ?? "message")
       extensionLog.length = 0
@@ -194,17 +259,23 @@ async function main() {
         const crashed = tb.exited.then((code) => (code ? Promise.reject(new Error(`Thunderbird exited with code ${code}`)) : new Promise(() => {})))
         const ready = await Promise.race([server.next("/ready", STEP_TIMEOUT_MS), crashed])
         const report = await Promise.race([server.next("/report", STEP_TIMEOUT_MS), crashed])
-        if (c.scenario === "welcome") {
+        const systemLanguages = `getPreferredSystemLanguages: ${ready.systemLanguagesApi ? "present" : "missing"}`
+        if (c.scenario?.startsWith("welcome")) {
           failures = checkWelcome(ready, report, server.calls)
           if (failures.length) failures.push(`report of the page:
 ${JSON.stringify(report, null, 2)}`)
           const { dictionary, bergamot } = report.progress ?? {}
-          console.log(`  ${c.name}: progress of the pack ${dictionary?.join(", ")} %, of the model ${bergamot?.join(", ")} %; stored ${JSON.stringify(report.downloaded?.bergamotRecords)}, then deleted`)
+          const progress = dictionary ? `progress of the pack ${dictionary.join(", ")} %, of the model ${bergamot?.join(", ")} %; ` : ""
+          console.log(`  ${c.name}: ${progress}stored ${JSON.stringify(report.downloaded?.bergamotRecords)}, then deleted; ${systemLanguages} ${JSON.stringify(report.systemLanguages)}`)
+        } else if (c.scenario === "missing") {
+          failures = checkMissing(c, ready, report, server.calls)
+          if (failures.length) failures.push(`report of the content script:\n${JSON.stringify(report, null, 2)}`)
+          console.log(`  ${c.name}: notice ${JSON.stringify(report.first?.notice?.lines)}; muted ${JSON.stringify(report.muted)}; ${systemLanguages}`)
         } else {
           failures = check(c, ready, report, server.calls)
           if (failures.length) failures.push(`message body as displayed:\n${report.originalHtml}`)
           const firstRequest = report.events?.filter((e) => e.phase === "translate" && e.id === report.events[0].id).map((e) => `${e.tier} ${e.at} ms`)
-          console.log(`  ${c.name}: ${report.translated?.state?.total ?? "?"} paragraphs; first paragraph: ${firstRequest?.join(" → ")}; Bergamot worker: ${ready.bergamotWorker}`)
+          console.log(`  ${c.name}: ${report.translated?.state?.total ?? "?"} paragraphs; first paragraph: ${firstRequest?.join(" → ")}; Bergamot worker: ${ready.bergamotWorker}; ${systemLanguages}`)
         }
       } catch (error) {
         failures = [String(error.message ?? error)]
@@ -227,7 +298,7 @@ ${JSON.stringify(report, null, 2)}`)
     removeProfile(profile)
     await server.close()
   }
-  console.log(failed === 0 ? `e2e: all ${CASES.length + 1} runs passed` : `e2e: ${failed} of ${CASES.length + 1} runs failed`)
+  console.log(failed === 0 ? `e2e: all ${runs.length} runs passed` : `e2e: ${failed} of ${runs.length} runs failed`)
   process.exit(failed === 0 ? 0 : 1)
 }
 

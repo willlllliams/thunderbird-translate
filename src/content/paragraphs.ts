@@ -17,6 +17,8 @@ import { hasTranslatableText, unwrapPlainText } from "./text"
 const CLS_SEG = "tt-seg"
 export const CLS_TRANSLATION = "tt-translation"
 export const CLS_STATUS = "tt-status"
+/** The notice about missing offline data above the message (notice.ts). */
+export const CLS_NOTICE = "tt-notice"
 
 export interface Unit {
   id: number
@@ -51,7 +53,7 @@ const SKIP_TAGS = new Set([
 const CODE_TAGS = new Set(["CODE", "KBD", "SAMP", "VAR", "TT"])
 
 function isOurs(el: Element): boolean {
-  return el.classList.contains(CLS_TRANSLATION) || el.classList.contains(CLS_STATUS)
+  return el.classList.contains(CLS_TRANSLATION) || el.classList.contains(CLS_STATUS) || el.classList.contains(CLS_NOTICE)
 }
 
 function computedDisplay(el: Element): string | null {

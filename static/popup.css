@@ -118,19 +118,33 @@ select {
   }
 }
 
-button.link {
-  margin-top: 4px;
-  padding: 0;
-  border: 0;
-  background: none;
-  color: var(--accent);
-  font: inherit;
-  font-size: 12px;
-  cursor: pointer;
+/* A selected offline service lacks its data: the selector and the line under it, in red and in words. */
+select.missing,
+option.missing,
+.offline-hint.missing {
+  color: #c5221f;
 }
 
-button.link::before {
-  content: "+ ";
+select.missing option:not(.missing) {
+  color: CanvasText;
+}
+
+.offline-hint {
+  margin: 2px 0 6px;
+  color: #b06000;
+  font-size: 12px;
+}
+
+@media (prefers-color-scheme: dark) {
+  select.missing,
+  option.missing,
+  .offline-hint.missing {
+    color: #f28b82;
+  }
+
+  .offline-hint {
+    color: #fdd663;
+  }
 }
 
 [hidden] {

@@ -107,6 +107,38 @@ describe("connectContent", () => {
     expect(port.posted("translate")).toHaveLength(1)
   })
 
+  it("content script: shows the notice about missing offline data, muted entries left out, and sends its requests to the background", async () => {
+    sendMessage.mockImplementation(async (req) => (req.type === "getLocaleMessages" ? { locale: "en", messages: {} } : undefined))
+    const client = connectContent({ root: () => document.body, contentScript: true })
+    settingsPush(tieredSettings(["dictionary"], { offlineMutedPairs: ["bergamot:en>zh-Hans"] }))
+    await client.ready
+    port.push({ type: "toggle" })
+    await vi.waitFor(() => expect(port.posted("translate")).toHaveLength(1))
+    const { id } = port.posted("translate")[0]
+    port.push({ type: "tier", id, tier: "dictionary", result: { ok: false, error: "missing", missing: { service: "dictionary", pair: "en>zh-Hans", models: ["en>zh-Hans"] } } })
+    port.push({ type: "done", id })
+    await vi.waitFor(() => expect(document.querySelector(".tt-notice")).not.toBeNull())
+    document.querySelector<HTMLInputElement>(".tt-notice input[type=checkbox]")!.click()
+    expect(sendMessage).toHaveBeenCalledWith({ type: "muteOfflinePairs", pairs: ["dictionary:en>zh-Hans"], muted: true })
+    // A failed message to the background is no error of the page.
+    sendMessage.mockRejectedValueOnce(new Error("gone"))
+    Array.from(document.querySelectorAll<HTMLButtonElement>(".tt-notice button")).find((b) => b.textContent === ENGLISH.t("noticeOpenSettings"))!.click()
+    expect(sendMessage).toHaveBeenLastCalledWith({ type: "openOptions", place: { section: "dictionaries", dictionaries: ["en>zh-Hans"], bergamot: [] } })
+  })
+
+  it("extension pages: no notice", async () => {
+    const client = connectContent({ root: () => document.body })
+    settingsPush(tieredSettings(["dictionary"]))
+    await client.ready
+    port.push({ type: "toggle" })
+    await vi.waitFor(() => expect(port.posted("translate")).toHaveLength(1))
+    const { id } = port.posted("translate")[0]
+    port.push({ type: "tier", id, tier: "dictionary", result: { ok: false, error: "missing", missing: { service: "dictionary", pair: "en>zh-Hans", models: ["en>zh-Hans"] } } })
+    port.push({ type: "done", id })
+    await vi.waitFor(() => expect(document.querySelector(".tt-error")).not.toBeNull())
+    expect(document.querySelector(".tt-notice")).toBeNull()
+  })
+
   it("applies settings in the order they arrive, also while labels load", async () => {
     let release!: () => void
     sendMessage.mockImplementationOnce(() => new Promise((r) => (release = () => r(undefined))))

@@ -89,6 +89,27 @@ describe("offline engine of the background page", () => {
     expect(await withoutDetector(alone, "auto", "en")).toEqual(alone)
   })
 
+  it("names with the error the models to download, nothing for a pair Mozilla does not offer, and nothing for a guessed language", async () => {
+    const detect = detectByStart({ Bonjour: "fr" })
+    const { bergamot } = await browserApis([...triple("fr", "en"), ...triple("en", "zh-Hans")], detect)
+    await bergamot.install("fr", "en")
+    expect([...(await bergamot.installedKeys())]).toEqual(["fr>en"])
+    expect([...((await bergamot.catalog()) ?? [])].sort()).toEqual(["en>zh-Hans", "fr>en"])
+    await expect(bergamot.translate(["Bonjour"], "fr", "zh-CN")).rejects.toMatchObject({ missing: { service: "bergamot", pair: "fr>zh-Hans", models: ["en>zh-Hans"] } })
+    // Mozilla has no Japanese model here: nothing to download.
+    await expect(bergamot.translate(["こんにちは"], "ja", "zh-CN")).rejects.toMatchObject({ i18nText: { key: "bergamotUnsupportedPair" } })
+    const results = await (await import("../src/background/translators/bergamot")).bergamotTranslateBatch(
+      ["Bonjour à tous et merci pour votre message.", "Merci !"],
+      "auto",
+      "zh-CN",
+      sourceDetector({ detectLanguage: detect as never }),
+    )
+    expect(results[0]).toMatchObject({ status: "rejected", reason: { missing: { pair: "fr>zh-Hans" } } })
+    // "Merci !" is too short for the detector: its language is the batch's French, a guess.
+    expect(results[1]).toMatchObject({ status: "rejected", reason: { i18nText: { key: "bergamotModelMissing" } } })
+    expect((results[1] as PromiseRejectedResult).reason.missing).toBeUndefined()
+  })
+
   it("translates between two languages through English", async () => {
     const { bergamot } = await browserApis([...triple("ja", "en"), ...triple("en", "zh-Hant")])
     await expect(bergamot.translate(["こんにちは"], "ja", "zh-TW")).rejects.toMatchObject({

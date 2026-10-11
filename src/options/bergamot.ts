@@ -1,62 +1,41 @@
 /**
  * Offline translation models: the direction pairs offered by Mozilla and
- * the installed ones, with download, update, cancel and delete. The
- * background script does the work (see src/background/bergamot-admin.ts);
- * the page polls the download progress. On the settings page the
- * directions the current source and target languages need come first, and
- * deleting one of them asks for confirmation. On the welcome page only the
- * needed directions are listed, each with a check box, downloaded together.
+ * the installed ones, with download, update, cancel and delete: the
+ * "Offline models" list of the settings page and of the welcome page (see
+ * offline-list.ts). The background script does the work (see
+ * src/background/bergamot-admin.ts); the page polls the download progress.
+ * On the settings page a line names the directions the current languages
+ * need, and deleting one of them asks for confirmation.
  */
 
 import type { BergamotPairInfo } from "../offline/bergamot"
 import { describeError } from "../shared/errors"
 import { getI18n, t } from "../shared/i18n"
-import { appLang, LANGUAGES, pairKey } from "../shared/languages"
-import type { BergamotProgress, BergamotRequired, BergamotResult } from "../shared/messages"
+import { pairKey } from "../shared/languages"
+import type { BergamotProgress, BergamotResult } from "../shared/messages"
 import { send } from "../shared/page"
 import { button, h } from "./dom"
+import { type ListItem, megabytes, OfflineList, type OfflineListDeps } from "./offline-list"
 
-export interface BergamotSectionDeps {
-  /** Source ("auto" or a code) and target language of the settings. */
-  languages: () => { source: string; target: string }
-  list: HTMLElement
-  status: HTMLElement
+type PairItem = BergamotPairInfo & ListItem
+
+export interface BergamotSectionDeps extends OfflineListDeps {
   /** Where the needed directions are named; settings page only. */
   needed?: HTMLElement
-  filter?: HTMLInputElement
-  /** Welcome page: only the needed directions, with check boxes instead of download buttons. */
-  pick?: boolean
   pollMs?: number
 }
 
-/** Name of a model tag (en, zh-Hans, nb…) in the interface language. */
-function tagName(tag: string): string {
-  const i18n = getI18n()
-  const known = LANGUAGES.find((l) => l.code === appLang(tag))
-  if (known) return i18n.languageName(known.code, known.native)
-  try {
-    return new Intl.DisplayNames([i18n.lang, "en"], { type: "language" }).of(tag) ?? tag
-  } catch {
-    return tag
-  }
-}
-
-const pairName = ([src, tgt]: [string, string]) => `${tagName(src)} → ${tagName(tgt)}`
-
-export class BergamotSection {
+export class BergamotSection extends OfflineList<PairItem> {
+  protected readonly service = "bergamot"
   private pairs: BergamotPairInfo[] = []
-  private loading = false
-  private listError = ""
-  private needed: BergamotRequired = { required: [], missing: [] }
   private progress: BergamotProgress = {}
-  private installing = new Set<string>()
-  private confirming = new Set<string>()
-  private rowErrors = new Map<string, string>()
-  /** Check boxes the user cleared; every other direction shown and not installed is picked. */
-  private unpicked = new Set<string>()
+  private running = new Set<string>()
+  private deleting = new Set<string>()
   private timer: ReturnType<typeof setInterval> | null = null
 
-  constructor(private readonly deps: BergamotSectionDeps) {}
+  constructor(private readonly deps: BergamotSectionDeps) {
+    super(deps)
+  }
 
   /** Read the list from the background script; `refresh` asks Mozilla again. */
   async load(refresh = false): Promise<void> {
@@ -70,115 +49,73 @@ export class BergamotSection {
       this.listError = describeError(error, getI18n())
     }
     this.loading = false
-    await this.refreshNeeded()
-  }
-
-  /** The directions the current languages need; with automatic detection, those into the target language. */
-  async refreshNeeded(): Promise<void> {
-    const { source, target } = this.deps.languages()
-    try {
-      const r = await send<BergamotRequired | undefined>({ type: "bergamotRequired", src: source === "auto" ? "en" : source, tgt: target })
-      this.needed = r ?? { required: [], missing: [] }
-    } catch {
-      this.needed = { required: [], missing: [] }
-    }
     this.render()
   }
 
-  private isNeeded(src: string, tgt: string): boolean {
-    return this.needed.required.some(([s, t]) => s === src && t === tgt)
+  protected items(): PairItem[] {
+    return this.pairs.map((p) => ({ ...p, id: pairKey(p.src, p.tgt) }))
   }
 
+  protected statusText() {
+    return { loading: t("bergamotLoading"), empty: "" }
+  }
+
+  protected installing(item: PairItem): boolean {
+    return this.running.has(item.id)
+  }
+
+  /** The directions the current languages need; with automatic detection, those into the target language. */
   private neededText(): string {
     const { source, target } = this.deps.languages()
-    const list = this.needed.required.map(pairName).join(", ")
+    const list = this.required().map((id) => getI18n().pairName(id)).join(", ")
     if (source === "auto") return list ? t("bergamotNeededAuto", [list]) : t("bergamotNeededAutoEnglish")
-    return list ? t("bergamotNeeded", [tagName(source), tagName(target), list]) : ""
+    return list ? t("bergamotNeeded", [getI18n().tagName(source), getI18n().tagName(target), list]) : ""
   }
 
   render(): void {
-    const rows = this.rows()
-    let status = ""
-    if (this.loading) status = t("bergamotLoading")
-    else if (this.listError) status = this.listError
-    else if (rows.length === 0 && this.deps.pick) status = this.neededText() ? "" : t("bergamotNoneNeeded")
-    else if (rows.length === 0 && this.pairs.length > 0) status = t("bergamotNoMatch")
     if (this.deps.needed) this.deps.needed.textContent = this.neededText()
-    this.deps.status.textContent = status
-    this.deps.list.replaceChildren(...rows.map((p) => this.renderRow(p)))
+    super.render()
   }
 
-  /** Pairs shown: the needed ones first, then those matching the filter; on the welcome page the needed ones only. */
-  private rows(): BergamotPairInfo[] {
-    if (this.deps.pick) return this.pairs.filter((p) => this.isNeeded(p.src, p.tgt))
-    const filter = this.deps.filter?.value.trim().toLowerCase() ?? ""
-    const matches = (tag: string) => tag.toLowerCase().includes(filter) || tagName(tag).toLowerCase().includes(filter)
-    return this.pairs
-      .filter((p) => !filter || matches(p.src) || matches(p.tgt))
-      .sort((a, b) => Number(this.isNeeded(b.src, b.tgt)) - Number(this.isNeeded(a.src, a.tgt)))
-  }
-
-  /** Welcome page: download the picked directions. */
-  async downloadPicked(): Promise<void> {
-    const picked = this.rows().filter((p) => !p.installed && !this.unpicked.has(pairKey(p.src, p.tgt)) && !this.installing.has(pairKey(p.src, p.tgt)))
-    await Promise.all(picked.map((p) => this.install(p)))
-  }
-
-  private renderRow(p: BergamotPairInfo): HTMLLIElement {
-    const id = pairKey(p.src, p.tgt)
-    const name = pairName([p.src, p.tgt])
-    let label: HTMLElement = h("span", { className: "dict-name", text: name })
-    if (this.deps.pick && !p.installed) {
-      const box = h("input", { type: "checkbox", checked: !this.unpicked.has(id), disabled: this.installing.has(id) })
-      box.addEventListener("change", () => (box.checked ? this.unpicked.delete(id) : this.unpicked.add(id)))
-      label = h("label", { className: "check dict-name" }, box, h("span", { text: name }))
-    }
-    const li = h(
-      "li",
-      {},
-      label,
-      h("span", { className: "dict-meta hint", text: t("bergamotPairMeta", [(p.bytes / 1048576).toFixed(1), p.version]) }),
+  protected details(p: PairItem): (Node | null)[] {
+    const out: (Node | null)[] = [
+      h("span", { className: "dict-meta hint", text: t("bergamotPairMeta", [megabytes(p.bytes), p.version]) }),
       p.installed ? h("span", { className: "tag active", text: t("dictInstalled") }) : null,
-    )
-    if (p.installedVersion) li.append(h("span", { className: "hint", text: t("bergamotUpdateAvailable", [p.installedVersion, p.version]) }))
-    const progress = this.progress[id]
-    if (this.installing.has(id)) {
+    ]
+    if (p.installedVersion) out.push(h("span", { className: "hint", text: t("bergamotUpdateAvailable", [p.installedVersion, p.version]) }))
+    const progress = this.progress[p.id]
+    if (this.running.has(p.id)) {
       const percent = progress?.total ? Math.min(100, Math.round((progress.done / progress.total) * 100)) : 0
-      li.append(
-        h("span", { text: t("dictDownloading", [percent]) }),
-        button(t("buttonCancel"), () => void send({ type: "bergamotCancel", src: p.src, tgt: p.tgt })),
-      )
-    } else if (this.confirming.has(id)) {
-      li.append(
+      out.push(h("span", { text: t("dictDownloading", [percent]) }), button(t("buttonCancel"), () => void send({ type: "bergamotCancel", src: p.src, tgt: p.tgt })))
+    } else if (this.deleting.has(p.id)) {
+      out.push(
         h("span", { className: "field-warning", text: t("bergamotDeleteNeeded") }),
         button(t("buttonDeleteAnyway"), () => void this.remove(p)),
         button(t("buttonCancel"), () => {
-          this.confirming.delete(id)
+          this.deleting.delete(p.id)
           this.render()
         }),
       )
     } else if (!this.deps.pick) {
-      if (!p.installed) li.append(button(t("buttonDownload"), () => void this.install(p), true))
-      if (p.installedVersion) li.append(button(t("buttonUpdate"), () => void this.install(p), true))
+      if (!p.installed) out.push(button(t("buttonDownload"), () => void this.install(p), true))
+      if (p.installedVersion) out.push(button(t("buttonUpdate"), () => void this.install(p), true))
       if (p.installed) {
-        li.append(
+        out.push(
           button(t("buttonDelete"), () => {
-            if (!this.isNeeded(p.src, p.tgt)) return void this.remove(p)
-            this.confirming.add(id)
+            if (!this.required().includes(p.id)) return void this.remove(p)
+            this.deleting.add(p.id)
             this.render()
           }),
         )
       }
     }
-    const error = this.rowErrors.get(id)
-    if (error) li.append(h("div", { className: "test-result fail", text: error }))
-    return li
+    return out
   }
 
   private poll(): void {
     this.timer ??= setInterval(async () => {
       this.progress = (await send<BergamotProgress | undefined>({ type: "bergamotProgress" }).catch(() => undefined)) ?? {}
-      if (this.installing.size === 0 && this.timer) {
+      if (this.running.size === 0 && this.timer) {
         clearInterval(this.timer)
         this.timer = null
       }
@@ -186,24 +123,22 @@ export class BergamotSection {
     }, this.deps.pollMs ?? 400)
   }
 
-  private async install(p: BergamotPairInfo): Promise<void> {
-    const id = pairKey(p.src, p.tgt)
-    this.rowErrors.delete(id)
-    this.installing.add(id)
+  protected async install(p: PairItem): Promise<void> {
+    this.rowErrors.delete(p.id)
+    this.running.add(p.id)
     this.poll()
     this.render()
     const r = await send<BergamotResult | undefined>({ type: "bergamotInstall", src: p.src, tgt: p.tgt }).catch((error): BergamotResult => ({ ok: false, error: describeError(error, getI18n()) }))
-    this.installing.delete(id)
-    if (!r?.ok && !r?.cancelled) this.rowErrors.set(id, r?.error || describeError(undefined, getI18n()))
+    this.running.delete(p.id)
+    if (!r?.ok && !r?.cancelled) this.rowErrors.set(p.id, r?.error || describeError(undefined, getI18n()))
     await this.load()
   }
 
-  private async remove(p: BergamotPairInfo): Promise<void> {
-    const id = pairKey(p.src, p.tgt)
-    this.confirming.delete(id)
-    this.rowErrors.delete(id)
+  private async remove(p: PairItem): Promise<void> {
+    this.deleting.delete(p.id)
+    this.rowErrors.delete(p.id)
     const r = await send<BergamotResult | undefined>({ type: "bergamotRemove", src: p.src, tgt: p.tgt }).catch((error): BergamotResult => ({ ok: false, error: describeError(error, getI18n()) }))
-    if (!r?.ok) this.rowErrors.set(id, r?.error || describeError(undefined, getI18n()))
+    if (!r?.ok) this.rowErrors.set(p.id, r?.error || describeError(undefined, getI18n()))
     await this.load()
   }
 }

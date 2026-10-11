@@ -320,6 +320,55 @@ describe("requests from pages", () => {
     expect(changes()).toBe(3)
     await bg.send({ type: "bergamotList" })
     expect(changes()).toBe(3)
+    // The extension pages hear of it too; without an open page the message goes nowhere.
+    expect(bg.api.runtime.sendMessage.mock.calls).toEqual([[{ type: "offlineDataChanged" }], [{ type: "offlineDataChanged" }], [{ type: "offlineDataChanged" }]])
+    bg.api.runtime.sendMessage.mockRejectedValueOnce(new Error("Could not establish connection. Receiving end does not exist."))
+    await bg.send({ type: "dictionaryChanged" })
+    expect(changes()).toBe(4)
+  })
+
+  it("opens the settings page at the place a content script names", async () => {
+    const bg = await start({ stored: stored(createDefaultSettings()) })
+    expect(await bg.send({ type: "openOptions", place: { section: "dictionaries", dictionaries: ["ja>en", "en>zh-Hans"], bergamot: ["ja>en"] } })).toBeUndefined()
+    expect(bg.api.tabs.create).toHaveBeenCalledWith({ url: "moz-extension://test/options.html?dict=ja%3Een%2Cen%3Ezh-Hans&bergamot=ja%3Een#dictionaries" })
+    await bg.send({ type: "openOptions", place: { section: "providers", tier: "ai" } })
+    expect(bg.api.tabs.create).toHaveBeenLastCalledWith({ url: "moz-extension://test/options.html?tier=ai#providers" })
+  })
+
+  it("mutes and unmutes notices about missing offline data, and answers the content script nothing", async () => {
+    const s = createDefaultSettings()
+    s.offlineMutedPairs = ["bergamot:de>en"]
+    const bg = await start({ stored: stored(s) })
+    const pairs = ["dictionary:ja>zh-Hans", "bergamot:ja>zh-Hans"]
+    expect(await bg.send({ type: "muteOfflinePairs", pairs, muted: true })).toBeUndefined()
+    expect((bg.local[SETTINGS_KEY] as Settings).offlineMutedPairs).toEqual(["bergamot:de>en", ...pairs])
+    await bg.send({ type: "muteOfflinePairs", pairs: ["bergamot:de>en", "bergamot:ja>zh-Hans"], muted: false })
+    expect((bg.local[SETTINGS_KEY] as Settings).offlineMutedPairs).toEqual(["dictionary:ja>zh-Hans"])
+  })
+
+  it("says what the offline services of the tiers lack for the languages, reading the dictionary index once", async () => {
+    const bergamot = { catalog: vi.fn(async () => new Set(["en>zh-Hans", "ja>en"])), installedKeys: vi.fn(async () => new Set(["en>zh-Hans"])), signature: async () => "" }
+    vi.doMock("../src/offline/bergamot", () => ({ getBergamot: () => bergamot, requiredPairs: () => [] }))
+    vi.stubGlobal("indexedDB", new IDBFactory())
+    let indexAnswer = (): Promise<Response> => Promise.reject(new TypeError("NetworkError"))
+    const fetchUrl = vi.fn(async (url: string) => (url.endsWith("dict-index.json") ? indexAnswer() : google(url)))
+    const bg = await start({ stored: stored(createDefaultSettings()), fetchUrl })
+    const tiers: Settings["tiers"] = { dictionary: "dictionary", machine: "bergamot", ai: null }
+    const ask = (sourceLang: string, targetLang: string, t = tiers) => bg.send({ type: "offlineStatus", sourceLang, targetLang, tiers: t })
+    // Without the index every pack counts as offered.
+    expect(await ask("auto", "zh-CN")).toEqual({
+      dictionary: { required: ["en>zh-Hans"], missing: ["en>zh-Hans"], unsupported: false },
+      bergamot: { required: ["en>zh-Hans"], missing: [], unsupported: false },
+    })
+    indexAnswer = async () => jsonResponse({ version: 1, packs: [] })
+    expect(await ask("ja", "zh-CN")).toEqual({
+      dictionary: { required: [], missing: [], unsupported: true },
+      bergamot: { required: ["ja>en", "en>zh-Hans"], missing: ["ja>en"], unsupported: false },
+    })
+    await ask("de", "en")
+    expect(fetchUrl.mock.calls.filter(([url]) => url.endsWith("dict-index.json"))).toHaveLength(2)
+    expect(await ask("auto", "zh-CN", { dictionary: null, machine: "google-free", ai: null })).toEqual({})
+    vi.doUnmock("../src/offline/bergamot")
   })
 
   it("L4: names the source language for the dictionary with the thresholds of the offline translator", async () => {

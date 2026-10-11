@@ -300,6 +300,29 @@ describe("storage, download and the dictionary tier", () => {
     expect(text.split("\n")).toEqual([ENGLISH.t("errDictionaryMissing", ["fr → de"]), ENGLISH.t("hintDictionaryDownload")])
   })
 
+  it("names with the error the packs to download: the pack with English, else those through English that are missing", async () => {
+    const dictionary = new Dictionary(await installed("dict-fr-en.tsv.gz"))
+    const missing = async (source: string, target: string) => (await texts(dictionary, ["Bonjour"], source, target).catch((e) => e)).missing
+    expect(await missing("fr", "zh-CN")).toEqual({ service: "dictionary", pair: "fr>zh-Hans", models: ["en>zh-Hans"] })
+    expect(await missing("de", "en")).toEqual({ service: "dictionary", pair: "de>en", models: ["de>en"] })
+    expect(await missing("de", "ja")).toEqual({ service: "dictionary", pair: "de>ja", models: ["de>en", "en>ja"] })
+    expect([...(await dictionary.installedIds())]).toEqual(["fr>en"])
+  })
+
+  it("reports no download for a pair the release has no packs for, and none for a language it only guessed", async () => {
+    const catalog = vi.fn(async () => new Set(["fr>en", "en>zh-Hans"]))
+    const detect = vi.fn(async (text: string) => (text.startsWith("Bonjour") ? "fr" : null))
+    const dictionary = new Dictionary(await installed("dict-fr-en.tsv.gz"), { catalog, detect })
+    const error = await texts(dictionary, ["Bonjour"], "fr", "ja").catch((e) => e)
+    expect(describeError(error, ENGLISH)).toBe(ENGLISH.t("errDictionaryNoPack", ["fr → ja"]))
+    expect(error.missing).toBeUndefined()
+    // The detector places French; it gives up on the German text, so English is a guess and the error names nothing to download.
+    const [detected, guessed] = await dictionary.translate(["Bonjour tout le monde", "Guten Tag"], "auto", "zh-CN")
+    expect(detected).toMatchObject({ status: "rejected", reason: { missing: { pair: "fr>zh-Hans", models: ["en>zh-Hans"] } } })
+    expect(guessed).toMatchObject({ status: "rejected", reason: { i18nText: { key: "errDictionaryMissing" } } })
+    expect((guessed as PromiseRejectedResult).reason.missing).toBeUndefined()
+  })
+
   it("goes through English only between two other languages, and only with both packs", async () => {
     const store = await installed("dict-fr-en.tsv.gz")
     const data = vi.spyOn(store, "data")

@@ -11,7 +11,8 @@
  *
  * Applying a preset again, with the same or another option, replaces its
  * block, so the blocks of different presets add up and one preset never
- * appears twice. Every block keeps one translation per paragraph, so the
+ * appears twice. The first entry of the list, "Plain" (NO_PRESET), removes
+ * every preset block and keeps what the user wrote. Every block keeps one translation per paragraph, so the
  * batch format (JSON array, numbered segments) stays the same.
  */
 
@@ -217,8 +218,22 @@ export function presetBlock(preset: PromptPreset, option?: PresetOption): string
 /** Blocks of a prompt: the paragraphs between blank lines. */
 const blocks = (prompt: string) => prompt.split(/\n[ \t]*\n/)
 
+/** First line of a block, which names the preset that added it. */
+const headingOf = (block: string) => block.trimStart().split("\n")[0].trim()
+
 /** The prompt with the block of a preset at the end; an earlier block of the same preset is replaced. */
 export function applyPreset(prompt: string, preset: PromptPreset, option?: PresetOption): string {
-  const kept = blocks(prompt.trim()).filter((block) => block.trimStart().split("\n")[0].trim() !== preset.heading)
+  const kept = blocks(prompt.trim()).filter((block) => headingOf(block) !== preset.heading)
   return [...kept, presetBlock(preset, option)].join("\n\n")
+}
+
+/** Value of the first entry of the preset list, "Plain": no preset. */
+export const NO_PRESET = "none"
+
+/** The prompt without the blocks that presets added; the blocks the user wrote stay. */
+export function removePresets(prompt: string): string {
+  const headings = new Set(PROMPT_PRESETS.map((p) => p.heading))
+  return blocks(prompt.trim())
+    .filter((block) => !headings.has(headingOf(block)))
+    .join("\n\n")
 }

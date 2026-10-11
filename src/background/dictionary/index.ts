@@ -9,13 +9,16 @@
  * when both packs are installed. Between Simplified and Traditional Chinese
  * that would replace words by English glosses, so the dictionary refuses
  * the pair. Packs are read from IndexedDB on first use and released after a
- * while without translations.
+ * while without translations. A paragraph without its packs fails with the
+ * packs to download (see shared/offline-needs.ts), unless the release offers
+ * none for the pair or the language of the paragraph was a guess.
  */
 
-import { LocalizedError } from "../../shared/errors"
+import { LocalizedError, MissingDataError } from "../../shared/errors"
 import { hashText } from "../../shared/hash"
 import { detectSourceLanguage, type LanguageDetector } from "../../shared/lang-detect"
 import { baseLang, isChinesePair, pairKey } from "../../shared/languages"
+import { type Catalog, pairNeeds } from "../../shared/offline-needs"
 import { dictKey, dictLang, type DictPack, gunzip, parsePack } from "./format"
 import { DictionaryStore } from "./store"
 
@@ -96,6 +99,8 @@ export interface DictionaryOptions {
   detect?: LanguageDetector
   /** Time without translations after which the packs are released. */
   idleMs?: number
+  /** Pair keys of the packs the release offers; null when the index cannot be read. */
+  catalog?: () => Promise<Catalog>
 }
 
 export class Dictionary {
@@ -112,6 +117,11 @@ export class Dictionary {
   invalidate(): void {
     this.packs.clear()
     this.installed = null
+  }
+
+  /** Ids of the installed packs ("en>zh-Hans"). */
+  async installedIds(): Promise<Set<string>> {
+    return new Set((await this.store.list()).map((p) => p.id))
   }
 
   /** Hash of the installed packs and their versions: part of the cache key of every dictionary translation. */
@@ -150,23 +160,29 @@ export class Dictionary {
     if (!tgt) throw new LocalizedError("errDictionaryUnsupported", [targetLang])
     return Promise.allSettled(
       texts.map(async (text) => {
-        const lang = sourceLang === "auto" ? ((await detectSourceLanguage(text, this.opts.detect)) ?? "en") : sourceLang
+        const detected = sourceLang === "auto" ? await detectSourceLanguage(text, this.opts.detect) : sourceLang
+        const lang = detected ?? "en"
         const src = dictLang(lang)
         if (!src) throw new LocalizedError("errDictionaryUnsupported", [lang])
         if (src === tgt) return text
         if (isChinesePair(src, tgt)) throw new LocalizedError("errChineseVariants")
-        return this.translateWith(text, src, tgt)
+        return this.translateWith(text, src, tgt, detected !== null)
       }),
     )
   }
 
-  private async translateWith(text: string, src: string, tgt: string): Promise<string> {
+  /** `detected`: the source language was detected or set, not guessed; only then the error names the packs to download. */
+  private async translateWith(text: string, src: string, tgt: string, detected: boolean): Promise<string> {
     const direct = await this.pack(src, tgt)
     if (direct) return translateText(text, direct)
     if (src !== "en" && tgt !== "en") {
       const [toEnglish, fromEnglish] = await Promise.all([this.pack(src, "en"), this.pack("en", tgt)])
       if (toEnglish && fromEnglish) return translateText(translateText(text, toEnglish), fromEnglish)
     }
-    throw new LocalizedError("errDictionaryMissing", [`${src} → ${tgt}`], undefined, "hintDictionaryDownload")
+    const pair = `${src} → ${tgt}`
+    const needs = pairNeeds("dictionary", src, tgt, (await this.opts.catalog?.()) ?? null, await this.installedIds())
+    if (needs.unsupported) throw new LocalizedError("errDictionaryNoPack", [pair])
+    if (!detected || needs.missing.length === 0) throw new LocalizedError("errDictionaryMissing", [pair], undefined, "hintDictionaryDownload")
+    throw new MissingDataError("errDictionaryMissing", [pair], { service: "dictionary", pair: pairKey(src, tgt), models: needs.missing }, "hintDictionaryDownload")
   }
 }
