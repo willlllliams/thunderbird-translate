@@ -5,6 +5,9 @@ import { candidateLanguages, englishScore, isInTargetLanguage } from "../src/con
 import { collectParagraphs, extractText } from "../src/content/paragraphs"
 import { Renderer } from "../src/content/render"
 import { hasTranslatableText, unwrapPlainText } from "../src/content/text"
+import { ENGLISH } from "../src/shared/i18n"
+import type { MailContext } from "../src/shared/mail-context"
+import type { TabState, TranslateRequest, TranslateResponse } from "../src/shared/messages"
 import type { PublicSettings } from "../src/shared/settings"
 
 const HTML_MAIL = `
@@ -184,6 +187,7 @@ describe("controller", () => {
     autoTranslate: false,
     activeProviderId: "google-free",
     providerSignature: "google-free|||",
+    precise: false,
     style: { preset: "border", color: "#4c8bf5", opacity: 0.85, fontScale: 1 },
     ...over,
   })
@@ -191,7 +195,7 @@ describe("controller", () => {
   it("translates, switches mode without new requests, and restores on stop", async () => {
     document.body.innerHTML = HTML_MAIL
     const original = document.body.innerHTML
-    const translate = vi.fn(async (text: string) => ({ ok: true as const, text: `ZH:${text}` }))
+    const translate = vi.fn(async ({ text }: TranslateRequest) => ({ ok: true as const, text: `ZH:${text}` }))
     const c = new TranslationController({ root: () => document.body, translate })
     await c.updateSettings(settings())
     await c.start()
@@ -217,7 +221,7 @@ describe("controller", () => {
 
   it("re-translates when the target language changes, using its own memo on re-toggle", async () => {
     document.body.innerHTML = "<p>Good morning</p><p>See you later</p>"
-    const translate = vi.fn(async (text: string, lang: string) => ({ ok: true as const, text: `${lang}:${text}` }))
+    const translate = vi.fn(async ({ text, targetLang: lang }: TranslateRequest) => ({ ok: true as const, text: `${lang}:${text}` }))
     const c = new TranslationController({ root: () => document.body, translate })
     await c.updateSettings(settings())
     await c.start()
@@ -233,7 +237,7 @@ describe("controller", () => {
   it("shows an error marker and retries on click", async () => {
     document.body.innerHTML = "<p>Good morning</p>"
     let fail = true
-    const translate = vi.fn(async (text: string) => (fail ? { ok: false as const, error: "HTTP 500" } : { ok: true as const, text: `ZH:${text}` }))
+    const translate = vi.fn(async ({ text }: TranslateRequest) => (fail ? { ok: false as const, error: "HTTP 500" } : { ok: true as const, text: `ZH:${text}` }))
     const c = new TranslationController({ root: () => document.body, translate })
     await c.updateSettings(settings())
     await c.start()
@@ -248,7 +252,7 @@ describe("controller", () => {
   it("never shows an empty failure reason and reports the last one", async () => {
     document.body.innerHTML = "<p>Good morning</p><p>See you later</p>"
     const reports: { failed: number; lastError?: string }[] = []
-    const translate = vi.fn(async (text: string) => {
+    const translate = vi.fn(async ({ text }: TranslateRequest) => {
       if (text.startsWith("Good")) return { ok: false as const, error: "" }
       throw new Error("")
     })
@@ -267,7 +271,7 @@ describe("controller", () => {
 
   it("auto-starts only for messages not in the target language", async () => {
     document.body.innerHTML = "<p>这封邮件已经是中文了。</p>"
-    const translate = vi.fn(async (text: string) => ({ ok: true as const, text }))
+    const translate = vi.fn(async ({ text }: TranslateRequest) => ({ ok: true as const, text }))
     const c = new TranslationController({ root: () => document.body, translate })
     await c.updateSettings(settings({ autoTranslate: true }))
     expect(await c.maybeAutoStart()).toBe(false)
@@ -277,5 +281,119 @@ describe("controller", () => {
     await c2.updateSettings(settings({ autoTranslate: true }))
     expect(await c2.maybeAutoStart()).toBe(true)
     expect(translate).toHaveBeenCalledTimes(1)
+  })
+
+  /* ---------- race mode ---------- */
+
+  /** translate() whose final answer waits until finish(); provisional() pushes a fast result meanwhile. */
+  function racing() {
+    const waiting = new Map<string, { resolve: (r: TranslateResponse) => void; onProvisional: (t: string) => void }>()
+    const translate = vi.fn(
+      (req: TranslateRequest, onProvisional: (t: string) => void) =>
+        new Promise<TranslateResponse>((resolve) => waiting.set(req.text, { resolve, onProvisional })),
+    )
+    return {
+      translate,
+      provisional: (text: string, value: string) => waiting.get(text)!.onProvisional(value),
+      finish: (text: string, r: TranslateResponse) => waiting.get(text)!.resolve(r),
+    }
+  }
+
+  it("race: shows a provisional translation, then replaces it with the AI translation", async () => {
+    document.body.innerHTML = "<p>Good morning</p><p>See you later</p>"
+    const original = document.body.innerHTML
+    const reports: Omit<TabState, "connected">[] = []
+    const r = racing()
+    const c = new TranslationController({ root: () => document.body, translate: r.translate, report: (st) => reports.push(st) })
+    await c.updateSettings(settings({ activeProviderId: "openai" }))
+    const started = c.start()
+    await vi.waitFor(() => expect(r.translate).toHaveBeenCalledTimes(2))
+
+    r.provisional("Good morning", "FAST:Good morning")
+    const block = document.querySelector<HTMLElement>(".tt-translation.tt-provisional")!
+    expect(block.textContent).toContain("FAST:Good morning")
+    const tag = block.querySelector<HTMLElement>(".tt-tag")!
+    expect(tag.textContent).toBe(ENGLISH.t("statusProvisional"))
+    expect(tag.title).toBe(ENGLISH.t("statusProvisionalHint"))
+    expect(reports.at(-1)).toMatchObject({ total: 2, done: 0, provisional: 1, failed: 0 })
+
+    // Display mode switch keeps the provisional state.
+    await c.updateSettings(settings({ activeProviderId: "openai", mode: "translation-only" }))
+    expect(document.querySelector(".tt-translation.tt-only.tt-provisional")).not.toBeNull()
+
+    r.finish("Good morning", { ok: true, text: "AI:Good morning" })
+    r.finish("See you later", { ok: true, text: "AI:See you later" })
+    await started
+    expect(document.querySelector(".tt-provisional")).toBeNull()
+    expect(Array.from(document.querySelectorAll(".tt-translation")).map((el) => el.textContent)).toEqual(["AI:Good morning", "AI:See you later"])
+    expect(reports.at(-1)).toMatchObject({ total: 2, done: 2, provisional: 0, failed: 0 })
+
+    c.stop()
+    expect(document.body.innerHTML).toBe(original)
+  })
+
+  it("race: ignores a fast result that arrives after the AI result", async () => {
+    document.body.innerHTML = "<p>Good morning</p>"
+    const r = racing()
+    const c = new TranslationController({ root: () => document.body, translate: r.translate })
+    await c.updateSettings(settings({ activeProviderId: "openai" }))
+    const started = c.start()
+    await vi.waitFor(() => expect(r.translate).toHaveBeenCalledTimes(1))
+    r.finish("Good morning", { ok: true, text: "AI:Good morning" })
+    await started
+    r.provisional("Good morning", "FAST:Good morning")
+    expect(document.querySelector(".tt-translation")!.textContent).toBe("AI:Good morning")
+    expect(document.querySelector(".tt-provisional")).toBeNull()
+  })
+
+  it("race: keeps the fast translation when the AI request fails and retries on click", async () => {
+    document.body.innerHTML = "<p>Good morning</p>"
+    const original = document.body.innerHTML
+    const reports: Omit<TabState, "connected">[] = []
+    const r = racing()
+    const c = new TranslationController({ root: () => document.body, translate: r.translate, report: (st) => reports.push(st) })
+    await c.updateSettings(settings({ activeProviderId: "openai" }))
+    const started = c.start()
+    await vi.waitFor(() => expect(r.translate).toHaveBeenCalledTimes(1))
+    r.provisional("Good morning", "FAST:Good morning")
+    r.finish("Good morning", { ok: false, error: "OpenAI request failed: HTTP 401", fallback: "FAST:Good morning" })
+    await started
+
+    const block = document.querySelector<HTMLElement>(".tt-translation.tt-fallback")!
+    expect(block.textContent).toContain("FAST:Good morning")
+    const marker = block.querySelector<HTMLElement>(".tt-error")!
+    expect(marker.textContent).toBe(ENGLISH.t("statusAiFailed"))
+    expect(marker.title).toBe("OpenAI request failed: HTTP 401")
+    expect(reports.at(-1)).toMatchObject({ done: 0, provisional: 0, failed: 1, lastError: "OpenAI request failed: HTTP 401" })
+
+    await c.updateSettings(settings({ activeProviderId: "openai", mode: "translation-only" }))
+    expect(document.querySelector(".tt-translation.tt-only.tt-fallback")).not.toBeNull()
+
+    marker.click()
+    await vi.waitFor(() => expect(r.translate).toHaveBeenCalledTimes(2))
+    r.finish("Good morning", { ok: true, text: "AI:Good morning" })
+    await vi.waitFor(() => expect(document.querySelector(".tt-translation")!.textContent).toBe("AI:Good morning"))
+    expect(document.querySelector(".tt-fallback")).toBeNull()
+
+    c.stop()
+    expect(document.body.innerHTML).toBe(original)
+  })
+
+  /* ---------- precise mode ---------- */
+
+  it("precise: registers the message once and refers to it from every request", async () => {
+    document.body.innerHTML = "<p>Hello Anna</p><p>这段已经是中文。</p><p>See you on Friday</p>"
+    const contexts: MailContext[] = []
+    const translate = vi.fn(async ({ text }: TranslateRequest) => ({ ok: true as const, text: `ZH:${text}` }))
+    const c = new TranslationController({ root: () => document.body, translate, setContext: (ctx) => contexts.push(ctx) })
+    await c.updateSettings(settings({ activeProviderId: "openai", precise: true }))
+    await c.start()
+    expect(contexts).toHaveLength(1)
+    expect(contexts[0].paragraphs).toEqual(["Hello Anna", "这段已经是中文。", "See you on Friday"])
+    expect(contexts[0].targets).toEqual([0, 2])
+    expect(translate.mock.calls.map(([req]) => req.context)).toEqual([
+      { id: contexts[0].id, index: 0 },
+      { id: contexts[0].id, index: 2 },
+    ])
   })
 })

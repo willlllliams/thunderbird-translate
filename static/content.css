@@ -75,6 +75,24 @@
   text-decoration: underline dotted;
 }
 
+/* Race mode: the fast service's translation, shown until the AI translation replaces it. */
+.tt-translation.tt-provisional {
+  font-style: italic;
+  opacity: calc(var(--tt-opacity, 0.85) * 0.75);
+}
+
+.tt-translation .tt-status {
+  font-style: normal;
+  font-size: 0.75em;
+}
+
+.tt-tag {
+  padding: 0 0.45em;
+  border: 1px solid currentColor;
+  border-radius: 0.8em;
+  cursor: help;
+}
+
 @media (prefers-color-scheme: dark) {
   .tt-error {
     color: #f28b82;

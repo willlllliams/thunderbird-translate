@@ -152,6 +152,15 @@ button.primary {
   border-bottom: 0;
 }
 
+.provider-list li.group {
+  cursor: default;
+  padding: 8px 10px 4px;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 600;
+  background: var(--panel);
+}
+
 .provider-list li.selected {
   background: color-mix(in srgb, var(--accent) 18%, transparent);
 }
@@ -169,10 +178,6 @@ button.primary {
   color: #fff;
 }
 
-.tag.configured {
-  border: 1px solid var(--border);
-}
-
 .provider-panel {
   border: 1px solid var(--border);
   border-radius: 6px;
@@ -180,6 +185,15 @@ button.primary {
   display: flex;
   flex-direction: column;
   gap: 12px;
+}
+
+.provider-panel button:disabled {
+  opacity: 0.55;
+  cursor: default;
+}
+
+.provider-panel .hint:empty {
+  display: none;
 }
 
 .provider-panel h3 {

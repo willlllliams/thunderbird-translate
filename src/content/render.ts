@@ -5,6 +5,9 @@
  *   it stays in the same list item / table cell / quote as the original.
  * - translation-only: the unit's children are swapped for the translation;
  *   the original nodes are kept in memory and put back on clear().
+ *
+ * A translation can carry a mark: a provisional result of the fast service
+ * in race mode, or a fast result kept after the AI request failed.
  */
 
 import type { DisplayMode, StylePreset } from "../shared/settings"
@@ -13,6 +16,14 @@ import { CLS_STATUS, CLS_TRANSLATION, type Unit } from "./paragraphs"
 interface UnitDom {
   added: HTMLElement | null
   original: Node[] | null
+}
+
+/** Small label inside a translation; the title explains it, a click handler makes it a retry button. */
+export interface TranslationMark {
+  kind: "provisional" | "fallback"
+  label: string
+  title: string
+  onRetry?: () => void
 }
 
 export class Renderer {
@@ -52,24 +63,32 @@ export class Renderer {
     this.state(unit).added = span
   }
 
+  /** Status label; with onRetry it is a button that retries the paragraph. */
+  private status(className: string, label: string, title: string, onRetry?: () => void): HTMLElement {
+    const span = this.doc.createElement("span")
+    span.className = `${CLS_STATUS} ${className}`
+    span.textContent = label
+    span.title = title
+    if (onRetry) {
+      span.setAttribute("role", "button")
+      span.tabIndex = 0
+      span.addEventListener("click", (e) => {
+        e.preventDefault()
+        e.stopPropagation()
+        onRetry()
+      })
+    }
+    return span
+  }
+
   showError(unit: Unit, message: string, label: string, onRetry: () => void): void {
     this.clear(unit)
-    const span = this.doc.createElement("span")
-    span.className = `${CLS_STATUS} tt-error`
-    span.textContent = label
-    span.title = message
-    span.setAttribute("role", "button")
-    span.tabIndex = 0
-    span.addEventListener("click", (e) => {
-      e.preventDefault()
-      e.stopPropagation()
-      onRetry()
-    })
+    const span = this.status("tt-error", label, message, onRetry)
     unit.el.appendChild(span)
     this.state(unit).added = span
   }
 
-  showTranslation(unit: Unit, text: string, mode: DisplayMode, lang?: string): void {
+  showTranslation(unit: Unit, text: string, mode: DisplayMode, lang?: string, mark?: TranslationMark): void {
     this.clear(unit)
     const node = this.doc.createElement("span")
     node.className = [
@@ -77,12 +96,15 @@ export class Renderer {
       mode === "bilingual" ? "tt-bilingual" : "tt-only",
       `tt-style-${this.stylePreset}`,
       unit.pre ? "tt-pre" : "tt-flow",
+      ...(mark ? [`tt-${mark.kind}`] : []),
     ].join(" ")
     node.textContent = text
     node.setAttribute("dir", "auto")
     if (lang) node.setAttribute("lang", lang)
+    if (mark) node.appendChild(this.status(mark.kind === "fallback" ? "tt-error" : "tt-tag", mark.label, mark.title, mark.onRetry))
     const s = this.state(unit)
     if (mode === "bilingual") {
+      if (mark) node.title = mark.title
       unit.el.appendChild(node)
       s.added = node
     } else {

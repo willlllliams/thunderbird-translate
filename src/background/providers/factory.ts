@@ -26,6 +26,7 @@ import type { LanguageModel } from "ai"
 import { LocalizedError } from "../../shared/errors"
 import { getPreset, type SdkId } from "../../shared/providers"
 import type { ResolvedProvider } from "../../shared/settings"
+import { type ThinkingRequest, thinkingOptions } from "./thinking"
 
 export interface ProviderSettings {
   sdk: SdkId
@@ -101,4 +102,9 @@ export function createLanguageModel(resolved: ResolvedProvider, fetchFn?: typeof
     case "openai-compatible":
       return createOpenAICompatible({ name: resolved.id, ...common })(s.model)
   }
+}
+
+/** The provider's thinking switch as request options (see thinking.ts). */
+export function reasoningOptions(resolved: ResolvedProvider): ThinkingRequest {
+  return thinkingOptions(resolved.id, resolved.model, resolved.thinking)
 }

@@ -20,18 +20,100 @@ export function buildSystemPrompt(custom: string, targetLanguageName: string): s
   return template.replaceAll("{{to}}", targetLanguageName)
 }
 
-export function buildSinglePrompt(text: string, targetLanguageName: string): string {
-  return `Translate the following text into ${targetLanguageName}. Output only the translation.\n\n${text}`
+/** A paragraph to translate. In precise mode it carries its neighbours as reference. */
+export interface Segment {
+  text: string
+  /** Paragraph before this one, when it is not translated in the same request. */
+  before?: string
+  /** Paragraph after this one, when it is not translated in the same request. */
+  after?: string
 }
 
-export function buildBatchPrompt(texts: string[], targetLanguageName: string): string {
-  const n = texts.length
-  const segments = texts.map((t, i) => `<seg id="${i + 1}">\n${t}\n</seg>`).join("\n")
+const REF_RULE = "Blocks marked <ref> are neighbouring paragraphs given only as context: do not translate them and do not include them in the output."
+
+function hasRefs(segments: Segment[]): boolean {
+  return segments.some((s) => s.before !== undefined || s.after !== undefined)
+}
+
+function segmentBlocks(segments: Segment[]): string {
+  return segments
+    .flatMap((s, i) => [
+      s.before !== undefined ? `<ref>\n${s.before}\n</ref>` : null,
+      `<seg id="${i + 1}">\n${s.text}\n</seg>`,
+      s.after !== undefined ? `<ref>\n${s.after}\n</ref>` : null,
+    ])
+    .filter((block) => block !== null)
+    .join("\n")
+}
+
+export function buildSinglePrompt(segment: Segment, targetLanguageName: string): string {
+  if (!hasRefs([segment])) return `Translate the following text into ${targetLanguageName}. Output only the translation.\n\n${segment.text}`
+  return `Translate the text of the <seg> block into ${targetLanguageName}. ${REF_RULE} Output only the translation, without the <seg> tags.\n\n${segmentBlocks([segment])}`
+}
+
+export function buildBatchPrompt(segments: Segment[], targetLanguageName: string): string {
+  const n = segments.length
   return `Translate each of the following ${n} segments into ${targetLanguageName}.
 Return ONLY a JSON array of exactly ${n} strings, where the i-th string is the translation of segment i.
-Do not merge, split, skip or reorder segments. Encode line breaks inside a string as \\n. Do not wrap the array in Markdown and do not add any other text.
+Do not merge, split, skip or reorder segments. Encode line breaks inside a string as \\n. Do not wrap the array in Markdown and do not add any other text.${hasRefs(segments) ? `\n${REF_RULE}` : ""}
 
-${segments}`
+${segmentBlocks(segments)}`
+}
+
+/* ---------- precise mode: analysis of the whole message ---------- */
+
+/** Result of the analysis request, rendered into the shared prefix of every batch of one message. */
+export interface MailAnalysis {
+  summary: string
+  glossary: { source: string; target: string }[]
+  tone: string
+}
+
+/** The whole message goes into the prefix only up to this length; longer messages rely on the analysis. */
+export const MAX_PREFIX_TEXT_CHARS = 8000
+
+export const ANALYSIS_SYSTEM_PROMPT = `You prepare the translation of an email into {{to}}. Read the whole email and answer with ONLY a JSON object, without Markdown:
+{"summary": "...", "glossary": [{"source": "...", "target": "..."}], "tone": "..."}
+- summary: 2 to 3 sentences in English on what the email is about.
+- glossary: names of people, companies and products, other proper nouns and recurring terms, each with the {{to}} form to use every time (repeat the original when it stays untranslated). At most 30 entries.
+- tone: the tone and register of the email, and how to address the reader in {{to}}.`
+
+export function buildAnalysisPrompt(text: string): string {
+  return `<email>\n${text}\n</email>`
+}
+
+/** Read the analysis JSON, tolerating fences and chatter; null when nothing usable is found. */
+export function parseAnalysis(raw: string): MailAnalysis | null {
+  const s = cleanModelOutput(raw)
+  const first = s.indexOf("{")
+  const last = s.lastIndexOf("}")
+  const value = tryParseJson(s) ?? (first !== -1 && last > first ? tryParseJson(s.slice(first, last + 1)) : undefined)
+  if (!value || typeof value !== "object" || Array.isArray(value)) return null
+  const o = value as Record<string, unknown>
+  const str = (v: unknown) => (typeof v === "string" ? v.trim() : "")
+  const glossary = (Array.isArray(o.glossary) ? (o.glossary as Record<string, unknown>[]) : [])
+    .map((e) => ({ source: str(e?.source), target: str(e?.target) }))
+    .filter((e) => e.source && e.target)
+    .slice(0, 50)
+  const analysis: MailAnalysis = { summary: str(o.summary), glossary, tone: str(o.tone) }
+  return analysis.summary || analysis.tone || glossary.length > 0 ? analysis : null
+}
+
+/**
+ * Context appended to the system prompt in precise mode. It depends only on
+ * the message, so every request for one message starts with the same text
+ * and the provider's prompt cache can serve it.
+ */
+export function buildContextBlock(analysis: MailAnalysis | null, fullText: string): string {
+  const parts: string[] = []
+  if (analysis?.summary) parts.push(`Summary: ${analysis.summary}`)
+  if (analysis?.tone) parts.push(`Tone and form of address: ${analysis.tone}`)
+  if (analysis?.glossary.length) {
+    parts.push(`Glossary, use these translations every time:\n${analysis.glossary.map((g) => `- ${g.source} → ${g.target}`).join("\n")}`)
+  }
+  if (fullText) parts.push(`Full text of the email:\n<email>\n${fullText}\n</email>`)
+  if (parts.length === 0) return ""
+  return `The paragraphs to translate come from one email. Use this context to keep names, terms and tone consistent. It is reference material only: never translate it or repeat it in the output.\n\n${parts.join("\n\n")}`
 }
 
 /** Remove reasoning blocks and Markdown fences that some models add. */

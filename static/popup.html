@@ -28,10 +28,22 @@
       <select id="targetLang"></select>
     </label>
 
-    <label class="field">
-      <span class="label" data-i18n="labelProvider"></span>
+    <div class="field">
+      <label class="label" for="provider" data-i18n="labelProvider"></label>
       <select id="provider"></select>
-    </label>
+      <button type="button" id="addProvider" class="link" data-i18n="popupAddProvider"></button>
+    </div>
+
+    <div id="aiModes" hidden>
+      <label class="check">
+        <input type="checkbox" id="raceEnabled" />
+        <span data-i18n="labelRace"></span>
+      </label>
+      <label class="check">
+        <input type="checkbox" id="preciseEnabled" />
+        <span data-i18n="labelPrecise"></span>
+      </label>
+    </div>
 
     <label class="check">
       <input type="checkbox" id="autoTranslate" />

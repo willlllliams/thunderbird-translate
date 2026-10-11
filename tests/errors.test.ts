@@ -240,7 +240,7 @@ describe("settings page", () => {
     const settings = createDefaultSettings("zh-CN")
     settings.uiLanguage = "zh_CN"
     settings.activeProviderId = "deepseek"
-    settings.providers.deepseek = { apiKey: "sk-test", baseURL: "https://platform.deepseek.com", model: "" }
+    settings.providers.deepseek = { enabled: true, apiKey: "sk-test", baseURL: "https://platform.deepseek.com", model: "" }
     const sendMessage = vi.fn(async (req: { type: string }) => {
       if (req.type === "testProvider") return testResponse
       if (req.type === "cacheStats") return { size: 0 }

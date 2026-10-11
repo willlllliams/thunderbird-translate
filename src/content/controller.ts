@@ -3,7 +3,9 @@
  *
  * start(): find paragraphs, drop those already in the target language, ask
  * the background for each translation (the background merges them into
- * batches) and render results as they arrive.
+ * batches) and render results as they arrive. In race mode a provisional
+ * result may arrive first and is replaced by the final one. In precise mode
+ * the message text is registered with the background as context first.
  * stop(): remove every inserted node and restore the original DOM.
  * Settings changes while active: a new display mode re-renders from the
  * translations already held; a new target language or provider stops and
@@ -11,23 +13,31 @@
  */
 
 import { describeError } from "../shared/errors"
-import { getI18n } from "../shared/i18n"
-import type { TranslateResponse } from "../shared/messages"
+import { getI18n, t } from "../shared/i18n"
+import { createMailContext, type MailContext } from "../shared/mail-context"
+import type { TabState, TranslateRequest, TranslateResponse } from "../shared/messages"
 import type { PublicSettings } from "../shared/settings"
 import { isInTargetLanguage, type LanguageDetector } from "./lang-detect"
 import { type Collected, collectParagraphs, extractText, type Unit } from "./paragraphs"
-import { Renderer } from "./render"
+import { Renderer, type TranslationMark } from "./render"
 import { hasTranslatableText } from "./text"
 
 export interface ControllerDeps {
   root: () => HTMLElement | null
-  translate: (text: string, targetLang: string, providerId: string) => Promise<TranslateResponse>
+  /** Final result as promise; a provisional one (race mode) through the callback. */
+  translate: (request: TranslateRequest, onProvisional: (text: string) => void) => Promise<TranslateResponse>
+  /** Precise mode: register the message with the background before its paragraphs are requested. */
+  setContext?: (context: MailContext) => void
   detect?: LanguageDetector
-  report?: (state: { active: boolean; total: number; done: number; failed: number; lastError?: string }) => void
-  label?: (key: "loading" | "error") => string
+  report?: (state: Omit<TabState, "connected">) => void
 }
 
-type UnitResult = { status: "loading" } | { status: "done"; text: string } | { status: "error"; error: string }
+type UnitResult =
+  | { status: "loading" }
+  | { status: "provisional"; text: string }
+  | { status: "done"; text: string }
+  /** `fallback`: the fast service's translation, kept when the AI request failed. */
+  | { status: "error"; error: string; fallback?: string }
 
 const STYLE_ID = "tt-style-vars"
 
@@ -37,9 +47,10 @@ export class TranslationController {
   private session = 0
   private collected: Collected | null = null
   private units: Unit[] = []
+  private context: MailContext | null = null
   private results = new Map<Unit, UnitResult>()
   private renderer: Renderer | null = null
-  /** Translations already received, keyed by provider + language + text. */
+  /** Final translations already received, keyed by provider + language + text. */
   private memo = new Map<string, string>()
   private lastError = ""
 
@@ -49,18 +60,19 @@ export class TranslationController {
     return this.units.length
   }
 
-  private label(key: "loading" | "error"): string {
-    return this.deps.label?.(key) ?? getI18n().t(key === "loading" ? "statusTranslating" : "statusFailed")
-  }
-
   private report(): void {
-    let done = 0
-    let failed = 0
+    const count = { done: 0, provisional: 0, failed: 0 }
     for (const r of this.results.values()) {
-      if (r.status === "done") done++
-      else if (r.status === "error") failed++
+      if (r.status === "done") count.done++
+      else if (r.status === "provisional") count.provisional++
+      else if (r.status === "error") count.failed++
     }
-    this.deps.report?.({ active: this.active, total: this.units.length, done, failed, ...(failed > 0 && this.lastError ? { lastError: this.lastError } : {}) })
+    this.deps.report?.({
+      active: this.active,
+      total: this.units.length,
+      ...count,
+      ...(count.failed > 0 && this.lastError ? { lastError: this.lastError } : {}),
+    })
   }
 
   /** Apply new settings. Returns a promise that settles when re-rendering is scheduled. */
@@ -105,13 +117,21 @@ export class TranslationController {
     this.applyStyleVars()
     this.collected = collectParagraphs(root)
 
+    const all = this.collected.units
     const candidates: Unit[] = []
-    for (const unit of this.collected.units) {
+    for (const unit of all) {
       if (await isInTargetLanguage(unit.text, s.targetLang, this.deps.detect)) continue
       if (session !== this.session) return
       candidates.push(unit)
     }
     this.units = candidates
+    if (s.precise && candidates.length > 0) {
+      this.context = createMailContext(
+        all.map((u) => u.text),
+        candidates.map((u) => all.indexOf(u)),
+      )
+      this.deps.setContext?.(this.context)
+    }
     this.report()
     await Promise.all(candidates.map((unit) => this.translateUnit(unit, session)))
   }
@@ -124,6 +144,7 @@ export class TranslationController {
     this.collected = null
     this.renderer = null
     this.units = []
+    this.context = null
     this.results.clear()
     this.lastError = ""
     this.root()?.ownerDocument.getElementById(STYLE_ID)?.remove()
@@ -139,59 +160,87 @@ export class TranslationController {
     return `${s.providerSignature}|${s.targetLang}|${text}`
   }
 
-  private async translateUnit(unit: Unit, session: number): Promise<void> {
+  private request(unit: Unit): TranslateRequest {
     const s = this.settings!
+    const index = this.collected?.units.indexOf(unit) ?? -1
+    return {
+      text: unit.text,
+      targetLang: s.targetLang,
+      providerId: s.activeProviderId,
+      ...(this.context && index >= 0 ? { context: { id: this.context.id, index } } : {}),
+    }
+  }
+
+  private async translateUnit(unit: Unit, session: number): Promise<void> {
     const known = this.memo.get(this.memoKey(unit.text))
     if (known !== undefined) {
       this.finish(unit, { ok: true, text: known }, session)
       return
     }
     this.results.set(unit, { status: "loading" })
-    this.renderer?.showLoading(unit, this.label("loading"))
+    this.renderer?.showLoading(unit, t("statusTranslating"))
     let res: TranslateResponse
     try {
-      res = await this.deps.translate(unit.text, s.targetLang, s.activeProviderId)
+      res = await this.deps.translate(this.request(unit), (text) => this.provisional(unit, text, session))
     } catch (error) {
       res = { ok: false, error: describeError(error, getI18n()) }
     }
     // Never show an empty reason, whatever the background sent.
-    if (!res || (!res.ok && !res.error?.trim())) res = { ok: false, error: describeError(undefined, getI18n()) }
+    if (!res || (!res.ok && !res.error?.trim())) res = { ...res, ok: false, error: describeError(undefined, getI18n()) }
     if (res.ok) this.memo.set(this.memoKey(unit.text), res.text)
     this.finish(unit, res, session)
+  }
+
+  /** Race mode: the fast service answered first. Ignored once the final result is in. */
+  private provisional(unit: Unit, text: string, session: number): void {
+    if (session !== this.session || this.results.get(unit)?.status !== "loading") return
+    this.results.set(unit, { status: "provisional", text })
+    this.renderResult(unit)
+    this.report()
   }
 
   private finish(unit: Unit, res: TranslateResponse, session: number): void {
     if (session !== this.session || !this.renderer) return
     if (res.ok) {
       this.results.set(unit, { status: "done", text: res.text })
-      this.renderResult(unit)
     } else {
-      this.results.set(unit, { status: "error", error: res.error })
+      this.results.set(unit, { status: "error", error: res.error, ...(res.fallback ? { fallback: res.fallback } : {}) })
       this.lastError = res.error
-      this.renderer.showError(unit, res.error, this.label("error"), () => {
-        void this.translateUnit(unit, this.session)
-      })
     }
+    this.renderResult(unit)
     this.report()
   }
 
   private renderResult(unit: Unit): void {
     const r = this.results.get(unit)
-    if (!this.renderer || !this.settings || r?.status !== "done") return
+    if (!this.renderer || !this.settings || !r || r.status === "loading") return
+    const retry = () => void this.translateUnit(unit, this.session)
+    let text: string
+    let mark: TranslationMark | undefined
+    if (r.status === "error") {
+      if (!r.fallback?.trim()) {
+        this.renderer.showError(unit, r.error, t("statusFailed"), retry)
+        return
+      }
+      text = r.fallback
+      mark = { kind: "fallback", label: t("statusAiFailed"), title: r.error, onRetry: retry }
+    } else {
+      text = r.text
+      if (r.status === "provisional") mark = { kind: "provisional", label: t("statusProvisional"), title: t("statusProvisionalHint") }
+    }
     // Identical output adds nothing in bilingual mode.
-    if (r.text.trim() === unit.text.trim() || !r.text.trim()) {
-      this.renderer.clear(unit)
+    if (text.trim() === unit.text.trim() || !text.trim()) {
+      if (r.status === "done") this.renderer.clear(unit)
+      else if (r.status === "error") this.renderer.showError(unit, r.error, t("statusFailed"), retry)
       return
     }
-    this.renderer.showTranslation(unit, r.text, this.settings.mode, this.settings.targetLang)
+    this.renderer.showTranslation(unit, text, this.settings.mode, this.settings.targetLang, mark)
   }
 
   private rerender(): void {
     if (!this.renderer || !this.settings) return
     this.renderer.stylePreset = this.settings.style.preset
-    for (const unit of this.units) {
-      if (this.results.get(unit)?.status === "done") this.renderResult(unit)
-    }
+    for (const unit of this.units) this.renderResult(unit)
   }
 
   private applyStyleVars(): void {

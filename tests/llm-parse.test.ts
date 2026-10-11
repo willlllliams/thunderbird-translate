@@ -10,7 +10,7 @@ import {
 
 describe("batch prompt", () => {
   it("numbers every segment and states the expected count", () => {
-    const p = buildBatchPrompt(["Hello", "Line one\nLine two"], "Simplified Chinese")
+    const p = buildBatchPrompt([{ text: "Hello" }, { text: "Line one\nLine two" }], "Simplified Chinese")
     expect(p).toContain("exactly 2 strings")
     expect(p).toContain('<seg id="1">\nHello\n</seg>')
     expect(p).toContain('<seg id="2">\nLine one\nLine two\n</seg>')

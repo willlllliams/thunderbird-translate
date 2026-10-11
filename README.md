@@ -32,7 +32,10 @@ Each line below introduces the extension in one language and links to the full R
 - Entry points: the "Translate message" button in the message header toolbar with its popup, and the shortcuts Alt+A (translate / show original) and Alt+S (switch bilingual / translation-only).
 - Optional automatic translation: messages not in the target language are translated as soon as they are opened.
 - Request batching: the background script collects paragraphs for 50 ms and merges them into one request, with a concurrency limit, retries with exponential backoff, and a local cache.
-- Services: 3 free or self-hosted translation services and 22 AI provider presets, one of which is "Custom OpenAI-compatible".
+- Services: 3 free or self-hosted translation services and 22 AI provider presets, one of which is "Custom OpenAI-compatible". Only the services you have added appear in the service lists.
+- Race translation (AI services): a free translator answers first and its result is shown as a provisional translation until the AI translation replaces it.
+- Precise translation (AI services): the whole message is the context of every request, so names, terms and forms of address stay consistent across paragraphs.
+- Thinking mode switch for each AI provider, off by default.
 - Interface in 12 languages. The interface language follows Thunderbird by default and can be chosen on the settings page.
 
 ## Install
@@ -66,10 +69,11 @@ Open a message. A "Translate message" button appears in the message header toolb
 - "Translate this message": starts translating. While a translation is running or shown, the button reads "Show original" and restores the original when clicked.
 - Display: switches between bilingual and translation-only; the change applies to the current message immediately.
 - Target language: after a change, a message being translated is translated again into the new language.
-- Translation service: selects the service in use.
+- Translation service: selects the service in use. The list contains the added services only. "+ Add translation service" below it opens the settings page at the translation services.
+- Race translation and Precise translation: shown while the current service is an AI service; they turn the two AI translation modes on or off.
 - Automatically translate messages not in the target language: when checked, a message whose body is not in the target language is translated as soon as it is opened.
 
-The popup shows the progress, for example "Translated 8 of 12". When a paragraph fails, a red "Translation failed, click to retry" appears after it; hovering shows the error and clicking retries that paragraph.
+The popup shows the progress, for example "Translated 8 of 12". With race translation, paragraphs that still show the fast provisional translation are counted separately, for example "Translated 7 of 9 (2 provisional)". When a paragraph fails, a red "Translation failed, click to retry" appears after it; hovering shows the error and clicking retries that paragraph.
 
 Alt+A translates the current message or restores the original; Alt+S switches between bilingual and translation-only. Both shortcuts can be changed under "Manage Extension Shortcuts" in the gear menu of the Add-ons Manager.
 
@@ -82,13 +86,63 @@ Open the settings page with the "Options" button of this extension in the Add-on
 | Section | Contents |
 | --- | --- |
 | General | Interface language, target language, default display mode, current service, automatic translation |
-| Translation services | Endpoint, API key, model and temperature of each service; "Test connection" and "Use this service" buttons |
+| Translation services | Services in two groups, "Added" and "Available to add"; endpoint, API key, model, temperature and thinking mode of each service; "Test connection", "Add", "Use this service" and "Remove" buttons |
+| AI translation modes | Race translation with the choice of fast service; precise translation |
 | System prompt | Custom system prompt for AI services; `{{to}}` is replaced by the target language name; empty means the built-in prompt |
 | Request batching | Collection window, maximum characters and paragraphs per request, concurrency, retries, whether to merge AI requests |
 | Translation style | Left border, dashed left border, highlight or plain; accent color, text opacity, font size ratio; live preview |
 | Cache | Cache on or off, maximum cached paragraphs, current number of entries, clear cache |
 
 "Test connection" sends one test sentence with the values currently in the input fields. On success it shows the translation; on failure it shows the error returned by the service, for example an invalid key or an unknown model name.
+
+## Adding and removing services
+
+The side list of the translation services section has two groups. "Added" holds the services that appear in the service lists of the popup and of the settings page; "Available to add" holds all others. Selecting a service shows its configuration and buttons:
+
+- A service that is not added has an "Add" button. Typing an API key (for DeepLX, the endpoint) adds the service as well.
+- An added service has "Use this service" and "Remove". Removing takes the service out of the lists and keeps its configuration, so adding it again restores the key and the model.
+- The current service cannot be removed, and neither can the fast service of race translation while race translation is on. The "Remove" button is then disabled and a line below it gives the reason.
+
+A fresh installation starts with Google Translate and Microsoft Translator added. When settings from version 1.1 or earlier are loaded, a service counts as added in these cases:
+
+| Service | Counts as added when |
+| --- | --- |
+| Google Translate, Microsoft Translator | always |
+| DeepLX | an endpoint is filled in |
+| AI services that need a key | an API key is saved |
+| Ollama, LM Studio, custom OpenAI-compatible | the endpoint, model or temperature was changed |
+| the current service | always |
+
+## AI translation modes
+
+Both modes apply only while the current service is an AI service. They can be turned on in the "AI translation modes" section of the settings page or in the popup.
+
+### Race translation
+
+Every paragraph goes to the AI service and to a fast service (Google Translate by default; Microsoft Translator or DeepLX can be chosen among the added services). Both requests use the normal batching and cache. The outcome depends on which answer arrives first:
+
+| Case | What the message shows |
+| --- | --- |
+| The fast service answers first | its translation, in italics with a "Provisional" tag; hovering explains that the AI translation is in progress. The AI translation replaces it when it arrives. |
+| The AI service answers first | the AI translation; the fast result is discarded |
+| The AI request fails | the fast translation stays, marked "AI translation failed"; hovering shows the reason, clicking retries the paragraph |
+| The AI translation is already cached | the cached AI translation; the fast service is not asked |
+
+Switching the display mode keeps provisional and failed marks, and "Show original" removes them together with the translations. Race translation costs no extra AI tokens, but it doubles the number of requests to the fast service.
+
+### Precise translation
+
+Precise translation sends the message as context with every AI request. When translation starts, the content script joins the paragraphs it found into the plain text of the message (cut after 20,000 characters, with a note that the text continues) and registers it with the background script once. The message is identified by a hash of this text.
+
+The flow depends on the size of the paragraphs to translate:
+
+1. If they fit into one request (within "Max characters per request" and "Max paragraphs per request"), one request translates all of them; the request itself carries the whole message.
+2. Otherwise one extra request first analyzes the whole message and returns a summary of two to three sentences, a glossary of names, products and other proper nouns with the translation to use, and the tone and form of address. If this answer cannot be read, translation goes on without it.
+3. Every request then starts with the same prefix: the system prompt, the analysis and, for messages up to about 8,000 characters, the full text. After the prefix come the paragraphs of the batch, each with the paragraph before and after it as reference that is not translated.
+
+The prefix is identical, character for character, for every request of one message, so providers that cache repeated prompt prefixes can serve it from their cache. For Anthropic the prefix is marked with `cacheControl: { type: "ephemeral" }`. The analysis is cached like translations, keyed by provider, model, target language and the hash of the message text; batches of one message wait for the same analysis request.
+
+Translations made in precise mode are cached under a key that contains the message hash, and batches never mix paragraphs of different messages. The same sentence in another message is therefore translated again, with that message as context. The analysis request and the longer prompts make precise translation more expensive than normal translation.
 
 ## Interface language
 
@@ -181,6 +235,48 @@ Some providers have extra requirements:
 - Moonshot: the default endpoint is the China site `api.moonshot.cn`; accounts on the international site use `https://api.moonshot.ai/v1`.
 - Volcengine Doubao: the model field takes either a model name or the ID of an inference endpoint created in the Ark console.
 
+### Thinking mode
+
+Each AI provider has a "Thinking mode" switch, off by default. Translation does not need the model to reason first, and reasoning makes requests slower and more expensive. Several current models reason unless told otherwise, for example `deepseek-flash`, `claude-haiku-5-5` and `gemini-2.5-flash`, so "off" is sent explicitly.
+
+Every provider spells the switch differently, and within one provider only some models accept it. The extension matches the model name against the patterns below and sends the provider options of the first match; a model without a match gets no thinking parameter. While thinking is on, no temperature is sent, because reasoning models ignore or reject it.
+
+| Provider | Models | Off | On | Source |
+| --- | --- | --- | --- | --- |
+| OpenAI, Azure OpenAI | `gpt-5.1` and later | `openai.reasoningEffort: "none"` | `"medium"` | [OpenAI reasoning guide](https://developers.openai.com/api/docs/guides/reasoning) |
+| | `gpt-5`, `gpt-5-mini`, `gpt-5-nano` | `"minimal"` | `"medium"` | same |
+| | `o1`, `o3`, `o4-mini` … | `"low"` (cannot be turned off) | `"medium"` | same |
+| Anthropic | Claude 5 series, Opus 4.7/4.8 | `anthropic.thinking: { type: "disabled" }` | `{ type: "adaptive" }` | [Extended thinking](https://platform.claude.com/docs/en/build-with-claude/extended-thinking) |
+| | Claude 3.7 and 4.x | nothing (off by default) | `{ type: "enabled", budgetTokens: 1024 }` | same |
+| Google Gemini | `gemini-2.5-pro` | `google.thinkingConfig: { thinkingBudget: 128 }` (minimum, cannot be turned off) | `{ thinkingBudget: -1 }` | [Gemini thinking](https://ai.google.dev/gemini-api/docs/generate-content/thinking) |
+| | other `gemini-2.5-*` | `{ thinkingBudget: 0 }` | `{ thinkingBudget: -1 }` | same |
+| | Gemini 3 and later | `{ thinkingLevel: "low" }` (no full off) | `{ thinkingLevel: "high" }` | same |
+| DeepSeek | all | `deepseek.thinking: { type: "disabled" }` | `{ type: "enabled" }` | [Thinking mode](https://api-docs.deepseek.com/guides/thinking_mode) |
+| xAI Grok | `grok-4.3` | `xai.reasoningEffort: "none"` | `"high"` | [xAI reasoning](https://docs.x.ai/developers/model-capabilities/text/reasoning) |
+| | `grok-3-mini` | `"low"` | `"high"` | same |
+| Groq | Qwen3 | `groq.reasoningEffort: "none"` | `"default"` with `reasoningFormat: "parsed"` | [Groq reasoning](https://console.groq.com/docs/reasoning) |
+| | `gpt-oss` | `"low"` | `"medium"` | same |
+| Mistral AI | all (the SDK sends it only for models that accept it) | `mistral.reasoningEffort: "none"` | `"high"` | [Mistral reasoning](https://docs.mistral.ai/studio/conversations/reasoning) |
+| Together AI | Qwen3, GLM-4/5, DeepSeek V4, Kimi K3, MiniMax M3 | `togetherai.reasoning: { enabled: false }` | `{ enabled: true }` | [Together reasoning](https://docs.together.ai/docs/inference/chat/reasoning) |
+| Fireworks AI | DeepSeek V3.1/3.2/V4, GLM, Kimi K3, Qwen3 | `fireworks.reasoningEffort: "none"` | `"medium"` | [Fireworks reasoning](https://docs.fireworks.ai/guides/reasoning) |
+| | `gpt-oss` | `"low"` | `"medium"` | same |
+| DeepInfra | all (ignored by models without reasoning) | `deepinfra.reasoningEffort: "none"` | `"high"` | [DeepInfra reasoning](https://docs.deepinfra.com/chat/reasoning) |
+| Cerebras | Qwen | `cerebras.reasoningEffort: "none"` | `"medium"` | [Cerebras reasoning](https://inference-docs.cerebras.ai/capabilities/reasoning) |
+| | `gpt-oss` | `"low"` | `"medium"` | same |
+| Moonshot / Kimi | `kimi-k2.5`, `kimi-k2.6` | `moonshotai.thinking: { type: "disabled" }` | `{ type: "enabled" }` | [Kimi thinking models](https://platform.kimi.com/docs/guide/use-kimi-k2-thinking-model) |
+| | `kimi-k3` | `moonshotai.reasoningEffort: "low"` | `"high"` | same |
+| DashScope | Qwen3, `qwen-plus`, `qwen-flash`, `qwen-turbo` | `alibaba.enableThinking: false` | `true` | [Deep thinking](https://help.aliyun.com/zh/model-studio/deep-thinking) |
+| Ollama | all | `ollama.reasoningEffort: "none"` | `"medium"` | [OpenAI compatibility](https://docs.ollama.com/api/openai-compatibility) |
+| OpenRouter | models that always reason (`o*`, `gpt-5`, `gpt-oss`, `grok-4`, Claude Opus 5, Gemini 2.5 Pro and 3) | `openrouter.reasoning: { effort: "low" }` | `{ enabled: true }` | [Reasoning tokens](https://openrouter.ai/docs/guides/best-practices/reasoning-tokens) |
+| | all others (ignored by models without reasoning) | `{ enabled: false }` | `{ enabled: true }` | same |
+| Zhipu GLM | GLM-4.5 and later | `zhipu.thinking: { type: "disabled" }`; nothing for GLM-5.3, which rejects it | `{ type: "enabled" }` | [GLM thinking](https://docs.bigmodel.cn/cn/guide/capabilities/thinking) |
+| SiliconFlow | Qwen3, DeepSeek V3.1/3.2/V4, GLM-4.5+, Hunyuan-A13B, Kimi K2 | `siliconflow.enable_thinking: false` | `true` | [Chat completions](https://docs.siliconflow.cn/cn/api-reference/chat-completions/chat-completions) |
+| Volcengine Doubao | Seed and thinking models | `doubao.thinking: { type: "disabled" }` | `{ type: "enabled" }` | [Ark documentation](https://www.volcengine.com/docs/82379) |
+
+Perplexity, LM Studio and custom OpenAI-compatible services have no documented thinking parameter on the endpoint the extension uses. Their switch is disabled, and the settings page says so.
+
+For OpenAI-compatible presets (Ollama, OpenRouter, Zhipu, SiliconFlow, Doubao) the options are written under the preset ID, and `@ai-sdk/openai-compatible` copies them into the request body as they are; `reasoningEffort` is the one key it renames, to `reasoning_effort`.
+
 ## How batching works
 
 A message usually has between ten and a few dozen paragraphs. With one request per paragraph, every paragraph carries its own copy of the system prompt and instructions, and every paragraph uses one request from the rate limit. Batching merges paragraphs that arrive close together into one request, so both costs are paid per batch instead of per paragraph.
@@ -188,8 +284,8 @@ A message usually has between ten and a few dozen paragraphs. With one request p
 ### Flow
 
 1. The content script hands every paragraph to be translated to the background script.
-2. The background script looks up the cache first and answers directly on a hit. The cache key consists of the provider, the model, the target language, a signature of the system prompt and a hash of the paragraph text. When the same text is already being translated, later requests share the same result.
-3. Paragraphs not in the cache enter the batch queue, grouped by provider + model + endpoint + target language. Paragraphs of one group accumulate for 50 ms. A group is sent when the window ends, when the paragraph limit is reached, or when the next paragraph would exceed the character limit. A single paragraph longer than the character limit forms its own batch.
+2. The background script looks up the cache first and answers directly on a hit. The cache key consists of the provider, the model, the target language, a signature of the system prompt, in precise mode the hash of the message, and a hash of the paragraph text. When the same text is already being translated, later requests share the same result.
+3. Paragraphs not in the cache enter the batch queue, grouped by provider + model + endpoint + target language, in precise mode also by message. Paragraphs of one group accumulate for 50 ms. A group is sent when the window ends, when the paragraph limit is reached, or when the next paragraph would exceed the character limit. A single paragraph longer than the character limit forms its own batch.
 4. The request queue executes each batch. It limits concurrency and retries 429, 5xx and network errors with exponential backoff; when the server sends `Retry-After`, it waits for that time. Errors such as 401 and 400 are reported without retrying.
 5. Results go to the in-memory cache and are written to `storage.local` in one write after 1 second. The cache evicts the least recently used (LRU) entries.
 
@@ -234,7 +330,7 @@ Input tokens drop by about 63%, and the number of requests drops from 20 to 1. O
 
 - API keys are stored only in `storage.local` of the current Thunderbird profile and are sent only with requests to the endpoint of the matching provider.
 - The content script runs inside the message page; the settings it receives from the background script never contain keys.
-- Message text is sent only to the currently selected translation service. The extension collects no statistics and contacts no network address other than the translation service.
+- Message text is sent only to the current translation service and, while race translation is on, to the chosen fast service. The extension collects no statistics and contacts no network address other than these services.
 - The translation cache is stored locally and can be turned off or cleared on the settings page.
 - Message text leaves your computer and goes to the selected translation service. For sensitive mail, local models such as Ollama or LM Studio keep every request on your own machine.
 
@@ -246,6 +342,10 @@ Input tokens drop by about 63%, and the number of requests drops from 20 to 1. O
 - The content script is registered through `messageDisplayScripts` and reaches only messages opened after registration. On startup the extension tries to inject it into messages already open; if that fails, selecting the message again is enough.
 - Error messages produced by the extension are translated. Error texts returned by a translation service or by the AI SDK (for example the body of an HTTP 401 response) are shown as received, usually in English.
 - The extension name, its description in the Add-ons Manager and the shortcut descriptions follow Thunderbird's interface language, not the interface language option.
+- Precise translation identifies a message by a hash of its body text, because the content script has no access to the message ID. Two copies of the same text share their translations and their analysis.
+- Prompt caching is up to the provider. Anthropic caches only prefixes above a minimum length that depends on the model; shorter prefixes are sent and billed normally.
+- The thinking switch works by matching model names. A new model whose name matches none of the patterns gets no thinking parameter until the table in `src/background/providers/thinking.ts` is extended.
+- Race translation doubles the requests to the fast service, which counts against the rate limits of the free Google and Microsoft endpoints.
 
 ## Tests
 
@@ -256,7 +356,7 @@ npm run locales:check  # check every locales/<language>.json against locales/en.
 npm run live-test      # call the real Google and Microsoft endpoints through the extension's own modules
 ```
 
-The unit tests cover batch grouping and queues, AI output parsing and fallback, paragraph detection with bilingual and translation-only rendering and restoring (in jsdom), request building and response parsing for Google, Microsoft and DeepLX (with a mocked fetch), the request URL and authentication headers of every AI preset, and localization: identical key sets and placeholders in all languages, every `__MSG_*__` reference in the manifest, mapping of Thunderbird languages to supported languages, fallback to English for missing keys, and the absence of hard-coded interface text in the HTML pages and sources.
+The unit tests cover batch grouping and queues, AI output parsing and fallback, paragraph detection with bilingual and translation-only rendering and restoring (in jsdom), request building and response parsing for Google, Microsoft and DeepLX (with a mocked fetch), the request URL and authentication headers of every AI preset, the thinking parameters of every provider, the migration of settings to added services, the popup and settings page lists of added services and the removal protection, race translation (fast result first, AI result first, AI failure, cache hit, display mode switch and restore), precise translation (single request, analysis with batches, failed analysis, cache keys and batches per message, identical prompt prefix with Anthropic cache control), and localization: identical key sets and placeholders in all languages, every `__MSG_*__` reference in the manifest, mapping of Thunderbird languages to supported languages, fallback to English for missing keys, and the absence of hard-coded interface text in the HTML pages and sources.
 
 `npm run build:debug` produces a debug xpi that starts translating as soon as a message is opened and writes progress to the console, for checking the whole flow in a real Thunderbird.
 

@@ -6,9 +6,20 @@ import { loadExtensionI18n, thunderbirdUiLanguage } from "../shared/i18n-ext"
 import { LANGUAGES } from "../shared/languages"
 import { LOCALE_NATIVE_NAMES, localeToLanguageTag, matchUiLocale, normalizeUiLanguageSetting, SUPPORTED_LOCALES } from "../shared/locales"
 import type { BackgroundRequest } from "../shared/messages"
-import { checkBaseURL, getPreset, PROVIDER_PRESETS, providerDisplayName, type ProviderPreset } from "../shared/providers"
-import { type DisplayMode, normalizeSettings, type ProviderConfig, SETTINGS_KEY, type Settings, type StylePreset } from "../shared/settings"
+import { checkBaseURL, getPreset, isAiProvider, PROVIDER_PRESETS, providerDisplayName, type ProviderPreset } from "../shared/providers"
+import {
+  addedProviders,
+  addProvidersInUse,
+  type DisplayMode,
+  normalizeSettings,
+  type ProviderConfig,
+  removalBlocker,
+  SETTINGS_KEY,
+  type Settings,
+  type StylePreset,
+} from "../shared/settings"
 import { loadSettings, saveSettings } from "../shared/settings-store"
+import { supportsThinkingControl } from "../background/providers/thinking"
 import { DEFAULT_SYSTEM_PROMPT } from "../background/translators/llm-prompt"
 
 const $ = <T extends HTMLElement>(id: string) => document.getElementById(id) as T
@@ -50,36 +61,55 @@ function scheduleSave(): void {
 }
 
 function providerConfig(id: string): ProviderConfig {
-  settings.providers[id] ??= { apiKey: "", baseURL: "", model: "" }
+  settings.providers[id] ??= { enabled: false, apiKey: "", baseURL: "", model: "" }
   return settings.providers[id]
 }
 
-function isConfigured(p: ProviderPreset): boolean {
-  const c = providerConfig(p.id)
-  if (p.kind === "google" || p.kind === "microsoft") return true
-  if (p.requiresBaseURL && !c.baseURL) return false
-  if (p.requiresKey && !c.apiKey) return false
-  return p.kind === "llm" ? Boolean(c.model || p.defaultModel) : true
+/** Side list in two groups: added services, then the ones that can be added. */
+function renderProviderList(): void {
+  const item = (p: ProviderPreset) => {
+    const tag = p.id === settings.activeProviderId ? h("span", { className: "tag active", text: t("providerActive") }) : null
+    const li = h("li", { className: p.id === selectedProvider ? "selected" : "" }, h("span", { text: providerDisplayName(p) }), tag)
+    li.addEventListener("click", () => {
+      selectedProvider = p.id
+      renderProviderList()
+      renderProviderPanel()
+    })
+    return li
+  }
+  const group = (label: string, presets: ProviderPreset[]) =>
+    presets.length > 0 ? [h("li", { className: "group", role: "presentation", text: label }), ...presets.map(item)] : []
+  const added = addedProviders(settings)
+  $("providerList").replaceChildren(
+    ...group(t("providerGroupAdded"), added),
+    ...group(t("providerGroupAvailable"), PROVIDER_PRESETS.filter((p) => !added.includes(p))),
+  )
 }
 
-function renderProviderList(): void {
-  const list = $("providerList")
-  list.replaceChildren(
-    ...PROVIDER_PRESETS.map((p) => {
-      const tags: HTMLElement[] = []
-      if (p.id === settings.activeProviderId) tags.push(h("span", { className: "tag active", text: t("providerActive") }))
-      else if (isConfigured(p) && (p.requiresKey || p.requiresBaseURL)) {
-        tags.push(h("span", { className: "tag configured", text: t("providerConfigured") }))
-      }
-      const li = h("li", { className: p.id === selectedProvider ? "selected" : "" }, h("span", { text: providerDisplayName(p) }), ...tags)
-      li.addEventListener("click", () => {
-        selectedProvider = p.id
-        renderProviderList()
-        renderProviderPanel()
-      })
-      return li
-    }),
+/** The selectors that list added services: current service and fast service of race mode. */
+function fillProviderSelects(): void {
+  const i18n = getI18n()
+  fillSelect(
+    $<HTMLSelectElement>("activeProvider"),
+    addedProviders(settings).map((p) => new Option(providerDisplayName(p, i18n), p.id)),
+    settings.activeProviderId,
   )
+  fillSelect(
+    $<HTMLSelectElement>("fastProvider"),
+    PROVIDER_PRESETS.filter((p) => !isAiProvider(p) && (providerConfig(p.id).enabled || p.id === settings.race.fastProviderId)).map(
+      (p) => new Option(providerDisplayName(p, i18n), p.id),
+    ),
+    settings.race.fastProviderId,
+  )
+}
+
+/** A service was added or removed, or a service came into use: redraw everything that lists services. */
+function providersChanged(): void {
+  addProvidersInUse(settings)
+  renderProviderList()
+  renderProviderPanel()
+  fillProviderSelects()
+  scheduleSave()
 }
 
 function field(label: string, input: HTMLElement, hint?: string): HTMLElement {
@@ -137,9 +167,14 @@ function renderProviderPanel(): void {
   }
   children.push(title)
 
-  const change = () => {
+  const change = () => scheduleSave()
+  // Typing a key (or the DeepLX endpoint) adds the service; the panel is not redrawn, so the field keeps the focus.
+  const addWhileTyping = (value: string) => {
+    if (!value || cfg.enabled) return
+    cfg.enabled = true
     renderProviderList()
-    scheduleSave()
+    fillProviderSelects()
+    renderActions()
   }
 
   if (p.kind === "google" || p.kind === "microsoft") {
@@ -156,6 +191,7 @@ function renderProviderPanel(): void {
     })
     baseURL.addEventListener("input", () => {
       cfg.baseURL = baseURL.value.trim()
+      if (p.kind === "deeplx") addWhileTyping(cfg.baseURL)
       change()
     })
     // Checked when the value is committed (blur / Enter), not on every keystroke.
@@ -171,6 +207,7 @@ function renderProviderPanel(): void {
     const key = h("input", { type: "password", value: cfg.apiKey, autocomplete: "off", spellcheck: "false" })
     key.addEventListener("input", () => {
       cfg.apiKey = key.value.trim()
+      addWhileTyping(cfg.apiKey)
       change()
     })
     const show = h("button", { type: "button", text: t("buttonShowKey") })
@@ -204,6 +241,21 @@ function renderProviderPanel(): void {
         change()
       })
       children.push(field(t("labelTemperature"), temp))
+
+      const supported = supportsThinkingControl(p.id)
+      const thinking = h("input", { type: "checkbox", checked: supported && cfg.thinking === true, disabled: !supported })
+      thinking.addEventListener("change", () => {
+        cfg.thinking = thinking.checked
+        change()
+      })
+      children.push(
+        h(
+          "div",
+          { className: "field-group" },
+          h("label", { className: "check" }, thinking, h("span", { text: t("labelThinking") })),
+          h("span", { className: "hint", text: supported ? t("hintThinking") : t("hintThinkingUnsupported") }),
+        ),
+      )
     }
   }
 
@@ -229,15 +281,42 @@ function renderProviderPanel(): void {
       test.disabled = false
     }
   })
-  const use = h("button", { type: "button", className: "primary", text: t("buttonUse") })
-  use.disabled = p.id === settings.activeProviderId
-  use.addEventListener("click", () => {
-    settings.activeProviderId = p.id
-    ;($("activeProvider") as HTMLSelectElement).value = p.id
-    use.disabled = true
-    change()
-  })
-  children.push(h("div", { className: "row" }, test, use), result)
+  // Not added: "Add". Added: "Use this service" and "Remove"; the services in use cannot be removed.
+  const actions = h("div", { className: "row" })
+  const blockedHint = h("p", { className: "hint remove-hint" })
+  function renderActions(): void {
+    const button = (text: string, onClick: () => void, primary = false) => {
+      const b = h("button", { type: "button", className: primary ? "primary" : "", text })
+      b.addEventListener("click", onClick)
+      return b
+    }
+    blockedHint.textContent = ""
+    if (!cfg.enabled) {
+      actions.replaceChildren(test, button(t("buttonAddProvider"), () => {
+        cfg.enabled = true
+        providersChanged()
+      }, true))
+      return
+    }
+    const use = button(t("buttonUse"), () => {
+      settings.activeProviderId = p.id
+      providersChanged()
+    }, true)
+    use.disabled = p.id === settings.activeProviderId
+    const remove = button(t("buttonRemoveProvider"), () => {
+      cfg.enabled = false
+      providersChanged()
+    })
+    const blocker = removalBlocker(settings, p.id)
+    if (blocker) {
+      remove.disabled = true
+      blockedHint.textContent = blocker === "active" ? t("removeBlockedActive") : t("removeBlockedRace")
+      remove.title = blockedHint.textContent
+    }
+    actions.replaceChildren(test, use, remove)
+  }
+  renderActions()
+  children.push(actions, blockedHint, result)
 
   panel.replaceChildren(...children.filter((c): c is HTMLElement => c !== null))
 }
@@ -303,11 +382,7 @@ function applyLanguage(): void {
     LANGUAGES.map((l) => new Option(i18n.languageName(l.code, l.native), l.code)),
     settings.targetLang,
   )
-  fillSelect(
-    $<HTMLSelectElement>("activeProvider"),
-    PROVIDER_PRESETS.map((p) => new Option(providerDisplayName(p, i18n), p.id)),
-    settings.activeProviderId,
-  )
+  fillProviderSelects()
   renderProviderList()
   renderProviderPanel()
   void refreshCacheCount()
@@ -324,6 +399,8 @@ async function main(): Promise<void> {
   selectedProvider = settings.activeProviderId
   await loadExtensionI18n(settings.uiLanguage)
   applyLanguage()
+  // The popup links to options.html#providers; the section is filled only now.
+  if (location.hash) document.getElementById(location.hash.slice(1))?.scrollIntoView()
 
   // General
   const uiLanguage = $<HTMLSelectElement>("uiLanguage")
@@ -351,11 +428,21 @@ async function main(): Promise<void> {
   const active = $<HTMLSelectElement>("activeProvider")
   active.addEventListener("change", () => {
     settings.activeProviderId = active.value
-    renderProviderList()
-    renderProviderPanel()
-    scheduleSave()
+    providersChanged()
   })
   bindCheck("autoTranslate", () => settings.autoTranslate, (v) => (settings.autoTranslate = v))
+
+  // AI translation modes
+  bindCheck("raceEnabled", () => settings.race.enabled, (v) => {
+    settings.race.enabled = v
+    providersChanged()
+  })
+  const fast = $<HTMLSelectElement>("fastProvider")
+  fast.addEventListener("change", () => {
+    settings.race.fastProviderId = fast.value
+    providersChanged()
+  })
+  bindCheck("preciseEnabled", () => settings.precise.enabled, (v) => (settings.precise.enabled = v))
 
   // Prompt
   const prompt = $<HTMLTextAreaElement>("systemPrompt")

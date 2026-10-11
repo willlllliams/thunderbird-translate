@@ -2,6 +2,24 @@
 
 All notable changes to this project are documented in this file. Versions follow [Semantic Versioning](https://semver.org/).
 
+## 1.2.0
+
+### Added
+
+- Added services. Every provider has an `enabled` flag. The popup's service list and the settings page's "Current service" list show added services only; a "+ Add translation service" button under the popup list opens `options.html#providers`. The provider side list of the settings page has two groups, "Added" and "Available to add", with "Add" and "Remove" buttons. Typing an API key (for DeepLX, the endpoint) adds the service. The current service, and the fast service while race translation is on, cannot be removed; the disabled button comes with the reason.
+- Race translation (`race: { enabled, fastProviderId }`, off by default, fast service Google Translate). With an AI service as current service, every paragraph is also translated by the fast service (Google, Microsoft or DeepLX). The background script pushes a `provisional` message over the content script's Port when the fast answer comes first and a `result` message with the final answer. Provisional translations are shown in italics with a "Provisional" tag; a failed AI request keeps the fast translation, marked "AI translation failed" with the reason as tooltip and a click to retry. A cached AI translation is answered without asking the fast service. The popup counts provisional paragraphs separately, for example "Translated 7 of 9 (2 provisional)".
+- Precise translation (`precise: { enabled }`, off by default, AI services only). The content script registers the message text (paragraphs in order, cut at 20,000 characters) once per translation. Paragraphs that fit into one request are translated in that request. Longer messages get one analysis request that returns a summary, a glossary and the tone as JSON; it is parsed tolerantly, cached by provider, model, target language and message hash, shared by concurrent batches, and skipped when it fails. Every request of one message starts with the same system prefix (system prompt, analysis, and the full text up to about 8,000 characters), and each batch carries the neighbouring paragraphs as reference. For Anthropic the prefix is marked with `cacheControl: { type: "ephemeral" }`. Cache keys and batch keys contain the message hash.
+- Thinking mode switch for each AI provider (`thinking`, off by default). `src/background/providers/thinking.ts` maps it to each provider's options by model name, for example `deepseek.thinking.type`, `anthropic.thinking.type`, `google.thinkingConfig`, `openai.reasoningEffort`, `alibaba.enableThinking` or `zhipu.thinking.type`; the README lists every value with its source. Perplexity, LM Studio and custom services have no thinking parameter; their switch is disabled with an explanation. While thinking is on, no temperature is sent.
+- Interface texts for these features in all 12 languages.
+
+### Changed
+
+- DeepSeek: `deepseek-flash` thinks by default, which also made the API ignore the temperature. Requests now send `thinking: { type: "disabled" }` unless thinking mode is turned on, so the preset temperature 1.3 applies again.
+- Settings saved by 1.1 and earlier are migrated: Google and Microsoft count as added, DeepLX with an endpoint, AI services with a saved key, keyless services (Ollama, LM Studio, custom) whose configuration was changed, and always the current service.
+- Translation requests from the content script go over its Port instead of `runtime.sendMessage`, so the background script can answer twice.
+- The system prompt is passed to the AI SDK as `instructions` (the `system` option is deprecated in AI SDK 7).
+- The "Configured" tag in the provider list was replaced by the two groups.
+
 ## 1.1.1
 
 ### Fixed

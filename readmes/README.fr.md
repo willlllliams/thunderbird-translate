@@ -16,7 +16,10 @@ Ce document s’adresse à des lecteurs qui n’ont encore jamais utilisé d’e
 - Points d’accès : le bouton « Traduire le message » de la barre d’outils de l’en-tête du message, avec sa fenêtre contextuelle, et les raccourcis Alt+A (traduire / afficher l’original) et Alt+S (basculer entre bilingue et traduction seule).
 - Traduction automatique facultative : les messages qui ne sont pas dans la langue cible sont traduits dès leur ouverture.
 - Regroupement des requêtes : le script d’arrière-plan collecte les paragraphes pendant 50 ms et les fusionne en une seule requête, avec une limite de requêtes simultanées, de nouvelles tentatives à intervalle exponentiel et un cache local.
-- Services : 3 services de traduction gratuits ou auto-hébergés et 22 préréglages de fournisseurs d’IA, dont « Service personnalisé compatible OpenAI ».
+- Services : 3 services de traduction gratuits ou auto-hébergés et 22 préréglages de fournisseurs d’IA, dont « Service personnalisé compatible OpenAI ». Seuls les services que vous avez ajoutés apparaissent dans les listes de services.
+- Traduction en course (services d’IA) : un traducteur gratuit répond en premier et son résultat s’affiche comme traduction provisoire jusqu’à ce que la traduction par l’IA la remplace.
+- Traduction précise (services d’IA) : le message entier sert de contexte à chaque requête, de sorte que les noms, les termes et les formes d’adresse restent cohérents d’un paragraphe à l’autre.
+- Commutateur du mode réflexion pour chaque fournisseur d’IA, désactivé par défaut.
 - Interface en 12 langues. La langue de l’interface suit celle de Thunderbird par défaut et peut être choisie sur la page de paramètres.
 
 ## Installation
@@ -50,10 +53,11 @@ Ouvrez un message. Un bouton « Traduire le message » apparaît dans la barre
 - « Traduire ce message » : lance la traduction. Tant qu’une traduction est en cours ou affichée, le bouton indique « Afficher l’original » et restaure l’original lorsqu’on clique dessus.
 - Affichage : bascule entre bilingue et traduction seule ; le changement s’applique immédiatement au message courant.
 - Langue cible : après un changement, un message en cours de traduction est traduit à nouveau dans la nouvelle langue.
-- Service de traduction : sélectionne le service utilisé.
+- Service de traduction : sélectionne le service utilisé. La liste ne contient que les services ajoutés. « + Ajouter un service de traduction » en dessous ouvre la page de paramètres sur les services de traduction.
+- Traduction en course et Traduction précise : affichées lorsque le service actuel est un service d’IA ; elles activent ou désactivent les deux modes de traduction par IA.
 - Traduire automatiquement les messages qui ne sont pas dans la langue cible : lorsque cette case est cochée, un message dont le corps n’est pas dans la langue cible est traduit dès son ouverture.
 
-La fenêtre contextuelle affiche la progression, par exemple « 8 sur 12 traduits ». Lorsqu’un paragraphe échoue, la mention rouge « Échec de la traduction, cliquez pour réessayer » apparaît après lui ; le survol affiche l’erreur et un clic relance la traduction de ce paragraphe.
+La fenêtre contextuelle affiche la progression, par exemple « 8 sur 12 traduits ». Avec la traduction en course, les paragraphes qui affichent encore la traduction provisoire rapide sont comptés à part, par exemple « 7 sur 9 traduits (2 provisoires) ». Lorsqu’un paragraphe échoue, la mention rouge « Échec de la traduction, cliquez pour réessayer » apparaît après lui ; le survol affiche l’erreur et un clic relance la traduction de ce paragraphe.
 
 Alt+A traduit le message courant ou restaure l’original ; Alt+S bascule entre bilingue et traduction seule. Les deux raccourcis se modifient via « Gérer les raccourcis d’extensions » dans le menu d’engrenage du gestionnaire de modules complémentaires.
 
@@ -66,13 +70,63 @@ Ouvrez la page de paramètres avec le bouton « Options » de cette extension 
 | Section | Contenu |
 | --- | --- |
 | Général | Langue de l’interface, langue cible, mode d’affichage par défaut, service actuel, traduction automatique |
-| Services de traduction | Point de terminaison, clé d’API, modèle et température de chaque service ; boutons « Tester la connexion » et « Utiliser ce service » |
+| Services de traduction | Services répartis en deux groupes, « Ajoutés » et « Disponibles » ; point de terminaison, clé d’API, modèle, température et mode réflexion de chaque service ; boutons « Tester la connexion », « Ajouter », « Utiliser ce service » et « Retirer » |
+| Modes de traduction par IA | Traduction en course avec le choix du service rapide ; traduction précise |
 | Invite système | Invite système personnalisée pour les services d’IA ; `{{to}}` est remplacé par le nom de la langue cible ; vide signifie l’invite intégrée |
 | Regroupement des requêtes | Fenêtre de collecte, nombre maximal de caractères et de paragraphes par requête, requêtes simultanées, nouvelles tentatives, fusion ou non des requêtes d’IA |
 | Style de traduction | Bordure gauche, bordure gauche en tirets, surlignage ou sans style ; couleur d’accentuation, opacité du texte, taille de police relative ; aperçu en direct |
 | Cache | Cache activé ou désactivé, nombre maximal de paragraphes en cache, nombre actuel d’entrées, vidage du cache |
 
 « Tester la connexion » envoie une phrase de test avec les valeurs actuellement saisies dans les champs. En cas de succès, le bouton affiche la traduction ; en cas d’échec, il affiche l’erreur renvoyée par le service, par exemple une clé non valide ou un nom de modèle inconnu.
+
+## Ajout et retrait de services
+
+La liste latérale de la section des services de traduction comporte deux groupes. « Ajoutés » contient les services qui apparaissent dans les listes de services de la fenêtre contextuelle et de la page de paramètres ; « Disponibles » contient tous les autres. Sélectionner un service affiche sa configuration et ses boutons :
+
+- Un service qui n’est pas ajouté a un bouton « Ajouter ». Saisir une clé d’API (pour DeepLX, le point de terminaison) ajoute aussi le service.
+- Un service ajouté a « Utiliser ce service » et « Retirer ». Retirer un service le sort des listes et conserve sa configuration ; en l’ajoutant de nouveau, on retrouve la clé et le modèle.
+- Le service actuel ne peut pas être retiré, pas plus que le service rapide de la traduction en course tant que celle-ci est activée. Le bouton « Retirer » est alors désactivé et une ligne en dessous en donne la raison.
+
+Une installation neuve commence avec Google Translate et Microsoft Translator ajoutés. Lorsque les paramètres de la version 1.1 ou antérieure sont chargés, un service compte comme ajouté dans les cas suivants :
+
+| Service | Compte comme ajouté lorsque |
+| --- | --- |
+| Google Translate, Microsoft Translator | toujours |
+| DeepLX | un point de terminaison est renseigné |
+| Services d’IA qui exigent une clé | une clé d’API est enregistrée |
+| Ollama, LM Studio, service personnalisé compatible OpenAI | le point de terminaison, le modèle ou la température a été modifié |
+| le service actuel | toujours |
+
+## Modes de traduction par IA
+
+Les deux modes ne s’appliquent que lorsque le service actuel est un service d’IA. Ils s’activent dans la section « Modes de traduction par IA » de la page de paramètres ou dans la fenêtre contextuelle.
+
+### Traduction en course
+
+Chaque paragraphe est envoyé au service d’IA et à un service rapide (Google Translate par défaut ; Microsoft Translator ou DeepLX peuvent être choisis parmi les services ajoutés). Les deux requêtes passent par le regroupement et le cache habituels. Le résultat dépend de la réponse qui arrive en premier :
+
+| Cas | Ce que le message affiche |
+| --- | --- |
+| Le service rapide répond en premier | sa traduction, en italique avec la mention « Provisoire » ; le survol indique que la traduction par l’IA est en cours. La traduction par l’IA la remplace à son arrivée. |
+| Le service d’IA répond en premier | la traduction par l’IA ; le résultat rapide est écarté |
+| La requête d’IA échoue | la traduction rapide reste, marquée « Échec de la traduction par l’IA » ; le survol affiche la raison, un clic relance le paragraphe |
+| La traduction par l’IA est déjà en cache | la traduction par l’IA en cache ; le service rapide n’est pas sollicité |
+
+Changer le mode d’affichage conserve les marques de traduction provisoire et d’échec, et « Afficher l’original » les supprime avec les traductions. La traduction en course ne consomme aucun jeton d’IA supplémentaire, mais double le nombre de requêtes envoyées au service rapide.
+
+### Traduction précise
+
+La traduction précise envoie le message comme contexte avec chaque requête d’IA. Au début de la traduction, le script de contenu assemble les paragraphes trouvés en texte brut du message (coupé après 20 000 caractères, avec une mention que le texte se poursuit) et l’enregistre une seule fois auprès du script d’arrière-plan. Le message est identifié par une empreinte de ce texte.
+
+Le déroulement dépend de la taille des paragraphes à traduire :
+
+1. S’ils tiennent dans une seule requête (dans les limites de « Nombre maximal de caractères par requête » et « Nombre maximal de paragraphes par requête »), une requête les traduit tous ; la requête porte elle-même le message entier.
+2. Sinon, une requête supplémentaire analyse d’abord le message entier et renvoie un résumé de deux à trois phrases, un glossaire des noms, produits et autres noms propres avec la traduction à employer, ainsi que le ton et la forme d’adresse. Si cette réponse est illisible, la traduction se poursuit sans elle.
+3. Chaque requête commence alors par le même préfixe : l’invite système, l’analyse et, pour les messages d’environ 8 000 caractères au plus, le texte complet. Après le préfixe viennent les paragraphes du lot, chacun avec le paragraphe qui le précède et celui qui le suit comme référence non traduite.
+
+Le préfixe est identique, caractère pour caractère, pour toutes les requêtes d’un même message ; les fournisseurs qui mettent en cache les préfixes d’invite répétés peuvent donc le servir depuis leur cache. Pour Anthropic, le préfixe est marqué par `cacheControl: { type: "ephemeral" }`. L’analyse est mise en cache comme les traductions, avec pour clé le fournisseur, le modèle, la langue cible et l’empreinte du texte du message ; les lots d’un même message attendent la même requête d’analyse.
+
+Les traductions faites en mode précis sont mises en cache sous une clé qui contient l’empreinte du message, et les lots ne mélangent jamais les paragraphes de messages différents. La même phrase dans un autre message est donc traduite de nouveau, avec ce message pour contexte. La requête d’analyse et les invites plus longues rendent la traduction précise plus coûteuse que la traduction normale.
 
 ## Langue de l’interface
 
@@ -165,6 +219,48 @@ Certains fournisseurs ont des exigences supplémentaires :
 - Moonshot : le point de terminaison par défaut est celui du site chinois `api.moonshot.cn` ; les comptes du site international utilisent `https://api.moonshot.ai/v1`.
 - Volcengine Doubao : le champ du modèle reçoit soit un nom de modèle, soit l’identifiant d’un point de terminaison d’inférence créé dans la console Ark.
 
+### Mode réflexion
+
+Chaque fournisseur d’IA a un commutateur « Mode réflexion », désactivé par défaut. La traduction n’exige pas que le modèle raisonne d’abord, et le raisonnement rend les requêtes plus lentes et plus coûteuses. Plusieurs modèles actuels raisonnent sauf instruction contraire, par exemple `deepseek-flash`, `claude-haiku-5-5` et `gemini-2.5-flash` ; la valeur « désactivé » est donc envoyée explicitement.
+
+Chaque fournisseur nomme ce commutateur à sa manière, et chez un même fournisseur seuls certains modèles l’acceptent. L’extension compare le nom du modèle aux motifs ci-dessous et envoie les options du fournisseur de la première correspondance ; un modèle sans correspondance ne reçoit aucun paramètre de réflexion. Lorsque la réflexion est activée, aucune température n’est envoyée, car les modèles de raisonnement l’ignorent ou la rejettent.
+
+| Fournisseur | Modèles | Désactivé | Activé | Source |
+| --- | --- | --- | --- | --- |
+| OpenAI, Azure OpenAI | `gpt-5.1` et suivants | `openai.reasoningEffort: "none"` | `"medium"` | [OpenAI reasoning guide](https://developers.openai.com/api/docs/guides/reasoning) |
+| | `gpt-5`, `gpt-5-mini`, `gpt-5-nano` | `"minimal"` | `"medium"` | idem |
+| | `o1`, `o3`, `o4-mini` … | `"low"` (ne peut pas être désactivé) | `"medium"` | idem |
+| Anthropic | série Claude 5, Opus 4.7/4.8 | `anthropic.thinking: { type: "disabled" }` | `{ type: "adaptive" }` | [Extended thinking](https://platform.claude.com/docs/en/build-with-claude/extended-thinking) |
+| | Claude 3.7 et 4.x | rien (désactivé par défaut) | `{ type: "enabled", budgetTokens: 1024 }` | idem |
+| Google Gemini | `gemini-2.5-pro` | `google.thinkingConfig: { thinkingBudget: 128 }` (minimum, ne peut pas être désactivé) | `{ thinkingBudget: -1 }` | [Gemini thinking](https://ai.google.dev/gemini-api/docs/generate-content/thinking) |
+| | autres `gemini-2.5-*` | `{ thinkingBudget: 0 }` | `{ thinkingBudget: -1 }` | idem |
+| | Gemini 3 et suivants | `{ thinkingLevel: "low" }` (pas de désactivation complète) | `{ thinkingLevel: "high" }` | idem |
+| DeepSeek | tous | `deepseek.thinking: { type: "disabled" }` | `{ type: "enabled" }` | [Thinking mode](https://api-docs.deepseek.com/guides/thinking_mode) |
+| xAI Grok | `grok-4.3` | `xai.reasoningEffort: "none"` | `"high"` | [xAI reasoning](https://docs.x.ai/developers/model-capabilities/text/reasoning) |
+| | `grok-3-mini` | `"low"` | `"high"` | idem |
+| Groq | Qwen3 | `groq.reasoningEffort: "none"` | `"default"` avec `reasoningFormat: "parsed"` | [Groq reasoning](https://console.groq.com/docs/reasoning) |
+| | `gpt-oss` | `"low"` | `"medium"` | idem |
+| Mistral AI | tous (le SDK ne l’envoie que pour les modèles qui l’acceptent) | `mistral.reasoningEffort: "none"` | `"high"` | [Mistral reasoning](https://docs.mistral.ai/studio/conversations/reasoning) |
+| Together AI | Qwen3, GLM-4/5, DeepSeek V4, Kimi K3, MiniMax M3 | `togetherai.reasoning: { enabled: false }` | `{ enabled: true }` | [Together reasoning](https://docs.together.ai/docs/inference/chat/reasoning) |
+| Fireworks AI | DeepSeek V3.1/3.2/V4, GLM, Kimi K3, Qwen3 | `fireworks.reasoningEffort: "none"` | `"medium"` | [Fireworks reasoning](https://docs.fireworks.ai/guides/reasoning) |
+| | `gpt-oss` | `"low"` | `"medium"` | idem |
+| DeepInfra | tous (ignoré par les modèles sans raisonnement) | `deepinfra.reasoningEffort: "none"` | `"high"` | [DeepInfra reasoning](https://docs.deepinfra.com/chat/reasoning) |
+| Cerebras | Qwen | `cerebras.reasoningEffort: "none"` | `"medium"` | [Cerebras reasoning](https://inference-docs.cerebras.ai/capabilities/reasoning) |
+| | `gpt-oss` | `"low"` | `"medium"` | idem |
+| Moonshot / Kimi | `kimi-k2.5`, `kimi-k2.6` | `moonshotai.thinking: { type: "disabled" }` | `{ type: "enabled" }` | [Kimi thinking models](https://platform.kimi.com/docs/guide/use-kimi-k2-thinking-model) |
+| | `kimi-k3` | `moonshotai.reasoningEffort: "low"` | `"high"` | idem |
+| DashScope | Qwen3, `qwen-plus`, `qwen-flash`, `qwen-turbo` | `alibaba.enableThinking: false` | `true` | [Deep thinking](https://help.aliyun.com/zh/model-studio/deep-thinking) |
+| Ollama | tous | `ollama.reasoningEffort: "none"` | `"medium"` | [OpenAI compatibility](https://docs.ollama.com/api/openai-compatibility) |
+| OpenRouter | modèles qui raisonnent toujours (`o*`, `gpt-5`, `gpt-oss`, `grok-4`, Claude Opus 5, Gemini 2.5 Pro et 3) | `openrouter.reasoning: { effort: "low" }` | `{ enabled: true }` | [Reasoning tokens](https://openrouter.ai/docs/guides/best-practices/reasoning-tokens) |
+| | tous les autres (ignoré par les modèles sans raisonnement) | `{ enabled: false }` | `{ enabled: true }` | idem |
+| Zhipu GLM | GLM-4.5 et suivants | `zhipu.thinking: { type: "disabled" }` ; rien pour GLM-5.3, qui le rejette | `{ type: "enabled" }` | [GLM thinking](https://docs.bigmodel.cn/cn/guide/capabilities/thinking) |
+| SiliconFlow | Qwen3, DeepSeek V3.1/3.2/V4, GLM-4.5+, Hunyuan-A13B, Kimi K2 | `siliconflow.enable_thinking: false` | `true` | [Chat completions](https://docs.siliconflow.cn/cn/api-reference/chat-completions/chat-completions) |
+| Volcengine Doubao | modèles Seed et modèles à réflexion | `doubao.thinking: { type: "disabled" }` | `{ type: "enabled" }` | [Ark documentation](https://www.volcengine.com/docs/82379) |
+
+Perplexity, LM Studio et les services personnalisés compatibles OpenAI n’ont aucun paramètre de réflexion documenté sur le point de terminaison que l’extension utilise. Leur commutateur est désactivé, et la page de paramètres l’indique.
+
+Pour les préréglages compatibles OpenAI (Ollama, OpenRouter, Zhipu, SiliconFlow, Doubao), les options sont écrites sous l’identifiant du préréglage, et `@ai-sdk/openai-compatible` les copie telles quelles dans le corps de la requête ; `reasoningEffort` est la seule clé qu’il renomme, en `reasoning_effort`.
+
 ## Fonctionnement du regroupement
 
 Un message compte en général entre une dizaine et quelques dizaines de paragraphes. Avec une requête par paragraphe, chaque paragraphe transporte sa propre copie de l’invite système et des instructions, et chaque paragraphe consomme une requête sur la limite de débit. Le regroupement fusionne en une seule requête les paragraphes qui arrivent à peu d’intervalle, de sorte que ces deux coûts sont payés une fois par lot plutôt qu’une fois par paragraphe.
@@ -172,8 +268,8 @@ Un message compte en général entre une dizaine et quelques dizaines de paragra
 ### Déroulement
 
 1. Le script de contenu transmet au script d’arrière-plan chaque paragraphe à traduire.
-2. Le script d’arrière-plan consulte d’abord le cache et répond directement en cas de succès. La clé de cache se compose du fournisseur, du modèle, de la langue cible, d’une signature de l’invite système et d’une empreinte du texte du paragraphe. Lorsque le même texte est déjà en cours de traduction, les requêtes suivantes partagent le même résultat.
-3. Les paragraphes absents du cache entrent dans la file de regroupement, groupés par fournisseur + modèle + point de terminaison + langue cible. Les paragraphes d’un même groupe s’accumulent pendant 50 ms. Un groupe est envoyé à la fin de la fenêtre, lorsque la limite de paragraphes est atteinte ou lorsque le paragraphe suivant dépasserait la limite de caractères. Un paragraphe seul plus long que la limite de caractères forme son propre lot.
+2. Le script d’arrière-plan consulte d’abord le cache et répond directement en cas de succès. La clé de cache se compose du fournisseur, du modèle, de la langue cible, d’une signature de l’invite système, en mode précis de l’empreinte du message, et d’une empreinte du texte du paragraphe. Lorsque le même texte est déjà en cours de traduction, les requêtes suivantes partagent le même résultat.
+3. Les paragraphes absents du cache entrent dans la file de regroupement, groupés par fournisseur + modèle + point de terminaison + langue cible, en mode précis aussi par message. Les paragraphes d’un même groupe s’accumulent pendant 50 ms. Un groupe est envoyé à la fin de la fenêtre, lorsque la limite de paragraphes est atteinte ou lorsque le paragraphe suivant dépasserait la limite de caractères. Un paragraphe seul plus long que la limite de caractères forme son propre lot.
 4. La file de requêtes exécute chaque lot. Elle limite le nombre de requêtes simultanées et retente les erreurs 429, 5xx et réseau avec un intervalle exponentiel ; lorsque le serveur envoie `Retry-After`, elle attend la durée indiquée. Les erreurs comme 401 et 400 sont signalées sans nouvelle tentative.
 5. Les résultats sont placés dans le cache en mémoire et écrits dans `storage.local` en une seule écriture au bout d’une seconde. Le cache évince les entrées les moins récemment utilisées (LRU, Least Recently Used).
 
@@ -218,7 +314,7 @@ Les jetons en entrée baissent d’environ 63 %, et le nombre de requêtes pass
 
 - Les clés d’API sont stockées uniquement dans `storage.local` du profil Thunderbird courant et ne sont envoyées qu’avec les requêtes adressées au point de terminaison du fournisseur correspondant.
 - Le script de contenu s’exécute dans la page du message ; les paramètres qu’il reçoit du script d’arrière-plan ne contiennent jamais de clés.
-- Le texte des messages n’est envoyé qu’au service de traduction sélectionné. L’extension ne collecte aucune statistique et ne contacte aucune adresse réseau autre que le service de traduction.
+- Le texte des messages n’est envoyé qu’au service de traduction actuel et, tant que la traduction en course est activée, au service rapide choisi. L’extension ne collecte aucune statistique et ne contacte aucune adresse réseau autre que ces services.
 - Le cache des traductions est stocké localement et peut être désactivé ou vidé sur la page de paramètres.
 - Le texte des messages quitte votre ordinateur pour le service de traduction sélectionné. Pour le courrier sensible, des modèles locaux comme Ollama ou LM Studio gardent toutes les requêtes sur votre propre machine.
 
@@ -230,6 +326,10 @@ Les jetons en entrée baissent d’environ 63 %, et le nombre de requêtes pass
 - Le script de contenu est enregistré via `messageDisplayScripts` et n’atteint que les messages ouverts après son enregistrement. Au démarrage, l’extension tente de l’injecter dans les messages déjà ouverts ; si cela échoue, il suffit de sélectionner à nouveau le message.
 - Les messages d’erreur produits par l’extension sont traduits. Les textes d’erreur renvoyés par un service de traduction ou par l’AI SDK (par exemple le corps d’une réponse HTTP 401) sont affichés tels quels, généralement en anglais.
 - Le nom de l’extension, sa description dans le gestionnaire de modules complémentaires et les descriptions des raccourcis suivent la langue de l’interface de Thunderbird, et non l’option de langue de l’interface.
+- La traduction précise identifie un message par une empreinte de son texte, car le script de contenu n’a pas accès à l’identifiant du message. Deux copies du même texte partagent leurs traductions et leur analyse.
+- La mise en cache des invites dépend du fournisseur. Anthropic ne met en cache que les préfixes dépassant une longueur minimale qui dépend du modèle ; les préfixes plus courts sont envoyés et facturés normalement.
+- Le commutateur de réflexion fonctionne par correspondance de noms de modèles. Un nouveau modèle dont le nom ne correspond à aucun motif ne reçoit aucun paramètre de réflexion tant que le tableau de `src/background/providers/thinking.ts` n’est pas complété.
+- La traduction en course double les requêtes vers le service rapide, ce qui compte dans les limites de débit des points de terminaison gratuits de Google et Microsoft.
 
 ## Tests
 
@@ -240,7 +340,7 @@ npm run locales:check  # check every locales/<language>.json against locales/en.
 npm run live-test      # call the real Google and Microsoft endpoints through the extension's own modules
 ```
 
-Les tests unitaires couvrent le groupement en lots et les files d’attente, l’analyse des réponses d’IA et le repli, la détection des paragraphes avec le rendu bilingue et traduction seule ainsi que la restauration (dans jsdom), la construction des requêtes et l’analyse des réponses pour Google, Microsoft et DeepLX (avec un fetch simulé), l’URL de requête et les en-têtes d’authentification de chaque préréglage d’IA, et la localisation : jeux de clés et paramètres de substitution identiques dans toutes les langues, chaque référence `__MSG_*__` du manifeste, correspondance des langues de Thunderbird avec les langues prises en charge, repli sur l’anglais pour les clés manquantes, et absence de texte d’interface codé en dur dans les pages HTML et les sources.
+Les tests unitaires couvrent le groupement en lots et les files d’attente, l’analyse des réponses d’IA et le repli, la détection des paragraphes avec le rendu bilingue et traduction seule ainsi que la restauration (dans jsdom), la construction des requêtes et l’analyse des réponses pour Google, Microsoft et DeepLX (avec un fetch simulé), l’URL de requête et les en-têtes d’authentification de chaque préréglage d’IA, les paramètres de réflexion de chaque fournisseur, la migration des paramètres vers les services ajoutés, les listes de services ajoutés dans la fenêtre contextuelle et sur la page de paramètres ainsi que la protection contre le retrait, la traduction en course (résultat rapide en premier, résultat de l’IA en premier, échec de l’IA, succès du cache, changement du mode d’affichage et restauration), la traduction précise (requête unique, analyse avec lots, échec de l’analyse, clés de cache et lots par message, préfixe d’invite identique avec le contrôle de cache d’Anthropic), et la localisation : jeux de clés et paramètres de substitution identiques dans toutes les langues, chaque référence `__MSG_*__` du manifeste, correspondance des langues de Thunderbird avec les langues prises en charge, repli sur l’anglais pour les clés manquantes, et absence de texte d’interface codé en dur dans les pages HTML et les sources.
 
 `npm run build:debug` produit un xpi de débogage qui commence à traduire dès qu’un message est ouvert et écrit la progression dans la console, pour vérifier l’ensemble du déroulement dans un vrai Thunderbird.
 

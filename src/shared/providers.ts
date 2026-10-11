@@ -387,6 +387,10 @@ export function getPreset(id: string): ProviderPreset | undefined {
   return PROVIDER_PRESETS.find((p) => p.id === id)
 }
 
+export function isAiProvider(preset: ProviderPreset | undefined): boolean {
+  return preset?.kind === "llm"
+}
+
 /** Name shown in the interface: brand names stay as they are, "(free)" and similar are translated. */
 export function providerDisplayName(preset: ProviderPreset, i18n: I18n = getI18n()): string {
   return preset.nameKey ? i18n.t(preset.nameKey, [preset.name]) : preset.name

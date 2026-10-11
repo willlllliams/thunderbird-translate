@@ -66,6 +66,7 @@ ext.storage.onChanged.addListener((changes, area) => {
 /* ---------- content script connections ---------- */
 
 const ports = new Map<number, Set<browser.runtime.Port>>()
+const IDLE_STATE = { active: false, total: 0, done: 0, provisional: 0, failed: 0 }
 const tabStates = new Map<number, TabState>()
 
 function broadcast(msg: PortPush): void {
@@ -103,14 +104,24 @@ ext.runtime.onConnect.addListener((port) => {
   if (tabId === undefined) return
   if (!ports.has(tabId)) ports.set(tabId, new Set())
   ports.get(tabId)!.add(port)
-  tabStates.set(tabId, { connected: true, active: false, total: 0, done: 0, failed: 0 })
+  tabStates.set(tabId, { connected: true, ...IDLE_STATE })
   void updateBadge(tabId)
 
   port.onMessage.addListener((raw) => {
     const msg = raw as PortReport
-    if (msg?.type === "state") {
-      tabStates.set(tabId, { connected: true, ...msg.state })
-      void updateBadge(tabId)
+    switch (msg?.type) {
+      case "state":
+        tabStates.set(tabId, { connected: true, ...msg.state })
+        void updateBadge(tabId)
+        break
+      case "context":
+        service.setContext(msg.context)
+        break
+      case "translate":
+        void settingsReady
+          .then(() => service.translateForPage(msg.request, (text) => safePost(port, { type: "provisional", id: msg.id, text })))
+          .then((result) => safePost(port, { type: "result", id: msg.id, result }))
+        break
     }
   })
   port.onDisconnect.addListener(() => {
@@ -130,19 +141,12 @@ ext.runtime.onConnect.addListener((port) => {
 async function handle(req: BackgroundRequest): Promise<unknown> {
   await settingsReady
   switch (req.type) {
-    case "translate":
-      try {
-        return { ok: true, text: await service.translate(req.text, req.targetLang, req.providerId) }
-      } catch (error) {
-        if (__DEBUG__) console.warn("[thunderbird-translate] translate failed", error)
-        return { ok: false, error: describeError(error, i18n) }
-      }
     case "getPublicSettings":
       return toPublicSettings(settings)
     case "tabCommand":
       return { delivered: sendCommand(req.tabId, req.command) }
     case "getTabState":
-      return tabStates.get(req.tabId) ?? { connected: false, active: false, total: 0, done: 0, failed: 0 }
+      return tabStates.get(req.tabId) ?? { connected: false, ...IDLE_STATE }
     case "testProvider":
       try {
         return { ok: true, text: await service.testProvider(req.providerId, req.config, req.targetLang) }

@@ -44,12 +44,33 @@
         </label>
       </section>
 
-      <section>
+      <section id="providers">
         <h2 data-i18n="sectionProviders"></h2>
         <div class="providers">
           <ul id="providerList" class="provider-list"></ul>
           <div id="providerPanel" class="provider-panel"></div>
         </div>
+      </section>
+
+      <section id="aiModes">
+        <h2 data-i18n="sectionAiModes"></h2>
+        <p class="hint" data-i18n="aiModesHint"></p>
+        <label class="check">
+          <input type="checkbox" id="raceEnabled" />
+          <span data-i18n="labelRace"></span>
+        </label>
+        <div class="grid">
+          <label>
+            <span data-i18n="labelFastProvider"></span>
+            <select id="fastProvider"></select>
+          </label>
+        </div>
+        <p class="hint" data-i18n="hintRace"></p>
+        <label class="check">
+          <input type="checkbox" id="preciseEnabled" />
+          <span data-i18n="labelPrecise"></span>
+        </label>
+        <p class="hint" data-i18n="hintPrecise"></p>
       </section>
 
       <section>

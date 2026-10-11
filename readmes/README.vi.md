@@ -16,7 +16,10 @@ Tài liệu này viết cho người đọc chưa từng dùng tiện ích của
 - Điểm truy cập: nút "Dịch thư" trên thanh công cụ ở phần đầu thư cùng cửa sổ bật lên của nút, và hai phím tắt Alt+A (dịch / hiện bản gốc) và Alt+S (chuyển song ngữ / chỉ bản dịch).
 - Dịch tự động (tùy chọn): thư không ở ngôn ngữ đích được dịch ngay khi mở.
 - Gộp yêu cầu: tập lệnh nền gom các đoạn trong 50 ms rồi gộp thành một yêu cầu, có giới hạn số yêu cầu đồng thời, thử lại với thời gian chờ tăng theo hàm mũ, và bộ nhớ đệm cục bộ.
-- Dịch vụ: 3 dịch vụ dịch miễn phí hoặc tự lưu trữ và 22 cấu hình sẵn cho nhà cung cấp AI, trong đó có "Tùy chỉnh tương thích OpenAI".
+- Dịch vụ: 3 dịch vụ dịch miễn phí hoặc tự lưu trữ và 22 cấu hình sẵn cho nhà cung cấp AI, trong đó có "Tùy chỉnh tương thích OpenAI". Danh sách dịch vụ chỉ hiện những dịch vụ bạn đã thêm.
+- Dịch song song (dịch vụ AI): một trình dịch miễn phí trả lời trước, và kết quả của nó được hiển thị như bản dịch tạm cho đến khi bản dịch AI thay thế.
+- Dịch chính xác (dịch vụ AI): toàn bộ thư làm ngữ cảnh cho mọi yêu cầu, nên tên riêng, thuật ngữ và cách xưng hô nhất quán giữa các đoạn.
+- Công tắc chế độ suy nghĩ cho từng nhà cung cấp AI, mặc định tắt.
 - Giao diện có 12 ngôn ngữ. Ngôn ngữ giao diện mặc định theo Thunderbird và có thể chọn trên trang cài đặt.
 
 ## Cài đặt
@@ -50,10 +53,11 @@ Mở một thư. Nút "Dịch thư" xuất hiện trên thanh công cụ ở ph�
 - "Dịch thư này": bắt đầu dịch. Khi bản dịch đang chạy hoặc đang hiển thị, nút đổi thành "Hiện bản gốc" và nhấn vào sẽ khôi phục bản gốc.
 - Hiển thị: chuyển giữa song ngữ và chỉ bản dịch; thay đổi áp dụng ngay cho thư hiện tại.
 - Ngôn ngữ đích: sau khi đổi, thư đang được dịch sẽ được dịch lại sang ngôn ngữ mới.
-- Dịch vụ dịch: chọn dịch vụ đang dùng.
+- Dịch vụ dịch: chọn dịch vụ đang dùng. Danh sách chỉ chứa các dịch vụ đã thêm. Mục "+ Thêm dịch vụ dịch" bên dưới danh sách mở trang cài đặt tại phần dịch vụ dịch.
+- Dịch song song và Dịch chính xác: hiện khi dịch vụ hiện tại là dịch vụ AI; bật hoặc tắt hai chế độ dịch AI.
 - Tự động dịch thư không ở ngôn ngữ đích: khi được đánh dấu, thư có nội dung không ở ngôn ngữ đích sẽ được dịch ngay khi mở.
 
-Cửa sổ bật lên hiển thị tiến độ, ví dụ "Đã dịch 8 trên 12". Khi một đoạn dịch lỗi, dòng chữ đỏ "Dịch thất bại, nhấn để thử lại" xuất hiện sau đoạn đó; di chuột lên sẽ thấy thông báo lỗi, nhấn vào sẽ dịch lại đoạn đó.
+Cửa sổ bật lên hiển thị tiến độ, ví dụ "Đã dịch 8 trên 12". Với dịch song song, các đoạn vẫn hiển thị bản dịch tạm nhanh được đếm riêng, ví dụ "Đã dịch 7 trên 9 (2 đoạn là bản dịch tạm)". Khi một đoạn dịch lỗi, dòng chữ đỏ "Dịch thất bại, nhấn để thử lại" xuất hiện sau đoạn đó; di chuột lên sẽ thấy thông báo lỗi, nhấn vào sẽ dịch lại đoạn đó.
 
 Alt+A dịch thư hiện tại hoặc khôi phục bản gốc; Alt+S chuyển giữa song ngữ và chỉ bản dịch. Có thể đổi cả hai phím tắt trong mục "Quản lý phím tắt tiện ích mở rộng" ở menu bánh răng của Trình quản lý tiện ích.
 
@@ -66,13 +70,63 @@ Mở trang cài đặt bằng nút "Tùy chọn" của tiện ích này trong Tr
 | Mục | Nội dung |
 | --- | --- |
 | Chung | Ngôn ngữ giao diện, ngôn ngữ đích, chế độ hiển thị mặc định, dịch vụ hiện tại, dịch tự động |
-| Dịch vụ dịch | Điểm cuối, khóa API, mô hình và nhiệt độ của từng dịch vụ; nút "Kiểm tra kết nối" và "Dùng dịch vụ này" |
+| Dịch vụ dịch | Dịch vụ chia thành hai nhóm, "Đã thêm" và "Có thể thêm"; điểm cuối, khóa API, mô hình, nhiệt độ và chế độ suy nghĩ của từng dịch vụ; nút "Kiểm tra kết nối", "Thêm", "Dùng dịch vụ này" và "Gỡ" |
+| Chế độ dịch AI | Dịch song song kèm lựa chọn dịch vụ nhanh; dịch chính xác |
 | Lời nhắc hệ thống | Lời nhắc hệ thống tùy chỉnh cho dịch vụ AI; `{{to}}` được thay bằng tên ngôn ngữ đích; để trống nghĩa là dùng lời nhắc tích hợp sẵn |
 | Gộp yêu cầu | Thời gian gom đoạn, số ký tự và số đoạn tối đa mỗi yêu cầu, số yêu cầu đồng thời, số lần thử lại, có gộp yêu cầu AI hay không |
 | Kiểu bản dịch | Viền trái, viền trái nét đứt, tô sáng hoặc đơn giản; màu nhấn, độ đục của chữ, tỷ lệ cỡ chữ; xem trước trực tiếp |
 | Bộ nhớ đệm | Bật hoặc tắt bộ nhớ đệm, số đoạn tối đa trong bộ nhớ đệm, số mục hiện có, xóa bộ nhớ đệm |
 
 "Kiểm tra kết nối" gửi một câu thử với các giá trị đang có trong ô nhập. Khi thành công, nút hiển thị bản dịch; khi thất bại, nút hiển thị lỗi do dịch vụ trả về, ví dụ khóa không hợp lệ hoặc tên mô hình không tồn tại.
+
+## Thêm và gỡ dịch vụ
+
+Danh sách bên cạnh trong phần dịch vụ dịch có hai nhóm. "Đã thêm" gồm các dịch vụ xuất hiện trong danh sách dịch vụ của cửa sổ bật lên và của trang cài đặt; "Có thể thêm" gồm tất cả dịch vụ còn lại. Chọn một dịch vụ sẽ hiện cấu hình và các nút của nó:
+
+- Dịch vụ chưa được thêm có nút "Thêm". Nhập khóa API (với DeepLX là điểm cuối) cũng thêm dịch vụ.
+- Dịch vụ đã thêm có nút "Dùng dịch vụ này" và "Gỡ". Gỡ đưa dịch vụ ra khỏi các danh sách nhưng giữ lại cấu hình, nên khi thêm lại, khóa và mô hình được khôi phục.
+- Không thể gỡ dịch vụ hiện tại, và cũng không thể gỡ dịch vụ nhanh của chế độ dịch song song khi chế độ này đang bật. Khi đó nút "Gỡ" bị vô hiệu hóa và một dòng bên dưới nêu lý do.
+
+Bản cài đặt mới bắt đầu với Google Dịch và Microsoft Translator đã được thêm. Khi tải cài đặt của phiên bản 1.1 trở về trước, một dịch vụ được coi là đã thêm trong các trường hợp sau:
+
+| Dịch vụ | Được coi là đã thêm khi |
+| --- | --- |
+| Google Dịch, Microsoft Translator | luôn luôn |
+| DeepLX | đã điền điểm cuối |
+| Dịch vụ AI cần khóa | đã lưu khóa API |
+| Ollama, LM Studio, Tùy chỉnh tương thích OpenAI | điểm cuối, mô hình hoặc nhiệt độ đã bị thay đổi |
+| dịch vụ hiện tại | luôn luôn |
+
+## Chế độ dịch AI
+
+Cả hai chế độ chỉ áp dụng khi dịch vụ hiện tại là dịch vụ AI. Có thể bật chúng trong phần "Chế độ dịch AI" của trang cài đặt hoặc trong cửa sổ bật lên.
+
+### Dịch song song
+
+Mỗi đoạn được gửi đến dịch vụ AI và đến một dịch vụ nhanh (mặc định là Google Dịch; có thể chọn Microsoft Translator hoặc DeepLX trong số các dịch vụ đã thêm). Cả hai yêu cầu đều dùng cơ chế gộp yêu cầu và bộ nhớ đệm thông thường. Kết quả phụ thuộc vào câu trả lời nào đến trước:
+
+| Trường hợp | Thư hiển thị gì |
+| --- | --- |
+| Dịch vụ nhanh trả lời trước | bản dịch của nó, in nghiêng kèm nhãn "Tạm thời"; di chuột lên sẽ có chú thích cho biết bản dịch AI đang được tạo. Bản dịch AI thay thế nó khi đến. |
+| Dịch vụ AI trả lời trước | bản dịch AI; kết quả của dịch vụ nhanh bị bỏ |
+| Yêu cầu AI thất bại | bản dịch nhanh được giữ lại, đánh dấu "Dịch bằng AI thất bại"; di chuột lên sẽ thấy lý do, nhấn vào sẽ dịch lại đoạn đó |
+| Bản dịch AI đã có trong bộ nhớ đệm | bản dịch AI từ bộ nhớ đệm; không hỏi dịch vụ nhanh |
+
+Đổi chế độ hiển thị giữ nguyên nhãn tạm thời và nhãn thất bại, còn "Hiện bản gốc" xóa các nhãn này cùng với bản dịch. Dịch song song không tốn thêm token AI, nhưng làm số yêu cầu gửi đến dịch vụ nhanh tăng gấp đôi.
+
+### Dịch chính xác
+
+Dịch chính xác gửi kèm thư làm ngữ cảnh trong mọi yêu cầu AI. Khi bắt đầu dịch, tập lệnh nội dung ghép các đoạn đã tìm thấy thành văn bản thuần của thư (cắt sau 20000 ký tự, kèm ghi chú rằng văn bản còn tiếp) và đăng ký văn bản đó với tập lệnh nền một lần. Thư được nhận diện bằng giá trị băm của văn bản này.
+
+Luồng xử lý phụ thuộc vào kích thước các đoạn cần dịch:
+
+1. Nếu chúng vừa trong một yêu cầu (trong giới hạn "Số ký tự tối đa mỗi yêu cầu" và "Số đoạn tối đa mỗi yêu cầu"), một yêu cầu dịch tất cả; bản thân yêu cầu đó mang theo toàn bộ thư.
+2. Nếu không, một yêu cầu bổ sung sẽ phân tích toàn bộ thư trước và trả về bản tóm tắt hai đến ba câu, bảng thuật ngữ gồm tên người, sản phẩm và các danh từ riêng khác kèm cách dịch cần dùng, cùng giọng điệu và cách xưng hô. Nếu không đọc được câu trả lời này, việc dịch vẫn tiếp tục mà không có nó.
+3. Sau đó mọi yêu cầu bắt đầu bằng cùng một tiền tố: lời nhắc hệ thống, bản phân tích và, với thư dài đến khoảng 8000 ký tự, toàn văn. Sau tiền tố là các đoạn của lô, mỗi đoạn kèm đoạn liền trước và liền sau làm tham chiếu, các đoạn tham chiếu này không được dịch.
+
+Tiền tố giống nhau từng ký tự trong mọi yêu cầu của một thư, nên các nhà cung cấp có lưu bộ nhớ đệm cho tiền tố lời nhắc lặp lại có thể phục vụ nó từ bộ nhớ đệm của họ. Với Anthropic, tiền tố được đánh dấu bằng `cacheControl: { type: "ephemeral" }`. Bản phân tích được lưu vào bộ nhớ đệm như bản dịch, với khóa gồm nhà cung cấp, mô hình, ngôn ngữ đích và giá trị băm của văn bản thư; các lô của cùng một thư chờ cùng một yêu cầu phân tích.
+
+Bản dịch ở chế độ chính xác được lưu vào bộ nhớ đệm với khóa chứa giá trị băm của thư, và các lô không bao giờ trộn đoạn của những thư khác nhau. Vì vậy cùng một câu trong thư khác được dịch lại, với thư đó làm ngữ cảnh. Yêu cầu phân tích và các lời nhắc dài hơn khiến dịch chính xác tốn kém hơn dịch thông thường.
 
 ## Ngôn ngữ giao diện
 
@@ -165,6 +219,48 @@ Một số nhà cung cấp có yêu cầu riêng:
 - Moonshot: điểm cuối mặc định là trang Trung Quốc `api.moonshot.cn`; tài khoản trên trang quốc tế dùng `https://api.moonshot.ai/v1`.
 - Volcengine Doubao: ô mô hình nhận tên mô hình hoặc ID của một điểm cuối suy luận đã tạo trong bảng điều khiển Ark.
 
+### Chế độ suy nghĩ
+
+Mỗi nhà cung cấp AI có một công tắc "Chế độ suy nghĩ", mặc định tắt. Dịch không cần mô hình suy nghĩ trước, và suy nghĩ làm yêu cầu chậm hơn và tốn kém hơn. Nhiều mô hình hiện nay tự suy nghĩ nếu không được yêu cầu khác, ví dụ `deepseek-flash`, `claude-haiku-5-5` và `gemini-2.5-flash`, nên giá trị "tắt" được gửi đi một cách tường minh.
+
+Mỗi nhà cung cấp viết công tắc này một kiểu, và ngay trong một nhà cung cấp cũng chỉ một số mô hình chấp nhận nó. Tiện ích so khớp tên mô hình với các mẫu bên dưới và gửi tùy chọn của nhà cung cấp theo mẫu khớp đầu tiên; mô hình không khớp mẫu nào thì không nhận tham số suy nghĩ. Khi suy nghĩ đang bật, không gửi nhiệt độ, vì các mô hình suy nghĩ bỏ qua hoặc từ chối nó.
+
+| Nhà cung cấp | Mô hình | Tắt | Bật | Nguồn |
+| --- | --- | --- | --- | --- |
+| OpenAI, Azure OpenAI | `gpt-5.1` trở lên | `openai.reasoningEffort: "none"` | `"medium"` | [OpenAI reasoning guide](https://developers.openai.com/api/docs/guides/reasoning) |
+|  | `gpt-5`, `gpt-5-mini`, `gpt-5-nano` | `"minimal"` | `"medium"` | như trên |
+|  | `o1`, `o3`, `o4-mini` … | `"low"` (không tắt được) | `"medium"` | như trên |
+| Anthropic | dòng Claude 5, Opus 4.7/4.8 | `anthropic.thinking: { type: "disabled" }` | `{ type: "adaptive" }` | [Extended thinking](https://platform.claude.com/docs/en/build-with-claude/extended-thinking) |
+|  | Claude 3.7 và 4.x | không gửi gì (mặc định tắt) | `{ type: "enabled", budgetTokens: 1024 }` | như trên |
+| Google Gemini | `gemini-2.5-pro` | `google.thinkingConfig: { thinkingBudget: 128 }` (giá trị tối thiểu, không tắt được) | `{ thinkingBudget: -1 }` | [Gemini thinking](https://ai.google.dev/gemini-api/docs/generate-content/thinking) |
+|  | các mô hình `gemini-2.5-*` khác | `{ thinkingBudget: 0 }` | `{ thinkingBudget: -1 }` | như trên |
+|  | Gemini 3 trở lên | `{ thinkingLevel: "low" }` (không tắt hẳn được) | `{ thinkingLevel: "high" }` | như trên |
+| DeepSeek | tất cả | `deepseek.thinking: { type: "disabled" }` | `{ type: "enabled" }` | [Thinking mode](https://api-docs.deepseek.com/guides/thinking_mode) |
+| xAI Grok | `grok-4.3` | `xai.reasoningEffort: "none"` | `"high"` | [xAI reasoning](https://docs.x.ai/developers/model-capabilities/text/reasoning) |
+|  | `grok-3-mini` | `"low"` | `"high"` | như trên |
+| Groq | Qwen3 | `groq.reasoningEffort: "none"` | `"default"` kèm `reasoningFormat: "parsed"` | [Groq reasoning](https://console.groq.com/docs/reasoning) |
+|  | `gpt-oss` | `"low"` | `"medium"` | như trên |
+| Mistral AI | tất cả (SDK chỉ gửi tham số cho mô hình chấp nhận nó) | `mistral.reasoningEffort: "none"` | `"high"` | [Mistral reasoning](https://docs.mistral.ai/studio/conversations/reasoning) |
+| Together AI | Qwen3, GLM-4/5, DeepSeek V4, Kimi K3, MiniMax M3 | `togetherai.reasoning: { enabled: false }` | `{ enabled: true }` | [Together reasoning](https://docs.together.ai/docs/inference/chat/reasoning) |
+| Fireworks AI | DeepSeek V3.1/3.2/V4, GLM, Kimi K3, Qwen3 | `fireworks.reasoningEffort: "none"` | `"medium"` | [Fireworks reasoning](https://docs.fireworks.ai/guides/reasoning) |
+|  | `gpt-oss` | `"low"` | `"medium"` | như trên |
+| DeepInfra | tất cả (mô hình không có chế độ suy nghĩ sẽ bỏ qua) | `deepinfra.reasoningEffort: "none"` | `"high"` | [DeepInfra reasoning](https://docs.deepinfra.com/chat/reasoning) |
+| Cerebras | Qwen | `cerebras.reasoningEffort: "none"` | `"medium"` | [Cerebras reasoning](https://inference-docs.cerebras.ai/capabilities/reasoning) |
+|  | `gpt-oss` | `"low"` | `"medium"` | như trên |
+| Moonshot / Kimi | `kimi-k2.5`, `kimi-k2.6` | `moonshotai.thinking: { type: "disabled" }` | `{ type: "enabled" }` | [Kimi thinking models](https://platform.kimi.com/docs/guide/use-kimi-k2-thinking-model) |
+|  | `kimi-k3` | `moonshotai.reasoningEffort: "low"` | `"high"` | như trên |
+| DashScope | Qwen3, `qwen-plus`, `qwen-flash`, `qwen-turbo` | `alibaba.enableThinking: false` | `true` | [Deep thinking](https://help.aliyun.com/zh/model-studio/deep-thinking) |
+| Ollama | tất cả | `ollama.reasoningEffort: "none"` | `"medium"` | [OpenAI compatibility](https://docs.ollama.com/api/openai-compatibility) |
+| OpenRouter | mô hình luôn suy nghĩ (`o*`, `gpt-5`, `gpt-oss`, `grok-4`, Claude Opus 5, Gemini 2.5 Pro và 3) | `openrouter.reasoning: { effort: "low" }` | `{ enabled: true }` | [Reasoning tokens](https://openrouter.ai/docs/guides/best-practices/reasoning-tokens) |
+|  | tất cả mô hình còn lại (mô hình không có chế độ suy nghĩ sẽ bỏ qua) | `{ enabled: false }` | `{ enabled: true }` | như trên |
+| Zhipu GLM | GLM-4.5 trở lên | `zhipu.thinking: { type: "disabled" }`; không gửi gì cho GLM-5.3, vì mô hình này từ chối tham số | `{ type: "enabled" }` | [GLM thinking](https://docs.bigmodel.cn/cn/guide/capabilities/thinking) |
+| SiliconFlow | Qwen3, DeepSeek V3.1/3.2/V4, GLM-4.5+, Hunyuan-A13B, Kimi K2 | `siliconflow.enable_thinking: false` | `true` | [Chat completions](https://docs.siliconflow.cn/cn/api-reference/chat-completions/chat-completions) |
+| Volcengine Doubao | mô hình Seed và mô hình suy nghĩ | `doubao.thinking: { type: "disabled" }` | `{ type: "enabled" }` | [Ark documentation](https://www.volcengine.com/docs/82379) |
+
+Perplexity, LM Studio và dịch vụ Tùy chỉnh tương thích OpenAI không có tham số suy nghĩ nào được ghi trong tài liệu ở điểm cuối mà tiện ích dùng. Công tắc của các dịch vụ này bị vô hiệu hóa, và trang cài đặt cũng thông báo điều đó.
+
+Với các cấu hình sẵn tương thích OpenAI (Ollama, OpenRouter, Zhipu, SiliconFlow, Doubao), tùy chọn được ghi dưới ID cấu hình, và `@ai-sdk/openai-compatible` sao chép chúng nguyên trạng vào thân yêu cầu; khóa duy nhất nó đổi tên là `reasoningEffort`, thành `reasoning_effort`.
+
 ## Cách gộp yêu cầu hoạt động
 
 Một thư thường có từ mười đến vài chục đoạn. Nếu mỗi đoạn là một yêu cầu, đoạn nào cũng mang theo một bản sao của lời nhắc hệ thống và chỉ dẫn, và đoạn nào cũng tiêu tốn một yêu cầu trong giới hạn tần suất. Gộp yêu cầu ghép các đoạn đến gần nhau về thời gian vào một yêu cầu, nên cả hai chi phí được tính theo lô thay vì theo đoạn.
@@ -172,8 +268,8 @@ Một thư thường có từ mười đến vài chục đoạn. Nếu mỗi đ
 ### Luồng xử lý
 
 1. Tập lệnh nội dung chuyển từng đoạn cần dịch cho tập lệnh nền.
-2. Tập lệnh nền tra bộ nhớ đệm trước và trả lời ngay khi trúng. Khóa bộ nhớ đệm gồm nhà cung cấp, mô hình, ngôn ngữ đích, chữ ký của lời nhắc hệ thống và giá trị băm của văn bản đoạn. Khi cùng một văn bản đang được dịch, các yêu cầu đến sau dùng chung kết quả đó.
-3. Các đoạn không có trong bộ nhớ đệm đi vào hàng đợi lô, được nhóm theo nhà cung cấp + mô hình + điểm cuối + ngôn ngữ đích. Các đoạn của một nhóm được gom trong 50 ms. Một nhóm được gửi đi khi hết thời gian gom, khi đạt giới hạn số đoạn, hoặc khi đoạn tiếp theo sẽ vượt giới hạn ký tự. Một đoạn đơn lẻ dài hơn giới hạn ký tự tự tạo thành một lô riêng.
+2. Tập lệnh nền tra bộ nhớ đệm trước và trả lời ngay khi trúng. Khóa bộ nhớ đệm gồm nhà cung cấp, mô hình, ngôn ngữ đích, chữ ký của lời nhắc hệ thống, ở chế độ chính xác có thêm giá trị băm của thư, và giá trị băm của văn bản đoạn. Khi cùng một văn bản đang được dịch, các yêu cầu đến sau dùng chung kết quả đó.
+3. Các đoạn không có trong bộ nhớ đệm đi vào hàng đợi lô, được nhóm theo nhà cung cấp + mô hình + điểm cuối + ngôn ngữ đích, ở chế độ chính xác còn nhóm theo thư. Các đoạn của một nhóm được gom trong 50 ms. Một nhóm được gửi đi khi hết thời gian gom, khi đạt giới hạn số đoạn, hoặc khi đoạn tiếp theo sẽ vượt giới hạn ký tự. Một đoạn đơn lẻ dài hơn giới hạn ký tự tự tạo thành một lô riêng.
 4. Hàng đợi yêu cầu thực thi từng lô. Hàng đợi giới hạn số yêu cầu đồng thời và thử lại các lỗi 429, 5xx và lỗi mạng với thời gian chờ tăng theo hàm mũ; khi máy chủ gửi `Retry-After`, hàng đợi chờ đúng khoảng thời gian đó. Các lỗi như 401 và 400 được báo ngay mà không thử lại.
 5. Kết quả được đưa vào bộ nhớ đệm trong bộ nhớ và được ghi vào `storage.local` trong một lần ghi sau 1 giây. Bộ nhớ đệm loại bỏ các mục ít được dùng gần đây nhất (LRU).
 
@@ -218,7 +314,7 @@ Số token đầu vào giảm khoảng 63%, và số yêu cầu giảm từ 20 x
 
 - Khóa API chỉ được lưu trong `storage.local` của hồ sơ Thunderbird hiện tại và chỉ được gửi kèm các yêu cầu đến điểm cuối của nhà cung cấp tương ứng.
 - Tập lệnh nội dung chạy bên trong trang thư; các cài đặt mà tập lệnh này nhận từ tập lệnh nền không bao giờ chứa khóa.
-- Văn bản thư chỉ được gửi đến dịch vụ dịch đang được chọn. Tiện ích không thu thập số liệu thống kê và không liên hệ với địa chỉ mạng nào ngoài dịch vụ dịch.
+- Văn bản thư chỉ được gửi đến dịch vụ dịch hiện tại và, khi dịch song song đang bật, đến dịch vụ nhanh đã chọn. Tiện ích không thu thập số liệu thống kê và không liên hệ với địa chỉ mạng nào ngoài các dịch vụ này.
 - Bộ nhớ đệm bản dịch được lưu cục bộ và có thể tắt hoặc xóa trên trang cài đặt.
 - Văn bản thư rời khỏi máy tính của bạn và được gửi đến dịch vụ dịch đã chọn. Với thư nhạy cảm, các mô hình cục bộ như Ollama hoặc LM Studio giữ mọi yêu cầu trên chính máy của bạn.
 
@@ -230,6 +326,10 @@ Số token đầu vào giảm khoảng 63%, và số yêu cầu giảm từ 20 x
 - Tập lệnh nội dung được đăng ký qua `messageDisplayScripts` và chỉ tác động đến các thư được mở sau khi đăng ký. Khi khởi động, tiện ích thử chèn tập lệnh vào các thư đang mở; nếu không thành công, chỉ cần chọn lại thư đó.
 - Thông báo lỗi do tiện ích tạo ra được dịch. Văn bản lỗi do dịch vụ dịch hoặc AI SDK trả về (ví dụ nội dung của phản hồi HTTP 401) được hiển thị nguyên dạng nhận được, thường là tiếng Anh.
 - Tên tiện ích, mô tả của tiện ích trong Trình quản lý tiện ích và mô tả phím tắt theo ngôn ngữ giao diện của Thunderbird, không theo tùy chọn ngôn ngữ giao diện.
+- Dịch chính xác nhận diện một thư bằng giá trị băm của văn bản nội dung, vì tập lệnh nội dung không truy cập được ID thư. Hai bản sao của cùng một văn bản dùng chung bản dịch và bản phân tích.
+- Việc lưu bộ nhớ đệm cho lời nhắc do nhà cung cấp quyết định. Anthropic chỉ lưu các tiền tố vượt một độ dài tối thiểu tùy theo mô hình; tiền tố ngắn hơn được gửi và tính phí như bình thường.
+- Công tắc suy nghĩ hoạt động bằng cách so khớp tên mô hình. Một mô hình mới có tên không khớp mẫu nào sẽ không nhận tham số suy nghĩ cho đến khi bảng trong `src/background/providers/thinking.ts` được mở rộng.
+- Dịch song song làm số yêu cầu gửi đến dịch vụ nhanh tăng gấp đôi, và các yêu cầu này tính vào giới hạn tần suất của các điểm cuối miễn phí của Google và Microsoft.
 
 ## Kiểm thử
 
@@ -240,7 +340,7 @@ npm run locales:check  # check every locales/<language>.json against locales/en.
 npm run live-test      # call the real Google and Microsoft endpoints through the extension's own modules
 ```
 
-Các bài kiểm thử đơn vị bao gồm: nhóm lô và hàng đợi; phân tích đầu ra AI và cơ chế dự phòng; nhận diện đoạn cùng việc hiển thị song ngữ, chỉ bản dịch và khôi phục (trong jsdom); dựng yêu cầu và phân tích phản hồi cho Google, Microsoft và DeepLX (với fetch giả lập); URL yêu cầu và header xác thực của mọi cấu hình sẵn AI; và bản địa hóa: tập khóa và phần giữ chỗ giống nhau ở mọi ngôn ngữ, mọi tham chiếu `__MSG_*__` trong manifest, ánh xạ ngôn ngữ của Thunderbird sang ngôn ngữ được hỗ trợ, quay về tiếng Anh khi thiếu khóa, và việc không có văn bản giao diện viết cứng trong các trang HTML và mã nguồn.
+Các bài kiểm thử đơn vị bao gồm: nhóm lô và hàng đợi; phân tích đầu ra AI và cơ chế dự phòng; nhận diện đoạn cùng việc hiển thị song ngữ, chỉ bản dịch và khôi phục (trong jsdom); dựng yêu cầu và phân tích phản hồi cho Google, Microsoft và DeepLX (với fetch giả lập); URL yêu cầu và header xác thực của mọi cấu hình sẵn AI; tham số suy nghĩ của từng nhà cung cấp; việc chuyển cài đặt cũ sang dịch vụ đã thêm; danh sách dịch vụ đã thêm trong cửa sổ bật lên và trang cài đặt cùng cơ chế chặn gỡ; dịch song song (kết quả nhanh đến trước, kết quả AI đến trước, AI thất bại, trúng bộ nhớ đệm, đổi chế độ hiển thị và khôi phục); dịch chính xác (một yêu cầu, phân tích kèm nhiều lô, phân tích thất bại, khóa bộ nhớ đệm và lô theo từng thư, tiền tố lời nhắc giống hệt với điều khiển bộ nhớ đệm của Anthropic); và bản địa hóa: tập khóa và phần giữ chỗ giống nhau ở mọi ngôn ngữ, mọi tham chiếu `__MSG_*__` trong manifest, ánh xạ ngôn ngữ của Thunderbird sang ngôn ngữ được hỗ trợ, quay về tiếng Anh khi thiếu khóa, và việc không có văn bản giao diện viết cứng trong các trang HTML và mã nguồn.
 
 `npm run build:debug` tạo một bản xpi gỡ lỗi, bắt đầu dịch ngay khi mở thư và ghi tiến độ ra console, dùng để kiểm tra toàn bộ luồng trong Thunderbird thật.
 

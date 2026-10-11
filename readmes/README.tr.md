@@ -16,7 +16,10 @@ Bu belge daha önce Thunderbird eklentisi kullanmamış okurlar için yazılmı�
 - Giriş noktaları: ileti başlığı araç çubuğundaki "İletiyi çevir" düğmesi ve açılır penceresi, ayrıca Alt+A (çevir / özgün metni göster) ve Alt+S (iki dilli / yalnızca çeviri arasında geç) kısayolları.
 - İsteğe bağlı otomatik çeviri: hedef dilde olmayan iletiler açıldıkları anda çevrilir.
 - İstek gruplama: arka plan betiği paragrafları 50 ms boyunca toplar ve tek bir istekte birleştirir. Eşzamanlı istek sınırı, üstel geri çekilmeli yeniden deneme ve yerel önbellek de bu sürecin parçasıdır.
-- Hizmetler: 3 ücretsiz veya kendi sunucunuzda barındırılan çeviri hizmeti ve 22 yapay zekâ sağlayıcısı ön ayarı; bu ön ayarlardan biri "Özel OpenAI uyumlu" seçeneğidir.
+- Hizmetler: 3 ücretsiz veya kendi sunucunuzda barındırılan çeviri hizmeti ve 22 yapay zekâ sağlayıcısı ön ayarı; bu ön ayarlardan biri "Özel OpenAI uyumlu" seçeneğidir. Hizmet listelerinde yalnızca eklediğiniz hizmetler görünür.
+- Yarışlı çeviri (yapay zekâ hizmetleri): ücretsiz bir çevirmen önce yanıt verir; yapay zekâ çevirisi onun yerini alana kadar sonucu geçici çeviri olarak gösterilir.
+- Hassas çeviri (yapay zekâ hizmetleri): her isteğin bağlamı iletinin tamamıdır; bu sayede adlar, terimler ve hitap biçimleri paragraflar arasında tutarlı kalır.
+- Her yapay zekâ sağlayıcısı için varsayılan olarak kapalı bir düşünme modu anahtarı.
 - 12 dilde arayüz. Arayüz dili varsayılan olarak Thunderbird'ün dilini izler ve ayarlar sayfasından seçilebilir.
 
 ## Kurulum
@@ -50,10 +53,11 @@ Bir ileti açın. İleti başlığı araç çubuğunda "İletiyi çevir" düğme
 - "Bu iletiyi çevir": çeviriyi başlatır. Bir çeviri sürerken veya gösterilirken düğmenin adı "Özgün metni göster" olur ve tıklandığında özgün metni geri getirir.
 - Görünüm: iki dilli ile yalnızca çeviri arasında geçiş yapar; değişiklik geçerli iletiye hemen uygulanır.
 - Hedef dil: değiştirildiğinde, çevrilmekte olan ileti yeni dile yeniden çevrilir.
-- Çeviri hizmeti: kullanılacak hizmeti seçer.
+- Çeviri hizmeti: kullanılacak hizmeti seçer. Liste yalnızca eklenen hizmetleri içerir. Listenin altındaki "+ Çeviri hizmeti ekle" ayarlar sayfasını çeviri hizmetleri bölümünde açar.
+- Yarışlı çeviri ve Hassas çeviri: geçerli hizmet bir yapay zekâ hizmeti olduğunda görünür; iki yapay zekâ çeviri modunu açıp kapatır.
 - Hedef dilde olmayan iletileri otomatik olarak çevir: işaretliyse, gövdesi hedef dilde olmayan bir ileti açıldığı anda çevrilir.
 
-Açılır pencere ilerlemeyi gösterir, örneğin "Çevrildi: 8 / 12". Bir paragrafın çevirisi başarısız olursa paragrafın arkasında kırmızı renkte "Çeviri başarısız oldu, yeniden denemek için tıklayın" yazısı belirir. Fare imleci üzerine getirildiğinde hata gösterilir; tıklandığında o paragraf yeniden denenir.
+Açılır pencere ilerlemeyi gösterir, örneğin "Çevrildi: 8 / 12". Yarışlı çeviride hâlâ hızlı geçici çeviriyi gösteren paragraflar ayrı sayılır, örneğin "Çevrildi: 7 / 9 (2 geçici)". Bir paragrafın çevirisi başarısız olursa paragrafın arkasında kırmızı renkte "Çeviri başarısız oldu, yeniden denemek için tıklayın" yazısı belirir. Fare imleci üzerine getirildiğinde hata gösterilir; tıklandığında o paragraf yeniden denenir.
 
 Alt+A geçerli iletiyi çevirir veya özgün metni geri getirir; Alt+S iki dilli ile yalnızca çeviri arasında geçiş yapar. İki kısayol da Eklenti yöneticisinin dişli menüsündeki "Eklenti kısayollarını yönet" bölümünden değiştirilebilir.
 
@@ -66,13 +70,63 @@ Ayarlar sayfası, Eklenti yöneticisinde bu eklentinin "Seçenekler" düğmesiyl
 | Bölüm | İçerik |
 | --- | --- |
 | Genel | Arayüz dili, hedef dil, varsayılan görünüm modu, geçerli hizmet, otomatik çeviri |
-| Çeviri hizmetleri | Her hizmetin uç noktası, API anahtarı, modeli ve sıcaklığı; "Bağlantıyı test et" ve "Bu hizmeti kullan" düğmeleri |
+| Çeviri hizmetleri | İki grupta hizmetler, "Eklenenler" ve "Eklenebilenler"; her hizmetin uç noktası, API anahtarı, modeli, sıcaklığı ve düşünme modu; "Bağlantıyı test et", "Ekle", "Bu hizmeti kullan" ve "Kaldır" düğmeleri |
+| Yapay zekâ çeviri modları | Hızlı hizmet seçimiyle yarışlı çeviri; hassas çeviri |
 | Sistem istemi | Yapay zekâ hizmetleri için özel sistem istemi; `{{to}}` yerine hedef dilin adı yazılır; boş bırakılırsa yerleşik istem kullanılır |
 | İstek gruplama | Toplama aralığı, istek başına en fazla karakter ve paragraf sayısı, eşzamanlı istek sayısı, yeniden deneme sayısı, yapay zekâ isteklerinin birleştirilip birleştirilmeyeceği |
 | Çeviri stili | Sol kenarlık, kesikli sol kenarlık, vurgulama veya sade; vurgu rengi, metin opaklığı, yazı tipi boyutu oranı; anlık önizleme |
 | Önbellek | Önbelleği açma veya kapatma, önbellekteki en fazla paragraf sayısı, geçerli kayıt sayısı, önbelleği temizleme |
 
 "Bağlantıyı test et", giriş alanlarındaki geçerli değerlerle tek bir test cümlesi gönderir. Başarılı olursa çeviriyi gösterir; başarısız olursa hizmetin döndürdüğü hatayı gösterir, örneğin geçersiz bir anahtar veya bilinmeyen bir model adı.
+
+## Hizmet ekleme ve kaldırma
+
+Çeviri hizmetleri bölümündeki yan liste iki gruptan oluşur. "Eklenenler", açılır pencerenin ve ayarlar sayfasının hizmet listelerinde görünen hizmetleri; "Eklenebilenler" geri kalan tüm hizmetleri içerir. Bir hizmet seçildiğinde yapılandırması ve düğmeleri gösterilir:
+
+- Eklenmemiş bir hizmetin "Ekle" düğmesi vardır. Bir API anahtarı yazmak (DeepLX için uç nokta yazmak) da hizmeti ekler.
+- Eklenmiş bir hizmetin "Bu hizmeti kullan" ve "Kaldır" düğmeleri vardır. Kaldırma, hizmeti listelerden çıkarır ama yapılandırmasını korur; hizmet yeniden eklendiğinde anahtar ve model geri gelir.
+- Geçerli hizmet kaldırılamaz; yarışlı çeviri açıkken yarışlı çevirinin hızlı hizmeti de kaldırılamaz. Bu durumda "Kaldır" düğmesi devre dışı kalır ve altındaki bir satır nedenini belirtir.
+
+Yeni bir kurulum Google Translate ve Microsoft Translator eklenmiş olarak başlar. 1.1 veya daha eski bir sürümün ayarları yüklendiğinde bir hizmet şu durumlarda eklenmiş sayılır:
+
+| Hizmet | Şu durumda eklenmiş sayılır |
+| --- | --- |
+| Google Translate, Microsoft Translator | her zaman |
+| DeepLX | bir uç nokta girilmişse |
+| Anahtar gerektiren yapay zekâ hizmetleri | bir API anahtarı kaydedilmişse |
+| Ollama, LM Studio, özel OpenAI uyumlu | uç nokta, model veya sıcaklık değiştirilmişse |
+| geçerli hizmet | her zaman |
+
+## Yapay zekâ çeviri modları
+
+İki mod da yalnızca geçerli hizmet bir yapay zekâ hizmeti olduğunda geçerlidir. Ayarlar sayfasındaki "Yapay zekâ çeviri modları" bölümünden veya açılır pencereden açılabilirler.
+
+### Yarışlı çeviri
+
+Her paragraf hem yapay zekâ hizmetine hem de hızlı bir hizmete gider (varsayılan Google Translate'tir; eklenen hizmetler arasından Microsoft Translator veya DeepLX seçilebilir). İki istek de normal gruplamayı ve önbelleği kullanır. Sonuç, hangi yanıtın önce geldiğine bağlıdır:
+
+| Durum | İletide görünen |
+| --- | --- |
+| Hızlı hizmet önce yanıt verir | onun çevirisi, italik ve "Geçici" etiketiyle; fare imleci üzerine getirildiğinde bir ipucu yapay zekâ çevirisinin hazırlanmakta olduğunu söyler. Yapay zekâ çevirisi gelince onun yerini alır. |
+| Yapay zekâ hizmeti önce yanıt verir | yapay zekâ çevirisi; hızlı hizmetin sonucu atılır |
+| Yapay zekâ isteği başarısız olur | hızlı çeviri kalır ve "Yapay zekâ çevirisi başarısız oldu" ile işaretlenir; fare imleci üzerine getirildiğinde neden gösterilir, tıklandığında paragraf yeniden denenir |
+| Yapay zekâ çevirisi zaten önbellekte | önbellekteki yapay zekâ çevirisi; hızlı hizmete sorulmaz |
+
+Görünüm modunu değiştirmek geçici ve başarısız işaretlerini korur; "Özgün metni göster" bu işaretleri çevirilerle birlikte kaldırır. Yarışlı çeviri ek yapay zekâ belirteci harcamaz, ancak hızlı hizmete giden istek sayısını iki katına çıkarır.
+
+### Hassas çeviri
+
+Hassas çeviri, iletiyi her yapay zekâ isteğine bağlam olarak ekler. Çeviri başladığında içerik betiği bulduğu paragrafları iletinin düz metninde birleştirir (20000 karakterden sonra kesilir ve metnin devam ettiği belirtilir) ve bunu arka plan betiğine bir kez kaydeder. İleti, bu metnin özet değeriyle (hash) tanımlanır.
+
+Akış, çevrilecek paragrafların boyutuna bağlıdır:
+
+1. Paragraflar tek bir isteğe sığıyorsa ("İstek başına en fazla karakter" ve "İstek başına en fazla paragraf" sınırları içinde) tek bir istek hepsini çevirir; isteğin kendisi iletinin tamamını taşır.
+2. Sığmıyorsa önce fazladan bir istek iletinin tamamını inceler ve iki üç cümlelik bir özet, adlar, ürünler ve diğer özel adlar için kullanılacak çevirileri içeren bir sözlük, ayrıca üslubu ve hitap biçimini döndürür. Bu yanıt okunamazsa çeviri onsuz sürer.
+3. Ardından her istek aynı önekle başlar: sistem istemi, analiz ve yaklaşık 8000 karaktere kadar olan iletilerde tam metin. Önekten sonra grubun paragrafları gelir; her birinin öncesindeki ve sonrasındaki paragraf, çevrilmeyen birer başvuru olarak eklenir.
+
+Önek, bir iletinin tüm isteklerinde karakter karakter aynıdır; tekrar eden istem öneklerini önbelleğe alan sağlayıcılar bu nedenle onu kendi önbelleklerinden sunabilir. Anthropic için önek `cacheControl: { type: "ephemeral" }` ile işaretlenir. Analiz de çeviriler gibi önbelleğe alınır; anahtarı sağlayıcıdan, modelden, hedef dilden ve ileti metninin özet değerinden oluşur ve bir iletinin grupları aynı analiz isteğini bekler.
+
+Hassas modda yapılan çeviriler, ileti özet değerini içeren bir anahtarla önbelleğe alınır ve gruplar farklı iletilerin paragraflarını hiçbir zaman karıştırmaz. Bu yüzden aynı cümle başka bir iletide, o ileti bağlam olarak kullanılarak yeniden çevrilir. Analiz isteği ve daha uzun istemler hassas çeviriyi normal çeviriden daha pahalı yapar.
 
 ## Arayüz dili
 
@@ -165,6 +219,48 @@ Bazı sağlayıcıların ek gereksinimleri vardır:
 - Moonshot: varsayılan uç nokta Çin sitesi olan `api.moonshot.cn` adresidir; uluslararası sitedeki hesaplar `https://api.moonshot.ai/v1` adresini kullanır.
 - Volcengine Doubao: model alanına bir model adı ya da Ark konsolunda oluşturulmuş bir çıkarım uç noktasının kimliği yazılır.
 
+### Düşünme modu
+
+Her yapay zekâ sağlayıcısının varsayılan olarak kapalı bir "Düşünme modu" anahtarı vardır. Çeviri için modelin önce düşünmesi gerekmez; düşünme istekleri yavaşlatır ve pahalı hale getirir. Güncel modellerin bir kısmı aksi belirtilmedikçe düşünür, örneğin `deepseek-flash`, `claude-haiku-5-5` ve `gemini-2.5-flash`; bu yüzden "kapalı" değeri açıkça gönderilir.
+
+Her sağlayıcı bu anahtarı farklı yazar ve aynı sağlayıcının da yalnızca bazı modelleri onu kabul eder. Eklenti model adını aşağıdaki kalıplarla karşılaştırır ve ilk eşleşmenin sağlayıcı seçeneklerini gönderir; eşleşmeyen bir model düşünme parametresi almaz. Düşünme açıkken sıcaklık gönderilmez, çünkü düşünen modeller sıcaklığı yok sayar veya reddeder.
+
+| Sağlayıcı | Modeller | Kapalı | Açık | Kaynak |
+| --- | --- | --- | --- | --- |
+| OpenAI, Azure OpenAI | `gpt-5.1` ve sonrası | `openai.reasoningEffort: "none"` | `"medium"` | [OpenAI reasoning guide](https://developers.openai.com/api/docs/guides/reasoning) |
+|  | `gpt-5`, `gpt-5-mini`, `gpt-5-nano` | `"minimal"` | `"medium"` | aynı |
+|  | `o1`, `o3`, `o4-mini` … | `"low"` (kapatılamaz) | `"medium"` | aynı |
+| Anthropic | Claude 5 serisi, Opus 4.7/4.8 | `anthropic.thinking: { type: "disabled" }` | `{ type: "adaptive" }` | [Extended thinking](https://platform.claude.com/docs/en/build-with-claude/extended-thinking) |
+|  | Claude 3.7 ve 4.x | hiçbir şey (varsayılan olarak kapalı) | `{ type: "enabled", budgetTokens: 1024 }` | aynı |
+| Google Gemini | `gemini-2.5-pro` | `google.thinkingConfig: { thinkingBudget: 128 }` (en düşük değer, kapatılamaz) | `{ thinkingBudget: -1 }` | [Gemini thinking](https://ai.google.dev/gemini-api/docs/generate-content/thinking) |
+|  | diğer `gemini-2.5-*` | `{ thinkingBudget: 0 }` | `{ thinkingBudget: -1 }` | aynı |
+|  | Gemini 3 ve sonrası | `{ thinkingLevel: "low" }` (tamamen kapatılamaz) | `{ thinkingLevel: "high" }` | aynı |
+| DeepSeek | tümü | `deepseek.thinking: { type: "disabled" }` | `{ type: "enabled" }` | [Thinking mode](https://api-docs.deepseek.com/guides/thinking_mode) |
+| xAI Grok | `grok-4.3` | `xai.reasoningEffort: "none"` | `"high"` | [xAI reasoning](https://docs.x.ai/developers/model-capabilities/text/reasoning) |
+|  | `grok-3-mini` | `"low"` | `"high"` | aynı |
+| Groq | Qwen3 | `groq.reasoningEffort: "none"` | `"default"` ile birlikte `reasoningFormat: "parsed"` | [Groq reasoning](https://console.groq.com/docs/reasoning) |
+|  | `gpt-oss` | `"low"` | `"medium"` | aynı |
+| Mistral AI | tümü (SDK parametreyi yalnızca kabul eden modellere gönderir) | `mistral.reasoningEffort: "none"` | `"high"` | [Mistral reasoning](https://docs.mistral.ai/studio/conversations/reasoning) |
+| Together AI | Qwen3, GLM-4/5, DeepSeek V4, Kimi K3, MiniMax M3 | `togetherai.reasoning: { enabled: false }` | `{ enabled: true }` | [Together reasoning](https://docs.together.ai/docs/inference/chat/reasoning) |
+| Fireworks AI | DeepSeek V3.1/3.2/V4, GLM, Kimi K3, Qwen3 | `fireworks.reasoningEffort: "none"` | `"medium"` | [Fireworks reasoning](https://docs.fireworks.ai/guides/reasoning) |
+|  | `gpt-oss` | `"low"` | `"medium"` | aynı |
+| DeepInfra | tümü (düşünmeyen modeller yok sayar) | `deepinfra.reasoningEffort: "none"` | `"high"` | [DeepInfra reasoning](https://docs.deepinfra.com/chat/reasoning) |
+| Cerebras | Qwen | `cerebras.reasoningEffort: "none"` | `"medium"` | [Cerebras reasoning](https://inference-docs.cerebras.ai/capabilities/reasoning) |
+|  | `gpt-oss` | `"low"` | `"medium"` | aynı |
+| Moonshot / Kimi | `kimi-k2.5`, `kimi-k2.6` | `moonshotai.thinking: { type: "disabled" }` | `{ type: "enabled" }` | [Kimi thinking models](https://platform.kimi.com/docs/guide/use-kimi-k2-thinking-model) |
+|  | `kimi-k3` | `moonshotai.reasoningEffort: "low"` | `"high"` | aynı |
+| DashScope | Qwen3, `qwen-plus`, `qwen-flash`, `qwen-turbo` | `alibaba.enableThinking: false` | `true` | [Deep thinking](https://help.aliyun.com/zh/model-studio/deep-thinking) |
+| Ollama | tümü | `ollama.reasoningEffort: "none"` | `"medium"` | [OpenAI compatibility](https://docs.ollama.com/api/openai-compatibility) |
+| OpenRouter | her zaman düşünen modeller (`o*`, `gpt-5`, `gpt-oss`, `grok-4`, Claude Opus 5, Gemini 2.5 Pro ve 3) | `openrouter.reasoning: { effort: "low" }` | `{ enabled: true }` | [Reasoning tokens](https://openrouter.ai/docs/guides/best-practices/reasoning-tokens) |
+|  | diğer tüm modeller (düşünmeyen modeller yok sayar) | `{ enabled: false }` | `{ enabled: true }` | aynı |
+| Zhipu GLM | GLM-4.5 ve sonrası | `zhipu.thinking: { type: "disabled" }`; GLM-5.3 için hiçbir şey, çünkü bu model parametreyi reddeder | `{ type: "enabled" }` | [GLM thinking](https://docs.bigmodel.cn/cn/guide/capabilities/thinking) |
+| SiliconFlow | Qwen3, DeepSeek V3.1/3.2/V4, GLM-4.5+, Hunyuan-A13B, Kimi K2 | `siliconflow.enable_thinking: false` | `true` | [Chat completions](https://docs.siliconflow.cn/cn/api-reference/chat-completions/chat-completions) |
+| Volcengine Doubao | Seed ve düşünen modeller | `doubao.thinking: { type: "disabled" }` | `{ type: "enabled" }` | [Ark documentation](https://www.volcengine.com/docs/82379) |
+
+Perplexity, LM Studio ve özel OpenAI uyumlu hizmetler için eklentinin kullandığı uç noktada belgelenmiş bir düşünme parametresi yoktur. Bu hizmetlerin anahtarı devre dışıdır ve ayarlar sayfası bunu belirtir.
+
+OpenAI uyumlu ön ayarlarda (Ollama, OpenRouter, Zhipu, SiliconFlow, Doubao) seçenekler ön ayar kimliğinin altına yazılır ve `@ai-sdk/openai-compatible` bunları istek gövdesine olduğu gibi kopyalar; yalnızca `reasoningEffort` anahtarını `reasoning_effort` olarak yeniden adlandırır.
+
 ## Gruplamanın çalışma ilkesi
 
 Bir ileti genellikle on ile birkaç düzine arasında paragraf içerir. Her paragraf için ayrı istek gönderildiğinde her paragraf sistem isteminin ve talimatların kendi kopyasını taşır ve her paragraf hız sınırından bir istek harcar. Gruplama, birbirine yakın zamanda gelen paragrafları tek bir istekte birleştirir. Böylece iki maliyet de paragraf başına değil, grup başına ödenir.
@@ -172,8 +268,8 @@ Bir ileti genellikle on ile birkaç düzine arasında paragraf içerir. Her para
 ### Akış
 
 1. İçerik betiği çevrilecek her paragrafı arka plan betiğine iletir.
-2. Arka plan betiği önce önbelleğe bakar ve isabet olursa doğrudan yanıt verir. Önbellek anahtarı sağlayıcıdan, modelden, hedef dilden, sistem isteminin bir imzasından ve paragraf metninin bir özet değerinden (hash) oluşur. Aynı metin zaten çevriliyorsa sonraki istekler aynı sonucu paylaşır.
-3. Önbellekte bulunmayan paragraflar grup kuyruğuna girer ve sağlayıcı + model + uç nokta + hedef dil bileşimine göre gruplanır. Bir grubun paragrafları 50 ms boyunca birikir. Grup şu durumlarda gönderilir: aralık sona erdiğinde, paragraf sınırına ulaşıldığında veya bir sonraki paragraf karakter sınırını aşacaksa. Karakter sınırından uzun tek bir paragraf kendi başına bir grup oluşturur.
+2. Arka plan betiği önce önbelleğe bakar ve isabet olursa doğrudan yanıt verir. Önbellek anahtarı sağlayıcıdan, modelden, hedef dilden, sistem isteminin bir imzasından, hassas modda iletinin özet değerinden ve paragraf metninin bir özet değerinden (hash) oluşur. Aynı metin zaten çevriliyorsa sonraki istekler aynı sonucu paylaşır.
+3. Önbellekte bulunmayan paragraflar grup kuyruğuna girer ve sağlayıcı + model + uç nokta + hedef dil bileşimine göre, hassas modda ayrıca iletiye göre gruplanır. Bir grubun paragrafları 50 ms boyunca birikir. Grup şu durumlarda gönderilir: aralık sona erdiğinde, paragraf sınırına ulaşıldığında veya bir sonraki paragraf karakter sınırını aşacaksa. Karakter sınırından uzun tek bir paragraf kendi başına bir grup oluşturur.
 4. İstek kuyruğu her grubu yürütür. Eşzamanlı istek sayısını sınırlar ve 429, 5xx ve ağ hatalarını üstel geri çekilmeyle yeniden dener; sunucu `Retry-After` gönderirse belirtilen süre kadar bekler. 401 ve 400 gibi hatalar yeniden denenmeden bildirilir.
 5. Sonuçlar bellekteki önbelleğe alınır ve 1 saniye sonra tek bir yazma işlemiyle `storage.local` içine yazılır. Önbellek en uzun süredir kullanılmayan (LRU, Least Recently Used) kayıtları çıkarır.
 
@@ -218,7 +314,7 @@ Girdi token sayısı yaklaşık %63 azalır ve istek sayısı 20'den 1'e düşer
 
 - API anahtarları yalnızca geçerli Thunderbird profilinin `storage.local` alanında saklanır ve yalnızca ilgili sağlayıcının uç noktasına giden isteklerle gönderilir.
 - İçerik betiği ileti sayfasının içinde çalışır; arka plan betiğinden aldığı ayarlar hiçbir zaman anahtar içermez.
-- İleti metni yalnızca o anda seçili çeviri hizmetine gönderilir. Eklenti istatistik toplamaz ve çeviri hizmeti dışında hiçbir ağ adresiyle bağlantı kurmaz.
+- İleti metni yalnızca geçerli çeviri hizmetine ve yarışlı çeviri açıkken seçilen hızlı hizmete gönderilir. Eklenti istatistik toplamaz ve bu hizmetler dışında hiçbir ağ adresiyle bağlantı kurmaz.
 - Çeviri önbelleği yerel olarak saklanır ve ayarlar sayfasından kapatılabilir veya temizlenebilir.
 - İleti metni bilgisayarınızdan çıkar ve seçili çeviri hizmetine gider. Hassas iletiler için Ollama veya LM Studio gibi yerel modeller her isteği kendi makinenizde tutar.
 
@@ -230,6 +326,10 @@ Girdi token sayısı yaklaşık %63 azalır ve istek sayısı 20'den 1'e düşer
 - İçerik betiği `messageDisplayScripts` aracılığıyla kaydedilir ve yalnızca kayıttan sonra açılan iletilere ulaşır. Eklenti başlangıçta betiği zaten açık olan iletilere eklemeyi dener; bu başarısız olursa iletiyi yeniden seçmek yeterlidir.
 - Eklentinin ürettiği hata iletileri çevrilir. Bir çeviri hizmetinin veya AI SDK'nın döndürdüğü hata metinleri (örneğin bir HTTP 401 yanıtının gövdesi) alındığı gibi, genellikle İngilizce olarak gösterilir.
 - Eklenti adı, Eklenti yöneticisindeki açıklaması ve kısayol açıklamaları arayüz dili seçeneğini değil, Thunderbird'ün arayüz dilini izler.
+- Hassas çeviri bir iletiyi gövde metninin özet değeriyle tanımlar, çünkü içerik betiğinin ileti kimliğine erişimi yoktur. Aynı metnin iki kopyası çevirilerini ve analizini paylaşır.
+- İstem önbelleği sağlayıcıya bağlıdır. Anthropic yalnızca modele göre değişen bir en küçük uzunluğun üzerindeki önekleri önbelleğe alır; daha kısa önekler normal şekilde gönderilir ve ücretlendirilir.
+- Düşünme anahtarı model adlarının eşleştirilmesiyle çalışır. Adı hiçbir kalıba uymayan yeni bir model, `src/background/providers/thinking.ts` içindeki tablo genişletilene kadar düşünme parametresi almaz.
+- Yarışlı çeviri hızlı hizmete giden istekleri iki katına çıkarır; bu istekler ücretsiz Google ve Microsoft uç noktalarının hız sınırlarına sayılır.
 
 ## Testler
 
@@ -240,7 +340,7 @@ npm run locales:check  # check every locales/<language>.json against locales/en.
 npm run live-test      # call the real Google and Microsoft endpoints through the extension's own modules
 ```
 
-Birim testleri şunları kapsar: grup oluşturma ve kuyruklar; yapay zekâ çıktısının ayrıştırılması ve geri dönüş; paragraf algılama ile iki dilli ve yalnızca çeviri görüntüleme ve geri yükleme (jsdom içinde); Google, Microsoft ve DeepLX için istek oluşturma ve yanıt ayrıştırma (taklit edilmiş fetch ile); her yapay zekâ ön ayarının istek URL'si ve kimlik doğrulama başlıkları; yerelleştirme. Yerelleştirme testleri tüm dillerde anahtar kümelerinin ve yer tutucuların aynı olduğunu, bildirimdeki her `__MSG_*__` başvurusunu, Thunderbird dillerinin desteklenen dillere eşlenmesini, eksik anahtarlar için İngilizceye geri dönüşü ve HTML sayfalarında ve kaynak kodda sabit kodlanmış arayüz metni bulunmadığını denetler.
+Birim testleri şunları kapsar: grup oluşturma ve kuyruklar; yapay zekâ çıktısının ayrıştırılması ve geri dönüş; paragraf algılama ile iki dilli ve yalnızca çeviri görüntüleme ve geri yükleme (jsdom içinde); Google, Microsoft ve DeepLX için istek oluşturma ve yanıt ayrıştırma (taklit edilmiş fetch ile); her yapay zekâ ön ayarının istek URL'si ve kimlik doğrulama başlıkları; her sağlayıcının düşünme parametreleri; ayarların eklenen hizmetlere taşınması; açılır pencere ve ayarlar sayfasındaki eklenen hizmet listeleri ile kaldırma koruması; yarışlı çeviri (önce hızlı sonuç, önce yapay zekâ sonucu, yapay zekâ hatası, önbellek isabeti, görünüm modu değişikliği ve geri yükleme); hassas çeviri (tek istek, gruplarla analiz, başarısız analiz, önbellek anahtarları ve iletiye göre gruplar, Anthropic önbellek denetimiyle aynı istem öneki); yerelleştirme. Yerelleştirme testleri tüm dillerde anahtar kümelerinin ve yer tutucuların aynı olduğunu, bildirimdeki her `__MSG_*__` başvurusunu, Thunderbird dillerinin desteklenen dillere eşlenmesini, eksik anahtarlar için İngilizceye geri dönüşü ve HTML sayfalarında ve kaynak kodda sabit kodlanmış arayüz metni bulunmadığını denetler.
 
 `npm run build:debug`, bir ileti açılır açılmaz çeviriye başlayan ve ilerlemeyi konsola yazan bir hata ayıklama xpi'si üretir; bu sürüm tüm akışı gerçek bir Thunderbird'de denetlemek içindir.
 

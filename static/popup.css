@@ -91,6 +91,25 @@ select {
   padding: 4px;
 }
 
+button.link {
+  margin-top: 4px;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--accent);
+  font: inherit;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+button.link::before {
+  content: "+ ";
+}
+
+[hidden] {
+  display: none !important;
+}
+
 .segmented {
   display: flex;
   border: 1px solid var(--border);

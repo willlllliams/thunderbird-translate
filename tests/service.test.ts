@@ -1,7 +1,8 @@
 import { describe, expect, it, vi } from "vitest"
 import { CACHE_STORAGE_KEY, cacheKey, type KeyValueStorage, LruCache, PersistentCache } from "../src/background/cache"
 import { type LlmImpl, TranslationService } from "../src/background/service"
-import { BatchParseError, llmTranslateBatch, llmTranslateSingle } from "../src/background/translators/llm"
+import { BatchParseError, llmAnalyzeMail, llmTranslateBatch, llmTranslateSingle } from "../src/background/translators/llm"
+import type { Segment } from "../src/background/translators/llm-prompt"
 import { createDefaultSettings, type Settings } from "../src/shared/settings"
 
 function memoryStorage(): KeyValueStorage & { data: Map<string, unknown> } {
@@ -71,12 +72,12 @@ describe("TranslationService with Google", () => {
       return json(qs.map((q) => [`ZH(${q})`, "en"]))
     })
     const { service } = setup(() => {}, { fetchFn: fetchFn as unknown as typeof fetch })
-    const out = await Promise.all(["One", "Two", "Three"].map((t) => service.translate(t, "zh-CN", "google-free")))
+    const out = await Promise.all(["One", "Two", "Three"].map((t) => service.translate({ text: t, targetLang: "zh-CN", providerId: "google-free" })))
     expect(out).toEqual(["ZH(One)", "ZH(Two)", "ZH(Three)"])
     expect(fetchFn).toHaveBeenCalledTimes(1)
 
     // Second time: all from cache, no request.
-    expect(await service.translate("Two", "zh-CN", "google-free")).toBe("ZH(Two)")
+    expect(await service.translate({ text: "Two", targetLang: "zh-CN", providerId: "google-free" })).toBe("ZH(Two)")
     expect(fetchFn).toHaveBeenCalledTimes(1)
   })
 
@@ -86,7 +87,7 @@ describe("TranslationService with Google", () => {
       return json(qs.map((q) => [`ZH(${q})`, "en"]))
     })
     const { service } = setup(() => {}, { fetchFn: fetchFn as unknown as typeof fetch })
-    await Promise.all([service.translate("Same", "zh-CN", "google-free"), service.translate("Same", "zh-CN", "google-free")])
+    await Promise.all([service.translate({ text: "Same", targetLang: "zh-CN", providerId: "google-free" }), service.translate({ text: "Same", targetLang: "zh-CN", providerId: "google-free" })])
     const body = new URLSearchParams(String(fetchFn.mock.calls[0][1].body))
     expect(body.getAll("q")).toEqual(["Same"])
   })
@@ -97,7 +98,7 @@ describe("TranslationService with Google", () => {
       return json(qs.map((q) => [q, "en"]))
     })
     const { service } = setup((s) => (s.batch.maxItemsPerBatch = 2), { fetchFn: fetchFn as unknown as typeof fetch })
-    await Promise.all(["a1", "a2", "a3", "a4", "a5"].map((t) => service.translate(t, "zh-CN", "google-free")))
+    await Promise.all(["a1", "a2", "a3", "a4", "a5"].map((t) => service.translate({ text: t, targetLang: "zh-CN", providerId: "google-free" })))
     expect(fetchFn).toHaveBeenCalledTimes(3)
   })
 })
@@ -110,11 +111,12 @@ describe("TranslationService with an LLM", () => {
 
   it("sends one LLM call per batch", async () => {
     const llm: LlmImpl = {
-      batch: vi.fn(async (texts: string[]) => texts.map((t) => `ZH(${t})`)),
-      single: vi.fn(async (t: string) => `ZH(${t})`),
+      batch: vi.fn(async (segs: Segment[]) => segs.map((g) => `ZH(${g.text})`)),
+      single: vi.fn(async (g: Segment) => `ZH(${g.text})`),
+      analyze: vi.fn(async () => null),
     }
     const { service } = setup(useOpenAI, { llm })
-    const out = await Promise.all(["a", "b", "c", "d"].map((t) => service.translate(t, "zh-CN", "openai")))
+    const out = await Promise.all(["a", "b", "c", "d"].map((t) => service.translate({ text: t, targetLang: "zh-CN", providerId: "openai" })))
     expect(out).toEqual(["ZH(a)", "ZH(b)", "ZH(c)", "ZH(d)"])
     expect(llm.batch).toHaveBeenCalledTimes(1)
     expect(llm.single).not.toHaveBeenCalled()
@@ -125,10 +127,11 @@ describe("TranslationService with an LLM", () => {
       batch: vi.fn(async () => {
         throw new BatchParseError("count mismatch")
       }),
-      single: vi.fn(async (t: string) => `ZH(${t})`),
+      single: vi.fn(async (g: Segment) => `ZH(${g.text})`),
+      analyze: vi.fn(async () => null),
     }
     const { service } = setup(useOpenAI, { llm })
-    const out = await Promise.all(["a", "b", "c"].map((t) => service.translate(t, "zh-CN", "openai")))
+    const out = await Promise.all(["a", "b", "c"].map((t) => service.translate({ text: t, targetLang: "zh-CN", providerId: "openai" })))
     expect(out).toEqual(["ZH(a)", "ZH(b)", "ZH(c)"])
     expect(llm.single).toHaveBeenCalledTimes(3)
     expect(service.stats.fallbacks).toBe(1)
@@ -139,18 +142,20 @@ describe("TranslationService with an LLM", () => {
       batch: vi.fn(async () => {
         throw Object.assign(new Error("Incorrect API key"), { statusCode: 401, isRetryable: false })
       }),
-      single: vi.fn(async (t: string) => t),
+      single: vi.fn(async (g: Segment) => g.text),
+      analyze: vi.fn(async () => null),
     }
     const { service } = setup(useOpenAI, { llm })
-    const results = await Promise.allSettled(["a", "b"].map((t) => service.translate(t, "zh-CN", "openai")))
+    const results = await Promise.allSettled(["a", "b"].map((t) => service.translate({ text: t, targetLang: "zh-CN", providerId: "openai" })))
     expect(results.every((r) => r.status === "rejected" && /Incorrect API key/.test(String(r.reason)))).toBe(true)
     expect(llm.single).not.toHaveBeenCalled()
   })
 
   it("translates one paragraph per call when LLM batching is disabled", async () => {
     const llm: LlmImpl = {
-      batch: vi.fn(async (texts: string[]) => texts),
-      single: vi.fn(async (t: string) => `ZH(${t})`),
+      batch: vi.fn(async (segs: Segment[]) => segs.map((g) => g.text)),
+      single: vi.fn(async (g: Segment) => `ZH(${g.text})`),
+      analyze: vi.fn(async () => null),
     }
     const { service } = setup(
       (s) => {
@@ -159,7 +164,7 @@ describe("TranslationService with an LLM", () => {
       },
       { llm },
     )
-    await Promise.all(["a", "b", "c"].map((t) => service.translate(t, "zh-CN", "openai")))
+    await Promise.all(["a", "b", "c"].map((t) => service.translate({ text: t, targetLang: "zh-CN", providerId: "openai" })))
     expect(llm.batch).not.toHaveBeenCalled()
     expect(llm.single).toHaveBeenCalledTimes(3)
   })
@@ -181,9 +186,9 @@ describe("TranslationService with an LLM", () => {
     })
     const { service } = setup(useOpenAI, {
       fetchFn: fetchFn as unknown as typeof fetch,
-      llm: { batch: llmTranslateBatch, single: llmTranslateSingle },
+      llm: { batch: llmTranslateBatch, single: llmTranslateSingle, analyze: llmAnalyzeMail },
     })
-    const out = await Promise.all(["Good morning", "Good night", "Thanks"].map((t) => service.translate(t, "zh-CN", "openai")))
+    const out = await Promise.all(["Good morning", "Good night", "Thanks"].map((t) => service.translate({ text: t, targetLang: "zh-CN", providerId: "openai" })))
     expect(out).toEqual(["早上好", "晚安", "谢谢"])
     expect(fetchFn).toHaveBeenCalledTimes(1)
     const systemMessages = bodies[0].messages.filter((m) => m.role === "system")
@@ -212,9 +217,9 @@ describe("TranslationService with an LLM", () => {
     })
     const { service } = setup(useOpenAI, {
       fetchFn: fetchFn as unknown as typeof fetch,
-      llm: { batch: llmTranslateBatch, single: llmTranslateSingle },
+      llm: { batch: llmTranslateBatch, single: llmTranslateSingle, analyze: llmAnalyzeMail },
     })
-    const out = await Promise.all(["Good morning", "Good night"].map((t) => service.translate(t, "zh-CN", "openai")))
+    const out = await Promise.all(["Good morning", "Good night"].map((t) => service.translate({ text: t, targetLang: "zh-CN", providerId: "openai" })))
     expect(out).toEqual(["早上好", "晚安"])
     expect(fetchFn).toHaveBeenCalledTimes(3)
   })
