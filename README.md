@@ -331,7 +331,7 @@ All AI providers are called through `generateText` of the Vercel AI SDK. Provide
 | Anthropic Claude | `@ai-sdk/anthropic` | `https://api.anthropic.com/v1` | `claude-haiku-5-5` | Yes |
 | Google Gemini | `@ai-sdk/google` | `https://generativelanguage.googleapis.com/v1beta` | `gemini-2.5-flash-lite` | Yes |
 | DeepSeek | `@ai-sdk/deepseek` | `https://api.deepseek.com` | `deepseek-flash` | Yes |
-| xAI Grok | `@ai-sdk/xai` | `https://api.x.ai/v1` | `grok-3-mini` | Yes |
+| xAI Grok | `@ai-sdk/xai` | `https://api.x.ai/v1` | `grok-4.3` | Yes |
 | Groq | `@ai-sdk/groq` | `https://api.groq.com/openai/v1` | `llama-3.3-70b-versatile` | Yes |
 | Mistral AI | `@ai-sdk/mistral` | `https://api.mistral.ai/v1` | `mistral-small-latest` | Yes |
 | Ollama (local) | `@ai-sdk/openai-compatible` | `http://localhost:11434/v1` | `qwen2.5:7b` | No |
@@ -376,7 +376,7 @@ Every provider spells the switch differently, and within one provider only some 
 | | Gemini 3 and later | `{ thinkingLevel: "low" }` (no full off) | `{ thinkingLevel: "high" }` | same |
 | DeepSeek | all | `deepseek.thinking: { type: "disabled" }` | `{ type: "enabled" }` | [Thinking mode](https://api-docs.deepseek.com/guides/thinking_mode) |
 | xAI Grok | `grok-4.3` | `xai.reasoningEffort: "none"` | `"high"` | [xAI reasoning](https://docs.x.ai/developers/model-capabilities/text/reasoning) |
-| | `grok-3-mini` | `"low"` | `"high"` | same |
+| | `grok-4.5`, `grok-4.6`, `grok-4.7` | `"low"` (cannot be turned off) | `"high"` | same |
 | Groq | Qwen3 | `groq.reasoningEffort: "none"` | `"default"` with `reasoningFormat: "parsed"` | [Groq reasoning](https://console.groq.com/docs/reasoning) |
 | | `gpt-oss` | `"low"` | `"medium"` | same |
 | Mistral AI | all (the SDK sends it only for models that accept it) | `mistral.reasoningEffort: "none"` | `"high"` | [Mistral reasoning](https://docs.mistral.ai/studio/conversations/reasoning) |

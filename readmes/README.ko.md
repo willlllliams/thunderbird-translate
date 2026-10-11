@@ -343,7 +343,7 @@ Bergamot 서비스는 Firefox Translations의 엔진과 모델로 사용자의 �
 | Anthropic Claude | `@ai-sdk/anthropic` | `https://api.anthropic.com/v1` | `claude-haiku-5-5` | 예 |
 | Google Gemini | `@ai-sdk/google` | `https://generativelanguage.googleapis.com/v1beta` | `gemini-2.5-flash-lite` | 예 |
 | DeepSeek | `@ai-sdk/deepseek` | `https://api.deepseek.com` | `deepseek-flash` | 예 |
-| xAI Grok | `@ai-sdk/xai` | `https://api.x.ai/v1` | `grok-3-mini` | 예 |
+| xAI Grok | `@ai-sdk/xai` | `https://api.x.ai/v1` | `grok-4.3` | 예 |
 | Groq | `@ai-sdk/groq` | `https://api.groq.com/openai/v1` | `llama-3.3-70b-versatile` | 예 |
 | Mistral AI | `@ai-sdk/mistral` | `https://api.mistral.ai/v1` | `mistral-small-latest` | 예 |
 | Ollama (로컬) | `@ai-sdk/openai-compatible` | `http://localhost:11434/v1` | `qwen2.5:7b` | 아니요 |
@@ -388,7 +388,7 @@ AI 제공자마다 설정에 "사고 모드" 스위치가 있으며, 기본값�
 | | Gemini 3 이상 | `{ thinkingLevel: "low" }`(완전히 끌 수 없음) | `{ thinkingLevel: "high" }` | 위와 같음 |
 | DeepSeek | 전체 | `deepseek.thinking: { type: "disabled" }` | `{ type: "enabled" }` | [Thinking mode](https://api-docs.deepseek.com/guides/thinking_mode) |
 | xAI Grok | `grok-4.3` | `xai.reasoningEffort: "none"` | `"high"` | [xAI reasoning](https://docs.x.ai/developers/model-capabilities/text/reasoning) |
-| | `grok-3-mini` | `"low"` | `"high"` | 위와 같음 |
+| | `grok-4.5`, `grok-4.6`, `grok-4.7` | `"low"`(완전히 끌 수 없음) | `"high"` | 위와 같음 |
 | Groq | Qwen3 | `groq.reasoningEffort: "none"` | `"default"`, 함께 `reasoningFormat: "parsed"` 설정 | [Groq reasoning](https://console.groq.com/docs/reasoning) |
 | | `gpt-oss` | `"low"` | `"medium"` | 위와 같음 |
 | Mistral AI | 전체(SDK는 지원하는 모델에만 전송) | `mistral.reasoningEffort: "none"` | `"high"` | [Mistral reasoning](https://docs.mistral.ai/studio/conversations/reasoning) |

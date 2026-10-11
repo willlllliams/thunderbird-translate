@@ -346,7 +346,7 @@ Bergamot 服务在本机翻译，使用 Firefox Translations 的引擎和翻译�
 | Anthropic Claude | `@ai-sdk/anthropic` | `https://api.anthropic.com/v1` | `claude-haiku-5-5` | 是 |
 | Google Gemini | `@ai-sdk/google` | `https://generativelanguage.googleapis.com/v1beta` | `gemini-2.5-flash-lite` | 是 |
 | DeepSeek | `@ai-sdk/deepseek` | `https://api.deepseek.com` | `deepseek-flash` | 是 |
-| xAI Grok | `@ai-sdk/xai` | `https://api.x.ai/v1` | `grok-3-mini` | 是 |
+| xAI Grok | `@ai-sdk/xai` | `https://api.x.ai/v1` | `grok-4.3` | 是 |
 | Groq | `@ai-sdk/groq` | `https://api.groq.com/openai/v1` | `llama-3.3-70b-versatile` | 是 |
 | Mistral AI | `@ai-sdk/mistral` | `https://api.mistral.ai/v1` | `mistral-small-latest` | 是 |
 | Ollama（本地） | `@ai-sdk/openai-compatible` | `http://localhost:11434/v1` | `qwen2.5:7b` | 否 |
@@ -391,7 +391,7 @@ Bergamot 服务在本机翻译，使用 Firefox Translations 的引擎和翻译�
 | | Gemini 3 及更新 | `{ thinkingLevel: "low" }`（无法完全关闭） | `{ thinkingLevel: "high" }` | 同上 |
 | DeepSeek | 全部 | `deepseek.thinking: { type: "disabled" }` | `{ type: "enabled" }` | [思考模式](https://api-docs.deepseek.com/guides/thinking_mode) |
 | xAI Grok | `grok-4.3` | `xai.reasoningEffort: "none"` | `"high"` | [xAI 推理](https://docs.x.ai/developers/model-capabilities/text/reasoning) |
-| | `grok-3-mini` | `"low"` | `"high"` | 同上 |
+| | `grok-4.5`, `grok-4.6`, `grok-4.7` | `"low"`（无法完全关闭） | `"high"` | 同上 |
 | Groq | Qwen3 | `groq.reasoningEffort: "none"` | `"default"`，并设 `reasoningFormat: "parsed"` | [Groq 推理](https://console.groq.com/docs/reasoning) |
 | | `gpt-oss` | `"low"` | `"medium"` | 同上 |
 | Mistral AI | 全部（SDK 只对支持的模型发送） | `mistral.reasoningEffort: "none"` | `"high"` | [Mistral 推理](https://docs.mistral.ai/studio/conversations/reasoning) |

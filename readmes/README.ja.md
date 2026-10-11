@@ -343,7 +343,7 @@ Bergamot サービスは、Firefox Translations のエンジンと翻訳モデ�
 | Anthropic Claude | `@ai-sdk/anthropic` | `https://api.anthropic.com/v1` | `claude-haiku-5-5` | 必要 |
 | Google Gemini | `@ai-sdk/google` | `https://generativelanguage.googleapis.com/v1beta` | `gemini-2.5-flash-lite` | 必要 |
 | DeepSeek | `@ai-sdk/deepseek` | `https://api.deepseek.com` | `deepseek-flash` | 必要 |
-| xAI Grok | `@ai-sdk/xai` | `https://api.x.ai/v1` | `grok-3-mini` | 必要 |
+| xAI Grok | `@ai-sdk/xai` | `https://api.x.ai/v1` | `grok-4.3` | 必要 |
 | Groq | `@ai-sdk/groq` | `https://api.groq.com/openai/v1` | `llama-3.3-70b-versatile` | 必要 |
 | Mistral AI | `@ai-sdk/mistral` | `https://api.mistral.ai/v1` | `mistral-small-latest` | 必要 |
 | Ollama（ローカル） | `@ai-sdk/openai-compatible` | `http://localhost:11434/v1` | `qwen2.5:7b` | 不要 |
@@ -388,7 +388,7 @@ Bergamot サービスは、Firefox Translations のエンジンと翻訳モデ�
 | | Gemini 3 以降 | `{ thinkingLevel: "low" }`（完全にはオフにできません） | `{ thinkingLevel: "high" }` | 同上 |
 | DeepSeek | すべて | `deepseek.thinking: { type: "disabled" }` | `{ type: "enabled" }` | [Thinking mode](https://api-docs.deepseek.com/guides/thinking_mode) |
 | xAI Grok | `grok-4.3` | `xai.reasoningEffort: "none"` | `"high"` | [xAI reasoning](https://docs.x.ai/developers/model-capabilities/text/reasoning) |
-| | `grok-3-mini` | `"low"` | `"high"` | 同上 |
+| | `grok-4.5`, `grok-4.6`, `grok-4.7` | `"low"`（完全にはオフにできません） | `"high"` | 同上 |
 | Groq | Qwen3 | `groq.reasoningEffort: "none"` | `"default"`、あわせて `reasoningFormat: "parsed"` を設定 | [Groq reasoning](https://console.groq.com/docs/reasoning) |
 | | `gpt-oss` | `"low"` | `"medium"` | 同上 |
 | Mistral AI | すべて（SDK は対応するモデルにのみ送信） | `mistral.reasoningEffort: "none"` | `"high"` | [Mistral reasoning](https://docs.mistral.ai/studio/conversations/reasoning) |

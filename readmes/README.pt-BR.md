@@ -332,7 +332,7 @@ Todos os provedores de IA são chamados por meio de `generateText` do Vercel AI 
 | Anthropic Claude | `@ai-sdk/anthropic` | `https://api.anthropic.com/v1` | `claude-haiku-5-5` | Sim |
 | Google Gemini | `@ai-sdk/google` | `https://generativelanguage.googleapis.com/v1beta` | `gemini-2.5-flash-lite` | Sim |
 | DeepSeek | `@ai-sdk/deepseek` | `https://api.deepseek.com` | `deepseek-flash` | Sim |
-| xAI Grok | `@ai-sdk/xai` | `https://api.x.ai/v1` | `grok-3-mini` | Sim |
+| xAI Grok | `@ai-sdk/xai` | `https://api.x.ai/v1` | `grok-4.3` | Sim |
 | Groq | `@ai-sdk/groq` | `https://api.groq.com/openai/v1` | `llama-3.3-70b-versatile` | Sim |
 | Mistral AI | `@ai-sdk/mistral` | `https://api.mistral.ai/v1` | `mistral-small-latest` | Sim |
 | Ollama (local) | `@ai-sdk/openai-compatible` | `http://localhost:11434/v1` | `qwen2.5:7b` | Não |
@@ -377,7 +377,7 @@ Cada provedor escreve essa chave de um jeito, e dentro de um mesmo provedor só 
 |  | Gemini 3 e posteriores | `{ thinkingLevel: "low" }` (sem desativação total) | `{ thinkingLevel: "high" }` | mesma fonte |
 | DeepSeek | todos | `deepseek.thinking: { type: "disabled" }` | `{ type: "enabled" }` | [Thinking mode](https://api-docs.deepseek.com/guides/thinking_mode) |
 | xAI Grok | `grok-4.3` | `xai.reasoningEffort: "none"` | `"high"` | [xAI reasoning](https://docs.x.ai/developers/model-capabilities/text/reasoning) |
-|  | `grok-3-mini` | `"low"` | `"high"` | mesma fonte |
+|  | `grok-4.5`, `grok-4.6`, `grok-4.7` | `"low"` (não pode ser desativado) | `"high"` | mesma fonte |
 | Groq | Qwen3 | `groq.reasoningEffort: "none"` | `"default"` com `reasoningFormat: "parsed"` | [Groq reasoning](https://console.groq.com/docs/reasoning) |
 |  | `gpt-oss` | `"low"` | `"medium"` | mesma fonte |
 | Mistral AI | todos (o SDK só envia o parâmetro para modelos que o aceitam) | `mistral.reasoningEffort: "none"` | `"high"` | [Mistral reasoning](https://docs.mistral.ai/studio/conversations/reasoning) |

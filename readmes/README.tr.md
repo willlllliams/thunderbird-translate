@@ -326,7 +326,7 @@ Tüm yapay zekâ sağlayıcıları Vercel AI SDK'nın `generateText` işleviyle 
 | Anthropic Claude | `@ai-sdk/anthropic` | `https://api.anthropic.com/v1` | `claude-haiku-5-5` | Evet |
 | Google Gemini | `@ai-sdk/google` | `https://generativelanguage.googleapis.com/v1beta` | `gemini-2.5-flash-lite` | Evet |
 | DeepSeek | `@ai-sdk/deepseek` | `https://api.deepseek.com` | `deepseek-flash` | Evet |
-| xAI Grok | `@ai-sdk/xai` | `https://api.x.ai/v1` | `grok-3-mini` | Evet |
+| xAI Grok | `@ai-sdk/xai` | `https://api.x.ai/v1` | `grok-4.3` | Evet |
 | Groq | `@ai-sdk/groq` | `https://api.groq.com/openai/v1` | `llama-3.3-70b-versatile` | Evet |
 | Mistral AI | `@ai-sdk/mistral` | `https://api.mistral.ai/v1` | `mistral-small-latest` | Evet |
 | Ollama (yerel) | `@ai-sdk/openai-compatible` | `http://localhost:11434/v1` | `qwen2.5:7b` | Hayır |
@@ -371,7 +371,7 @@ Her sağlayıcı bu anahtarı farklı yazar ve aynı sağlayıcının da yalnız
 |  | Gemini 3 ve sonrası | `{ thinkingLevel: "low" }` (tamamen kapatılamaz) | `{ thinkingLevel: "high" }` | aynı |
 | DeepSeek | tümü | `deepseek.thinking: { type: "disabled" }` | `{ type: "enabled" }` | [Thinking mode](https://api-docs.deepseek.com/guides/thinking_mode) |
 | xAI Grok | `grok-4.3` | `xai.reasoningEffort: "none"` | `"high"` | [xAI reasoning](https://docs.x.ai/developers/model-capabilities/text/reasoning) |
-|  | `grok-3-mini` | `"low"` | `"high"` | aynı |
+|  | `grok-4.5`, `grok-4.6`, `grok-4.7` | `"low"` (kapatılamaz) | `"high"` | aynı |
 | Groq | Qwen3 | `groq.reasoningEffort: "none"` | `"default"` ile birlikte `reasoningFormat: "parsed"` | [Groq reasoning](https://console.groq.com/docs/reasoning) |
 |  | `gpt-oss` | `"low"` | `"medium"` | aynı |
 | Mistral AI | tümü (SDK parametreyi yalnızca kabul eden modellere gönderir) | `mistral.reasoningEffort: "none"` | `"high"` | [Mistral reasoning](https://docs.mistral.ai/studio/conversations/reasoning) |

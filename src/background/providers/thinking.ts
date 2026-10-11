@@ -79,7 +79,8 @@ const CONTROLS: Record<string, ThinkingControl> = {
     namespace: "xai",
     rules: [
       { models: /^grok-4\.3/, ...effort("none", "high") },
-      { models: /^grok-3-mini/, ...effort("low", "high") },
+      // Grok 4.5 and later always reason; "low" is the lowest effort.
+      { models: /^grok-4\.[5-9]/, ...effort("low", "high") },
     ],
   },
   groq: {

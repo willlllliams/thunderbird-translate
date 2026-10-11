@@ -335,7 +335,7 @@ f	<key>	<lemmaKey>
 | Anthropic Claude | `@ai-sdk/anthropic` | `https://api.anthropic.com/v1` | `claude-haiku-5-5` | Да |
 | Google Gemini | `@ai-sdk/google` | `https://generativelanguage.googleapis.com/v1beta` | `gemini-2.5-flash-lite` | Да |
 | DeepSeek | `@ai-sdk/deepseek` | `https://api.deepseek.com` | `deepseek-flash` | Да |
-| xAI Grok | `@ai-sdk/xai` | `https://api.x.ai/v1` | `grok-3-mini` | Да |
+| xAI Grok | `@ai-sdk/xai` | `https://api.x.ai/v1` | `grok-4.3` | Да |
 | Groq | `@ai-sdk/groq` | `https://api.groq.com/openai/v1` | `llama-3.3-70b-versatile` | Да |
 | Mistral AI | `@ai-sdk/mistral` | `https://api.mistral.ai/v1` | `mistral-small-latest` | Да |
 | Ollama (локально) | `@ai-sdk/openai-compatible` | `http://localhost:11434/v1` | `qwen2.5:7b` | Нет |
@@ -380,7 +380,7 @@ f	<key>	<lemmaKey>
 |  | Gemini 3 и новее | `{ thinkingLevel: "low" }` (полностью выключить нельзя) | `{ thinkingLevel: "high" }` | там же |
 | DeepSeek | все | `deepseek.thinking: { type: "disabled" }` | `{ type: "enabled" }` | [Thinking mode](https://api-docs.deepseek.com/guides/thinking_mode) |
 | xAI Grok | `grok-4.3` | `xai.reasoningEffort: "none"` | `"high"` | [xAI reasoning](https://docs.x.ai/developers/model-capabilities/text/reasoning) |
-|  | `grok-3-mini` | `"low"` | `"high"` | там же |
+|  | `grok-4.5`, `grok-4.6`, `grok-4.7` | `"low"` (выключить нельзя) | `"high"` | там же |
 | Groq | Qwen3 | `groq.reasoningEffort: "none"` | `"default"` вместе с `reasoningFormat: "parsed"` | [Groq reasoning](https://console.groq.com/docs/reasoning) |
 |  | `gpt-oss` | `"low"` | `"medium"` | там же |
 | Mistral AI | все (SDK отправляет параметр только моделям, которые его принимают) | `mistral.reasoningEffort: "none"` | `"high"` | [Mistral reasoning](https://docs.mistral.ai/studio/conversations/reasoning) |
