@@ -51,11 +51,18 @@ export class NetworkError extends Error {
   }
 }
 
-/** The service did not answer within the request timeout of the settings; retried like a network failure. */
+/**
+ * The service did not answer within `ms`. The request queue retries it once
+ * for translators and never for AI services, whose answer would be slow
+ * again and charged again (background/queue/request-queue.ts).
+ */
 export class TimeoutError extends LocalizedError {
   readonly isRetryable = true
 
-  constructor(service: string, ms: number) {
+  constructor(
+    readonly service: string,
+    readonly ms: number,
+  ) {
     super("errTimeout", [service, String(Math.round(ms / 1000))], undefined, "hintTimeout")
     this.name = "TimeoutError"
   }

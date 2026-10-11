@@ -141,6 +141,26 @@ describe("installation", () => {
     expect(error.i18nText).toMatchObject({ key: "bergamotDownloadFailed", args: ["model.enfr.bin"], detail: "NetworkError when attempting to fetch resource." })
   })
 
+  it("L1: gives up on a model list that does not arrive in time", async () => {
+    const { manager, server } = makeManager(triple("en", "fr"), { listTimeoutMs: 50 })
+    server.mock.mockImplementation((_input, init) => new Promise<Response>((_, reject) => init?.signal?.addEventListener("abort", () => reject(init.signal!.reason))))
+    const error = await manager.listPairs().catch((e) => e)
+    expect(error.i18nText).toMatchObject({ key: "bergamotRecordsFailed" })
+    expect(error.i18nText.detail).toContain("no answer within")
+  })
+
+  it("L1: stops a model download that receives nothing for a while", async () => {
+    const { manager, server } = makeManager(triple("en", "fr"), { idleTimeoutMs: 50 })
+    await manager.getRecords()
+    const real = server.mock.getMockImplementation()!
+    server.mock.mockImplementation(async (input, init) => {
+      if (!fileUrls([String(input)]).length) return real(input, init)
+      return new Response(new ReadableStream<Uint8Array>({ start: (c) => c.enqueue(new Uint8Array(8)) }))
+    })
+    const error = await manager.install("en", "fr").catch((e) => e)
+    expect(error.i18nText).toMatchObject({ key: "errDownloadStalled", args: ["model.enfr.bin", "0"] })
+  })
+
   it("stops when cancelled, before or during a download", async () => {
     const { manager, server, store } = makeManager(triple("en", "fr"))
     await manager.getRecords()
@@ -197,12 +217,37 @@ describe("translation", () => {
     await expect(manager.translate(["x"], "en", tgt)).rejects.toMatchObject({ i18nText: { key: "bergamotUnsupportedPair" } })
   })
 
+  it("M2: refuses Traditional → Simplified Chinese even with both English models installed", async () => {
+    const { manager, workers } = makeManager([...triple("zh-Hant", "en"), ...triple("en", "zh-Hans")])
+    await manager.install("zh-Hant", "en")
+    await manager.install("en", "zh-Hans")
+    await expect(manager.translate(["我們明天開會"], "zh-TW", "zh-CN")).rejects.toMatchObject({ i18nText: { key: "errChineseVariants" } })
+    expect(workers).toHaveLength(0)
+  })
+
   it("returns empty and blank texts without starting the engine", async () => {
     const { manager, workers } = makeManager(triple("de", "en"))
     await manager.install("de", "en")
     expect(await manager.translate([], "de", "en")).toEqual([])
     expect(await manager.translate(["", "  \n"], "de", "en")).toEqual(["", "  \n"])
     expect(workers).toHaveLength(0)
+  })
+
+  it("L3: changes its signature when a pair is installed, updated or removed", async () => {
+    const files = triple("de", "en")
+    const { manager } = makeManager(files)
+    const signatures = [await manager.signature()]
+    expect(await manager.signature()).toBe(signatures[0])
+    await manager.install("de", "en")
+    signatures.push(await manager.signature())
+    files.splice(0, 3, ...triple("de", "en", "3.1"))
+    await manager.getRecords(true)
+    await manager.install("de", "en")
+    signatures.push(await manager.signature())
+    await manager.remove("de", "en")
+    signatures.push(await manager.signature())
+    expect(new Set(signatures).size).toBe(3)
+    expect(signatures[3]).toBe(signatures[0])
   })
 
   it("reports a pair that disappeared from storage after the check", async () => {
@@ -246,12 +291,44 @@ describe("BergamotEngine edge cases", () => {
       const worker = created.length === 0 ? stuck : new FakeWorker()
       created.push(worker)
       return worker
-    }, { timeoutMs: 30 })
+    }, { timeoutMs: 30, loadTimeoutMs: 30 })
     await expect(engine.translate(["de>en"], ["x"])).rejects.toThrow(/did not answer within/)
     expect(stuck.terminated).toBe(true)
     expect(engine.running).toBe(false)
     expect(await engine.translate(["de>en"], ["y"])).toEqual(["[de>en]y"])
     expect(created).toHaveLength(2)
+    engine.shutdown()
+  })
+
+  it("L7: gives loading a model its own, longer timeout", async () => {
+    const slowLoad = new FakeWorker()
+    const post = slowLoad.postMessage.bind(slowLoad)
+    slowLoad.postMessage = (m: WorkerRequest, t?: Transferable[]) => (m.type === "load" ? setTimeout(() => post(m, t), 80) : post(m, t))
+    const engine = engineWith(() => slowLoad, { timeoutMs: 30, loadTimeoutMs: 1000 })
+    expect(await engine.translate(["de>en"], ["x"])).toEqual(["[de>en]x"])
+    engine.shutdown()
+  })
+
+  it("L7: fails at once for a while after two timeouts in a row, then tries again", async () => {
+    let now = 0
+    const created: FakeWorker[] = []
+    const engine = engineWith(
+      () => {
+        const worker = new FakeWorker()
+        if (created.length < 2) worker.postMessage = () => {}
+        created.push(worker)
+        return worker
+      },
+      { timeoutMs: 30, loadTimeoutMs: 30, pauseMs: 60_000, now: () => now },
+    )
+    for (const text of ["a", "b"]) await expect(engine.translate(["de>en"], [text])).rejects.toThrow(/did not answer within/)
+    const started = Date.now()
+    const paused = await engine.translate(["de>en"], ["c"]).catch((e) => e)
+    expect(Date.now() - started).toBeLessThan(25)
+    expect(paused).toMatchObject({ i18nText: { key: "bergamotEnginePaused", args: ["60"] } })
+    expect(created).toHaveLength(2)
+    now = 60_001
+    expect(await engine.translate(["de>en"], ["d"])).toEqual(["[de>en]d"])
     engine.shutdown()
   })
 

@@ -2,7 +2,7 @@
 import { describe, expect, it, vi } from "vitest"
 import { fetchOk, HttpError, isRetryableError, parseRetryAfter, RequestQueue } from "../src/background/queue/request-queue"
 import { llmTranslateSingle } from "../src/background/translators/llm"
-import { NetworkError } from "../src/shared/errors"
+import { NetworkError, TimeoutError } from "../src/shared/errors"
 import { ENGLISH } from "../src/shared/i18n"
 import { resolveProviderConfig } from "../src/shared/settings"
 import { asFetch, chatCompletion } from "./helpers"
@@ -53,6 +53,23 @@ describe("fetchOk", () => {
     expect(error.message).toBe(ENGLISH.t("errHttp", ["X", "502"]))
   })
 
+  it("reads the body of a successful answer within the timeout, also an empty one", async () => {
+    const full = await fetchOk({ fetchFn: asFetch(async () => Response.json({ a: 1 }, { headers: { "X-Test": "1" } })), timeoutMs: 1000 }, spec, "X")
+    expect([await full.json(), full.headers.get("x-test")]).toEqual([{ a: 1 }, "1"])
+    const empty = await fetchOk({ fetchFn: asFetch(async () => new Response(null, { status: 204 })), timeoutMs: 1000 }, spec, "X")
+    expect([empty.status, await empty.text()]).toEqual([204, ""])
+  })
+
+  it("L8: reports a body that does not arrive within the timeout as TimeoutError", async () => {
+    const fetchFn = async (_url: string, init: RequestInit) =>
+      new Response(new ReadableStream({ start: (c) => init.signal!.addEventListener("abort", () => c.error(init.signal!.reason)) }))
+    const error = await fetchOk({ fetchFn: asFetch(fetchFn), timeoutMs: 600 }, spec, "Google")
+      .then((resp) => resp.json())
+      .catch((e) => e)
+    expect(error).toBeInstanceOf(TimeoutError)
+    expect(error.message).toBe(ENGLISH.t("errTimeout", ["Google", "1"]))
+  })
+
   it("reads Retry-After as an HTTP date", async () => {
     vi.useFakeTimers({ now: new Date("2026-10-11T12:00:00Z") })
     try {
@@ -99,6 +116,35 @@ describe("RequestQueue retries", () => {
     expect(delays).toHaveLength(3)
     delays.forEach((d, attempt) => expect(d).toBeGreaterThanOrEqual(250 * 2 ** attempt))
     delays.forEach((d, attempt) => expect(d).toBeLessThanOrEqual(500 * 2 ** attempt))
+  })
+
+  it("H1: retries a timeout once and reports the time of both attempts", async () => {
+    const { queue, delays } = recordingQueue(3)
+    const task = flaky(new TimeoutError("Google", 60_000), 5)
+    const error = await queue.run(task).catch((e) => e)
+    expect(task).toHaveBeenCalledTimes(2)
+    expect(delays).toHaveLength(1)
+    expect(error).toBeInstanceOf(TimeoutError)
+    expect(error.message).toBe(ENGLISH.t("errTimeout", ["Google", "120"]))
+  })
+
+  it("H1: does not retry a timeout of a queue without timeout retries (AI services)", async () => {
+    const queue = new RequestQueue({ concurrency: () => 1, maxRetries: () => 3, timeoutRetries: 0, sleep: async () => {} })
+    const task = flaky(new TimeoutError("OpenAI", 60_000), 5)
+    await expect(queue.run(task)).rejects.toThrow(ENGLISH.t("errTimeout", ["OpenAI", "60"]))
+    expect(task).toHaveBeenCalledTimes(1)
+  })
+
+  it("keeps retrying other failures after a timeout, up to maxRetries", async () => {
+    const { queue } = recordingQueue(3)
+    const errors = [new TimeoutError("Google", 1000), new NetworkError("https://x.example/"), new NetworkError("https://x.example/")]
+    const task = vi.fn(async () => {
+      const error = errors.shift()
+      if (error) throw error
+      return "ok"
+    })
+    expect(await queue.run(task)).toBe("ok")
+    expect(task).toHaveBeenCalledTimes(4)
   })
 
   it("retries network errors and gives up after maxRetries", async () => {

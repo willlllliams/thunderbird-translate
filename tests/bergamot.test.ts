@@ -2,6 +2,7 @@ import { zstdCompressSync } from "node:zlib"
 import { IDBFactory } from "fake-indexeddb"
 import { afterEach, describe, expect, it, vi } from "vitest"
 import { LocalizedError } from "../src/shared/errors"
+import { ENGLISH } from "../src/shared/i18n"
 import { BergamotEngine } from "../src/offline/bergamot/engine"
 import { normalizeBergamotLang, requiredPairs } from "../src/offline/bergamot/languages"
 import { BergamotManager } from "../src/offline/bergamot/manager"
@@ -141,6 +142,12 @@ describe("languages", () => {
     ])
     expect(requiredPairs("zh-CN", "zh-Hans")).toEqual([])
     expect(() => requiredPairs("auto", "en")).toThrow()
+  })
+
+  it("M2: needs no models between Simplified and Traditional Chinese: it does not translate them through English", () => {
+    for (const [src, tgt] of [["zh-TW", "zh-CN"], ["zh", "zh-Hant"]]) {
+      expect(() => requiredPairs(src, tgt)).toThrow(ENGLISH.t("errChineseVariants"))
+    }
   })
 })
 

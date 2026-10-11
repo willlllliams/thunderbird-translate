@@ -60,6 +60,11 @@ export function languageTag(code: string): string {
   return rest.some((p) => p === "hant" || p === "tw" || p === "hk" || p === "mo") ? "zh-Hant" : "zh-Hans"
 }
 
+/** Simplified and Traditional Chinese, in either direction: the dictionary and the offline models cannot convert between them. */
+export function isChinesePair(src: string, tgt: string): boolean {
+  return baseLang(src) === "zh" && baseLang(tgt) === "zh" && languageTag(src) !== languageTag(tgt)
+}
+
 /** Code of LANGUAGES for a language tag: "zh-Hans" → "zh-CN", "zh-Hant" → "zh-TW". */
 export function appLang(tag: string): string {
   if (tag === "zh-Hans") return "zh-CN"

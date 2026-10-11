@@ -7,14 +7,17 @@ import { describe, expect, it, vi } from "vitest"
 
 const offline = vi.hoisted(() => ({
   translate: vi.fn(async (texts: string[], src: string, tgt: string) => texts.map((t) => `[${src}>${tgt}]${t}`)),
+  models: "de>en@1",
+  signature: vi.fn(async (): Promise<string> => offline.models),
 }))
 vi.mock("../src/offline/bergamot", async (importOriginal) => ({ ...(await importOriginal<object>()), getBergamot: () => offline }))
 
 import type { LlmImpl, TranslationService } from "../src/background/service"
-import { llmAnalyzeMail, llmTranslateBatch, llmTranslateSingle } from "../src/background/translators/llm"
+import { type LlmCallOptions, llmAnalyzeMail, llmTranslateBatch, llmTranslateSingle } from "../src/background/translators/llm"
 import type { Segment } from "../src/background/translators/llm-prompt"
-import { LocalizedError } from "../src/shared/errors"
+import { LocalizedError, TimeoutError } from "../src/shared/errors"
 import { ENGLISH } from "../src/shared/i18n"
+import { createMailContext } from "../src/shared/mail-context"
 import type { TranslateRequest, TranslateResponse } from "../src/shared/messages"
 import type { Tier } from "../src/shared/providers"
 import { createDefaultSettings, type Settings } from "../src/shared/settings"
@@ -123,6 +126,20 @@ describe("tiers side by side", () => {
   })
 })
 
+describe("installed offline models", () => {
+  it("L3: are part of the cache key: another model version translates again", async () => {
+    offline.translate.mockClear()
+    const { service } = setup((s) => (s.tiers.machine = "bergamot"))
+    const ask = () => translateOne(service, { text: "Guten Morgen", sourceLang: "de", targetLang: "en", providerId: "bergamot" })
+    await ask()
+    await ask()
+    expect(offline.translate).toHaveBeenCalledTimes(1)
+    offline.models = "de>en@2"
+    await ask()
+    expect(offline.translate).toHaveBeenCalledTimes(2)
+  })
+})
+
 describe("request timeout", () => {
   it("ends a request without an answer with a timeout error, retries it, and asks again next time", async () => {
     const fetchFn = hanging()
@@ -152,6 +169,70 @@ describe("request timeout", () => {
     const error = await translateOne(service, { text: "Hello", providerId: "openai" }).catch((e: Error) => e.message)
     expect(error).toContain(ENGLISH.t("errTimeout", ["OpenAI", "1"]))
     expect(fetchFn).toHaveBeenCalledTimes(1)
+  })
+
+  it("H1: sends a timed-out AI request only once, also with retries configured", async () => {
+    const fetchFn = hanging()
+    const { service } = setup(
+      (s) => {
+        withOpenAI(s)
+        s.batch.timeoutSeconds = 0.5
+        s.batch.maxRetries = 3
+      },
+      { fetchFn: asFetch(fetchFn), llm: { batch: llmTranslateBatch, single: llmTranslateSingle, analyze: llmAnalyzeMail } },
+    )
+    const error = await translateOne(service, { text: "Hello", providerId: "openai" }).catch((e: Error) => e.message)
+    expect(error).toContain(ENGLISH.t("errTimeout", ["OpenAI", "1"]))
+    expect(fetchFn).toHaveBeenCalledTimes(1)
+  })
+
+  it("H1: retries a timed-out machine translation request once and names the whole wait in the error", async () => {
+    const fetchFn = hanging()
+    const { service } = setup((s) => {
+      s.batch.timeoutSeconds = 1
+      s.batch.maxRetries = 3
+    }, { fetchFn: asFetch(fetchFn) })
+    const error = await translateOne(service, { text: "Hello", providerId: "google-free" }).catch((e: Error) => e.message)
+    expect(fetchFn).toHaveBeenCalledTimes(2)
+    expect(error).toContain(ENGLISH.t("errTimeout", ["Google", "2"]))
+  })
+
+  it("H1: does not retry a timed-out connection test or message analysis", async () => {
+    // Fails once every batch of the message has asked for the analysis.
+    const timeout = () => new Promise<never>((_, reject) => setTimeout(() => reject(new TimeoutError("OpenAI", 60_000)), 30))
+    const llm: LlmImpl = { batch: vi.fn(timeout), single: vi.fn(timeout), analyze: vi.fn(timeout) }
+    const { service } = setup((s) => {
+      withOpenAI(s)
+      s.precise.enabled = true
+      s.batch.maxCharsPerBatch = 30
+      s.batch.maxRetries = 3
+    }, { llm })
+    await expect(service.testProvider("openai", { apiKey: "sk-test", baseURL: "", model: "" }, "zh-CN")).rejects.toThrow(ENGLISH.t("errTimeout", ["OpenAI", "60"]))
+    expect(llm.single).toHaveBeenCalledTimes(1)
+    const paragraphs = ["First paragraph of the mail.", "Second paragraph of the mail."]
+    const context = createMailContext(paragraphs, [0, 1])
+    service.setContext(context)
+    await Promise.all(paragraphs.map((text, index) => translateOne(service, { text, providerId: "openai", context: { id: context.id, index } }).catch(() => "")))
+    expect(llm.analyze).toHaveBeenCalledTimes(1)
+  })
+
+  it("H1: gives local models and thinking models three times the request timeout", async () => {
+    const timeouts: Record<string, number | undefined> = {}
+    const llm: LlmImpl = {
+      batch: vi.fn(),
+      single: vi.fn(async (segment: Segment, opts: LlmCallOptions) => {
+        timeouts[segment.text] = opts.timeoutMs
+        return "AI"
+      }),
+      analyze: vi.fn(async () => null),
+    }
+    const { service, settings } = setup(withOpenAI, { llm })
+    await translateOne(service, { text: "openai", providerId: "openai" })
+    settings.providers.openai.thinking = true
+    await translateOne(service, { text: "openai thinking", providerId: "openai" })
+    await translateOne(service, { text: "ollama", providerId: "ollama" })
+    await translateOne(service, { text: "lmstudio", providerId: "lmstudio" })
+    expect(timeouts).toEqual({ openai: 60_000, "openai thinking": 180_000, ollama: 180_000, lmstudio: 180_000 })
   })
 })
 
@@ -187,6 +268,30 @@ describe("paragraphs longer than a batch", () => {
     const requests = fetchFn.mock.calls.length
     expect(await translateOne(service, { text, providerId: "google-free", targetLang: "en" })).toBe(out)
     expect(fetchFn).toHaveBeenCalledTimes(requests)
+  })
+
+  it("M1: send a long quoted block in a few pieces of many lines, not line by line", async () => {
+    const fetchFn = googleEcho()
+    const { service } = setup(() => {}, { fetchFn: asFetch(fetchFn) })
+    const text = Array.from({ length: 60 }, (_, i) => `> Line ${i} of the quoted reply, kept exactly as it was written there.`).join("\n")
+    expect(text.length).toBeGreaterThan(3000)
+    const out = await translateOne(service, { text, providerId: "google-free", targetLang: "en" })
+    const pieces = fetchFn.mock.calls.flatMap(([, init]) => new URLSearchParams(String(init.body)).getAll("q"))
+    expect(pieces).toHaveLength(2)
+    expect(pieces.every((p) => p.length <= 3000 && p.includes("\n"))).toBe(true)
+    expect(pieces.join("\n")).toBe(text)
+    expect(out).toBe(pieces.map((p) => `G(${p})`).join("\n"))
+  })
+
+  it("L5: send no empty piece for a long paragraph that starts with a line break, and keep the line break", async () => {
+    const fetchFn = googleEcho()
+    const { service } = setup((s) => (s.batch.maxCharsPerBatch = 200), { fetchFn: asFetch(fetchFn) })
+    const text = `\n${"A sentence that is long enough to need a piece of its own, more or less. ".repeat(4).trim()}`
+    const out = await translateOne(service, { text, providerId: "google-free", targetLang: "en" })
+    const pieces = fetchFn.mock.calls.flatMap(([, init]) => new URLSearchParams(String(init.body)).getAll("q"))
+    expect(pieces.length).toBeGreaterThan(1)
+    expect(pieces.every((p) => p.trim().length > 0)).toBe(true)
+    expect(out.startsWith("\nG(")).toBe(true)
   })
 
   it("are joined without spaces for Chinese, and keep their line breaks", async () => {

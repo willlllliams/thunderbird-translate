@@ -16,6 +16,8 @@
  * again (the background cache answers what it already knows); a tier whose
  * service or prompt changed, for example the AI tier after a new display
  * mode, is requested again while the other tiers keep their results.
+ * Results are kept for the message on screen, so showing it again asks
+ * nothing; they are forgotten when dictionary packs or offline models change.
  */
 
 import { describeError } from "../shared/errors"
@@ -123,6 +125,11 @@ export class TranslationController {
       this.report()
       await Promise.all(this.units.map((unit) => this.translateUnit(unit, this.session)))
     }
+  }
+
+  /** Dictionary packs or offline models changed: the results kept from before are not shown again. */
+  forgetResults(): void {
+    this.memo.clear()
   }
 
   /** Decide on auto-translation for a freshly displayed message. */

@@ -22,16 +22,15 @@ let updates: Promise<unknown> = Promise.resolve()
 
 /**
  * Apply one change (popup, keyboard shortcut) to the settings in storage:
- * only what `change` touches is merged into the stored settings, as the
- * settings page does with saveChanges(), and changes of one page never
- * overtake each other.
+ * read, change, write, one change after the other, so changes of one page
+ * never overtake each other.
  */
 export function updateSettings(change: (s: Settings) => void): Promise<Settings> {
   const update = updates.then(async () => {
-    const base = await loadSettings()
-    const edited = structuredClone(base)
-    change(edited)
-    return saveChanges(base, edited)
+    const settings = await loadSettings()
+    change(settings)
+    await saveSettings(settings)
+    return settings
   })
   updates = update.catch(() => {})
   return update
@@ -45,16 +44,18 @@ const sameValue = (a: unknown, b: unknown): boolean => JSON.stringify(a) === JSO
 
 /**
  * Three-way merge into `target`, in place. Every value of `source` that
- * differs from `base` is copied into `target`. With `keepTarget`, a value
- * that `target` has changed itself since `base` stays as it is.
+ * differs from `base` is copied into `target`, except a change of
+ * `target`'s own: a value that differs from its value in one of the
+ * trees of `own`, e.g. the settings as last stored.
  */
-export function mergeChanges(target: object, base: object, source: object, keepTarget: boolean): void {
+export function mergeChanges(target: object, base: object, source: object, own: object[] = []): void {
   const [tt, bt, st] = [target as Tree, base as Tree, source as Tree]
   for (const key of new Set([...Object.keys(bt), ...Object.keys(st)])) {
     const [t, b, s] = [tt[key], bt[key], st[key]]
+    const mine = own.map((tree) => (tree as Tree)[key])
     if (isTree(s) && isTree(t)) {
-      mergeChanges(t, isTree(b) ? b : {}, s, keepTarget)
-    } else if (!sameValue(b, s) && !(keepTarget && !sameValue(b, t))) {
+      mergeChanges(t, isTree(b) ? b : {}, s, mine.map((m) => (isTree(m) ? m : {})))
+    } else if (!sameValue(b, s) && mine.every((m) => sameValue(m, t))) {
       if (s === undefined) delete tt[key]
       else tt[key] = structuredClone(s)
     }
@@ -69,7 +70,7 @@ export function mergeChanges(target: object, base: object, source: object, keepT
  */
 export async function saveChanges(base: Settings, edited: Settings): Promise<Settings> {
   const latest = await loadSettings()
-  mergeChanges(latest, base, edited, false)
+  mergeChanges(latest, base, edited)
   await saveSettings(latest)
   return latest
 }

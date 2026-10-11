@@ -1,8 +1,10 @@
 /** Background script entry: settings, content script ports, requests from pages, shortcuts, installation and script registration. */
+import { IDBFactory } from "fake-indexeddb"
 import { afterEach, describe, expect, it, vi } from "vitest"
 import { CACHE_STORAGE_KEY } from "../src/background/cache"
 import { createMailContext } from "../src/shared/mail-context"
 import { IDLE_TAB_STATE, type PortPush, type TranslateRequest } from "../src/shared/messages"
+import { DEFAULT_PROMPTS } from "../src/shared/prompts"
 import { createDefaultSettings, SETTINGS_KEY, type Settings, toPublicSettings } from "../src/shared/settings"
 import { localeText, stubBackgroundApi } from "./fixtures/background-api"
 import { jsonResponse } from "./helpers"
@@ -46,6 +48,16 @@ describe("settings", () => {
   it("leaves current settings alone", async () => {
     const bg = await start({ stored: stored(createDefaultSettings()) })
     expect(settingsWrites(bg)).toHaveLength(0)
+  })
+
+  it("L10: stores current settings again when reading them migrated a copy of a built-in prompt", async () => {
+    const s = createDefaultSettings()
+    s.prompts.bilingual = `  ${DEFAULT_PROMPTS.bilingual}
+`
+    s.prompts.precise = "My own prompt for {{to}}."
+    const bg = await start({ stored: stored(s) })
+    await vi.waitFor(() => expect(settingsWrites(bg)).toHaveLength(1))
+    expect((bg.local[SETTINGS_KEY] as Settings).prompts).toEqual({ bilingual: "", translationOnly: "", precise: "My own prompt for {{to}}." })
   })
 
   it("titles the header button in the interface language", async () => {
@@ -264,6 +276,17 @@ describe("requests from pages", () => {
     expect(((await bg.send({ type: "getLocaleMessages", uiLanguage: "auto" })) as { locale: string }).locale).toBe("en")
   })
 
+  it("L6: reads the messages of a locale again after a failed read instead of keeping English", async () => {
+    const bg = await start({ stored: stored(createDefaultSettings()) })
+    const read = vi.mocked(fetch).getMockImplementation()!
+    vi.mocked(fetch).mockImplementationOnce(async () => Promise.reject(new TypeError("file busy")))
+    expect(((await bg.send({ type: "getLocaleMessages", uiLanguage: "fr" })) as { locale: string }).locale).toBe("en")
+    vi.mocked(fetch).mockImplementation(read)
+    const answer = (await bg.send({ type: "getLocaleMessages", uiLanguage: "fr" })) as { locale: string; messages: Record<string, string> }
+    expect(answer.locale).toBe("fr")
+    expect(answer.messages.actionTitle).toBe(localeText("fr", "actionTitle"))
+  })
+
   it("reads and compiles the messages of a locale once, however many messages are displayed", async () => {
     const bg = await start({ stored: stored(createDefaultSettings()) })
     const reads = () => vi.mocked(fetch).mock.calls.filter(([url]) => String(url).endsWith("/_locales/fr/messages.json")).length
@@ -282,6 +305,36 @@ describe("requests from pages", () => {
     expect(await bg.send({ type: "dictionaryChanged" })).toBeUndefined()
     expect(invalidate).toHaveBeenCalledTimes(1)
     invalidate.mockRestore()
+  })
+
+  it("L3: tells the content scripts that dictionary packs or offline models changed, so they forget their results", async () => {
+    const handleBergamot = vi.fn(async (req: { type: string }) => ({ ok: true, handled: req.type }))
+    vi.doMock("../src/background/bergamot-admin", () => ({ handleBergamot }))
+    const bg = await start({ stored: stored(createDefaultSettings()) })
+    const port = bg.connect(4)
+    const changes = () => port.posted.filter((m) => m.type === "dataChanged").length
+    await bg.send({ type: "dictionaryChanged" })
+    expect(changes()).toBe(1)
+    await bg.send({ type: "bergamotInstall", src: "de", tgt: "en" })
+    await bg.send({ type: "bergamotRemove", src: "de", tgt: "en" })
+    expect(changes()).toBe(3)
+    await bg.send({ type: "bergamotList" })
+    expect(changes()).toBe(3)
+  })
+
+  it("L4: names the source language for the dictionary with the thresholds of the offline translator", async () => {
+    const s = createDefaultSettings()
+    s.tiers.dictionary = "dictionary"
+    const bg = stubBackgroundApi({ stored: stored(s) })
+    vi.stubGlobal("indexedDB", new IDBFactory())
+    // A reliable answer that covers less than 60 % of the text is a guess.
+    Object.assign(bg.api.i18n, { detectLanguage: vi.fn(async () => ({ isReliable: true, languages: [{ language: "fr", percentage: 45 }] })) })
+    vi.resetModules()
+    await import("../src/background/index")
+    const port = bg.connect(4)
+    port.send({ type: "translate", id: 1, request: { ...request("Bonjour tout le monde, merci pour votre message"), tiers: ["dictionary"] } })
+    await vi.waitFor(() => expect(port.posted.at(-1)).toEqual({ type: "done", id: 1 }))
+    expect(port.posted[1]).toMatchObject({ type: "tier", tier: "dictionary", result: { ok: false, error: expect.stringContaining("en → zh-Hans") } })
   })
 
   it("counts and clears the translation cache", async () => {

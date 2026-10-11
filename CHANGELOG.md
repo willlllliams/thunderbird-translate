@@ -2,6 +2,30 @@
 
 All notable changes to this project are documented in this file. Versions follow [Semantic Versioning](https://semver.org/).
 
+## 1.6.1
+
+### Fixed
+
+- A slow local model or a model in thinking mode failed in the default configuration and was asked four times, each attempt charged: AI requests that timed out were retried like network errors, up to about 4 minutes in total. AI requests, including the analysis of precise translation and "Test connection", are no longer retried after a timeout, and Ollama, LM Studio and models with thinking mode on get three times the request timeout (180 seconds by default). Google, Microsoft and DeepLX retry a timed-out request once. The error names the time actually waited, for example "no answer within 120 s" after two attempts of 60 seconds.
+- A timeout while the body of an answer was still arriving surfaced as an untranslated `TimeoutError` of the browser. It is now reported like any other timeout, in the interface language, and follows the same retry rule.
+- A paragraph longer than one request with several lines, such as a quoted reply of 60 lines and 3,900 characters, was sent one line per piece. A piece now takes whole lines, line breaks included, as long as they fit, and ends at its last line break; only a single line longer than a request is cut between sentences. The quoted reply goes out as two pieces.
+- A long paragraph that started with a line break sent an empty first piece for translation. The whitespace at the start is now kept aside and put back in front of the translation.
+- The dictionary and Bergamot "translated" between Simplified and Traditional Chinese through English, word by word: 我们明天开会 became 我們明天持有一個會議. Both now refuse this pair with "This service does not translate between Simplified and Traditional Chinese."; the paragraph shows no provisional translation from them and is translated by the machine and AI tiers. The setup guide recommends no dictionary packs for this pair.
+- After a failed save, the settings page and the setup guide no longer counted the change as unsaved, so a later flush wrote nothing; leaving or finishing the setup guide closed the tab even when its settings could not be saved. A failed save now keeps the changes pending for the next save, and the setup guide stays open with the error.
+- A failed analysis request of precise translation was remembered as "no analysis" until the background script restarted. A failed request (network error, timeout, HTTP error) is now forgotten, so the next translation of the message asks again; an answer that cannot be used is still kept.
+- Downloads of dictionary packs and offline models, and the lists of both, had no timeout and could hang for good. The lists fail after 30 seconds without an answer; a download that receives no data for 30 seconds stops with an error, while a slow download that keeps receiving data has no time limit. Dictionary downloads on the settings page and in the setup guide can be cancelled.
+- A change made in another page while a field had the focus was never drawn into that field. The field now shows it once it loses the focus. An edit made while a save was running that restored the stored value (a switch turned on and off again) was overwritten by the save; such edits now survive and are saved.
+- The analysis of precise translation was shared between configurations: changing the endpoint, the thinking switch, the temperature or the source language reused the old analysis. Its cache key now contains the same configuration hash as the translations. The cache key of Bergamot translations now contains the installed model versions, and the content script forgets the results it keeps for the displayed message when dictionary packs or offline models are installed or removed.
+- The dictionary named the source language of a paragraph with other thresholds than Bergamot (any reliable answer of the browser's detector, also for very short text). Both now use the same rule: the detector from 12 letters on and an answer covering at least 60 % of the text.
+- When the messages of an interface language could not be read once, content scripts received English for that language until the background script restarted. English in place of another language is no longer kept.
+- A Bergamot worker that did not answer made every following offline request wait its own 2 minutes, and loading a large model had the same timeout as a translation. Loading a model now has 5 minutes; after two timeouts in a row, offline translations fail at once for one minute with a message saying so.
+- Copies of a built-in prompt in stored settings were cleared when the settings were read but written back only with the next change. The background script now writes migrated settings back at once.
+
+### Changed
+
+- The popup and the keyboard shortcut read the settings once per change instead of twice.
+- Tests: the welcome page tests pass when run alone, file by file and test by test; the cache key test is split into one test per field; new tests for the settings session of the extension pages. The production build fails when a source file of `src/e2e/` ends up in one of its bundles.
+
 ## 1.6.0
 
 ### Added

@@ -16,9 +16,11 @@
  * when the message does not fit into one request.
  */
 
+import { getBergamot } from "../offline/bergamot"
 import { describeError, type ErrorContext } from "../shared/errors"
 import { hashText } from "../shared/hash"
 import { ENGLISH, type I18n } from "../shared/i18n"
+import type { LanguageDetector } from "../shared/lang-detect"
 import { getLanguage } from "../shared/languages"
 import type { MailContext } from "../shared/mail-context"
 import type { TranslateRequest, TranslateResponse } from "../shared/messages"
@@ -45,6 +47,8 @@ interface Job {
   provider: ResolvedProvider
   /** AI services: the system prompt template. */
   prompt?: string
+  /** Hash of everything besides the text and the languages that shapes the result: endpoint, prompt, thinking, temperature, installed data. */
+  variant: string
   batchKey: string
   /** Cache key of the result. */
   key: string
@@ -63,6 +67,9 @@ const FREE_LIMITS: Record<string, BatchLimits> = {
 
 /** Messages kept for precise mode; a message is registered again when it is translated again. */
 const MAX_CONTEXTS = 20
+
+/** Local models (Ollama, LM Studio) and models that reason first answer slowly: their requests get this multiple of the request timeout. */
+const SLOW_MODEL_TIMEOUT_FACTOR = 3
 
 export interface LlmImpl {
   batch: (segments: Segment[], opts: LlmCallOptions) => Promise<string[]>
@@ -85,6 +92,8 @@ export interface ServiceDeps {
   /** Injection points for tests. */
   llm?: LlmImpl
   dictionary?: Pick<Dictionary, "translate" | "signature">
+  /** Detector of sourceDetector() for the offline models, with source language "auto". */
+  detect?: LanguageDetector
   sleep?: (ms: number) => Promise<void>
   /** Language of error messages; English when absent. */
   i18n?: () => I18n
@@ -138,14 +147,23 @@ export class TranslationService {
     let queue = this.queues.get(provider.id)
     if (!queue) {
       const batch = () => this.deps.getSettings().batch
-      queue = new RequestQueue({ concurrency: () => batch().concurrency, maxRetries: () => batch().maxRetries, sleep: this.deps.sleep })
+      queue = new RequestQueue({
+        concurrency: () => batch().concurrency,
+        maxRetries: () => batch().maxRetries,
+        // A model that timed out would time out again, and each attempt is charged.
+        timeoutRetries: getPreset(provider.id)?.kind === "llm" ? 0 : 1,
+        sleep: this.deps.sleep,
+      })
       this.queues.set(provider.id, queue)
     }
     return queue
   }
 
-  private timeoutMs(): number {
-    return this.deps.getSettings().batch.timeoutSeconds * 1000
+  /** Request timeout for a provider: the setting, multiplied for local models and models that reason first. */
+  private timeoutMs(provider: ResolvedProvider): number {
+    const ms = this.deps.getSettings().batch.timeoutSeconds * 1000
+    const slow = provider.thinking || getPreset(provider.id)?.nameKey === "providerLocal"
+    return slow ? ms * SLOW_MODEL_TIMEOUT_FACTOR : ms
   }
 
   private limitsFor(provider: ResolvedProvider): BatchLimits {
@@ -168,8 +186,13 @@ export class TranslationService {
     this.contexts.set(context.id, context)
   }
 
-  /** The work of one tier for one paragraph. `dictionary`: signature of the installed packs, for the dictionary tier. */
-  private job(req: TranslateRequest, providerId: string, settings: Settings, dictionary: string): Job {
+  /** Signature of the installed data a service translates with: dictionary packs or offline models. */
+  private dataSignature(kind: "dictionary" | "bergamot"): Promise<string> {
+    return (kind === "dictionary" ? this.dictionary.signature() : getBergamot().signature()).catch(() => "")
+  }
+
+  /** The work of one tier for one paragraph. `data`: dataSignature() of the service. */
+  private job(req: TranslateRequest, providerId: string, settings: Settings, data: string): Job {
     const provider = resolveProvider(settings, providerId)
     const preset = getPreset(providerId)
     const kind = isAiProvider(preset) ? promptKindFor(settings) : undefined
@@ -177,7 +200,7 @@ export class TranslationService {
     const context = kind === "precise" && req.context ? this.contexts.get(req.context.id) : undefined
     // Everything besides the text that shapes the result keeps cache entries and batches apart.
     const ai = kind ? [kind, prompt, provider.thinking, provider.temperature] : []
-    const variant = hashText([provider.baseURL, provider.mode, ...ai, preset?.kind === "dictionary" ? dictionary : ""].join("\n"))
+    const variant = hashText([provider.baseURL, provider.mode, ...ai, data].join("\n"))
     const sig = context ? `${variant}:${context.id}` : variant
     return {
       text: req.text,
@@ -185,6 +208,7 @@ export class TranslationService {
       targetLang: req.targetLang,
       provider,
       prompt,
+      variant,
       key: cacheKey(providerId, provider.model, `${req.sourceLang}>${req.targetLang}`, req.text, sig),
       batchKey: [providerId, provider.model, req.sourceLang, req.targetLang, sig].join("|"),
       ...(context && req.context ? { mail: { context, index: req.context.index } } : {}),
@@ -206,7 +230,8 @@ export class TranslationService {
   /** The paragraph in pieces within the batch limit, translated and put together again, then cached as a whole. */
   private async translateParts(job: Job): Promise<string> {
     const parts = splitText(job.text, this.limitsFor(job.provider).maxChars)
-    const results = await Promise.all(parts.map(({ text }) => this.batchQueue.enqueue({ ...job, text })))
+    // A part without text holds the whitespace at the start of the paragraph; joinParts() puts it back.
+    const results = await Promise.all(parts.map(({ text }): ItemResult | Promise<ItemResult> => (text ? this.batchQueue.enqueue({ ...job, text }) : { ok: true, text: "" })))
     const texts = results.map((result) => {
       if (!result.ok) throw new Error(result.error)
       return result.text
@@ -233,11 +258,15 @@ export class TranslationService {
   async translateForPage(req: TranslateRequest, onTier: (tier: Tier, result: TranslateResponse) => void): Promise<void> {
     const settings = this.deps.getSettings()
     const tiers = TIERS.filter((tier) => settings.tiers[tier] && req.tiers.includes(tier))
-    const dictionary = tiers.includes("dictionary") ? await this.dictionary.signature().catch(() => "") : ""
+    const data: Partial<Record<Tier, string>> = {}
+    for (const tier of tiers) {
+      const kind = getPreset(settings.tiers[tier]!)?.kind
+      if (kind === "dictionary" || kind === "bergamot") data[tier] = await this.dataSignature(kind)
+    }
     const jobs: [Tier, Job][] = []
     for (const tier of tiers) {
       try {
-        jobs.push([tier, this.job(req, settings.tiers[tier]!, settings, dictionary)])
+        jobs.push([tier, this.job(req, settings.tiers[tier]!, settings, data[tier] ?? "")])
       } catch (error) {
         onTier(tier, { ok: false, error: this.errorMessage(error) })
       }
@@ -254,7 +283,7 @@ export class TranslationService {
     const provider = resolveProviderConfig(providerId, config)
     const sample = "Hello! This is a connection test from Thunderbird Translate."
     const prompt = promptText(this.deps.getSettings().prompts, "bilingual")
-    const results = await this.executeBatch([{ text: sample, sourceLang: "auto", targetLang, provider, prompt, batchKey: "test", key: "" }])
+    const results = await this.executeBatch([{ text: sample, sourceLang: "auto", targetLang, provider, prompt, variant: "", batchKey: "test", key: "" }])
     const r = results[0]
     if (!r.ok) throw new Error(r.error)
     return r.text
@@ -267,7 +296,7 @@ export class TranslationService {
       targetLanguageName: getLanguage(job.targetLang).english,
       ...(job.sourceLang !== "auto" ? { sourceLanguageName: getLanguage(job.sourceLang).english } : {}),
       fetchFn: this.deps.fetchFn,
-      timeoutMs: this.timeoutMs(),
+      timeoutMs: this.timeoutMs(job.provider),
     }
   }
 
@@ -301,8 +330,9 @@ export class TranslationService {
     return buildContextBlock(analysis, context.text.length <= MAX_PREFIX_TEXT_CHARS ? context.text : "")
   }
 
+  /** The analysis of the message, shared by the requests of one configuration (endpoint, thinking, temperature, languages). */
   private analysis(job: Job): Promise<MailAnalysis | null> {
-    const key = cacheKey(job.provider.id, job.provider.model, job.targetLang, job.mail!.context.text, "analysis")
+    const key = cacheKey(job.provider.id, job.provider.model, `${job.sourceLang}>${job.targetLang}`, job.mail!.context.text, `${job.variant}:analysis`)
     let analysis = this.analyses.get(key)
     if (!analysis) {
       analysis = this.loadAnalysis(key, job)
@@ -320,6 +350,8 @@ export class TranslationService {
       return analysis
     } catch {
       // Translation goes on without the analysis; the requests still carry the neighbouring paragraphs.
+      // The next batch asks again: a failed request is not an answer. An unusable answer (null above) is kept.
+      this.analyses.delete(key)
       return null
     }
   }
@@ -332,7 +364,7 @@ export class TranslationService {
     const lang = getLanguage(first.targetLang)
     const source = first.sourceLang === "auto" ? undefined : getLanguage(first.sourceLang)
     const texts = jobs.map((j) => j.text)
-    const fetchOpts = { fetchFn: this.deps.fetchFn, timeoutMs: this.timeoutMs() }
+    const fetchOpts = { fetchFn: this.deps.fetchFn, timeoutMs: this.timeoutMs(first.provider) }
 
     const ok = (text: string): ItemResult => ({ ok: true, text })
     const fail = (error: unknown): ItemResult => ({ ok: false, error: this.errorMessage(error, first.provider) })
@@ -359,7 +391,7 @@ export class TranslationService {
       case "dictionary":
         return settled(() => this.dictionary.translate(texts, first.sourceLang, first.targetLang))
       case "bergamot":
-        return settled(() => bergamotTranslateBatch(texts, first.sourceLang, first.targetLang))
+        return settled(() => bergamotTranslateBatch(texts, first.sourceLang, first.targetLang, this.deps.detect))
       case "google": {
         const opts = { ...fetchOpts, baseURL: first.provider.baseURL, source: source?.google }
         return batchOrEach(

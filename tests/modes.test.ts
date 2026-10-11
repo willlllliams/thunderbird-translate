@@ -1,6 +1,6 @@
 /** The three tiers, the prompts, the source language and precise mode in the background translation service. */
 import { describe, expect, it, vi } from "vitest"
-import { cacheKey } from "../src/background/cache"
+import { hashText } from "../src/shared/hash"
 import type { LlmImpl, TranslationService } from "../src/background/service"
 import { type LlmCallOptions, llmAnalyzeMail, llmTranslateBatch, llmTranslateSingle } from "../src/background/translators/llm"
 import type { MailAnalysis, Segment } from "../src/background/translators/llm-prompt"
@@ -307,6 +307,7 @@ describe("precise mode", () => {
       preciseOn(s)
       s.batch.maxCharsPerBatch = 40
     }, { llm })
+    const set = vi.spyOn(cache, "set")
     await translateMail(service)
     expect(llm.analyze).toHaveBeenCalledTimes(1)
     expect(llm.analyze.mock.calls[0][0]).toBe(PARAGRAPHS.join("\n\n"))
@@ -319,9 +320,11 @@ describe("precise mode", () => {
     expect(prefix).toContain(PARAGRAPHS.join("\n\n"))
     // The paragraph after the Chinese one sees it as reference.
     expect(calls.find((c) => c.segments[0].text === PARAGRAPHS[2])!.segments[0].before).toBe(PARAGRAPHS[1])
-    // The analysis is cached like a translation.
-    const key = cacheKey("openai", settings.providers.openai.model || "gpt-4.1-mini", "zh-CN", PARAGRAPHS.join("\n\n"), "analysis")
-    expect(JSON.parse((await cache.get(key))!)).toEqual(ANALYSIS)
+    // The analysis is cached like a translation, under the message text and the configuration of the requests.
+    const stored = set.mock.calls.filter(([key]) => key.endsWith(`:analysis|${hashText(PARAGRAPHS.join("\n\n"))}`))
+    expect(stored).toHaveLength(1)
+    expect(stored[0][0].startsWith(`openai|${settings.providers.openai.model || "gpt-4.1-mini"}|auto>zh-CN|`)).toBe(true)
+    expect(JSON.parse(stored[0][1])).toEqual(ANALYSIS)
   })
 
   it("translates without the analysis when the analysis fails", async () => {
@@ -336,6 +339,52 @@ describe("precise mode", () => {
     const prefix = calls[0].opts.contextPrefix!
     expect(prefix).not.toContain("Summary")
     expect(prefix).toContain("Full text of the email")
+  })
+
+  /** Precise mode with requests too small for the whole message, and no translation cache: every run asks again. */
+  const uncached = (llm: LlmImpl, over: (s: Settings) => void = () => {}) => {
+    const created = setup((s) => {
+      preciseOn(s)
+      s.batch.maxCharsPerBatch = 40
+      over(s)
+    }, { llm })
+    created.cache.configure(false, 100)
+    return created
+  }
+
+  it("M4: asks for the analysis again after a failed request", async () => {
+    const { llm } = fakeLlm(undefined, ANALYSIS)
+    // Fails once every batch of the message has asked for it.
+    const badRequest = Object.assign(new Error("Bad Request"), { statusCode: 400, isRetryable: false })
+    llm.analyze.mockImplementationOnce(() => new Promise((_, reject) => setTimeout(() => reject(badRequest), 30)))
+    const { service } = uncached(llm)
+    await translateMail(service)
+    expect(llm.analyze).toHaveBeenCalledTimes(1)
+    await translateMail(service)
+    expect(llm.analyze).toHaveBeenCalledTimes(2)
+  })
+
+  it("keeps an analysis answer that could not be used, instead of asking again", async () => {
+    const { llm } = fakeLlm(undefined, null)
+    const { service } = uncached(llm)
+    await translateMail(service)
+    await translateMail(service)
+    expect(llm.analyze).toHaveBeenCalledTimes(1)
+  })
+
+  it("L3: asks for the analysis again with another endpoint, thinking, temperature or source language", async () => {
+    const { llm } = fakeLlm(undefined, ANALYSIS)
+    const { service, settings } = uncached(llm)
+    await translateMail(service)
+    const openai = settings.providers.openai
+    const changes = [() => (openai.baseURL = "https://proxy.example/v1"), () => (openai.thinking = true), () => (openai.temperature = 0.9), () => (settings.sourceLang = "en")]
+    for (const [i, change] of changes.entries()) {
+      change()
+      const context = createMailContext(PARAGRAPHS, TARGETS)
+      service.setContext(context)
+      await Promise.all(TARGETS.map((t) => translateOne(service, ask(PARAGRAPHS[t], { sourceLang: settings.sourceLang, context: { id: context.id, index: t } }))))
+      expect(llm.analyze).toHaveBeenCalledTimes(i + 2)
+    }
   })
 
   it("keeps translations of different messages apart in the cache and in requests", async () => {

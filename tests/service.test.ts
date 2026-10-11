@@ -318,7 +318,7 @@ describe("TranslationService: tiers, caps and precise mode details", () => {
       // A new background script over the same storage, with the analysis kept and the translations gone.
       await vi.waitFor(() => expect(storage.data.get(CACHE_STORAGE_KEY)).toHaveLength(PARAGRAPHS.length + 1))
       const entries = storage.data.get(CACHE_STORAGE_KEY) as [string, string][]
-      storage.data.set(CACHE_STORAGE_KEY, entries.filter(([key]) => key.includes("|analysis|")))
+      storage.data.set(CACHE_STORAGE_KEY, entries.filter(([key]) => key.includes(":analysis|")))
       const second = fakeLlm(ANALYSIS)
       await translateMail(setup(precise, { llm: second.llm, cache: new PersistentCache(storage, 100, 0) }).service, PARAGRAPHS)
       expect(second.llm.analyze).not.toHaveBeenCalled()

@@ -6,14 +6,16 @@
  * an entry is looked up through its lemma (the pack's inflected forms) and
  * otherwise stays as it is. Punctuation and numbers stay as they are.
  * Between two languages other than English, the text goes through English
- * when both packs are installed. Packs are read from IndexedDB on first use
- * and released after a while without translations.
+ * when both packs are installed. Between Simplified and Traditional Chinese
+ * that would replace words by English glosses, so the dictionary refuses
+ * the pair. Packs are read from IndexedDB on first use and released after a
+ * while without translations.
  */
 
 import { LocalizedError } from "../../shared/errors"
 import { hashText } from "../../shared/hash"
-import { detectLanguage, type LanguageDetector } from "../../shared/lang-detect"
-import { baseLang, pairKey } from "../../shared/languages"
+import { detectSourceLanguage, type LanguageDetector } from "../../shared/lang-detect"
+import { baseLang, isChinesePair, pairKey } from "../../shared/languages"
 import { dictKey, dictLang, type DictPack, gunzip, parsePack } from "./format"
 import { DictionaryStore } from "./store"
 
@@ -90,7 +92,7 @@ export function translateText(text: string, pack: DictPack): string {
 }
 
 export interface DictionaryOptions {
-  /** Language detector for source language "auto". */
+  /** Language detector for source language "auto", from sourceDetector(). */
   detect?: LanguageDetector
   /** Time without translations after which the packs are released. */
   idleMs?: number
@@ -148,10 +150,12 @@ export class Dictionary {
     if (!tgt) throw new LocalizedError("errDictionaryUnsupported", [targetLang])
     return Promise.allSettled(
       texts.map(async (text) => {
-        const lang = sourceLang === "auto" ? ((await detectLanguage(text, this.opts.detect)) ?? "en") : sourceLang
+        const lang = sourceLang === "auto" ? ((await detectSourceLanguage(text, this.opts.detect)) ?? "en") : sourceLang
         const src = dictLang(lang)
         if (!src) throw new LocalizedError("errDictionaryUnsupported", [lang])
-        return src === tgt ? text : this.translateWith(text, src, tgt)
+        if (src === tgt) return text
+        if (isChinesePair(src, tgt)) throw new LocalizedError("errChineseVariants")
+        return this.translateWith(text, src, tgt)
       }),
     )
   }

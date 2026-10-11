@@ -4,7 +4,7 @@ import { CACHE_STORAGE_KEY, cacheKey, LruCache, PersistentCache } from "../src/b
 import { hashText } from "../src/shared/hash"
 import { createMailContext } from "../src/shared/mail-context"
 import { promptText } from "../src/shared/prompts"
-import { createDefaultSettings } from "../src/shared/settings"
+import { createDefaultSettings, type Settings } from "../src/shared/settings"
 import { createService, memoryStorage, translateOne } from "./helpers"
 
 afterEach(() => vi.useRealTimers())
@@ -156,7 +156,8 @@ describe("cache keys of the translation service", () => {
     expect(new Set(["a", "b", "ab", "ba", "", "a ".repeat(500)].map(hashText)).size).toBe(6)
   })
 
-  it("store every tier under service, endpoint, languages and text; the AI tier also under model, prompt, thinking, temperature and message", async () => {
+  /** OpenAI as AI tier and Google as machine tier over a cache in `storage`; `asked()` counts the requests of each. */
+  function keyed() {
     const settings = createDefaultSettings()
     settings.tiers.ai = "openai"
     settings.providers.openai.apiKey = "sk"
@@ -167,35 +168,70 @@ describe("cache keys of the translation service", () => {
     const llm = { batch: vi.fn(), single: vi.fn(async () => "AI"), analyze: vi.fn(async () => null) }
     const storage = memoryStorage()
     const { service, settings: s } = createService(settings, { fetchFn: fetchFn as unknown as typeof fetch, llm, cache: new PersistentCache(storage, 100, 0) })
-    const google = () => translateOne(service, { text: "Hallo", sourceLang: "de", targetLang: "en", providerId: "google-free" })
-    await google()
-    await google()
+    const request = { text: "Hallo", sourceLang: "de", targetLang: "en" }
+    const ask = (providerId: string) => translateOne(service, { ...request, providerId })
+    return { s, storage, request, fetchFn, llm, ask }
+  }
+
+  it("store the machine tier under its endpoint", async () => {
+    const { s, fetchFn, ask } = keyed()
+    await ask("google-free")
+    await ask("google-free")
     expect(fetchFn).toHaveBeenCalledTimes(1)
     s.providers["google-free"].baseURL = "https://gt.example.com"
-    await google()
+    await ask("google-free")
     expect(fetchFn).toHaveBeenCalledTimes(2)
+  })
 
-    const ai = () => translateOne(service, { text: "Hallo", targetLang: "en", providerId: "openai" })
-    const asked = async () => {
-      await ai()
-      return llm.single.mock.calls.length
-    }
-    expect(await asked()).toBe(1)
-    expect(await asked()).toBe(1)
-    const openai = s.providers.openai
-    for (const change of [() => (openai.baseURL = "https://proxy.example/v1"), () => (openai.thinking = true), () => (openai.temperature = 0.7), () => (openai.model = "gpt-other")]) {
-      const before = llm.single.mock.calls.length
-      change()
-      expect(await asked()).toBe(before + 1)
-    }
-    // Back to the first configuration: its entry is still there.
-    Object.assign(openai, { baseURL: "", thinking: false, temperature: undefined, model: "gpt-test" })
-    expect(await asked()).toBe(5)
-    // Keys stay compact: service, model, languages, one hash for everything else, one for the text.
-    await vi.waitFor(() => expect(storage.data.get(CACHE_STORAGE_KEY)).toHaveLength(7))
+  it("give the machine tier one entry for all display modes and prompts", async () => {
+    const { s, fetchFn, ask } = keyed()
+    await ask("google-free")
+    s.mode = "translation-only"
+    s.prompts.translationOnly = "Translate into {{to}}."
+    await ask("google-free")
+    expect(fetchFn).toHaveBeenCalledTimes(1)
+  })
+
+  it.each<[string, (s: Settings, request: { sourceLang: string; targetLang: string; text: string }) => void]>([
+    ["endpoint", (s) => (s.providers.openai.baseURL = "https://proxy.example/v1")],
+    ["model", (s) => (s.providers.openai.model = "gpt-other")],
+    ["thinking", (s) => (s.providers.openai.thinking = true)],
+    ["temperature", (s) => (s.providers.openai.temperature = 0.7)],
+    ["prompt", (s) => (s.prompts.bilingual = "Translate into {{to}}, carefully.")],
+    ["display mode", (s) => (s.mode = "translation-only")],
+    ["source language", (_s, request) => (request.sourceLang = "fr")],
+    ["target language", (_s, request) => (request.targetLang = "ja")],
+    ["text", (_s, request) => (request.text = "Hallo Welt")],
+  ])("store the AI tier under its %s", async (_field, change) => {
+    const { s, request, llm, ask } = keyed()
+    await ask("openai")
+    await ask("openai")
+    expect(llm.single).toHaveBeenCalledTimes(1)
+    change(s, request)
+    await ask("openai")
+    expect(llm.single).toHaveBeenCalledTimes(2)
+  })
+
+  it("keep the entry of a configuration when another one is used for a while", async () => {
+    const { s, llm, ask } = keyed()
+    await ask("openai")
+    s.providers.openai.thinking = true
+    await ask("openai")
+    s.providers.openai.thinking = false
+    await ask("openai")
+    expect(llm.single).toHaveBeenCalledTimes(2)
+  })
+
+  it("stay compact: service, model, languages, one hash for everything else and one for the text", async () => {
+    const { s, storage, ask } = keyed()
+    await ask("google-free")
+    await ask("openai")
+    s.providers.openai.thinking = true
+    await ask("openai")
+    await vi.waitFor(() => expect(storage.data.get(CACHE_STORAGE_KEY)).toHaveLength(3))
     const keys = (storage.data.get(CACHE_STORAGE_KEY) as [string, string][]).map(([key]) => key.split("|"))
     expect(keys.every((parts) => parts.length === 5 && parts[3].length <= 24)).toBe(true)
-    expect(keys.filter(([id]) => id === "openai").map(([, model, langs]) => `${model} ${langs}`).sort()).toEqual(["gpt-other auto>en", ...Array(4).fill("gpt-test auto>en")])
+    expect(keys.map(([id, model, langs]) => `${id} ${model} ${langs}`)).toEqual(["google-free  de>en", "openai gpt-test de>en", "openai gpt-test de>en"])
   })
 
   it("store the dictionary tier under the installed packs: another pack version translates again", async () => {

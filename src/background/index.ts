@@ -14,7 +14,7 @@ import {
 import { resolveUiLocale } from "../shared/locales"
 import { SETTINGS_KEY, type Settings, toPublicSettings } from "../shared/settings"
 import { readSettings, updateSettings } from "../shared/settings-store"
-import { browserDetector } from "../shared/lang-detect"
+import { sourceDetector } from "../shared/lang-detect"
 import { handleBergamot } from "./bergamot-admin"
 import { type KeyValueStorage, PersistentCache } from "./cache"
 import { Dictionary } from "./dictionary"
@@ -35,9 +35,11 @@ const storage: KeyValueStorage = {
 }
 
 const cache = new PersistentCache(storage, settings.cache.maxEntries)
-const dictionary = new Dictionary(undefined, { detect: browserDetector(ext.i18n) })
+// The dictionary and the offline models name the source language of a paragraph the same way.
+const detect = sourceDetector(ext.i18n)
+const dictionary = new Dictionary(undefined, { detect })
 // Badge, button title and error messages use the current i18n instance, set by applyUiLanguage().
-const service = new TranslationService({ getSettings: () => settings, cache, dictionary, i18n: getI18n })
+const service = new TranslationService({ getSettings: () => settings, cache, dictionary, detect, i18n: getI18n })
 
 function adoptSettings(stored: unknown): void {
   settings = readSettings(stored)
@@ -53,8 +55,8 @@ const settingsReady = (async () => {
   await e2eReady
   const stored = await storage.get(SETTINGS_KEY)
   adoptSettings(stored)
-  // A fresh installation, or settings of 1.3 and earlier: store them in the current form.
-  if (!(stored as Partial<Settings> | undefined)?.tiers) await storage.set(SETTINGS_KEY, settings)
+  // A fresh installation, or settings that reading migrated (earlier forms, copies of built-in prompts): store them in the current form.
+  if (JSON.stringify(settings) !== JSON.stringify(stored)) await storage.set(SETTINGS_KEY, settings)
   await applyUiLanguage()
 })()
 
@@ -162,7 +164,11 @@ function localeMessages(setting: unknown): Promise<LocaleMessages> {
   let table = localeTables.get(locale)
   if (!table) {
     // Content scripts get their messages here instead of fetching moz-extension:// URLs.
-    table = loadI18n(locale, uiLang, fetchPackagedMessages).then(({ locale, messages }) => ({ locale, messages }))
+    // English in place of a locale whose file could not be read is not kept: the next request reads the file again.
+    table = loadI18n(locale, uiLang, fetchPackagedMessages).then((i18n) => {
+      if (i18n.locale !== locale) localeTables.delete(locale)
+      return { locale: i18n.locale, messages: i18n.messages }
+    })
     localeTables.set(locale, table)
   }
   return table
@@ -184,12 +190,17 @@ async function handle(req: BackgroundRequest): Promise<unknown> {
     case "getLocaleMessages":
       return localeMessages(req.uiLanguage)
     case "dictionaryChanged":
-      return dictionary.invalidate()
+      dictionary.invalidate()
+      return broadcast({ type: "dataChanged" })
+    case "bergamotInstall":
+    case "bergamotRemove": {
+      const result = await handleBergamot(req)
+      broadcast({ type: "dataChanged" })
+      return result
+    }
     case "bergamotList":
     case "bergamotProgress":
-    case "bergamotInstall":
     case "bergamotCancel":
-    case "bergamotRemove":
     case "bergamotRequired":
       return handleBergamot(req)
     case "clearCache":

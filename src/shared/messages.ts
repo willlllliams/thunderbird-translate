@@ -87,6 +87,8 @@ export type PortPush =
   | { type: "tier"; id: number; tier: Tier; result: TranslateResponse }
   /** Request `id` is complete; tiers that did not report were not asked. */
   | { type: "done"; id: number }
+  /** Dictionary packs or offline models were installed or removed: results received before may be outdated. */
+  | { type: "dataChanged" }
 
 /** Messages sent from content scripts to background over the Port. */
 export type PortReport =

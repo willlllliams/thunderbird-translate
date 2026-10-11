@@ -12,7 +12,8 @@
  * recognises English.
  *
  * detectLanguage() uses the same steps to name the language of a text, for
- * the services that need a source language (dictionary, offline models).
+ * the services that need a source language (dictionary, offline models);
+ * sourceDetector() and detectSourceLanguage() give both the same thresholds.
  */
 
 import { baseLang, languageTag } from "./languages"
@@ -166,6 +167,23 @@ export async function detectLanguage(text: string, detect?: LanguageDetector, { 
   if (candidates[0] === "zh") return chineseScript(text) === "zh-Hant" ? "zh-TW" : "zh"
   if (candidates[0] !== "latin") return candidates.length === 1 ? candidates[0] : null
   return englishScore(text) >= 0.12 ? "en" : null
+}
+
+/**
+ * Thresholds for naming the source language of a paragraph: the detector is
+ * asked from 12 letters on, and its answer counts when it covers 60 % of the
+ * text. Below that its answers are guesses.
+ */
+const SOURCE_DETECTION = { minLetters: 12, minPercentage: 60 }
+
+/** Source language of a paragraph for the dictionary and the offline models; `detect` comes from sourceDetector(). */
+export function detectSourceLanguage(text: string, detect: LanguageDetector | undefined): Promise<string | null> {
+  return detectLanguage(text, detect, SOURCE_DETECTION)
+}
+
+/** The browser's detector with the thresholds of detectSourceLanguage(). */
+export function sourceDetector(i18n: BrowserI18n | undefined): LanguageDetector | undefined {
+  return browserDetector(i18n, SOURCE_DETECTION.minPercentage)
 }
 
 type BrowserI18n = { detectLanguage?: (t: string) => Promise<{ isReliable: boolean; languages: { language: string; percentage: number }[] }> }

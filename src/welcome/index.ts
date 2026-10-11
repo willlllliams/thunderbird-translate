@@ -113,15 +113,14 @@ async function closeTab(): Promise<void> {
   else window.close()
 }
 
-async function exit(): Promise<void> {
-  await Promise.all([session.flush(), saveState({ step })])
-  await closeTab()
+/** Leave the guide; when the settings cannot be saved, the page stays open with the failure on screen (onSaveError). */
+async function leave(state: WelcomeState): Promise<void> {
+  const [saved] = await Promise.all([session.flush(), saveState(state)])
+  if (saved) await closeTab()
 }
 
-async function finish(): Promise<void> {
-  await Promise.all([session.flush(), saveState({ step, finished: true })])
-  await closeTab()
-}
+const exit = () => leave({ step })
+const finish = () => leave({ step, finished: true })
 
 /* ---------- step 1: languages ---------- */
 

@@ -7,6 +7,7 @@ const engine = vi.hoisted(() => ({
   install: vi.fn(async (_src: string, _tgt: string, _onProgress?: (done: number, total: number) => void, _signal?: AbortSignal) => {}),
   remove: vi.fn(async (_src: string, _tgt: string) => {}),
   missingPairs: vi.fn(async (_pairs: [string, string][]): Promise<[string, string][]> => [["ja", "en"]]),
+  signature: vi.fn(async () => "en>zh-Hans@3.0"),
 }))
 vi.mock("../src/offline/bergamot", async (importOriginal) => ({ ...(await importOriginal<object>()), getBergamot: () => engine }))
 

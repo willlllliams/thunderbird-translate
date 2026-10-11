@@ -3,8 +3,9 @@
  * dependency (fetch, IndexedDB, Worker) injected.
  */
 
-import { readBody } from "../../shared/download"
-import { LocalizedError } from "../../shared/errors"
+import { IDLE_TIMEOUT_MS, idleSignal, LIST_TIMEOUT_MS, readBody } from "../../shared/download"
+import { LocalizedError, TimeoutError } from "../../shared/errors"
+import { hashText } from "../../shared/hash"
 import { pairKey } from "../../shared/languages"
 import { BergamotEngine, type EngineOptions, type WorkerLike } from "./engine"
 import { normalizeBergamotLang, requiredPairs } from "./languages"
@@ -43,7 +44,11 @@ export interface ManagerDeps {
   /** Fixed attachments base; when absent it is read from the server root. */
   attachmentsBase?: string
   now?: () => number
-  engine?: Partial<Pick<EngineOptions, "maxModels" | "idleMs" | "timeoutMs" | "setTimer" | "clearTimer">>
+  /** The model list fails after this long without an answer. */
+  listTimeoutMs?: number
+  /** A model file download fails when nothing arrives for this long. */
+  idleTimeoutMs?: number
+  engine?: Partial<Pick<EngineOptions, "maxModels" | "idleMs" | "timeoutMs" | "loadTimeoutMs" | "pauseMs" | "now" | "setTimer" | "clearTimer">>
 }
 
 function errorText(error: unknown): string {
@@ -77,6 +82,7 @@ export class BergamotManager {
   readonly engine: BergamotEngine
   private records: CachedRecords | null = null
   private recordsLoading: Promise<CachedRecords> | null = null
+  private installed: Promise<string> | null = null
   private readonly serverUrl: string
   private readonly now: () => number
 
@@ -93,9 +99,15 @@ export class BergamotManager {
   /* ---------- model list ---------- */
 
   private async fetchJson(url: string): Promise<unknown> {
-    const res = await this.deps.fetch(url, { cache: "no-cache" })
-    if (!res.ok) throw new Error(`${url}: HTTP ${res.status}`)
-    return res.json()
+    const timeoutMs = this.deps.listTimeoutMs ?? LIST_TIMEOUT_MS
+    const signal = AbortSignal.timeout(timeoutMs)
+    try {
+      const res = await this.deps.fetch(url, { cache: "no-cache", signal })
+      if (!res.ok) throw new Error(`${url}: HTTP ${res.status}`)
+      return await res.json()
+    } catch (e) {
+      throw signal.aborted ? new TimeoutError("Mozilla Remote Settings", timeoutMs) : e
+    }
   }
 
   private async attachmentsBase(): Promise<string> {
@@ -191,17 +203,28 @@ export class BergamotManager {
     return this.doInstall(normalizeBergamotLang(src), normalizeBergamotLang(tgt), onProgress, signal)
   }
 
-  /** One file; `onProgress` gets the bytes received so far. */
+  /** One file; `onProgress` gets the bytes received so far. Fails when nothing arrives for a while, however long the whole download takes. */
   private async download(url: string, name: string, onProgress: (received: number) => void, signal?: AbortSignal): Promise<Uint8Array<ArrayBuffer>> {
-    let res: Response
+    const idleMs = this.deps.idleTimeoutMs ?? IDLE_TIMEOUT_MS
+    const idle = idleSignal(idleMs, signal)
     try {
-      res = await this.deps.fetch(url, { signal })
+      const res = await this.deps.fetch(url, { signal: idle.signal })
+      if (!res.ok) throw new LocalizedError("bergamotDownloadFailed", [name], `HTTP ${res.status}`)
+      return await readBody(
+        res,
+        (received) => {
+          idle.kick()
+          onProgress(received)
+        },
+        idle.signal,
+      )
     } catch (e) {
-      if (signal?.aborted) throw e
+      if (idle.stalled()) throw new LocalizedError("errDownloadStalled", [name, String(Math.round(idleMs / 1000))])
+      if (signal?.aborted || e instanceof LocalizedError) throw e
       throw new LocalizedError("bergamotDownloadFailed", [name], errorText(e))
+    } finally {
+      idle.stop()
     }
-    if (!res.ok) throw new LocalizedError("bergamotDownloadFailed", [name], `HTTP ${res.status}`)
-    return readBody(res, onProgress)
   }
 
   private async doInstall(src: string, tgt: string, onProgress?: (done: number, total: number) => void, signal?: AbortSignal): Promise<void> {
@@ -263,6 +286,8 @@ export class BergamotManager {
       await this.deps.store.putPair(stored, files)
     } catch (e) {
       throw new LocalizedError("bergamotStorageFailed", [], errorText(e))
+    } finally {
+      this.installed = null
     }
     if (existing) await this.engine.forget(key).catch(() => {})
     onProgress?.(pair.bytes, pair.bytes)
@@ -275,7 +300,21 @@ export class BergamotManager {
       await this.deps.store.deletePair(key)
     } catch (e) {
       throw new LocalizedError("bergamotStorageFailed", [], errorText(e))
+    } finally {
+      this.installed = null
     }
+  }
+
+  /** Hash of the installed pairs and their versions: part of the cache key of every offline translation. */
+  signature(): Promise<string> {
+    this.installed ??= this.listInstalled().then(
+      (pairs) => hashText(pairs.map((p) => `${p.key}@${p.version}`).sort().join(",")),
+      (error) => {
+        this.installed = null
+        throw error
+      },
+    )
+    return this.installed
   }
 
   private async loadPair(key: string) {

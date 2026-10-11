@@ -2,6 +2,7 @@
 import { IDBFactory } from "fake-indexeddb"
 import { beforeEach, describe, expect, it, vi } from "vitest"
 import type { LocalizedError } from "../src/shared/errors"
+import { sourceDetector } from "../src/shared/lang-detect"
 import { type FakeFile, FakeWorker, fakeServer, triple } from "./fixtures/bergamot"
 
 /** Stub indexedDB, fetch, Worker and browser as the background page has them; a fresh module holds a fresh manager. */
@@ -23,9 +24,10 @@ async function browserApis(files: FakeFile[], detectLanguage?: (text: string) =>
   vi.resetModules()
   const { getBergamot } = await import("../src/offline/bergamot/index")
   const { bergamotTranslateBatch } = await import("../src/background/translators/bergamot")
-  /** The offline tier as the service calls it: one result or error key per text. */
+  /** The offline tier as the service calls it, with the detector of the background script: one result or error key per text. */
+  const detect = sourceDetector(detectLanguage ? { detectLanguage: detectLanguage as never } : undefined)
   const translate = async (texts: string[], source: string, target: string) =>
-    (await bergamotTranslateBatch(texts, source, target)).map((r) => (r.status === "fulfilled" ? r.value : `error:${(r.reason as LocalizedError).i18nText.key}`))
+    (await bergamotTranslateBatch(texts, source, target, detect)).map((r) => (r.status === "fulfilled" ? r.value : `error:${(r.reason as LocalizedError).i18nText.key}`))
   return { bergamot: getBergamot(), getBergamot, translate, server, workers }
 }
 

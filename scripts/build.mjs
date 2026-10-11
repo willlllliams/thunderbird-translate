@@ -101,6 +101,17 @@ if (e2e && withHooks.length === 0) {
   console.error("e2e build without the e2e hooks")
   process.exit(1)
 }
+// Guard: no source file of src/e2e/ in the bundles of a regular build. metafile.inputs lists every file esbuild parsed,
+// also the hooks that the __E2E__ define then removes; the inputs of each output file list what went into it.
+const e2eSources = [...new Set(Object.values(result.metafile.outputs).flatMap((output) => Object.keys(output.inputs)))].filter((input) => input.startsWith("src/e2e/"))
+if (!e2e && e2eSources.length) {
+  console.error("e2e sources in a regular build:", e2eSources)
+  process.exit(1)
+}
+if (e2e && e2eSources.length === 0) {
+  console.error("e2e build without the e2e sources")
+  process.exit(1)
+}
 const jsOutputs = Object.entries(result.metafile.outputs).filter(([file]) => file.endsWith(".js"))
 for (const [file, info] of jsOutputs) if (!file.includes("/chunks/")) console.log(`${file}: ${(info.bytes / 1024).toFixed(0)} KiB`)
 const chunks = jsOutputs.filter(([file]) => file.includes("/chunks/"))

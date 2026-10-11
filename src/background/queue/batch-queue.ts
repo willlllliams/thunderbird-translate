@@ -36,33 +36,55 @@ function hardCut(text: string, max: number): string[] {
   return [...pieces, text]
 }
 
+/** The units a piece is made of: each line, or the sentences of a line longer than `maxChars` (Intl.Segmenter), cut by length when still longer. */
+function units(text: string, maxChars: number): string[] {
+  const sentences = new Intl.Segmenter(undefined, { granularity: "sentence" })
+  return text.split(/(?<=\n)/).flatMap((line) => (line.length <= maxChars ? [line] : [...sentences.segment(line)].flatMap((s) => hardCut(s.segment, maxChars))))
+}
+
 /**
- * A paragraph in pieces of at most `maxChars` characters: whole sentences
- * (Intl.Segmenter) as long as they fit, a longer sentence cut by length.
- * A line break always ends a piece, so the lines survive translation.
- * A paragraph that fits stays one piece.
+ * A paragraph in pieces of at most `maxChars` characters. A piece takes
+ * lines, line breaks included, as long as they fit; when the next line or
+ * sentence would not fit, the piece ends at its last line break, or between
+ * sentences when it has none. A paragraph that fits stays one piece.
+ * Whitespace at the start of a long paragraph becomes a first part without
+ * text, which is not sent for translation (TranslationService).
  */
 export function splitText(text: string, maxChars: number): TextPart[] {
   if (text.length <= maxChars) return [{ text, gap: "" }]
-  const sentences = [...new Intl.Segmenter(undefined, { granularity: "sentence" }).segment(text)].flatMap((s) => hardCut(s.segment, maxChars))
+  const lead = text.length - text.trimStart().length
   const pieces: string[] = []
-  for (const sentence of sentences) {
-    const last = pieces.at(-1)
+  let current = ""
+  /** Length of `current` up to its last line break; 0 when it has none. */
+  let lineEnd = 0
+  for (const unit of units(text.slice(lead), maxChars)) {
     // Whitespace alone stays with the piece before it.
-    const joins = last !== undefined && (!sentence.trim() || (!/\n\s*$/.test(last) && last.length + sentence.length <= maxChars))
-    if (joins) pieces[pieces.length - 1] += sentence
-    else pieces.push(sentence)
+    if (current && unit.trim() && current.length + unit.length > maxChars) {
+      const cut = lineEnd || current.length
+      pieces.push(current.slice(0, cut))
+      current = current.slice(cut)
+      lineEnd = 0
+      if (current && current.length + unit.length > maxChars) {
+        pieces.push(current)
+        current = ""
+      }
+    }
+    current += unit
+    if (unit.endsWith("\n")) lineEnd = current.length
   }
-  return pieces.map((piece) => {
+  if (current) pieces.push(current)
+  const parts = pieces.map((piece) => {
     const body = piece.trimEnd()
     return { text: body, gap: piece.slice(body.length) }
   })
+  return lead ? [{ text: "", gap: text.slice(0, lead) }, ...parts] : parts
 }
 
-/** Translations of the pieces of splitText() as one text: line breaks as in the source, else a space, none for Chinese and Japanese. */
+/** Translations of the pieces of splitText() as one text: line breaks as in the source, else a space, none for Chinese and Japanese, and none after a part without text. */
 export function joinParts(parts: readonly TextPart[], translations: readonly string[], targetLang: string): string {
   const space = ["zh", "ja"].includes(baseLang(targetLang)) ? "" : " "
-  return translations.map((text, i) => (i === parts.length - 1 ? text : text + (parts[i].gap.includes("\n") ? parts[i].gap : space))).join("")
+  const gap = ({ text, gap }: TextPart) => (gap.includes("\n") ? gap : text ? space : "")
+  return translations.map((text, i) => (i === parts.length - 1 ? text : text + gap(parts[i]))).join("")
 }
 
 /** Pure grouping used by the queue and by tests: split a list into batches within limits. */

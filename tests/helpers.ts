@@ -156,6 +156,8 @@ export async function openPage(
     throw new TypeError("NetworkError when attempting to fetch resource.")
   })
   const modules = { popup: () => import("../src/popup/index"), options: () => import("../src/options/index"), welcome: () => import("../src/welcome/index") }
+  // Modules that the test file imported before the stub (shared/ext.ts reads the global once) are loaded again over it.
+  vi.resetModules()
   await modules[page]()
   return {
     created,

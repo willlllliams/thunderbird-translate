@@ -30,8 +30,8 @@ export function isRetryableError(error: unknown): boolean {
   if (typeof e.isRetryable === "boolean") return e.isRetryable
   const status = e.status ?? e.statusCode
   if (typeof status === "number") return status === 408 || status === 429 || status >= 500
-  // fetch() network failures surface as TypeError, an expired AbortSignal.timeout() as TimeoutError.
-  return e.name === "TypeError" || e.name === "TimeoutError"
+  // fetch() network failures surface as TypeError; timeouts arrive as TimeoutError (fetchOk(), llm.ts), which says it is retryable.
+  return e.name === "TypeError"
 }
 
 export function backoffDelay(attempt: number, baseMs = 500, maxMs = 8000, random: () => number = Math.random): number {
@@ -62,6 +62,12 @@ function retryAfterOf(error: unknown): number | undefined {
 export interface RequestQueueOptions {
   concurrency: () => number
   maxRetries: () => number
+  /**
+   * Retries after a timeout, within maxRetries; 1 when absent. AI services
+   * get 0: a model that was too slow once is too slow again, and every
+   * attempt is charged.
+   */
+  timeoutRetries?: number
   baseDelayMs?: number
   sleep?: (ms: number) => Promise<void>
 }
@@ -79,13 +85,21 @@ export class RequestQueue {
     return this.running
   }
 
+  /** Run `task`, again after a retryable failure. A timeout that ends the attempts names the time of all timed-out attempts. */
   async run<T>(task: () => Promise<T>): Promise<T> {
     const maxRetries = this.options.maxRetries()
+    let timeoutRetries = this.options.timeoutRetries ?? 1
+    let waited = 0
     for (let attempt = 0; ; attempt++) {
       try {
         return await this.withSlot(task)
       } catch (error) {
-        if (attempt >= maxRetries || !isRetryableError(error)) throw error
+        if (error instanceof TimeoutError) {
+          waited += error.ms
+          if (attempt >= maxRetries || timeoutRetries-- <= 0) throw waited === error.ms ? error : new TimeoutError(error.service, waited)
+        } else if (attempt >= maxRetries || !isRetryableError(error)) {
+          throw error
+        }
         const retryAfter = retryAfterOf(error)
         const delay = retryAfter && retryAfter > 0 ? Math.min(retryAfter, 30000) : backoffDelay(attempt, this.options.baseDelayMs)
         await this.sleep(delay)
@@ -133,19 +147,30 @@ export interface FetchOptions {
 
 /**
  * fetch() that reports a failed connection as NetworkError (with the URL),
- * no answer within `timeoutMs` as TimeoutError, and a non-2xx answer as
- * HttpError (with status, Retry-After, URL and body).
+ * no complete answer within `timeoutMs` as TimeoutError, and a non-2xx
+ * answer as HttpError (with status, Retry-After, URL and body). With
+ * `timeoutMs`, the body is read before the response is returned.
  */
 export async function fetchOk({ fetchFn, timeoutMs }: FetchOptions, { url, init }: RequestSpec, label: string): Promise<Response> {
   const signal = timeoutMs ? AbortSignal.timeout(timeoutMs) : undefined
+  const failure = (error: unknown) => (signal?.aborted ? new TimeoutError(label, timeoutMs!) : new NetworkError(url, error))
   let resp: Response
   try {
     resp = await (fetchFn ?? fetch)(url, signal ? { ...init, signal } : init)
   } catch (error) {
-    if (signal?.aborted) throw new TimeoutError(label, timeoutMs!)
-    throw new NetworkError(url, error)
+    throw failure(error)
   }
-  if (resp.ok) return resp
+  if (resp.ok) {
+    if (!signal) return resp
+    // The timeout covers the body as well: read it here, where an expired signal becomes a TimeoutError.
+    try {
+      const body = await resp.arrayBuffer()
+      // An empty body stays null: a 204 answer may not carry one.
+      return new Response(body.byteLength ? body : null, resp)
+    } catch (error) {
+      throw failure(error)
+    }
+  }
   const body = await resp.text().catch(() => "")
   const text: ErrorText = { key: "errHttp", args: [label, String(resp.status)], detail: body ? body.slice(0, 300) : undefined }
   throw new HttpError(

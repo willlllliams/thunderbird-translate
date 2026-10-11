@@ -206,4 +206,49 @@ describe("splitText and joinParts", () => {
     ])
     expect(joinParts(parts, ["第一行。", "第二行。"], "zh-CN")).toBe("第一行。\n第二行。")
   })
+
+  /** The parts written back one after the other: the paragraph as it was. */
+  const rejoin = (parts: { text: string; gap: string }[]) => parts.map((p) => p.text + p.gap).join("")
+
+  it("M1: keep the lines of a long quoted block together and cut only where the limit requires it", () => {
+    const lines = Array.from({ length: 60 }, (_, i) => `> Line ${String(i).padStart(2, "0")} of the quoted reply, kept exactly as it was written${".".repeat(i % 7)}`)
+    const text = lines.join("\n").slice(0, 3889)
+    const parts = splitText(text, 3000)
+    expect(parts).toHaveLength(2)
+    expect(parts.every((p) => p.text.length <= 3000)).toBe(true)
+    // Cut at a line boundary; the line breaks inside a piece stay in it.
+    expect(parts[0].gap).toBe("\n")
+    expect(parts[0].text.split("\n").length).toBeGreaterThan(40)
+    expect(rejoin(parts)).toBe(text)
+    expect(joinParts(parts, parts.map((p) => p.text), "de")).toBe(text)
+  })
+
+  it("M1: cut at the last line break of a full piece, else between sentences, and keep the whitespace rules", () => {
+    const text = "Short line.\nOne two three. Four five six. Seven eight nine.\nLast line."
+    const parts = splitText(text, 30)
+    expect(parts).toEqual([
+      { text: "Short line.", gap: "\n" },
+      { text: "One two three. Four five six.", gap: " " },
+      { text: "Seven eight nine.\nLast line.", gap: "" },
+    ])
+    expect(rejoin(parts)).toBe(text)
+    expect(joinParts(parts, ["A", "B", "C"], "de")).toBe("A\nB C")
+    expect(joinParts(parts, ["甲", "乙", "丙"], "zh-CN")).toBe("甲\n乙丙")
+    // What follows the line break goes on alone when the next sentence does not fit beside it either.
+    expect(splitText("L1.\nAb cd. Ef gh ij kl mn op.", 20)).toEqual([
+      { text: "L1.", gap: "\n" },
+      { text: "Ab cd.", gap: " " },
+      { text: "Ef gh ij kl mn op.", gap: "" },
+    ])
+  })
+
+  it("keep the line breaks at the start of a long paragraph in a part without text, and put them back when joining", () => {
+    const text = `\n\n${"Sentence of a long paragraph. ".repeat(4).trim()}`
+    const parts = splitText(text, 40)
+    expect(parts.filter((p) => p.text === "")).toEqual([{ text: "", gap: "\n\n" }])
+    expect(parts.every((p) => p.text.length <= 40 && p.text === p.text.trim())).toBe(true)
+    expect(rejoin(parts)).toBe(text)
+    const translations = parts.map((p) => (p.text ? "X." : ""))
+    expect(joinParts(parts, translations, "de")).toBe("\n\nX. X. X. X.")
+  })
 })

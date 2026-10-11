@@ -22,9 +22,14 @@ async function store(stored: unknown, uiLanguage = "en-US") {
 }
 
 describe("mergeChanges", () => {
+  const merge2 = (target: object, base: object, source: object, own: object[]) => {
+    const out = structuredClone(target)
+    mergeChanges(out, base, source, own)
+    return out
+  }
   const merge = (target: object, base: object, source: object, keepTarget = false) => {
     const out = structuredClone(target)
-    mergeChanges(out, base, source, keepTarget)
+    mergeChanges(out, base, source, keepTarget ? [base] : [])
     return out
   }
   it.each([
@@ -43,10 +48,18 @@ describe("mergeChanges", () => {
     expect(merge(target, base, source, keepTarget)).toEqual(expected)
   })
 
+  it("L2: keeps a value of the target that differs from any of its references, also one restored to the base", () => {
+    const base = { a: 1, b: 1, c: 1 }
+    const sent = { a: 2, b: 1, c: 1 }
+    // a: changed back to the base after sending; b: unchanged; c: changed after sending.
+    expect(merge2({ a: 1, b: 1, c: 3 }, base, { a: 2, b: 5, c: 1 }, [base, sent])).toEqual({ a: 1, b: 5, c: 3 })
+    expect(merge2({ p: { x: 1 } }, { p: { x: 1 } }, { p: { x: 2 } }, [{ p: { x: 1 } }, { p: null }])).toEqual({ p: { x: 1 } })
+  })
+
   it("copies values instead of sharing them with the source", () => {
     const source = { p: { x: [1] } }
     const target = { p: null }
-    mergeChanges(target, { p: null }, source, false)
+    mergeChanges(target, { p: null }, source)
     source.p.x.push(2)
     expect(target).toEqual({ p: { x: [1] } })
   })
@@ -72,6 +85,13 @@ describe("settings in storage", () => {
     expect(set).toHaveBeenCalledTimes(1)
     expect(stored()).toEqual(result)
     expect(stored()).toMatchObject({ targetLang: "fr", autoTranslate: true })
+  })
+
+  it("L9: updateSettings reads the stored settings once per change", async () => {
+    const { updateSettings } = await store(createDefaultSettings("en"))
+    const get = vi.spyOn((globalThis as unknown as { browser: { storage: { local: { get: () => Promise<unknown> } } } }).browser.storage.local, "get")
+    await updateSettings((x) => (x.autoTranslate = true))
+    expect(get).toHaveBeenCalledTimes(1)
   })
 
   it("updateSettings keeps every change when the popup and a shortcut change settings at the same time", async () => {

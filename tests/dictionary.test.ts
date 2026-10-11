@@ -2,6 +2,7 @@
 import { IDBFactory } from "fake-indexeddb"
 import { describe, expect, it, vi } from "vitest"
 import { type IndexedPack, fetchDictionaryIndex, installPack, releaseUrl } from "../src/background/dictionary/download"
+import { TimeoutError } from "../src/shared/errors"
 import { dictKey, dictLang, parsePack } from "../src/background/dictionary/format"
 import { Dictionary, translateText } from "../src/background/dictionary"
 import { DictionaryStore } from "../src/background/dictionary/store"
@@ -20,6 +21,8 @@ const EN_ZH = tsv(
 const FR_EN = tsv("fr", "en", { bonjour: "hello", monde: "world" })
 const EN_DE = tsv("en", "de", { hello: "hallo", world: "Welt" })
 const ZH_EN = tsv("zh-Hans", "en", { 你好: "hello", 世界: "world" })
+const ZH_HANT_EN = tsv("zh-Hant", "en", { 我們: "we", 明天: "tomorrow", 開會: "hold a meeting" })
+const EN_ZH_MEETING = tsv("en", "zh-Hans", { we: "我们", tomorrow: "明天", "hold a meeting": "持有一个会议" })
 
 const pack = (text: string) => parsePack(text)
 
@@ -122,6 +125,39 @@ describe("storage, download and the dictionary tier", () => {
     ["no packs", { version: 1 }],
   ])("rejects an index with %s", async (_, body) => {
     await expect(fetchDictionaryIndex("x", asFetch(async () => jsonResponse(body)))).rejects.toThrow(ENGLISH.t("errUnexpectedResponse", ["dict-index.json"]))
+  })
+
+  it("L1: gives up on an index that does not arrive in time", async () => {
+    const hanging = (_url: string, init?: RequestInit) => new Promise<Response>((_, reject) => init?.signal?.addEventListener("abort", () => reject(init.signal!.reason)))
+    const error = await fetchDictionaryIndex("dicts-v1", asFetch(hanging), 50).catch((e) => e)
+    expect(error).toBeInstanceOf(TimeoutError)
+  })
+
+  it("L1: stops a pack download that receives nothing for a while, and lets a slow one finish", async () => {
+    const entry = indexEntry("dict-en-de.tsv.gz")
+    const data = gz(EN_DE)
+    /** A response that sends the file in `chunks` pieces, one every `everyMs`, and stops after `stopAfter` pieces. */
+    const trickle = (everyMs: number, chunks: number, stopAfter = chunks) =>
+      asFetch(async () => {
+        const size = Math.ceil(data.byteLength / chunks)
+        let sent = 0
+        return new Response(
+          new ReadableStream<Uint8Array>({
+            async pull(c) {
+              if (sent === stopAfter) return new Promise<void>(() => {})
+              await new Promise((r) => setTimeout(r, everyMs))
+              c.enqueue(data.slice(sent * size, (sent + 1) * size))
+              if (++sent === chunks) c.close()
+            },
+          }),
+        )
+      })
+    const stalled = await installPack(entry, "dicts-v1", newStore(), { fetchFn: trickle(5, 4, 2), idleMs: 60 }).catch((e) => e)
+    expect(stalled.i18nText).toMatchObject({ key: "errDownloadStalled", args: ["GitHub", "0"] })
+    // Six pieces, 40 ms apart: longer than the idle time in total, never between two pieces.
+    const store = newStore()
+    await installPack(entry, "dicts-v1", store, { fetchFn: trickle(40, 6), idleMs: 60 })
+    expect((await store.list()).map((p) => p.id)).toEqual(["en>de"])
   })
 
   it("leaves out index entries with missing or mistyped fields", async () => {
@@ -273,6 +309,22 @@ describe("storage, download and the dictionary tier", () => {
     data.mockClear()
     await expect(texts(dictionary, ["Hello"], "en", "ja")).rejects.toThrow(ENGLISH.t("errDictionaryMissing", ["en → ja"]))
     expect(data.mock.calls.map(([id]) => id)).toEqual(["en>ja"])
+  })
+
+  it("M2: does not translate between Simplified and Traditional Chinese through English", async () => {
+    const store = await installed("dict-fr-en.tsv.gz")
+    const meta = (await store.list())[0]
+    for (const [src, tgt, text] of [["zh-Hant", "en", ZH_HANT_EN], ["en", "zh-Hans", EN_ZH_MEETING]]) await store.put({ ...meta, id: pairKey(src, tgt), src, tgt }, gz(text).buffer)
+    const data = vi.spyOn(store, "data")
+    const detect = vi.fn(async () => "zh-TW")
+    const dictionary = new Dictionary(store, { detect })
+    for (const source of ["zh-TW", "auto"]) {
+      const [result] = await dictionary.translate(["我們明天開會，請準時參加這個會議"], source, "zh-CN")
+      expect(result).toMatchObject({ status: "rejected", reason: { i18nText: { key: "errChineseVariants" } } })
+      expect(describeError((result as PromiseRejectedResult).reason, ENGLISH)).toBe(ENGLISH.t("errChineseVariants"))
+    }
+    expect((await dictionary.translate(["我們"], "zh-CN", "zh-TW"))[0]).toMatchObject({ status: "rejected" })
+    expect(data).not.toHaveBeenCalled()
   })
 
   it("reads a pack again after a read failure", async () => {

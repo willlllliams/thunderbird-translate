@@ -105,6 +105,8 @@ export function connectContent({ root, contentScript = false }: ClientOptions): 
       })
     } else if (msg.type === "toggle") {
       void controller.toggle()
+    } else if (msg.type === "dataChanged") {
+      controller.forgetResults()
     } else if (msg.type === "tier") {
       const request = pending.get(msg.id)
       request?.tiers.delete(msg.tier)

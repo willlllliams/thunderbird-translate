@@ -64,6 +64,31 @@ describe("connectContent", () => {
     expect(document.querySelector(".tt-translation")).toBeNull()
   })
 
+  it("L3: asks the background again after dictionary packs or offline models changed, instead of showing the result kept from before", async () => {
+    const client = connectContent({ root: () => document.body })
+    settingsPush(tieredSettings(["dictionary"]))
+    await client.ready
+    const toggle = async (active: boolean) => {
+      port.push({ type: "toggle" })
+      await vi.waitFor(() => expect(lastState()).toMatchObject({ active }))
+    }
+    await toggle(true)
+    await vi.waitFor(() => expect(port.posted("translate")).toHaveLength(1))
+    const [{ id }] = port.posted("translate")
+    port.push({ type: "tier", id, tier: "dictionary", result: { ok: true, text: "D1" } })
+    port.push({ type: "done", id })
+    await toggle(false)
+    // The same paragraph again: the result kept by the page answers, the background is not asked.
+    port.push({ type: "toggle" })
+    await vi.waitFor(() => expect(document.querySelector(".tt-translation")?.textContent).toBe("D1"))
+    expect(port.posted("translate")).toHaveLength(1)
+    port.push({ type: "toggle" })
+    await vi.waitFor(() => expect(lastState()).toMatchObject({ active: false }))
+    port.push({ type: "dataChanged" })
+    port.push({ type: "toggle" })
+    await vi.waitFor(() => expect(port.posted("translate")).toHaveLength(2))
+  })
+
   it("content script: loads the labels of the interface language once per language and auto-translates", async () => {
     sendMessage.mockResolvedValue({ locale: "de", messages: { statusTranslating: "Übersetze…" } })
     const client = connectContent({ root: () => document.body, contentScript: true })

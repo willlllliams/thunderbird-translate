@@ -9,9 +9,13 @@
  *   terminated: the wasm heap never shrinks, so this is the only way to give
  *   the memory back.
  * - A worker that does not answer a request within `timeoutMs` (default 2
- *   minutes) is terminated; the next request starts a fresh one.
+ *   minutes; loading a model `loadTimeoutMs`, default 5 minutes) is
+ *   terminated; the next request starts a fresh one. After two timeouts in
+ *   a row, requests fail at once for `pauseMs` (default 1 minute) instead
+ *   of each waiting for its own timeout.
  */
 
+import { LocalizedError } from "../../shared/errors"
 import type { WorkerModelFile, WorkerRequest, WorkerResponse } from "./protocol"
 
 /** What the engine needs from a Worker; tests pass a fake. */
@@ -35,6 +39,9 @@ export interface EngineOptions {
   maxModels?: number
   idleMs?: number
   timeoutMs?: number
+  loadTimeoutMs?: number
+  pauseMs?: number
+  now?: () => number
   setTimer?: (fn: () => void, ms: number) => unknown
   clearTimer?: (handle: unknown) => void
 }
@@ -42,6 +49,10 @@ export interface EngineOptions {
 const DEFAULT_MAX_MODELS = 2
 const DEFAULT_IDLE_MS = 5 * 60 * 1000
 const DEFAULT_TIMEOUT_MS = 2 * 60 * 1000
+const DEFAULT_LOAD_TIMEOUT_MS = 5 * 60 * 1000
+const DEFAULT_PAUSE_MS = 60 * 1000
+/** Timeouts in a row that pause the engine. */
+const TIMEOUTS_BEFORE_PAUSE = 2
 
 export class EngineError extends Error {
   constructor(message: string) {
@@ -59,6 +70,9 @@ export class BergamotEngine {
   private chain: Promise<unknown> = Promise.resolve()
   private busy = 0
   private idleTimer: unknown = null
+  /** Requests in a row that timed out. */
+  private timeouts = 0
+  private pausedUntil = 0
 
   private readonly maxModels: number
   private readonly idleMs: number
@@ -84,6 +98,8 @@ export class BergamotEngine {
   /** Translate with one pair key, or two keys through English. */
   translate(keys: string[], texts: string[]): Promise<string[]> {
     return this.serialize(async () => {
+      const pause = this.pausedUntil - (this.options.now ?? Date.now)()
+      if (pause > 0) throw new LocalizedError("bergamotEnginePaused", [String(Math.ceil(pause / 1000))])
       try {
         for (const key of keys) await this.ensureLoaded(key, keys)
         const res = await this.request({ id: 0, type: "translate", keys, texts })
@@ -147,6 +163,7 @@ export class BergamotEngine {
     await this.request(
       { id: 0, type: "load", key, src: payload.src, tgt: payload.tgt, files: payload.files },
       payload.files.map((f) => f.bytes),
+      this.options.loadTimeoutMs ?? DEFAULT_LOAD_TIMEOUT_MS,
     )
     this.loaded.push(key)
   }
@@ -181,13 +198,17 @@ export class BergamotEngine {
     this.pending.clear()
   }
 
-  private async request(message: WorkerRequest, transfer: Transferable[] = []): Promise<WorkerResponse & { ok: true }> {
+  private async request(message: WorkerRequest, transfer: Transferable[] = [], timeoutMs = this.options.timeoutMs ?? DEFAULT_TIMEOUT_MS): Promise<WorkerResponse & { ok: true }> {
     const worker = this.ensureWorker()
     const id = this.nextId++
-    const timeoutMs = this.options.timeoutMs ?? DEFAULT_TIMEOUT_MS
     const timer = this.setTimer(() => {
+      if (!this.pending.has(id)) return
+      if (++this.timeouts >= TIMEOUTS_BEFORE_PAUSE) {
+        this.timeouts = 0
+        this.pausedUntil = (this.options.now ?? Date.now)() + (this.options.pauseMs ?? DEFAULT_PAUSE_MS)
+      }
       // A worker stuck in wasm answers nothing else either: replace it.
-      if (this.pending.has(id)) this.kill(new EngineError(`offline engine did not answer within ${Math.round(timeoutMs / 1000)} s`))
+      this.kill(new EngineError(`offline engine did not answer within ${Math.round(timeoutMs / 1000)} s`))
     }, timeoutMs)
     const response = await new Promise<WorkerResponse>((resolve, reject) => {
       this.pending.set(id, { resolve, reject })
@@ -198,6 +219,7 @@ export class BergamotEngine {
         reject(e instanceof Error ? e : new Error(String(e)))
       }
     }).finally(() => this.clearTimer(timer))
+    this.timeouts = 0
     if (!response.ok) throw new EngineError(response.error)
     return response
   }

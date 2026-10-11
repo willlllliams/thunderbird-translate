@@ -5,7 +5,7 @@
  * Used by the settings page; the installed packs go to DictionaryStore.
  */
 
-import { readBody, sha256Hex } from "../../shared/download"
+import { IDLE_TIMEOUT_MS, idleSignal, LIST_TIMEOUT_MS, readBody, sha256Hex } from "../../shared/download"
 import { LocalizedError } from "../../shared/errors"
 import { pairKey } from "../../shared/languages"
 import { fetchOk } from "../queue/request-queue"
@@ -44,9 +44,9 @@ function isIndexedPack(value: unknown): value is IndexedPack {
   return STRING_FIELDS.every((k) => typeof o[k] === "string") && NUMBER_FIELDS.every((k) => typeof o[k] === "number")
 }
 
-export async function fetchDictionaryIndex(tag: string, fetchFn: typeof fetch = fetch): Promise<IndexedPack[]> {
+export async function fetchDictionaryIndex(tag: string, fetchFn: typeof fetch = fetch, timeoutMs = LIST_TIMEOUT_MS): Promise<IndexedPack[]> {
   const url = releaseUrl(tag, "dict-index.json")
-  const resp = await fetchOk({ fetchFn }, { url, init: { method: "GET", headers: {} } }, "GitHub")
+  const resp = await fetchOk({ fetchFn, timeoutMs }, { url, init: { method: "GET", headers: {} } }, "GitHub")
   const json = (await resp.json().catch(() => null)) as { version?: unknown; packs?: unknown } | null
   if (json?.version !== 1 || !Array.isArray(json.packs)) throw new LocalizedError("errUnexpectedResponse", ["dict-index.json"])
   return json.packs.filter(isIndexedPack)
@@ -56,13 +56,36 @@ export interface DownloadOptions {
   fetchFn?: typeof fetch
   /** Bytes received so far and the expected total. */
   onProgress?: (loaded: number, total: number) => void
+  /** Cancels the download. */
+  signal?: AbortSignal
+  /** The download fails when nothing arrives for this long. */
+  idleMs?: number
+}
+
+/** The file of a pack; fails when nothing arrives for `idleMs`, however long the whole download takes. */
+async function downloadPack(url: string, fallbackTotal: number, { fetchFn = fetch, onProgress, signal, idleMs = IDLE_TIMEOUT_MS }: DownloadOptions): Promise<Uint8Array<ArrayBuffer>> {
+  const idle = idleSignal(idleMs, signal)
+  try {
+    const resp = await fetchOk({ fetchFn }, { url, init: { method: "GET", headers: {}, signal: idle.signal } }, "GitHub")
+    const total = Number(resp.headers.get("content-length")) || fallbackTotal
+    return await readBody(
+      resp,
+      (loaded) => {
+        idle.kick()
+        onProgress?.(loaded, total)
+      },
+      idle.signal,
+    )
+  } catch (error) {
+    throw idle.stalled() ? new LocalizedError("errDownloadStalled", ["GitHub", String(Math.round(idleMs / 1000))]) : error
+  } finally {
+    idle.stop()
+  }
 }
 
 /** Download a pack, check its SHA-256 and its content, and store it. */
-export async function installPack(pack: IndexedPack, tag: string, store: DictionaryStore, { fetchFn = fetch, onProgress }: DownloadOptions = {}): Promise<void> {
-  const resp = await fetchOk({ fetchFn }, { url: releaseUrl(tag, pack.file), init: { method: "GET", headers: {} } }, "GitHub")
-  const total = Number(resp.headers.get("content-length")) || pack.bytes
-  const data = await readBody(resp, (loaded) => onProgress?.(loaded, total))
+export async function installPack(pack: IndexedPack, tag: string, store: DictionaryStore, options: DownloadOptions = {}): Promise<void> {
+  const data = await downloadPack(releaseUrl(tag, pack.file), pack.bytes, options)
   if ((await sha256Hex(data)) !== pack.sha256.toLowerCase()) throw new LocalizedError("errDictionaryChecksum", [pack.file])
   const parsed = parsePack(await gunzip(data))
   if (parsed.src !== pack.src || parsed.tgt !== pack.tgt) throw new LocalizedError("errDictionaryFormat")

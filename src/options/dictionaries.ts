@@ -1,6 +1,6 @@
 /**
  * Dictionary packs of the release index and the installed ones, with
- * download (progress, checksum) and delete: the "Dictionaries" section of
+ * download (progress, checksum, cancel) and delete: the "Dictionaries" section of
  * the settings page, and on the welcome page the packs the languages need,
  * each with a check box, downloaded together. The page writes IndexedDB
  * itself and tells the background script to read the packs again.
@@ -11,7 +11,7 @@ import { fetchDictionaryIndex, type IndexedPack, installPack } from "../backgrou
 import { DictionaryStore, type InstalledPack } from "../background/dictionary/store"
 import { describeError } from "../shared/errors"
 import { getI18n, t } from "../shared/i18n"
-import { appLang, getLanguage, pairKey } from "../shared/languages"
+import { appLang, getLanguage, isChinesePair, pairKey } from "../shared/languages"
 import { send } from "../shared/page"
 import { button, h } from "./dom"
 
@@ -41,12 +41,13 @@ function languageName(code: string): string {
 /**
  * Packs that translate `source` into `target`, as the dictionary uses them:
  * the direct pack when the release has it, otherwise the two packs through
- * English. Automatic detection counts as English.
+ * English. Automatic detection counts as English. None between Simplified
+ * and Traditional Chinese, which the dictionary does not translate.
  */
 export function neededPackIds(source: string, target: string, available: { src: string; tgt: string }[]): string[] {
   const src = dictLang(source === "auto" ? "en" : source)
   const tgt = dictLang(target)
-  if (!src || !tgt || src === tgt) return []
+  if (!src || !tgt || src === tgt || isChinesePair(src, tgt)) return []
   if (src === "en" || tgt === "en" || available.some((p) => p.src === src && p.tgt === tgt)) return [pairKey(src, tgt)]
   return [pairKey(src, "en"), pairKey("en", tgt)]
 }
@@ -58,6 +59,8 @@ export class DictionarySection {
   private indexError = ""
   /** Download progress in percent, by pack id. */
   private progress = new Map<string, number>()
+  /** Cancellation of the running downloads, by pack id. */
+  private downloads = new Map<string, AbortController>()
   private rowErrors = new Map<string, string>()
   /** Check boxes the user cleared; every other pack shown and not installed is picked. */
   private unpicked = new Set<string>()
@@ -116,7 +119,7 @@ export class DictionarySection {
     )
     const progress = this.progress.get(id)
     if (progress !== undefined) {
-      li.append(h("span", { text: t("dictDownloading", [progress]) }))
+      li.append(h("span", { text: t("dictDownloading", [progress]) }), button(t("buttonCancel"), () => this.downloads.get(id)?.abort()))
     } else if (installed && !this.deps.needed) {
       li.append(button(t("buttonDelete"), () => void this.remove(id)))
     } else if (available && !this.deps.needed) {
@@ -144,10 +147,13 @@ export class DictionarySection {
     const id = pairKey(pack.src, pack.tgt)
     this.rowErrors.delete(id)
     this.progress.set(id, 0)
+    const controller = new AbortController()
+    this.downloads.set(id, controller)
     this.render()
     try {
       await installPack(pack, this.deps.tag(), this.store, {
         fetchFn: this.deps.fetchFn,
+        signal: controller.signal,
         onProgress: (loaded, total) => {
           const percent = Math.min(100, Math.round((loaded / total) * 100))
           if (percent === this.progress.get(id)) return
@@ -157,9 +163,10 @@ export class DictionarySection {
       })
       await this.changed()
     } catch (error) {
-      this.rowErrors.set(id, describeError(error, getI18n()))
+      if (!controller.signal.aborted) this.rowErrors.set(id, describeError(error, getI18n()))
     } finally {
       this.progress.delete(id)
+      this.downloads.delete(id)
       this.render()
     }
   }

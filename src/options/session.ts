@@ -2,8 +2,10 @@
  * Settings as edited on an extension page (settings page, welcome page).
  * Edits are saved 300 ms after the last change, on top of what is in
  * storage, so changes made elsewhere in the meantime survive; changes made
- * elsewhere are taken over, except for the control being edited. A failed
- * save is reported through onSaveError and does not stop later saves.
+ * elsewhere are taken over, except for the settings the page has changed
+ * and not stored yet. A control being edited shows such a change once it
+ * loses the focus. A failed save is reported through onSaveError; its edits
+ * stay pending and go with the next save.
  */
 
 import { ext } from "../shared/ext"
@@ -23,8 +25,13 @@ export class SettingsSession {
   onSaveError: (error: unknown) => void = () => {}
   /** Settings as this page last read or wrote them: the reference for what the user changed. */
   private baseline: Settings
+  /** The page has edits that are not stored yet. */
+  private dirty = false
+  /** A save is writing; settings stored elsewhere meanwhile wait in `remote`. */
+  private writing = false
+  private remote: Settings | null = null
   private timer: ReturnType<typeof setTimeout> | null = null
-  private saving: Promise<void> = Promise.resolve()
+  private saving: Promise<boolean> = Promise.resolve(true)
   /** Redraw the control of one setting; run again when the settings change elsewhere. */
   private readonly controls: (() => void)[] = []
 
@@ -36,14 +43,23 @@ export class SettingsSession {
   static async open(): Promise<SettingsSession> {
     const session = new SettingsSession(await loadSettings())
     ext.storage.onChanged.addListener((changes, area) => {
-      if (area === "local" && changes[SETTINGS_KEY]) session.absorb(readSettings(changes[SETTINGS_KEY].newValue))
+      if (area !== "local" || !changes[SETTINGS_KEY]) return
+      const remote = readSettings(changes[SETTINGS_KEY].newValue)
+      if (session.writing) session.remote = remote
+      else session.absorb(remote)
     })
     return session
   }
 
-  private absorb(remote: Settings): void {
+  /**
+   * Take over the stored settings `remote`, keeping the page's own changes:
+   * what differs from the settings as last stored and, after a save, from
+   * `sent`, the settings that save wrote (an edit made during the save may
+   * restore a stored value).
+   */
+  private absorb(remote: Settings, sent?: Settings): void {
     const before = structuredClone(this.settings)
-    mergeChanges(this.settings, this.baseline, remote, true)
+    mergeChanges(this.settings, this.baseline, remote, sent ? [this.baseline, sent] : [this.baseline])
     this.baseline = structuredClone(remote)
     for (const show of this.controls) show()
     this.onRemoteChange(before)
@@ -51,32 +67,51 @@ export class SettingsSession {
 
   /** Save soon; changes within 300 ms go into one write. */
   save(): void {
+    this.dirty = true
     if (this.timer) clearTimeout(this.timer)
     this.timer = setTimeout(() => void this.flush(), 300)
   }
 
-  /** Save now what is pending. Never rejects. */
-  flush(): Promise<void> {
-    if (this.timer) {
-      clearTimeout(this.timer)
-      this.timer = null
-      this.saving = this.saving.then(async () => {
-        try {
-          this.absorb(await saveChanges(this.baseline, this.settings))
-          this.onSaved()
-        } catch (error) {
-          this.onSaveError(error)
-        }
-      })
-    }
+  /** Save now what is pending. Resolves with false when the save failed; never rejects. */
+  flush(): Promise<boolean> {
+    if (this.timer) clearTimeout(this.timer)
+    this.timer = null
+    this.saving = this.saving.then(async () => {
+      if (!this.dirty) return true
+      this.dirty = false
+      this.writing = true
+      const sent = structuredClone(this.settings)
+      let saved = false
+      try {
+        this.absorb(await saveChanges(this.baseline, sent), sent)
+        this.onSaved()
+        saved = true
+      } catch (error) {
+        this.dirty = true
+        this.onSaveError(error)
+      }
+      this.writing = false
+      const remote = this.remote
+      this.remote = null
+      if (remote) this.absorb(remote)
+      return saved
+    })
     return this.saving
   }
 
-  /** A control that shows a setting. The one being edited is left alone when the settings change elsewhere. */
+  /** A control that shows a setting. The one being edited shows a change made elsewhere once it loses the focus. */
   track(input: HTMLElement, show: () => void): void {
+    let stale = false
     const update = () => {
-      if (document.activeElement !== input) show()
+      stale = document.activeElement === input
+      if (!stale) show()
     }
+    // During blur the control may still count as focused, so it is drawn here directly.
+    input.addEventListener("blur", () => {
+      if (!stale) return
+      stale = false
+      show()
+    })
     this.controls.push(update)
     update()
   }

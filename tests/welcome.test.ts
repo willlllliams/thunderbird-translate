@@ -118,6 +118,11 @@ describe("offline recommendations", () => {
     expect(neededPackIds("de", "de", index)).toEqual([])
     expect(neededPackIds("it", "zh-CN", index)).toEqual([])
   })
+
+  it("M2: recommends no packs between Simplified and Traditional Chinese, which the dictionary does not translate", () => {
+    expect(neededPackIds("zh-TW", "zh-CN", index)).toEqual([])
+    expect(neededPackIds("zh-CN", "zh-TW", index)).toEqual([])
+  })
 })
 
 describe("welcome page", () => {
@@ -224,6 +229,31 @@ describe("welcome page", () => {
     $("exitGuide").click()
     await vi.waitFor(() => expect(page.removed).toEqual([7]))
     expect(page.local(WELCOME_KEY)).toEqual({ step: "tiers" })
+  })
+
+  it("M3: stays open with the failure on screen when the settings cannot be saved on leaving or finishing", async () => {
+    const page = await openPage("welcome", settings(), { stored: { [WELCOME_KEY]: { step: "finish" } } })
+    await vi.waitFor(() => expect(current()).toBe("finish"))
+    const local = (globalThis as unknown as { browser: { storage: { local: { set: (v: Record<string, unknown>) => Promise<void> } } } }).browser.storage.local
+    const write = local.set
+    let refuse = true
+    local.set = async (v) => {
+      if ("settings" in v && refuse) throw new Error("quota exceeded")
+      return write(v)
+    }
+    $<HTMLInputElement>("autoTranslate").click()
+    for (const button of ["exitGuide", "nextStep"]) {
+      $(button).click()
+      await vi.waitFor(() => expect($("saved").textContent).toBe(ENGLISH.t("errSaveFailed", ["quota exceeded"])))
+      await new Promise((r) => setTimeout(r, 20))
+      expect(page.removed).toEqual([])
+      $("saved").textContent = ""
+    }
+    refuse = false
+    $("nextStep").click()
+    await vi.waitFor(() => expect(page.removed).toEqual([7]))
+    expect(page.stored().autoTranslate).toBe(true)
+    expect(page.local(WELCOME_KEY)).toEqual({ step: "finish", finished: true })
   })
 
   it("marks the guide as finished on the last step", async () => {

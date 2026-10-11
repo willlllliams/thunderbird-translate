@@ -133,8 +133,8 @@ interface LegacySettings {
   systemPrompt?: unknown
 }
 
-/** The built-in system prompt before 1.4.0; a stored copy of it is not a custom prompt. */
-const LEGACY_DEFAULT_PROMPT = `You are a professional translator working on email messages.
+/** The built-in system prompt of 1.0 – 1.3, for every kind. */
+const PROMPT_1_0 = `You are a professional translator working on email messages.
 Translate the user's text into {{to}}.
 Rules:
 - Preserve the meaning, tone and level of politeness of the original email.
@@ -168,8 +168,18 @@ function normalizeTiers(stored: Partial<Settings> & LegacySettings): TierSetting
   return tiersValid(tiers) ? tiers : { ...DEFAULT_TIERS }
 }
 
-/** Whether a stored prompt is a copy of the built-in prompt of its kind, current or earlier, rather than the user's own. */
-const isBuiltInPrompt = (kind: PromptKind, text: string) => [LEGACY_DEFAULT_PROMPT, DEFAULT_PROMPTS[kind]].includes(text.trim())
+/**
+ * Built-in prompts of every release, current ones included: a stored copy
+ * of one of them is not the user's own prompt. A release that changes
+ * DEFAULT_PROMPTS adds the prompts it replaces here.
+ */
+const BUILT_IN_PROMPTS: Record<PromptKind, string[]> = {
+  bilingual: [PROMPT_1_0, DEFAULT_PROMPTS.bilingual],
+  translationOnly: [PROMPT_1_0, DEFAULT_PROMPTS.translationOnly],
+  precise: [PROMPT_1_0, DEFAULT_PROMPTS.precise],
+}
+
+const isBuiltInPrompt = (kind: PromptKind, text: string) => BUILT_IN_PROMPTS[kind].includes(text.trim())
 
 /**
  * Prompts from stored settings; empty stands for the built-in prompt, so a

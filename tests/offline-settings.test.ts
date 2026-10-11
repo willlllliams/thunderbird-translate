@@ -117,6 +117,21 @@ describe("dictionary panel", () => {
     expect((await d.store.list()).map((p) => p.id)).toEqual(["en>de"])
   })
 
+  it("L1: cancels a running download from its row", async () => {
+    const stream = new ReadableStream<Uint8Array>({ start: (c) => c.enqueue(gz(EN_DE).slice(0, 10)) })
+    const fetchFn = asFetch(async (url: string) => (url.endsWith("dict-index.json") ? jsonResponse({ version: 1, packs: [packEntry(EN_DE)] }) : new Response(stream)))
+    const requests = background({})
+    const d = dictionaries([], { fetchFn })
+    await d.section.load()
+    button(d.rows()[0]!, ENGLISH.t("buttonDownload"))!.click()
+    await vi.waitFor(() => expect(button(d.rows()[0]!, ENGLISH.t("buttonCancel"))).toBeDefined())
+    button(d.rows()[0]!, ENGLISH.t("buttonCancel"))!.click()
+    await vi.waitFor(() => expect(button(d.rows()[0]!, ENGLISH.t("buttonDownload"))).toBeDefined())
+    expect(d.rows()[0]!.querySelector(".test-result")).toBeNull()
+    expect(requests).toEqual([])
+    expect(await d.store.list()).toEqual([])
+  })
+
   it("shows a failed download in its row and offers the download again", async () => {
     const d = dictionaries([EN_DE], { fetchFn: asFetch(async (url: string) => (url.endsWith("dict-index.json") ? jsonResponse({ version: 1, packs: [packEntry(EN_DE, { sha256: "0".repeat(64) })] }) : new Response(gz(EN_DE)))) })
     background({})

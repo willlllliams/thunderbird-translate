@@ -44,6 +44,10 @@ export class LruCache<V> {
     this.evict()
   }
 
+  delete(key: string): void {
+    this.map.delete(key)
+  }
+
   clear(): void {
     this.map.clear()
   }
