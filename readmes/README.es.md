@@ -6,6 +6,8 @@ Thunderbird Translate es una extensión de Thunderbird que traduce el cuerpo del
 
 Este documento está escrito para lectores que no han usado antes una extensión de Thunderbird. Sigue el orden instalación, uso, configuración y funcionamiento interno.
 
+![Demostración: traducir un mensaje, alternar entre bilingüe y solo traducción, cambiar el idioma de destino](../docs/demo.gif)
+
 ## Funciones
 
 - Traducción del cuerpo: la extensión localiza el contenido a nivel de párrafo en el cuerpo del mensaje: párrafos, elementos de lista, celdas de tabla, encabezados, citas en bloque, div que solo contienen texto y párrafos separados por líneas en blanco en el correo de texto sin formato. Se omiten el código, los párrafos que ya están en el idioma de destino, los números, los enlaces sueltos y los espacios en blanco.

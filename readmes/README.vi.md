@@ -6,6 +6,8 @@ Thunderbird Translate là một tiện ích của Thunderbird, dùng để dịc
 
 Tài liệu này viết cho người đọc chưa từng dùng tiện ích của Thunderbird. Nội dung đi theo thứ tự: cài đặt, sử dụng, cấu hình và cách hoạt động.
 
+![Minh họa: dịch thư, chuyển giữa song ngữ và chỉ bản dịch, đổi ngôn ngữ đích](../docs/demo.gif)
+
 ## Tính năng
 
 - Dịch nội dung thư: tiện ích tìm nội dung ở cấp đoạn trong phần thân thư, gồm đoạn văn, mục danh sách, ô bảng, tiêu đề, khối trích dẫn, div chỉ chứa văn bản, và các đoạn được ngăn cách bằng dòng trống trong thư văn bản thuần. Mã nguồn, các đoạn đã ở ngôn ngữ đích, con số, liên kết trơn và khoảng trắng được bỏ qua.

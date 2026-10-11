@@ -6,6 +6,8 @@ Thunderbird Translate is a Thunderbird extension that translates the body of the
 
 This document is written for readers who have not used a Thunderbird extension before. It follows the order install, use, configure, and how it works.
 
+![Demo: translating a message, switching between bilingual and translation-only, changing the target language](docs/demo.gif)
+
 ## Features
 
 - Body translation: the extension finds paragraph-level content in the message body: paragraphs, list items, table cells, headings, block quotes, text-only divs, and blank-line separated paragraphs in plain-text mail. Code, paragraphs already in the target language, numbers, bare links and whitespace are skipped.

@@ -6,6 +6,8 @@ Thunderbird Translate ist eine Erweiterung für Thunderbird, die den Text der ge
 
 Dieses Dokument richtet sich an Leser, die noch keine Thunderbird-Erweiterung verwendet haben. Es folgt der Reihenfolge Installation, Verwendung, Konfiguration und Funktionsweise.
 
+![Demo: Nachricht übersetzen, zwischen zweisprachig und nur Übersetzung wechseln, Zielsprache ändern](../docs/demo.gif)
+
 ## Funktionen
 
 - Übersetzung des Nachrichtentexts: Die Erweiterung erkennt Inhalte auf Absatzebene im Nachrichtentext, also Absätze, Listeneinträge, Tabellenzellen, Überschriften, Zitatblöcke, reine Text-divs und durch Leerzeilen getrennte Absätze in Nur-Text-Nachrichten. Code, Absätze, die bereits in der Zielsprache verfasst sind, Zahlen, nackte Links und Leerraum werden übersprungen.

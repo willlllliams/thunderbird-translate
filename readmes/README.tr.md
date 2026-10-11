@@ -6,6 +6,8 @@ Thunderbird Translate, okuduğunuz iletinin gövdesini doğrudan ileti bölmesin
 
 Bu belge daha önce Thunderbird eklentisi kullanmamış okurlar için yazılmıştır. Sırasıyla kurulum, kullanım, yapılandırma ve çalışma ilkesini anlatır.
 
+![Demo: iletiyi çevirme, iki dilli ve yalnızca çeviri arasında geçiş, hedef dili değiştirme](../docs/demo.gif)
+
 ## Özellikler
 
 - Gövde çevirisi: eklenti ileti gövdesindeki paragraf düzeyindeki içeriği bulur. Bunlar paragraflar, liste öğeleri, tablo hücreleri, başlıklar, alıntı blokları, yalnızca metin içeren div öğeleri ve düz metin iletilerde boş satırlarla ayrılmış paragraflardır. Kod, zaten hedef dilde olan paragraflar, sayılar, çıplak bağlantılar ve boşluklar atlanır.
