@@ -9,6 +9,7 @@
  * batch response has an unexpected shape.
  */
 
+import { LocalizedError } from "../../shared/errors"
 import { ensureOk } from "../queue/request-queue"
 
 export const GOOGLE_DEFAULT_BASE = "https://translate.googleapis.com"
@@ -39,14 +40,14 @@ export function buildGoogleBatchRequest(texts: string[], targetLang: string, sou
  */
 export function parseGoogleBatchResponse(json: unknown, expected: number): string[] {
   const list = typeof json === "string" ? [json] : json
-  if (!Array.isArray(list)) throw new Error("Google: unexpected response format")
+  if (!Array.isArray(list)) throw new LocalizedError("errUnexpectedResponse", ["Google"])
   const out = list.map((entry, i) => {
     if (typeof entry === "string") return entry
     if (Array.isArray(entry) && typeof entry[0] === "string") return entry[0]
-    throw new Error(`Google: unexpected entry at index ${i}`)
+    throw new LocalizedError("errMissingTranslation", ["Google", String(i + 1)])
   })
   if (out.length !== expected) {
-    throw new Error(`Google: expected ${expected} results, got ${out.length}`)
+    throw new LocalizedError("errResultCount", ["Google", String(expected), String(out.length)])
   }
   return out
 }
@@ -65,7 +66,7 @@ export function buildGoogleSingleRequest(text: string, targetLang: string, sourc
 
 /** translate_a/single: [[["句1","src1",...],["句2","src2",...]], null, "en", ...] */
 export function parseGoogleSingleResponse(json: unknown): string {
-  if (!Array.isArray(json) || !Array.isArray(json[0])) throw new Error("Google: unexpected response format")
+  if (!Array.isArray(json) || !Array.isArray(json[0])) throw new LocalizedError("errUnexpectedResponse", ["Google"])
   return (json[0] as unknown[])
     .filter(Array.isArray)
     .map((chunk) => (typeof chunk[0] === "string" ? chunk[0] : ""))

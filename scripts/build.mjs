@@ -4,6 +4,7 @@ import { dirname, join, relative, sep } from "node:path"
 import { fileURLToPath } from "node:url"
 import * as esbuild from "esbuild"
 import { zipSync } from "fflate"
+import { checkLocales, readLocaleSources, writeLocales } from "./locales.mjs"
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..")
 const dist = join(root, "dist")
@@ -23,6 +24,20 @@ rmSync(dist, { recursive: true, force: true })
 mkdirSync(dist, { recursive: true })
 cpSync(join(root, "static"), dist, { recursive: true })
 cpSync(join(root, "LICENSE"), join(dist, "LICENSE"))
+
+// _locales/<locale>/messages.json from locales/*.json; refuse to build with incomplete translations.
+const localeSources = readLocaleSources()
+const localeProblems = checkLocales(localeSources)
+if (localeProblems.length) {
+  for (const problem of localeProblems) console.error(problem)
+  process.exit(1)
+}
+const locales = writeLocales(join(dist, "_locales"), localeSources)
+if (!locales.includes(manifest.default_locale)) {
+  console.error(`default_locale ${manifest.default_locale} has no locales/${manifest.default_locale}.json`)
+  process.exit(1)
+}
+console.log(`_locales: ${locales.join(", ")}`)
 
 const options = {
   entryPoints: {

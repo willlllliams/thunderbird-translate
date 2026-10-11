@@ -23,6 +23,7 @@ import { createPerplexity } from "@ai-sdk/perplexity"
 import { createTogetherAI } from "@ai-sdk/togetherai"
 import { createXai } from "@ai-sdk/xai"
 import type { LanguageModel } from "ai"
+import { LocalizedError } from "../../shared/errors"
 import { getPreset, type SdkId } from "../../shared/providers"
 import type { ResolvedProvider } from "../../shared/settings"
 
@@ -38,11 +39,11 @@ export interface ProviderSettings {
 export function buildProviderSettings(resolved: ResolvedProvider): ProviderSettings {
   const preset = getPreset(resolved.id)
   if (!preset || preset.kind !== "llm" || !preset.sdk) {
-    throw new Error(`${resolved.id} is not an LLM provider`)
+    throw new LocalizedError("errUnknownProvider", [resolved.id])
   }
-  if (!resolved.baseURL) throw new Error(`${preset.name}: API endpoint (base URL) is required`)
-  if (!resolved.model) throw new Error(`${preset.name}: model is required`)
-  if (preset.requiresKey && !resolved.apiKey) throw new Error(`${preset.name}: API key is required`)
+  if (!resolved.baseURL) throw new LocalizedError("errEndpointRequired", [preset.name])
+  if (!resolved.model) throw new LocalizedError("errModelRequired", [preset.name])
+  if (preset.requiresKey && !resolved.apiKey) throw new LocalizedError("errApiKeyRequired", [preset.name])
 
   const headers: Record<string, string> = {}
   if (preset.sdk === "anthropic") {

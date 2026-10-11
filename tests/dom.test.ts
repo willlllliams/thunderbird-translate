@@ -178,6 +178,7 @@ describe("language detection", () => {
 
 describe("controller", () => {
   const settings = (over: Partial<PublicSettings> = {}): PublicSettings => ({
+    uiLanguage: "auto",
     targetLang: "zh-CN",
     mode: "bilingual",
     autoTranslate: false,

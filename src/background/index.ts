@@ -1,10 +1,14 @@
-import { ext, t } from "../shared/ext"
+import { describeError } from "../shared/errors"
+import { ext } from "../shared/ext"
+import { ENGLISH, type I18n, loadI18n, setI18n } from "../shared/i18n"
+import { fetchPackagedMessages, thunderbirdUiLanguage } from "../shared/i18n-ext"
 import {
   type BackgroundRequest,
   CONTENT_PORT_NAME,
   type PortPush,
   type PortReport,
   type TabCommand,
+  type LocaleMessages,
   type TabState,
 } from "../shared/messages"
 import { normalizeSettings, SETTINGS_KEY, type Settings, toPublicSettings } from "../shared/settings"
@@ -13,8 +17,10 @@ import { TranslationService } from "./service"
 
 declare const __DEBUG__: boolean
 
-const uiLang = ext.i18n.getUILanguage()
+const uiLang = thunderbirdUiLanguage()
 let settings: Settings = normalizeSettings(undefined, uiLang)
+/** Interface language for badge, button title and error messages. */
+let i18n: I18n = ENGLISH
 
 const storage: KeyValueStorage = {
   get: async (key) => (await ext.storage.local.get(key))[key],
@@ -23,7 +29,7 @@ const storage: KeyValueStorage = {
 }
 
 const cache = new PersistentCache(storage, settings.cache.maxEntries)
-const service = new TranslationService({ getSettings: () => settings, cache })
+const service = new TranslationService({ getSettings: () => settings, cache, i18n: () => i18n })
 
 const settingsReady = loadSettings()
 
@@ -32,12 +38,28 @@ async function loadSettings(): Promise<void> {
   settings = normalizeSettings(stored, uiLang)
   cache.configure(settings.cache.enabled, settings.cache.maxEntries)
   if (!stored) await storage.set(SETTINGS_KEY, settings)
+  await applyUiLanguage()
+}
+
+async function applyUiLanguage(): Promise<void> {
+  i18n = await loadI18n(settings.uiLanguage, uiLang, fetchPackagedMessages)
+  setI18n(i18n)
+  if (__DEBUG__) console.info("[thunderbird-translate] interface language", settings.uiLanguage, uiLang, "→", i18n.locale, i18n.t("actionTitle"))
+  try {
+    // Global title of the message header button; the manifest default follows Thunderbird only.
+    await ext.messageDisplayAction.setTitle({ title: i18n.t("actionTitle") })
+  } catch {
+    // Not available in this Thunderbird version.
+  }
+  for (const tabId of tabStates.keys()) void updateBadge(tabId)
 }
 
 ext.storage.onChanged.addListener((changes, area) => {
   if (area !== "local" || !changes[SETTINGS_KEY]) return
+  const previousUiLanguage = settings.uiLanguage
   settings = normalizeSettings(changes[SETTINGS_KEY].newValue, uiLang)
   cache.configure(settings.cache.enabled, settings.cache.maxEntries)
+  if (settings.uiLanguage !== previousUiLanguage) void applyUiLanguage()
   broadcast({ type: "settings", settings: toPublicSettings(settings) })
 })
 
@@ -68,7 +90,7 @@ function sendCommand(tabId: number, command: TabCommand): boolean {
 async function updateBadge(tabId: number): Promise<void> {
   const st = tabStates.get(tabId)
   try {
-    await ext.messageDisplayAction.setBadgeText({ tabId, text: st?.active ? t("badgeOn") : "" })
+    await ext.messageDisplayAction.setBadgeText({ tabId, text: st?.active ? i18n.t("badgeOn") : "" })
     if (st?.active) await ext.messageDisplayAction.setBadgeBackgroundColor({ tabId, color: "#4c8bf5" })
   } catch {
     // Tab already closed.
@@ -113,7 +135,7 @@ async function handle(req: BackgroundRequest): Promise<unknown> {
         return { ok: true, text: await service.translate(req.text, req.targetLang, req.providerId) }
       } catch (error) {
         if (__DEBUG__) console.warn("[thunderbird-translate] translate failed", error)
-        return { ok: false, error: error instanceof Error ? error.message : String(error) }
+        return { ok: false, error: describeError(error, i18n) }
       }
     case "getPublicSettings":
       return toPublicSettings(settings)
@@ -125,8 +147,13 @@ async function handle(req: BackgroundRequest): Promise<unknown> {
       try {
         return { ok: true, text: await service.testProvider(req.providerId, req.config, req.targetLang) }
       } catch (error) {
-        return { ok: false, error: error instanceof Error ? error.message : String(error) }
+        return { ok: false, error: describeError(error, i18n) }
       }
+    case "getLocaleMessages": {
+      // Content scripts get their messages here instead of fetching moz-extension:// URLs.
+      const loaded = await loadI18n(req.uiLanguage, uiLang, fetchPackagedMessages)
+      return { locale: loaded.locale, messages: loaded.messages } satisfies LocaleMessages
+    }
     case "clearCache":
       await cache.clear()
       return { ok: true }

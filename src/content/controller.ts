@@ -10,6 +10,7 @@
  * starts again (the background cache answers what it already knows).
  */
 
+import { getI18n } from "../shared/i18n"
 import type { TranslateResponse } from "../shared/messages"
 import type { PublicSettings } from "../shared/settings"
 import { isInTargetLanguage, type LanguageDetector } from "./lang-detect"
@@ -47,7 +48,7 @@ export class TranslationController {
   }
 
   private label(key: "loading" | "error"): string {
-    return this.deps.label?.(key) ?? (key === "loading" ? "Translating…" : "Translation failed, click to retry")
+    return this.deps.label?.(key) ?? getI18n().t(key === "loading" ? "statusTranslating" : "statusFailed")
   }
 
   private report(): void {

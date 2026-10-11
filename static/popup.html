@@ -1,7 +1,8 @@
 <!doctype html>
-<html>
+<html lang="en" dir="ltr">
   <head>
     <meta charset="utf-8" />
+    <title data-i18n="extensionName"></title>
     <link rel="stylesheet" href="popup.css" />
   </head>
   <body>
@@ -15,7 +16,7 @@
 
     <div class="field">
       <span class="label" data-i18n="labelMode"></span>
-      <div class="segmented" role="radiogroup">
+      <div class="segmented" role="radiogroup" data-i18n-aria-label="labelMode">
         <label><input type="radio" name="mode" value="bilingual" /><span data-i18n="modeBilingual"></span></label>
         <label><input type="radio" name="mode" value="translation-only" /><span data-i18n="modeTranslationOnly"></span></label>
       </div>

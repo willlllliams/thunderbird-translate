@@ -2,11 +2,16 @@
  * Concurrency-limited task runner with retry and exponential backoff.
  */
 
+import { type ErrorText, renderErrorText } from "../../shared/errors"
+import { ENGLISH } from "../../shared/i18n"
+
 export class HttpError extends Error {
   constructor(
     message: string,
     readonly status: number,
     readonly retryAfterMs?: number,
+    /** Translatable form of the message, see shared/errors.ts. */
+    readonly i18nText?: ErrorText,
   ) {
     super(message)
     this.name = "HttpError"
@@ -96,9 +101,11 @@ export async function ensureOk(resp: Response, label: string): Promise<Response>
   const body = await resp.text().catch(() => "")
   const retryAfterHeader = resp.headers?.get?.("retry-after")
   const retryAfterSec = retryAfterHeader ? Number(retryAfterHeader) : NaN
+  const text: ErrorText = { key: "errHttp", args: [label, String(resp.status)], detail: body ? body.slice(0, 300) : undefined }
   throw new HttpError(
-    `${label} request failed: HTTP ${resp.status}${body ? ` - ${body.slice(0, 300)}` : ""}`,
+    renderErrorText(text, ENGLISH),
     resp.status,
     Number.isFinite(retryAfterSec) ? retryAfterSec * 1000 : undefined,
+    text,
   )
 }

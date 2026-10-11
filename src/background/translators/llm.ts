@@ -1,4 +1,5 @@
 import { generateText } from "ai"
+import { LocalizedError } from "../../shared/errors"
 import type { ResolvedProvider } from "../../shared/settings"
 import { createLanguageModel } from "../providers/factory"
 import {
@@ -47,7 +48,7 @@ async function callModel(prompt: string, opts: LlmCallOptions): Promise<string> 
 export async function llmTranslateSingle(text: string, opts: LlmCallOptions): Promise<string> {
   const raw = await callModel(buildSinglePrompt(text, opts.targetLanguageName), opts)
   const out = cleanSingleOutput(raw)
-  if (!out) throw new Error("The model returned an empty answer")
+  if (!out) throw new LocalizedError("errEmptyAnswer")
   return out
 }
 

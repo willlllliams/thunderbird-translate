@@ -13,6 +13,7 @@
  * The token route is tried first; once it fails, it is skipped for an hour.
  */
 
+import { LocalizedError } from "../../shared/errors"
 import { ensureOk } from "../queue/request-queue"
 import type { FetchOptions, RequestSpec } from "./google"
 
@@ -48,11 +49,11 @@ export function buildMicrosoftEdgeRequest(texts: string[], targetLang: string): 
 
 /** Both routes answer `[{ translations: [{ text, to }] }, ...]`. */
 export function parseMicrosoftResponse(json: unknown, expected: number, decode = false): string[] {
-  if (!Array.isArray(json)) throw new Error("Microsoft: unexpected response format")
-  if (json.length !== expected) throw new Error(`Microsoft: expected ${expected} results, got ${json.length}`)
+  if (!Array.isArray(json)) throw new LocalizedError("errUnexpectedResponse", ["Microsoft"])
+  if (json.length !== expected) throw new LocalizedError("errResultCount", ["Microsoft", String(expected), String(json.length)])
   return json.map((item, i) => {
     const text = (item as { translations?: { text?: unknown }[] })?.translations?.[0]?.text
-    if (typeof text !== "string") throw new Error(`Microsoft: missing translation at index ${i}`)
+    if (typeof text !== "string") throw new LocalizedError("errMissingTranslation", ["Microsoft", String(i + 1)])
     return decode ? decodeHtml(text) : text
   })
 }
@@ -101,7 +102,7 @@ async function getToken(f: typeof fetch, signal?: AbortSignal): Promise<string> 
   if (state.token && Date.now() < state.expiresAt) return state.token
   const resp = await ensureOk(await f(MS_AUTH_URL, { method: "GET", signal }), "Microsoft auth")
   const token = (await resp.text()).trim()
-  if (!token) throw new Error("Microsoft auth: empty token")
+  if (!token) throw new LocalizedError("errEmptyToken", ["Microsoft"])
   state.token = token
   state.expiresAt = tokenExpiry(token)
   return token

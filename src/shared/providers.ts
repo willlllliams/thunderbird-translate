@@ -3,6 +3,8 @@
  * The SDK wiring lives in src/background/providers/factory.ts.
  */
 
+import { getI18n, type I18n } from "./i18n"
+
 export type ProviderKind = "google" | "microsoft" | "deeplx" | "llm"
 
 /** Which Vercel AI SDK package builds the model for an LLM preset. */
@@ -26,8 +28,10 @@ export type SdkId =
 
 export interface ProviderPreset {
   id: string
-  /** Display name (not translated: these are product names). */
+  /** Product name, never translated. */
   name: string
+  /** Message that wraps or replaces the name in the UI, e.g. "$1 (free)". */
+  nameKey?: "providerFree" | "providerLocal" | "providerCustom"
   kind: ProviderKind
   sdk?: SdkId
   /** Default endpoint. Empty means the user must fill it in. */
@@ -50,7 +54,8 @@ const T = 0.3
 export const PROVIDER_PRESETS: ProviderPreset[] = [
   {
     id: "google-free",
-    name: "Google Translate (free)",
+    name: "Google Translate",
+    nameKey: "providerFree",
     kind: "google",
     defaultBaseURL: "https://translate.googleapis.com",
     defaultModel: "",
@@ -60,7 +65,8 @@ export const PROVIDER_PRESETS: ProviderPreset[] = [
   },
   {
     id: "microsoft-free",
-    name: "Microsoft Translator (free)",
+    name: "Microsoft Translator",
+    nameKey: "providerFree",
     kind: "microsoft",
     defaultBaseURL: "https://edge.microsoft.com",
     defaultModel: "",
@@ -167,7 +173,8 @@ export const PROVIDER_PRESETS: ProviderPreset[] = [
   },
   {
     id: "ollama",
-    name: "Ollama (local)",
+    name: "Ollama",
+    nameKey: "providerLocal",
     kind: "llm",
     sdk: "openai-compatible",
     defaultBaseURL: "http://localhost:11434/v1",
@@ -324,7 +331,8 @@ export const PROVIDER_PRESETS: ProviderPreset[] = [
   },
   {
     id: "lmstudio",
-    name: "LM Studio (local)",
+    name: "LM Studio",
+    nameKey: "providerLocal",
     kind: "llm",
     sdk: "openai-compatible",
     defaultBaseURL: "http://localhost:1234/v1",
@@ -336,7 +344,8 @@ export const PROVIDER_PRESETS: ProviderPreset[] = [
   },
   {
     id: "custom",
-    name: "Custom OpenAI-compatible",
+    name: "OpenAI-compatible",
+    nameKey: "providerCustom",
     kind: "llm",
     sdk: "openai-compatible",
     defaultBaseURL: "",
@@ -352,4 +361,9 @@ export const DEFAULT_PROVIDER_ID = "google-free"
 
 export function getPreset(id: string): ProviderPreset | undefined {
   return PROVIDER_PRESETS.find((p) => p.id === id)
+}
+
+/** Name shown in the interface: brand names stay as they are, "(free)" and similar are translated. */
+export function providerDisplayName(preset: ProviderPreset, i18n: I18n = getI18n()): string {
+  return preset.nameKey ? i18n.t(preset.nameKey, [preset.name]) : preset.name
 }

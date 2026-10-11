@@ -1,4 +1,7 @@
+import { LocalizedError } from "./errors"
 import { hashText } from "./hash"
+import { baseLang, LANGUAGES } from "./languages"
+import { normalizeUiLanguageSetting, type UiLanguageSetting } from "./locales"
 import { DEFAULT_PROVIDER_ID, getPreset, PROVIDER_PRESETS } from "./providers"
 
 export type DisplayMode = "bilingual" | "translation-only"
@@ -39,6 +42,8 @@ export interface StyleSettings {
 }
 
 export interface Settings {
+  /** Interface language: "auto" follows Thunderbird. */
+  uiLanguage: UiLanguageSetting
   targetLang: string
   mode: DisplayMode
   autoTranslate: boolean
@@ -69,12 +74,14 @@ export const DEFAULT_STYLE: StyleSettings = {
   fontScale: 1,
 }
 
+/** Target language for a fresh installation: the interface language when it is a target language, else English. */
 export function defaultTargetLang(uiLang?: string): string {
-  const lang = (uiLang ?? "").toLowerCase()
-  if (lang.startsWith("zh")) {
-    return /tw|hk|hant|mo/.test(lang) ? "zh-TW" : "zh-CN"
+  const lang = (uiLang ?? "").replace(/_/g, "-").toLowerCase()
+  const base = baseLang(lang)
+  if (base === "zh") {
+    return lang.split("-").some((p) => p === "tw" || p === "hk" || p === "mo" || p === "hant") ? "zh-TW" : "zh-CN"
   }
-  return "zh-CN"
+  return LANGUAGES.find((l) => l.code === base)?.code ?? "en"
 }
 
 export function createDefaultSettings(uiLang?: string): Settings {
@@ -83,6 +90,7 @@ export function createDefaultSettings(uiLang?: string): Settings {
     providers[p.id] = { apiKey: "", baseURL: "", model: "" }
   }
   return {
+    uiLanguage: "auto",
     targetLang: defaultTargetLang(uiLang),
     mode: "bilingual",
     autoTranslate: false,
@@ -121,6 +129,7 @@ export function normalizeSettings(stored: unknown, uiLang?: string): Settings {
   const b = (s.batch ?? {}) as Partial<BatchSettings>
   const st = (s.style ?? {}) as Partial<StyleSettings>
   return {
+    uiLanguage: normalizeUiLanguageSetting(s.uiLanguage),
     targetLang: typeof s.targetLang === "string" && s.targetLang ? s.targetLang : d.targetLang,
     mode: s.mode === "translation-only" ? "translation-only" : "bilingual",
     autoTranslate: s.autoTranslate === true,
@@ -164,14 +173,14 @@ export interface ResolvedProvider {
 
 export function resolveProvider(settings: Settings, providerId: string): ResolvedProvider {
   const preset = getPreset(providerId)
-  if (!preset) throw new Error(`Unknown provider: ${providerId}`)
+  if (!preset) throw new LocalizedError("errUnknownProvider", [providerId])
   const cfg = settings.providers[providerId] ?? { apiKey: "", baseURL: "", model: "" }
   return resolveProviderConfig(providerId, cfg)
 }
 
 export function resolveProviderConfig(providerId: string, cfg: ProviderConfig): ResolvedProvider {
   const preset = getPreset(providerId)
-  if (!preset) throw new Error(`Unknown provider: ${providerId}`)
+  if (!preset) throw new LocalizedError("errUnknownProvider", [providerId])
   return {
     id: providerId,
     apiKey: cfg.apiKey.trim(),
@@ -183,6 +192,7 @@ export function resolveProviderConfig(providerId: string, cfg: ProviderConfig): 
 
 /** Settings that content scripts may see. Never contains API keys. */
 export interface PublicSettings {
+  uiLanguage: UiLanguageSetting
   targetLang: string
   mode: DisplayMode
   autoTranslate: boolean
@@ -195,6 +205,7 @@ export interface PublicSettings {
 export function toPublicSettings(settings: Settings): PublicSettings {
   const r = resolveProvider(settings, settings.activeProviderId)
   return {
+    uiLanguage: settings.uiLanguage,
     targetLang: settings.targetLang,
     mode: settings.mode,
     autoTranslate: settings.autoTranslate,

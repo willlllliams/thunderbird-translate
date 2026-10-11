@@ -5,7 +5,9 @@
  *     → executor per provider kind → RequestQueue (concurrency + retry)
  */
 
+import { describeError, LocalizedError } from "../shared/errors"
 import { hashText } from "../shared/hash"
+import { ENGLISH, type I18n } from "../shared/i18n"
 import { getLanguage } from "../shared/languages"
 import { getPreset } from "../shared/providers"
 import { type ProviderConfig, type ResolvedProvider, resolveProvider, resolveProviderConfig, type Settings } from "../shared/settings"
@@ -45,11 +47,8 @@ export interface ServiceDeps {
   /** Injection point for tests. */
   llm?: LlmImpl
   sleep?: (ms: number) => Promise<void>
-}
-
-function errorMessage(error: unknown): string {
-  if (error instanceof Error) return error.message
-  return String(error)
+  /** Language of error messages; English when absent. */
+  i18n?: () => I18n
 }
 
 export class TranslationService {
@@ -86,6 +85,10 @@ export class TranslationService {
     }
     const cap = FREE_LIMITS[preset.kind]
     return { maxItems: Math.min(cap.maxItems, user.maxItems), maxChars: Math.min(cap.maxChars, user.maxChars) }
+  }
+
+  private errorMessage(error: unknown): string {
+    return describeError(error, this.deps.i18n?.() ?? ENGLISH)
   }
 
   private promptSignature(providerId: string): string {
@@ -146,7 +149,7 @@ export class TranslationService {
   async executeBatch(jobs: Job[]): Promise<ItemResult[]> {
     const first = jobs[0]
     const preset = getPreset(first.provider.id)
-    if (!preset) return jobs.map(() => ({ ok: false, error: `Unknown provider ${first.provider.id}` }))
+    if (!preset) return jobs.map(() => ({ ok: false, error: this.errorMessage(new LocalizedError("errUnknownProvider", [first.provider.id])) }))
     const lang = getLanguage(first.targetLang)
     const texts = jobs.map((j) => j.text)
     const fetchFn = this.deps.fetchFn
@@ -157,7 +160,7 @@ export class TranslationService {
         const out = await fn()
         return out.map((text) => ({ ok: true, text }))
       } catch (error) {
-        return jobs.map(() => ({ ok: false, error: errorMessage(error) }))
+        return jobs.map(() => ({ ok: false, error: this.errorMessage(error) }))
       }
     }
     const each = (fn: (job: Job) => Promise<string>): Promise<ItemResult[]> =>
@@ -165,7 +168,7 @@ export class TranslationService {
         jobs.map((job) =>
           this.run(() => fn(job)).then(
             (text): ItemResult => ({ ok: true, text }),
-            (error): ItemResult => ({ ok: false, error: errorMessage(error) }),
+            (error): ItemResult => ({ ok: false, error: this.errorMessage(error) }),
           ),
         ),
       )
@@ -185,7 +188,7 @@ export class TranslationService {
             if (out.length === jobs.length) return out.map((text) => ({ ok: true, text }))
           } catch (error) {
             if (!(error instanceof BatchParseError)) {
-              return jobs.map(() => ({ ok: false, error: errorMessage(error) }))
+              return jobs.map(() => ({ ok: false, error: this.errorMessage(error) }))
             }
           }
           // The merged answer did not line up: one request per paragraph.

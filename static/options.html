@@ -1,5 +1,5 @@
 <!doctype html>
-<html>
+<html lang="en" dir="ltr">
   <head>
     <meta charset="utf-8" />
     <title data-i18n="optionsTitle"></title>
@@ -18,6 +18,10 @@
         <h2 data-i18n="sectionGeneral"></h2>
         <div class="grid">
           <label>
+            <span data-i18n="labelUiLanguage"></span>
+            <select id="uiLanguage" aria-describedby="uiLanguageHint"></select>
+          </label>
+          <label>
             <span data-i18n="labelTargetLang"></span>
             <select id="targetLang"></select>
           </label>
@@ -33,6 +37,7 @@
             <select id="activeProvider"></select>
           </label>
         </div>
+        <p class="hint" id="uiLanguageHint" data-i18n="uiLanguageHint"></p>
         <label class="check">
           <input type="checkbox" id="autoTranslate" />
           <span data-i18n="labelAutoTranslate"></span>

@@ -8,15 +8,17 @@
  * `?token=`), others expect `Authorization: Bearer <token>`. Both work here.
  */
 
+import { type ErrorText, LocalizedError, renderErrorText } from "../../shared/errors"
+import { ENGLISH } from "../../shared/i18n"
 import { ensureOk, HttpError } from "../queue/request-queue"
 import type { FetchOptions, RequestSpec } from "./google"
 
 export function buildDeepLXRequest(text: string, targetDeepl: string, endpoint: string, token = ""): RequestSpec {
-  if (!endpoint) throw new Error("DeepLX: endpoint is not configured")
+  if (!endpoint) throw new LocalizedError("errEndpointRequired", ["DeepLX"])
   let url = endpoint
   const headers: Record<string, string> = { "Content-Type": "application/json" }
   if (url.includes("{{apiKey}}")) {
-    if (!token) throw new Error("DeepLX: the endpoint contains {{apiKey}} but no token is set")
+    if (!token) throw new LocalizedError("errDeeplxTokenMissing", ["DeepLX"])
     url = url.replaceAll("{{apiKey}}", encodeURIComponent(token))
   } else if (token) {
     headers.Authorization = `Bearer ${token}`
@@ -38,9 +40,11 @@ export function parseDeepLXResponse(json: unknown): string {
   const t = j?.translations?.[0]?.text
   if (typeof t === "string") return t
   if (typeof j?.code === "number" && j.code !== 200) {
-    throw new HttpError(`DeepLX: ${j.message ?? `code ${j.code}`}`, j.code)
+    if (j.message) throw new HttpError(`DeepLX: ${j.message}`, j.code)
+    const text: ErrorText = { key: "errServiceCode", args: ["DeepLX", String(j.code)] }
+    throw new HttpError(renderErrorText(text, ENGLISH), j.code, undefined, text)
   }
-  throw new Error("DeepLX: unexpected response format")
+  throw new LocalizedError("errUnexpectedResponse", ["DeepLX"])
 }
 
 export async function deeplxTranslate(

@@ -28,11 +28,3 @@ type Ext = typeof browser & ThunderbirdExtras
 const g = globalThis as unknown as { messenger?: Ext; browser?: Ext }
 
 export const ext: Ext = (g.messenger ?? g.browser) as Ext
-
-export function t(key: string, substitutions?: string | string[]): string {
-  try {
-    return ext?.i18n?.getMessage(key, substitutions) || key
-  } catch {
-    return key
-  }
-}

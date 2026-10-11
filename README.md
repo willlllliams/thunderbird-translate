@@ -1,35 +1,35 @@
-# Thunderbird 邮件翻译
+# Thunderbird Translate
 
-[English](README.en.md)
+English | [简体中文](readmes/README.zh-CN.md) | [繁體中文](readmes/README.zh-TW.md) | [日本語](readmes/README.ja.md) | [한국어](readmes/README.ko.md) | [Français](readmes/README.fr.md) | [Deutsch](readmes/README.de.md) | [Español](readmes/README.es.md) | [Português (Brasil)](readmes/README.pt-BR.md) | [Русский](readmes/README.ru.md) | [Türkçe](readmes/README.tr.md) | [Tiếng Việt](readmes/README.vi.md)
 
-Thunderbird 邮件翻译（Thunderbird Translate）是一个 Thunderbird 扩展，在阅读窗格里直接翻译邮件正文。译文可以放在每段原文下方（双语对照），也可以替换原文（仅译文），取消翻译后邮件恢复成原样。默认使用免费的谷歌翻译，装好即可使用；也可以接入 OpenAI、Claude、Gemini、DeepSeek、通义千问等 22 个 AI 服务商。
+Thunderbird Translate is a Thunderbird extension that translates the body of the message you are reading, directly in the message pane. A translation can appear under each original paragraph (bilingual) or replace it (translation only). Turning translation off restores the original message exactly. Google Translate (free) is the default and works right after installation. You can also connect 22 AI providers, including OpenAI, Claude, Gemini, DeepSeek and Qwen.
 
-本文写给第一次接触 Thunderbird 扩展的读者，按“装上、用起来、按需配置、了解原理”的顺序展开。
+This document is written for readers who have not used a Thunderbird extension before. It follows the order install, use, configure, and how it works.
 
-## 功能
+## Features
 
-- 翻译正文：识别邮件正文中的段落级内容，包括段落、列表项、表格单元格、标题、引用块、只含文字的 div，以及纯文本邮件中以空行分隔的段落。代码、已是目标语言的段落、纯数字、纯链接和空白内容会被跳过。
-- 两种显示方式：双语对照在原文下方插入带淡色左边框的译文块，深色主题下同样可读；仅译文用译文替换原文，原文保存在内存中，取消翻译时原样放回。
-- 翻译过程中切换显示方式或目标语言，页面会自动重新渲染，不需要重新打开邮件。切换显示方式只用已有译文重绘，不产生新请求。
-- 入口：邮件头部工具栏的“翻译邮件”按钮和弹出面板，快捷键 Alt+A（翻译 / 显示原文）和 Alt+S（切换双语 / 仅译文）。
-- 可选的自动翻译：打开非目标语言的邮件时自动开始翻译。
-- 请求批处理：后台在 50 毫秒窗口内收集段落，合并成一次请求；附带并发限制、失败重试、指数退避和本地缓存。
-- 服务商：3 个免费或自建的翻译服务，22 个 AI 服务商预设，其中一个是“自定义 OpenAI 兼容”。
-- 设置页和界面文字支持中文与英文，跟随 Thunderbird 的界面语言。
+- Body translation: the extension finds paragraph-level content in the message body: paragraphs, list items, table cells, headings, block quotes, text-only divs, and blank-line separated paragraphs in plain-text mail. Code, paragraphs already in the target language, numbers, bare links and whitespace are skipped.
+- Two display modes: bilingual mode inserts a translation block with a light left border under the original, readable in dark themes as well. Translation-only mode replaces the original with the translation; the original is kept in memory and put back when translation is turned off.
+- Live updates: changing the display mode or the target language while a message is translated re-renders the page without reopening the message. Changing the display mode redraws from translations already received and sends no new requests.
+- Entry points: the "Translate message" button in the message header toolbar with its popup, and the shortcuts Alt+A (translate / show original) and Alt+S (switch bilingual / translation-only).
+- Optional automatic translation: messages not in the target language are translated as soon as they are opened.
+- Request batching: the background script collects paragraphs for 50 ms and merges them into one request, with a concurrency limit, retries with exponential backoff, and a local cache.
+- Services: 3 free or self-hosted translation services and 22 AI provider presets, one of which is "Custom OpenAI-compatible".
+- Interface in 12 languages. The interface language follows Thunderbird by default and can be chosen on the settings page.
 
-## 安装
+## Install
 
-### 从 Releases 安装
+### From Releases
 
-1. 在本仓库的 Releases 页面下载最新的 `thunderbird-translate-<版本号>.xpi`。
-2. 打开 Thunderbird，进入“工具 → 附加组件和主题”（也可以从右上角 ≡ 菜单进入）。
-3. 点击扩展列表上方的齿轮图标，选择“从文件安装附加组件”，选中下载的 xpi 文件，确认安装。
+1. Download the latest `thunderbird-translate-<version>.xpi` from the Releases page of this repository.
+2. In Thunderbird, open Tools → Add-ons and Themes (also reachable from the ≡ menu in the top right corner).
+3. Click the gear icon above the extension list, choose "Install Add-on From File", select the downloaded xpi file and confirm.
 
-扩展要求 Thunderbird 128 或更新版本。
+Thunderbird 128 or later is required.
 
-### 从源码构建
+### Build from source
 
-需要 Node.js 22 或更新版本（开发时使用 Node 24、npm 11）。
+Node.js 22 or later is required (development uses Node 24 and npm 11).
 
 ```bash
 npm ci
@@ -37,184 +37,239 @@ npm test
 npm run build
 ```
 
-`npm run build` 用 esbuild 把后台脚本、内容脚本、弹出面板和设置页分别打包到 `dist/`，再把 `dist/` 压缩成 `web-ext-artifacts/thunderbird-translate-<版本号>.xpi`。压缩用的是纯 JavaScript 的 fflate 库，不依赖系统里的 zip 命令。
+`npm run build` bundles the background script, the content script, the popup and the settings page into `dist/` with esbuild, generates `dist/_locales/<language>/messages.json` from the files in `locales/`, and packs `dist/` into `web-ext-artifacts/thunderbird-translate-<version>.xpi`. Packing uses the pure JavaScript fflate library and needs no system zip command.
 
-开发调试时可以不打包安装：在 Thunderbird 中打开“工具 → 开发者工具 → 调试附加组件”，点击“临时载入附加组件”，选择 `dist/manifest.json`。
+During development you can load the extension without packing it: in Thunderbird open Tools → Developer Tools → Debug Add-ons, click "Load Temporary Add-on" and select `dist/manifest.json`.
 
-## 使用
+## Usage
 
-打开一封邮件，邮件头部工具栏会出现“翻译邮件”按钮。点击它会弹出面板，面板中有以下控件：
+Open a message. A "Translate message" button appears in the message header toolbar. Clicking it opens a popup with these controls:
 
-- “翻译此邮件”按钮：开始翻译；翻译进行中或完成后，按钮变为“显示原文”，点击即恢复原文。
-- 显示方式：在双语对照和仅译文之间切换，对当前邮件立即生效。
-- 目标语言：改动后，正在翻译的邮件会按新语言重新翻译。
-- 翻译服务：选择当前使用的服务商。
-- 自动翻译非目标语言的邮件：勾选后，打开邮件时如果正文不是目标语言，会自动开始翻译。
+- "Translate this message": starts translating. While a translation is running or shown, the button reads "Show original" and restores the original when clicked.
+- Display: switches between bilingual and translation-only; the change applies to the current message immediately.
+- Target language: after a change, a message being translated is translated again into the new language.
+- Translation service: selects the service in use.
+- Automatically translate messages not in the target language: when checked, a message whose body is not in the target language is translated as soon as it is opened.
 
-面板下方显示翻译进度，例如“已翻译 8 / 12”。某段翻译失败时，原文后会出现红色的“翻译失败，点击重试”，鼠标悬停可以看到错误原因，点击即重试这一段。
+The popup shows the progress, for example "Translated 8 of 12". When a paragraph fails, a red "Translation failed, click to retry" appears after it; hovering shows the error and clicking retries that paragraph.
 
-快捷键 Alt+A 翻译当前邮件或恢复原文，Alt+S 在双语和仅译文之间切换。快捷键可以在附加组件管理器的齿轮菜单“管理扩展快捷键”中修改。
+Alt+A translates the current message or restores the original; Alt+S switches between bilingual and translation-only. Both shortcuts can be changed under "Manage Extension Shortcuts" in the gear menu of the Add-ons Manager.
 
-在仅译文模式下，把鼠标停在译文上，提示框会显示对应的原文。
+In translation-only mode, hovering over a translation shows the original text in a tooltip.
 
-## 设置
+## Settings
 
-在附加组件管理器中点击本扩展的“选项”打开设置页。设置自动保存，右上角出现“已保存”即表示已写入。
+Open the settings page with the "Options" button of this extension in the Add-ons Manager. Settings are saved automatically; "Saved" appears in the top right corner once they are written.
 
-| 分组 | 内容 |
+| Section | Contents |
 | --- | --- |
-| 常规 | 目标语言、默认显示方式、当前服务、自动翻译 |
-| 翻译服务 | 每个服务商的接口地址、API 密钥、模型、温度，“测试连接”和“设为当前服务”按钮 |
-| 系统提示词 | 自定义 AI 服务的系统提示词，`{{to}}` 会替换为目标语言名称；留空使用内置提示词 |
-| 请求批处理 | 收集窗口、每次请求最大字符数和段落数、并发数、重试次数、是否合并 AI 请求 |
-| 译文样式 | 左侧竖线、左侧虚线、底色高亮或无装饰；强调色、文字不透明度、字号比例；附带实时预览 |
-| 缓存 | 是否缓存、最多缓存段落数、当前缓存条数、清除缓存 |
+| General | Interface language, target language, default display mode, current service, automatic translation |
+| Translation services | Endpoint, API key, model and temperature of each service; "Test connection" and "Use this service" buttons |
+| System prompt | Custom system prompt for AI services; `{{to}}` is replaced by the target language name; empty means the built-in prompt |
+| Request batching | Collection window, maximum characters and paragraphs per request, concurrency, retries, whether to merge AI requests |
+| Translation style | Left border, dashed left border, highlight or plain; accent color, text opacity, font size ratio; live preview |
+| Cache | Cache on or off, maximum cached paragraphs, current number of entries, clear cache |
 
-“测试连接”用输入框中的当前值发送一句测试文本，成功时显示译文，失败时显示服务商返回的错误，例如密钥无效或模型名称不存在。
+"Test connection" sends one test sentence with the values currently in the input fields. On success it shows the translation; on failure it shows the error returned by the service, for example an invalid key or an unknown model name.
 
-## 服务商配置
+## Interface language
 
-### 免费与自建服务
+The "Interface language" option in the General section has two kinds of values:
 
-| 服务 | 是否需要配置 | 说明 |
+- "Follow Thunderbird" (default): the extension uses the supported language closest to Thunderbird's own interface language. The option label shows the language currently chosen, for example "Follow Thunderbird (Deutsch)".
+- One of the 12 supported languages: the extension uses that language regardless of Thunderbird's language.
+
+The choice applies to the popup, the settings page, the labels inside messages ("Translating…", "Translation failed, click to retry"), error messages, the connection test result and the toolbar button tooltip. An open settings page or popup switches its text immediately. Labels inside a message that is already translated change the next time they are drawn.
+
+A few texts are read by Thunderbird itself from the extension manifest and always follow Thunderbird's interface language: the extension name and description in the Add-ons Manager, and the shortcut descriptions under "Manage Extension Shortcuts". The settings page states this under the option.
+
+"Follow Thunderbird" maps Thunderbird's language as follows:
+
+| Thunderbird language | Interface language used |
+| --- | --- |
+| `zh-TW`, `zh-HK`, `zh-MO`, `zh-Hant` | Traditional Chinese |
+| other `zh-*` | Simplified Chinese |
+| `pt-*` | Portuguese (Brazil) |
+| `en-*`, `ja`, `ko`, `fr-*`, `de-*`, `es-*`, `ru`, `tr`, `vi` | the language with the same primary subtag |
+| any other language | English |
+
+The target language list shows each language name in the interface language followed by the language's own name, for example "Japanese (日本語)". Prompts sent to AI services always use the English language name, because models follow English instructions most reliably.
+
+On first installation the target language is set from the interface language: a Japanese Thunderbird starts with Japanese as the target language, an English Thunderbird with English. An existing target language is never overwritten.
+
+## Supported interface languages
+
+| Code | Language |
+| --- | --- |
+| `en` | English |
+| `zh_CN` | 简体中文 (Simplified Chinese) |
+| `zh_TW` | 繁體中文 (Traditional Chinese) |
+| `ja` | 日本語 (Japanese) |
+| `ko` | 한국어 (Korean) |
+| `fr` | Français (French) |
+| `de` | Deutsch (German) |
+| `es` | Español (Spanish) |
+| `pt_BR` | Português (Brasil) (Portuguese, Brazil) |
+| `ru` | Русский (Russian) |
+| `tr` | Türkçe (Turkish) |
+| `vi` | Tiếng Việt (Vietnamese) |
+
+The target language list is separate and contains 20 languages, including Italian, Ukrainian, Polish, Dutch, Thai, Indonesian, Arabic and Hindi.
+
+## Provider configuration
+
+### Free and self-hosted services
+
+| Service | Setup | Notes |
 | --- | --- | --- |
-| Google 翻译（免费，默认） | 否 | 调用 `translate.googleapis.com` 的 `client=gtx` 接口，一次 POST 携带多个 `q` 参数，多段合并为一次请求 |
-| 微软翻译（免费） | 否 | 先尝试 `edge.microsoft.com/translate/auth` 取令牌后调用 `api-edge.cognitive.microsofttranslator.com`；该令牌接口已被微软下线时，自动改用 `edge.microsoft.com/translate/translatetext`。两条路径都原生支持数组批量 |
-| DeepLX | 需要填写接口地址 | 自建或第三方的 DeepLX 服务；令牌可选。地址中含 `{{apiKey}}` 时用令牌替换该占位符，否则以 `Authorization: Bearer` 发送 |
+| Google Translate (free, default) | None | Calls the `client=gtx` endpoint of `translate.googleapis.com`; one POST carries several `q` parameters, so several paragraphs share one request |
+| Microsoft Translator (free) | None | First tries to get a token from `edge.microsoft.com/translate/auth` and call `api-edge.cognitive.microsofttranslator.com`; when Microsoft has retired the token endpoint, it switches to `edge.microsoft.com/translate/translatetext`. Both routes accept arrays natively |
+| DeepLX | Endpoint required | A self-hosted or third-party DeepLX service; the token is optional. If the endpoint contains `{{apiKey}}`, the token replaces it; otherwise it is sent as `Authorization: Bearer` |
 
-### AI 服务商
+### AI providers
 
-所有 AI 服务商都通过 Vercel AI SDK 的 `generateText` 调用。有官方 `@ai-sdk/*` 包的服务商使用官方包，其余使用 `@ai-sdk/openai-compatible`。每个服务商都可以改接口地址、API 密钥、模型和温度，模型输入框提供常用模型的下拉建议，也可以直接填写任意模型名。
+All AI providers are called through `generateText` of the Vercel AI SDK. Providers with an official `@ai-sdk/*` package use that package; the others use `@ai-sdk/openai-compatible`. Endpoint, API key, model and temperature can be changed for every provider. The model field suggests common models and also accepts any model name.
 
-| 服务商 | SDK 包 | 默认接口地址 | 默认模型 | 需要密钥 |
+| Provider | SDK package | Default endpoint | Default model | Key required |
 | --- | --- | --- | --- | --- |
-| OpenAI | `@ai-sdk/openai` | `https://api.openai.com/v1` | `gpt-4.1-mini` | 是 |
-| Anthropic Claude | `@ai-sdk/anthropic` | `https://api.anthropic.com/v1` | `claude-haiku-5-5` | 是 |
-| Google Gemini | `@ai-sdk/google` | `https://generativelanguage.googleapis.com/v1beta` | `gemini-2.5-flash-lite` | 是 |
-| DeepSeek | `@ai-sdk/deepseek` | `https://api.deepseek.com` | `deepseek-chat` | 是 |
-| xAI Grok | `@ai-sdk/xai` | `https://api.x.ai/v1` | `grok-3-mini` | 是 |
-| Groq | `@ai-sdk/groq` | `https://api.groq.com/openai/v1` | `llama-3.3-70b-versatile` | 是 |
-| Mistral AI | `@ai-sdk/mistral` | `https://api.mistral.ai/v1` | `mistral-small-latest` | 是 |
-| Ollama（本地） | `@ai-sdk/openai-compatible` | `http://localhost:11434/v1` | `qwen2.5:7b` | 否 |
-| OpenRouter | `@ai-sdk/openai-compatible` | `https://openrouter.ai/api/v1` | `openai/gpt-4.1-mini` | 是 |
-| Together AI | `@ai-sdk/togetherai` | `https://api.together.xyz/v1` | `meta-llama/Llama-3.3-70B-Instruct-Turbo` | 是 |
-| Fireworks AI | `@ai-sdk/fireworks` | `https://api.fireworks.ai/inference/v1` | `accounts/fireworks/models/llama-v3p3-70b-instruct` | 是 |
-| DeepInfra | `@ai-sdk/deepinfra` | `https://api.deepinfra.com/v1` | `meta-llama/Llama-3.3-70B-Instruct-Turbo` | 是 |
-| Cerebras | `@ai-sdk/cerebras` | `https://api.cerebras.ai/v1` | `gpt-oss-120b` | 是 |
-| Perplexity | `@ai-sdk/perplexity` | `https://api.perplexity.ai` | `perplexity/sonar` | 是 |
-| Moonshot / Kimi | `@ai-sdk/moonshotai` | `https://api.moonshot.cn/v1` | `kimi-k2-turbo-preview` | 是 |
-| 智谱 GLM | `@ai-sdk/openai-compatible` | `https://open.bigmodel.cn/api/paas/v4` | `glm-4-flash` | 是 |
-| 通义千问 / 阿里云百炼 | `@ai-sdk/alibaba` | `https://dashscope.aliyuncs.com/compatible-mode/v1` | `qwen-plus` | 是 |
-| 硅基流动 SiliconFlow | `@ai-sdk/openai-compatible` | `https://api.siliconflow.cn/v1` | `Qwen/Qwen2.5-7B-Instruct` | 是 |
-| 火山引擎豆包 | `@ai-sdk/openai-compatible` | `https://ark.cn-beijing.volces.com/api/v3` | `doubao-1-5-pro-32k-250115` | 是 |
-| Azure OpenAI | `@ai-sdk/azure` | 需自填 | `gpt-4.1-mini` | 是 |
-| LM Studio（本地） | `@ai-sdk/openai-compatible` | `http://localhost:1234/v1` | `qwen2.5-7b-instruct` | 否 |
-| 自定义 OpenAI 兼容 | `@ai-sdk/openai-compatible` | 需自填 | 需自填 | 否 |
+| OpenAI | `@ai-sdk/openai` | `https://api.openai.com/v1` | `gpt-4.1-mini` | Yes |
+| Anthropic Claude | `@ai-sdk/anthropic` | `https://api.anthropic.com/v1` | `claude-haiku-5-5` | Yes |
+| Google Gemini | `@ai-sdk/google` | `https://generativelanguage.googleapis.com/v1beta` | `gemini-2.5-flash-lite` | Yes |
+| DeepSeek | `@ai-sdk/deepseek` | `https://api.deepseek.com` | `deepseek-chat` | Yes |
+| xAI Grok | `@ai-sdk/xai` | `https://api.x.ai/v1` | `grok-3-mini` | Yes |
+| Groq | `@ai-sdk/groq` | `https://api.groq.com/openai/v1` | `llama-3.3-70b-versatile` | Yes |
+| Mistral AI | `@ai-sdk/mistral` | `https://api.mistral.ai/v1` | `mistral-small-latest` | Yes |
+| Ollama (local) | `@ai-sdk/openai-compatible` | `http://localhost:11434/v1` | `qwen2.5:7b` | No |
+| OpenRouter | `@ai-sdk/openai-compatible` | `https://openrouter.ai/api/v1` | `openai/gpt-4.1-mini` | Yes |
+| Together AI | `@ai-sdk/togetherai` | `https://api.together.xyz/v1` | `meta-llama/Llama-3.3-70B-Instruct-Turbo` | Yes |
+| Fireworks AI | `@ai-sdk/fireworks` | `https://api.fireworks.ai/inference/v1` | `accounts/fireworks/models/llama-v3p3-70b-instruct` | Yes |
+| DeepInfra | `@ai-sdk/deepinfra` | `https://api.deepinfra.com/v1` | `meta-llama/Llama-3.3-70B-Instruct-Turbo` | Yes |
+| Cerebras | `@ai-sdk/cerebras` | `https://api.cerebras.ai/v1` | `gpt-oss-120b` | Yes |
+| Perplexity | `@ai-sdk/perplexity` | `https://api.perplexity.ai` | `perplexity/sonar` | Yes |
+| Moonshot / Kimi | `@ai-sdk/moonshotai` | `https://api.moonshot.cn/v1` | `kimi-k2-turbo-preview` | Yes |
+| 智谱 GLM (Zhipu) | `@ai-sdk/openai-compatible` | `https://open.bigmodel.cn/api/paas/v4` | `glm-4-flash` | Yes |
+| 通义千问 / 阿里云百炼 (DashScope) | `@ai-sdk/alibaba` | `https://dashscope.aliyuncs.com/compatible-mode/v1` | `qwen-plus` | Yes |
+| 硅基流动 SiliconFlow | `@ai-sdk/openai-compatible` | `https://api.siliconflow.cn/v1` | `Qwen/Qwen2.5-7B-Instruct` | Yes |
+| 火山引擎豆包 (Volcengine Ark) | `@ai-sdk/openai-compatible` | `https://ark.cn-beijing.volces.com/api/v3` | `doubao-1-5-pro-32k-250115` | Yes |
+| Azure OpenAI | `@ai-sdk/azure` | Must be filled in | `gpt-4.1-mini` | Yes |
+| LM Studio (local) | `@ai-sdk/openai-compatible` | `http://localhost:1234/v1` | `qwen2.5-7b-instruct` | No |
+| Custom OpenAI-compatible | `@ai-sdk/openai-compatible` | Must be filled in | Must be filled in | No |
 
-几个服务商有额外要求：
+Some providers have extra requirements:
 
-- Anthropic Claude：扩展在请求中附加 `anthropic-dangerous-direct-browser-access: true` 头，这是 Anthropic 接受浏览器环境直连的条件。Claude 5 系列和 Opus 4.7、4.8 不接受自定义温度，扩展对这些模型不发送温度参数，默认模型的温度一栏因此留空。
-- Azure OpenAI：接口地址填 `https://<资源名>.openai.azure.com/openai`，模型填部署名称。
-- Ollama：Ollama 默认拒绝来自扩展页面的跨源请求，需要以环境变量 `OLLAMA_ORIGINS=moz-extension://*` 启动 Ollama。
-- Moonshot：默认地址是国内站 `api.moonshot.cn`，国际站账号改为 `https://api.moonshot.ai/v1`。
-- 火山引擎豆包：模型一栏可以填模型名，也可以填方舟控制台中创建的推理接入点 ID。
+- Anthropic Claude: the extension adds the header `anthropic-dangerous-direct-browser-access: true`, which Anthropic requires for requests from a browser context. The Claude 5 series and Opus 4.7 and 4.8 reject a custom temperature, so the extension sends no temperature for these models, and the temperature field of the default model is empty.
+- Azure OpenAI: the endpoint is `https://<resource>.openai.azure.com/openai`, and the model field takes the deployment name.
+- Ollama: by default Ollama rejects cross-origin requests from extension pages. Start Ollama with the environment variable `OLLAMA_ORIGINS=moz-extension://*`.
+- Moonshot: the default endpoint is the China site `api.moonshot.cn`; accounts on the international site use `https://api.moonshot.ai/v1`.
+- Volcengine Doubao: the model field takes either a model name or the ID of an inference endpoint created in the Ark console.
 
-## 批处理原理
+## How batching works
 
-一封邮件通常有十几到几十个段落。逐段请求时，每段都要单独发送一次系统提示词和翻译指令，并单独占用一次请求配额。批处理把短时间内到达的段落合并成一次请求，这两项开销都按批次而不是按段落计算。
+A message usually has between ten and a few dozen paragraphs. With one request per paragraph, every paragraph carries its own copy of the system prompt and instructions, and every paragraph uses one request from the rate limit. Batching merges paragraphs that arrive close together into one request, so both costs are paid per batch instead of per paragraph.
 
-### 流程
+### Flow
 
-1. 内容脚本把每个待翻译段落交给后台。
-2. 后台先查缓存，命中则直接返回。缓存键由服务商、模型、目标语言、系统提示词签名和段落文本的哈希组成。相同文本正在翻译时，后来的请求共用同一个结果。
-3. 未命中的段落进入批处理队列，按“服务商 + 模型 + 接口地址 + 目标语言”分组。同一组的段落在 50 毫秒窗口内累积；窗口结束、段落数达到上限或字符数将超过上限时，这一组立即发出。单段超过字符上限时单独成批。
-4. 每一批交给请求队列执行。请求队列限制并发数，遇到 429、5xx 或网络错误时按指数退避重试，服务端给出 `Retry-After` 时按它等待。401、400 这类错误直接报告，不重试。
-5. 结果写入内存缓存，并在 1 秒后合并写入 `storage.local`。缓存按最近最少使用（LRU）淘汰。
+1. The content script hands every paragraph to be translated to the background script.
+2. The background script looks up the cache first and answers directly on a hit. The cache key consists of the provider, the model, the target language, a signature of the system prompt and a hash of the paragraph text. When the same text is already being translated, later requests share the same result.
+3. Paragraphs not in the cache enter the batch queue, grouped by provider + model + endpoint + target language. Paragraphs of one group accumulate for 50 ms. A group is sent when the window ends, when the paragraph limit is reached, or when the next paragraph would exceed the character limit. A single paragraph longer than the character limit forms its own batch.
+4. The request queue executes each batch. It limits concurrency and retries 429, 5xx and network errors with exponential backoff; when the server sends `Retry-After`, it waits for that time. Errors such as 401 and 400 are reported without retrying.
+5. Results go to the in-memory cache and are written to `storage.local` in one write after 1 second. The cache evicts the least recently used (LRU) entries.
 
-### 各类服务的合并方式
+### How each service merges paragraphs
 
-- Google：一次 POST 带多个 `q` 参数，返回数组与输入一一对应。
-- 微软：请求体本身就是数组。
-- DeepLX：接口一次只接受一段，批内各段并发请求。
-- AI 服务商：各段编号后放入一条消息，要求模型返回长度相同的 JSON 数组。解析器依次尝试 JSON 数组（可带代码块或前后说明文字，会修复字符串中的裸换行和多余逗号）、带编号的 `<seg>` 块、编号行、`%%` 分隔符。全部失败或条数不符时，这一批改为逐段请求，用户看到的结果不受影响。认证失败等非解析错误不做逐段回退，避免同样的错误重复 N 次。
+- Google: one POST with several `q` parameters; the returned array matches the input one to one.
+- Microsoft: the request body itself is an array.
+- DeepLX: the endpoint accepts one paragraph per request, so the paragraphs of a batch are requested concurrently.
+- AI providers: the paragraphs are numbered and put into one message, and the model is asked to return a JSON array of the same length. The parser tries, in order: a JSON array (possibly inside a code block or surrounded by explanations; bare newlines inside strings and trailing commas are repaired), numbered `<seg>` blocks, numbered lines, and the `%%` separator. If all of them fail or the count does not match, that batch is sent again one paragraph per request, and the user sees the same result. Errors other than parsing errors, such as authentication failures, do not trigger this fallback, so the same error is not repeated N times.
 
-### 开销估算
+### Cost estimate
 
-设系统提示词和指令共 $s$ 个 token，每段平均 $t$ 个 token，共 $N$ 段，批大小为 $B$，每段编号与 JSON 引号的额外开销为 $c$ 个 token。
+Let the system prompt and instructions take $s$ tokens, each paragraph $t$ tokens on average, with $N$ paragraphs in total, a batch size of $B$, and $c$ extra tokens per paragraph for numbering and JSON quotes.
 
-逐段请求的输入 token 总量为
-
-$$
-I_{\text{逐段}} = N(s + t).
-$$
-
-批处理时共有 $\lceil N/B \rceil$ 次请求，输入 token 总量为
+With one request per paragraph, the total number of input tokens is
 
 $$
-I_{\text{批}} = \left\lceil \frac{N}{B} \right\rceil s + N(t + c).
+I_{\text{single}} = N(s + t).
 $$
 
-两者之差为
+With batching there are $\lceil N/B \rceil$ requests, and the total number of input tokens is
 
 $$
-I_{\text{逐段}} - I_{\text{批}} = \left(N - \left\lceil \frac{N}{B} \right\rceil\right) s - Nc.
+I_{\text{batch}} = \left\lceil \frac{N}{B} \right\rceil s + N(t + c).
 $$
 
-只要 $s$ 明显大于 $c$，批越大节省越多。以 $s = 150$、$t = 60$、$c = 10$、$N = 20$、$B = 30$ 为例：
+The difference is
 
 $$
-I_{\text{逐段}} = 20 \times 210 = 4200, \qquad I_{\text{批}} = 150 + 20 \times 70 = 1550.
+I_{\text{single}} - I_{\text{batch}} = \left(N - \left\lceil \frac{N}{B} \right\rceil\right) s - Nc.
 $$
 
-输入 token 减少约 63%，请求次数从 20 次降为 1 次。输出 token 两种方式基本相同，因为译文本身的长度不变。请求次数的减少对免费接口同样重要：谷歌和微软的免费接口按请求频率限流，一封 20 段的邮件只占一次请求。
+As long as $s$ is clearly larger than $c$, larger batches save more. With $s = 150$, $t = 60$, $c = 10$, $N = 20$ and $B = 30$:
 
-## 隐私
+$$
+I_{\text{single}} = 20 \times 210 = 4200, \qquad I_{\text{batch}} = 150 + 20 \times 70 = 1550.
+$$
 
-- API 密钥只保存在当前 Thunderbird 配置文件的 `storage.local` 中，只随请求发送到对应服务商的接口地址。
-- 内容脚本运行在邮件页面里，它从后台拿到的设置不包含任何密钥。
-- 邮件正文只发送给当前选中的翻译服务，不发送到其他任何地方。扩展不收集统计数据，不访问除翻译服务之外的网络地址。
-- 译文缓存保存在本地，可以在设置页关闭或清除。
-- 邮件内容会离开本机，发往所选的翻译服务。处理敏感邮件时，可以使用 Ollama 或 LM Studio 这类本地模型，此时请求只到达本机。
+Input tokens drop by about 63%, and the number of requests drops from 20 to 1. Output tokens are about the same in both cases, since the length of the translation does not change. Fewer requests matter for the free endpoints as well: Google and Microsoft limit their free endpoints by request rate, and a 20-paragraph message takes a single request.
 
-## 已知限制
+## Privacy
 
-- 译文以纯文本呈现。原文中的链接、加粗等行内格式在译文里不保留；双语模式下原文仍完整可用，仅译文模式下可悬停查看原文或切回双语。
-- 谷歌和微软的免费接口没有公开文档，接口可能变化或限流。微软的令牌接口 `edge.microsoft.com/translate/auth` 已于 2026 年 7 月下线（返回 404），扩展首次请求时仍尝试令牌接口，失败后改走直连接口，并在一小时内不再尝试令牌接口。
-- 判断段落是否已是目标语言时，中日韩等文字按字符类别判断，拉丁字母语言优先调用扩展 API 的 i18n.detectLanguage；该接口不可用或结果不可靠时，只对英文有可靠的判断，其他拉丁字母语言的段落会照常发送翻译。
-- 内容脚本通过 `messageDisplayScripts` 注册，只作用于注册之后打开的邮件。扩展启动时会尝试为已打开的邮件补充注入；补充注入失败时，重新点选一次邮件即可。
+- API keys are stored only in `storage.local` of the current Thunderbird profile and are sent only with requests to the endpoint of the matching provider.
+- The content script runs inside the message page; the settings it receives from the background script never contain keys.
+- Message text is sent only to the currently selected translation service. The extension collects no statistics and contacts no network address other than the translation service.
+- The translation cache is stored locally and can be turned off or cleared on the settings page.
+- Message text leaves your computer and goes to the selected translation service. For sensitive mail, local models such as Ollama or LM Studio keep every request on your own machine.
 
-## 测试
+## Known limitations
+
+- Translations are plain text. Links, bold text and other inline formatting of the original are not kept in the translation. In bilingual mode the original stays fully usable; in translation-only mode you can hover to see the original or switch back to bilingual.
+- The free Google and Microsoft endpoints are undocumented and may change or be rate-limited. Microsoft retired the token endpoint `edge.microsoft.com/translate/auth` in July 2026 (it returns 404). The extension still tries the token endpoint on the first request, falls back to the direct endpoint after a failure, and does not try the token endpoint again for one hour.
+- To decide whether a paragraph is already in the target language, Chinese, Japanese, Korean and similar scripts are judged by character class, and Latin-script languages first use `i18n.detectLanguage` of the extension API. When that API is unavailable or its result is unreliable, only English is detected reliably; paragraphs in other Latin-script languages are sent for translation as usual.
+- The content script is registered through `messageDisplayScripts` and reaches only messages opened after registration. On startup the extension tries to inject it into messages already open; if that fails, selecting the message again is enough.
+- Error messages produced by the extension are translated. Error texts returned by a translation service or by the AI SDK (for example the body of an HTTP 401 response) are shown as received, usually in English.
+- The extension name, its description in the Add-ons Manager and the shortcut descriptions follow Thunderbird's interface language, not the interface language option.
+
+## Tests
 
 ```bash
-npm test          # vitest 单元测试
-npm run typecheck # TypeScript 类型检查
-npm run live-test # 用扩展自身的翻译模块调用真实的谷歌和微软接口
+npm test               # vitest unit tests
+npm run typecheck      # TypeScript type check
+npm run locales:check  # check every locales/<language>.json against locales/en.json
+npm run live-test      # call the real Google and Microsoft endpoints through the extension's own modules
 ```
 
-单元测试覆盖批处理分组与队列、AI 输出解析与回退、段落识别与双语/仅译文渲染及恢复（jsdom 环境）、谷歌/微软/DeepLX 的请求构造与响应解析（模拟 fetch），以及每个 AI 预设的请求地址与认证头。
+The unit tests cover batch grouping and queues, AI output parsing and fallback, paragraph detection with bilingual and translation-only rendering and restoring (in jsdom), request building and response parsing for Google, Microsoft and DeepLX (with a mocked fetch), the request URL and authentication headers of every AI preset, and localization: identical key sets and placeholders in all languages, every `__MSG_*__` reference in the manifest, mapping of Thunderbird languages to supported languages, fallback to English for missing keys, and the absence of hard-coded interface text in the HTML pages and sources.
 
-`npm run build:debug` 生成调试版 xpi，打开邮件即开始翻译并把进度写入控制台，用于在真实的 Thunderbird 中检查整条流程。
+`npm run build:debug` produces a debug xpi that starts translating as soon as a message is opened and writes progress to the console, for checking the whole flow in a real Thunderbird.
 
-## 目录结构
+## Project structure
 
 ```
 src/
-  background/    后台：翻译服务、批处理与请求队列、缓存、服务商工厂、各翻译接口
-  content/       内容脚本：段落识别、渲染、语言判断、翻译状态控制
-  popup/         弹出面板
-  options/       设置页
-  shared/        共享的设置、服务商预设、语言表、消息类型
-static/          manifest.json、HTML、CSS、SVG 图标、_locales
-scripts/         构建、真实接口测试、语言文件生成
-tests/           vitest 测试
+  background/    background script: translation service, batch and request queues, cache, provider factory, translators
+  content/       content script: paragraph detection, rendering, language detection, translation state
+  popup/         popup
+  options/       settings page
+  shared/        shared settings, provider presets, language table, message types, i18n runtime
+locales/         interface text, one JSON file per language; en.json is the reference
+static/          manifest.json, HTML, CSS, SVG icon
+scripts/         build, locale generation and checks, live endpoint test
+readmes/         translated versions of this README
+tests/           vitest tests
 ```
 
-界面文字的唯一来源是 `scripts/locales-source.mjs`，修改后运行 `npm run locales` 重新生成 `static/_locales`。
+## Translating the interface
 
-## 致谢
+Interface text lives in `locales/<language>.json`, one flat object of key → text per language. `locales/en.json` is the reference: every other file has exactly the same keys. `$1` to `$9` are substitutions and must appear in each translation with the same numbers as in English; `{{apiKey}}` and `{{to}}` are literal tokens and stay unchanged. Product names such as Google Translate, OpenAI or DeepLX are not translated.
 
-段落识别、批处理队列、提示词写法和服务商配置的设计参考了 [Read Frog](https://github.com/mengxi-ream/read-frog)，一个以 GPL-3.0 发布的网页翻译浏览器扩展。本项目把这些思路移植到 Thunderbird 的邮件阅读环境，并针对邮件做了调整，例如纯文本邮件的空行分段和硬换行合并。
+`npm run build` converts these files into `dist/_locales/<language>/messages.json`, the format Thunderbird reads. The extension's own i18n runtime loads the same files at run time, so the interface language can change without restarting Thunderbird. Missing keys fall back to English.
 
-## 许可证
+To add a language, create `locales/<code>.json` with all keys, add the code to `SUPPORTED_LOCALES` in `src/shared/locales.ts` together with its native name, and run `npm run locales:check` and `npm test`.
 
-GPL-3.0-or-later，全文见 [LICENSE](LICENSE)。
+## Acknowledgements
+
+The design of paragraph detection, the batch queue, the prompts and the provider configuration follows [Read Frog](https://github.com/mengxi-ream/read-frog), a browser extension for translating web pages released under GPL-3.0. This project carries these ideas over to Thunderbird's message reader and adapts them to email, for example splitting plain-text mail at blank lines and joining hard-wrapped lines.
+
+## License
+
+GPL-3.0-or-later. See [LICENSE](LICENSE) for the full text.

@@ -1,9 +1,12 @@
-import { ext, t } from "../shared/ext"
+import { ext } from "../shared/ext"
+import { getI18n, t } from "../shared/i18n"
 import { localizeDocument } from "../shared/i18n-dom"
+import { loadExtensionI18n, thunderbirdUiLanguage } from "../shared/i18n-ext"
 import { LANGUAGES } from "../shared/languages"
+import { LOCALE_NATIVE_NAMES, localeToLanguageTag, matchUiLocale, normalizeUiLanguageSetting, SUPPORTED_LOCALES } from "../shared/locales"
 import type { BackgroundRequest } from "../shared/messages"
-import { getPreset, PROVIDER_PRESETS, type ProviderPreset } from "../shared/providers"
-import type { DisplayMode, ProviderConfig, Settings, StylePreset } from "../shared/settings"
+import { getPreset, PROVIDER_PRESETS, providerDisplayName, type ProviderPreset } from "../shared/providers"
+import { type DisplayMode, normalizeSettings, type ProviderConfig, SETTINGS_KEY, type Settings, type StylePreset } from "../shared/settings"
 import { loadSettings, saveSettings } from "../shared/settings-store"
 import { DEFAULT_SYSTEM_PROMPT } from "../background/translators/llm-prompt"
 
@@ -67,7 +70,7 @@ function renderProviderList(): void {
       else if (isConfigured(p) && (p.requiresKey || p.requiresBaseURL)) {
         tags.push(h("span", { className: "tag configured", text: t("providerConfigured") }))
       }
-      const li = h("li", { className: p.id === selectedProvider ? "selected" : "" }, h("span", { text: p.name }), ...tags)
+      const li = h("li", { className: p.id === selectedProvider ? "selected" : "" }, h("span", { text: providerDisplayName(p) }), ...tags)
       li.addEventListener("click", () => {
         selectedProvider = p.id
         renderProviderList()
@@ -88,7 +91,7 @@ function renderProviderPanel(): void {
   const cfg = providerConfig(p.id)
   const children: (HTMLElement | null)[] = []
 
-  const title = h("div", { className: "row" }, h("h3", { text: p.name }))
+  const title = h("div", { className: "row" }, h("h3", { text: providerDisplayName(p) }))
   if (p.docsUrl) {
     const a = h("a", { href: p.docsUrl, target: "_blank", rel: "noopener", text: t("getKey") })
     title.append(a)
@@ -223,18 +226,67 @@ function applyPreview(): void {
 
 async function refreshCacheCount(): Promise<void> {
   const r = await send<{ size: number }>({ type: "cacheStats" })
-  $("cacheCount").textContent = t("cacheCount", [String(r?.size ?? 0)])
+  $("cacheCount").textContent = t("cacheCount", [r?.size ?? 0])
+}
+
+/** Replace a select's options, keeping the selected value. */
+function fillSelect(select: HTMLSelectElement, options: HTMLOptionElement[], value: string): void {
+  select.replaceChildren(...options)
+  select.value = value
+}
+
+/** Write every text of the page in the current interface language. */
+function applyLanguage(): void {
+  const i18n = getI18n()
+  localizeDocument(i18n)
+
+  const follow = new Option(t("uiLanguageAuto", [LOCALE_NATIVE_NAMES[matchUiLocale(thunderbirdUiLanguage())]]), "auto")
+  const locales = SUPPORTED_LOCALES.map((l) => {
+    const o = new Option(LOCALE_NATIVE_NAMES[l], l)
+    o.lang = localeToLanguageTag(l)
+    return o
+  })
+  fillSelect($<HTMLSelectElement>("uiLanguage"), [follow, ...locales], settings.uiLanguage)
+  fillSelect(
+    $<HTMLSelectElement>("targetLang"),
+    LANGUAGES.map((l) => new Option(i18n.languageName(l.code, l.native), l.code)),
+    settings.targetLang,
+  )
+  fillSelect(
+    $<HTMLSelectElement>("activeProvider"),
+    PROVIDER_PRESETS.map((p) => new Option(providerDisplayName(p, i18n), p.id)),
+    settings.activeProviderId,
+  )
+  renderProviderList()
+  renderProviderPanel()
+  void refreshCacheCount()
+}
+
+async function changeUiLanguage(value: unknown): Promise<void> {
+  settings.uiLanguage = normalizeUiLanguageSetting(value)
+  await loadExtensionI18n(settings.uiLanguage)
+  applyLanguage()
 }
 
 async function main(): Promise<void> {
-  localizeDocument()
   settings = await loadSettings()
   selectedProvider = settings.activeProviderId
+  await loadExtensionI18n(settings.uiLanguage)
+  applyLanguage()
 
   // General
+  const uiLanguage = $<HTMLSelectElement>("uiLanguage")
+  uiLanguage.addEventListener("change", () => {
+    void changeUiLanguage(uiLanguage.value)
+    scheduleSave()
+  })
+  // Another settings tab may change the interface language.
+  ext.storage.onChanged.addListener((changes, area) => {
+    if (area !== "local" || !changes[SETTINGS_KEY]) return
+    const next = normalizeSettings(changes[SETTINGS_KEY].newValue).uiLanguage
+    if (next !== settings.uiLanguage) void changeUiLanguage(next)
+  })
   const targetLang = $<HTMLSelectElement>("targetLang")
-  for (const l of LANGUAGES) targetLang.add(new Option(`${l.native} (${l.code})`, l.code))
-  targetLang.value = settings.targetLang
   targetLang.addEventListener("change", () => {
     settings.targetLang = targetLang.value
     scheduleSave()
@@ -246,8 +298,6 @@ async function main(): Promise<void> {
     scheduleSave()
   })
   const active = $<HTMLSelectElement>("activeProvider")
-  for (const p of PROVIDER_PRESETS) active.add(new Option(p.name, p.id))
-  active.value = settings.activeProviderId
   active.addEventListener("change", () => {
     settings.activeProviderId = active.value
     renderProviderList()
@@ -255,10 +305,6 @@ async function main(): Promise<void> {
     scheduleSave()
   })
   bindCheck("autoTranslate", () => settings.autoTranslate, (v) => (settings.autoTranslate = v))
-
-  // Providers
-  renderProviderList()
-  renderProviderPanel()
 
   // Prompt
   const prompt = $<HTMLTextAreaElement>("systemPrompt")
@@ -321,7 +367,6 @@ async function main(): Promise<void> {
     await refreshCacheCount()
     $("cacheCount").textContent += ` · ${t("cacheCleared")}`
   })
-  await refreshCacheCount()
 }
 
 void main()
