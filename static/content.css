@@ -1,0 +1,86 @@
+/* Injected into the message display by messageDisplayScripts. */
+
+.tt-translation {
+  --tt-color-fallback: #4c8bf5;
+  color: inherit;
+  opacity: var(--tt-opacity, 0.85);
+  font-size: calc(1em * var(--tt-scale, 1));
+  line-height: 1.55;
+  overflow-wrap: anywhere;
+}
+
+.tt-translation.tt-flow {
+  white-space: pre-line;
+}
+
+.tt-translation.tt-pre {
+  white-space: pre-wrap;
+}
+
+/* Bilingual: a block under the original paragraph. */
+.tt-translation.tt-bilingual {
+  display: block;
+  margin: 0.3em 0 0.4em;
+}
+
+.tt-translation.tt-bilingual.tt-style-border {
+  border-left: 3px solid var(--tt-color, var(--tt-color-fallback));
+  padding-left: 0.6em;
+}
+
+.tt-translation.tt-bilingual.tt-style-dashed {
+  border-left: 2px dashed var(--tt-color, var(--tt-color-fallback));
+  padding-left: 0.6em;
+}
+
+.tt-translation.tt-bilingual.tt-style-highlight {
+  background: color-mix(in srgb, var(--tt-color, var(--tt-color-fallback)) 14%, transparent);
+  border-radius: 4px;
+  padding: 0.2em 0.5em;
+}
+
+/* Translation only: takes the original's place, no decoration. */
+.tt-translation.tt-only {
+  display: inline;
+  opacity: 1;
+  font-size: inherit;
+}
+
+.tt-status {
+  display: inline-block;
+  margin-left: 0.4em;
+  vertical-align: middle;
+  font-size: 0.85em;
+  user-select: none;
+}
+
+.tt-loading {
+  width: 0.8em;
+  height: 0.8em;
+  border: 2px solid var(--tt-color, #4c8bf5);
+  border-right-color: transparent;
+  border-radius: 50%;
+  animation: tt-spin 0.8s linear infinite;
+}
+
+@keyframes tt-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.tt-error {
+  color: #c5221f;
+  cursor: pointer;
+  text-decoration: underline dotted;
+}
+
+@media (prefers-color-scheme: dark) {
+  .tt-error {
+    color: #f28b82;
+  }
+
+  .tt-translation.tt-bilingual.tt-style-highlight {
+    background: color-mix(in srgb, var(--tt-color, var(--tt-color-fallback)) 24%, transparent);
+  }
+}

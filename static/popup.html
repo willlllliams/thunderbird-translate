@@ -1,0 +1,45 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <link rel="stylesheet" href="popup.css" />
+  </head>
+  <body>
+    <header>
+      <img src="icons/icon.svg" alt="" width="20" height="20" />
+      <span data-i18n="extensionName"></span>
+    </header>
+
+    <button id="toggle" class="primary" type="button" data-i18n="popupTranslate"></button>
+    <p id="status" class="status"></p>
+
+    <div class="field">
+      <span class="label" data-i18n="labelMode"></span>
+      <div class="segmented" role="radiogroup">
+        <label><input type="radio" name="mode" value="bilingual" /><span data-i18n="modeBilingual"></span></label>
+        <label><input type="radio" name="mode" value="translation-only" /><span data-i18n="modeTranslationOnly"></span></label>
+      </div>
+    </div>
+
+    <label class="field">
+      <span class="label" data-i18n="labelTargetLang"></span>
+      <select id="targetLang"></select>
+    </label>
+
+    <label class="field">
+      <span class="label" data-i18n="labelProvider"></span>
+      <select id="provider"></select>
+    </label>
+
+    <label class="check">
+      <input type="checkbox" id="autoTranslate" />
+      <span data-i18n="labelAutoTranslate"></span>
+    </label>
+
+    <footer>
+      <a href="#" id="openOptions" data-i18n="popupSettings"></a>
+      <span class="hint" data-i18n="popupShortcuts"></span>
+    </footer>
+    <script src="popup.js"></script>
+  </body>
+</html>

@@ -1,0 +1,42 @@
+{
+  "manifest_version": 2,
+  "name": "__MSG_extensionName__",
+  "description": "__MSG_extensionDescription__",
+  "version": "1.0.0",
+  "default_locale": "en",
+  "browser_specific_settings": {
+    "gecko": {
+      "id": "thunderbird-translate@willlllliams.github.io",
+      "strict_min_version": "128.0"
+    }
+  },
+  "icons": {
+    "16": "icons/icon.svg",
+    "32": "icons/icon.svg",
+    "64": "icons/icon.svg",
+    "128": "icons/icon.svg"
+  },
+  "background": {
+    "scripts": ["background.js"]
+  },
+  "message_display_action": {
+    "default_popup": "popup.html",
+    "default_title": "__MSG_actionTitle__",
+    "default_icon": "icons/icon.svg"
+  },
+  "options_ui": {
+    "page": "options.html",
+    "open_in_tab": true
+  },
+  "commands": {
+    "toggle-translation": {
+      "suggested_key": { "default": "Alt+A" },
+      "description": "__MSG_commandToggle__"
+    },
+    "toggle-display-mode": {
+      "suggested_key": { "default": "Alt+S" },
+      "description": "__MSG_commandMode__"
+    }
+  },
+  "permissions": ["messagesRead", "messagesModify", "storage", "tabs", "<all_urls>"]
+}

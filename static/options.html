@@ -1,0 +1,105 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title data-i18n="optionsTitle"></title>
+    <link rel="stylesheet" href="options.css" />
+    <link rel="stylesheet" href="content.css" />
+  </head>
+  <body>
+    <header class="top">
+      <img src="icons/icon.svg" alt="" width="32" height="32" />
+      <h1 data-i18n="optionsTitle"></h1>
+      <span id="saved" class="saved" data-i18n="saved"></span>
+    </header>
+
+    <main>
+      <section>
+        <h2 data-i18n="sectionGeneral"></h2>
+        <div class="grid">
+          <label>
+            <span data-i18n="labelTargetLang"></span>
+            <select id="targetLang"></select>
+          </label>
+          <label>
+            <span data-i18n="labelDefaultMode"></span>
+            <select id="mode">
+              <option value="bilingual" data-i18n="modeBilingual"></option>
+              <option value="translation-only" data-i18n="modeTranslationOnly"></option>
+            </select>
+          </label>
+          <label>
+            <span data-i18n="labelActiveProvider"></span>
+            <select id="activeProvider"></select>
+          </label>
+        </div>
+        <label class="check">
+          <input type="checkbox" id="autoTranslate" />
+          <span data-i18n="labelAutoTranslate"></span>
+        </label>
+      </section>
+
+      <section>
+        <h2 data-i18n="sectionProviders"></h2>
+        <div class="providers">
+          <ul id="providerList" class="provider-list"></ul>
+          <div id="providerPanel" class="provider-panel"></div>
+        </div>
+      </section>
+
+      <section>
+        <h2 data-i18n="sectionPrompt"></h2>
+        <p class="hint" data-i18n="promptHint"></p>
+        <textarea id="systemPrompt" rows="9" spellcheck="false"></textarea>
+        <button type="button" id="resetPrompt" data-i18n="buttonResetPrompt"></button>
+      </section>
+
+      <section>
+        <h2 data-i18n="sectionBatch"></h2>
+        <div class="grid">
+          <label><span data-i18n="labelBatchDelay"></span><input type="number" id="batchDelayMs" min="0" max="2000" step="10" /></label>
+          <label><span data-i18n="labelMaxChars"></span><input type="number" id="maxCharsPerBatch" min="200" max="50000" step="100" /></label>
+          <label><span data-i18n="labelMaxItems"></span><input type="number" id="maxItemsPerBatch" min="1" max="200" /></label>
+          <label><span data-i18n="labelConcurrency"></span><input type="number" id="concurrency" min="1" max="20" /></label>
+          <label><span data-i18n="labelRetries"></span><input type="number" id="maxRetries" min="0" max="10" /></label>
+        </div>
+        <label class="check"><input type="checkbox" id="llmBatchEnabled" /><span data-i18n="labelLlmBatch"></span></label>
+        <p class="hint" data-i18n="batchHint"></p>
+      </section>
+
+      <section>
+        <h2 data-i18n="sectionStyle"></h2>
+        <div class="grid">
+          <label>
+            <span data-i18n="labelStylePreset"></span>
+            <select id="stylePreset">
+              <option value="border" data-i18n="styleBorder"></option>
+              <option value="dashed" data-i18n="styleDashed"></option>
+              <option value="highlight" data-i18n="styleHighlight"></option>
+              <option value="plain" data-i18n="stylePlain"></option>
+            </select>
+          </label>
+          <label><span data-i18n="labelColor"></span><input type="color" id="styleColor" /></label>
+          <label><span data-i18n="labelOpacity"></span><input type="range" id="styleOpacity" min="0.3" max="1" step="0.05" /></label>
+          <label><span data-i18n="labelFontScale"></span><input type="range" id="styleFontScale" min="0.7" max="1.5" step="0.05" /></label>
+        </div>
+        <div class="preview" id="preview">
+          <p>
+            <span data-i18n="stylePreviewOriginal"></span>
+            <span id="previewTranslation" class="tt-translation tt-bilingual tt-flow" data-i18n="stylePreviewTranslation"></span>
+          </p>
+        </div>
+      </section>
+
+      <section>
+        <h2 data-i18n="sectionCache"></h2>
+        <div class="grid">
+          <label class="check"><input type="checkbox" id="cacheEnabled" /><span data-i18n="labelCacheEnabled"></span></label>
+          <label><span data-i18n="labelCacheMax"></span><input type="number" id="cacheMax" min="0" max="100000" step="100" /></label>
+        </div>
+        <p><span id="cacheCount" class="hint"></span> <button type="button" id="clearCache" data-i18n="buttonClearCache"></button></p>
+      </section>
+    </main>
+    <script src="options.js"></script>
+  </body>
+</html>
