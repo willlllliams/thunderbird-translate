@@ -38,5 +38,6 @@
       "description": "__MSG_commandMode__"
     }
   },
-  "permissions": ["messagesRead", "messagesModify", "storage", "tabs", "<all_urls>"]
+  "permissions": ["messagesRead", "messagesModify", "storage", "unlimitedStorage", "tabs", "<all_urls>"],
+  "content_security_policy": "script-src 'self' 'wasm-unsafe-eval'; object-src 'self'"
 }

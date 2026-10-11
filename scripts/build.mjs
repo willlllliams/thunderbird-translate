@@ -5,6 +5,7 @@ import { fileURLToPath } from "node:url"
 import * as esbuild from "esbuild"
 import { zipSync } from "fflate"
 import { checkLocales, readLocaleSources, writeLocales } from "./locales.mjs"
+import { BERGAMOT_WASM_FILE, ensureBergamotWasm } from "./fetch-bergamot.mjs"
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..")
 const dist = join(root, "dist")
@@ -23,6 +24,9 @@ rmSync(dist, { recursive: true, force: true })
 mkdirSync(dist, { recursive: true })
 cpSync(join(root, "static"), dist, { recursive: true })
 cpSync(join(root, "LICENSE"), join(dist, "LICENSE"))
+// Bergamot offline engine: glue script (vendor/) and the pinned, zstd-compressed wasm (downloaded to .cache/).
+cpSync(join(root, "vendor", "bergamot", "bergamot-translator.js"), join(dist, "bergamot-translator.js"))
+cpSync(await ensureBergamotWasm(), join(dist, BERGAMOT_WASM_FILE))
 
 // _locales/<locale>/messages.json from locales/*.json; refuse to build with incomplete translations.
 const localeSources = readLocaleSources()
@@ -44,6 +48,7 @@ const result = await esbuild.build({
     content: "src/content/index.ts",
     popup: "src/popup/index.ts",
     options: "src/options/index.ts",
+    "bergamot-worker": "src/offline/bergamot/worker.ts",
   },
   absWorkingDir: root,
   outdir: dist,

@@ -15,7 +15,8 @@
     "test:watch": "vitest",
     "typecheck": "tsc --noEmit",
     "live-test": "node scripts/live-test.mjs",
-    "locales:check": "node scripts/locales.mjs"
+    "locales:check": "node scripts/locales.mjs",
+    "fetch:bergamot": "node scripts/fetch-bergamot.mjs"
   },
   "dependencies": {
     "@ai-sdk/alibaba": "^2.0.65",
@@ -35,12 +36,14 @@
     "@ai-sdk/togetherai": "^3.0.68",
     "@ai-sdk/xai": "^5.0.20",
     "ai": "^7.0.137",
+    "fzstd": "^0.1.1",
     "zod": "^4.6.5"
   },
   "devDependencies": {
     "@types/firefox-webext-browser": "^143.0.1",
     "@types/node": "^26.6.5",
     "esbuild": "^0.28.2",
+    "fake-indexeddb": "^6.2.5",
     "fflate": "^0.8.3",
     "jsdom": "^30.1.2",
     "typescript": "^7.0.2",
