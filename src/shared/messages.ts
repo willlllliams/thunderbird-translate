@@ -29,6 +29,8 @@ export interface TabState {
   total: number
   done: number
   failed: number
+  /** Description of the most recent failure while some paragraphs are still failed. */
+  lastError?: string
 }
 
 /** Messages pushed from background to content scripts over a runtime Port. */

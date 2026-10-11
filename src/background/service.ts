@@ -5,7 +5,7 @@
  *     → executor per provider kind → RequestQueue (concurrency + retry)
  */
 
-import { describeError, LocalizedError } from "../shared/errors"
+import { describeError, type ErrorContext, LocalizedError } from "../shared/errors"
 import { hashText } from "../shared/hash"
 import { ENGLISH, type I18n } from "../shared/i18n"
 import { getLanguage } from "../shared/languages"
@@ -51,6 +51,19 @@ export interface ServiceDeps {
   i18n?: () => I18n
 }
 
+/** What describeError() needs to know about the provider of a failed request. */
+export function errorContext(provider: ResolvedProvider): ErrorContext {
+  const preset = getPreset(provider.id)
+  if (!preset) return { baseURL: provider.baseURL }
+  return {
+    service: preset.name,
+    kind: preset.kind,
+    baseURL: preset.kind === "microsoft" ? undefined : provider.baseURL,
+    defaultBaseURL: preset.defaultBaseURL,
+    model: preset.kind === "llm" ? provider.model : undefined,
+  }
+}
+
 export class TranslationService {
   private readonly requestQueue: RequestQueue
   private readonly batchQueue: BatchQueue<Job, ItemResult>
@@ -87,8 +100,8 @@ export class TranslationService {
     return { maxItems: Math.min(cap.maxItems, user.maxItems), maxChars: Math.min(cap.maxChars, user.maxChars) }
   }
 
-  private errorMessage(error: unknown): string {
-    return describeError(error, this.deps.i18n?.() ?? ENGLISH)
+  private errorMessage(error: unknown, provider?: ResolvedProvider): string {
+    return describeError(error, this.deps.i18n?.() ?? ENGLISH, provider ? errorContext(provider) : {})
   }
 
   private promptSignature(providerId: string): string {
@@ -160,7 +173,7 @@ export class TranslationService {
         const out = await fn()
         return out.map((text) => ({ ok: true, text }))
       } catch (error) {
-        return jobs.map(() => ({ ok: false, error: this.errorMessage(error) }))
+        return jobs.map(() => ({ ok: false, error: this.errorMessage(error, first.provider) }))
       }
     }
     const each = (fn: (job: Job) => Promise<string>): Promise<ItemResult[]> =>
@@ -168,7 +181,7 @@ export class TranslationService {
         jobs.map((job) =>
           this.run(() => fn(job)).then(
             (text): ItemResult => ({ ok: true, text }),
-            (error): ItemResult => ({ ok: false, error: this.errorMessage(error) }),
+            (error): ItemResult => ({ ok: false, error: this.errorMessage(error, job.provider) }),
           ),
         ),
       )
@@ -188,7 +201,7 @@ export class TranslationService {
             if (out.length === jobs.length) return out.map((text) => ({ ok: true, text }))
           } catch (error) {
             if (!(error instanceof BatchParseError)) {
-              return jobs.map(() => ({ ok: false, error: this.errorMessage(error) }))
+              return jobs.map(() => ({ ok: false, error: this.errorMessage(error, first.provider) }))
             }
           }
           // The merged answer did not line up: one request per paragraph.

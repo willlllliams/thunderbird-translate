@@ -2,6 +2,23 @@
 
 All notable changes to this project are documented in this file. Versions follow [Semantic Versioning](https://semver.org/).
 
+## 1.1.1
+
+### Fixed
+
+- A failed connection test showed only "Failed:" with no reason. In Thunderbird, responses arrive over HTTP/2, where `statusText` is always empty; the AI SDK uses `statusText` as the error message when the response body is not in the provider's error format, so the message was an empty string. This happened for example with the DeepSeek endpoint set to the web console `https://platform.deepseek.com` (HTTP 405, body `{"detail":"Method Not Allowed"}`).
+- Failure markers inside messages and the popup could show an empty reason for the same cause.
+
+### Changed
+
+- All error messages are built by one function and are never empty. HTTP failures show the status code with its standard reason phrase (filled in when `statusText` is empty), the request URL and the server's own message, taken from the JSON fields `error.message`, `error`, `message`, `detail`, `msg` or `errors[0].message`. An HTML page in the response is reported as "a web page instead of an API response" rather than quoted; other text is shortened to about 200 characters.
+- Network failures name the host that could not be reached. The free Google and Microsoft translators and DeepLX now report the URL of a failed request as well.
+- Errors come with suggestions in the interface language: invalid key or missing permission (401/403), wrong endpoint or model with the preset's default endpoint and the endpoint in use (404/405), console or documentation sites used as endpoint, unknown model, rate limit or used-up balance (402/429), server errors (5xx), and network or proxy problems.
+- The settings page shows a failed connection test on several lines (reason, server message, suggestions, request URL); the text can be selected and copied, and the colors work with a dark theme.
+- The endpoint field on the settings page warns, after editing, about malformed URLs and about known console, documentation and chat sites (for example `platform.deepseek.com`, `platform.openai.com`, `console.anthropic.com`, `aistudio.google.com`, `console.groq.com`), shows the default endpoint and offers a button to restore it. Saving is not blocked. Presets list these sites in a new optional `webHosts` field.
+- The popup shows the reason of the most recent failure next to the failure count, shortened, with the full text as tooltip.
+- DeepSeek preset: the default model is now `deepseek-flash`, and the suggestions are `deepseek-flash` and `deepseek-v4-pro`. DeepSeek retired `deepseek-chat` and `deepseek-reasoner` on 2026-07-24. Settings that leave the model field empty switch to the new default automatically.
+
 ## 1.1.0
 
 ### Added

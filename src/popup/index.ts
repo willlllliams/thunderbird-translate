@@ -1,3 +1,4 @@
+import { firstLine } from "../shared/errors"
 import { ext } from "../shared/ext"
 import { getI18n, t } from "../shared/i18n"
 import { localizeDocument } from "../shared/i18n-dom"
@@ -20,6 +21,10 @@ function fillSelect(select: HTMLSelectElement, options: [label: string, value: s
   select.value = value
 }
 
+function shorten(text: string, max: number): string {
+  return text.length > max ? `${text.slice(0, max - 1).trimEnd()}…` : text
+}
+
 async function main(): Promise<void> {
   const settings = await loadSettings()
   let uiLanguage = settings.uiLanguage
@@ -30,6 +35,7 @@ async function main(): Promise<void> {
 
   const toggle = $<HTMLButtonElement>("toggle")
   const status = $<HTMLParagraphElement>("status")
+  const lastError = $<HTMLParagraphElement>("lastError")
   const targetLang = $<HTMLSelectElement>("targetLang")
   const provider = $<HTMLSelectElement>("provider")
   const autoTranslate = $<HTMLInputElement>("autoTranslate")
@@ -71,6 +77,11 @@ async function main(): Promise<void> {
       if (st.failed > 0) text += ` · ${t("popupFailed", [st.failed])}`
       status.textContent = text
     }
+    // Most recent failure: one shortened line here, the full description as tooltip.
+    const error = st.active && st.failed > 0 ? st.lastError?.trim() : ""
+    lastError.hidden = !error
+    lastError.textContent = error ? t("popupLastError", [shorten(firstLine(error), 90)]) : ""
+    lastError.title = error ?? ""
   }
 
   const refresh = async () => {

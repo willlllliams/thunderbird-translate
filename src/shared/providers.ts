@@ -47,6 +47,11 @@ export interface ProviderPreset {
   defaultTemperature: number | null
   /** Where to get a key / read the docs. */
   docsUrl?: string
+  /**
+   * Hosts of the provider's web console, documentation or chat app. They
+   * serve web pages, not the API, and are a common mistake in the endpoint field.
+   */
+  webHosts?: string[]
 }
 
 const T = 0.3
@@ -97,6 +102,7 @@ export const PROVIDER_PRESETS: ProviderPreset[] = [
     requiresKey: true,
     defaultTemperature: T,
     docsUrl: "https://platform.openai.com/api-keys",
+    webHosts: ["platform.openai.com", "chatgpt.com", "chat.openai.com", "openai.com", "help.openai.com"],
   },
   {
     id: "anthropic",
@@ -110,6 +116,7 @@ export const PROVIDER_PRESETS: ProviderPreset[] = [
     // Claude 5.x models reject non-default sampling parameters.
     defaultTemperature: null,
     docsUrl: "https://console.anthropic.com/settings/keys",
+    webHosts: ["console.anthropic.com", "platform.claude.com", "docs.anthropic.com", "docs.claude.com", "claude.ai", "www.anthropic.com", "anthropic.com"],
   },
   {
     id: "gemini",
@@ -122,6 +129,7 @@ export const PROVIDER_PRESETS: ProviderPreset[] = [
     requiresKey: true,
     defaultTemperature: T,
     docsUrl: "https://aistudio.google.com/apikey",
+    webHosts: ["aistudio.google.com", "ai.google.dev", "gemini.google.com"],
   },
   {
     id: "deepseek",
@@ -129,11 +137,13 @@ export const PROVIDER_PRESETS: ProviderPreset[] = [
     kind: "llm",
     sdk: "deepseek",
     defaultBaseURL: "https://api.deepseek.com",
-    defaultModel: "deepseek-chat",
-    models: ["deepseek-chat", "deepseek-reasoner"],
+    // deepseek-chat and deepseek-reasoner were retired on 2026-07-24 (api-docs.deepseek.com/news/news260424).
+    defaultModel: "deepseek-flash",
+    models: ["deepseek-flash", "deepseek-v4-pro"],
     requiresKey: true,
     defaultTemperature: 1.3,
     docsUrl: "https://platform.deepseek.com/api_keys",
+    webHosts: ["platform.deepseek.com", "api-docs.deepseek.com", "chat.deepseek.com", "www.deepseek.com", "deepseek.com"],
   },
   {
     id: "xai",
@@ -146,6 +156,7 @@ export const PROVIDER_PRESETS: ProviderPreset[] = [
     requiresKey: true,
     defaultTemperature: T,
     docsUrl: "https://console.x.ai/",
+    webHosts: ["console.x.ai", "docs.x.ai", "x.ai", "grok.com"],
   },
   {
     id: "groq",
@@ -158,6 +169,7 @@ export const PROVIDER_PRESETS: ProviderPreset[] = [
     requiresKey: true,
     defaultTemperature: T,
     docsUrl: "https://console.groq.com/keys",
+    webHosts: ["console.groq.com", "groq.com"],
   },
   {
     id: "mistral",
@@ -170,6 +182,7 @@ export const PROVIDER_PRESETS: ProviderPreset[] = [
     requiresKey: true,
     defaultTemperature: T,
     docsUrl: "https://console.mistral.ai/api-keys",
+    webHosts: ["console.mistral.ai", "docs.mistral.ai", "chat.mistral.ai", "mistral.ai"],
   },
   {
     id: "ollama",
@@ -207,6 +220,7 @@ export const PROVIDER_PRESETS: ProviderPreset[] = [
     requiresKey: true,
     defaultTemperature: T,
     docsUrl: "https://api.together.ai/settings/api-keys",
+    webHosts: ["docs.together.ai", "www.together.ai", "together.ai"],
   },
   {
     id: "fireworks",
@@ -219,6 +233,7 @@ export const PROVIDER_PRESETS: ProviderPreset[] = [
     requiresKey: true,
     defaultTemperature: T,
     docsUrl: "https://fireworks.ai/account/api-keys",
+    webHosts: ["fireworks.ai", "docs.fireworks.ai"],
   },
   {
     id: "deepinfra",
@@ -231,6 +246,7 @@ export const PROVIDER_PRESETS: ProviderPreset[] = [
     requiresKey: true,
     defaultTemperature: T,
     docsUrl: "https://deepinfra.com/dash/api_keys",
+    webHosts: ["deepinfra.com"],
   },
   {
     id: "cerebras",
@@ -243,6 +259,7 @@ export const PROVIDER_PRESETS: ProviderPreset[] = [
     requiresKey: true,
     defaultTemperature: T,
     docsUrl: "https://cloud.cerebras.ai/",
+    webHosts: ["cloud.cerebras.ai", "inference-docs.cerebras.ai", "cerebras.ai"],
   },
   {
     id: "perplexity",
@@ -255,6 +272,7 @@ export const PROVIDER_PRESETS: ProviderPreset[] = [
     requiresKey: true,
     defaultTemperature: T,
     docsUrl: "https://www.perplexity.ai/settings/api",
+    webHosts: ["www.perplexity.ai", "perplexity.ai", "docs.perplexity.ai"],
   },
   {
     id: "moonshot",
@@ -267,6 +285,7 @@ export const PROVIDER_PRESETS: ProviderPreset[] = [
     requiresKey: true,
     defaultTemperature: T,
     docsUrl: "https://platform.moonshot.cn/console/api-keys",
+    webHosts: ["platform.moonshot.cn", "platform.moonshot.ai", "kimi.moonshot.cn", "www.kimi.com", "kimi.com"],
   },
   {
     id: "zhipu",
@@ -279,6 +298,7 @@ export const PROVIDER_PRESETS: ProviderPreset[] = [
     requiresKey: true,
     defaultTemperature: T,
     docsUrl: "https://open.bigmodel.cn/usercenter/apikeys",
+    webHosts: ["bigmodel.cn", "www.bigmodel.cn", "chatglm.cn"],
   },
   {
     id: "dashscope",
@@ -291,6 +311,7 @@ export const PROVIDER_PRESETS: ProviderPreset[] = [
     requiresKey: true,
     defaultTemperature: T,
     docsUrl: "https://bailian.console.aliyun.com/",
+    webHosts: ["bailian.console.aliyun.com", "dashscope.console.aliyun.com", "help.aliyun.com", "tongyi.aliyun.com"],
   },
   {
     id: "siliconflow",
@@ -303,6 +324,7 @@ export const PROVIDER_PRESETS: ProviderPreset[] = [
     requiresKey: true,
     defaultTemperature: T,
     docsUrl: "https://cloud.siliconflow.cn/account/ak",
+    webHosts: ["cloud.siliconflow.cn", "docs.siliconflow.cn", "siliconflow.cn"],
   },
   {
     id: "doubao",
@@ -315,6 +337,7 @@ export const PROVIDER_PRESETS: ProviderPreset[] = [
     requiresKey: true,
     defaultTemperature: T,
     docsUrl: "https://console.volcengine.com/ark",
+    webHosts: ["console.volcengine.com", "www.volcengine.com", "www.doubao.com"],
   },
   {
     id: "azure",
@@ -328,6 +351,7 @@ export const PROVIDER_PRESETS: ProviderPreset[] = [
     requiresBaseURL: true,
     defaultTemperature: T,
     docsUrl: "https://learn.microsoft.com/azure/ai-services/openai/",
+    webHosts: ["portal.azure.com", "ai.azure.com", "oai.azure.com", "learn.microsoft.com"],
   },
   {
     id: "lmstudio",
@@ -366,4 +390,56 @@ export function getPreset(id: string): ProviderPreset | undefined {
 /** Name shown in the interface: brand names stay as they are, "(free)" and similar are translated. */
 export function providerDisplayName(preset: ProviderPreset, i18n: I18n = getI18n()): string {
   return preset.nameKey ? i18n.t(preset.nameKey, [preset.name]) : preset.name
+}
+
+/** Hosts of every preset's web console, documentation or chat app. */
+const KNOWN_WEB_HOSTS = new Set(PROVIDER_PRESETS.flatMap((p) => p.webHosts ?? []))
+
+export function isKnownWebHost(host: string): boolean {
+  return KNOWN_WEB_HOSTS.has(host.toLowerCase().replace(/:\d+$/, "").replace(/\.$/, ""))
+}
+
+/** Host of a URL (DeepLX {{apiKey}} placeholders allowed), or "" when it cannot be parsed. */
+export function urlHost(value: string | undefined): string {
+  if (!value) return ""
+  try {
+    return new URL(value.replaceAll("{{apiKey}}", "key")).host
+  } catch {
+    return ""
+  }
+}
+
+export type BaseUrlIssue = { kind: "invalid" } | { kind: "webPage"; host: string }
+
+/**
+ * Light check of an endpoint typed by the user. Empty means "preset default"
+ * and passes. Flags malformed URLs and hosts that are known to serve a web
+ * console or documentation instead of the API.
+ */
+export function checkBaseURL(value: string): BaseUrlIssue | null {
+  const v = value.trim()
+  if (!v) return null
+  let url: URL
+  try {
+    url = new URL(v.replaceAll("{{apiKey}}", "key"))
+  } catch {
+    return { kind: "invalid" }
+  }
+  if ((url.protocol !== "https:" && url.protocol !== "http:") || !url.hostname) return { kind: "invalid" }
+  if (isKnownWebHost(url.hostname)) return { kind: "webPage", host: url.hostname }
+  return null
+}
+
+/** Endpoints are the same when they differ only in host case or trailing slashes. */
+export function sameEndpoint(a: string, b: string): boolean {
+  const norm = (value: string) => {
+    const t = value.trim().replace(/\/+$/, "")
+    try {
+      const u = new URL(t)
+      return `${u.protocol}//${u.host}${u.pathname.replace(/\/+$/, "")}${u.search}`
+    } catch {
+      return t
+    }
+  }
+  return norm(a) === norm(b)
 }

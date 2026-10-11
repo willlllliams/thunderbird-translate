@@ -10,7 +10,7 @@
  */
 
 import { LocalizedError } from "../../shared/errors"
-import { ensureOk } from "../queue/request-queue"
+import { fetchOk } from "../queue/request-queue"
 
 export const GOOGLE_DEFAULT_BASE = "https://translate.googleapis.com"
 
@@ -83,7 +83,7 @@ export async function googleTranslateBatch(texts: string[], targetLang: string, 
   if (texts.length === 0) return []
   const f = opts.fetchFn ?? fetch
   const { url, init } = buildGoogleBatchRequest(texts, targetLang, "auto", opts.baseURL)
-  const resp = await ensureOk(await f(url, { ...init, signal: opts.signal }), "Google")
+  const resp = await fetchOk(f, url, { ...init, signal: opts.signal }, "Google")
   const json = await resp.json()
   try {
     return parseGoogleBatchResponse(json, texts.length)
@@ -96,6 +96,6 @@ export async function googleTranslateBatch(texts: string[], targetLang: string, 
 export async function googleTranslateSingle(text: string, targetLang: string, opts: FetchOptions = {}): Promise<string> {
   const f = opts.fetchFn ?? fetch
   const { url, init } = buildGoogleSingleRequest(text, targetLang, "auto", opts.baseURL)
-  const resp = await ensureOk(await f(url, { ...init, signal: opts.signal }), "Google")
+  const resp = await fetchOk(f, url, { ...init, signal: opts.signal }, "Google")
   return parseGoogleSingleResponse(await resp.json())
 }

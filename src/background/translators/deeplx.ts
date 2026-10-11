@@ -10,7 +10,7 @@
 
 import { type ErrorText, LocalizedError, renderErrorText } from "../../shared/errors"
 import { ENGLISH } from "../../shared/i18n"
-import { ensureOk, HttpError } from "../queue/request-queue"
+import { fetchOk, HttpError } from "../queue/request-queue"
 import type { FetchOptions, RequestSpec } from "./google"
 
 export function buildDeepLXRequest(text: string, targetDeepl: string, endpoint: string, token = ""): RequestSpec {
@@ -56,6 +56,6 @@ export async function deeplxTranslate(
 ): Promise<string> {
   const f = opts.fetchFn ?? fetch
   const { url, init } = buildDeepLXRequest(text, targetDeepl, endpoint, token)
-  const resp = await ensureOk(await f(url, { ...init, signal: opts.signal }), "DeepLX")
+  const resp = await fetchOk(f, url, { ...init, signal: opts.signal }, "DeepLX")
   return parseDeepLXResponse(await resp.json())
 }

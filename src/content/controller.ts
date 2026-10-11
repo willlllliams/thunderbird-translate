@@ -10,6 +10,7 @@
  * starts again (the background cache answers what it already knows).
  */
 
+import { describeError } from "../shared/errors"
 import { getI18n } from "../shared/i18n"
 import type { TranslateResponse } from "../shared/messages"
 import type { PublicSettings } from "../shared/settings"
@@ -22,7 +23,7 @@ export interface ControllerDeps {
   root: () => HTMLElement | null
   translate: (text: string, targetLang: string, providerId: string) => Promise<TranslateResponse>
   detect?: LanguageDetector
-  report?: (state: { active: boolean; total: number; done: number; failed: number }) => void
+  report?: (state: { active: boolean; total: number; done: number; failed: number; lastError?: string }) => void
   label?: (key: "loading" | "error") => string
 }
 
@@ -40,6 +41,7 @@ export class TranslationController {
   private renderer: Renderer | null = null
   /** Translations already received, keyed by provider + language + text. */
   private memo = new Map<string, string>()
+  private lastError = ""
 
   constructor(private readonly deps: ControllerDeps) {}
 
@@ -58,7 +60,7 @@ export class TranslationController {
       if (r.status === "done") done++
       else if (r.status === "error") failed++
     }
-    this.deps.report?.({ active: this.active, total: this.units.length, done, failed })
+    this.deps.report?.({ active: this.active, total: this.units.length, done, failed, ...(failed > 0 && this.lastError ? { lastError: this.lastError } : {}) })
   }
 
   /** Apply new settings. Returns a promise that settles when re-rendering is scheduled. */
@@ -123,6 +125,7 @@ export class TranslationController {
     this.renderer = null
     this.units = []
     this.results.clear()
+    this.lastError = ""
     this.root()?.ownerDocument.getElementById(STYLE_ID)?.remove()
     this.report()
   }
@@ -149,8 +152,10 @@ export class TranslationController {
     try {
       res = await this.deps.translate(unit.text, s.targetLang, s.activeProviderId)
     } catch (error) {
-      res = { ok: false, error: error instanceof Error ? error.message : String(error) }
+      res = { ok: false, error: describeError(error, getI18n()) }
     }
+    // Never show an empty reason, whatever the background sent.
+    if (!res || (!res.ok && !res.error?.trim())) res = { ok: false, error: describeError(undefined, getI18n()) }
     if (res.ok) this.memo.set(this.memoKey(unit.text), res.text)
     this.finish(unit, res, session)
   }
@@ -162,6 +167,7 @@ export class TranslationController {
       this.renderResult(unit)
     } else {
       this.results.set(unit, { status: "error", error: res.error })
+      this.lastError = res.error
       this.renderer.showError(unit, res.error, this.label("error"), () => {
         void this.translateUnit(unit, this.session)
       })

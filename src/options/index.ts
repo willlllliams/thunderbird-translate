@@ -1,3 +1,4 @@
+import { describeError } from "../shared/errors"
 import { ext } from "../shared/ext"
 import { getI18n, t } from "../shared/i18n"
 import { localizeDocument } from "../shared/i18n-dom"
@@ -5,7 +6,7 @@ import { loadExtensionI18n, thunderbirdUiLanguage } from "../shared/i18n-ext"
 import { LANGUAGES } from "../shared/languages"
 import { LOCALE_NATIVE_NAMES, localeToLanguageTag, matchUiLocale, normalizeUiLanguageSetting, SUPPORTED_LOCALES } from "../shared/locales"
 import type { BackgroundRequest } from "../shared/messages"
-import { getPreset, PROVIDER_PRESETS, providerDisplayName, type ProviderPreset } from "../shared/providers"
+import { checkBaseURL, getPreset, PROVIDER_PRESETS, providerDisplayName, type ProviderPreset } from "../shared/providers"
 import { type DisplayMode, normalizeSettings, type ProviderConfig, SETTINGS_KEY, type Settings, type StylePreset } from "../shared/settings"
 import { loadSettings, saveSettings } from "../shared/settings-store"
 import { DEFAULT_SYSTEM_PROMPT } from "../background/translators/llm-prompt"
@@ -85,6 +86,44 @@ function field(label: string, input: HTMLElement, hint?: string): HTMLElement {
   return h("label", { className: "panel-field" }, h("span", { text: label }), input, hint ? h("span", { className: "hint", text: hint }) : null)
 }
 
+/**
+ * Warning under the endpoint field: malformed URL, or a console / docs site
+ * instead of the API. Saving is never blocked.
+ */
+function renderBaseUrlWarning(box: HTMLElement, p: ProviderPreset, input: HTMLInputElement, restore: () => void): void {
+  const issue = checkBaseURL(input.value)
+  if (!issue) {
+    box.replaceChildren()
+    box.hidden = true
+    return
+  }
+  const children: HTMLElement[] = [h("div", { text: issue.kind === "invalid" ? t("warnBaseUrlInvalid") : t("hintWebHost", [issue.host]) })]
+  if (p.defaultBaseURL) {
+    const button = h("button", { type: "button", text: t("buttonRestoreBaseUrl") })
+    button.addEventListener("click", restore)
+    children.push(h("div", { className: "row" }, h("span", { text: t("warnBaseUrlDefault", [p.defaultBaseURL]) }), button))
+  }
+  box.replaceChildren(...children)
+  box.hidden = false
+}
+
+function showTestSuccess(box: HTMLElement, text: string): void {
+  box.className = "test-result ok"
+  box.textContent = t("testOk", [text])
+}
+
+/** Failure of the connection test: a title, then reason, server message, suggestions and URL on their own lines. */
+function showTestFailure(box: HTMLElement, description: string | undefined): void {
+  const text = description?.trim() ? description : describeError(undefined, getI18n())
+  const [reason, ...rest] = text.split("\n").filter((line) => line.trim())
+  box.className = "test-result fail"
+  box.replaceChildren(
+    h("div", { className: "test-title", text: t("testFailed") }),
+    h("div", { className: "test-reason", text: reason }),
+    ...rest.map((line) => h("div", { className: "test-line", text: line })),
+  )
+}
+
 function renderProviderPanel(): void {
   const panel = $("providerPanel")
   const p = getPreset(selectedProvider)!
@@ -108,15 +147,25 @@ function renderProviderPanel(): void {
   } else {
     // Endpoint
     const baseURL = h("input", { type: "text", value: cfg.baseURL, placeholder: p.defaultBaseURL || "https://…", spellcheck: "false" })
+    const warning = h("div", { className: "field-warning", role: "status" })
+    const validate = () => renderBaseUrlWarning(warning, p, baseURL, () => {
+      cfg.baseURL = ""
+      baseURL.value = ""
+      validate()
+      change()
+    })
     baseURL.addEventListener("input", () => {
       cfg.baseURL = baseURL.value.trim()
       change()
     })
+    // Checked when the value is committed (blur / Enter), not on every keystroke.
+    baseURL.addEventListener("change", validate)
     let baseHint: string | undefined
     if (p.id === "azure") baseHint = t("hintAzure")
     else if (p.id === "ollama") baseHint = t("hintOllama")
     else if (p.kind === "deeplx") baseHint = t("hintDeeplx")
-    children.push(field(p.kind === "deeplx" ? t("labelDeeplxURL") : t("labelBaseURL"), baseURL, baseHint))
+    children.push(h("div", { className: "field-group" }, field(p.kind === "deeplx" ? t("labelDeeplxURL") : t("labelBaseURL"), baseURL, baseHint), warning))
+    validate()
 
     // Key / token
     const key = h("input", { type: "password", value: cfg.apiKey, autocomplete: "off", spellcheck: "false" })
@@ -159,21 +208,23 @@ function renderProviderPanel(): void {
   }
 
   // Actions
-  const result = h("span", { className: "test-result" })
+  const result = h("div", { className: "test-result", "aria-live": "polite" })
   const test = h("button", { type: "button", text: t("buttonTest") })
   test.addEventListener("click", async () => {
     result.className = "test-result"
     result.textContent = t("testRunning")
     test.disabled = true
     try {
-      const r = await send<{ ok: boolean; text?: string; error?: string }>({
+      const r = await send<{ ok: boolean; text?: string; error?: string } | undefined>({
         type: "testProvider",
         providerId: p.id,
         config: { ...cfg },
         targetLang: settings.targetLang,
       })
-      result.className = `test-result ${r.ok ? "ok" : "fail"}`
-      result.textContent = r.ok ? t("testOk", [r.text ?? ""]) : t("testFail", [r.error ?? ""])
+      if (r?.ok) showTestSuccess(result, r.text ?? "")
+      else showTestFailure(result, r?.error)
+    } catch (error) {
+      showTestFailure(result, describeError(error, getI18n()))
     } finally {
       test.disabled = false
     }

@@ -14,7 +14,7 @@
  */
 
 import { LocalizedError } from "../../shared/errors"
-import { ensureOk } from "../queue/request-queue"
+import { fetchOk } from "../queue/request-queue"
 import type { FetchOptions, RequestSpec } from "./google"
 
 export const MS_AUTH_URL = "https://edge.microsoft.com/translate/auth"
@@ -100,7 +100,7 @@ export function resetMicrosoftState(): void {
 
 async function getToken(f: typeof fetch, signal?: AbortSignal): Promise<string> {
   if (state.token && Date.now() < state.expiresAt) return state.token
-  const resp = await ensureOk(await f(MS_AUTH_URL, { method: "GET", signal }), "Microsoft auth")
+  const resp = await fetchOk(f, MS_AUTH_URL, { method: "GET", signal }, "Microsoft auth")
   const token = (await resp.text()).trim()
   if (!token) throw new LocalizedError("errEmptyToken", ["Microsoft"])
   state.token = token
@@ -112,16 +112,17 @@ export async function microsoftTranslateViaToken(texts: string[], targetLang: st
   const f = opts.fetchFn ?? fetch
   const token = await getToken(f, opts.signal)
   const { url, init } = buildMicrosoftApiRequest(texts, targetLang, token)
-  const resp = await f(url, { ...init, signal: opts.signal })
-  if (resp.status === 401) state.token = null
-  await ensureOk(resp, "Microsoft")
+  const resp = await fetchOk(f, url, { ...init, signal: opts.signal }, "Microsoft").catch((error: unknown) => {
+    if ((error as { status?: number })?.status === 401) state.token = null
+    throw error
+  })
   return parseMicrosoftResponse(await resp.json(), texts.length)
 }
 
 export async function microsoftTranslateViaEdge(texts: string[], targetLang: string, opts: FetchOptions = {}): Promise<string[]> {
   const f = opts.fetchFn ?? fetch
   const { url, init } = buildMicrosoftEdgeRequest(texts, targetLang)
-  const resp = await ensureOk(await f(url, { ...init, signal: opts.signal }), "Microsoft")
+  const resp = await fetchOk(f, url, { ...init, signal: opts.signal }, "Microsoft")
   return parseMicrosoftResponse(await resp.json(), texts.length, true)
 }
 

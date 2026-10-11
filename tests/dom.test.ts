@@ -245,6 +245,26 @@ describe("controller", () => {
     await vi.waitFor(() => expect(document.querySelector(".tt-translation")?.textContent).toBe("ZH:Good morning"))
   })
 
+  it("never shows an empty failure reason and reports the last one", async () => {
+    document.body.innerHTML = "<p>Good morning</p><p>See you later</p>"
+    const reports: { failed: number; lastError?: string }[] = []
+    const translate = vi.fn(async (text: string) => {
+      if (text.startsWith("Good")) return { ok: false as const, error: "" }
+      throw new Error("")
+    })
+    const c = new TranslationController({ root: () => document.body, translate, report: (s) => reports.push(s) })
+    await c.updateSettings(settings())
+    await c.start()
+    const markers = Array.from(document.querySelectorAll<HTMLElement>(".tt-error"))
+    expect(markers).toHaveLength(2)
+    for (const m of markers) expect(m.title.trim()).not.toBe("")
+    const last = reports.at(-1)!
+    expect(last.failed).toBe(2)
+    expect(last.lastError?.trim()).toBeTruthy()
+    c.stop()
+    expect(reports.at(-1)!.lastError).toBeUndefined()
+  })
+
   it("auto-starts only for messages not in the target language", async () => {
     document.body.innerHTML = "<p>这封邮件已经是中文了。</p>"
     const translate = vi.fn(async (text: string) => ({ ok: true as const, text }))

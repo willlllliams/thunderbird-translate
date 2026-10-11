@@ -199,9 +199,43 @@ button.primary {
   min-width: 200px;
 }
 
+.field-group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.field-warning {
+  --warn: #b06000;
+  border-left: 3px solid var(--warn);
+  border-radius: 4px;
+  padding: 6px 10px;
+  background: color-mix(in srgb, var(--warn) 10%, transparent);
+  font-size: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  overflow-wrap: anywhere;
+}
+
+.field-warning[hidden] {
+  display: none;
+}
+
+.field-warning button {
+  padding: 2px 10px;
+  font-size: 12px;
+}
+
 .test-result {
   font-size: 12px;
-  word-break: break-word;
+  overflow-wrap: anywhere;
+  user-select: text;
+  cursor: text;
+}
+
+.test-result:empty {
+  display: none;
 }
 
 .test-result.ok {
@@ -209,7 +243,43 @@ button.primary {
 }
 
 .test-result.fail {
-  color: #c5221f;
+  --fail: #c5221f;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  border-left: 3px solid var(--fail);
+  border-radius: 4px;
+  padding: 8px 12px;
+  background: color-mix(in srgb, var(--fail) 8%, transparent);
+  line-height: 1.55;
+}
+
+.test-result .test-title {
+  color: var(--fail);
+  font-weight: 600;
+}
+
+.test-result .test-reason {
+  font-weight: 600;
+}
+
+.test-result .test-line {
+  color: color-mix(in srgb, currentColor 85%, transparent);
+}
+
+@media (prefers-color-scheme: dark) {
+  .test-result.ok {
+    color: #81c995;
+  }
+
+  .test-result.fail {
+    --fail: #f28b82;
+    background: color-mix(in srgb, var(--fail) 12%, transparent);
+  }
+
+  .field-warning {
+    --warn: #fdd663;
+  }
 }
 
 .preview {

@@ -47,6 +47,33 @@ button.primary:disabled {
   font-size: 12px;
 }
 
+.last-error {
+  margin: -6px 0 10px;
+  padding: 4px 8px;
+  border-left: 3px solid #c5221f;
+  border-radius: 4px;
+  background: color-mix(in srgb, #c5221f 8%, transparent);
+  font-size: 12px;
+  /* At most three lines; the full description is in the tooltip. */
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+  overflow: hidden;
+  overflow-wrap: anywhere;
+  user-select: text;
+}
+
+.last-error[hidden] {
+  display: none;
+}
+
+@media (prefers-color-scheme: dark) {
+  .last-error {
+    border-left-color: #f28b82;
+    background: color-mix(in srgb, #f28b82 12%, transparent);
+  }
+}
+
 .field {
   display: block;
   margin-bottom: 10px;
