@@ -2,6 +2,19 @@
 
 All notable changes to this project are documented in this file. Versions follow [Semantic Versioning](https://semver.org/).
 
+## 1.3.0
+
+### Added
+
+- Microsoft Translator can use your own Azure Translator key. The service panel has a switch between "Default interface (free)", which keeps the Edge token route with the direct fallback, and "Use my key (Azure Translator)". In key mode the extension calls the official Translator v3 `translate` method (`https://api.cognitive.microsofttranslator.com/translate?api-version=3.0&to=<language>`) with the headers `Ocp-Apim-Subscription-Key` and, when a region is entered, `Ocp-Apim-Subscription-Region`; the region can stay empty for a global resource. The panel shows the endpoint (for resources with a custom domain), the key (with the show and hide button) and the region only in key mode. The settings keep the mode as `mode` ("free" or "key") in the provider configuration, next to `apiKey`, `region` and the endpoint (`baseURL`). The connection test works in both modes.
+- Batches for Azure follow the documented limits of one translate request: 1,000 array elements and 50,000 characters. The free route keeps its caps of 100 paragraphs and 5,000 characters. Your own batch settings still apply on top.
+- A wrong Azure key or region (HTTP 401 and 403) gets its own advice: use the key of a Translator or multi-service resource, enter the region shown under Keys and Endpoint, and a 403 can also mean the free quota is used up. After a 404 in key mode the default endpoint is named.
+- Interface texts for these features in all 12 languages.
+
+### Fixed
+
+- A change made in the popup while the settings page was open (current service, target language, display mode, automatic translation, race and precise switches) was overwritten by the next save of the settings page. The page now saves only what the user changed there, on top of the settings in storage, and shows changes made elsewhere right away. A field being edited is not touched. The popup shows changes of the display mode and of automatic translation made on the settings page as well.
+
 ## 1.2.0
 
 ### Added

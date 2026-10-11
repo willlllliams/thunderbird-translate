@@ -11,9 +11,13 @@
  *    2026-07 (it answers 404), and this is the route Edge uses since then.
  *
  * The token route is tried first; once it fails, it is skipped for an hour.
+ *
+ * With "use my key" mode the official Azure Translator v3 translate method is
+ * called instead (subscription key header, same body and response format).
  */
 
 import { LocalizedError } from "../../shared/errors"
+import { type BatchLimits, groupIntoBatches } from "../queue/batch-queue"
 import { fetchOk } from "../queue/request-queue"
 import type { FetchOptions, RequestSpec } from "./google"
 
@@ -31,6 +35,34 @@ export function buildMicrosoftApiRequest(texts: string[], targetLang: string, to
       body: JSON.stringify(texts.map((Text) => ({ Text }))),
     },
   }
+}
+
+/** Azure Translator, key mode. An empty region is valid for a global resource. */
+export interface AzureConfig {
+  apiKey: string
+  region: string
+  /** Full URL of the translate method, without query. */
+  endpoint: string
+}
+
+export interface MicrosoftOptions extends FetchOptions {
+  /** Present in key mode. */
+  azure?: AzureConfig
+}
+
+/** Request limits of the translate method (service-limits): 1000 array elements and 50,000 characters per request. */
+export const AZURE_LIMITS: BatchLimits = { maxItems: 1000, maxChars: 50_000 }
+
+export function buildAzureRequest(texts: string[], targetLang: string, azure: AzureConfig): RequestSpec {
+  const url = new URL(azure.endpoint)
+  url.searchParams.set("api-version", "3.0")
+  url.searchParams.set("to", targetLang)
+  const headers: Record<string, string> = {
+    "Content-Type": "application/json; charset=UTF-8",
+    "Ocp-Apim-Subscription-Key": azure.apiKey,
+  }
+  if (azure.region) headers["Ocp-Apim-Subscription-Region"] = azure.region
+  return { url: url.toString(), init: { method: "POST", headers, body: JSON.stringify(texts.map((Text) => ({ Text }))) } }
 }
 
 export function buildMicrosoftEdgeRequest(texts: string[], targetLang: string): RequestSpec {
@@ -126,8 +158,22 @@ export async function microsoftTranslateViaEdge(texts: string[], targetLang: str
   return parseMicrosoftResponse(await resp.json(), texts.length, true)
 }
 
-export async function microsoftTranslateBatch(texts: string[], targetLang: string, opts: FetchOptions = {}): Promise<string[]> {
+/** One request per group within the Azure limits, in order. */
+export async function azureTranslateBatch(texts: string[], targetLang: string, azure: AzureConfig, opts: FetchOptions = {}): Promise<string[]> {
+  if (!azure.apiKey) throw new LocalizedError("errApiKeyRequired", ["Microsoft Translator"])
+  const f = opts.fetchFn ?? fetch
+  const out: string[] = []
+  for (const group of groupIntoBatches(texts, (text) => text.length, AZURE_LIMITS)) {
+    const { url, init } = buildAzureRequest(group, targetLang, azure)
+    const resp = await fetchOk(f, url, { ...init, signal: opts.signal }, "Microsoft")
+    out.push(...parseMicrosoftResponse(await resp.json(), group.length))
+  }
+  return out
+}
+
+export async function microsoftTranslateBatch(texts: string[], targetLang: string, opts: MicrosoftOptions = {}): Promise<string[]> {
   if (texts.length === 0) return []
+  if (opts.azure) return azureTranslateBatch(texts, targetLang, opts.azure, opts)
   if (Date.now() >= state.authDisabledUntil) {
     try {
       return await microsoftTranslateViaToken(texts, targetLang, opts)

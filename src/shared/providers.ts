@@ -73,11 +73,13 @@ export const PROVIDER_PRESETS: ProviderPreset[] = [
     name: "Microsoft Translator",
     nameKey: "providerFree",
     kind: "microsoft",
-    defaultBaseURL: "https://edge.microsoft.com",
+    // The free route has no editable endpoint; this is the default of "use my key" mode (Azure Translator v3 translate method).
+    defaultBaseURL: "https://api.cognitive.microsofttranslator.com/translate",
     defaultModel: "",
     models: [],
     requiresKey: false,
     defaultTemperature: null,
+    docsUrl: "https://learn.microsoft.com/azure/ai-services/translator/text-translation/reference/authentication",
   },
   {
     id: "deeplx",

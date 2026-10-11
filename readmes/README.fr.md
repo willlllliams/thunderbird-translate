@@ -179,7 +179,7 @@ La liste des langues cibles est distincte et compte 20 langues, dont l’italien
 | Service | Configuration | Remarques |
 | --- | --- | --- |
 | Google Translate (gratuit, par défaut) | Aucune | Appelle le point de terminaison `client=gtx` de `translate.googleapis.com` ; une requête POST transporte plusieurs paramètres `q`, si bien que plusieurs paragraphes partagent une même requête |
-| Microsoft Translator (gratuit) | Aucune | Tente d’abord d’obtenir un jeton auprès de `edge.microsoft.com/translate/auth` puis d’appeler `api-edge.cognitive.microsofttranslator.com` ; lorsque Microsoft a retiré le point de terminaison du jeton, bascule sur `edge.microsoft.com/translate/translatetext`. Les deux voies acceptent nativement des tableaux |
+| Microsoft Translator (gratuit) | Aucune | Tente d’abord d’obtenir un jeton auprès de `edge.microsoft.com/translate/auth` puis d’appeler `api-edge.cognitive.microsofttranslator.com` ; lorsque Microsoft a retiré le point de terminaison du jeton, bascule sur `edge.microsoft.com/translate/translatetext`. Les deux voies acceptent nativement des tableaux L’option « Utiliser ma clé (Azure Translator) » du panneau appelle à la place l’API officielle `api.cognitive.microsofttranslator.com` : créez une ressource Translator dans le portail Azure, puis copiez sa clé et sa région depuis « Clés et point de terminaison » dans le panneau (la région peut rester vide pour une ressource globale). |
 | DeepLX | Point de terminaison obligatoire | Un service DeepLX auto-hébergé ou tiers ; le jeton est facultatif. Si le point de terminaison contient `{{apiKey}}`, le jeton le remplace ; sinon, il est envoyé dans l’en-tête `Authorization: Bearer` |
 
 ### Fournisseurs d’IA

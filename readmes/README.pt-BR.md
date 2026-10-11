@@ -179,7 +179,7 @@ A lista de idiomas de destino é separada e contém 20 idiomas, entre eles itali
 | Serviço | Configuração | Observações |
 | --- | --- | --- |
 | Google Tradutor (gratuito, padrão) | Nenhuma | Chama o endpoint `client=gtx` de `translate.googleapis.com`; um único POST leva vários parâmetros `q`, de modo que vários parágrafos compartilham uma requisição |
-| Microsoft Translator (gratuito) | Nenhuma | Primeiro tenta obter um token em `edge.microsoft.com/translate/auth` e chamar `api-edge.cognitive.microsofttranslator.com`; quando a Microsoft desativou o endpoint de token, passa a usar `edge.microsoft.com/translate/translatetext`. As duas rotas aceitam arrays nativamente |
+| Microsoft Translator (gratuito) | Nenhuma | Primeiro tenta obter um token em `edge.microsoft.com/translate/auth` e chamar `api-edge.cognitive.microsofttranslator.com`; quando a Microsoft desativou o endpoint de token, passa a usar `edge.microsoft.com/translate/translatetext`. As duas rotas aceitam arrays nativamente A opção “Usar minha chave (Azure Translator)” do painel chama, em vez disso, a API oficial `api.cognitive.microsofttranslator.com`: crie um recurso do Translator no portal do Azure e copie a chave e a região de “Chaves e Ponto de Extremidade” para o painel (a região pode ficar vazia em um recurso global). |
 | DeepLX | Endpoint obrigatório | Um serviço DeepLX auto-hospedado ou de terceiros; o token é opcional. Se o endpoint contiver `{{apiKey}}`, o token o substitui; caso contrário, é enviado como `Authorization: Bearer` |
 
 ### Provedores de IA

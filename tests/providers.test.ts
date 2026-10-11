@@ -87,6 +87,8 @@ describe("provider presets", () => {
       model: "gpt-x",
       temperature: 0.7,
       thinking: false,
+      mode: "free",
+      region: "",
     })
   })
 })

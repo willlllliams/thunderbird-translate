@@ -18,7 +18,13 @@ export interface ProviderConfig {
   temperature?: number | null
   /** AI services: let the model reason before answering. Off by default: slower and costlier for translation. */
   thinking?: boolean
+  /** Microsoft Translator: "free" (default) uses the Edge endpoints; "key" calls Azure Translator with apiKey, region and baseURL. */
+  mode?: MicrosoftMode
+  /** Microsoft Translator, key mode: Azure region of the resource; empty for a global resource. */
+  region?: string
 }
+
+export type MicrosoftMode = "free" | "key"
 
 export interface BatchSettings {
   /** Window for collecting paragraphs into one request (ms). */
@@ -145,6 +151,8 @@ export function normalizeSettings(stored: unknown, uiLang?: string): Settings {
         ? { temperature: cfg.temperature }
         : {}),
       ...(cfg.thinking === true ? { thinking: true } : {}),
+      ...(cfg.mode === "key" ? { mode: "key" as const } : {}),
+      ...(typeof cfg.region === "string" && cfg.region ? { region: cfg.region } : {}),
     }
     // Settings saved before 1.2.0 have no "enabled": derive it from what the user configured.
     const preset = getPreset(id)
@@ -242,6 +250,9 @@ export interface ResolvedProvider {
   model: string
   temperature: number | null
   thinking: boolean
+  /** Microsoft Translator only; always "free" for other services. */
+  mode: MicrosoftMode
+  region: string
 }
 
 export function resolveProvider(settings: Settings, providerId: string): ResolvedProvider {
@@ -261,6 +272,8 @@ export function resolveProviderConfig(providerId: string, cfg: Omit<ProviderConf
     model: cfg.model.trim() || preset.defaultModel,
     temperature: cfg.temperature === undefined ? preset.defaultTemperature : cfg.temperature,
     thinking: cfg.thinking === true,
+    mode: preset.kind === "microsoft" && cfg.mode === "key" ? "key" : "free",
+    region: (cfg.region ?? "").trim(),
   }
 }
 

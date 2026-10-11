@@ -26,7 +26,7 @@ import { deeplxTranslate } from "./translators/deeplx"
 import { googleTranslateBatch } from "./translators/google"
 import { BatchParseError, llmAnalyzeMail, llmTranslateBatch, llmTranslateSingle, type LlmCallOptions } from "./translators/llm"
 import { buildContextBlock, type MailAnalysis, MAX_PREFIX_TEXT_CHARS, parseAnalysis, type Segment } from "./translators/llm-prompt"
-import { microsoftTranslateBatch } from "./translators/microsoft"
+import { AZURE_LIMITS, microsoftTranslateBatch } from "./translators/microsoft"
 
 export type ItemResult = { ok: true; text: string } | { ok: false; error: string }
 
@@ -41,7 +41,7 @@ interface Job {
   mail?: { context: MailContext; index: number }
 }
 
-/** Hard caps for the free endpoints, applied on top of the user's batch settings. */
+/** Hard caps for the free endpoints, applied on top of the user's batch settings. Microsoft with a key has its own caps. */
 const FREE_LIMITS: Record<string, BatchLimits> = {
   google: { maxItems: 100, maxChars: 5000 },
   microsoft: { maxItems: 100, maxChars: 5000 },
@@ -75,10 +75,16 @@ export function errorContext(provider: ResolvedProvider): ErrorContext {
   return {
     service: preset.name,
     kind: preset.kind,
-    baseURL: preset.kind === "microsoft" ? undefined : provider.baseURL,
+    baseURL: preset.kind === "microsoft" && provider.mode === "free" ? undefined : provider.baseURL,
     defaultBaseURL: preset.defaultBaseURL,
     model: preset.kind === "llm" ? provider.model : undefined,
+    keyMode: provider.mode === "key",
   }
+}
+
+/** Key mode of Microsoft Translator: what the Azure request needs. */
+function azureConfig({ mode, apiKey, region, baseURL }: ResolvedProvider) {
+  return mode === "key" ? { apiKey, region, endpoint: baseURL } : undefined
 }
 
 export class TranslationService {
@@ -110,13 +116,15 @@ export class TranslationService {
 
   private limitsFor(batchKey: string): BatchLimits {
     const s = this.deps.getSettings().batch
-    const preset = getPreset(batchKey.split("|")[0])
+    const parts = batchKey.split("|")
+    const preset = getPreset(parts[0])
     const user = { maxItems: s.maxItemsPerBatch, maxChars: s.maxCharsPerBatch }
     if (!preset) return user
     if (preset.kind === "llm") {
       return s.llmBatchEnabled ? user : { maxItems: 1, maxChars: Number.MAX_SAFE_INTEGER }
     }
-    const cap = FREE_LIMITS[preset.kind]
+    // The last part of a batch key is the Microsoft mode.
+    const cap = preset.kind === "microsoft" && parts.at(-1) === "key" ? AZURE_LIMITS : FREE_LIMITS[preset.kind]
     return { maxItems: Math.min(cap.maxItems, user.maxItems), maxChars: Math.min(cap.maxChars, user.maxChars) }
   }
 
@@ -141,7 +149,7 @@ export class TranslationService {
       targetLang: req.targetLang,
       provider,
       key: cacheKey(req.providerId, provider.model, req.targetLang, req.text, promptSig),
-      batchKey: [req.providerId, provider.model, provider.baseURL, req.targetLang, promptSig].join("|"),
+      batchKey: [req.providerId, provider.model, provider.baseURL, req.targetLang, promptSig, provider.mode].join("|"),
       ...(context && req.context ? { mail: { context, index: req.context.index } } : {}),
     }
   }
@@ -315,7 +323,7 @@ export class TranslationService {
       case "google":
         return all(() => this.run(() => googleTranslateBatch(texts, lang.google, { fetchFn, baseURL: first.provider.baseURL })))
       case "microsoft":
-        return all(() => this.run(() => microsoftTranslateBatch(texts, lang.microsoft, { fetchFn })))
+        return all(() => this.run(() => microsoftTranslateBatch(texts, lang.microsoft, { fetchFn, azure: azureConfig(first.provider) })))
       case "deeplx":
         return each((job) => deeplxTranslate(job.text, lang.deepl, job.provider.baseURL, job.provider.apiKey, { fetchFn }))
       case "llm": {

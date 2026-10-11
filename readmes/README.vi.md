@@ -179,7 +179,7 @@ Danh sách ngôn ngữ đích là một danh sách riêng gồm 20 ngôn ngữ, 
 | Dịch vụ | Thiết lập | Ghi chú |
 | --- | --- | --- |
 | Google Dịch (miễn phí, mặc định) | Không cần | Gọi điểm cuối `client=gtx` của `translate.googleapis.com`; một yêu cầu POST mang nhiều tham số `q`, nên nhiều đoạn dùng chung một yêu cầu |
-| Microsoft Translator (miễn phí) | Không cần | Trước tiên thử lấy token từ `edge.microsoft.com/translate/auth` rồi gọi `api-edge.cognitive.microsofttranslator.com`; khi Microsoft đã ngừng điểm cuối cấp token, tiện ích chuyển sang `edge.microsoft.com/translate/translatetext`. Cả hai cách đều nhận mảng một cách tự nhiên |
+| Microsoft Translator (miễn phí) | Không cần | Trước tiên thử lấy token từ `edge.microsoft.com/translate/auth` rồi gọi `api-edge.cognitive.microsofttranslator.com`; khi Microsoft đã ngừng điểm cuối cấp token, tiện ích chuyển sang `edge.microsoft.com/translate/translatetext`. Cả hai cách đều nhận mảng một cách tự nhiên Tùy chọn “Dùng khóa của tôi (Azure Translator)” trong bảng cài đặt sẽ gọi API chính thức `api.cognitive.microsofttranslator.com`: tạo tài nguyên Translator trong cổng Azure, rồi chép khóa và khu vực ở mục “Keys and Endpoint” vào bảng (tài nguyên toàn cầu có thể để trống khu vực). |
 | DeepLX | Bắt buộc nhập điểm cuối | Dịch vụ DeepLX tự lưu trữ hoặc của bên thứ ba; token là tùy chọn. Nếu điểm cuối chứa `{{apiKey}}`, token sẽ thay vào vị trí đó; nếu không, token được gửi dưới dạng `Authorization: Bearer` |
 
 ### Nhà cung cấp AI

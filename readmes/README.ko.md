@@ -179,7 +179,7 @@ Alt+A는 현재 메시지를 번역하거나 원문을 복원하고, Alt+S는 �
 | 서비스 | 설정 | 비고 |
 | --- | --- | --- |
 | Google 번역 (무료, 기본값) | 없음 | `translate.googleapis.com`의 `client=gtx` 엔드포인트를 호출합니다. POST 하나에 `q` 매개변수를 여러 개 담으므로 여러 단락이 요청 하나를 공유합니다 |
-| Microsoft Translator (무료) | 없음 | 먼저 `edge.microsoft.com/translate/auth`에서 토큰을 받아 `api-edge.cognitive.microsofttranslator.com`을 호출합니다. Microsoft가 토큰 엔드포인트를 폐지한 경우 `edge.microsoft.com/translate/translatetext`로 전환합니다. 두 경로 모두 배열을 기본으로 받습니다 |
+| Microsoft Translator (무료) | 없음 | 먼저 `edge.microsoft.com/translate/auth`에서 토큰을 받아 `api-edge.cognitive.microsofttranslator.com`을 호출합니다. Microsoft가 토큰 엔드포인트를 폐지한 경우 `edge.microsoft.com/translate/translatetext`로 전환합니다. 두 경로 모두 배열을 기본으로 받습니다 설정 패널에서 '내 키 사용(Azure Translator)'을 선택하면 공식 `api.cognitive.microsofttranslator.com`을 호출합니다. Azure Portal에서 Translator 리소스를 만든 뒤 '키 및 엔드포인트'의 키와 지역을 패널에 입력하세요(글로벌 리소스는 지역을 비워 둘 수 있습니다). |
 | DeepLX | 엔드포인트 필요 | 자체 호스팅 또는 제3자 DeepLX 서비스이며 토큰은 선택 사항입니다. 엔드포인트에 `{{apiKey}}`가 있으면 토큰으로 대체하고, 없으면 `Authorization: Bearer`로 전송합니다 |
 
 ### AI 제공자

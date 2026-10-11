@@ -179,7 +179,7 @@ Alt+A は表示中のメッセージを翻訳するか、原文に戻します�
 | サービス | 設定 | 備考 |
 | --- | --- | --- |
 | Google 翻訳（無料、既定） | 不要 | `translate.googleapis.com` の `client=gtx` エンドポイントを呼び出します。1 回の POST に複数の `q` パラメーターを含めるため、複数の段落が 1 回のリクエストを共有します |
-| Microsoft Translator（無料） | 不要 | まず `edge.microsoft.com/translate/auth` からトークンを取得して `api-edge.cognitive.microsofttranslator.com` を呼び出そうとします。Microsoft がトークンエンドポイントを廃止している場合は `edge.microsoft.com/translate/translatetext` に切り替えます。どちらの経路も配列をそのまま受け付けます |
+| Microsoft Translator（無料） | 不要 | まず `edge.microsoft.com/translate/auth` からトークンを取得して `api-edge.cognitive.microsofttranslator.com` を呼び出そうとします。Microsoft がトークンエンドポイントを廃止している場合は `edge.microsoft.com/translate/translatetext` に切り替えます。どちらの経路も配列をそのまま受け付けます設定パネルで「自分のキーを使う（Azure Translator）」を選ぶと、公式の `api.cognitive.microsofttranslator.com` を呼び出します。Azure portal で Translator リソースを作成し、「キーとエンドポイント」にあるキーとリージョンをパネルに入力します（グローバルリソースではリージョンは空欄で構いません）。 |
 | DeepLX | エンドポイントが必要 | セルフホストまたはサードパーティの DeepLX サービスです。トークンは任意です。エンドポイントに `{{apiKey}}` が含まれる場合はその部分をトークンで置き換え、含まれない場合は `Authorization: Bearer` として送信します |
 
 ### AI プロバイダー

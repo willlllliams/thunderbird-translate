@@ -184,7 +184,7 @@ npm run build
 | 服務 | 是否需要設定 | 說明 |
 | --- | --- | --- |
 | Google 翻譯（免費，預設） | 否 | 呼叫 `translate.googleapis.com` 的 `client=gtx` 端點，一次 POST 攜帶多個 `q` 參數，多段合併為一次請求 |
-| Microsoft 翻譯（免費） | 否 | 先嘗試從 `edge.microsoft.com/translate/auth` 取得權杖，再呼叫 `api-edge.cognitive.microsofttranslator.com`；該權杖端點已被微軟停用時，自動改用 `edge.microsoft.com/translate/translatetext`。兩條路徑都原生支援陣列批次 |
+| Microsoft 翻譯（免費） | 否 | 先嘗試從 `edge.microsoft.com/translate/auth` 取得權杖，再呼叫 `api-edge.cognitive.microsofttranslator.com`；該權杖端點已被微軟停用時，自動改用 `edge.microsoft.com/translate/translatetext`。兩條路徑都原生支援陣列批次在設定面板選擇「使用我的金鑰（Azure Translator）」則改為呼叫官方的 `api.cognitive.microsofttranslator.com`：在 Azure 入口網站建立 Translator 資源，再把「金鑰與端點」頁面的金鑰與區域填入面板（全域資源的區域可留空）。 |
 | DeepLX | 需要填寫端點 | 自架或第三方的 DeepLX 服務；權杖為選填。端點中含有 `{{apiKey}}` 時以權杖取代該預留位置，否則以 `Authorization: Bearer` 傳送 |
 
 ### AI 服務商

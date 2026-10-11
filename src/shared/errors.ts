@@ -184,6 +184,8 @@ export interface ErrorContext {
   /** The preset's default endpoint; empty when the user must supply one. */
   defaultBaseURL?: string
   model?: string
+  /** Microsoft Translator called with the user's Azure key. */
+  keyMode?: boolean
 }
 
 export interface ErrorReport {
@@ -244,7 +246,7 @@ function serviceLabel(ctx: ErrorContext, url?: string): string {
 
 /** Endpoint advice: web-page hosts, and the preset default compared with the endpoint in use. */
 function endpointHints(ctx: ErrorContext, i18n: I18n): string[] {
-  if (ctx.kind === "google" || ctx.kind === "microsoft") return []
+  if (ctx.kind === "google" || (ctx.kind === "microsoft" && !ctx.keyMode)) return []
   const hints: string[] = []
   const host = urlHost(ctx.baseURL)
   if (host && isKnownWebHost(host)) hints.push(i18n.t("hintWebHost", [host]))
@@ -283,7 +285,7 @@ function httpReport(f: HttpFailure, ctx: ErrorContext, i18n: I18n): ErrorReport 
   } else if (modelProblem) {
     hints.push(modelHint(ctx, i18n))
   } else if (f.status === 401 || f.status === 403) {
-    hints.push(i18n.t("hintAuth"))
+    hints.push(i18n.t(ctx.keyMode ? "hintAzureAuth" : "hintAuth"))
   } else if (f.status === 404 || f.status === 405) {
     hints.push(i18n.t("hintEndpoint"), ...endpointHints(ctx, i18n))
   } else if (f.status === 402 || f.status === 429) {

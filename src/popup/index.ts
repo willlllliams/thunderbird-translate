@@ -53,11 +53,16 @@ async function main(): Promise<void> {
     raceEnabled.checked = settings.race.enabled
     preciseEnabled.checked = settings.precise.enabled
   }
+  const modeRadios = Array.from(document.querySelectorAll<HTMLInputElement>('input[name="mode"]'))
+  // The switches and the display mode follow settings changed elsewhere, e.g. on the settings page.
+  const showSwitches = () => {
+    autoTranslate.checked = settings.autoTranslate
+    for (const radio of modeRadios) radio.checked = radio.value === settings.mode
+  }
   fillSelects()
   showAiModes()
-  autoTranslate.checked = settings.autoTranslate
-  for (const radio of Array.from(document.querySelectorAll<HTMLInputElement>('input[name="mode"]'))) {
-    radio.checked = radio.value === settings.mode
+  showSwitches()
+  for (const radio of modeRadios) {
     radio.addEventListener("change", () => {
       if (radio.checked) void updateSettings((s) => (s.mode = radio.value as DisplayMode))
     })
@@ -110,6 +115,7 @@ async function main(): Promise<void> {
     if (area !== "local" || !changes[SETTINGS_KEY]) return
     settings = normalizeSettings(changes[SETTINGS_KEY].newValue)
     showAiModes()
+    showSwitches()
     if (settings.uiLanguage === uiLanguage) {
       fillSelects()
       return

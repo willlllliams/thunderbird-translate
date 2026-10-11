@@ -184,7 +184,7 @@ npm run build
 | 服务 | 是否需要配置 | 说明 |
 | --- | --- | --- |
 | Google 翻译（免费，默认） | 否 | 调用 `translate.googleapis.com` 的 `client=gtx` 接口，一次 POST 携带多个 `q` 参数，多段合并为一次请求 |
-| 微软翻译（免费） | 否 | 先尝试 `edge.microsoft.com/translate/auth` 取令牌后调用 `api-edge.cognitive.microsofttranslator.com`；该令牌接口已被微软下线时，自动改用 `edge.microsoft.com/translate/translatetext`。两条路径都原生支持数组批量 |
+| 微软翻译（免费） | 否 | 先尝试 `edge.microsoft.com/translate/auth` 取令牌后调用 `api-edge.cognitive.microsofttranslator.com`；该令牌接口已被微软下线时，自动改用 `edge.microsoft.com/translate/translatetext`。两条路径都原生支持数组批量设置面板里选择“使用我的密钥（Azure Translator）”则改为调用官方的 `api.cognitive.microsofttranslator.com`：在 Azure 门户创建 Translator 资源，把“密钥和终结点”页的密钥与区域填入面板（全局资源的区域可留空）。 |
 | DeepLX | 需要填写接口地址 | 自建或第三方的 DeepLX 服务；令牌可选。地址中含 `{{apiKey}}` 时用令牌替换该占位符，否则以 `Authorization: Bearer` 发送 |
 
 ### AI 服务商

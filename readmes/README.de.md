@@ -179,7 +179,7 @@ Die Liste der Zielsprachen ist davon unabhängig und umfasst 20 Sprachen, darunt
 | Dienst | Einrichtung | Hinweise |
 | --- | --- | --- |
 | Google Translate (kostenlos, Standard) | Keine | Ruft den Endpunkt `client=gtx` von `translate.googleapis.com` auf; ein POST trägt mehrere `q`-Parameter, sodass sich mehrere Absätze eine Anfrage teilen |
-| Microsoft Translator (kostenlos) | Keine | Versucht zuerst, ein Token von `edge.microsoft.com/translate/auth` zu holen und `api-edge.cognitive.microsofttranslator.com` aufzurufen; hat Microsoft den Token-Endpunkt abgeschaltet, wechselt die Erweiterung zu `edge.microsoft.com/translate/translatetext`. Beide Wege akzeptieren Arrays direkt |
+| Microsoft Translator (kostenlos) | Keine | Versucht zuerst, ein Token von `edge.microsoft.com/translate/auth` zu holen und `api-edge.cognitive.microsofttranslator.com` aufzurufen; hat Microsoft den Token-Endpunkt abgeschaltet, wechselt die Erweiterung zu `edge.microsoft.com/translate/translatetext`. Beide Wege akzeptieren Arrays direkt Mit „Eigenen Schlüssel verwenden (Azure Translator)“ im Einstellungsfeld ruft die Erweiterung stattdessen das offizielle `api.cognitive.microsofttranslator.com` auf: Im Azure-Portal eine Translator-Ressource anlegen und Schlüssel und Region unter „Schlüssel und Endpunkt“ in das Feld eintragen (bei einer globalen Ressource darf die Region leer bleiben). |
 | DeepLX | Endpunkt erforderlich | Ein selbst gehosteter oder fremder DeepLX-Dienst; das Token ist optional. Enthält der Endpunkt `{{apiKey}}`, wird dieser Platzhalter durch das Token ersetzt; andernfalls wird das Token als `Authorization: Bearer` gesendet |
 
 ### KI-Anbieter

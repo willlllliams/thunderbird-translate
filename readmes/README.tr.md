@@ -179,7 +179,7 @@ Hedef dil listesi bundan ayrıdır ve İtalyanca, Ukraynaca, Lehçe, Felemenkçe
 | Hizmet | Kurulum | Notlar |
 | --- | --- | --- |
 | Google Translate (ücretsiz, varsayılan) | Yok | `translate.googleapis.com` adresinin `client=gtx` uç noktasını çağırır; tek bir POST isteği birden fazla `q` parametresi taşır, bu nedenle birden fazla paragraf aynı isteği paylaşır |
-| Microsoft Translator (ücretsiz) | Yok | Önce `edge.microsoft.com/translate/auth` adresinden bir belirteç almayı ve `api-edge.cognitive.microsofttranslator.com` adresini çağırmayı dener; Microsoft belirteç uç noktasını kullanımdan kaldırdığında `edge.microsoft.com/translate/translatetext` adresine geçer. İki yol da dizileri doğrudan kabul eder |
+| Microsoft Translator (ücretsiz) | Yok | Önce `edge.microsoft.com/translate/auth` adresinden bir belirteç almayı ve `api-edge.cognitive.microsofttranslator.com` adresini çağırmayı dener; Microsoft belirteç uç noktasını kullanımdan kaldırdığında `edge.microsoft.com/translate/translatetext` adresine geçer. İki yol da dizileri doğrudan kabul eder Panelde “Kendi anahtarımı kullan (Azure Translator)” seçilirse bunun yerine resmî `api.cognitive.microsofttranslator.com` çağrılır: Azure portalında bir Translator kaynağı oluşturun, “Anahtarlar ve Uç Nokta” altındaki anahtarı ve bölgeyi panele girin (genel kaynakta bölge boş kalabilir). |
 | DeepLX | Uç nokta gerekli | Kendi sunucunuzda veya üçüncü tarafça barındırılan bir DeepLX hizmeti; belirteç isteğe bağlıdır. Uç nokta `{{apiKey}}` içeriyorsa belirteç onun yerine yazılır; içermiyorsa `Authorization: Bearer` olarak gönderilir |
 
 ### Yapay zekâ sağlayıcıları
