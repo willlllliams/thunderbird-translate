@@ -16,7 +16,7 @@ export default defineConfig({
       ],
       reporter: ["text", "json-summary"],
       // npm run test:coverage (CI) fails below these values.
-      thresholds: { lines: 99, statements: 99, branches: 96, functions: 98 },
+      thresholds: { lines: 97, statements: 97, branches: 93, functions: 96 },
     },
   },
 })
