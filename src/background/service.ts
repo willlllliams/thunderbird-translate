@@ -11,7 +11,7 @@
  * (summary, glossary, tone) when the message does not fit into one request.
  */
 
-import { describeError, type ErrorContext, LocalizedError } from "../shared/errors"
+import { describeError, type ErrorContext } from "../shared/errors"
 import { hashText } from "../shared/hash"
 import { ENGLISH, type I18n } from "../shared/i18n"
 import { getLanguage } from "../shared/languages"
@@ -28,7 +28,7 @@ import { BatchParseError, llmAnalyzeMail, llmTranslateBatch, llmTranslateSingle,
 import { buildContextBlock, type MailAnalysis, MAX_PREFIX_TEXT_CHARS, parseAnalysis, type Segment } from "./translators/llm-prompt"
 import { AZURE_LIMITS, microsoftTranslateBatch } from "./translators/microsoft"
 
-export type ItemResult = { ok: true; text: string } | { ok: false; error: string }
+type ItemResult = { ok: true; text: string } | { ok: false; error: string }
 
 interface Job {
   text: string
@@ -95,8 +95,6 @@ export class TranslationService {
   /** Analyses by cache key, finished or running, so the batches of one message share one request. */
   private readonly analyses = new LruCache<Promise<MailAnalysis | null>>(MAX_CONTEXTS)
   private readonly llm: LlmImpl
-  /** Statistics, useful for tests and for the options page. */
-  readonly stats = { requests: 0, batches: 0, fallbacks: 0 }
 
   constructor(private readonly deps: ServiceDeps) {
     this.llm = deps.llm ?? { batch: llmTranslateBatch, single: llmTranslateSingle, analyze: llmAnalyzeMail }
@@ -109,22 +107,21 @@ export class TranslationService {
       delayMs: () => deps.getSettings().batch.batchDelayMs,
       getKey: (job) => job.batchKey,
       getSize: (job) => job.text.length,
-      limits: (key) => this.limitsFor(key),
+      limits: (job) => this.limitsFor(job.provider),
       execute: (_key, jobs) => this.executeBatch(jobs),
     })
   }
 
-  private limitsFor(batchKey: string): BatchLimits {
+  private limitsFor(provider: ResolvedProvider): BatchLimits {
     const s = this.deps.getSettings().batch
-    const parts = batchKey.split("|")
-    const preset = getPreset(parts[0])
+    const preset = getPreset(provider.id)
     const user = { maxItems: s.maxItemsPerBatch, maxChars: s.maxCharsPerBatch }
     if (!preset) return user
     if (preset.kind === "llm") {
       return s.llmBatchEnabled ? user : { maxItems: 1, maxChars: Number.MAX_SAFE_INTEGER }
     }
-    // The last part of a batch key is the Microsoft mode.
-    const cap = preset.kind === "microsoft" && parts.at(-1) === "key" ? AZURE_LIMITS : FREE_LIMITS[preset.kind]
+    // Only Microsoft Translator has a key mode.
+    const cap = provider.mode === "key" ? AZURE_LIMITS : FREE_LIMITS[preset.kind]
     return { maxItems: Math.min(cap.maxItems, user.maxItems), maxChars: Math.min(cap.maxChars, user.maxChars) }
   }
 
@@ -255,7 +252,7 @@ export class TranslationService {
    */
   private async contextPrefix(job: Job): Promise<string> {
     const { context } = job.mail!
-    const limits = this.limitsFor(job.batchKey)
+    const limits = this.limitsFor(job.provider)
     const chars = context.targets.reduce((n, i) => n + (context.paragraphs[i]?.length ?? 0), 0)
     if (chars <= limits.maxChars && context.targets.length <= limits.maxItems) return ""
     const analysis = await this.analysis(job)
@@ -276,7 +273,7 @@ export class TranslationService {
     const cached = await this.deps.cache.get(key)
     if (cached !== undefined) return parseAnalysis(cached)
     try {
-      const analysis = await this.run(() => this.llm.analyze(job.mail!.context.text, this.llmOptions(job)))
+      const analysis = await this.requestQueue.run(() => this.llm.analyze(job.mail!.context.text, this.llmOptions(job)))
       if (analysis) await this.deps.cache.set(key, JSON.stringify(analysis))
       return analysis
     } catch {
@@ -285,34 +282,23 @@ export class TranslationService {
     }
   }
 
-  private run<T>(task: () => Promise<T>): Promise<T> {
-    return this.requestQueue.run(() => {
-      this.stats.requests++
-      return task()
-    })
-  }
-
-  async executeBatch(jobs: Job[]): Promise<ItemResult[]> {
+  private async executeBatch(jobs: Job[]): Promise<ItemResult[]> {
     const first = jobs[0]
-    const preset = getPreset(first.provider.id)
-    if (!preset) return jobs.map(() => ({ ok: false, error: this.errorMessage(new LocalizedError("errUnknownProvider", [first.provider.id])) }))
+    // Jobs carry a resolved provider, and resolving fails for unknown presets.
+    const preset = getPreset(first.provider.id)!
     const lang = getLanguage(first.targetLang)
     const texts = jobs.map((j) => j.text)
     const fetchFn = this.deps.fetchFn
-    this.stats.batches++
 
-    const all = async (fn: () => Promise<string[]>): Promise<ItemResult[]> => {
-      try {
-        const out = await fn()
-        return out.map((text) => ({ ok: true, text }))
-      } catch (error) {
-        return jobs.map(() => ({ ok: false, error: this.errorMessage(error, first.provider) }))
-      }
-    }
+    const failAll = (error: unknown): ItemResult[] => jobs.map(() => ({ ok: false, error: this.errorMessage(error, first.provider) }))
+    /** One request for the whole batch. */
+    const all = (fn: () => Promise<string[]>): Promise<ItemResult[]> =>
+      this.requestQueue.run(fn).then((out) => out.map((text): ItemResult => ({ ok: true, text })), failAll)
+    /** One request per paragraph. */
     const each = (fn: (job: Job) => Promise<string>): Promise<ItemResult[]> =>
       Promise.all(
         jobs.map((job) =>
-          this.run(() => fn(job)).then(
+          this.requestQueue.run(() => fn(job)).then(
             (text): ItemResult => ({ ok: true, text }),
             (error): ItemResult => ({ ok: false, error: this.errorMessage(error, job.provider) }),
           ),
@@ -321,9 +307,9 @@ export class TranslationService {
 
     switch (preset.kind) {
       case "google":
-        return all(() => this.run(() => googleTranslateBatch(texts, lang.google, { fetchFn, baseURL: first.provider.baseURL })))
+        return all(() => googleTranslateBatch(texts, lang.google, { fetchFn, baseURL: first.provider.baseURL }))
       case "microsoft":
-        return all(() => this.run(() => microsoftTranslateBatch(texts, lang.microsoft, { fetchFn, azure: azureConfig(first.provider) })))
+        return all(() => microsoftTranslateBatch(texts, lang.microsoft, { fetchFn, azure: azureConfig(first.provider) }))
       case "deeplx":
         return each((job) => deeplxTranslate(job.text, lang.deepl, job.provider.baseURL, job.provider.apiKey, { fetchFn }))
       case "llm": {
@@ -331,15 +317,12 @@ export class TranslationService {
         if (first.mail) opts.contextPrefix = await this.contextPrefix(first)
         if (jobs.length > 1) {
           try {
-            const out = await this.run(() => this.llm.batch(this.segments(jobs), opts))
+            const out = await this.requestQueue.run(() => this.llm.batch(this.segments(jobs), opts))
             if (out.length === jobs.length) return out.map((text) => ({ ok: true, text }))
           } catch (error) {
-            if (!(error instanceof BatchParseError)) {
-              return jobs.map(() => ({ ok: false, error: this.errorMessage(error, first.provider) }))
-            }
+            if (!(error instanceof BatchParseError)) return failAll(error)
           }
           // The merged answer did not line up: one request per paragraph.
-          this.stats.fallbacks++
         }
         return each((job) => this.llm.single(this.segments([job])[0], opts))
       }

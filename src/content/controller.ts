@@ -56,10 +56,6 @@ export class TranslationController {
 
   constructor(private readonly deps: ControllerDeps) {}
 
-  get unitCount(): number {
-    return this.units.length
-  }
-
   private report(): void {
     const count = { done: 0, provisional: 0, failed: 0 }
     for (const r of this.results.values()) {
@@ -120,9 +116,10 @@ export class TranslationController {
     const all = this.collected.units
     const candidates: Unit[] = []
     for (const unit of all) {
-      if (await isInTargetLanguage(unit.text, s.targetLang, this.deps.detect)) continue
+      const inTarget = await isInTargetLanguage(unit.text, s.targetLang, this.deps.detect)
+      // Stopped or restarted while the language was detected.
       if (session !== this.session) return
-      candidates.push(unit)
+      if (!inTarget) candidates.push(unit)
     }
     this.units = candidates
     if (s.precise && candidates.length > 0) {

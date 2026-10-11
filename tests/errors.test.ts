@@ -1,17 +1,15 @@
 // @vitest-environment jsdom
-import { readFileSync } from "node:fs"
-import { join } from "node:path"
 import { APICallError, JSONParseError, NoContentGeneratedError, RetryError } from "ai"
 import { afterEach, describe, expect, it, vi } from "vitest"
 import { compileMessagesJson, ENGLISH, I18n } from "../src/shared/i18n"
 import { readLocaleSources, toMessagesJson } from "../scripts/locales.mjs"
 import { analyzeError, describeError, type ErrorContext, firstLine, httpStatusLine, NetworkError, summarizeResponseBody } from "../src/shared/errors"
 import { checkBaseURL, getPreset, PROVIDER_PRESETS } from "../src/shared/providers"
-import { errorContext, TranslationService } from "../src/background/service"
-import { PersistentCache } from "../src/background/cache"
+import { errorContext } from "../src/background/service"
 import { HttpError } from "../src/background/queue/request-queue"
 import { googleTranslateBatch } from "../src/background/translators/google"
 import { createDefaultSettings, resolveProviderConfig } from "../src/shared/settings"
+import { asFetch, createService, openPage } from "./helpers"
 
 const sources = readLocaleSources()
 const zh = new I18n("zh_CN", compileMessagesJson(toMessagesJson(sources.zh_CN)))
@@ -146,7 +144,7 @@ describe("describeError: other errors", () => {
 
   it("describes HTTP errors of the free translators like API errors", async () => {
     const fetchFn = vi.fn(async () => new Response("<html><body>blocked</body></html>", { status: 403 }))
-    const error = await googleTranslateBatch(["a"], "zh-CN", { fetchFn: fetchFn as unknown as typeof fetch }).catch((e: unknown) => e)
+    const error = await googleTranslateBatch(["a"], "zh-CN", { fetchFn: asFetch(fetchFn) }).catch((e: unknown) => e)
     expect(error).toBeInstanceOf(HttpError)
     const text = describeError(error, ENGLISH, { service: "Google Translate", kind: "google" })
     expect(text).toContain("HTTP 403 Forbidden")
@@ -158,7 +156,7 @@ describe("describeError: other errors", () => {
     const fetchFn = vi.fn(async () => {
       throw new TypeError("NetworkError when attempting to fetch resource.")
     })
-    const error = await googleTranslateBatch(["a"], "zh-CN", { fetchFn: fetchFn as unknown as typeof fetch }).catch((e: unknown) => e)
+    const error = await googleTranslateBatch(["a"], "zh-CN", { fetchFn: asFetch(fetchFn) }).catch((e: unknown) => e)
     expect(error).toBeInstanceOf(NetworkError)
     expect(describeError(error, ENGLISH, { service: "Google Translate", kind: "google" })).toContain("translate.googleapis.com")
   })
@@ -180,13 +178,7 @@ describe("describeError: other errors", () => {
 describe("full pipeline", () => {
   it("TranslationService.testProvider reports the 405 of a console URL (statusText empty)", async () => {
     const fetchFn = vi.fn(async () => new Response('{"detail":"Method Not Allowed"}', { status: 405, statusText: "", headers: { "content-type": "application/json" } }))
-    const service = new TranslationService({
-      getSettings: () => createDefaultSettings(),
-      cache: new PersistentCache({ get: async () => undefined, set: async () => {}, remove: async () => {} }, 10, 0),
-      fetchFn: fetchFn as unknown as typeof fetch,
-      sleep: async () => {},
-      i18n: () => zh,
-    })
+    const { service } = createService(createDefaultSettings(), { fetchFn: asFetch(fetchFn), i18n: () => zh })
     const error = await service.testProvider("deepseek", { apiKey: "sk-test", baseURL: "https://platform.deepseek.com", model: "" }, "zh-CN").catch((e: Error) => e)
     const text = (error as Error).message
     expect(text.split("\n")).toEqual([
@@ -235,27 +227,13 @@ describe("settings page", () => {
   })
 
   async function openOptions(testResponse: unknown) {
-    const html = readFileSync(join(__dirname, "..", "static", "options.html"), "utf8")
-    document.documentElement.innerHTML = new DOMParser().parseFromString(html, "text/html").documentElement.innerHTML
     const settings = createDefaultSettings("zh-CN")
     settings.uiLanguage = "zh_CN"
     settings.activeProviderId = "deepseek"
     settings.providers.deepseek = { enabled: true, apiKey: "sk-test", baseURL: "https://platform.deepseek.com", model: "" }
-    const sendMessage = vi.fn(async (req: { type: string }) => {
-      if (req.type === "testProvider") return testResponse
-      if (req.type === "cacheStats") return { size: 0 }
-      return undefined
-    })
-    const ext = {
-      runtime: { sendMessage, getURL: (path: string) => `moz-extension://test/${path}` },
-      storage: { local: { get: async () => ({ settings }), set: async () => {} }, onChanged: { addListener: () => {} } },
-      i18n: { getUILanguage: () => "zh-CN" },
-    }
-    vi.stubGlobal("browser", ext)
-    vi.stubGlobal("fetch", async () => new Response(JSON.stringify(toMessagesJson(sources.zh_CN))))
-    await import("../src/options/index")
+    const page = await openPage("options", settings, { uiLanguage: "zh-CN", respond: (req) => (req.type === "testProvider" ? testResponse : undefined) })
     await vi.waitFor(() => expect(document.querySelector("#providerPanel button")).not.toBeNull())
-    return { sendMessage }
+    return page
   }
 
   it("shows the full failure reason of the connection test, one item per line", async () => {

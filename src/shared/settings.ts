@@ -1,11 +1,12 @@
 import { LocalizedError } from "./errors"
 import { hashText } from "./hash"
 import { baseLang, LANGUAGES } from "./languages"
-import { normalizeUiLanguageSetting, type UiLanguageSetting } from "./locales"
+import { matchUiLocale, normalizeUiLanguageSetting, type UiLanguageSetting } from "./locales"
 import { DEFAULT_PROVIDER_ID, getPreset, isAiProvider, PROVIDER_PRESETS, type ProviderPreset } from "./providers"
 
 export type DisplayMode = "bilingual" | "translation-only"
-export type StylePreset = "border" | "dashed" | "highlight" | "plain"
+const STYLE_PRESETS = ["border", "dashed", "highlight", "plain"] as const
+export type StylePreset = (typeof STYLE_PRESETS)[number]
 
 /** Per-provider user configuration. Empty strings fall back to preset defaults. */
 export interface ProviderConfig {
@@ -24,9 +25,13 @@ export interface ProviderConfig {
   region?: string
 }
 
-export type MicrosoftMode = "free" | "key"
+type MicrosoftMode = "free" | "key"
 
-export interface BatchSettings {
+export function emptyProviderConfig(): ProviderConfig {
+  return { enabled: false, apiKey: "", baseURL: "", model: "" }
+}
+
+interface BatchSettings {
   /** Window for collecting paragraphs into one request (ms). */
   batchDelayMs: number
   /** Upper bound on characters per merged request. */
@@ -41,7 +46,7 @@ export interface BatchSettings {
   llmBatchEnabled: boolean
 }
 
-export interface StyleSettings {
+interface StyleSettings {
   preset: StylePreset
   /** CSS color for border / highlight. */
   color: string
@@ -51,7 +56,7 @@ export interface StyleSettings {
   fontScale: number
 }
 
-export interface RaceSettings {
+interface RaceSettings {
   /** With an AI service, also ask a fast service and show its result until the AI result arrives. */
   enabled: boolean
   /** A non-AI service: Google, Microsoft or DeepLX. */
@@ -77,38 +82,18 @@ export interface Settings {
 }
 
 export const SETTINGS_KEY = "settings"
-export const DEFAULT_FAST_PROVIDER_ID = "google-free"
-
-export const DEFAULT_BATCH: BatchSettings = {
-  batchDelayMs: 50,
-  maxCharsPerBatch: 3000,
-  maxItemsPerBatch: 30,
-  concurrency: 4,
-  maxRetries: 3,
-  llmBatchEnabled: true,
-}
-
-export const DEFAULT_STYLE: StyleSettings = {
-  preset: "border",
-  color: "#4c8bf5",
-  opacity: 0.85,
-  fontScale: 1,
-}
 
 /** Target language for a fresh installation: the interface language when it is a target language, else English. */
 export function defaultTargetLang(uiLang?: string): string {
-  const lang = (uiLang ?? "").replace(/_/g, "-").toLowerCase()
-  const base = baseLang(lang)
-  if (base === "zh") {
-    return lang.split("-").some((p) => p === "tw" || p === "hk" || p === "mo" || p === "hant") ? "zh-TW" : "zh-CN"
-  }
+  const base = baseLang(uiLang ?? "")
+  if (base === "zh") return matchUiLocale(uiLang) === "zh_TW" ? "zh-TW" : "zh-CN"
   return LANGUAGES.find((l) => l.code === base)?.code ?? "en"
 }
 
 export function createDefaultSettings(uiLang?: string): Settings {
   const providers: Record<string, ProviderConfig> = {}
   for (const p of PROVIDER_PRESETS) {
-    const cfg: ProviderConfig = { enabled: false, apiKey: "", baseURL: "", model: "" }
+    const cfg = emptyProviderConfig()
     cfg.enabled = addedByDefault(p, cfg)
     providers[p.id] = cfg
   }
@@ -120,11 +105,11 @@ export function createDefaultSettings(uiLang?: string): Settings {
     activeProviderId: DEFAULT_PROVIDER_ID,
     providers,
     systemPrompt: "",
-    race: { enabled: false, fastProviderId: DEFAULT_FAST_PROVIDER_ID },
+    race: { enabled: false, fastProviderId: DEFAULT_PROVIDER_ID },
     precise: { enabled: false },
-    batch: { ...DEFAULT_BATCH },
+    batch: { batchDelayMs: 50, maxCharsPerBatch: 3000, maxItemsPerBatch: 30, concurrency: 4, maxRetries: 3, llmBatchEnabled: true },
     cache: { enabled: true, maxEntries: 5000 },
-    style: { ...DEFAULT_STYLE },
+    style: { preset: "border", color: "#4c8bf5", opacity: 0.85, fontScale: 1 },
   }
 }
 
@@ -175,28 +160,26 @@ export function normalizeSettings(stored: unknown, uiLang?: string): Settings {
     systemPrompt: typeof s.systemPrompt === "string" ? s.systemPrompt : "",
     race: {
       enabled: s.race?.enabled === true,
-      fastProviderId: fast && !isAiProvider(fast) ? fast.id : DEFAULT_FAST_PROVIDER_ID,
+      fastProviderId: fast && !isAiProvider(fast) ? fast.id : d.race.fastProviderId,
     },
     precise: { enabled: s.precise?.enabled === true },
     batch: {
-      batchDelayMs: num(b.batchDelayMs, DEFAULT_BATCH.batchDelayMs, 0, 2000),
-      maxCharsPerBatch: num(b.maxCharsPerBatch, DEFAULT_BATCH.maxCharsPerBatch, 200, 50000),
-      maxItemsPerBatch: num(b.maxItemsPerBatch, DEFAULT_BATCH.maxItemsPerBatch, 1, 200),
-      concurrency: num(b.concurrency, DEFAULT_BATCH.concurrency, 1, 20),
-      maxRetries: num(b.maxRetries, DEFAULT_BATCH.maxRetries, 0, 10),
+      batchDelayMs: num(b.batchDelayMs, d.batch.batchDelayMs, 0, 2000),
+      maxCharsPerBatch: num(b.maxCharsPerBatch, d.batch.maxCharsPerBatch, 200, 50000),
+      maxItemsPerBatch: num(b.maxItemsPerBatch, d.batch.maxItemsPerBatch, 1, 200),
+      concurrency: num(b.concurrency, d.batch.concurrency, 1, 20),
+      maxRetries: num(b.maxRetries, d.batch.maxRetries, 0, 10),
       llmBatchEnabled: b.llmBatchEnabled !== false,
     },
     cache: {
       enabled: s.cache?.enabled !== false,
-      maxEntries: num(s.cache?.maxEntries, 5000, 0, 100000),
+      maxEntries: num(s.cache?.maxEntries, d.cache.maxEntries, 0, 100000),
     },
     style: {
-      preset: (["border", "dashed", "highlight", "plain"] as const).includes(st.preset as StylePreset)
-        ? (st.preset as StylePreset)
-        : DEFAULT_STYLE.preset,
-      color: typeof st.color === "string" && /^#[0-9a-f]{3,8}$/i.test(st.color) ? st.color : DEFAULT_STYLE.color,
-      opacity: num(st.opacity, DEFAULT_STYLE.opacity, 0.3, 1),
-      fontScale: num(st.fontScale, DEFAULT_STYLE.fontScale, 0.7, 1.5),
+      preset: STYLE_PRESETS.includes(st.preset as StylePreset) ? (st.preset as StylePreset) : d.style.preset,
+      color: typeof st.color === "string" && /^#[0-9a-f]{3,8}$/i.test(st.color) ? st.color : d.style.color,
+      opacity: num(st.opacity, d.style.opacity, 0.3, 1),
+      fontScale: num(st.fontScale, d.style.fontScale, 0.7, 1.5),
     },
   }
   addProvidersInUse(settings)
@@ -237,7 +220,7 @@ export function removalBlocker(settings: Settings, providerId: string): "active"
 export function addProvidersInUse(settings: Settings): void {
   const inUse = settings.race.enabled ? [settings.activeProviderId, settings.race.fastProviderId] : [settings.activeProviderId]
   for (const id of inUse) {
-    settings.providers[id] ??= { enabled: true, apiKey: "", baseURL: "", model: "" }
+    settings.providers[id] ??= emptyProviderConfig()
     settings.providers[id].enabled = true
   }
 }
@@ -256,10 +239,7 @@ export interface ResolvedProvider {
 }
 
 export function resolveProvider(settings: Settings, providerId: string): ResolvedProvider {
-  const preset = getPreset(providerId)
-  if (!preset) throw new LocalizedError("errUnknownProvider", [providerId])
-  const cfg = settings.providers[providerId] ?? { enabled: false, apiKey: "", baseURL: "", model: "" }
-  return resolveProviderConfig(providerId, cfg)
+  return resolveProviderConfig(providerId, settings.providers[providerId] ?? emptyProviderConfig())
 }
 
 export function resolveProviderConfig(providerId: string, cfg: Omit<ProviderConfig, "enabled">): ResolvedProvider {

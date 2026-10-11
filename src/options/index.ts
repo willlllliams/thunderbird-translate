@@ -5,28 +5,23 @@ import { localizeDocument } from "../shared/i18n-dom"
 import { loadExtensionI18n, thunderbirdUiLanguage } from "../shared/i18n-ext"
 import { LANGUAGES } from "../shared/languages"
 import { LOCALE_NATIVE_NAMES, localeToLanguageTag, matchUiLocale, normalizeUiLanguageSetting, SUPPORTED_LOCALES } from "../shared/locales"
-import type { BackgroundRequest } from "../shared/messages"
+import type { TranslateResponse } from "../shared/messages"
+import { $, fillSelect, send } from "../shared/page"
 import { checkBaseURL, getPreset, isAiProvider, PROVIDER_PRESETS, providerDisplayName, type ProviderPreset } from "../shared/providers"
 import {
   addedProviders,
   addProvidersInUse,
   type DisplayMode,
-  normalizeSettings,
+  emptyProviderConfig,
   type ProviderConfig,
   removalBlocker,
   SETTINGS_KEY,
   type Settings,
   type StylePreset,
 } from "../shared/settings"
-import { loadSettings, mergeChanges, saveChanges } from "../shared/settings-store"
+import { loadSettings, mergeChanges, readSettings, saveChanges } from "../shared/settings-store"
 import { supportsThinkingControl } from "../background/providers/thinking"
 import { DEFAULT_SYSTEM_PROMPT } from "../background/translators/llm-prompt"
-
-const $ = <T extends HTMLElement>(id: string) => document.getElementById(id) as T
-
-function send<T>(req: BackgroundRequest): Promise<T> {
-  return ext.runtime.sendMessage(req) as Promise<T>
-}
 
 /** Small DOM builder; avoids innerHTML. */
 function h<K extends keyof HTMLElementTagNameMap>(
@@ -54,8 +49,6 @@ let saveTimer: ReturnType<typeof setTimeout> | null = null
 /** Redraw the control of one setting; run again when the settings change elsewhere. */
 const controls: (() => void)[] = []
 
-type Tree = Record<string, unknown>
-
 /** A control that shows a setting. The one being edited is left alone when the settings change elsewhere. */
 function track(input: HTMLElement, show: () => void): void {
   const update = () => {
@@ -69,7 +62,7 @@ function track(input: HTMLElement, show: () => void): void {
 function absorb(remote: Settings): void {
   const providerState = () => JSON.stringify([settings.providers, settings.activeProviderId, settings.race])
   const [language, before] = [settings.uiLanguage, providerState()]
-  mergeChanges(settings as unknown as Tree, baseline as unknown as Tree, remote as unknown as Tree, true)
+  mergeChanges(settings, baseline, remote, true)
   baseline = structuredClone(remote)
   for (const show of controls) show()
   applyPreview()
@@ -92,7 +85,7 @@ function scheduleSave(): void {
 }
 
 function providerConfig(id: string): ProviderConfig {
-  settings.providers[id] ??= { enabled: false, apiKey: "", baseURL: "", model: "" }
+  settings.providers[id] ??= emptyProviderConfig()
   return settings.providers[id]
 }
 
@@ -168,11 +161,6 @@ function renderBaseUrlWarning(box: HTMLElement, p: ProviderPreset, input: HTMLIn
   box.hidden = false
 }
 
-function showTestSuccess(box: HTMLElement, text: string): void {
-  box.className = "test-result ok"
-  box.textContent = t("testOk", [text])
-}
-
 /** Failure of the connection test: a title, then reason, server message, suggestions and URL on their own lines. */
 function showTestFailure(box: HTMLElement, description: string | undefined): void {
   const text = description?.trim() ? description : describeError(undefined, getI18n())
@@ -185,189 +173,169 @@ function showTestFailure(box: HTMLElement, description: string | undefined): voi
   )
 }
 
-function renderProviderPanel(): void {
-  const panel = $("providerPanel")
-  const p = getPreset(selectedProvider)!
-  const cfg = providerConfig(p.id)
-  const children: (HTMLElement | null)[] = []
+/** The service shown in the panel and its configuration. */
+interface PanelState {
+  p: ProviderPreset
+  cfg: ProviderConfig
+  /** Typing a key (or the DeepLX endpoint) adds the service; the panel is not redrawn, so the field keeps the focus. */
+  addWhileTyping: (value: string) => void
+}
 
-  const title = h("div", { className: "row" }, h("h3", { text: providerDisplayName(p) }))
-  if (p.docsUrl && p.kind !== "microsoft") {
-    const a = h("a", { href: p.docsUrl, target: "_blank", rel: "noopener", text: t("getKey") })
-    title.append(a)
-  }
-  children.push(title)
-
-  const change = () => scheduleSave()
-  // Typing a key (or the DeepLX endpoint) adds the service; the panel is not redrawn, so the field keeps the focus.
-  const addWhileTyping = (value: string) => {
-    if (!value || cfg.enabled) return
-    cfg.enabled = true
-    renderProviderList()
-    fillProviderSelects()
-    renderActions()
-  }
-
-  // Endpoint field with the URL check.
-  const endpointField = (label: string, hint?: string): HTMLElement => {
-    const baseURL = h("input", { type: "text", value: cfg.baseURL, placeholder: p.defaultBaseURL || "https://…", spellcheck: "false" })
-    const warning = h("div", { className: "field-warning", role: "status" })
-    const validate = () => renderBaseUrlWarning(warning, p, baseURL, () => {
+/** Endpoint field with the URL check. */
+function endpointField({ p, cfg, addWhileTyping }: PanelState, label: string, hint?: string): HTMLElement {
+  const baseURL = h("input", { type: "text", value: cfg.baseURL, placeholder: p.defaultBaseURL || "https://…", spellcheck: "false" })
+  const warning = h("div", { className: "field-warning", role: "status" })
+  const validate = () =>
+    renderBaseUrlWarning(warning, p, baseURL, () => {
       cfg.baseURL = ""
       baseURL.value = ""
       validate()
-      change()
+      scheduleSave()
     })
-    baseURL.addEventListener("input", () => {
-      cfg.baseURL = baseURL.value.trim()
-      if (p.kind === "deeplx") addWhileTyping(cfg.baseURL)
-      change()
-    })
-    // Checked when the value is committed (blur / Enter), not on every keystroke.
-    baseURL.addEventListener("change", validate)
-    validate()
-    return h("div", { className: "field-group" }, field(label, baseURL, hint), warning)
-  }
+  baseURL.addEventListener("input", () => {
+    cfg.baseURL = baseURL.value.trim()
+    if (p.kind === "deeplx") addWhileTyping(cfg.baseURL)
+    scheduleSave()
+  })
+  // Checked when the value is committed (blur / Enter), not on every keystroke.
+  baseURL.addEventListener("change", validate)
+  validate()
+  return h("div", { className: "field-group" }, field(label, baseURL, hint), warning)
+}
 
-  // Key / token field, hidden by default and with a button to show it.
-  const keyField = (label: string): HTMLElement => {
-    const key = h("input", { type: "password", value: cfg.apiKey, autocomplete: "off", spellcheck: "false" })
-    key.addEventListener("input", () => {
-      cfg.apiKey = key.value.trim()
-      addWhileTyping(cfg.apiKey)
-      change()
-    })
-    const show = h("button", { type: "button", text: t("buttonShowKey") })
-    show.addEventListener("click", () => {
-      const hidden = key.type === "password"
-      key.type = hidden ? "text" : "password"
-      show.textContent = hidden ? t("buttonHideKey") : t("buttonShowKey")
-    })
-    return field(label, h("div", { className: "row" }, key, show), t("hintKeyLocal"))
-  }
+/** Key / token field, hidden by default and with a button to show it. */
+function keyField({ cfg, addWhileTyping }: PanelState, label: string): HTMLElement {
+  const key = h("input", { type: "password", value: cfg.apiKey, autocomplete: "off", spellcheck: "false" })
+  key.addEventListener("input", () => {
+    cfg.apiKey = key.value.trim()
+    addWhileTyping(cfg.apiKey)
+    scheduleSave()
+  })
+  const show = h("button", { type: "button", text: t("buttonShowKey") })
+  show.addEventListener("click", () => {
+    const hidden = key.type === "password"
+    key.type = hidden ? "text" : "password"
+    show.textContent = hidden ? t("buttonHideKey") : t("buttonShowKey")
+  })
+  return field(label, h("div", { className: "row" }, key, show), t("hintKeyLocal"))
+}
 
-  if (p.kind === "google") {
-    children.push(h("p", { className: "hint", text: t("hintFree") }))
-  } else if (p.kind === "microsoft") {
-    // Two interfaces: the free Edge endpoints, or Azure Translator with the user's key. The fields of the second are hidden in the first.
-    const freeHint = h("p", { className: "hint", text: t("hintFree"), hidden: cfg.mode === "key" })
-    const region = h("input", { type: "text", value: cfg.region ?? "", placeholder: "westeurope", spellcheck: "false" })
-    region.addEventListener("input", () => {
-      cfg.region = region.value.trim()
-      change()
+/** Two interfaces: the free Edge endpoints, or Azure Translator with the user's key. The fields of the second are hidden in the first. */
+function microsoftFields(state: PanelState): HTMLElement[] {
+  const { p, cfg } = state
+  const freeHint = h("p", { className: "hint", text: t("hintFree"), hidden: cfg.mode === "key" })
+  const region = h("input", { type: "text", value: cfg.region ?? "", placeholder: "westeurope", spellcheck: "false" })
+  region.addEventListener("input", () => {
+    cfg.region = region.value.trim()
+    scheduleSave()
+  })
+  const fields = h(
+    "div",
+    { className: "azure-fields", hidden: cfg.mode !== "key" },
+    endpointField(state, t("labelAzureEndpoint"), t("hintAzureEndpoint")),
+    keyField(state, t("labelApiKey")),
+    field(t("labelRegion"), region, t("hintAzureRegion")),
+    h("a", { href: p.docsUrl, target: "_blank", rel: "noopener", text: t("getKey") }),
+  )
+  const radio = (value: "free" | "key", label: string) => {
+    const input = h("input", { type: "radio", name: "microsoftMode", value, checked: (cfg.mode ?? "free") === value })
+    input.addEventListener("change", () => {
+      if (!input.checked) return
+      if (value === "key") cfg.mode = "key"
+      else delete cfg.mode
+      freeHint.hidden = value === "key"
+      fields.hidden = value !== "key"
+      scheduleSave()
     })
-    const docs = h("a", { href: p.docsUrl, target: "_blank", rel: "noopener", text: t("getKey") })
-    const fields = h(
+    return h("label", {}, input, h("span", { text: label }))
+  }
+  const modeSwitch = h("div", { className: "mode-switch" }, radio("free", t("microsoftModeFree")), radio("key", t("microsoftModeKey")))
+  return [h("div", { className: "panel-field" }, h("span", { text: t("microsoftModeLabel") }), modeSwitch), freeHint, fields]
+}
+
+/** Model, temperature and thinking switch of an AI service. */
+function llmFields({ p, cfg }: PanelState): HTMLElement[] {
+  const listId = `models-${p.id}`
+  const model = h("input", { type: "text", value: cfg.model, placeholder: p.defaultModel, list: listId, spellcheck: "false" })
+  const datalist = h("datalist", { id: listId }, ...p.models.map((m) => h("option", { value: m })))
+  model.addEventListener("input", () => {
+    cfg.model = model.value.trim()
+    scheduleSave()
+  })
+
+  const temperature = cfg.temperature === undefined ? p.defaultTemperature : cfg.temperature
+  const temp = h("input", { type: "number", min: "0", max: "2", step: "0.1", value: temperature === null ? "" : String(temperature) })
+  temp.addEventListener("input", () => {
+    const v = temp.value.trim()
+    cfg.temperature = v === "" ? null : Math.min(2, Math.max(0, Number(v)))
+    scheduleSave()
+  })
+
+  const supported = supportsThinkingControl(p.id)
+  const thinking = h("input", { type: "checkbox", checked: supported && cfg.thinking === true, disabled: !supported })
+  thinking.addEventListener("change", () => {
+    cfg.thinking = thinking.checked
+    scheduleSave()
+  })
+  return [
+    field(t("labelModel"), h("div", {}, model, datalist)),
+    field(t("labelTemperature"), temp),
+    h(
       "div",
-      { className: "azure-fields", hidden: cfg.mode !== "key" },
-      endpointField(t("labelAzureEndpoint"), t("hintAzureEndpoint")),
-      keyField(t("labelApiKey")),
-      field(t("labelRegion"), region, t("hintAzureRegion")),
-      docs,
-    )
-    const radio = (value: "free" | "key", label: string) => {
-      const input = h("input", { type: "radio", name: "microsoftMode", value, checked: (cfg.mode ?? "free") === value })
-      input.addEventListener("change", () => {
-        if (!input.checked) return
-        if (value === "key") cfg.mode = "key"
-        else delete cfg.mode
-        freeHint.hidden = value === "key"
-        fields.hidden = value !== "key"
-        change()
-      })
-      return h("label", {}, input, h("span", { text: label }))
-    }
-    children.push(
-      h("div", { className: "panel-field" }, h("span", { text: t("microsoftModeLabel") }), h("div", { className: "mode-switch" }, radio("free", t("microsoftModeFree")), radio("key", t("microsoftModeKey")))),
-      freeHint,
-      fields,
-    )
-  } else {
-    let baseHint: string | undefined
-    if (p.id === "azure") baseHint = t("hintAzure")
-    else if (p.id === "ollama") baseHint = t("hintOllama")
-    else if (p.kind === "deeplx") baseHint = t("hintDeeplx")
-    children.push(endpointField(p.kind === "deeplx" ? t("labelDeeplxURL") : t("labelBaseURL"), baseHint))
-    children.push(keyField(p.kind === "deeplx" ? t("labelDeeplxToken") : t("labelApiKey")))
+      { className: "field-group" },
+      h("label", { className: "check" }, thinking, h("span", { text: t("labelThinking") })),
+      h("span", { className: "hint", text: supported ? t("hintThinking") : t("hintThinkingUnsupported") }),
+    ),
+  ]
+}
 
-    if (p.kind === "llm") {
-      const listId = `models-${p.id}`
-      const model = h("input", { type: "text", value: cfg.model, placeholder: p.defaultModel, list: listId, spellcheck: "false" })
-      const datalist = h("datalist", { id: listId }, ...p.models.map((m) => h("option", { value: m })))
-      model.addEventListener("input", () => {
-        cfg.model = model.value.trim()
-        change()
-      })
-      children.push(field(t("labelModel"), h("div", {}, model, datalist)))
-
-      const temp = h("input", {
-        type: "number",
-        min: "0",
-        max: "2",
-        step: "0.1",
-        value: cfg.temperature === undefined ? (p.defaultTemperature === null ? "" : String(p.defaultTemperature)) : cfg.temperature === null ? "" : String(cfg.temperature),
-      })
-      temp.addEventListener("input", () => {
-        const v = temp.value.trim()
-        cfg.temperature = v === "" ? null : Math.min(2, Math.max(0, Number(v)))
-        change()
-      })
-      children.push(field(t("labelTemperature"), temp))
-
-      const supported = supportsThinkingControl(p.id)
-      const thinking = h("input", { type: "checkbox", checked: supported && cfg.thinking === true, disabled: !supported })
-      thinking.addEventListener("change", () => {
-        cfg.thinking = thinking.checked
-        change()
-      })
-      children.push(
-        h(
-          "div",
-          { className: "field-group" },
-          h("label", { className: "check" }, thinking, h("span", { text: t("labelThinking") })),
-          h("span", { className: "hint", text: supported ? t("hintThinking") : t("hintThinkingUnsupported") }),
-        ),
-      )
-    }
-  }
-
-  // Actions
-  const result = h("div", { className: "test-result", "aria-live": "polite" })
+/** Connection test with the configuration as it is on screen, saved or not. */
+function testButton(p: ProviderPreset, cfg: ProviderConfig, result: HTMLElement): HTMLButtonElement {
   const test = h("button", { type: "button", text: t("buttonTest") })
   test.addEventListener("click", async () => {
     result.className = "test-result"
     result.textContent = t("testRunning")
     test.disabled = true
     try {
-      const r = await send<{ ok: boolean; text?: string; error?: string } | undefined>({
-        type: "testProvider",
-        providerId: p.id,
-        config: { ...cfg },
-        targetLang: settings.targetLang,
-      })
-      if (r?.ok) showTestSuccess(result, r.text ?? "")
-      else showTestFailure(result, r?.error)
+      const r = await send<TranslateResponse | undefined>({ type: "testProvider", providerId: p.id, config: { ...cfg }, targetLang: settings.targetLang })
+      if (r?.ok) {
+        result.className = "test-result ok"
+        result.textContent = t("testOk", [r.text])
+      } else showTestFailure(result, r?.error)
     } catch (error) {
       showTestFailure(result, describeError(error, getI18n()))
     } finally {
       test.disabled = false
     }
   })
+  return test
+}
+
+function renderProviderPanel(): void {
+  const p = getPreset(selectedProvider)!
+  const cfg = providerConfig(p.id)
+
+  const title = h("div", { className: "row" }, h("h3", { text: providerDisplayName(p) }))
+  if (p.docsUrl && p.kind !== "microsoft") title.append(h("a", { href: p.docsUrl, target: "_blank", rel: "noopener", text: t("getKey") }))
+
+  const result = h("div", { className: "test-result", "aria-live": "polite" })
+  const test = testButton(p, cfg, result)
   // Not added: "Add". Added: "Use this service" and "Remove"; the services in use cannot be removed.
   const actions = h("div", { className: "row" })
   const blockedHint = h("p", { className: "hint remove-hint" })
-  function renderActions(): void {
-    const button = (text: string, onClick: () => void, primary = false) => {
-      const b = h("button", { type: "button", className: primary ? "primary" : "", text })
-      b.addEventListener("click", onClick)
-      return b
-    }
+  const button = (text: string, onClick: () => void, primary = false) => {
+    const b = h("button", { type: "button", className: primary ? "primary" : "", text })
+    b.addEventListener("click", onClick)
+    return b
+  }
+  const renderActions = () => {
     blockedHint.textContent = ""
     if (!cfg.enabled) {
-      actions.replaceChildren(test, button(t("buttonAddProvider"), () => {
+      const add = button(t("buttonAddProvider"), () => {
         cfg.enabled = true
         providersChanged()
-      }, true))
+      }, true)
+      actions.replaceChildren(test, add)
       return
     }
     const use = button(t("buttonUse"), () => {
@@ -387,34 +355,64 @@ function renderProviderPanel(): void {
     }
     actions.replaceChildren(test, use, remove)
   }
-  renderActions()
-  children.push(actions, blockedHint, result)
 
-  panel.replaceChildren(...children.filter((c): c is HTMLElement => c !== null))
+  const state: PanelState = {
+    p,
+    cfg,
+    addWhileTyping: (value) => {
+      if (!value || cfg.enabled) return
+      cfg.enabled = true
+      renderProviderList()
+      fillProviderSelects()
+      renderActions()
+    },
+  }
+  let fields: HTMLElement[]
+  if (p.kind === "google") {
+    fields = [h("p", { className: "hint", text: t("hintFree") })]
+  } else if (p.kind === "microsoft") {
+    fields = microsoftFields(state)
+  } else {
+    let baseHint: string | undefined
+    if (p.id === "azure") baseHint = t("hintAzure")
+    else if (p.id === "ollama") baseHint = t("hintOllama")
+    else if (p.kind === "deeplx") baseHint = t("hintDeeplx")
+    fields = [
+      endpointField(state, p.kind === "deeplx" ? t("labelDeeplxURL") : t("labelBaseURL"), baseHint),
+      keyField(state, p.kind === "deeplx" ? t("labelDeeplxToken") : t("labelApiKey")),
+      ...(p.kind === "llm" ? llmFields(state) : []),
+    ]
+  }
+  renderActions()
+  $("providerPanel").replaceChildren(title, ...fields, actions, blockedHint, result)
 }
 
-function bindNumber(id: string, get: () => number, set: (v: number) => void): void {
-  const input = $<HTMLInputElement>(id)
-  track(input, () => (input.value = String(get())))
-  input.addEventListener("change", () => {
-    const v = Number(input.value)
-    if (!Number.isFinite(v)) return
-    const min = Number(input.min)
-    const max = Number(input.max)
-    const clamped = Math.min(max, Math.max(min, v))
-    input.value = String(clamped)
-    set(clamped)
+/** Any form control of the page: input, select or textarea. */
+type Control = HTMLInputElement & HTMLSelectElement & HTMLTextAreaElement
+
+/** A control of the page bound to one setting: `show` draws the setting, `apply` takes the control's value, then the settings are saved. */
+function bind(id: string, event: "input" | "change", show: (el: Control) => void, apply: (el: Control) => void): Control {
+  const el = $<Control>(id)
+  track(el, () => show(el))
+  el.addEventListener(event, () => {
+    apply(el)
     scheduleSave()
+  })
+  return el
+}
+
+/** Number field, clamped to its min and max. */
+function bindNumber(id: string, get: () => number, set: (v: number) => void): void {
+  const show = (el: Control) => (el.value = String(get()))
+  bind(id, "change", show, (el) => {
+    const v = Number(el.value)
+    if (Number.isFinite(v)) set(Math.min(Number(el.max), Math.max(Number(el.min), v)))
+    show(el)
   })
 }
 
 function bindCheck(id: string, get: () => boolean, set: (v: boolean) => void): void {
-  const input = $<HTMLInputElement>(id)
-  track(input, () => (input.checked = get()))
-  input.addEventListener("change", () => {
-    set(input.checked)
-    scheduleSave()
-  })
+  bind(id, "change", (el) => (el.checked = get()), (el) => set(el.checked))
 }
 
 function applyPreview(): void {
@@ -429,12 +427,6 @@ function applyPreview(): void {
 async function refreshCacheCount(): Promise<void> {
   const r = await send<{ size: number }>({ type: "cacheStats" })
   $("cacheCount").textContent = t("cacheCount", [r?.size ?? 0])
-}
-
-/** Replace a select's options, keeping the selected value. */
-function fillSelect(select: HTMLSelectElement, options: HTMLOptionElement[], value: string): void {
-  select.replaceChildren(...options)
-  select.value = value
 }
 
 /** Write every text of the page in the current interface language. */
@@ -483,20 +475,10 @@ async function main(): Promise<void> {
   })
   // The popup, another settings tab or the background script may change settings while this page is open.
   ext.storage.onChanged.addListener((changes, area) => {
-    if (area === "local" && changes[SETTINGS_KEY]) absorb(normalizeSettings(changes[SETTINGS_KEY].newValue, ext.i18n.getUILanguage()))
+    if (area === "local" && changes[SETTINGS_KEY]) absorb(readSettings(changes[SETTINGS_KEY].newValue))
   })
-  const targetLang = $<HTMLSelectElement>("targetLang")
-  track(targetLang, () => (targetLang.value = settings.targetLang))
-  targetLang.addEventListener("change", () => {
-    settings.targetLang = targetLang.value
-    scheduleSave()
-  })
-  const mode = $<HTMLSelectElement>("mode")
-  track(mode, () => (mode.value = settings.mode))
-  mode.addEventListener("change", () => {
-    settings.mode = mode.value as DisplayMode
-    scheduleSave()
-  })
+  bind("targetLang", "change", (el) => (el.value = settings.targetLang), (el) => (settings.targetLang = el.value))
+  bind("mode", "change", (el) => (el.value = settings.mode), (el) => (settings.mode = el.value as DisplayMode))
   const active = $<HTMLSelectElement>("activeProvider")
   active.addEventListener("change", () => {
     settings.activeProviderId = active.value
@@ -517,13 +499,8 @@ async function main(): Promise<void> {
   bindCheck("preciseEnabled", () => settings.precise.enabled, (v) => (settings.precise.enabled = v))
 
   // Prompt
-  const prompt = $<HTMLTextAreaElement>("systemPrompt")
+  const prompt = bind("systemPrompt", "input", (el) => (el.value = settings.systemPrompt), (el) => (settings.systemPrompt = el.value))
   prompt.placeholder = DEFAULT_SYSTEM_PROMPT
-  track(prompt, () => (prompt.value = settings.systemPrompt))
-  prompt.addEventListener("input", () => {
-    settings.systemPrompt = prompt.value
-    scheduleSave()
-  })
   $("resetPrompt").addEventListener("click", () => {
     prompt.value = ""
     settings.systemPrompt = ""
@@ -541,32 +518,14 @@ async function main(): Promise<void> {
 
   // Style
   const st = settings.style
-  const preset = $<HTMLSelectElement>("stylePreset")
-  track(preset, () => (preset.value = st.preset))
-  preset.addEventListener("change", () => {
-    st.preset = preset.value as StylePreset
+  const preview = (change: (el: Control) => void) => (el: Control) => {
+    change(el)
     applyPreview()
-    scheduleSave()
-  })
-  const color = $<HTMLInputElement>("styleColor")
-  track(color, () => (color.value = st.color))
-  color.addEventListener("input", () => {
-    st.color = color.value
-    applyPreview()
-    scheduleSave()
-  })
-  for (const [id, key] of [
-    ["styleOpacity", "opacity"],
-    ["styleFontScale", "fontScale"],
-  ] as const) {
-    const input = $<HTMLInputElement>(id)
-    track(input, () => (input.value = String(st[key])))
-    input.addEventListener("input", () => {
-      st[key] = Number(input.value)
-      applyPreview()
-      scheduleSave()
-    })
   }
+  bind("stylePreset", "change", (el) => (el.value = st.preset), preview((el) => (st.preset = el.value as StylePreset)))
+  bind("styleColor", "input", (el) => (el.value = st.color), preview((el) => (st.color = el.value)))
+  bind("styleOpacity", "input", (el) => (el.value = String(st.opacity)), preview((el) => (st.opacity = Number(el.value))))
+  bind("styleFontScale", "input", (el) => (el.value = String(st.fontScale)), preview((el) => (st.fontScale = Number(el.value))))
   applyPreview()
 
   // Cache

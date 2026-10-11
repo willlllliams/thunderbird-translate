@@ -1,29 +1,14 @@
-import { firstLine } from "../shared/errors"
+import { firstLine, truncate } from "../shared/errors"
 import { ext } from "../shared/ext"
 import { getI18n, t } from "../shared/i18n"
 import { localizeDocument } from "../shared/i18n-dom"
 import { loadExtensionI18n } from "../shared/i18n-ext"
 import { LANGUAGES } from "../shared/languages"
-import type { BackgroundRequest, TabState } from "../shared/messages"
+import { IDLE_TAB_STATE, type TabState } from "../shared/messages"
+import { $, fillSelect, send } from "../shared/page"
 import { getPreset, isAiProvider, providerDisplayName } from "../shared/providers"
-import { addedProviders, type DisplayMode, normalizeSettings, SETTINGS_KEY } from "../shared/settings"
-import { loadSettings, updateSettings } from "../shared/settings-store"
-
-const $ = <T extends HTMLElement>(id: string) => document.getElementById(id) as T
-
-function send<T>(req: BackgroundRequest): Promise<T> {
-  return ext.runtime.sendMessage(req) as Promise<T>
-}
-
-/** Replace a select's options, keeping the selected value. */
-function fillSelect(select: HTMLSelectElement, options: [label: string, value: string][], value: string): void {
-  select.replaceChildren(...options.map(([label, v]) => new Option(label, v)))
-  select.value = value
-}
-
-function shorten(text: string, max: number): string {
-  return text.length > max ? `${text.slice(0, max - 1).trimEnd()}…` : text
-}
+import { addedProviders, type DisplayMode, SETTINGS_KEY } from "../shared/settings"
+import { loadSettings, readSettings, updateSettings } from "../shared/settings-store"
 
 async function main(): Promise<void> {
   let settings = await loadSettings()
@@ -44,8 +29,8 @@ async function main(): Promise<void> {
 
   const fillSelects = () => {
     const i18n = getI18n()
-    fillSelect(targetLang, LANGUAGES.map((l) => [i18n.languageName(l.code, l.native), l.code]), settings.targetLang)
-    fillSelect(provider, addedProviders(settings).map((p) => [providerDisplayName(p, i18n), p.id]), settings.activeProviderId)
+    fillSelect(targetLang, LANGUAGES.map((l) => new Option(i18n.languageName(l.code, l.native), l.code)), settings.targetLang)
+    fillSelect(provider, addedProviders(settings).map((p) => new Option(providerDisplayName(p, i18n), p.id)), settings.activeProviderId)
   }
   // Race and precise mode apply to AI services only.
   const showAiModes = () => {
@@ -83,8 +68,7 @@ async function main(): Promise<void> {
     window.close()
   })
 
-  const idle: TabState = { connected: false, active: false, total: 0, done: 0, provisional: 0, failed: 0 }
-  let last = idle
+  let last = IDLE_TAB_STATE
   const render = (st: TabState) => {
     last = st
     toggle.disabled = !st.connected
@@ -101,19 +85,19 @@ async function main(): Promise<void> {
     // Most recent failure: one shortened line here, the full description as tooltip.
     const error = st.active && st.failed > 0 ? st.lastError?.trim() : ""
     lastError.hidden = !error
-    lastError.textContent = error ? t("popupLastError", [shorten(firstLine(error), 90)]) : ""
+    lastError.textContent = error ? t("popupLastError", [truncate(firstLine(error), 90)]) : ""
     lastError.title = error ?? ""
   }
 
   const refresh = async () => {
-    if (tabId === undefined) return render(idle)
+    if (tabId === undefined) return render(IDLE_TAB_STATE)
     render(await send<TabState>({ type: "getTabState", tabId }))
   }
 
   // The popup and the settings page change the settings; the interface language may change too.
   ext.storage.onChanged.addListener((changes, area) => {
     if (area !== "local" || !changes[SETTINGS_KEY]) return
-    settings = normalizeSettings(changes[SETTINGS_KEY].newValue)
+    settings = readSettings(changes[SETTINGS_KEY].newValue)
     showAiModes()
     showSwitches()
     if (settings.uiLanguage === uiLanguage) {
@@ -130,7 +114,7 @@ async function main(): Promise<void> {
 
   toggle.addEventListener("click", async () => {
     if (tabId === undefined) return
-    await send({ type: "tabCommand", tabId, command: "toggle" })
+    await send({ type: "toggleTab", tabId })
     setTimeout(refresh, 150)
   })
 

@@ -116,7 +116,7 @@ Changer le mode d’affichage conserve les marques de traduction provisoire et d
 
 ### Traduction précise
 
-La traduction précise envoie le message comme contexte avec chaque requête d’IA. Au début de la traduction, le script de contenu assemble les paragraphes trouvés en texte brut du message (coupé après 20 000 caractères, avec une mention que le texte se poursuit) et l’enregistre une seule fois auprès du script d’arrière-plan. Le message est identifié par une empreinte de ce texte.
+La traduction précise envoie le message comme contexte avec chaque requête d’IA. Au début de la traduction, le script de contenu assemble les paragraphes trouvés en texte brut du message (coupé après 20 000 caractères, avec une mention que le texte se poursuit) et l’enregistre une seule fois auprès du script d’arrière-plan. Le message est identifié par une empreinte de son texte complet ; la coupure ne concerne que le texte envoyé comme contexte.
 
 Le déroulement dépend de la taille des paragraphes à traduire :
 
@@ -179,7 +179,7 @@ La liste des langues cibles est distincte et compte 20 langues, dont l’italien
 | Service | Configuration | Remarques |
 | --- | --- | --- |
 | Google Translate (gratuit, par défaut) | Aucune | Appelle le point de terminaison `client=gtx` de `translate.googleapis.com` ; une requête POST transporte plusieurs paramètres `q`, si bien que plusieurs paragraphes partagent une même requête |
-| Microsoft Translator (gratuit) | Aucune | Tente d’abord d’obtenir un jeton auprès de `edge.microsoft.com/translate/auth` puis d’appeler `api-edge.cognitive.microsofttranslator.com` ; lorsque Microsoft a retiré le point de terminaison du jeton, bascule sur `edge.microsoft.com/translate/translatetext`. Les deux voies acceptent nativement des tableaux L’option « Utiliser ma clé (Azure Translator) » du panneau appelle à la place l’API officielle `api.cognitive.microsofttranslator.com` : créez une ressource Translator dans le portail Azure, puis copiez sa clé et sa région depuis « Clés et point de terminaison » dans le panneau (la région peut rester vide pour une ressource globale). |
+| Microsoft Translator (gratuit) | Aucune | Tente d’abord d’obtenir un jeton auprès de `edge.microsoft.com/translate/auth` puis d’appeler `api-edge.cognitive.microsofttranslator.com` ; lorsque Microsoft a retiré le point de terminaison du jeton, bascule sur `edge.microsoft.com/translate/translatetext`. Les deux voies acceptent nativement des tableaux. L’option « Utiliser ma clé (Azure Translator) » du panneau appelle à la place l’API officielle `api.cognitive.microsofttranslator.com` : créez une ressource Translator dans le portail Azure, puis copiez sa clé et sa région depuis « Clés et point de terminaison » dans le panneau (la région peut rester vide pour une ressource globale). |
 | DeepLX | Point de terminaison obligatoire | Un service DeepLX auto-hébergé ou tiers ; le jeton est facultatif. Si le point de terminaison contient `{{apiKey}}`, le jeton le remplace ; sinon, il est envoyé dans l’en-tête `Authorization: Bearer` |
 
 ### Fournisseurs d’IA
@@ -223,7 +223,7 @@ Certains fournisseurs ont des exigences supplémentaires :
 
 Chaque fournisseur d’IA a un commutateur « Mode réflexion », désactivé par défaut. La traduction n’exige pas que le modèle raisonne d’abord, et le raisonnement rend les requêtes plus lentes et plus coûteuses. Plusieurs modèles actuels raisonnent sauf instruction contraire, par exemple `deepseek-flash`, `claude-haiku-5-5` et `gemini-2.5-flash` ; la valeur « désactivé » est donc envoyée explicitement.
 
-Chaque fournisseur nomme ce commutateur à sa manière, et chez un même fournisseur seuls certains modèles l’acceptent. L’extension compare le nom du modèle aux motifs ci-dessous et envoie les options du fournisseur de la première correspondance ; un modèle sans correspondance ne reçoit aucun paramètre de réflexion. Lorsque la réflexion est activée, aucune température n’est envoyée, car les modèles de raisonnement l’ignorent ou la rejettent.
+Chaque fournisseur nomme ce commutateur à sa manière, et chez un même fournisseur seuls certains modèles l’acceptent. L’extension compare le nom du modèle aux motifs ci-dessous et envoie les options du fournisseur de la première correspondance ; un modèle sans correspondance ne reçoit aucun paramètre de réflexion. Lorsque la réflexion est activée, aucune température n’est envoyée aux modèles qui correspondent à un motif du tableau, car les modèles de raisonnement l’ignorent ou la rejettent.
 
 | Fournisseur | Modèles | Désactivé | Activé | Source |
 | --- | --- | --- | --- | --- |
@@ -269,8 +269,8 @@ Un message compte en général entre une dizaine et quelques dizaines de paragra
 
 1. Le script de contenu transmet au script d’arrière-plan chaque paragraphe à traduire.
 2. Le script d’arrière-plan consulte d’abord le cache et répond directement en cas de succès. La clé de cache se compose du fournisseur, du modèle, de la langue cible, d’une signature de l’invite système, en mode précis de l’empreinte du message, et d’une empreinte du texte du paragraphe. Lorsque le même texte est déjà en cours de traduction, les requêtes suivantes partagent le même résultat.
-3. Les paragraphes absents du cache entrent dans la file de regroupement, groupés par fournisseur + modèle + point de terminaison + langue cible, en mode précis aussi par message. Les paragraphes d’un même groupe s’accumulent pendant 50 ms. Un groupe est envoyé à la fin de la fenêtre, lorsque la limite de paragraphes est atteinte ou lorsque le paragraphe suivant dépasserait la limite de caractères. Un paragraphe seul plus long que la limite de caractères forme son propre lot.
-4. La file de requêtes exécute chaque lot. Elle limite le nombre de requêtes simultanées et retente les erreurs 429, 5xx et réseau avec un intervalle exponentiel ; lorsque le serveur envoie `Retry-After`, elle attend la durée indiquée. Les erreurs comme 401 et 400 sont signalées sans nouvelle tentative.
+3. Les paragraphes absents du cache entrent dans la file de regroupement, groupés par fournisseur + modèle + point de terminaison + langue cible, pour les services d’IA aussi par invite système, pour Microsoft Translator aussi par mode gratuit ou avec clé, et en mode précis aussi par message. Les paragraphes d’un même groupe s’accumulent pendant 50 ms. Un groupe est envoyé à la fin de la fenêtre, lorsque la limite de paragraphes est atteinte ou lorsque le paragraphe suivant dépasserait la limite de caractères. Un paragraphe seul plus long que la limite de caractères forme son propre lot.
+4. La file de requêtes exécute chaque lot. Elle limite le nombre de requêtes simultanées et retente les erreurs 408, 429, 5xx et réseau avec un intervalle exponentiel ; lorsque le serveur envoie `Retry-After`, elle attend la durée indiquée, dans la limite de 30 secondes. Les erreurs comme 401 et 400 sont signalées sans nouvelle tentative.
 5. Les résultats sont placés dans le cache en mémoire et écrits dans `storage.local` en une seule écriture au bout d’une seconde. Le cache évince les entrées les moins récemment utilisées (LRU, Least Recently Used).
 
 ### Fusion des paragraphes selon le service
@@ -322,7 +322,7 @@ Les jetons en entrée baissent d’environ 63 %, et le nombre de requêtes pass
 
 - Les traductions sont en texte brut. Les liens, le texte en gras et les autres mises en forme en ligne de l’original ne sont pas conservés dans la traduction. En mode bilingue, l’original reste entièrement utilisable ; en mode traduction seule, vous pouvez survoler la traduction pour voir l’original ou revenir au mode bilingue.
 - Les points de terminaison gratuits de Google et Microsoft ne sont pas documentés et peuvent changer ou être soumis à une limite de débit. Microsoft a retiré le point de terminaison de jeton `edge.microsoft.com/translate/auth` en juillet 2026 (il renvoie 404). L’extension essaie encore le point de terminaison de jeton lors de la première requête, se replie sur le point de terminaison direct après un échec, et ne réessaie pas le point de terminaison de jeton pendant une heure.
-- Pour déterminer si un paragraphe est déjà dans la langue cible, le chinois, le japonais, le coréen et les écritures similaires sont jugés d’après la classe des caractères, et les langues à écriture latine passent d’abord par `i18n.detectLanguage` de l’API des extensions. Lorsque cette API est indisponible ou que son résultat n’est pas fiable, seul l’anglais est détecté de façon fiable ; les paragraphes dans les autres langues à écriture latine sont envoyés à la traduction normalement.
+- Pour déterminer si un paragraphe est déjà dans la langue cible, le chinois, le japonais, le coréen et les écritures similaires sont jugés d’après la classe des caractères, et les langues à écriture latine ou cyrillique passent d’abord par `i18n.detectLanguage` de l’API des extensions. Lorsque cette API est indisponible ou que son résultat n’est pas fiable, seul l’anglais est détecté de façon fiable ; les paragraphes dans les autres langues à écriture latine sont envoyés à la traduction normalement.
 - Le script de contenu est enregistré via `messageDisplayScripts` et n’atteint que les messages ouverts après son enregistrement. Au démarrage, l’extension tente de l’injecter dans les messages déjà ouverts ; si cela échoue, il suffit de sélectionner à nouveau le message.
 - Les messages d’erreur produits par l’extension sont traduits. Les textes d’erreur renvoyés par un service de traduction ou par l’AI SDK (par exemple le corps d’une réponse HTTP 401) sont affichés tels quels, généralement en anglais.
 - Le nom de l’extension, sa description dans le gestionnaire de modules complémentaires et les descriptions des raccourcis suivent la langue de l’interface de Thunderbird, et non l’option de langue de l’interface.
@@ -357,6 +357,7 @@ locales/         interface text, one JSON file per language; en.json is the refe
 static/          manifest.json, HTML, CSS, SVG icon
 scripts/         build, locale generation and checks, live endpoint test
 readmes/         translated versions of this README
+docs/            demo GIF used in this README
 tests/           vitest tests
 ```
 

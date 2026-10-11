@@ -114,8 +114,4 @@ export class Renderer {
       s.added = node
     }
   }
-
-  isRendered(unit: Unit): boolean {
-    return this.dom.has(unit)
-  }
 }

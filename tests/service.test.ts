@@ -1,36 +1,15 @@
 import { describe, expect, it, vi } from "vitest"
-import { CACHE_STORAGE_KEY, cacheKey, type KeyValueStorage, LruCache, PersistentCache } from "../src/background/cache"
-import { type LlmImpl, TranslationService } from "../src/background/service"
+import { CACHE_STORAGE_KEY, cacheKey, LruCache, PersistentCache } from "../src/background/cache"
+import type { LlmImpl } from "../src/background/service"
 import { BatchParseError, llmAnalyzeMail, llmTranslateBatch, llmTranslateSingle } from "../src/background/translators/llm"
 import type { Segment } from "../src/background/translators/llm-prompt"
 import { createDefaultSettings, type Settings } from "../src/shared/settings"
+import { asFetch, chatCompletion, createService, jsonResponse, memoryStorage } from "./helpers"
 
-function memoryStorage(): KeyValueStorage & { data: Map<string, unknown> } {
-  const data = new Map<string, unknown>()
-  return {
-    data,
-    get: async (k) => data.get(k),
-    set: async (k, v) => void data.set(k, structuredClone(v)),
-    remove: async (k) => void data.delete(k),
-  }
-}
-
-function setup(over: (s: Settings) => void = () => {}, extra: { llm?: LlmImpl; fetchFn?: typeof fetch } = {}) {
+function setup(over: (s: Settings) => void = () => {}, extra: { llm?: LlmImpl; fetchFn?: unknown } = {}) {
   const settings = createDefaultSettings()
-  settings.batch.batchDelayMs = 5
   over(settings)
-  const cache = new PersistentCache(memoryStorage(), 100, 10)
-  const service = new TranslationService({
-    getSettings: () => settings,
-    cache,
-    sleep: async () => {},
-    ...extra,
-  })
-  return { settings, service, cache }
-}
-
-function json(body: unknown): Response {
-  return new Response(JSON.stringify(body), { status: 200, headers: { "Content-Type": "application/json" } })
+  return createService(settings, { llm: extra.llm, fetchFn: asFetch(extra.fetchFn) })
 }
 
 describe("LRU cache", () => {
@@ -47,11 +26,31 @@ describe("LRU cache", () => {
     const storage = memoryStorage()
     const c1 = new PersistentCache(storage, 10, 0)
     await c1.set("k1", "v1")
-    await c1.flush()
-    expect(storage.data.get(CACHE_STORAGE_KEY)).toEqual([["k1", "v1"]])
+    await vi.waitFor(() => expect(storage.data.get(CACHE_STORAGE_KEY)).toEqual([["k1", "v1"]]))
     const c2 = new PersistentCache(storage, 10, 0)
     expect(await c2.get("k1")).toBe("v1")
     await c2.clear()
+    expect(storage.data.has(CACHE_STORAGE_KEY)).toBe(false)
+  })
+
+  it("stays empty when cleared while the stored entries are still loading", async () => {
+    const storage = memoryStorage()
+    storage.data.set(CACHE_STORAGE_KEY, [["k1", "v1"]])
+    let release!: () => void
+    const gate = new Promise<void>((r) => (release = r))
+    const read = storage.get
+    // The read answers with the entries stored at the time of the request.
+    storage.get = (k) => {
+      const answer = read(k)
+      return gate.then(() => answer)
+    }
+    const cache = new PersistentCache(storage, 10, 0)
+    const first = cache.get("k1")
+    const cleared = cache.clear()
+    release()
+    await Promise.all([first, cleared])
+    expect(await cache.get("k1")).toBeUndefined()
+    expect(await cache.size()).toBe(0)
     expect(storage.data.has(CACHE_STORAGE_KEY)).toBe(false)
   })
 
@@ -69,9 +68,9 @@ describe("TranslationService with Google", () => {
   it("merges paragraphs from one window into one request and caches them", async () => {
     const fetchFn = vi.fn(async (_url: string, init: RequestInit) => {
       const qs = new URLSearchParams(String(init.body)).getAll("q")
-      return json(qs.map((q) => [`ZH(${q})`, "en"]))
+      return jsonResponse(qs.map((q) => [`ZH(${q})`, "en"]))
     })
-    const { service } = setup(() => {}, { fetchFn: fetchFn as unknown as typeof fetch })
+    const { service } = setup(() => {}, { fetchFn })
     const out = await Promise.all(["One", "Two", "Three"].map((t) => service.translate({ text: t, targetLang: "zh-CN", providerId: "google-free" })))
     expect(out).toEqual(["ZH(One)", "ZH(Two)", "ZH(Three)"])
     expect(fetchFn).toHaveBeenCalledTimes(1)
@@ -84,9 +83,9 @@ describe("TranslationService with Google", () => {
   it("deduplicates identical paragraphs in flight", async () => {
     const fetchFn = vi.fn(async (_url: string, init: RequestInit) => {
       const qs = new URLSearchParams(String(init.body)).getAll("q")
-      return json(qs.map((q) => [`ZH(${q})`, "en"]))
+      return jsonResponse(qs.map((q) => [`ZH(${q})`, "en"]))
     })
-    const { service } = setup(() => {}, { fetchFn: fetchFn as unknown as typeof fetch })
+    const { service } = setup(() => {}, { fetchFn })
     await Promise.all([service.translate({ text: "Same", targetLang: "zh-CN", providerId: "google-free" }), service.translate({ text: "Same", targetLang: "zh-CN", providerId: "google-free" })])
     const body = new URLSearchParams(String(fetchFn.mock.calls[0][1].body))
     expect(body.getAll("q")).toEqual(["Same"])
@@ -95,9 +94,9 @@ describe("TranslationService with Google", () => {
   it("splits into several requests when maxItemsPerBatch is small", async () => {
     const fetchFn = vi.fn(async (_url: string, init: RequestInit) => {
       const qs = new URLSearchParams(String(init.body)).getAll("q")
-      return json(qs.map((q) => [q, "en"]))
+      return jsonResponse(qs.map((q) => [q, "en"]))
     })
-    const { service } = setup((s) => (s.batch.maxItemsPerBatch = 2), { fetchFn: fetchFn as unknown as typeof fetch })
+    const { service } = setup((s) => (s.batch.maxItemsPerBatch = 2), { fetchFn })
     await Promise.all(["a1", "a2", "a3", "a4", "a5"].map((t) => service.translate({ text: t, targetLang: "zh-CN", providerId: "google-free" })))
     expect(fetchFn).toHaveBeenCalledTimes(3)
   })
@@ -133,8 +132,8 @@ describe("TranslationService with an LLM", () => {
     const { service } = setup(useOpenAI, { llm })
     const out = await Promise.all(["a", "b", "c"].map((t) => service.translate({ text: t, targetLang: "zh-CN", providerId: "openai" })))
     expect(out).toEqual(["ZH(a)", "ZH(b)", "ZH(c)"])
+    expect(llm.batch).toHaveBeenCalledTimes(1)
     expect(llm.single).toHaveBeenCalledTimes(3)
-    expect(service.stats.fallbacks).toBe(1)
   })
 
   it("does not fall back on authentication errors", async () => {
@@ -175,17 +174,10 @@ describe("TranslationService with an LLM", () => {
       const body = JSON.parse(String(init?.body))
       bodies.push(body)
       const content = '```json\n["早上好", "晚安", "谢谢"]\n```'
-      return json({
-        id: "c",
-        object: "chat.completion",
-        created: 1,
-        model: "gpt-4.1-mini",
-        choices: [{ index: 0, message: { role: "assistant", content }, finish_reason: "stop" }],
-        usage: { prompt_tokens: 1, completion_tokens: 1, total_tokens: 2 },
-      })
+      return chatCompletion(content)
     })
     const { service } = setup(useOpenAI, {
-      fetchFn: fetchFn as unknown as typeof fetch,
+      fetchFn,
       llm: { batch: llmTranslateBatch, single: llmTranslateSingle, analyze: llmAnalyzeMail },
     })
     const out = await Promise.all(["Good morning", "Good night", "Thanks"].map((t) => service.translate({ text: t, targetLang: "zh-CN", providerId: "openai" })))
@@ -206,17 +198,10 @@ describe("TranslationService with an LLM", () => {
       const prompt = JSON.stringify(body.messages)
       // First call is the batch: answer with only one item. Then single calls.
       const content = call === 1 ? '["只有一条"]' : prompt.includes("Good morning") ? "早上好" : "晚安"
-      return json({
-        id: "c",
-        object: "chat.completion",
-        created: 1,
-        model: "m",
-        choices: [{ index: 0, message: { role: "assistant", content }, finish_reason: "stop" }],
-        usage: { prompt_tokens: 1, completion_tokens: 1, total_tokens: 2 },
-      })
+      return chatCompletion(content)
     })
     const { service } = setup(useOpenAI, {
-      fetchFn: fetchFn as unknown as typeof fetch,
+      fetchFn,
       llm: { batch: llmTranslateBatch, single: llmTranslateSingle, analyze: llmAnalyzeMail },
     })
     const out = await Promise.all(["Good morning", "Good night"].map((t) => service.translate({ text: t, targetLang: "zh-CN", providerId: "openai" })))

@@ -3,10 +3,10 @@ import {
   buildBatchPrompt,
   buildSystemPrompt,
   cleanSingleOutput,
-  modelRejectsTemperature,
   parseBatchOutput,
   repairJsonStrings,
 } from "../src/background/translators/llm-prompt"
+import { modelRejectsTemperature } from "../src/background/providers/thinking"
 
 describe("batch prompt", () => {
   it("numbers every segment and states the expected count", () => {

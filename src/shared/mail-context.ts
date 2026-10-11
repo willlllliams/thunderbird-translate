@@ -17,7 +17,7 @@ export interface MailContext {
   text: string
 }
 
-export const MAX_CONTEXT_CHARS = 20000
+const MAX_CONTEXT_CHARS = 20000
 
 export function createMailContext(paragraphs: string[], targets: number[]): MailContext {
   const full = paragraphs.join("\n\n")

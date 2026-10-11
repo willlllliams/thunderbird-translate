@@ -116,7 +116,7 @@ Beim Wechsel des Anzeigemodus bleiben die Markierungen für vorläufige und fehl
 
 ### Präzise Übersetzung
 
-Die präzise Übersetzung sendet die Nachricht mit jeder KI-Anfrage als Kontext mit. Beim Start der Übersetzung fügt das Inhaltsskript die gefundenen Absätze zum reinen Text der Nachricht zusammen (nach 20.000 Zeichen abgeschnitten, mit einem Hinweis, dass der Text weitergeht) und meldet ihn einmal beim Hintergrundskript an. Die Nachricht wird über einen Hash dieses Texts identifiziert.
+Die präzise Übersetzung sendet die Nachricht mit jeder KI-Anfrage als Kontext mit. Beim Start der Übersetzung fügt das Inhaltsskript die gefundenen Absätze zum reinen Text der Nachricht zusammen (nach 20.000 Zeichen abgeschnitten, mit einem Hinweis, dass der Text weitergeht) und meldet ihn einmal beim Hintergrundskript an. Die Nachricht wird über einen Hash ihres vollständigen Texts identifiziert; das Abschneiden betrifft nur den Text, der als Kontext gesendet wird.
 
 Der Ablauf hängt von der Größe der zu übersetzenden Absätze ab:
 
@@ -179,7 +179,7 @@ Die Liste der Zielsprachen ist davon unabhängig und umfasst 20 Sprachen, darunt
 | Dienst | Einrichtung | Hinweise |
 | --- | --- | --- |
 | Google Translate (kostenlos, Standard) | Keine | Ruft den Endpunkt `client=gtx` von `translate.googleapis.com` auf; ein POST trägt mehrere `q`-Parameter, sodass sich mehrere Absätze eine Anfrage teilen |
-| Microsoft Translator (kostenlos) | Keine | Versucht zuerst, ein Token von `edge.microsoft.com/translate/auth` zu holen und `api-edge.cognitive.microsofttranslator.com` aufzurufen; hat Microsoft den Token-Endpunkt abgeschaltet, wechselt die Erweiterung zu `edge.microsoft.com/translate/translatetext`. Beide Wege akzeptieren Arrays direkt Mit „Eigenen Schlüssel verwenden (Azure Translator)“ im Einstellungsfeld ruft die Erweiterung stattdessen das offizielle `api.cognitive.microsofttranslator.com` auf: Im Azure-Portal eine Translator-Ressource anlegen und Schlüssel und Region unter „Schlüssel und Endpunkt“ in das Feld eintragen (bei einer globalen Ressource darf die Region leer bleiben). |
+| Microsoft Translator (kostenlos) | Keine | Versucht zuerst, ein Token von `edge.microsoft.com/translate/auth` zu holen und `api-edge.cognitive.microsofttranslator.com` aufzurufen; hat Microsoft den Token-Endpunkt abgeschaltet, wechselt die Erweiterung zu `edge.microsoft.com/translate/translatetext`. Beide Wege akzeptieren Arrays direkt. Mit „Eigenen Schlüssel verwenden (Azure Translator)“ im Einstellungsfeld ruft die Erweiterung stattdessen das offizielle `api.cognitive.microsofttranslator.com` auf: Im Azure-Portal eine Translator-Ressource anlegen und Schlüssel und Region unter „Schlüssel und Endpunkt“ in das Feld eintragen (bei einer globalen Ressource darf die Region leer bleiben). |
 | DeepLX | Endpunkt erforderlich | Ein selbst gehosteter oder fremder DeepLX-Dienst; das Token ist optional. Enthält der Endpunkt `{{apiKey}}`, wird dieser Platzhalter durch das Token ersetzt; andernfalls wird das Token als `Authorization: Bearer` gesendet |
 
 ### KI-Anbieter
@@ -223,7 +223,7 @@ Für einige Anbieter gelten zusätzliche Anforderungen:
 
 Jeder KI-Anbieter hat einen Schalter „Denkmodus“, standardmäßig ausgeschaltet. Für die Übersetzung muss das Modell nicht zuerst nachdenken, und Nachdenken macht Anfragen langsamer und teurer. Mehrere aktuelle Modelle denken, sofern nichts anderes verlangt wird, zum Beispiel `deepseek-flash`, `claude-haiku-5-5` und `gemini-2.5-flash`; deshalb wird „aus“ ausdrücklich gesendet.
 
-Jeder Anbieter schreibt den Schalter anders, und bei einem Anbieter akzeptieren ihn nur manche Modelle. Die Erweiterung gleicht den Modellnamen mit den folgenden Mustern ab und sendet die Anbieteroptionen des ersten Treffers; ein Modell ohne Treffer erhält keinen Denk-Parameter. Ist der Denkmodus eingeschaltet, wird keine Temperatur gesendet, weil Denkmodelle sie ignorieren oder ablehnen.
+Jeder Anbieter schreibt den Schalter anders, und bei einem Anbieter akzeptieren ihn nur manche Modelle. Die Erweiterung gleicht den Modellnamen mit den folgenden Mustern ab und sendet die Anbieteroptionen des ersten Treffers; ein Modell ohne Treffer erhält keinen Denk-Parameter. Ist der Denkmodus eingeschaltet, wird für Modelle, die einem Muster der Tabelle entsprechen, keine Temperatur gesendet, weil Denkmodelle sie ignorieren oder ablehnen.
 
 | Anbieter | Modelle | Aus | Ein | Quelle |
 | --- | --- | --- | --- | --- |
@@ -269,8 +269,8 @@ Eine Nachricht hat meist zwischen zehn und einigen Dutzend Absätzen. Bei einer 
 
 1. Das Inhaltsskript übergibt jeden zu übersetzenden Absatz an das Hintergrundskript.
 2. Das Hintergrundskript sucht zuerst im Cache und antwortet bei einem Treffer direkt. Der Cache-Schlüssel besteht aus dem Anbieter, dem Modell, der Zielsprache, einer Signatur des System-Prompts, im präzisen Modus dem Hash der Nachricht und einem Hash des Absatztexts. Wird derselbe Text bereits übersetzt, teilen sich spätere Anfragen dasselbe Ergebnis.
-3. Absätze, die nicht im Cache liegen, kommen in die Bündelungswarteschlange, gruppiert nach Anbieter + Modell + Endpunkt + Zielsprache, im präzisen Modus zusätzlich nach Nachricht. Die Absätze einer Gruppe sammeln sich 50 ms lang. Eine Gruppe wird gesendet, wenn der Sammelzeitraum endet, wenn die Absatzgrenze erreicht ist oder wenn der nächste Absatz die Zeichengrenze überschreiten würde. Ein einzelner Absatz, der länger als die Zeichengrenze ist, bildet ein eigenes Bündel.
-4. Die Anfragewarteschlange führt jedes Bündel aus. Sie begrenzt die gleichzeitigen Anfragen und wiederholt Anfragen bei 429, 5xx und Netzwerkfehlern mit exponentiellem Backoff; sendet der Server `Retry-After`, wartet sie die angegebene Zeit. Fehler wie 401 und 400 werden ohne Wiederholung gemeldet.
+3. Absätze, die nicht im Cache liegen, kommen in die Bündelungswarteschlange, gruppiert nach Anbieter + Modell + Endpunkt + Zielsprache, bei KI-Diensten zusätzlich nach System-Prompt, bei Microsoft Translator zusätzlich nach kostenlosem oder Schlüssel-Modus und im präzisen Modus zusätzlich nach Nachricht. Die Absätze einer Gruppe sammeln sich 50 ms lang. Eine Gruppe wird gesendet, wenn der Sammelzeitraum endet, wenn die Absatzgrenze erreicht ist oder wenn der nächste Absatz die Zeichengrenze überschreiten würde. Ein einzelner Absatz, der länger als die Zeichengrenze ist, bildet ein eigenes Bündel.
+4. Die Anfragewarteschlange führt jedes Bündel aus. Sie begrenzt die gleichzeitigen Anfragen und wiederholt Anfragen bei 408, 429, 5xx und Netzwerkfehlern mit exponentiellem Backoff; sendet der Server `Retry-After`, wartet sie die angegebene Zeit, höchstens 30 Sekunden. Fehler wie 401 und 400 werden ohne Wiederholung gemeldet.
 5. Die Ergebnisse gehen in den Cache im Arbeitsspeicher und werden nach 1 Sekunde in einem einzigen Schreibvorgang in `storage.local` geschrieben. Der Cache verdrängt die am längsten nicht verwendeten Einträge (Least Recently Used, LRU).
 
 ### Wie jeder Dienst Absätze zusammenfasst
@@ -322,7 +322,7 @@ Die Eingabe-Tokens sinken um etwa 63 %, und die Zahl der Anfragen sinkt von 20 a
 
 - Übersetzungen sind reiner Text. Links, Fettschrift und andere Inline-Formatierungen des Originals bleiben in der Übersetzung nicht erhalten. Im zweisprachigen Modus bleibt das Original vollständig nutzbar; im Modus „Nur Übersetzung“ lässt sich das Original per Mauszeiger anzeigen, oder die Anzeige wird auf „Zweisprachig“ zurückgeschaltet.
 - Die kostenlosen Endpunkte von Google und Microsoft sind nicht dokumentiert und können sich ändern oder in der Rate begrenzt werden. Microsoft hat den Token-Endpunkt `edge.microsoft.com/translate/auth` im Juli 2026 abgeschaltet (er liefert 404). Die Erweiterung versucht den Token-Endpunkt weiterhin bei der ersten Anfrage, weicht nach einem Fehler auf den direkten Endpunkt aus und versucht den Token-Endpunkt eine Stunde lang nicht erneut.
-- Ob ein Absatz bereits in der Zielsprache verfasst ist, beurteilt die Erweiterung bei Chinesisch, Japanisch, Koreanisch und ähnlichen Schriften anhand der Zeichenklasse; bei Sprachen in lateinischer Schrift verwendet sie zuerst `i18n.detectLanguage` der Erweiterungs-API. Ist diese API nicht verfügbar oder ihr Ergebnis unzuverlässig, wird nur Englisch zuverlässig erkannt; Absätze in anderen Sprachen mit lateinischer Schrift werden wie üblich zur Übersetzung gesendet.
+- Ob ein Absatz bereits in der Zielsprache verfasst ist, beurteilt die Erweiterung bei Chinesisch, Japanisch, Koreanisch und ähnlichen Schriften anhand der Zeichenklasse; bei Sprachen in lateinischer oder kyrillischer Schrift verwendet sie zuerst `i18n.detectLanguage` der Erweiterungs-API. Ist diese API nicht verfügbar oder ihr Ergebnis unzuverlässig, wird nur Englisch zuverlässig erkannt; Absätze in anderen Sprachen mit lateinischer Schrift werden wie üblich zur Übersetzung gesendet.
 - Das Inhaltsskript wird über `messageDisplayScripts` registriert und erreicht nur Nachrichten, die nach der Registrierung geöffnet werden. Beim Start versucht die Erweiterung, es in bereits geöffnete Nachrichten einzufügen; schlägt das fehl, genügt es, die Nachricht erneut auszuwählen.
 - Fehlermeldungen der Erweiterung selbst sind übersetzt. Fehlertexte, die ein Übersetzungsdienst oder das AI SDK zurückgibt (zum Beispiel der Text einer HTTP-401-Antwort), werden unverändert angezeigt, meist auf Englisch.
 - Name und Beschreibung der Erweiterung in der Add-ons-Verwaltung sowie die Beschreibungen der Tastenkombinationen folgen der Sprache der Thunderbird-Oberfläche und nicht der Option „Sprache der Benutzeroberfläche“.
@@ -357,6 +357,7 @@ locales/         interface text, one JSON file per language; en.json is the refe
 static/          manifest.json, HTML, CSS, SVG icon
 scripts/         build, locale generation and checks, live endpoint test
 readmes/         translated versions of this README
+docs/            demo GIF used in this README
 tests/           vitest tests
 ```
 

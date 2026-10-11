@@ -1,6 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest"
-import { PersistentCache } from "../src/background/cache"
-import { errorContext, TranslationService } from "../src/background/service"
+import { errorContext } from "../src/background/service"
 import {
   AZURE_LIMITS,
   azureTranslateBatch,
@@ -14,13 +13,10 @@ import {
 import { describeError } from "../src/shared/errors"
 import { ENGLISH } from "../src/shared/i18n"
 import { createDefaultSettings, normalizeSettings, resolveProvider, type Settings, toPublicSettings } from "../src/shared/settings"
+import { asFetch, createService, jsonResponse } from "./helpers"
 
 const AZURE_URL = "https://api.cognitive.microsofttranslator.com/translate"
 const azure = { apiKey: "KEY", region: "westeurope", endpoint: AZURE_URL }
-
-function jsonResponse(body: unknown, status = 200): Response {
-  return new Response(JSON.stringify(body), { status, headers: { "Content-Type": "application/json" } })
-}
 
 /** An Azure-style fake: answers every `{Text}` with `ZH(Text)`. */
 function azureFetch() {
@@ -29,8 +25,6 @@ function azureFetch() {
     return jsonResponse(items.map((i) => ({ translations: [{ text: `ZH(${i.Text})`, to: "zh-Hans" }] })))
   })
 }
-
-const asFetch = (f: unknown) => f as typeof fetch
 
 describe("Azure Translator request", () => {
   it("builds the v3 translate request with key and region headers", () => {
@@ -161,12 +155,7 @@ describe("Microsoft settings", () => {
   })
 })
 
-function service(settings: Settings, fetchFn: typeof fetch) {
-  settings.batch.batchDelayMs = 5
-  const data = new Map<string, unknown>()
-  const cache = new PersistentCache({ get: async (k) => data.get(k), set: async (k, v) => void data.set(k, v), remove: async (k) => void data.delete(k) }, 100, 10)
-  return new TranslationService({ getSettings: () => settings, cache, fetchFn, sleep: async () => {} })
-}
+const service = (settings: Settings, fetchFn: typeof fetch) => createService(settings, { fetchFn }).service
 
 describe("TranslationService with Azure Translator", () => {
   const keySettings = (): Settings => {

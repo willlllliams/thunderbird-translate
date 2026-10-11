@@ -1,17 +1,13 @@
 /** Race mode and precise mode in the background translation service. */
 import { describe, expect, it, vi } from "vitest"
-import { cacheKey, type KeyValueStorage, PersistentCache } from "../src/background/cache"
-import { type LlmImpl, TranslationService } from "../src/background/service"
+import { cacheKey } from "../src/background/cache"
+import type { LlmImpl, TranslationService } from "../src/background/service"
 import { type LlmCallOptions, llmAnalyzeMail, llmTranslateBatch, llmTranslateSingle } from "../src/background/translators/llm"
 import type { MailAnalysis, Segment } from "../src/background/translators/llm-prompt"
 import { createMailContext } from "../src/shared/mail-context"
 import type { TranslateRequest } from "../src/shared/messages"
 import { createDefaultSettings, type Settings } from "../src/shared/settings"
-
-function memoryStorage(): KeyValueStorage {
-  const data = new Map<string, unknown>()
-  return { get: async (k) => data.get(k), set: async (k, v) => void data.set(k, structuredClone(v)), remove: async (k) => void data.delete(k) }
-}
+import { anthropicMessage, asFetch, createService, jsonResponse } from "./helpers"
 
 function deferred() {
   let resolve!: () => void
@@ -19,16 +15,12 @@ function deferred() {
   return { promise, resolve }
 }
 
-function json(body: unknown): Response {
-  return new Response(JSON.stringify(body), { status: 200, headers: { "Content-Type": "application/json" } })
-}
-
 /** Google endpoint that answers G(<text>), optionally after a gate opens. */
 function googleFetch(gate?: Promise<void>) {
   return vi.fn(async (_url: string, init: RequestInit) => {
     await gate
     const qs = new URLSearchParams(String(init.body)).getAll("q")
-    return json(qs.map((q) => [`G(${q})`, "en"]))
+    return jsonResponse(qs.map((q) => [`G(${q})`, "en"]))
   })
 }
 
@@ -51,21 +43,12 @@ function fakeLlm(gate?: Promise<void>, analysis: MailAnalysis | null = null) {
   return { llm, calls }
 }
 
-function setup(over: (s: Settings) => void, extra: { llm?: LlmImpl; fetchFn?: unknown; cache?: PersistentCache } = {}) {
+function setup(over: (s: Settings) => void, extra: { llm?: LlmImpl; fetchFn?: unknown } = {}) {
   const settings = createDefaultSettings()
-  settings.batch.batchDelayMs = 5
   settings.activeProviderId = "openai"
   settings.providers.openai.apiKey = "sk-test"
   over(settings)
-  const cache = extra.cache ?? new PersistentCache(memoryStorage(), 100, 10)
-  const service = new TranslationService({
-    getSettings: () => settings,
-    cache,
-    sleep: async () => {},
-    llm: extra.llm,
-    fetchFn: extra.fetchFn as typeof fetch | undefined,
-  })
-  return { settings, service, cache }
+  return createService(settings, { ...extra, fetchFn: asFetch(extra.fetchFn) })
 }
 
 const ask = (text: string, extra: Partial<TranslateRequest> = {}): TranslateRequest => ({ text, targetLang: "zh-CN", providerId: "openai", ...extra })
@@ -231,7 +214,7 @@ describe("precise mode", () => {
       bodies.push(body)
       const analysis = body.system[0].text.startsWith("You prepare the translation")
       const text = analysis ? JSON.stringify(ANALYSIS) : "译文"
-      return json({ id: "m", type: "message", role: "assistant", model: "m", content: [{ type: "text", text }], stop_reason: "end_turn", usage: { input_tokens: 1, output_tokens: 1 } })
+      return anthropicMessage(text)
     })
     const { service } = setup(
       (s) => {

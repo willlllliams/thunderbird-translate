@@ -1,5 +1,6 @@
 /**
- * Concurrency-limited task runner with retry and exponential backoff.
+ * Concurrency-limited task runner with retry and exponential backoff, and
+ * the fetch() wrapper whose errors it classifies.
  */
 
 import { type ErrorText, NetworkError, renderErrorText } from "../../shared/errors"
@@ -26,7 +27,6 @@ export class HttpError extends Error {
 export function isRetryableError(error: unknown): boolean {
   if (!error || typeof error !== "object") return false
   const e = error as { name?: string; status?: number; statusCode?: number; isRetryable?: boolean }
-  if (e.name === "AbortError") return false
   if (typeof e.isRetryable === "boolean") return e.isRetryable
   const status = e.status ?? e.statusCode
   if (typeof status === "number") return status === 408 || status === 429 || status >= 500
@@ -99,8 +99,28 @@ export class RequestQueue {
   }
 }
 
-/** Throw HttpError for non-2xx responses, including Retry-After, URL and body when present. */
-export async function ensureOk(resp: Response, label: string, requestUrl?: string): Promise<Response> {
+/** An HTTP request of a translator, built by a pure function so tests can inspect it. */
+export interface RequestSpec {
+  url: string
+  init: RequestInit & { method: string; headers: Record<string, string>; body?: string }
+}
+
+export interface FetchOptions {
+  /** Injection point for tests; the global fetch otherwise. */
+  fetchFn?: typeof fetch
+}
+
+/**
+ * fetch() that reports a failed connection as NetworkError (with the URL)
+ * and a non-2xx answer as HttpError (with status, Retry-After, URL and body).
+ */
+export async function fetchOk(fetchFn: typeof fetch | undefined, { url, init }: RequestSpec, label: string): Promise<Response> {
+  let resp: Response
+  try {
+    resp = await (fetchFn ?? fetch)(url, init)
+  } catch (error) {
+    throw new NetworkError(url, error)
+  }
   if (resp.ok) return resp
   const body = await resp.text().catch(() => "")
   const retryAfterHeader = resp.headers?.get?.("retry-after")
@@ -111,23 +131,8 @@ export async function ensureOk(resp: Response, label: string, requestUrl?: strin
     resp.status,
     Number.isFinite(retryAfterSec) ? retryAfterSec * 1000 : undefined,
     text,
-    resp.url || requestUrl || "",
+    resp.url || url,
     body,
     resp.statusText,
   )
-}
-
-/**
- * fetch() that reports a failed connection as NetworkError (with the URL)
- * and a non-2xx answer as HttpError. Aborts pass through unchanged.
- */
-export async function fetchOk(fetchFn: typeof fetch, url: string, init: RequestInit, label: string): Promise<Response> {
-  let resp: Response
-  try {
-    resp = await fetchFn(url, init)
-  } catch (error) {
-    if ((error as { name?: string } | null)?.name === "AbortError") throw error
-    throw new NetworkError(url, error)
-  }
-  return ensureOk(resp, label, url)
 }

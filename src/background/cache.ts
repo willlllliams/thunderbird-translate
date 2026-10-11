@@ -75,7 +75,7 @@ export class PersistentCache {
   private lru: LruCache<string>
   private loaded: Promise<void> | null = null
   private saveTimer: ReturnType<typeof setTimeout> | null = null
-  enabled = true
+  private enabled = true
 
   constructor(
     private readonly storage: KeyValueStorage,
@@ -121,6 +121,8 @@ export class PersistentCache {
   }
 
   async clear(): Promise<void> {
+    // A load still running would bring the old entries back after clearing.
+    await this.ensureLoaded()
     this.lru.clear()
     if (this.saveTimer) clearTimeout(this.saveTimer)
     this.saveTimer = null
@@ -130,12 +132,6 @@ export class PersistentCache {
   async size(): Promise<number> {
     await this.ensureLoaded()
     return this.lru.size
-  }
-
-  async flush(): Promise<void> {
-    if (this.saveTimer) clearTimeout(this.saveTimer)
-    this.saveTimer = null
-    await this.storage.set(CACHE_STORAGE_KEY, this.lru.entries())
   }
 
   private scheduleSave(): void {

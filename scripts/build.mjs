@@ -9,7 +9,6 @@ import { checkLocales, readLocaleSources, writeLocales } from "./locales.mjs"
 const root = join(dirname(fileURLToPath(import.meta.url)), "..")
 const dist = join(root, "dist")
 const artifacts = join(root, "web-ext-artifacts")
-const watch = process.argv.includes("--watch")
 // --debug: content script starts translating on load and logs progress to the console.
 const debug = process.argv.includes("--debug")
 
@@ -39,7 +38,7 @@ if (!locales.includes(manifest.default_locale)) {
 }
 console.log(`_locales: ${locales.join(", ")}`)
 
-const options = {
+const result = await esbuild.build({
   entryPoints: {
     background: "src/background/index.ts",
     content: "src/content/index.ts",
@@ -55,45 +54,37 @@ const options = {
   // Prefer browser builds of dependencies; never pull Node built-ins.
   mainFields: ["browser", "module", "main"],
   conditions: ["browser", "import", "default"],
-  minify: !watch,
-  sourcemap: watch ? "inline" : false,
+  minify: true,
   legalComments: "linked",
   charset: "utf8",
   logLevel: "info",
   metafile: true,
   define: { "process.env.NODE_ENV": '"production"', __DEBUG__: String(debug) },
+})
+
+// Guard: a Node built-in in a bundle means it would fail inside Thunderbird.
+const nodeImports = Object.keys(result.metafile.inputs).filter((p) => p.startsWith("node:") || /^(fs|path|crypto|stream|http|https|zlib|os)$/.test(p))
+if (nodeImports.length) {
+  console.error("Bundles reference Node built-ins:", nodeImports)
+  process.exit(1)
+}
+for (const [file, info] of Object.entries(result.metafile.outputs)) {
+  if (file.endsWith(".js")) console.log(`${file}: ${(info.bytes / 1024).toFixed(0)} KiB`)
 }
 
-if (watch) {
-  const ctx = await esbuild.context(options)
-  await ctx.watch()
-  console.log("watching…")
-} else {
-  const result = await esbuild.build(options)
-  // Guard: a Node built-in in a bundle means it would fail inside Thunderbird.
-  const nodeImports = Object.keys(result.metafile.inputs).filter((p) => p.startsWith("node:") || /^(fs|path|crypto|stream|http|https|zlib|os)$/.test(p))
-  if (nodeImports.length) {
-    console.error("Bundles reference Node built-ins:", nodeImports)
-    process.exit(1)
+// Pack the xpi (a zip with manifest.json at the root).
+const files = {}
+const walk = (dir) => {
+  for (const name of readdirSync(dir).sort()) {
+    const full = join(dir, name)
+    if (statSync(full).isDirectory()) walk(full)
+    else files[relative(dist, full).split(sep).join("/")] = new Uint8Array(readFileSync(full))
   }
-  for (const [file, info] of Object.entries(result.metafile.outputs)) {
-    if (file.endsWith(".js")) console.log(`${file}: ${(info.bytes / 1024).toFixed(0)} KiB`)
-  }
-
-  // Pack the xpi (a zip with manifest.json at the root).
-  const files = {}
-  const walk = (dir) => {
-    for (const name of readdirSync(dir).sort()) {
-      const full = join(dir, name)
-      if (statSync(full).isDirectory()) walk(full)
-      else files[relative(dist, full).split(sep).join("/")] = new Uint8Array(readFileSync(full))
-    }
-  }
-  walk(dist)
-  if (!files["manifest.json"]) throw new Error("manifest.json missing from dist")
-  const zip = zipSync(files, { level: 9, mtime: new Date("2026-01-01T00:00:00Z") })
-  if (!existsSync(artifacts)) mkdirSync(artifacts, { recursive: true })
-  const out = join(artifacts, `thunderbird-translate-${manifest.version}${debug ? "-debug" : ""}.xpi`)
-  writeFileSync(out, zip)
-  console.log(`packed ${relative(root, out)} (${(zip.length / 1024).toFixed(0)} KiB, ${Object.keys(files).length} files)`)
 }
+walk(dist)
+if (!files["manifest.json"]) throw new Error("manifest.json missing from dist")
+const zip = zipSync(files, { level: 9, mtime: new Date("2026-01-01T00:00:00Z") })
+if (!existsSync(artifacts)) mkdirSync(artifacts, { recursive: true })
+const out = join(artifacts, `thunderbird-translate-${manifest.version}${debug ? "-debug" : ""}.xpi`)
+writeFileSync(out, zip)
+console.log(`packed ${relative(root, out)} (${(zip.length / 1024).toFixed(0)} KiB, ${Object.keys(files).length} files)`)

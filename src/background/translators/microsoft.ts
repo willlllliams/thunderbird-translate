@@ -18,22 +18,20 @@
 
 import { LocalizedError } from "../../shared/errors"
 import { type BatchLimits, groupIntoBatches } from "../queue/batch-queue"
-import { fetchOk } from "../queue/request-queue"
-import type { FetchOptions, RequestSpec } from "./google"
+import { type FetchOptions, fetchOk, type RequestSpec } from "../queue/request-queue"
 
 export const MS_AUTH_URL = "https://edge.microsoft.com/translate/auth"
 export const MS_API_URL = "https://api-edge.cognitive.microsofttranslator.com/translate"
 export const MS_EDGE_TRANSLATE_URL = "https://edge.microsoft.com/translate/translatetext"
 
+/** Body of the Translator v3 translate method, used by the token route and by Azure. */
+const v3Body = (texts: string[]) => JSON.stringify(texts.map((Text) => ({ Text })))
+
 export function buildMicrosoftApiRequest(texts: string[], targetLang: string, token: string): RequestSpec {
   const params = new URLSearchParams({ "api-version": "3.0", to: targetLang, textType: "plain" })
   return {
     url: `${MS_API_URL}?${params.toString()}`,
-    init: {
-      method: "POST",
-      headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-      body: JSON.stringify(texts.map((Text) => ({ Text }))),
-    },
+    init: { method: "POST", headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` }, body: v3Body(texts) },
   }
 }
 
@@ -62,7 +60,7 @@ export function buildAzureRequest(texts: string[], targetLang: string, azure: Az
     "Ocp-Apim-Subscription-Key": azure.apiKey,
   }
   if (azure.region) headers["Ocp-Apim-Subscription-Region"] = azure.region
-  return { url: url.toString(), init: { method: "POST", headers, body: JSON.stringify(texts.map((Text) => ({ Text }))) } }
+  return { url: url.toString(), init: { method: "POST", headers, body: v3Body(texts) } }
 }
 
 export function buildMicrosoftEdgeRequest(texts: string[], targetLang: string): RequestSpec {
@@ -90,7 +88,7 @@ export function parseMicrosoftResponse(json: unknown, expected: number, decode =
   })
 }
 
-export function escapeHtml(s: string): string {
+function escapeHtml(s: string): string {
   return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
 }
 
@@ -130,9 +128,9 @@ export function resetMicrosoftState(): void {
   state.authDisabledUntil = 0
 }
 
-async function getToken(f: typeof fetch, signal?: AbortSignal): Promise<string> {
+async function getToken(fetchFn: typeof fetch | undefined): Promise<string> {
   if (state.token && Date.now() < state.expiresAt) return state.token
-  const resp = await fetchOk(f, MS_AUTH_URL, { method: "GET", signal }, "Microsoft auth")
+  const resp = await fetchOk(fetchFn, { url: MS_AUTH_URL, init: { method: "GET", headers: {} } }, "Microsoft auth")
   const token = (await resp.text()).trim()
   if (!token) throw new LocalizedError("errEmptyToken", ["Microsoft"])
   state.token = token
@@ -140,33 +138,27 @@ async function getToken(f: typeof fetch, signal?: AbortSignal): Promise<string> 
   return token
 }
 
-export async function microsoftTranslateViaToken(texts: string[], targetLang: string, opts: FetchOptions = {}): Promise<string[]> {
-  const f = opts.fetchFn ?? fetch
-  const token = await getToken(f, opts.signal)
-  const { url, init } = buildMicrosoftApiRequest(texts, targetLang, token)
-  const resp = await fetchOk(f, url, { ...init, signal: opts.signal }, "Microsoft").catch((error: unknown) => {
-    if ((error as { status?: number })?.status === 401) state.token = null
-    throw error
-  })
-  return parseMicrosoftResponse(await resp.json(), texts.length)
+/** Send one translate request and read its `expected` translations. */
+async function translate(spec: RequestSpec, expected: number, opts: FetchOptions, decode = false): Promise<string[]> {
+  const resp = await fetchOk(opts.fetchFn, spec, "Microsoft")
+  return parseMicrosoftResponse(await resp.json(), expected, decode)
 }
 
-export async function microsoftTranslateViaEdge(texts: string[], targetLang: string, opts: FetchOptions = {}): Promise<string[]> {
-  const f = opts.fetchFn ?? fetch
-  const { url, init } = buildMicrosoftEdgeRequest(texts, targetLang)
-  const resp = await fetchOk(f, url, { ...init, signal: opts.signal }, "Microsoft")
-  return parseMicrosoftResponse(await resp.json(), texts.length, true)
+export async function microsoftTranslateViaToken(texts: string[], targetLang: string, opts: FetchOptions = {}): Promise<string[]> {
+  const token = await getToken(opts.fetchFn)
+  return translate(buildMicrosoftApiRequest(texts, targetLang, token), texts.length, opts)
+}
+
+export function microsoftTranslateViaEdge(texts: string[], targetLang: string, opts: FetchOptions = {}): Promise<string[]> {
+  return translate(buildMicrosoftEdgeRequest(texts, targetLang), texts.length, opts, true)
 }
 
 /** One request per group within the Azure limits, in order. */
 export async function azureTranslateBatch(texts: string[], targetLang: string, azure: AzureConfig, opts: FetchOptions = {}): Promise<string[]> {
   if (!azure.apiKey) throw new LocalizedError("errApiKeyRequired", ["Microsoft Translator"])
-  const f = opts.fetchFn ?? fetch
   const out: string[] = []
   for (const group of groupIntoBatches(texts, (text) => text.length, AZURE_LIMITS)) {
-    const { url, init } = buildAzureRequest(group, targetLang, azure)
-    const resp = await fetchOk(f, url, { ...init, signal: opts.signal }, "Microsoft")
-    out.push(...parseMicrosoftResponse(await resp.json(), group.length))
+    out.push(...(await translate(buildAzureRequest(group, targetLang, azure), group.length, opts)))
   }
   return out
 }
@@ -177,8 +169,7 @@ export async function microsoftTranslateBatch(texts: string[], targetLang: strin
   if (Date.now() >= state.authDisabledUntil) {
     try {
       return await microsoftTranslateViaToken(texts, targetLang, opts)
-    } catch (error) {
-      if ((error as Error)?.name === "AbortError") throw error
+    } catch {
       state.authDisabledUntil = Date.now() + 60 * 60_000
       state.token = null
     }

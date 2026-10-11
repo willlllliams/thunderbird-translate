@@ -11,7 +11,7 @@
 
 import { baseLang } from "../shared/languages"
 
-export type ScriptGroup = "han" | "kana" | "hangul" | "cyrillic" | "arabic" | "hebrew" | "thai" | "greek" | "devanagari" | "latin"
+type ScriptGroup = "han" | "kana" | "hangul" | "cyrillic" | "arabic" | "hebrew" | "thai" | "greek" | "devanagari" | "latin"
 
 const SCRIPT_TESTS: [ScriptGroup, RegExp][] = [
   ["kana", /[぀-ヿㇰ-ㇿ]/u],
@@ -26,7 +26,7 @@ const SCRIPT_TESTS: [ScriptGroup, RegExp][] = [
   ["latin", /\p{Script=Latin}/u],
 ]
 
-export function scriptCounts(text: string): Map<ScriptGroup, number> {
+function scriptCounts(text: string): Map<ScriptGroup, number> {
   const counts = new Map<ScriptGroup, number>()
   for (const ch of text) {
     for (const [group, re] of SCRIPT_TESTS) {

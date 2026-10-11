@@ -116,7 +116,7 @@ Trocar o modo de exibição mantém as marcas de provisório e de falha, e "Most
 
 ### Tradução precisa
 
-A tradução precisa envia a mensagem como contexto em cada requisição de IA. Quando a tradução começa, o script de conteúdo junta os parágrafos encontrados no texto simples da mensagem (cortado após 20000 caracteres, com um aviso de que o texto continua) e o registra uma única vez no script em segundo plano. A mensagem é identificada por um hash desse texto.
+A tradução precisa envia a mensagem como contexto em cada requisição de IA. Quando a tradução começa, o script de conteúdo junta os parágrafos encontrados no texto simples da mensagem (cortado após 20000 caracteres, com um aviso de que o texto continua) e o registra uma única vez no script em segundo plano. A mensagem é identificada por um hash do seu texto completo; o corte vale apenas para o texto enviado como contexto.
 
 O fluxo depende do tamanho dos parágrafos a traduzir:
 
@@ -179,7 +179,7 @@ A lista de idiomas de destino é separada e contém 20 idiomas, entre eles itali
 | Serviço | Configuração | Observações |
 | --- | --- | --- |
 | Google Tradutor (gratuito, padrão) | Nenhuma | Chama o endpoint `client=gtx` de `translate.googleapis.com`; um único POST leva vários parâmetros `q`, de modo que vários parágrafos compartilham uma requisição |
-| Microsoft Translator (gratuito) | Nenhuma | Primeiro tenta obter um token em `edge.microsoft.com/translate/auth` e chamar `api-edge.cognitive.microsofttranslator.com`; quando a Microsoft desativou o endpoint de token, passa a usar `edge.microsoft.com/translate/translatetext`. As duas rotas aceitam arrays nativamente A opção “Usar minha chave (Azure Translator)” do painel chama, em vez disso, a API oficial `api.cognitive.microsofttranslator.com`: crie um recurso do Translator no portal do Azure e copie a chave e a região de “Chaves e Ponto de Extremidade” para o painel (a região pode ficar vazia em um recurso global). |
+| Microsoft Translator (gratuito) | Nenhuma | Primeiro tenta obter um token em `edge.microsoft.com/translate/auth` e chamar `api-edge.cognitive.microsofttranslator.com`; quando a Microsoft desativou o endpoint de token, passa a usar `edge.microsoft.com/translate/translatetext`. As duas rotas aceitam arrays nativamente. A opção “Usar minha chave (Azure Translator)” do painel chama, em vez disso, a API oficial `api.cognitive.microsofttranslator.com`: crie um recurso do Translator no portal do Azure e copie a chave e a região de “Chaves e Ponto de Extremidade” para o painel (a região pode ficar vazia em um recurso global). |
 | DeepLX | Endpoint obrigatório | Um serviço DeepLX auto-hospedado ou de terceiros; o token é opcional. Se o endpoint contiver `{{apiKey}}`, o token o substitui; caso contrário, é enviado como `Authorization: Bearer` |
 
 ### Provedores de IA
@@ -223,7 +223,7 @@ Alguns provedores têm requisitos adicionais:
 
 Cada provedor de IA tem uma chave "Modo de raciocínio", desativada por padrão. A tradução não exige que o modelo raciocine antes, e o raciocínio deixa as requisições mais lentas e mais caras. Vários modelos atuais raciocinam se nada for indicado, por exemplo `deepseek-flash`, `claude-haiku-5-5` e `gemini-2.5-flash`, por isso o valor "desativado" é enviado de forma explícita.
 
-Cada provedor escreve essa chave de um jeito, e dentro de um mesmo provedor só alguns modelos a aceitam. A extensão compara o nome do modelo com os padrões abaixo e envia as opções do provedor do primeiro que coincidir; um modelo sem correspondência não recebe parâmetro de raciocínio. Com o raciocínio ativado, nenhuma temperatura é enviada, porque os modelos de raciocínio a ignoram ou a rejeitam.
+Cada provedor escreve essa chave de um jeito, e dentro de um mesmo provedor só alguns modelos a aceitam. A extensão compara o nome do modelo com os padrões abaixo e envia as opções do provedor do primeiro que coincidir; um modelo sem correspondência não recebe parâmetro de raciocínio. Com o raciocínio ativado, nenhuma temperatura é enviada aos modelos que coincidem com um padrão da tabela, porque os modelos de raciocínio a ignoram ou a rejeitam.
 
 | Provedor | Modelos | Desativado | Ativado | Fonte |
 | --- | --- | --- | --- | --- |
@@ -269,8 +269,8 @@ Uma mensagem costuma ter entre dez e algumas dezenas de parágrafos. Com uma req
 
 1. O script de conteúdo entrega ao script em segundo plano cada parágrafo a ser traduzido.
 2. O script em segundo plano consulta primeiro o cache e, em caso de acerto, responde diretamente. A chave do cache é formada pelo provedor, pelo modelo, pelo idioma de destino, por uma assinatura do prompt de sistema, no modo preciso pelo hash da mensagem, e por um hash do texto do parágrafo. Quando o mesmo texto já está sendo traduzido, as requisições seguintes compartilham o mesmo resultado.
-3. Os parágrafos que não estão no cache entram na fila de lotes, agrupados por provedor + modelo + endpoint + idioma de destino e, no modo preciso, também por mensagem. Os parágrafos de um grupo se acumulam durante 50 ms. Um grupo é enviado quando a janela termina, quando o limite de parágrafos é atingido ou quando o próximo parágrafo ultrapassaria o limite de caracteres. Um parágrafo sozinho mais longo que o limite de caracteres forma um lote próprio.
-4. A fila de requisições executa cada lote. Ela limita a concorrência e repete, com espera exponencial, as requisições que falham com 429, 5xx ou erros de rede; quando o servidor envia `Retry-After`, espera esse tempo. Erros como 401 e 400 são informados sem novas tentativas.
+3. Os parágrafos que não estão no cache entram na fila de lotes, agrupados por provedor + modelo + endpoint + idioma de destino; os serviços de IA também por prompt de sistema, o Microsoft Translator também por modo gratuito ou com chave e, no modo preciso, também por mensagem. Os parágrafos de um grupo se acumulam durante 50 ms. Um grupo é enviado quando a janela termina, quando o limite de parágrafos é atingido ou quando o próximo parágrafo ultrapassaria o limite de caracteres. Um parágrafo sozinho mais longo que o limite de caracteres forma um lote próprio.
+4. A fila de requisições executa cada lote. Ela limita a concorrência e repete, com espera exponencial, as requisições que falham com 408, 429, 5xx ou erros de rede; quando o servidor envia `Retry-After`, espera esse tempo, no máximo 30 segundos. Erros como 401 e 400 são informados sem novas tentativas.
 5. Os resultados vão para o cache em memória e são gravados em `storage.local` de uma só vez após 1 segundo. O cache descarta as entradas usadas há mais tempo (LRU, least recently used).
 
 ### Como cada serviço junta os parágrafos
@@ -322,7 +322,7 @@ Os tokens de entrada caem cerca de 63%, e o número de requisições cai de 20 p
 
 - As traduções são texto simples. Links, negrito e outras formatações em linha do original não são preservados na tradução. No modo bilíngue, o original continua totalmente utilizável; no modo só tradução, você pode passar o mouse para ver o original ou voltar para o modo bilíngue.
 - Os endpoints gratuitos do Google e da Microsoft não são documentados e podem mudar ou sofrer limitação de taxa. A Microsoft desativou o endpoint de token `edge.microsoft.com/translate/auth` em julho de 2026 (ele retorna 404). A extensão ainda tenta o endpoint de token na primeira requisição, passa para o endpoint direto após uma falha e não tenta o endpoint de token de novo durante uma hora.
-- Para decidir se um parágrafo já está no idioma de destino, chinês, japonês, coreano e escritas semelhantes são avaliados pela classe dos caracteres, e os idiomas de escrita latina usam primeiro `i18n.detectLanguage` da API de extensões. Quando essa API não está disponível ou o resultado dela não é confiável, apenas o inglês é detectado com segurança; parágrafos em outros idiomas de escrita latina são enviados para tradução normalmente.
+- Para decidir se um parágrafo já está no idioma de destino, chinês, japonês, coreano e escritas semelhantes são avaliados pela classe dos caracteres, e os idiomas de escrita latina e cirílica usam primeiro `i18n.detectLanguage` da API de extensões. Quando essa API não está disponível ou o resultado dela não é confiável, apenas o inglês é detectado com segurança; parágrafos em outros idiomas de escrita latina são enviados para tradução normalmente.
 - O script de conteúdo é registrado por meio de `messageDisplayScripts` e só alcança mensagens abertas depois do registro. Ao iniciar, a extensão tenta injetá-lo nas mensagens que já estão abertas; se isso falhar, basta selecionar a mensagem de novo.
 - As mensagens de erro geradas pela extensão são traduzidas. Os textos de erro retornados por um serviço de tradução ou pelo AI SDK (por exemplo, o corpo de uma resposta HTTP 401) são exibidos como foram recebidos, em geral em inglês.
 - O nome da extensão, a descrição no Gerenciador de extensões e as descrições dos atalhos seguem o idioma da interface do Thunderbird, e não a opção de idioma da interface.
@@ -357,6 +357,7 @@ locales/         textos da interface, um arquivo JSON por idioma; en.json é a r
 static/          manifest.json, HTML, CSS, ícone SVG
 scripts/         build, geração e verificação das traduções, teste dos endpoints reais
 readmes/         versões traduzidas deste README
+docs/            GIF de demonstração usado neste README
 tests/           testes do vitest
 ```
 

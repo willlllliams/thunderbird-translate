@@ -4,10 +4,6 @@ const URL_RE = /\b(?:https?:\/\/|www\.)[^\s<>"']+/gi
 const EMAIL_RE = /[\w.+-]+@[\w-]+(?:\.[\w-]+)+/g
 const LETTER_RE = /\p{L}/gu
 
-export function countLetters(text: string): number {
-  return text.match(LETTER_RE)?.length ?? 0
-}
-
 /**
  * True if the text carries something to translate: at least two letters
  * after removing URLs and email addresses. Rejects empty strings, numbers,
@@ -17,7 +13,7 @@ export function hasTranslatableText(text: string): boolean {
   const t = text.trim()
   if (!t) return false
   const stripped = t.replace(URL_RE, " ").replace(EMAIL_RE, " ")
-  return countLetters(stripped) >= 2
+  return (stripped.match(LETTER_RE)?.length ?? 0) >= 2
 }
 
 /**

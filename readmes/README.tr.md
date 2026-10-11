@@ -116,7 +116,7 @@ Görünüm modunu değiştirmek geçici ve başarısız işaretlerini korur; "Ö
 
 ### Hassas çeviri
 
-Hassas çeviri, iletiyi her yapay zekâ isteğine bağlam olarak ekler. Çeviri başladığında içerik betiği bulduğu paragrafları iletinin düz metninde birleştirir (20000 karakterden sonra kesilir ve metnin devam ettiği belirtilir) ve bunu arka plan betiğine bir kez kaydeder. İleti, bu metnin özet değeriyle (hash) tanımlanır.
+Hassas çeviri, iletiyi her yapay zekâ isteğine bağlam olarak ekler. Çeviri başladığında içerik betiği bulduğu paragrafları iletinin düz metninde birleştirir (20000 karakterden sonra kesilir ve metnin devam ettiği belirtilir) ve bunu arka plan betiğine bir kez kaydeder. İleti, tam metninin özet değeriyle (hash) tanımlanır; kesme yalnızca bağlam olarak gönderilen metne uygulanır.
 
 Akış, çevrilecek paragrafların boyutuna bağlıdır:
 
@@ -179,7 +179,7 @@ Hedef dil listesi bundan ayrıdır ve İtalyanca, Ukraynaca, Lehçe, Felemenkçe
 | Hizmet | Kurulum | Notlar |
 | --- | --- | --- |
 | Google Translate (ücretsiz, varsayılan) | Yok | `translate.googleapis.com` adresinin `client=gtx` uç noktasını çağırır; tek bir POST isteği birden fazla `q` parametresi taşır, bu nedenle birden fazla paragraf aynı isteği paylaşır |
-| Microsoft Translator (ücretsiz) | Yok | Önce `edge.microsoft.com/translate/auth` adresinden bir belirteç almayı ve `api-edge.cognitive.microsofttranslator.com` adresini çağırmayı dener; Microsoft belirteç uç noktasını kullanımdan kaldırdığında `edge.microsoft.com/translate/translatetext` adresine geçer. İki yol da dizileri doğrudan kabul eder Panelde “Kendi anahtarımı kullan (Azure Translator)” seçilirse bunun yerine resmî `api.cognitive.microsofttranslator.com` çağrılır: Azure portalında bir Translator kaynağı oluşturun, “Anahtarlar ve Uç Nokta” altındaki anahtarı ve bölgeyi panele girin (genel kaynakta bölge boş kalabilir). |
+| Microsoft Translator (ücretsiz) | Yok | Önce `edge.microsoft.com/translate/auth` adresinden bir belirteç almayı ve `api-edge.cognitive.microsofttranslator.com` adresini çağırmayı dener; Microsoft belirteç uç noktasını kullanımdan kaldırdığında `edge.microsoft.com/translate/translatetext` adresine geçer. İki yol da dizileri doğrudan kabul eder. Panelde “Kendi anahtarımı kullan (Azure Translator)” seçilirse bunun yerine resmî `api.cognitive.microsofttranslator.com` çağrılır: Azure portalında bir Translator kaynağı oluşturun, “Anahtarlar ve Uç Nokta” altındaki anahtarı ve bölgeyi panele girin (genel kaynakta bölge boş kalabilir). |
 | DeepLX | Uç nokta gerekli | Kendi sunucunuzda veya üçüncü tarafça barındırılan bir DeepLX hizmeti; belirteç isteğe bağlıdır. Uç nokta `{{apiKey}}` içeriyorsa belirteç onun yerine yazılır; içermiyorsa `Authorization: Bearer` olarak gönderilir |
 
 ### Yapay zekâ sağlayıcıları
@@ -223,7 +223,7 @@ Bazı sağlayıcıların ek gereksinimleri vardır:
 
 Her yapay zekâ sağlayıcısının varsayılan olarak kapalı bir "Düşünme modu" anahtarı vardır. Çeviri için modelin önce düşünmesi gerekmez; düşünme istekleri yavaşlatır ve pahalı hale getirir. Güncel modellerin bir kısmı aksi belirtilmedikçe düşünür, örneğin `deepseek-flash`, `claude-haiku-5-5` ve `gemini-2.5-flash`; bu yüzden "kapalı" değeri açıkça gönderilir.
 
-Her sağlayıcı bu anahtarı farklı yazar ve aynı sağlayıcının da yalnızca bazı modelleri onu kabul eder. Eklenti model adını aşağıdaki kalıplarla karşılaştırır ve ilk eşleşmenin sağlayıcı seçeneklerini gönderir; eşleşmeyen bir model düşünme parametresi almaz. Düşünme açıkken sıcaklık gönderilmez, çünkü düşünen modeller sıcaklığı yok sayar veya reddeder.
+Her sağlayıcı bu anahtarı farklı yazar ve aynı sağlayıcının da yalnızca bazı modelleri onu kabul eder. Eklenti model adını aşağıdaki kalıplarla karşılaştırır ve ilk eşleşmenin sağlayıcı seçeneklerini gönderir; eşleşmeyen bir model düşünme parametresi almaz. Düşünme açıkken tablodaki bir kalıpla eşleşen modellere sıcaklık gönderilmez, çünkü düşünen modeller sıcaklığı yok sayar veya reddeder.
 
 | Sağlayıcı | Modeller | Kapalı | Açık | Kaynak |
 | --- | --- | --- | --- | --- |
@@ -269,8 +269,8 @@ Bir ileti genellikle on ile birkaç düzine arasında paragraf içerir. Her para
 
 1. İçerik betiği çevrilecek her paragrafı arka plan betiğine iletir.
 2. Arka plan betiği önce önbelleğe bakar ve isabet olursa doğrudan yanıt verir. Önbellek anahtarı sağlayıcıdan, modelden, hedef dilden, sistem isteminin bir imzasından, hassas modda iletinin özet değerinden ve paragraf metninin bir özet değerinden (hash) oluşur. Aynı metin zaten çevriliyorsa sonraki istekler aynı sonucu paylaşır.
-3. Önbellekte bulunmayan paragraflar grup kuyruğuna girer ve sağlayıcı + model + uç nokta + hedef dil bileşimine göre, hassas modda ayrıca iletiye göre gruplanır. Bir grubun paragrafları 50 ms boyunca birikir. Grup şu durumlarda gönderilir: aralık sona erdiğinde, paragraf sınırına ulaşıldığında veya bir sonraki paragraf karakter sınırını aşacaksa. Karakter sınırından uzun tek bir paragraf kendi başına bir grup oluşturur.
-4. İstek kuyruğu her grubu yürütür. Eşzamanlı istek sayısını sınırlar ve 429, 5xx ve ağ hatalarını üstel geri çekilmeyle yeniden dener; sunucu `Retry-After` gönderirse belirtilen süre kadar bekler. 401 ve 400 gibi hatalar yeniden denenmeden bildirilir.
+3. Önbellekte bulunmayan paragraflar grup kuyruğuna girer ve sağlayıcı + model + uç nokta + hedef dil bileşimine göre, yapay zekâ hizmetlerinde ayrıca sistem istemine, Microsoft Translator’da ayrıca ücretsiz veya anahtarlı moda, hassas modda ayrıca iletiye göre gruplanır. Bir grubun paragrafları 50 ms boyunca birikir. Grup şu durumlarda gönderilir: aralık sona erdiğinde, paragraf sınırına ulaşıldığında veya bir sonraki paragraf karakter sınırını aşacaksa. Karakter sınırından uzun tek bir paragraf kendi başına bir grup oluşturur.
+4. İstek kuyruğu her grubu yürütür. Eşzamanlı istek sayısını sınırlar ve 408, 429, 5xx ve ağ hatalarını üstel geri çekilmeyle yeniden dener; sunucu `Retry-After` gönderirse belirtilen süre kadar, en fazla 30 saniye bekler. 401 ve 400 gibi hatalar yeniden denenmeden bildirilir.
 5. Sonuçlar bellekteki önbelleğe alınır ve 1 saniye sonra tek bir yazma işlemiyle `storage.local` içine yazılır. Önbellek en uzun süredir kullanılmayan (LRU, Least Recently Used) kayıtları çıkarır.
 
 ### Her hizmetin paragrafları birleştirme biçimi
@@ -322,7 +322,7 @@ Girdi token sayısı yaklaşık %63 azalır ve istek sayısı 20'den 1'e düşer
 
 - Çeviriler düz metindir. Özgün metindeki bağlantılar, kalın yazı ve diğer satır içi biçimlendirmeler çeviride korunmaz. İki dilli modda özgün metin tümüyle kullanılabilir kalır; yalnızca çeviri modunda özgün metni görmek için fare imlecini üzerine getirebilir veya iki dilli moda geri dönebilirsiniz.
 - Ücretsiz Google ve Microsoft uç noktaları belgelenmemiştir; değişebilir veya hız sınırlamasına uğrayabilir. Microsoft, `edge.microsoft.com/translate/auth` belirteç uç noktasını Temmuz 2026'da kullanımdan kaldırmıştır (404 döndürür). Eklenti ilk istekte belirteç uç noktasını yine de dener, başarısızlıktan sonra doğrudan uç noktaya geçer ve bir saat boyunca belirteç uç noktasını yeniden denemez.
-- Bir paragrafın zaten hedef dilde olup olmadığına karar verirken Çince, Japonca, Korece ve benzeri yazı sistemleri karakter sınıfına göre değerlendirilir; Latin alfabesi kullanan diller için önce eklenti API'sinin `i18n.detectLanguage` işlevi kullanılır. Bu API kullanılamadığında veya sonucu güvenilir olmadığında yalnızca İngilizce güvenilir biçimde algılanır; Latin alfabesi kullanan diğer dillerdeki paragraflar her zamanki gibi çeviriye gönderilir.
+- Bir paragrafın zaten hedef dilde olup olmadığına karar verirken Çince, Japonca, Korece ve benzeri yazı sistemleri karakter sınıfına göre değerlendirilir; Latin ve Kiril alfabesi kullanan diller için önce eklenti API'sinin `i18n.detectLanguage` işlevi kullanılır. Bu API kullanılamadığında veya sonucu güvenilir olmadığında yalnızca İngilizce güvenilir biçimde algılanır; Latin alfabesi kullanan diğer dillerdeki paragraflar her zamanki gibi çeviriye gönderilir.
 - İçerik betiği `messageDisplayScripts` aracılığıyla kaydedilir ve yalnızca kayıttan sonra açılan iletilere ulaşır. Eklenti başlangıçta betiği zaten açık olan iletilere eklemeyi dener; bu başarısız olursa iletiyi yeniden seçmek yeterlidir.
 - Eklentinin ürettiği hata iletileri çevrilir. Bir çeviri hizmetinin veya AI SDK'nın döndürdüğü hata metinleri (örneğin bir HTTP 401 yanıtının gövdesi) alındığı gibi, genellikle İngilizce olarak gösterilir.
 - Eklenti adı, Eklenti yöneticisindeki açıklaması ve kısayol açıklamaları arayüz dili seçeneğini değil, Thunderbird'ün arayüz dilini izler.
@@ -357,6 +357,7 @@ locales/         interface text, one JSON file per language; en.json is the refe
 static/          manifest.json, HTML, CSS, SVG icon
 scripts/         build, locale generation and checks, live endpoint test
 readmes/         translated versions of this README
+docs/            demo GIF used in this README
 tests/           vitest tests
 ```
 

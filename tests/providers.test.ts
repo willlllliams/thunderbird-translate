@@ -5,24 +5,15 @@ import { supportsThinkingControl, thinkingOptions } from "../src/background/prov
 import { llmTranslateSingle } from "../src/background/translators/llm"
 import { PROVIDER_PRESETS } from "../src/shared/providers"
 import { createDefaultSettings, resolveProvider, resolveProviderConfig } from "../src/shared/settings"
+import { anthropicMessage, chatCompletion, jsonResponse } from "./helpers"
 
 const LLM_PRESETS = PROVIDER_PRESETS.filter((p) => p.kind === "llm")
 
 /** Minimal successful responses for each API family. */
 function fakeResponse(url: string): Response {
-  let body: unknown
-  if (url.includes("api.anthropic.com") || url.endsWith("/messages")) {
-    body = {
-      id: "msg_1",
-      type: "message",
-      role: "assistant",
-      model: "m",
-      content: [{ type: "text", text: "你好" }],
-      stop_reason: "end_turn",
-      usage: { input_tokens: 1, output_tokens: 1 },
-    }
-  } else if (url.endsWith("/responses") || url.endsWith("/v1/agent")) {
-    body = {
+  if (url.includes("api.anthropic.com") || url.endsWith("/messages")) return anthropicMessage("你好")
+  if (url.endsWith("/responses") || url.endsWith("/v1/agent")) {
+    return jsonResponse({
       id: "resp_1",
       object: "response",
       created_at: 1,
@@ -38,23 +29,15 @@ function fakeResponse(url: string): Response {
         },
       ],
       usage: { input_tokens: 1, output_tokens: 1, total_tokens: 2 },
-    }
-  } else if (url.includes(":generateContent")) {
-    body = {
+    })
+  }
+  if (url.includes(":generateContent")) {
+    return jsonResponse({
       candidates: [{ content: { role: "model", parts: [{ text: "你好" }] }, finishReason: "STOP" }],
       usageMetadata: { promptTokenCount: 1, candidatesTokenCount: 1, totalTokenCount: 2 },
-    }
-  } else {
-    body = {
-      id: "c1",
-      object: "chat.completion",
-      created: 1,
-      model: "m",
-      choices: [{ index: 0, message: { role: "assistant", content: "你好" }, finish_reason: "stop" }],
-      usage: { prompt_tokens: 1, completion_tokens: 1, total_tokens: 2 },
-    }
+    })
   }
-  return new Response(JSON.stringify(body), { status: 200, headers: { "Content-Type": "application/json" } })
+  return chatCompletion("你好")
 }
 
 function configFor(id: string) {

@@ -5,8 +5,7 @@ import type { ProviderConfig, PublicSettings } from "./settings"
 
 /** Requests sent with runtime.sendMessage to the background script. */
 export type BackgroundRequest =
-  | { type: "getPublicSettings" }
-  | { type: "tabCommand"; tabId: number; command: TabCommand }
+  | { type: "toggleTab"; tabId: number }
   | { type: "getTabState"; tabId: number }
   | { type: "testProvider"; providerId: string; config: ProviderConfig; targetLang: string }
   | { type: "clearCache" }
@@ -19,8 +18,6 @@ export interface LocaleMessages {
   messages: MessageTable
 }
 
-export type TabCommand = "toggle" | "start" | "stop"
-
 /** One paragraph to translate, sent by the content script over its Port. */
 export interface TranslateRequest {
   text: string
@@ -31,8 +28,9 @@ export interface TranslateRequest {
 }
 
 /**
- * Final result of a paragraph. With race mode, `fallback` is the fast
- * service's translation that stays on screen when the AI request failed.
+ * Final result of a paragraph, and the answer to testProvider. With race
+ * mode, `fallback` is the fast service's translation that stays on screen
+ * when the AI request failed.
  */
 export type TranslateResponse = { ok: true; text: string } | { ok: false; error: string; fallback?: string }
 
@@ -49,10 +47,13 @@ export interface TabState {
   lastError?: string
 }
 
+/** State of a tab without a connected content script. */
+export const IDLE_TAB_STATE: TabState = { connected: false, active: false, total: 0, done: 0, provisional: 0, failed: 0 }
+
 /** Messages pushed from background to content scripts over a runtime Port. */
 export type PortPush =
   | { type: "settings"; settings: PublicSettings }
-  | { type: "command"; command: TabCommand }
+  | { type: "toggle" }
   | { type: "provisional"; id: number; text: string }
   | { type: "result"; id: number; result: TranslateResponse }
 

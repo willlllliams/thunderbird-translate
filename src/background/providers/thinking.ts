@@ -15,7 +15,6 @@
 import type { JSONValue } from "ai"
 
 type JSONObject = { [key: string]: JSONValue }
-export type ProviderOptions = Record<string, JSONObject>
 
 interface ThinkingRule {
   models: RegExp
@@ -41,6 +40,14 @@ const OPENAI_RULES: ThinkingRule[] = [
   { models: /^o\d/, ...effort("low", "medium") },
 ]
 
+/** Claude models with adaptive thinking; they also reject custom sampling parameters. */
+const CLAUDE_ADAPTIVE = /claude-(?:opus|sonnet|haiku|fable|mythos)-[5-9]|claude-opus-4-[78]/
+
+/** Claude 5.x and later reject custom sampling parameters. */
+export function modelRejectsTemperature(presetId: string, model: string): boolean {
+  return presetId === "anthropic" && CLAUDE_ADAPTIVE.test(model)
+}
+
 const CONTROLS: Record<string, ThinkingControl> = {
   openai: { namespace: "openai", rules: OPENAI_RULES },
   // The Azure chat model is the OpenAI chat model and reads the "openai" options.
@@ -49,7 +56,7 @@ const CONTROLS: Record<string, ThinkingControl> = {
     namespace: "anthropic",
     rules: [
       // Claude 5 thinks unless told otherwise; the SDK adapts "disabled" for models that refuse it.
-      { models: /claude-(?:opus|sonnet|haiku|fable|mythos)-[5-9]|claude-opus-4-[78]/, off: { thinking: { type: "disabled" } }, on: { thinking: { type: "adaptive" } } },
+      { models: CLAUDE_ADAPTIVE, off: { thinking: { type: "disabled" } }, on: { thinking: { type: "adaptive" } } },
       // Claude 3.7 and 4.x think only on request.
       { models: /claude-(?:3-7|(?:opus|sonnet|haiku)-4)/, off: null, on: { thinking: { type: "enabled", budgetTokens: 1024 } } },
     ],
@@ -158,7 +165,7 @@ export function supportsThinkingControl(presetId: string): boolean {
 }
 
 export interface ThinkingRequest {
-  providerOptions?: ProviderOptions
+  providerOptions?: Record<string, JSONObject>
   /** Thinking is on: leave the temperature out, reasoning models ignore or refuse it. */
   dropTemperature: boolean
 }

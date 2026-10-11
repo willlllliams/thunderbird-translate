@@ -2,6 +2,17 @@
 
 All notable changes to this project are documented in this file. Versions follow [Semantic Versioning](https://semver.org/).
 
+## 1.3.1
+
+### Fixed
+
+- Turning the translation off, or changing the target language or service, while the extension was still checking which paragraphs are already in the target language could let the interrupted run continue: it sent translation requests for the old run, could leave a loading marker in the message and reported a wrong paragraph count to the popup.
+- Clearing the cache while the stored cache was still being read brought the old entries back once the read finished.
+
+### Changed
+
+- Internal cleanup: unused messages, exports, members and build options removed; duplicated code in the translators, the settings, the error descriptions, the popup and settings page, and the tests merged. Settings pushed to a message are applied in the order they arrive. The display-mode shortcut changes the stored settings instead of the background script's copy. No change in behavior otherwise.
+
 ## 1.3.0
 
 ### Added

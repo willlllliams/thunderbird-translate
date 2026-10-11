@@ -1,58 +1,14 @@
 // @vitest-environment jsdom
 /** Popup and settings page: added services, race and precise switches. */
-import { readFileSync } from "node:fs"
-import { join } from "node:path"
 import { afterEach, describe, expect, it, vi } from "vitest"
 import { ENGLISH } from "../src/shared/i18n"
-import { createDefaultSettings, type Settings } from "../src/shared/settings"
+import { createDefaultSettings } from "../src/shared/settings"
+import { openPage } from "./helpers"
 
 afterEach(() => {
   vi.unstubAllGlobals()
   vi.resetModules()
 })
-
-/** Load a static page and run its script with a fake extension API holding `settings`. */
-async function openPage(page: "popup" | "options", settings: Settings) {
-  const html = readFileSync(join(__dirname, "..", "static", `${page}.html`), "utf8")
-  document.documentElement.innerHTML = new DOMParser().parseFromString(html, "text/html").documentElement.innerHTML
-  let stored = structuredClone(settings)
-  const created: string[] = []
-  const listeners: ((changes: object, area: string) => void)[] = []
-  const notify = () => listeners.forEach((l) => l({ settings: { newValue: structuredClone(stored) } }, "local"))
-  const sendMessage = vi.fn(async (req: { type: string }) => (req.type === "cacheStats" ? { size: 0 } : undefined))
-  const ext = {
-    runtime: {
-      sendMessage,
-      getURL: (path: string) => `moz-extension://test/${path}`,
-      openOptionsPage: vi.fn(),
-    },
-    tabs: { query: async () => [], create: vi.fn(async ({ url }: { url: string }) => void created.push(url)) },
-    storage: {
-      local: {
-        get: async () => ({ settings: structuredClone(stored) }),
-        set: async (v: { settings: Settings }) => {
-          stored = structuredClone(v.settings)
-          notify()
-        },
-      },
-      onChanged: { addListener: (l: (changes: object, area: string) => void) => void listeners.push(l) },
-    },
-    i18n: { getUILanguage: () => "en-US" },
-  }
-  vi.stubGlobal("browser", ext)
-  vi.stubGlobal("close", () => {})
-  await (page === "popup" ? import("../src/popup/index") : import("../src/options/index"))
-  return {
-    created,
-    sendMessage,
-    stored: () => stored,
-    /** Another page writes settings. `announce` = false: the storage change event has not reached this page yet. */
-    external(change: (s: Settings) => void, announce = true) {
-      change(stored)
-      if (announce) notify()
-    },
-  }
-}
 
 const optionTexts = (select: HTMLSelectElement) => Array.from(select.options).map((o) => o.value)
 const button = (text: string) => Array.from(document.querySelectorAll<HTMLButtonElement>("#providerPanel button")).find((b) => b.textContent === text)!

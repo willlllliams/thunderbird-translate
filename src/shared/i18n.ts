@@ -56,19 +56,14 @@ export class I18n {
   constructor(
     readonly locale: UiLocale,
     readonly messages: MessageTable,
-    private readonly fallback: MessageTable = EN_MESSAGES,
   ) {
     this.lang = localeToLanguageTag(locale)
     this.dir = textDirection(this.lang)
   }
 
-  has(key: string): boolean {
-    return Boolean(this.messages[key])
-  }
-
   /** Message for `key`; falls back to English, then to the key itself. Numbers are formatted for the locale. */
   t(key: MessageKey, subs?: Substitution | readonly Substitution[]): string {
-    const template = this.messages[key] || this.fallback[key]
+    const template = this.messages[key] || EN_MESSAGES[key]
     if (!template) return key
     const list: readonly Substitution[] = subs === undefined ? [] : Array.isArray(subs) ? subs : [subs as Substitution]
     return formatMessage(
@@ -77,7 +72,7 @@ export class I18n {
     )
   }
 
-  number(n: number): string {
+  private number(n: number): string {
     try {
       this.numberFormat ??= new Intl.NumberFormat(this.lang)
       return this.numberFormat.format(n)

@@ -283,6 +283,25 @@ describe("controller", () => {
     expect(translate).toHaveBeenCalledTimes(1)
   })
 
+  it("does nothing more when stopped while the language of the last paragraphs is detected", async () => {
+    document.body.innerHTML = "<p>Bonjour à toute l'équipe</p><p>Good morning everyone</p>"
+    let release!: () => void
+    const gate = new Promise<void>((r) => (release = r))
+    const detect = vi.fn(async (text: string) => (text.startsWith("Good") ? gate.then(() => "en") : "fr"))
+    const translate = vi.fn(async ({ text }: TranslateRequest) => ({ ok: true as const, text }))
+    const reports: Omit<TabState, "connected">[] = []
+    const c = new TranslationController({ root: () => document.body, translate, detect, report: (s) => reports.push(s) })
+    await c.updateSettings(settings({ targetLang: "en" }))
+    const started = c.start()
+    await vi.waitFor(() => expect(detect).toHaveBeenCalledTimes(2))
+    c.stop()
+    release()
+    await started
+    expect(translate).not.toHaveBeenCalled()
+    expect(reports.at(-1)).toMatchObject({ active: false, total: 0 })
+    expect(document.querySelector(".tt-status")).toBeNull()
+  })
+
   /* ---------- race mode ---------- */
 
   /** translate() whose final answer waits until finish(); provisional() pushes a fast result meanwhile. */

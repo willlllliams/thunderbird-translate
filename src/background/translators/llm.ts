@@ -2,7 +2,8 @@ import { generateText, type SystemModelMessage } from "ai"
 import { LocalizedError } from "../../shared/errors"
 import { getPreset } from "../../shared/providers"
 import type { ResolvedProvider } from "../../shared/settings"
-import { createLanguageModel, reasoningOptions } from "../providers/factory"
+import { createLanguageModel } from "../providers/factory"
+import { modelRejectsTemperature, thinkingOptions } from "../providers/thinking"
 import {
   ANALYSIS_SYSTEM_PROMPT,
   buildAnalysisPrompt,
@@ -11,7 +12,6 @@ import {
   buildSystemPrompt,
   cleanSingleOutput,
   type MailAnalysis,
-  modelRejectsTemperature,
   parseAnalysis,
   parseBatchOutput,
   type Segment,
@@ -24,7 +24,6 @@ export interface LlmCallOptions {
   /** Precise mode: message context appended to the system prompt, identical for every request of one message. */
   contextPrefix?: string
   fetchFn?: typeof fetch
-  signal?: AbortSignal
 }
 
 /** Thrown when a batched answer cannot be mapped back onto the paragraphs. */
@@ -36,21 +35,17 @@ export class BatchParseError extends Error {
 }
 
 async function callModel(instructions: SystemModelMessage, prompt: string, opts: LlmCallOptions): Promise<string> {
-  const model = createLanguageModel(opts.provider, opts.fetchFn)
-  const reasoning = reasoningOptions(opts.provider)
-  const temperature =
-    opts.provider.temperature === null || reasoning.dropTemperature || modelRejectsTemperature(opts.provider.id, opts.provider.model)
-      ? undefined
-      : opts.provider.temperature
+  const { id, model, temperature, thinking } = opts.provider
+  const reasoning = thinkingOptions(id, model, thinking)
+  const sendTemperature = temperature !== null && !reasoning.dropTemperature && !modelRejectsTemperature(id, model)
   const result = await generateText({
-    model,
+    model: createLanguageModel(opts.provider, opts.fetchFn),
     instructions,
     prompt,
-    ...(temperature !== undefined ? { temperature } : {}),
+    ...(sendTemperature ? { temperature } : {}),
     ...(reasoning.providerOptions ? { providerOptions: reasoning.providerOptions } : {}),
     // Retries are handled by our RequestQueue.
     maxRetries: 0,
-    abortSignal: opts.signal,
   })
   return result.text
 }

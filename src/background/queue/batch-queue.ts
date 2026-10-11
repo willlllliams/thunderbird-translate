@@ -2,7 +2,7 @@
  * Collects items for a short window and hands them to an executor in groups.
  *
  * Grouping rules (same as Read Frog's BatchQueue, simplified):
- * - items are grouped by key (provider + model + target language);
+ * - items are grouped by key (provider, model, endpoint, target language…);
  * - a group is flushed when the time window elapses, when it reaches
  *   `maxItems`, or when adding the next item would exceed `maxChars`;
  * - an item larger than `maxChars` travels alone.
@@ -35,7 +35,8 @@ export function groupIntoBatches<T>(items: T[], size: (item: T) => number, limit
 
 export interface BatchQueueOptions<T, R> {
   delayMs: () => number
-  limits: (key: string) => BatchLimits
+  /** Limits of the group an item joins. */
+  limits: (item: T) => BatchLimits
   getKey: (item: T) => string
   getSize: (item: T) => number
   /** Must resolve with one result per item, in order. */
@@ -57,7 +58,7 @@ export class BatchQueue<T, R> {
   enqueue(item: T): Promise<R> {
     const key = this.options.getKey(item)
     const size = this.options.getSize(item)
-    const limits = this.options.limits(key)
+    const limits = this.options.limits(item)
 
     let batch = this.pending.get(key)
     if (batch && (batch.chars + size > limits.maxChars || batch.items.length >= limits.maxItems)) {
@@ -81,11 +82,6 @@ export class BatchQueue<T, R> {
       this.flush(key)
     }
     return promise
-  }
-
-  /** Number of batches waiting for their window to close. */
-  get pendingCount(): number {
-    return this.pending.size
   }
 
   private flush(key: string): void {

@@ -11,7 +11,7 @@
  */
 
 import { ENGLISH, type I18n, type MessageKey } from "./i18n"
-import { isKnownWebHost, sameEndpoint, urlHost } from "./providers"
+import { isKnownWebHost, type ProviderKind, sameEndpoint, urlHost } from "./providers"
 
 export interface ErrorText {
   key: MessageKey
@@ -105,12 +105,12 @@ export function httpStatusLine(status: number, statusText?: string): string {
 
 const MAX_DETAIL = 200
 
-function truncate(text: string, max = MAX_DETAIL): string {
+export function truncate(text: string, max = MAX_DETAIL): string {
   const t = text.replace(/\s+/g, " ").trim()
   return t.length > max ? `${t.slice(0, max - 1).trimEnd()}…` : t
 }
 
-export function looksLikeHtml(text: string): boolean {
+function looksLikeHtml(text: string): boolean {
   const head = text.trimStart().slice(0, 512).toLowerCase()
   return /^<(!doctype html|html|head|body|meta|title|script|div)\b/.test(head) || head.includes("<html")
 }
@@ -178,7 +178,7 @@ export interface ErrorContext {
   /** Service name, e.g. "DeepSeek". */
   service?: string
   /** Provider kind; the endpoint of the free Google/Microsoft services is not user-editable. */
-  kind?: "google" | "microsoft" | "deeplx" | "llm"
+  kind?: ProviderKind
   /** Endpoint that was used. */
   baseURL?: string
   /** The preset's default endpoint; empty when the user must supply one. */
@@ -268,6 +268,14 @@ function modelHint(ctx: ErrorContext, i18n: I18n): string {
   return ctx.model ? i18n.t("hintModel", [ctx.model]) : i18n.t("hintModelGeneric")
 }
 
+/** Advice for authentication, rate-limit and server errors. */
+function statusHints(status: number | undefined, i18n: I18n, keyMode = false): string[] {
+  if (status === 401 || status === 403) return [i18n.t(keyMode ? "hintAzureAuth" : "hintAuth")]
+  if (status === 402 || status === 429) return [i18n.t("hintRateLimit")]
+  if (status !== undefined && status >= 500 && status < 600) return [i18n.t("hintServerError")]
+  return []
+}
+
 function httpReport(f: HttpFailure, ctx: ErrorContext, i18n: I18n): ErrorReport {
   const statusLine = httpStatusLine(f.status, f.statusText)
   const reason = i18n.t("errHttp", [serviceLabel(ctx, f.url), statusLine])
@@ -284,14 +292,10 @@ function httpReport(f: HttpFailure, ctx: ErrorContext, i18n: I18n): ErrorReport 
     hints.push(i18n.t("hintHtmlResponse"), ...endpointHints(ctx, i18n))
   } else if (modelProblem) {
     hints.push(modelHint(ctx, i18n))
-  } else if (f.status === 401 || f.status === 403) {
-    hints.push(i18n.t(ctx.keyMode ? "hintAzureAuth" : "hintAuth"))
   } else if (f.status === 404 || f.status === 405) {
     hints.push(i18n.t("hintEndpoint"), ...endpointHints(ctx, i18n))
-  } else if (f.status === 402 || f.status === 429) {
-    hints.push(i18n.t("hintRateLimit"))
-  } else if (f.status >= 500) {
-    hints.push(i18n.t("hintServerError"))
+  } else {
+    hints.push(...statusHints(f.status, i18n, ctx.keyMode))
   }
   return { reason, serverMessage, hints, url: f.url }
 }
@@ -299,7 +303,7 @@ function httpReport(f: HttpFailure, ctx: ErrorContext, i18n: I18n): ErrorReport 
 function networkReport(e: AnyError, ctx: ErrorContext, i18n: I18n): ErrorReport {
   const url = str(e.url) || ctx.baseURL || undefined
   const host = urlHost(url)
-  const service = ctx.service || host || "API"
+  const service = serviceLabel(ctx, url)
   const reason = host ? i18n.t("errNetwork", [service, host]) : i18n.t("errNetworkNoHost", [service])
   const cause = asObject(e.cause)
   const causeMessage = str(cause?.message).trim()
@@ -345,11 +349,7 @@ function analyze(error: unknown, ctx: ErrorContext, i18n: I18n, depth: number): 
   }
 
   // Service-level codes without request details, e.g. DeepLX's {"code": 401, "message": "..."}.
-  const status = typeof e.status === "number" ? e.status : undefined
-  const hints: string[] = []
-  if (status === 401 || status === 403) hints.push(i18n.t("hintAuth"))
-  else if (status === 402 || status === 429) hints.push(i18n.t("hintRateLimit"))
-  else if (status !== undefined && status >= 500 && status < 600) hints.push(i18n.t("hintServerError"))
+  const hints = statusHints(typeof e.status === "number" ? e.status : undefined, i18n)
 
   const text = e.i18nText as ErrorText | undefined
   if (text && typeof text.key === "string") return { reason: renderErrorText(text, i18n), hints }
@@ -383,7 +383,7 @@ export function analyzeError(error: unknown, i18n: I18n, ctx: ErrorContext = {})
 }
 
 /** Lines: reason, server message, suggestions, request URL. */
-export function formatErrorReport(report: ErrorReport, i18n: I18n): string {
+function formatErrorReport(report: ErrorReport, i18n: I18n): string {
   const lines = [report.reason]
   if (report.serverMessage) lines.push(i18n.t("errServerMessage", [report.serverMessage]))
   lines.push(...report.hints)

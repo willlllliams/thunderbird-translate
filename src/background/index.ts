@@ -1,26 +1,25 @@
 import { describeError } from "../shared/errors"
 import { ext } from "../shared/ext"
-import { ENGLISH, type I18n, loadI18n, setI18n } from "../shared/i18n"
-import { fetchPackagedMessages, thunderbirdUiLanguage } from "../shared/i18n-ext"
+import { getI18n, loadI18n, t } from "../shared/i18n"
+import { fetchPackagedMessages, loadExtensionI18n, thunderbirdUiLanguage } from "../shared/i18n-ext"
 import {
   type BackgroundRequest,
   CONTENT_PORT_NAME,
+  IDLE_TAB_STATE,
+  type LocaleMessages,
   type PortPush,
   type PortReport,
-  type TabCommand,
-  type LocaleMessages,
   type TabState,
 } from "../shared/messages"
-import { normalizeSettings, SETTINGS_KEY, type Settings, toPublicSettings } from "../shared/settings"
+import { SETTINGS_KEY, type Settings, toPublicSettings } from "../shared/settings"
+import { readSettings, updateSettings } from "../shared/settings-store"
 import { type KeyValueStorage, PersistentCache } from "./cache"
 import { TranslationService } from "./service"
 
 declare const __DEBUG__: boolean
 
 const uiLang = thunderbirdUiLanguage()
-let settings: Settings = normalizeSettings(undefined, uiLang)
-/** Interface language for badge, button title and error messages. */
-let i18n: I18n = ENGLISH
+let settings: Settings = readSettings(undefined)
 
 const storage: KeyValueStorage = {
   get: async (key) => (await ext.storage.local.get(key))[key],
@@ -29,21 +28,23 @@ const storage: KeyValueStorage = {
 }
 
 const cache = new PersistentCache(storage, settings.cache.maxEntries)
-const service = new TranslationService({ getSettings: () => settings, cache, i18n: () => i18n })
+// Badge, button title and error messages use the current i18n instance, set by applyUiLanguage().
+const service = new TranslationService({ getSettings: () => settings, cache, i18n: getI18n })
 
-const settingsReady = loadSettings()
-
-async function loadSettings(): Promise<void> {
-  const stored = await storage.get(SETTINGS_KEY)
-  settings = normalizeSettings(stored, uiLang)
+function adoptSettings(stored: unknown): void {
+  settings = readSettings(stored)
   cache.configure(settings.cache.enabled, settings.cache.maxEntries)
-  if (!stored) await storage.set(SETTINGS_KEY, settings)
-  await applyUiLanguage()
 }
 
+const settingsReady = (async () => {
+  const stored = await storage.get(SETTINGS_KEY)
+  adoptSettings(stored)
+  if (!stored) await storage.set(SETTINGS_KEY, settings)
+  await applyUiLanguage()
+})()
+
 async function applyUiLanguage(): Promise<void> {
-  i18n = await loadI18n(settings.uiLanguage, uiLang, fetchPackagedMessages)
-  setI18n(i18n)
+  const i18n = await loadExtensionI18n(settings.uiLanguage)
   if (__DEBUG__) console.info("[thunderbird-translate] interface language", settings.uiLanguage, uiLang, "→", i18n.locale, i18n.t("actionTitle"))
   try {
     // Global title of the message header button; the manifest default follows Thunderbird only.
@@ -57,8 +58,7 @@ async function applyUiLanguage(): Promise<void> {
 ext.storage.onChanged.addListener((changes, area) => {
   if (area !== "local" || !changes[SETTINGS_KEY]) return
   const previousUiLanguage = settings.uiLanguage
-  settings = normalizeSettings(changes[SETTINGS_KEY].newValue, uiLang)
-  cache.configure(settings.cache.enabled, settings.cache.maxEntries)
+  adoptSettings(changes[SETTINGS_KEY].newValue)
   if (settings.uiLanguage !== previousUiLanguage) void applyUiLanguage()
   broadcast({ type: "settings", settings: toPublicSettings(settings) })
 })
@@ -66,33 +66,29 @@ ext.storage.onChanged.addListener((changes, area) => {
 /* ---------- content script connections ---------- */
 
 const ports = new Map<number, Set<browser.runtime.Port>>()
-const IDLE_STATE = { active: false, total: 0, done: 0, provisional: 0, failed: 0 }
 const tabStates = new Map<number, TabState>()
 
 function broadcast(msg: PortPush): void {
   for (const set of ports.values()) for (const port of set) safePost(port, msg)
 }
 
-function safePost(port: browser.runtime.Port, msg: PortPush): boolean {
+function safePost(port: browser.runtime.Port, msg: PortPush): void {
   try {
     port.postMessage(msg)
-    return true
   } catch {
-    return false
+    // The content script went away.
   }
 }
 
-function sendCommand(tabId: number, command: TabCommand): boolean {
-  let delivered = false
-  for (const port of ports.get(tabId) ?? []) delivered = safePost(port, { type: "command", command }) || delivered
-  return delivered
+function toggleTab(tabId: number): void {
+  for (const port of ports.get(tabId) ?? []) safePost(port, { type: "toggle" })
 }
 
 async function updateBadge(tabId: number): Promise<void> {
-  const st = tabStates.get(tabId)
+  const active = tabStates.get(tabId)?.active
   try {
-    await ext.messageDisplayAction.setBadgeText({ tabId, text: st?.active ? i18n.t("badgeOn") : "" })
-    if (st?.active) await ext.messageDisplayAction.setBadgeBackgroundColor({ tabId, color: "#4c8bf5" })
+    await ext.messageDisplayAction.setBadgeText({ tabId, text: active ? t("badgeOn") : "" })
+    if (active) await ext.messageDisplayAction.setBadgeBackgroundColor({ tabId, color: "#4c8bf5" })
   } catch {
     // Tab already closed.
   }
@@ -104,7 +100,7 @@ ext.runtime.onConnect.addListener((port) => {
   if (tabId === undefined) return
   if (!ports.has(tabId)) ports.set(tabId, new Set())
   ports.get(tabId)!.add(port)
-  tabStates.set(tabId, { connected: true, ...IDLE_STATE })
+  tabStates.set(tabId, { ...IDLE_TAB_STATE, connected: true })
   void updateBadge(tabId)
 
   port.onMessage.addListener((raw) => {
@@ -141,17 +137,15 @@ ext.runtime.onConnect.addListener((port) => {
 async function handle(req: BackgroundRequest): Promise<unknown> {
   await settingsReady
   switch (req.type) {
-    case "getPublicSettings":
-      return toPublicSettings(settings)
-    case "tabCommand":
-      return { delivered: sendCommand(req.tabId, req.command) }
+    case "toggleTab":
+      return toggleTab(req.tabId)
     case "getTabState":
-      return tabStates.get(req.tabId) ?? { connected: false, ...IDLE_STATE }
+      return tabStates.get(req.tabId) ?? IDLE_TAB_STATE
     case "testProvider":
       try {
         return { ok: true, text: await service.testProvider(req.providerId, req.config, req.targetLang) }
       } catch (error) {
-        return { ok: false, error: describeError(error, i18n) }
+        return { ok: false, error: describeError(error, getI18n()) }
       }
     case "getLocaleMessages": {
       // Content scripts get their messages here instead of fetching moz-extension:// URLs.
@@ -159,12 +153,9 @@ async function handle(req: BackgroundRequest): Promise<unknown> {
       return { locale: loaded.locale, messages: loaded.messages } satisfies LocaleMessages
     }
     case "clearCache":
-      await cache.clear()
-      return { ok: true }
+      return cache.clear()
     case "cacheStats":
       return { size: await cache.size() }
-    default:
-      return undefined
   }
 }
 
@@ -176,19 +167,13 @@ ext.runtime.onMessage.addListener((message: unknown) => {
 
 /* ---------- keyboard shortcuts ---------- */
 
-async function activeTabId(): Promise<number | undefined> {
-  const [tab] = await ext.tabs.query({ active: true, currentWindow: true })
-  return tab?.id
-}
-
 ext.commands.onCommand.addListener(async (command: string, tab?: browser.tabs.Tab) => {
   await settingsReady
   if (command === "toggle-translation") {
-    const tabId = tab?.id ?? (await activeTabId())
-    if (tabId !== undefined) sendCommand(tabId, "toggle")
+    const tabId = tab?.id ?? (await ext.tabs.query({ active: true, currentWindow: true }))[0]?.id
+    if (tabId !== undefined) toggleTab(tabId)
   } else if (command === "toggle-display-mode") {
-    const next: Settings = { ...settings, mode: settings.mode === "bilingual" ? "translation-only" : "bilingual" }
-    await storage.set(SETTINGS_KEY, next)
+    await updateSettings((s) => (s.mode = s.mode === "bilingual" ? "translation-only" : "bilingual"))
   }
 })
 
@@ -202,8 +187,7 @@ async function registerScripts(): Promise<void> {
   if (__DEBUG__) console.info("[thunderbird-translate] message display script registered")
   // Registered scripts only reach messages opened from now on; inject into
   // messages that are already on screen (e.g. right after installation).
-  const tabs = await ext.tabs.query({})
-  for (const tab of tabs) {
+  for (const tab of await ext.tabs.query({})) {
     const type = (tab as { type?: string }).type
     if (tab.id === undefined || (type !== "mail" && type !== "messageDisplay")) continue
     try {

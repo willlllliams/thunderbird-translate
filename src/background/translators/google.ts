@@ -10,26 +10,24 @@
  */
 
 import { LocalizedError } from "../../shared/errors"
-import { fetchOk } from "../queue/request-queue"
+import { type FetchOptions, fetchOk, type RequestSpec } from "../queue/request-queue"
 
-export const GOOGLE_DEFAULT_BASE = "https://translate.googleapis.com"
+const DEFAULT_BASE = "https://translate.googleapis.com"
 
-export interface RequestSpec {
-  url: string
-  init: RequestInit & { method: string; headers: Record<string, string>; body?: string }
+interface GoogleOptions extends FetchOptions {
+  baseURL?: string
 }
 
-export function buildGoogleBatchRequest(texts: string[], targetLang: string, sourceLang = "auto", baseURL = GOOGLE_DEFAULT_BASE): RequestSpec {
-  const params = new URLSearchParams({ client: "gtx", sl: sourceLang, tl: targetLang, format: "text" })
-  const body = texts.map((t) => `q=${encodeURIComponent(t)}`).join("&")
+function formPost(baseURL: string, path: string, params: Record<string, string>, body: string): RequestSpec {
   return {
-    url: `${baseURL.replace(/\/+$/, "")}/translate_a/t?${params.toString()}`,
-    init: {
-      method: "POST",
-      headers: { "Content-Type": "application/x-www-form-urlencoded;charset=UTF-8" },
-      body,
-    },
+    url: `${baseURL.replace(/\/+$/, "")}/${path}?${new URLSearchParams(params).toString()}`,
+    init: { method: "POST", headers: { "Content-Type": "application/x-www-form-urlencoded;charset=UTF-8" }, body },
   }
+}
+
+export function buildGoogleBatchRequest(texts: string[], targetLang: string, baseURL = DEFAULT_BASE): RequestSpec {
+  const body = texts.map((t) => `q=${encodeURIComponent(t)}`).join("&")
+  return formPost(baseURL, "translate_a/t", { client: "gtx", sl: "auto", tl: targetLang, format: "text" }, body)
 }
 
 /**
@@ -52,16 +50,8 @@ export function parseGoogleBatchResponse(json: unknown, expected: number): strin
   return out
 }
 
-export function buildGoogleSingleRequest(text: string, targetLang: string, sourceLang = "auto", baseURL = GOOGLE_DEFAULT_BASE): RequestSpec {
-  const params = new URLSearchParams({ client: "gtx", sl: sourceLang, tl: targetLang, dt: "t", dj: "0" })
-  return {
-    url: `${baseURL.replace(/\/+$/, "")}/translate_a/single?${params.toString()}`,
-    init: {
-      method: "POST",
-      headers: { "Content-Type": "application/x-www-form-urlencoded;charset=UTF-8" },
-      body: `q=${encodeURIComponent(text)}`,
-    },
-  }
+function buildGoogleSingleRequest(text: string, targetLang: string, baseURL = DEFAULT_BASE): RequestSpec {
+  return formPost(baseURL, "translate_a/single", { client: "gtx", sl: "auto", tl: targetLang, dt: "t", dj: "0" }, `q=${encodeURIComponent(text)}`)
 }
 
 /** translate_a/single: [[["句1","src1",...],["句2","src2",...]], null, "en", ...] */
@@ -73,17 +63,9 @@ export function parseGoogleSingleResponse(json: unknown): string {
     .join("")
 }
 
-export interface FetchOptions {
-  fetchFn?: typeof fetch
-  signal?: AbortSignal
-  baseURL?: string
-}
-
-export async function googleTranslateBatch(texts: string[], targetLang: string, opts: FetchOptions = {}): Promise<string[]> {
+export async function googleTranslateBatch(texts: string[], targetLang: string, opts: GoogleOptions = {}): Promise<string[]> {
   if (texts.length === 0) return []
-  const f = opts.fetchFn ?? fetch
-  const { url, init } = buildGoogleBatchRequest(texts, targetLang, "auto", opts.baseURL)
-  const resp = await fetchOk(f, url, { ...init, signal: opts.signal }, "Google")
+  const resp = await fetchOk(opts.fetchFn, buildGoogleBatchRequest(texts, targetLang, opts.baseURL), "Google")
   const json = await resp.json()
   try {
     return parseGoogleBatchResponse(json, texts.length)
@@ -93,9 +75,7 @@ export async function googleTranslateBatch(texts: string[], targetLang: string, 
   }
 }
 
-export async function googleTranslateSingle(text: string, targetLang: string, opts: FetchOptions = {}): Promise<string> {
-  const f = opts.fetchFn ?? fetch
-  const { url, init } = buildGoogleSingleRequest(text, targetLang, "auto", opts.baseURL)
-  const resp = await fetchOk(f, url, { ...init, signal: opts.signal }, "Google")
+async function googleTranslateSingle(text: string, targetLang: string, opts: GoogleOptions): Promise<string> {
+  const resp = await fetchOk(opts.fetchFn, buildGoogleSingleRequest(text, targetLang, opts.baseURL), "Google")
   return parseGoogleSingleResponse(await resp.json())
 }

@@ -18,13 +18,7 @@ import {
   resetMicrosoftState,
   tokenExpiry,
 } from "../src/background/translators/microsoft"
-
-function jsonResponse(body: unknown, status = 200): Response {
-  return new Response(typeof body === "string" ? body : JSON.stringify(body), {
-    status,
-    headers: { "Content-Type": "application/json" },
-  })
-}
+import { asFetch, jsonResponse } from "./helpers"
 
 describe("Google (gtx)", () => {
   it("builds one POST with a q parameter per paragraph", () => {
@@ -54,7 +48,7 @@ describe("Google (gtx)", () => {
 
   it("sends one request for a batch (mock fetch)", async () => {
     const fetchFn = vi.fn(async () => jsonResponse([["你好", "en"], ["世界", "en"], ["再见", "en"]]))
-    const out = await googleTranslateBatch(["Hello", "World", "Bye"], "zh-CN", { fetchFn: fetchFn as unknown as typeof fetch })
+    const out = await googleTranslateBatch(["Hello", "World", "Bye"], "zh-CN", { fetchFn: asFetch(fetchFn) })
     expect(out).toEqual(["你好", "世界", "再见"])
     expect(fetchFn).toHaveBeenCalledTimes(1)
   })
@@ -64,14 +58,14 @@ describe("Google (gtx)", () => {
       if (url.includes("/translate_a/t")) return jsonResponse({ unexpected: true })
       return jsonResponse([[["译文", "src", null, null, 1]], null, "en"])
     })
-    const out = await googleTranslateBatch(["a", "b"], "zh-CN", { fetchFn: fetchFn as unknown as typeof fetch })
+    const out = await googleTranslateBatch(["a", "b"], "zh-CN", { fetchFn: asFetch(fetchFn) })
     expect(out).toEqual(["译文", "译文"])
     expect(fetchFn).toHaveBeenCalledTimes(3)
   })
 
   it("surfaces HTTP errors with their status", async () => {
     const fetchFn = vi.fn(async () => new Response("Too Many Requests", { status: 429 }))
-    await expect(googleTranslateBatch(["a"], "zh-CN", { fetchFn: fetchFn as unknown as typeof fetch })).rejects.toMatchObject({ status: 429 })
+    await expect(googleTranslateBatch(["a"], "zh-CN", { fetchFn: asFetch(fetchFn) })).rejects.toMatchObject({ status: 429 })
   })
 })
 
@@ -116,7 +110,7 @@ describe("Microsoft", () => {
       if (url === MS_AUTH_URL) return new Response("tok.eyJleHAiOjk5OTk5OTk5OTl9.sig")
       return jsonResponse([{ translations: [{ text: "你好" }] }])
     })
-    const f = fetchFn as unknown as typeof fetch
+    const f = asFetch(fetchFn)
     expect(await microsoftTranslateBatch(["Hello"], "zh-Hans", { fetchFn: f })).toEqual(["你好"])
     expect(await microsoftTranslateBatch(["Hello"], "zh-Hans", { fetchFn: f })).toEqual(["你好"])
     expect(calls).toEqual([MS_AUTH_URL, MS_API_URL, MS_API_URL])
@@ -129,7 +123,7 @@ describe("Microsoft", () => {
       if (url === MS_AUTH_URL) return new Response("", { status: 404 })
       return jsonResponse([{ translations: [{ text: "你好" }] }, { translations: [{ text: "世界" }] }])
     })
-    const f = fetchFn as unknown as typeof fetch
+    const f = asFetch(fetchFn)
     expect(await microsoftTranslateBatch(["Hello", "World"], "zh-Hans", { fetchFn: f })).toEqual(["你好", "世界"])
     expect(await microsoftTranslateBatch(["Hello", "World"], "zh-Hans", { fetchFn: f })).toEqual(["你好", "世界"])
     // The dead auth endpoint is tried once, then skipped.
@@ -161,6 +155,6 @@ describe("DeepLX", () => {
 
   it("translates through fetch", async () => {
     const fetchFn = vi.fn(async () => jsonResponse({ code: 200, data: "你好" }))
-    expect(await deeplxTranslate("Hello", "ZH", "https://d.example/translate", "", { fetchFn: fetchFn as unknown as typeof fetch })).toBe("你好")
+    expect(await deeplxTranslate("Hello", "ZH", "https://d.example/translate", "", { fetchFn: asFetch(fetchFn) })).toBe("你好")
   })
 })

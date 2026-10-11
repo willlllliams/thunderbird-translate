@@ -117,7 +117,7 @@ export function buildContextBlock(analysis: MailAnalysis | null, fullText: strin
 }
 
 /** Remove reasoning blocks and Markdown fences that some models add. */
-export function cleanModelOutput(raw: string): string {
+function cleanModelOutput(raw: string): string {
   return raw
     .replace(/<think>[\s\S]*?<\/think>/gi, "")
     .replace(/^\s*```[a-zA-Z]*\s*\n?/, "")
@@ -283,12 +283,4 @@ export function parseBatchOutput(raw: string, n: number): string[] | null {
   if (parts.length === n && n > 1) return parts.map((t) => t.trim())
 
   return null
-}
-
-/** Claude 5.x and later reject custom sampling parameters. */
-export function modelRejectsTemperature(providerId: string, model: string): boolean {
-  if (providerId === "anthropic") {
-    return /claude-(?:(?:opus|sonnet|haiku|fable|mythos)-[5-9])|claude-opus-4-[78]/.test(model)
-  }
-  return false
 }

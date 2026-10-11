@@ -116,7 +116,7 @@ Mỗi đoạn được gửi đến dịch vụ AI và đến một dịch vụ 
 
 ### Dịch chính xác
 
-Dịch chính xác gửi kèm thư làm ngữ cảnh trong mọi yêu cầu AI. Khi bắt đầu dịch, tập lệnh nội dung ghép các đoạn đã tìm thấy thành văn bản thuần của thư (cắt sau 20000 ký tự, kèm ghi chú rằng văn bản còn tiếp) và đăng ký văn bản đó với tập lệnh nền một lần. Thư được nhận diện bằng giá trị băm của văn bản này.
+Dịch chính xác gửi kèm thư làm ngữ cảnh trong mọi yêu cầu AI. Khi bắt đầu dịch, tập lệnh nội dung ghép các đoạn đã tìm thấy thành văn bản thuần của thư (cắt sau 20000 ký tự, kèm ghi chú rằng văn bản còn tiếp) và đăng ký văn bản đó với tập lệnh nền một lần. Thư được nhận diện bằng giá trị băm của toàn bộ văn bản; việc cắt chỉ áp dụng cho văn bản gửi làm ngữ cảnh.
 
 Luồng xử lý phụ thuộc vào kích thước các đoạn cần dịch:
 
@@ -179,7 +179,7 @@ Danh sách ngôn ngữ đích là một danh sách riêng gồm 20 ngôn ngữ, 
 | Dịch vụ | Thiết lập | Ghi chú |
 | --- | --- | --- |
 | Google Dịch (miễn phí, mặc định) | Không cần | Gọi điểm cuối `client=gtx` của `translate.googleapis.com`; một yêu cầu POST mang nhiều tham số `q`, nên nhiều đoạn dùng chung một yêu cầu |
-| Microsoft Translator (miễn phí) | Không cần | Trước tiên thử lấy token từ `edge.microsoft.com/translate/auth` rồi gọi `api-edge.cognitive.microsofttranslator.com`; khi Microsoft đã ngừng điểm cuối cấp token, tiện ích chuyển sang `edge.microsoft.com/translate/translatetext`. Cả hai cách đều nhận mảng một cách tự nhiên Tùy chọn “Dùng khóa của tôi (Azure Translator)” trong bảng cài đặt sẽ gọi API chính thức `api.cognitive.microsofttranslator.com`: tạo tài nguyên Translator trong cổng Azure, rồi chép khóa và khu vực ở mục “Keys and Endpoint” vào bảng (tài nguyên toàn cầu có thể để trống khu vực). |
+| Microsoft Translator (miễn phí) | Không cần | Trước tiên thử lấy token từ `edge.microsoft.com/translate/auth` rồi gọi `api-edge.cognitive.microsofttranslator.com`; khi Microsoft đã ngừng điểm cuối cấp token, tiện ích chuyển sang `edge.microsoft.com/translate/translatetext`. Cả hai cách đều nhận mảng một cách tự nhiên. Tùy chọn “Dùng khóa của tôi (Azure Translator)” trong bảng cài đặt sẽ gọi API chính thức `api.cognitive.microsofttranslator.com`: tạo tài nguyên Translator trong cổng Azure, rồi chép khóa và khu vực ở mục “Keys and Endpoint” vào bảng (tài nguyên toàn cầu có thể để trống khu vực). |
 | DeepLX | Bắt buộc nhập điểm cuối | Dịch vụ DeepLX tự lưu trữ hoặc của bên thứ ba; token là tùy chọn. Nếu điểm cuối chứa `{{apiKey}}`, token sẽ thay vào vị trí đó; nếu không, token được gửi dưới dạng `Authorization: Bearer` |
 
 ### Nhà cung cấp AI
@@ -223,7 +223,7 @@ Một số nhà cung cấp có yêu cầu riêng:
 
 Mỗi nhà cung cấp AI có một công tắc "Chế độ suy nghĩ", mặc định tắt. Dịch không cần mô hình suy nghĩ trước, và suy nghĩ làm yêu cầu chậm hơn và tốn kém hơn. Nhiều mô hình hiện nay tự suy nghĩ nếu không được yêu cầu khác, ví dụ `deepseek-flash`, `claude-haiku-5-5` và `gemini-2.5-flash`, nên giá trị "tắt" được gửi đi một cách tường minh.
 
-Mỗi nhà cung cấp viết công tắc này một kiểu, và ngay trong một nhà cung cấp cũng chỉ một số mô hình chấp nhận nó. Tiện ích so khớp tên mô hình với các mẫu bên dưới và gửi tùy chọn của nhà cung cấp theo mẫu khớp đầu tiên; mô hình không khớp mẫu nào thì không nhận tham số suy nghĩ. Khi suy nghĩ đang bật, không gửi nhiệt độ, vì các mô hình suy nghĩ bỏ qua hoặc từ chối nó.
+Mỗi nhà cung cấp viết công tắc này một kiểu, và ngay trong một nhà cung cấp cũng chỉ một số mô hình chấp nhận nó. Tiện ích so khớp tên mô hình với các mẫu bên dưới và gửi tùy chọn của nhà cung cấp theo mẫu khớp đầu tiên; mô hình không khớp mẫu nào thì không nhận tham số suy nghĩ. Khi suy nghĩ đang bật, không gửi nhiệt độ cho các mô hình khớp với một mẫu trong bảng, vì các mô hình suy nghĩ bỏ qua hoặc từ chối nó.
 
 | Nhà cung cấp | Mô hình | Tắt | Bật | Nguồn |
 | --- | --- | --- | --- | --- |
@@ -269,8 +269,8 @@ Một thư thường có từ mười đến vài chục đoạn. Nếu mỗi đ
 
 1. Tập lệnh nội dung chuyển từng đoạn cần dịch cho tập lệnh nền.
 2. Tập lệnh nền tra bộ nhớ đệm trước và trả lời ngay khi trúng. Khóa bộ nhớ đệm gồm nhà cung cấp, mô hình, ngôn ngữ đích, chữ ký của lời nhắc hệ thống, ở chế độ chính xác có thêm giá trị băm của thư, và giá trị băm của văn bản đoạn. Khi cùng một văn bản đang được dịch, các yêu cầu đến sau dùng chung kết quả đó.
-3. Các đoạn không có trong bộ nhớ đệm đi vào hàng đợi lô, được nhóm theo nhà cung cấp + mô hình + điểm cuối + ngôn ngữ đích, ở chế độ chính xác còn nhóm theo thư. Các đoạn của một nhóm được gom trong 50 ms. Một nhóm được gửi đi khi hết thời gian gom, khi đạt giới hạn số đoạn, hoặc khi đoạn tiếp theo sẽ vượt giới hạn ký tự. Một đoạn đơn lẻ dài hơn giới hạn ký tự tự tạo thành một lô riêng.
-4. Hàng đợi yêu cầu thực thi từng lô. Hàng đợi giới hạn số yêu cầu đồng thời và thử lại các lỗi 429, 5xx và lỗi mạng với thời gian chờ tăng theo hàm mũ; khi máy chủ gửi `Retry-After`, hàng đợi chờ đúng khoảng thời gian đó. Các lỗi như 401 và 400 được báo ngay mà không thử lại.
+3. Các đoạn không có trong bộ nhớ đệm đi vào hàng đợi lô, được nhóm theo nhà cung cấp + mô hình + điểm cuối + ngôn ngữ đích, với dịch vụ AI còn nhóm theo lời nhắc hệ thống, với Microsoft Translator còn nhóm theo chế độ miễn phí hoặc dùng khóa, ở chế độ chính xác còn nhóm theo thư. Các đoạn của một nhóm được gom trong 50 ms. Một nhóm được gửi đi khi hết thời gian gom, khi đạt giới hạn số đoạn, hoặc khi đoạn tiếp theo sẽ vượt giới hạn ký tự. Một đoạn đơn lẻ dài hơn giới hạn ký tự tự tạo thành một lô riêng.
+4. Hàng đợi yêu cầu thực thi từng lô. Hàng đợi giới hạn số yêu cầu đồng thời và thử lại các lỗi 408, 429, 5xx và lỗi mạng với thời gian chờ tăng theo hàm mũ; khi máy chủ gửi `Retry-After`, hàng đợi chờ đúng khoảng thời gian đó, tối đa 30 giây. Các lỗi như 401 và 400 được báo ngay mà không thử lại.
 5. Kết quả được đưa vào bộ nhớ đệm trong bộ nhớ và được ghi vào `storage.local` trong một lần ghi sau 1 giây. Bộ nhớ đệm loại bỏ các mục ít được dùng gần đây nhất (LRU).
 
 ### Cách mỗi dịch vụ gộp đoạn
@@ -322,7 +322,7 @@ Số token đầu vào giảm khoảng 63%, và số yêu cầu giảm từ 20 x
 
 - Bản dịch là văn bản thuần. Liên kết, chữ đậm và các định dạng nội dòng khác của bản gốc không được giữ lại trong bản dịch. Ở chế độ song ngữ, bản gốc vẫn dùng được đầy đủ; ở chế độ chỉ bản dịch, bạn có thể di chuột để xem bản gốc hoặc chuyển lại sang song ngữ.
 - Các điểm cuối miễn phí của Google và Microsoft không có tài liệu chính thức và có thể thay đổi hoặc bị giới hạn tần suất. Microsoft đã ngừng điểm cuối cấp token `edge.microsoft.com/translate/auth` vào tháng 7 năm 2026 (điểm cuối này trả về 404). Tiện ích vẫn thử điểm cuối cấp token ở yêu cầu đầu tiên, chuyển sang điểm cuối trực tiếp sau khi thất bại, và không thử lại điểm cuối cấp token trong một giờ.
-- Để xác định một đoạn đã ở ngôn ngữ đích hay chưa, tiếng Trung, tiếng Nhật, tiếng Hàn và các hệ chữ tương tự được nhận diện theo lớp ký tự, còn các ngôn ngữ dùng chữ Latinh trước tiên dùng `i18n.detectLanguage` của API tiện ích. Khi API này không khả dụng hoặc kết quả không đáng tin cậy, chỉ tiếng Anh được nhận diện chính xác; các đoạn bằng ngôn ngữ chữ Latinh khác vẫn được gửi đi dịch như bình thường.
+- Để xác định một đoạn đã ở ngôn ngữ đích hay chưa, tiếng Trung, tiếng Nhật, tiếng Hàn và các hệ chữ tương tự được nhận diện theo lớp ký tự, còn các ngôn ngữ dùng chữ Latinh và chữ Kirin trước tiên dùng `i18n.detectLanguage` của API tiện ích. Khi API này không khả dụng hoặc kết quả không đáng tin cậy, chỉ tiếng Anh được nhận diện chính xác; các đoạn bằng ngôn ngữ chữ Latinh khác vẫn được gửi đi dịch như bình thường.
 - Tập lệnh nội dung được đăng ký qua `messageDisplayScripts` và chỉ tác động đến các thư được mở sau khi đăng ký. Khi khởi động, tiện ích thử chèn tập lệnh vào các thư đang mở; nếu không thành công, chỉ cần chọn lại thư đó.
 - Thông báo lỗi do tiện ích tạo ra được dịch. Văn bản lỗi do dịch vụ dịch hoặc AI SDK trả về (ví dụ nội dung của phản hồi HTTP 401) được hiển thị nguyên dạng nhận được, thường là tiếng Anh.
 - Tên tiện ích, mô tả của tiện ích trong Trình quản lý tiện ích và mô tả phím tắt theo ngôn ngữ giao diện của Thunderbird, không theo tùy chọn ngôn ngữ giao diện.
@@ -357,6 +357,7 @@ locales/         interface text, one JSON file per language; en.json is the refe
 static/          manifest.json, HTML, CSS, SVG icon
 scripts/         build, locale generation and checks, live endpoint test
 readmes/         translated versions of this README
+docs/            demo GIF used in this README
 tests/           vitest tests
 ```
 

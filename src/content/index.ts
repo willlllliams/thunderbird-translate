@@ -57,7 +57,7 @@ function main(): void {
         post({ type: "translate", id, request })
       }),
     setContext: (context) => post({ type: "context", context }),
-    detect: browserDetector(ext.i18n as never),
+    detect: browserDetector(ext.i18n),
     report: (state) => {
       if (__DEBUG__) {
         const first = document.querySelector(".tt-translation")?.textContent ?? ""
@@ -73,22 +73,25 @@ function main(): void {
 
   let firstSettings = true
   let uiLanguage: UiLanguageSetting | null = null
+  // Settings are applied in the order they arrive, each once its labels are loaded.
+  let settingsApplied = Promise.resolve()
   port.onMessage.addListener((raw) => {
     const msg = raw as PortPush
     if (msg.type === "settings") {
-      const labelsReady = msg.settings.uiLanguage === uiLanguage ? Promise.resolve() : loadLabels(msg.settings.uiLanguage)
-      uiLanguage = msg.settings.uiLanguage
-      void labelsReady.then(() => controller.updateSettings(msg.settings)).then(() => {
+      const next = msg.settings
+      settingsApplied = settingsApplied.then(async () => {
+        if (next.uiLanguage !== uiLanguage) {
+          uiLanguage = next.uiLanguage
+          await loadLabels(uiLanguage)
+        }
+        void controller.updateSettings(next)
         if (firstSettings) {
           firstSettings = false
-          if (__DEBUG__) void controller.start()
-          else void controller.maybeAutoStart()
+          void (__DEBUG__ ? controller.start() : controller.maybeAutoStart())
         }
       })
-    } else if (msg.type === "command") {
-      if (msg.command === "toggle") void controller.toggle()
-      else if (msg.command === "start") void controller.start()
-      else if (msg.command === "stop") controller.stop()
+    } else if (msg.type === "toggle") {
+      void controller.toggle()
     } else if (msg.type === "provisional") {
       pending.get(msg.id)?.onProvisional(msg.text)
     } else if (msg.type === "result") {

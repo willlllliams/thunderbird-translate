@@ -14,7 +14,7 @@
 
 import { hasTranslatableText, unwrapPlainText } from "./text"
 
-export const CLS_SEG = "tt-seg"
+const CLS_SEG = "tt-seg"
 export const CLS_TRANSLATION = "tt-translation"
 export const CLS_STATUS = "tt-status"
 
@@ -64,7 +64,7 @@ function computedDisplay(el: Element): string | null {
   }
 }
 
-export function isHidden(el: Element): boolean {
+function isHidden(el: Element): boolean {
   const h = el as HTMLElement
   if (h.hidden) return true
   if (el.getAttribute("aria-hidden") === "true" && !el.textContent?.trim()) return true
@@ -81,7 +81,7 @@ function isSkipped(el: Element): boolean {
   return isHidden(el)
 }
 
-export function isBlockish(el: Element): boolean {
+function isBlockish(el: Element): boolean {
   const tag = el.tagName.toUpperCase()
   if (tag === "BR") return false
   if (BLOCK_TAGS.has(tag)) return true

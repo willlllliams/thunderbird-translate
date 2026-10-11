@@ -132,7 +132,7 @@ Switching the display mode keeps provisional and failed marks, and "Show origina
 
 ### Precise translation
 
-Precise translation sends the message as context with every AI request. When translation starts, the content script joins the paragraphs it found into the plain text of the message (cut after 20,000 characters, with a note that the text continues) and registers it with the background script once. The message is identified by a hash of this text.
+Precise translation sends the message as context with every AI request. When translation starts, the content script joins the paragraphs it found into the plain text of the message (cut after 20,000 characters, with a note that the text continues) and registers it with the background script once. The message is identified by a hash of its full text; the cut applies only to the text sent as context.
 
 The flow depends on the size of the paragraphs to translate:
 
@@ -195,7 +195,7 @@ The target language list is separate and contains 20 languages, including Italia
 | Service | Setup | Notes |
 | --- | --- | --- |
 | Google Translate (free, default) | None | Calls the `client=gtx` endpoint of `translate.googleapis.com`; one POST carries several `q` parameters, so several paragraphs share one request |
-| Microsoft Translator (free) | None | First tries to get a token from `edge.microsoft.com/translate/auth` and call `api-edge.cognitive.microsofttranslator.com`; when Microsoft has retired the token endpoint, it switches to `edge.microsoft.com/translate/translatetext`. Both routes accept arrays natively The panel option “Use my key (Azure Translator)” calls the official `api.cognitive.microsofttranslator.com` instead: create a Translator resource in the Azure portal, then copy its key and region from Keys and Endpoint into the panel (the region can stay empty for a global resource). |
+| Microsoft Translator (free) | None | First tries to get a token from `edge.microsoft.com/translate/auth` and call `api-edge.cognitive.microsofttranslator.com`; when Microsoft has retired the token endpoint, it switches to `edge.microsoft.com/translate/translatetext`. Both routes accept arrays natively. The panel option “Use my key (Azure Translator)” calls the official `api.cognitive.microsofttranslator.com` instead: create a Translator resource in the Azure portal, then copy its key and region from Keys and Endpoint into the panel (the region can stay empty for a global resource). |
 | DeepLX | Endpoint required | A self-hosted or third-party DeepLX service; the token is optional. If the endpoint contains `{{apiKey}}`, the token replaces it; otherwise it is sent as `Authorization: Bearer` |
 
 ### AI providers
@@ -239,7 +239,7 @@ Some providers have extra requirements:
 
 Each AI provider has a "Thinking mode" switch, off by default. Translation does not need the model to reason first, and reasoning makes requests slower and more expensive. Several current models reason unless told otherwise, for example `deepseek-flash`, `claude-haiku-5-5` and `gemini-2.5-flash`, so "off" is sent explicitly.
 
-Every provider spells the switch differently, and within one provider only some models accept it. The extension matches the model name against the patterns below and sends the provider options of the first match; a model without a match gets no thinking parameter. While thinking is on, no temperature is sent, because reasoning models ignore or reject it.
+Every provider spells the switch differently, and within one provider only some models accept it. The extension matches the model name against the patterns below and sends the provider options of the first match; a model without a match gets no thinking parameter. While thinking is on, no temperature is sent for models that match a pattern in the table, because reasoning models ignore or reject it.
 
 | Provider | Models | Off | On | Source |
 | --- | --- | --- | --- | --- |
@@ -285,8 +285,8 @@ A message usually has between ten and a few dozen paragraphs. With one request p
 
 1. The content script hands every paragraph to be translated to the background script.
 2. The background script looks up the cache first and answers directly on a hit. The cache key consists of the provider, the model, the target language, a signature of the system prompt, in precise mode the hash of the message, and a hash of the paragraph text. When the same text is already being translated, later requests share the same result.
-3. Paragraphs not in the cache enter the batch queue, grouped by provider + model + endpoint + target language, in precise mode also by message. Paragraphs of one group accumulate for 50 ms. A group is sent when the window ends, when the paragraph limit is reached, or when the next paragraph would exceed the character limit. A single paragraph longer than the character limit forms its own batch.
-4. The request queue executes each batch. It limits concurrency and retries 429, 5xx and network errors with exponential backoff; when the server sends `Retry-After`, it waits for that time. Errors such as 401 and 400 are reported without retrying.
+3. Paragraphs not in the cache enter the batch queue, grouped by provider + model + endpoint + target language; AI services are also grouped by system prompt, Microsoft Translator by free or key mode, and in precise mode by message. Paragraphs of one group accumulate for 50 ms. A group is sent when the window ends, when the paragraph limit is reached, or when the next paragraph would exceed the character limit. A single paragraph longer than the character limit forms its own batch.
+4. The request queue executes each batch. It limits concurrency and retries 408, 429, 5xx and network errors with exponential backoff; when the server sends `Retry-After`, it waits for that time, up to 30 seconds. Errors such as 401 and 400 are reported without retrying.
 5. Results go to the in-memory cache and are written to `storage.local` in one write after 1 second. The cache evicts the least recently used (LRU) entries.
 
 ### How each service merges paragraphs
@@ -338,7 +338,7 @@ Input tokens drop by about 63%, and the number of requests drops from 20 to 1. O
 
 - Translations are plain text. Links, bold text and other inline formatting of the original are not kept in the translation. In bilingual mode the original stays fully usable; in translation-only mode you can hover to see the original or switch back to bilingual.
 - The free Google and Microsoft endpoints are undocumented and may change or be rate-limited. Microsoft retired the token endpoint `edge.microsoft.com/translate/auth` in July 2026 (it returns 404). The extension still tries the token endpoint on the first request, falls back to the direct endpoint after a failure, and does not try the token endpoint again for one hour.
-- To decide whether a paragraph is already in the target language, Chinese, Japanese, Korean and similar scripts are judged by character class, and Latin-script languages first use `i18n.detectLanguage` of the extension API. When that API is unavailable or its result is unreliable, only English is detected reliably; paragraphs in other Latin-script languages are sent for translation as usual.
+- To decide whether a paragraph is already in the target language, Chinese, Japanese, Korean and similar scripts are judged by character class, and Latin- and Cyrillic-script languages first use `i18n.detectLanguage` of the extension API. When that API is unavailable or its result is unreliable, only English is detected reliably; paragraphs in other Latin-script languages are sent for translation as usual.
 - The content script is registered through `messageDisplayScripts` and reaches only messages opened after registration. On startup the extension tries to inject it into messages already open; if that fails, selecting the message again is enough.
 - Error messages produced by the extension are translated. Error texts returned by a translation service or by the AI SDK (for example the body of an HTTP 401 response) are shown as received, usually in English.
 - The extension name, its description in the Add-ons Manager and the shortcut descriptions follow Thunderbird's interface language, not the interface language option.
@@ -373,6 +373,7 @@ locales/         interface text, one JSON file per language; en.json is the refe
 static/          manifest.json, HTML, CSS, SVG icon
 scripts/         build, locale generation and checks, live endpoint test
 readmes/         translated versions of this README
+docs/            demo GIF used in this README
 tests/           vitest tests
 ```
 

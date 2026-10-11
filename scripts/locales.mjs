@@ -8,8 +8,8 @@ import { dirname, join, resolve } from "node:path"
 import { fileURLToPath } from "node:url"
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..")
-export const LOCALES_DIR = join(root, "locales")
-export const REFERENCE_LOCALE = "en"
+const LOCALES_DIR = join(root, "locales")
+const REFERENCE_LOCALE = "en"
 
 /** { locale: { key: text } } for every locales/*.json. */
 export function readLocaleSources(dir = LOCALES_DIR) {
