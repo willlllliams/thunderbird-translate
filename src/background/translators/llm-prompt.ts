@@ -1,0 +1,212 @@
+/**
+ * Prompts for LLM translation and a tolerant parser for batched output.
+ *
+ * Batching: N paragraphs go into one request as numbered <seg> blocks and the
+ * model is asked for a JSON array of N strings. The system prompt and the
+ * instructions are sent once per batch instead of once per paragraph.
+ */
+
+export const DEFAULT_SYSTEM_PROMPT = `You are a professional translator working on email messages.
+Translate the user's text into {{to}}.
+Rules:
+- Preserve the meaning, tone and level of politeness of the original email.
+- Keep names, email addresses, URLs, numbers, dates, code and product names unchanged unless they have an established translation.
+- Keep line breaks and list markers.
+- If a passage is already in {{to}}, return it unchanged.
+- Output only the translation. Do not add explanations, notes, quotes or labels.`
+
+export function buildSystemPrompt(custom: string, targetLanguageName: string): string {
+  const template = custom.trim() ? custom : DEFAULT_SYSTEM_PROMPT
+  return template.replaceAll("{{to}}", targetLanguageName)
+}
+
+export function buildSinglePrompt(text: string, targetLanguageName: string): string {
+  return `Translate the following text into ${targetLanguageName}. Output only the translation.\n\n${text}`
+}
+
+export function buildBatchPrompt(texts: string[], targetLanguageName: string): string {
+  const n = texts.length
+  const segments = texts.map((t, i) => `<seg id="${i + 1}">\n${t}\n</seg>`).join("\n")
+  return `Translate each of the following ${n} segments into ${targetLanguageName}.
+Return ONLY a JSON array of exactly ${n} strings, where the i-th string is the translation of segment i.
+Do not merge, split, skip or reorder segments. Encode line breaks inside a string as \\n. Do not wrap the array in Markdown and do not add any other text.
+
+${segments}`
+}
+
+/** Remove reasoning blocks and Markdown fences that some models add. */
+export function cleanModelOutput(raw: string): string {
+  return raw
+    .replace(/<think>[\s\S]*?<\/think>/gi, "")
+    .replace(/^\s*```[a-zA-Z]*\s*\n?/, "")
+    .replace(/\n?\s*```\s*$/, "")
+    .trim()
+}
+
+/** Clean up a single-paragraph answer. */
+export function cleanSingleOutput(raw: string): string {
+  let s = cleanModelOutput(raw)
+  // A model sometimes echoes the batch envelope even for one paragraph.
+  const seg = /^<seg id="1">\n?([\s\S]*?)\n?<\/seg>$/.exec(s)
+  if (seg) s = seg[1]
+  return s.trim()
+}
+
+function asText(value: unknown): string | null {
+  if (typeof value === "string") return value
+  if (typeof value === "number") return String(value)
+  if (value && typeof value === "object") {
+    const o = value as Record<string, unknown>
+    for (const k of ["translation", "text", "t", "content", "value"]) {
+      if (typeof o[k] === "string") return o[k] as string
+    }
+  }
+  return null
+}
+
+/** Escape raw control characters inside JSON string literals (a frequent LLM mistake). */
+export function repairJsonStrings(s: string): string {
+  let out = ""
+  let inString = false
+  let escaped = false
+  for (const ch of s) {
+    if (inString) {
+      if (escaped) {
+        escaped = false
+        out += ch
+        continue
+      }
+      if (ch === "\\") {
+        escaped = true
+        out += ch
+        continue
+      }
+      if (ch === '"') inString = false
+      if (ch === "\n") out += "\\n"
+      else if (ch === "\r") out += "\\r"
+      else if (ch === "\t") out += "\\t"
+      else out += ch
+    } else {
+      if (ch === '"') inString = true
+      out += ch
+    }
+  }
+  return out
+}
+
+function tryParseJson(s: string): unknown {
+  try {
+    return JSON.parse(s)
+  } catch {
+    try {
+      // Also drop trailing commas: ["a","b",]
+      return JSON.parse(repairJsonStrings(s).replace(/,\s*([\]}])/g, "$1"))
+    } catch {
+      return undefined
+    }
+  }
+}
+
+function fromJson(value: unknown, n: number): string[] | null {
+  let list: unknown = value
+  if (list && typeof list === "object" && !Array.isArray(list)) {
+    const o = list as Record<string, unknown>
+    const arrayField = ["translations", "results", "segments", "data", "output"].find((k) => Array.isArray(o[k]))
+    if (arrayField) list = o[arrayField]
+    else {
+      // {"1": "...", "2": "..."}
+      const keyed: string[] = []
+      for (let i = 1; i <= n; i++) {
+        const t = asText(o[String(i)])
+        if (t === null) return null
+        keyed.push(t)
+      }
+      return keyed
+    }
+  }
+  if (!Array.isArray(list) || list.length !== n) return null
+  // [{id: 2, text}, {id: 1, text}] – honour ids when every item carries one.
+  const ids = list.map((item) => (item && typeof item === "object" ? Number((item as { id?: unknown }).id) : NaN))
+  if (ids.every((id) => Number.isInteger(id))) {
+    const sorted = new Array<string | null>(n).fill(null)
+    list.forEach((item, i) => {
+      if (ids[i] >= 1 && ids[i] <= n) sorted[ids[i] - 1] = asText(item)
+    })
+    if (sorted.every((t) => t !== null)) return sorted as string[]
+  }
+  const texts = list.map(asText)
+  return texts.every((t) => t !== null) ? (texts as string[]) : null
+}
+
+/**
+ * Parse a batched answer into exactly `n` strings, or return null so the
+ * caller can fall back to one request per paragraph.
+ *
+ * Accepted forms, tried in order:
+ * 1. JSON array (or an object wrapping one), possibly inside a code fence or
+ *    surrounded by chatter;
+ * 2. echoed <seg id="k">…</seg> blocks;
+ * 3. numbered lines: "[1] …", "1. …", "1) …";
+ * 4. paragraphs separated by standalone "%%" lines.
+ */
+export function parseBatchOutput(raw: string, n: number): string[] | null {
+  const s = cleanModelOutput(raw)
+  if (!s) return null
+
+  // 1. JSON
+  const direct = tryParseJson(s)
+  if (direct !== undefined) {
+    const r = fromJson(direct, n)
+    if (r) return r.map((t) => t.trim())
+  }
+  const first = s.indexOf("[")
+  const last = s.lastIndexOf("]")
+  if (first !== -1 && last > first) {
+    const parsed = tryParseJson(s.slice(first, last + 1))
+    if (parsed !== undefined) {
+      const r = fromJson(parsed, n)
+      if (r) return r.map((t) => t.trim())
+    }
+  }
+
+  // 2. <seg id="k"> blocks
+  const segRe = /<seg\s+id=["']?(\d+)["']?\s*>([\s\S]*?)<\/seg>/gi
+  const segs = new Map<number, string>()
+  for (const m of s.matchAll(segRe)) segs.set(Number(m[1]), m[2].trim())
+  if (segs.size === n && [...Array(n).keys()].every((i) => segs.has(i + 1))) {
+    return [...Array(n).keys()].map((i) => segs.get(i + 1)!)
+  }
+
+  // 3. Numbered lines; ids must run 1..n in order.
+  const numbered: string[] = []
+  let currentId = 0
+  let ok = true
+  for (const line of s.split(/\r?\n/)) {
+    const m = /^\s*(?:\[(\d+)\]|(\d+)[.:)、])\s*(.*)$/.exec(line)
+    const id = m ? Number(m[1] ?? m[2]) : NaN
+    if (m && id === currentId + 1) {
+      currentId = id
+      numbered.push(m[3])
+    } else if (currentId > 0) {
+      numbered[currentId - 1] += `\n${line}`
+    } else if (line.trim()) {
+      ok = false
+      break
+    }
+  }
+  if (ok && currentId === n) return numbered.map((t) => t.trim())
+
+  // 4. %% separators
+  const parts = s.split(/\r?\n[ \t]*%%[ \t]*\r?\n/)
+  if (parts.length === n && n > 1) return parts.map((t) => t.trim())
+
+  return null
+}
+
+/** Claude 5.x and later reject custom sampling parameters. */
+export function modelRejectsTemperature(providerId: string, model: string): boolean {
+  if (providerId === "anthropic") {
+    return /claude-(?:(?:opus|sonnet|haiku|fable|mythos)-[5-9])|claude-opus-4-[78]/.test(model)
+  }
+  return false
+}
