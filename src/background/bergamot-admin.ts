@@ -1,11 +1,11 @@
 /**
  * Offline models (Bergamot) for the settings page: list, install with
- * progress and cancel, remove. Everything runs in the background script,
- * where the engine lives, so the engine notices every change. Progress is
- * polled by the page.
+ * progress and cancel, remove, and the directions a language pair needs.
+ * Everything runs in the background script, where the engine lives, so the
+ * engine notices every change. Progress is polled by the page.
  */
 
-import { getBergamot } from "../offline/bergamot"
+import { getBergamot, requiredPairs } from "../offline/bergamot"
 import { normalizeBergamotLang } from "../offline/bergamot/languages"
 import { describeError } from "../shared/errors"
 import { getI18n } from "../shared/i18n"
@@ -58,6 +58,14 @@ export async function handleBergamot(req: BergamotRequest): Promise<unknown> {
         return { ok: true } satisfies BergamotResult
       } catch (error) {
         return failure(error)
+      }
+    case "bergamotRequired":
+      try {
+        const required = requiredPairs(req.src, req.tgt)
+        return { required, missing: await getBergamot().missingPairs(required) }
+      } catch {
+        // Unknown language: nothing can be said.
+        return { required: [], missing: [] }
       }
   }
 }

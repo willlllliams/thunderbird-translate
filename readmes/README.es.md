@@ -6,8 +6,6 @@ Thunderbird Translate es una extensión de Thunderbird que traduce el cuerpo del
 
 Este documento está escrito para lectores que no han usado antes una extensión de Thunderbird. Sigue el orden instalación, uso, configuración y funcionamiento interno.
 
-![Demostración: traducir un mensaje, alternar entre bilingüe y solo traducción, cambiar el idioma de destino](../docs/demo.gif)
-
 ## Funciones
 
 - Traducción del cuerpo: la extensión localiza el contenido a nivel de párrafo en el cuerpo del mensaje: párrafos, elementos de lista, celdas de tabla, encabezados, citas en bloque, div que solo contienen texto y párrafos separados por líneas en blanco en el correo de texto sin formato. Se omiten el código, los párrafos que ya están en el idioma de destino, los números, los enlaces sueltos y los espacios en blanco.
@@ -67,7 +65,7 @@ La siguiente visita empieza en el paso en que se dejó la guía. Después de "Te
 | 1 Idiomas | idioma de la interfaz, idioma de origen ("Detectar automáticamente" de forma predeterminada), idioma de destino | siempre |
 | 2 Visualización | bilingüe o solo traducción, con una vista previa de un mensaje de ejemplo en el estilo de traducción actual | siempre |
 | 3 Niveles de traducción | velocidad, calidad, privacidad y coste de los niveles de diccionario, traducción automática e IA; el servicio de cada nivel o "No se usa", con al menos un nivel con servicio | siempre |
-| 4 Traducción sin conexión | los paquetes de diccionario y las direcciones de Bergamot que necesitan los idiomas del paso 1, con tamaño, licencia y atribución; se marcan los que se quieren descargar y "Descargar lo seleccionado" los descarga mostrando el progreso | el nivel de diccionario está en uso o el nivel de traducción automática usa Bergamot |
+| 4 Traducción sin conexión | todos los paquetes de diccionario y todas las direcciones de Bergamot, con tamaño, licencia y atribución, los de sus idiomas primero y ya marcados; se marcan los que se quieren descargar y "Descargar lo seleccionado" los descarga mostrando el progreso, o "Descargar idiomas habituales" | el nivel de diccionario está en uso o el nivel de traducción automática usa Bergamot |
 | 5 Traducción automática en línea | los campos del traductor automático: nada que rellenar para Google, modo gratuito o modo con clave de Azure para Microsoft, endpoint y token para DeepLX; "Probar conexión" | el nivel de traducción automática usa Google, Microsoft o DeepLX |
 | 6 Traducción de IA | el proveedor de IA, su clave de API, el modelo, la temperatura y el modo de razonamiento, "Probar conexión" y la opción "Traducción precisa"; un aviso de que el modo de razonamiento y la traducción precisa hacen la traducción más lenta y más cara | el nivel de IA está en uso |
 | 7 Prompts | los tres prompts y la biblioteca de preajustes (véase "Preajustes de prompt") | el nivel de IA está en uso |
@@ -75,12 +73,12 @@ La siguiente visita empieza en el paso en que se dejó la guía. Después de "Te
 
 Un paso que las elecciones anteriores no necesitan sigue en la lista, tachado, y la navegación lo salta. Por ejemplo, elegir un servicio de IA en el paso 3 hace que vuelvan los pasos 6 y 7.
 
-Con japonés como idioma de origen y chino simplificado como idioma de destino, el paso 4 recomienda estas descargas:
+El paso 4 lista todas las direcciones de ambos catálogos; el orden y las etiquetas se describen en la sección [Listas sin conexión](#listas-sin-conexión). Lo que aparece marcado depende del idioma de origen:
 
-- Diccionario: el paquete japonés → chino si la versión publicada lo incluye; si no, los dos paquetes japonés → inglés e inglés → chino.
-- Bergamot: las direcciones ja → en y en → zh-Hans, porque todos los modelos de Bergamot tienen el inglés en uno de sus lados.
+- Idioma de origen fijo: las direcciones que necesita el par. Para japonés → chino simplificado son el paquete de diccionario japonés → chino si la versión publicada lo incluye; si no, japonés → inglés e inglés → chino, y las direcciones de Bergamot ja → en y en → zh-Hans, porque todos los modelos de Bergamot tienen el inglés en uno de sus lados.
+- "Detectar automáticamente": las direcciones de los idiomas recomendados en ambos sentidos con el inglés. Un aviso explica la ruta: un mensaje en otro idioma pasa al inglés con "idioma → inglés" y de ahí al idioma de destino con "inglés → idioma de destino".
 
-Con "Detectar automáticamente", el paso 4 recomienda los paquetes y las direcciones desde el inglés. Un aviso pide entonces instalar la dirección hacia el inglés de cada uno de los demás idiomas en que recibe correo.
+"Descargar lo seleccionado" está desactivado mientras no haya nada marcado, y la línea contigua dice entonces "Marque primero los elementos que desea descargar.". Durante la descarga muestra "Descargando N elementos…", al final "Descargas completadas." o el número de descargas fallidas; cada fila fallida muestra su motivo.
 
 "Traducir el mensaje de ejemplo", en el paso 8, muestra en la página un correo breve (en el idioma de origen si es inglés o alemán; si no, en inglés, o en alemán cuando el idioma de destino es el inglés) y lo traduce con la configuración actual. La página usa la detección de párrafos y el dibujado del script de contenido. Envía las solicitudes al script de segundo plano por la misma conexión que un mensaje mostrado. Por eso el resultado muestra cómo se verá un mensaje real, incluidos los niveles en uso.
 
@@ -93,7 +91,7 @@ Abra un mensaje. En la barra de herramientas de la cabecera del mensaje aparece 
 - "Traducir este mensaje": inicia la traducción. Mientras una traducción está en curso o se muestra, el botón dice "Mostrar original" y, al hacer clic, restaura el original.
 - Visualización: cambia entre bilingüe y solo traducción; el cambio se aplica de inmediato al mensaje actual.
 - Idioma de origen e idioma de destino: "Detectar automáticamente" es el idioma de origen predeterminado. Tras un cambio de cualquiera de los dos, el mensaje que se está traduciendo se vuelve a traducir. Si ambos son el mismo idioma, aparece un aviso.
-- Niveles de traducción: una lista por nivel ("Nivel 1: Diccionario", "Nivel 2: Traducción automática", "Nivel 3: Traducción de IA"), cada una con "No se usa" y los servicios añadidos de ese nivel. Al menos un nivel necesita un servicio; si se elige "No se usa" en el último que queda, el cambio se rechaza con un aviso. "+ Añadir servicio de traducción", debajo de las listas, abre la página de configuración en los servicios de traducción.
+- Niveles de traducción: una lista por nivel ("Nivel 1: Diccionario", "Nivel 2: Traducción automática", "Nivel 3: Traducción de IA"), cada una con "No se usa", los servicios añadidos de ese nivel y, como última entrada, "+ Añadir servicio de traducción…". Esa entrada abre la página de configuración en los servicios de traducción del nivel y deja la lista en su valor. Al menos un nivel necesita un servicio; si se elige "No se usa" en el último que queda, el cambio se rechaza con un aviso. Un diccionario o un Bergamot seleccionado al que le faltan datos para los idiomas actuales aparece marcado, véase [Datos sin conexión que faltan](#datos-sin-conexión-que-faltan).
 - Traducción precisa: aparece mientras el nivel de IA tiene un servicio.
 - Traducir automáticamente los mensajes que no estén en el idioma de destino: si está marcada, un mensaje cuyo cuerpo no está en el idioma de destino se traduce en cuanto se abre.
 - Guía de configuración: abre la guía de configuración en una pestaña nueva.
@@ -111,10 +109,10 @@ Abra la página de configuración con el botón "Opciones" de esta extensión en
 | Sección | Contenido |
 | --- | --- |
 | General | Idioma de la interfaz, idioma de origen, idioma de destino, modo de visualización predeterminado, opción "Traducir automáticamente los mensajes que no estén en el idioma de destino" |
-| Niveles de traducción | El servicio de cada nivel o "No se usa"; traducción precisa |
-| Servicios de traducción | Servicios en dos grupos, "Añadidos" y "Disponibles"; endpoint, clave de API, modelo, temperatura y modo de razonamiento de cada servicio; botones "Probar conexión", "Añadir", "Usar este servicio" y "Quitar" |
-| Diccionarios | Pares de idiomas del nivel de diccionario con tamaño, licencia y atribución; descarga y eliminación; etiqueta de versión de los paquetes (avanzado) |
-| Modelos de traducción sin conexión (Bergamot) | Pares de direcciones de los modelos de Bergamot con tamaño y versión; filtro por idioma; descarga, actualización, cancelación y eliminación; las direcciones que necesitan los idiomas actuales |
+| Niveles de traducción | El servicio de cada nivel o "No se usa", con la marca de un servicio sin conexión al que le faltan datos; traducción precisa; los avisos silenciados sobre datos sin conexión que faltan, con "Volver a avisarme" |
+| Servicios de traducción | Servicios en dos grupos, "Añadidos" y "Disponibles", filtrados por nivel; endpoint, clave de API, modelo, temperatura y modo de razonamiento de cada servicio; botones "Probar conexión", "Añadir", "Usar este servicio" y "Quitar" |
+| Diccionarios | Todos los paquetes de la versión publicada con tamaño, licencia y atribución, los de los idiomas recomendados primero; filtro; "Descargar idiomas habituales"; descarga y eliminación; etiqueta de versión de los paquetes (avanzado) |
+| Modelos de traducción sin conexión (Bergamot) | Todas las direcciones de los modelos de Bergamot con tamaño y versión, las de los idiomas recomendados primero; filtro por idioma; "Descargar idiomas habituales"; descarga, actualización, cancelación y eliminación; las direcciones que necesitan los idiomas actuales |
 | Prompts (nivel de IA) | La biblioteca de preajustes; los prompts de la visualización bilingüe, de la visualización solo de la traducción y de la traducción precisa, cada uno con "Restaurar el prompt integrado" |
 | Agrupación de solicitudes | Ventana de recogida, máximo de caracteres y de párrafos por solicitud, concurrencia, reintentos, tiempo de espera por solicitud (60 segundos de forma predeterminada; el triple para Ollama, LM Studio y el modo de razonamiento), si se combinan las solicitudes de IA |
 | Estilo de la traducción | Borde izquierdo, borde izquierdo discontinuo, resaltado o sin formato; color de acento, opacidad del texto, proporción del tamaño de letra; vista previa inmediata |
@@ -205,6 +203,7 @@ La línea "Ejemplo" muestra una frase de origen y el resultado esperado con el p
 
 | Preajuste | Variantes | Regla que se añade al prompt |
 | --- | --- | --- |
+| Normal (sin reglas añadidas), la primera entrada | ninguna | ninguna: al aplicarlo se eliminan todos los bloques que un preajuste añadió al prompt y se conserva el texto escrito por usted; un prompt que pasa a ser el integrado se guarda de nuevo vacío |
 | Dialecto o uso regional | según el idioma de destino: cantonés (Hong Kong) y sichuanés para el chino simplificado; cantonés (Hong Kong) y uso de Taiwán para el chino tradicional; inglés británico e inglés estadounidense; portugués de Brasil y portugués europeo; español de México y español de España; francés canadiense (Quebec); alemán estándar suizo | escribir en esa variedad, con su ortografía, su vocabulario y sus formas de tratamiento |
 | Palabras difíciles con el original | ninguna | traducir con normalidad y poner el término original entre paréntesis después de cada palabra difícil o término técnico, una vez por párrafo, por ejemplo "auditoría previa (due diligence)" |
 | Explicación de palabras difíciles | ninguna | traducir el párrafo y después explicar sus palabras difíciles en el idioma de destino al final del mismo párrafo, dentro de un solo corchete: 〔Nota: término: explicación; …〕 |
@@ -266,7 +265,44 @@ Los paquetes se generan a partir de Wiktionary, extraído con wiktextract y publ
 
 El servicio Bergamot traduce en su ordenador con el motor y los modelos de Firefox Translations, publicados por Mozilla bajo la licencia MPL-2.0. El motor viene incluido en la extensión; cada dirección de traducción se descarga una sola vez de Mozilla, entre 13 y 48 MB, y se guarda en la IndexedDB de la extensión. Una dirección cargada ocupa unos 200 MB de memoria y se libera tras cinco minutos sin uso. Todos los modelos tienen el inglés en uno de los lados, así que del japonés al chino se usan japonés → inglés e inglés → chino.
 
-La sección "Modelos de traducción sin conexión (Bergamot)" de la página de configuración muestra los 114 pares de direcciones entre 58 idiomas con su tamaño y su versión, y se puede filtrar por idioma. Nombra las direcciones que necesitan el idioma de origen y el de destino actuales y las coloca al principio. Las descargas muestran su progreso y se pueden cancelar; la carga de la lista de modelos falla tras 30 segundos sin respuesta, y una descarga que no recibe datos durante 30 segundos se detiene con un error; un par instalado para el que Mozilla ofrece una versión más reciente muestra "Actualizar". Eliminar un par que necesitan los idiomas actuales pide confirmación. La instalación, la traducción y la eliminación se ejecutan en el script de segundo plano, donde reside el motor. [docs/bergamot.md](../docs/bergamot.md) describe la selección de modelos, la verificación, el almacenamiento y el motor.
+La sección "Modelos de traducción sin conexión (Bergamot)" de la página de configuración muestra los 114 pares de direcciones entre 58 idiomas con su tamaño y su versión, en el orden descrito en la sección [Listas sin conexión](#listas-sin-conexión). Nombra las direcciones que necesitan el idioma de origen y el de destino actuales. Las descargas muestran su progreso y se pueden cancelar; la carga de la lista de modelos falla tras 30 segundos sin respuesta, y una descarga que no recibe datos durante 30 segundos se detiene con un error; un par instalado para el que Mozilla ofrece una versión más reciente muestra "Actualizar". Eliminar un par que necesitan los idiomas actuales pide confirmación. La instalación, la traducción y la eliminación se ejecutan en el script de segundo plano, donde reside el motor. [docs/bergamot.md](../docs/bergamot.md) describe la selección de modelos, la verificación, el almacenamiento y el motor.
+
+## Listas sin conexión
+
+La lista de diccionarios y la lista de Bergamot, en la página de configuración y en el paso 4 de la guía de configuración, muestran todas las direcciones de su catálogo y las instaladas. Un campo de filtro admite nombres de idiomas o direcciones como `ja>en`; varios términos se separan con comas.
+
+Las direcciones de los idiomas recomendados van primero. Un idioma recomendado procede de una o de varias de estas fuentes, por orden de importancia:
+
+1. el idioma de destino;
+2. el idioma de origen, cuando es fijo;
+3. el idioma de la interfaz de la extensión ("Seguir a Thunderbird" cuenta como el idioma de Thunderbird);
+4. el idioma de la interfaz de Thunderbird;
+5. los idiomas del sistema (`i18n.getPreferredSystemLanguages()`; las versiones de Thunderbird que no tienen esa función usan la configuración regional de los formatos `Intl`).
+
+Para cada idioma recomendado X distinto del inglés se recomiendan las direcciones X → inglés e inglés → X y, para el diccionario, también los paquetes directos entre X y el idioma de destino cuando la versión publicada los incluye. Cada fila recomendada lleva sus fuentes como etiquetas ("Idioma de destino", "Idioma de origen", "Idioma del complemento", "Idioma de Thunderbird", "Idioma del sistema"), además de "Directa" para una dirección hacia el idioma de destino y "Vía inglés" para una dirección hacia el inglés que sirve a la ruta por el inglés. Las demás direcciones siguen por nombre.
+
+"Descargar idiomas habituales" descarga las direcciones desde y hacia el inglés de ocho idiomas fijos: chino simplificado, español, francés, alemán, japonés, portugués, ruso y coreano, en la medida en que el catálogo los incluya. Antes de descargar, el botón lista las direcciones y su tamaño total; las direcciones ya instaladas se omiten. Cuando todas están instaladas, el botón queda desactivado y muestra "Todos los idiomas habituales están instalados.".
+
+## Datos sin conexión que faltan
+
+La regla sobre lo que necesita un par de idiomas es la misma en todas partes:
+
+| Servicio | Par con el inglés en uno de los lados | Par sin inglés |
+| --- | --- | --- |
+| Diccionario | el paquete directo | el paquete directo si la versión publicada lo incluye; si no, origen → inglés e inglés → destino |
+| Bergamot | la dirección directa | origen → inglés e inglés → destino |
+
+El chino simplificado ↔ tradicional y los pares cuyas direcciones el catálogo no ofrece no se admiten: no hay nada que descargar, y los párrafos pasan a los demás niveles.
+
+Cuando el nivel de diccionario o Bergamot en el nivel de traducción automática falla en párrafos de un mensaje porque falta un paquete o un modelo, aparece un aviso sobre el mensaje en cuanto termina la primera ronda de traducción. Aparece una vez por mensaje y solo para los niveles sin conexión en uso. Lista una línea por servicio y par de idiomas, por ejemplo "Diccionario: japonés → chino simplificado, falta: japonés → inglés e inglés → chino simplificado", y tiene tres controles:
+
+- "Descargar en la configuración" abre la página de configuración con las dos listas sin conexión filtradas por las direcciones que faltan.
+- "No volver a avisarme para estos idiomas" silencia las entradas listadas, por servicio y par de idiomas. Las entradas silenciadas se listan en "Niveles de traducción" de la página de configuración ("Avisos de datos sin conexión que faltan"), y "Volver a avisarme" las recupera.
+- "Cerrar" quita el aviso.
+
+No cuentan los párrafos cuyo idioma solo se ha supuesto, los errores de red ni los pares no admitidos. Los párrafos siguen recibiendo las traducciones de los demás niveles; si solo hay niveles sin conexión en uso, siguen fallidos.
+
+En la ventana emergente y en la página de configuración, un diccionario o un Bergamot seleccionado al que le falta lo que necesitan los idiomas actuales aparece como "Diccionario (modelo local sin descargar)" o "Bergamot (modelo local sin descargar)" en rojo, y una línea bajo las listas de niveles nombra las direcciones que faltan con un enlace "Descargar" a las listas filtradas. Con detección automática cuenta la dirección del inglés al idioma de destino; si el inglés es el idioma de destino, al menos una dirección hacia el inglés. Un par no admitido se nombra en esa línea sin rojo. Las marcas siguen las instalaciones y eliminaciones hechas en otras páginas.
 
 ## Idioma de la interfaz
 

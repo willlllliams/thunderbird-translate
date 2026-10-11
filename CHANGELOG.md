@@ -12,6 +12,7 @@ All notable changes to this project are documented in this file. Versions follow
 - "Download common languages" in both lists downloads the directions to and from English of eight fixed languages (Simplified Chinese, Spanish, French, German, Japanese, Portuguese, Russian, Korean) as far as the catalog has them. It first lists what it would download with the total size; installed directions are left out, and when all are installed the button is disabled and says so.
 - Prompt presets: "Plain (no added rules)" is the first entry of the preset list. Applied to a prompt it removes every rule block that a preset added and keeps the text the user wrote; a prompt that is then the built-in one is stored as empty again.
 - The tier selectors of the popup and the settings page end with "+ Add translation service…". It opens the service list of the settings page filtered to the services of that tier and leaves the selector at its value. The service list has a filter by tier.
+- `docs/promo-video-prompt.md`: the complete prompt for a 20-second promotional video in an isometric 2.5D style, with the changes made to the style template and why (in Chinese).
 
 ### Fixed
 
@@ -21,6 +22,10 @@ All notable changes to this project are documented in this file. Versions follow
 
 - The "+ Add translation service" link of the popup is replaced by the last entry of each tier selector.
 - One module (`src/shared/offline-needs.ts`) decides what a language pair needs from the dictionary and Bergamot: the direct pack when English is on one side, otherwise the direct dictionary pack when the release offers it, else the two directions through English; Simplified ↔ Traditional Chinese and directions the catalog does not offer are unsupported. The background script, the tier marks and the setup guide use it.
+
+### Removed
+
+- The demo animation `docs/demo.gif` (5.2 MB) and the image line that showed it at the top of README.md and of the 11 translated READMEs.
 
 ## 1.6.2
 

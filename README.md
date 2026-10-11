@@ -6,8 +6,6 @@ Thunderbird Translate is a Thunderbird extension that translates the body of the
 
 This document is written for readers who have not used a Thunderbird extension before. It follows the order install, use, configure, and how it works.
 
-![Demo: translating a message, switching between bilingual and translation-only, changing the target language](docs/demo.gif)
-
 ## Other languages
 
 Each line below introduces the extension in one language and links to the full README in that language.

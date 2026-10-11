@@ -6,8 +6,6 @@ Thunderbird Translate là một tiện ích của Thunderbird, dùng để dịc
 
 Tài liệu này viết cho người đọc chưa từng dùng tiện ích của Thunderbird. Nội dung đi theo thứ tự: cài đặt, sử dụng, cấu hình và cách hoạt động.
 
-![Minh họa: dịch thư, chuyển giữa song ngữ và chỉ bản dịch, đổi ngôn ngữ đích](../docs/demo.gif)
-
 ## Tính năng
 
 - Dịch nội dung thư: tiện ích tìm nội dung ở cấp đoạn trong phần thân thư, gồm đoạn văn, mục danh sách, ô bảng, tiêu đề, khối trích dẫn, div chỉ chứa văn bản, và các đoạn được ngăn cách bằng dòng trống trong thư văn bản thuần. Mã nguồn, các đoạn đã ở ngôn ngữ đích, con số, liên kết trơn và khoảng trắng được bỏ qua.
@@ -61,7 +59,7 @@ Mỗi bước hỏi một quyết định và lưu lựa chọn ngay. Các nút 
 | 1 Ngôn ngữ | ngôn ngữ giao diện, ngôn ngữ nguồn (mặc định "Tự động phát hiện"), ngôn ngữ đích | luôn hiện |
 | 2 Cách hiển thị | song ngữ hoặc chỉ bản dịch, kèm bản xem trước một thư mẫu theo kiểu bản dịch hiện tại | luôn hiện |
 | 3 Các tầng dịch | tốc độ, chất lượng, quyền riêng tư và chi phí của tầng từ điển, tầng dịch máy và tầng AI; dịch vụ của từng tầng hoặc "Không dùng"; ít nhất một tầng phải có dịch vụ | luôn hiện |
-| 4 Dịch ngoại tuyến | các gói từ điển và chiều dịch Bergamot mà ngôn ngữ ở bước 1 cần, kèm dung lượng, giấy phép và ghi nhận nguồn; đánh dấu mục cần tải rồi nhấn "Tải mục đã chọn", tiến độ tải được hiển thị | tầng từ điển đang dùng hoặc tầng dịch máy dùng Bergamot |
+| 4 Dịch ngoại tuyến | mọi gói từ điển và chiều dịch Bergamot, kèm dung lượng, giấy phép và ghi nhận nguồn, những mục thuộc ngôn ngữ của bạn xếp trước và đã được đánh dấu; đánh dấu mục cần tải rồi nhấn "Tải mục đã chọn", tiến độ tải được hiển thị, hoặc nhấn "Tải xuống các ngôn ngữ phổ biến" | tầng từ điển đang dùng hoặc tầng dịch máy dùng Bergamot |
 | 5 Dịch máy trực tuyến | các trường của trình dịch máy: Google không cần điền gì; Microsoft có "Giao diện mặc định (miễn phí)" và "Dùng khóa của tôi (Azure Translator)"; DeepLX cần điểm cuối và token; nút "Kiểm tra kết nối" | tầng dịch máy dùng Google, Microsoft hoặc DeepLX |
 | 6 Dịch bằng AI | nhà cung cấp AI, khóa API, mô hình, nhiệt độ và chế độ suy nghĩ, nút "Kiểm tra kết nối" và công tắc "Dịch chính xác"; ghi chú rằng chế độ suy nghĩ và dịch chính xác làm việc dịch chậm hơn và tốn kém hơn | tầng AI đang dùng |
 | 7 Lời nhắc | ba lời nhắc và thư viện mẫu có sẵn (xem "Mẫu có sẵn cho lời nhắc") | tầng AI đang dùng |
@@ -69,12 +67,12 @@ Mỗi bước hỏi một quyết định và lưu lựa chọn ngay. Các nút 
 
 Bước mà các lựa chọn trước đó không cần vẫn nằm trong danh sách, bị gạch ngang, và thao tác chuyển bước bỏ qua nó. Ví dụ, chọn một dịch vụ AI ở bước 3 sẽ làm bước 6 và bước 7 xuất hiện lại.
 
-Khi ngôn ngữ nguồn là tiếng Nhật và ngôn ngữ đích là tiếng Trung giản thể, bước 4 đề xuất như sau:
+Bước 4 liệt kê mọi chiều dịch của cả hai danh mục; thứ tự và nhãn được mô tả ở phần [Danh sách ngoại tuyến](#danh-sách-ngoại-tuyến). Mục nào được đánh dấu phụ thuộc vào ngôn ngữ nguồn:
 
-- Từ điển: gói Nhật → Trung nếu bản phát hành có gói này, nếu không thì hai gói Nhật → Anh và Anh → Trung;
-- Bergamot: hai chiều ja → en và en → zh-Hans, vì mọi mô hình Bergamot đều có tiếng Anh ở một phía.
+- Ngôn ngữ nguồn cố định: các chiều dịch mà cặp ngôn ngữ cần. Với Nhật → Trung giản thể, đó là gói từ điển Nhật → Trung nếu bản phát hành có gói này, nếu không thì hai gói Nhật → Anh và Anh → Trung, cùng hai chiều Bergamot ja → en và en → zh-Hans, vì mọi mô hình Bergamot đều có tiếng Anh ở một phía.
+- "Tự động phát hiện": các chiều dịch của những ngôn ngữ được đề xuất, theo cả hai chiều với tiếng Anh. Một ghi chú giải thích tuyến dịch: thư bằng ngôn ngữ khác được dịch sang tiếng Anh bằng chiều "ngôn ngữ → tiếng Anh", rồi từ tiếng Anh sang ngôn ngữ đích bằng chiều "tiếng Anh → ngôn ngữ đích".
 
-Khi chọn "Tự động phát hiện", bước 4 đề xuất các gói và chiều dịch từ tiếng Anh. Một ghi chú bên dưới danh sách đề nghị cài chiều dịch sang tiếng Anh cho mỗi ngôn ngữ khác mà bạn nhận thư.
+Nút "Tải mục đã chọn" bị vô hiệu hóa khi chưa đánh dấu mục nào, và dòng bên cạnh khi đó hiện "Hãy đánh dấu các mục cần tải xuống trước.". Trong lúc tải, nút hiển thị "Đang tải xuống N mục…", khi xong hiển thị "Đã tải xuống xong." hoặc số lượt tải thất bại; mỗi dòng bị lỗi hiện lý do.
 
 Nút "Dịch thư mẫu" ở bước 8 hiển thị một thư ngắn trên trang (bằng ngôn ngữ nguồn khi đó là tiếng Anh hoặc tiếng Đức, nếu không thì bằng tiếng Anh, hoặc bằng tiếng Đức khi ngôn ngữ đích là tiếng Anh) và dịch thư đó bằng cài đặt hiện tại. Trang dùng phần nhận diện đoạn và phần hiển thị của tập lệnh nội dung, và gửi yêu cầu đến tập lệnh nền qua cùng kết nối như một thư đang hiển thị. Vì vậy kết quả cho thấy một thư thật sẽ trông thế nào, kể cả các tầng đang dùng.
 
@@ -87,7 +85,7 @@ Mở một thư. Nút "Dịch thư" xuất hiện trên thanh công cụ ở ph�
 - "Dịch thư này": bắt đầu dịch. Khi bản dịch đang chạy hoặc đang hiển thị, nút đổi thành "Hiện bản gốc" và nhấn vào sẽ khôi phục bản gốc.
 - Hiển thị: chuyển giữa song ngữ và chỉ bản dịch; thay đổi áp dụng ngay cho thư hiện tại.
 - Ngôn ngữ nguồn và ngôn ngữ đích: ngôn ngữ nguồn mặc định là "Tự động phát hiện". Sau khi đổi một trong hai, thư đang được dịch sẽ được dịch lại. Khi hai ngôn ngữ trùng nhau, một dòng ghi chú xuất hiện.
-- Các tầng dịch: mỗi tầng có một danh sách (Tầng 1: Từ điển, Tầng 2: Dịch máy, Tầng 3: Dịch bằng AI), gồm "Không dùng" và các dịch vụ đã thêm của tầng đó. Phải có ít nhất một tầng được gán dịch vụ; khi chọn "Không dùng" cho tầng cuối cùng còn dịch vụ, lựa chọn bị từ chối kèm một dòng ghi chú. Mục "+ Thêm dịch vụ dịch" bên dưới các danh sách mở trang cài đặt tại phần dịch vụ dịch.
+- Các tầng dịch: mỗi tầng có một danh sách (Tầng 1: Từ điển, Tầng 2: Dịch máy, Tầng 3: Dịch bằng AI), gồm "Không dùng", các dịch vụ đã thêm của tầng đó và, ở mục cuối, "+ Thêm dịch vụ dịch…". Mục này mở trang cài đặt tại phần dịch vụ dịch của tầng đó và giữ danh sách ở giá trị trước. Phải có ít nhất một tầng được gán dịch vụ; khi chọn "Không dùng" cho tầng cuối cùng còn dịch vụ, lựa chọn bị từ chối kèm một dòng ghi chú. Từ điển hoặc Bergamot đã chọn mà thiếu dữ liệu cho các ngôn ngữ hiện tại sẽ được đánh dấu, xem [Thiếu dữ liệu ngoại tuyến](#thiếu-dữ-liệu-ngoại-tuyến).
 - Dịch chính xác: hiện khi tầng AI có dịch vụ.
 - Tự động dịch thư không ở ngôn ngữ đích: khi được đánh dấu, thư có nội dung không ở ngôn ngữ đích sẽ được dịch ngay khi mở.
 - "Hướng dẫn thiết lập": mở hướng dẫn thiết lập trong một thẻ mới.
@@ -105,10 +103,10 @@ Mở trang cài đặt bằng nút "Tùy chọn" của tiện ích này trong Tr
 | Mục | Nội dung |
 | --- | --- |
 | Chung | Ngôn ngữ giao diện, ngôn ngữ nguồn, ngôn ngữ đích, chế độ hiển thị mặc định, công tắc "Tự động dịch thư không ở ngôn ngữ đích" |
-| Các tầng dịch | Dịch vụ của từng tầng hoặc "Không dùng"; dịch chính xác |
-| Dịch vụ dịch | Dịch vụ chia thành hai nhóm, "Đã thêm" và "Có thể thêm"; điểm cuối, khóa API, mô hình, nhiệt độ và chế độ suy nghĩ của từng dịch vụ; nút "Kiểm tra kết nối", "Thêm", "Dùng dịch vụ này" và "Gỡ" |
-| Từ điển | Các cặp ngôn ngữ của tầng từ điển kèm dung lượng, giấy phép và ghi nhận nguồn; tải xuống và xóa; thẻ bản phát hành của các gói (nâng cao) |
-| Mô hình dịch ngoại tuyến (Bergamot) | Các chiều dịch của mô hình Bergamot kèm dung lượng và phiên bản; lọc theo ngôn ngữ; tải xuống, cập nhật, hủy và xóa; các chiều dịch mà ngôn ngữ hiện tại cần |
+| Các tầng dịch | Dịch vụ của từng tầng hoặc "Không dùng", kèm dấu của dịch vụ ngoại tuyến còn thiếu dữ liệu; dịch chính xác; các thông báo đã tắt về dữ liệu ngoại tuyến còn thiếu, kèm nút "Nhắc lại" |
+| Dịch vụ dịch | Dịch vụ chia thành hai nhóm, "Đã thêm" và "Có thể thêm", lọc theo tầng; điểm cuối, khóa API, mô hình, nhiệt độ và chế độ suy nghĩ của từng dịch vụ; nút "Kiểm tra kết nối", "Thêm", "Dùng dịch vụ này" và "Gỡ" |
+| Từ điển | Mọi gói của bản phát hành kèm dung lượng, giấy phép và ghi nhận nguồn, gói của các ngôn ngữ được đề xuất xếp trước; bộ lọc; "Tải xuống các ngôn ngữ phổ biến"; tải xuống và xóa; thẻ bản phát hành của các gói (nâng cao) |
+| Mô hình dịch ngoại tuyến (Bergamot) | Mọi chiều dịch của mô hình Bergamot kèm dung lượng và phiên bản, chiều dịch của các ngôn ngữ được đề xuất xếp trước; lọc theo ngôn ngữ; "Tải xuống các ngôn ngữ phổ biến"; tải xuống, cập nhật, hủy và xóa; các chiều dịch mà ngôn ngữ hiện tại cần |
 | Lời nhắc (tầng AI) | Thư viện mẫu có sẵn; lời nhắc cho hiển thị song ngữ, hiển thị chỉ bản dịch và dịch chính xác, mỗi lời nhắc có nút "Khôi phục lời nhắc tích hợp sẵn" |
 | Gộp yêu cầu | Thời gian gom đoạn, số ký tự và số đoạn tối đa mỗi yêu cầu, số yêu cầu đồng thời, số lần thử lại, thời gian chờ mỗi yêu cầu (mặc định 60 giây; gấp ba lần với Ollama, LM Studio và chế độ suy nghĩ), có gộp yêu cầu AI hay không |
 | Kiểu bản dịch | Viền trái, viền trái nét đứt, tô sáng hoặc đơn giản; màu nhấn, độ đục của chữ, tỷ lệ cỡ chữ; xem trước trực tiếp |
@@ -199,6 +197,7 @@ Dòng "Ví dụ:" cho thấy một câu nguồn và kết quả mong đợi củ
 
 | Mẫu | Biến thể | Quy tắc thêm vào lời nhắc |
 | --- | --- | --- |
+| Thường (không thêm quy tắc), mục đầu tiên | không có | không có: khi áp dụng, mẫu gỡ mọi khối mà các mẫu đã thêm vào lời nhắc và giữ nguyên văn bản do bạn viết; lời nhắc sau đó trùng với lời nhắc tích hợp sẵn sẽ lại được lưu là rỗng |
 | Phương ngữ hoặc cách dùng vùng miền | theo ngôn ngữ đích: tiếng Quảng Đông (Hồng Kông) và tiếng Tứ Xuyên cho tiếng Trung giản thể; tiếng Quảng Đông (Hồng Kông) và cách dùng ở Đài Loan cho tiếng Trung phồn thể; tiếng Anh Anh và tiếng Anh Mỹ; tiếng Bồ Đào Nha Brazil và tiếng Bồ Đào Nha châu Âu; tiếng Tây Ban Nha Mexico và tiếng Tây Ban Nha (Tây Ban Nha); tiếng Pháp Canada (Québec); tiếng Đức chuẩn Thụy Sĩ | viết bằng biến thể đó, theo chính tả, từ vựng và cách xưng hô của nó |
 | Giữ nguyên văn cho từ khó | không có | dịch bình thường và ghi nguyên văn trong ngoặc sau mỗi từ khó hoặc thuật ngữ chuyên môn, mỗi đoạn một lần, ví dụ "thẩm định (due diligence)" |
 | Giải thích từ khó | không có | dịch đoạn văn, rồi giải thích các từ khó của đoạn bằng ngôn ngữ đích ở cuối chính đoạn đó, trong một cặp ngoặc: 〔Ghi chú: thuật ngữ: giải thích; …〕 |
@@ -260,7 +259,44 @@ Các gói được tạo từ Wiktionary, do wiktextract trích xuất và kaikk
 
 Dịch vụ Bergamot dịch ngay trên máy tính của bạn bằng công cụ dịch và các mô hình của Firefox Translations, do Mozilla phát hành theo giấy phép MPL-2.0. Công cụ dịch đi kèm tiện ích; mỗi chiều dịch được tải xuống một lần từ Mozilla, dung lượng 13 đến 48 MB, và được lưu trong IndexedDB của tiện ích. Một chiều dịch đã nạp chiếm khoảng 200 MB bộ nhớ và được giải phóng sau năm phút không dùng. Mọi mô hình đều có tiếng Anh ở một phía, nên dịch tiếng Nhật sang tiếng Trung dùng chiều Nhật → Anh và chiều Anh → Trung.
 
-Phần "Mô hình dịch ngoại tuyến (Bergamot)" của trang cài đặt liệt kê 114 chiều dịch giữa 58 ngôn ngữ kèm dung lượng và phiên bản, có thể lọc theo ngôn ngữ. Phần này nêu các chiều dịch mà ngôn ngữ nguồn và ngôn ngữ đích hiện tại cần và đưa chúng lên đầu danh sách. Quá trình tải xuống hiển thị tiến độ và có thể hủy; việc tải danh sách mô hình thất bại sau 30 giây không có phản hồi, và quá trình tải xuống không nhận được dữ liệu trong 30 giây sẽ dừng với một thông báo lỗi; một chiều dịch đã cài mà Mozilla cung cấp phiên bản mới hơn sẽ hiện nút "Cập nhật". Khi xóa một chiều dịch mà ngôn ngữ hiện tại cần, tiện ích yêu cầu xác nhận. Việc cài đặt, dịch và gỡ đều chạy trong tập lệnh nền, nơi công cụ dịch hoạt động. [docs/bergamot.md](../docs/bergamot.md) mô tả cách chọn mô hình, kiểm tra, lưu trữ và công cụ dịch.
+Phần "Mô hình dịch ngoại tuyến (Bergamot)" của trang cài đặt liệt kê 114 chiều dịch giữa 58 ngôn ngữ kèm dung lượng và phiên bản, theo thứ tự mô tả ở phần [Danh sách ngoại tuyến](#danh-sách-ngoại-tuyến). Phần này nêu các chiều dịch mà ngôn ngữ nguồn và ngôn ngữ đích hiện tại cần. Quá trình tải xuống hiển thị tiến độ và có thể hủy; việc tải danh sách mô hình thất bại sau 30 giây không có phản hồi, và quá trình tải xuống không nhận được dữ liệu trong 30 giây sẽ dừng với một thông báo lỗi; một chiều dịch đã cài mà Mozilla cung cấp phiên bản mới hơn sẽ hiện nút "Cập nhật". Khi xóa một chiều dịch mà ngôn ngữ hiện tại cần, tiện ích yêu cầu xác nhận. Việc cài đặt, dịch và gỡ đều chạy trong tập lệnh nền, nơi công cụ dịch hoạt động. [docs/bergamot.md](../docs/bergamot.md) mô tả cách chọn mô hình, kiểm tra, lưu trữ và công cụ dịch.
+
+## Danh sách ngoại tuyến
+
+Danh sách từ điển và danh sách Bergamot, trên trang cài đặt và ở bước 4 của hướng dẫn thiết lập, hiển thị mọi chiều dịch của danh mục và các chiều đã cài. Ô lọc nhận tên ngôn ngữ hoặc chiều dịch như `ja>en`; nhiều từ khóa được phân tách bằng dấu phẩy.
+
+Các chiều dịch của những ngôn ngữ được đề xuất xếp trước. Một ngôn ngữ được đề xuất đến từ một hoặc nhiều nguồn sau, theo thứ tự quan trọng:
+
+1. ngôn ngữ đích;
+2. ngôn ngữ nguồn, khi đã cố định;
+3. ngôn ngữ giao diện của tiện ích ("Theo Thunderbird" được tính là ngôn ngữ của Thunderbird);
+4. ngôn ngữ giao diện của Thunderbird;
+5. ngôn ngữ hệ thống (`i18n.getPreferredSystemLanguages()`; các phiên bản Thunderbird không có hàm này dùng ngôn ngữ vùng của các định dạng `Intl`).
+
+Với mỗi ngôn ngữ được đề xuất X khác tiếng Anh, các chiều X → tiếng Anh và tiếng Anh → X được đề xuất, và với từ điển còn có thêm các gói trực tiếp giữa X và ngôn ngữ đích nếu bản phát hành có. Mỗi dòng được đề xuất mang các nguồn của nó dưới dạng nhãn ("Ngôn ngữ đích", "Ngôn ngữ nguồn", "Ngôn ngữ của tiện ích", "Ngôn ngữ của Thunderbird", "Ngôn ngữ hệ thống"), cộng thêm nhãn "Trực tiếp" cho chiều dịch sang ngôn ngữ đích và "Qua tiếng Anh" cho chiều dịch sang tiếng Anh phục vụ tuyến dịch qua tiếng Anh. Các chiều còn lại xếp sau, theo tên.
+
+"Tải xuống các ngôn ngữ phổ biến" tải các chiều dịch sang và từ tiếng Anh của tám ngôn ngữ cố định: tiếng Trung giản thể, tiếng Tây Ban Nha, tiếng Pháp, tiếng Đức, tiếng Nhật, tiếng Bồ Đào Nha, tiếng Nga và tiếng Hàn, trong phạm vi danh mục có. Trước khi tải, nút liệt kê các chiều dịch và tổng dung lượng; các chiều đã cài được loại ra. Khi tất cả đã được cài, nút bị vô hiệu hóa và hiện "Tất cả ngôn ngữ phổ biến đã được cài đặt.".
+
+## Thiếu dữ liệu ngoại tuyến
+
+Quy tắc về những gì một cặp ngôn ngữ cần là như nhau ở mọi nơi:
+
+| Dịch vụ | Cặp có tiếng Anh ở một phía | Cặp không có tiếng Anh |
+| --- | --- | --- |
+| Từ điển | gói trực tiếp | gói trực tiếp nếu bản phát hành có, nếu không thì nguồn → tiếng Anh và tiếng Anh → đích |
+| Bergamot | chiều trực tiếp | nguồn → tiếng Anh và tiếng Anh → đích |
+
+Tiếng Trung giản thể ↔ phồn thể và các cặp mà danh mục không có chiều dịch được coi là không hỗ trợ: không có gì để tải, và các đoạn chuyển sang các tầng khác.
+
+Khi tầng từ điển, hoặc Bergamot trong tầng dịch máy, không dịch được các đoạn của một thư vì thiếu gói hoặc mô hình, một thông báo xuất hiện phía trên thư sau khi vòng dịch đầu tiên kết thúc. Thông báo xuất hiện một lần cho mỗi thư và chỉ cho các tầng ngoại tuyến đang dùng. Thông báo liệt kê mỗi dịch vụ và cặp ngôn ngữ một dòng, ví dụ "Từ điển: Nhật → Trung giản thể, thiếu: Nhật → Anh và Anh → Trung giản thể", và có ba điều khiển:
+
+- "Tải xuống trong cài đặt" mở trang cài đặt với cả hai danh sách ngoại tuyến được lọc theo các chiều dịch còn thiếu.
+- "Không nhắc lại với các ngôn ngữ này" tắt nhắc nhở cho các mục được liệt kê, theo từng dịch vụ và cặp ngôn ngữ. Các mục đã tắt được liệt kê trong phần "Các tầng dịch" của trang cài đặt, dưới tiêu đề "Thông báo về dữ liệu ngoại tuyến còn thiếu", và nút "Nhắc lại" đưa chúng trở lại.
+- "Đóng" gỡ thông báo.
+
+Các đoạn mà ngôn ngữ chỉ được đoán, lỗi mạng và các cặp không hỗ trợ không được tính. Các đoạn vẫn nhận bản dịch của các tầng khác; nếu chỉ dùng các tầng ngoại tuyến, chúng vẫn ở trạng thái lỗi.
+
+Trong cửa sổ bật lên và trên trang cài đặt, một từ điển hoặc Bergamot đã chọn mà thiếu những gì các ngôn ngữ hiện tại cần sẽ hiện màu đỏ là "Từ điển (chưa tải mô hình cục bộ)" hoặc "Bergamot (chưa tải mô hình cục bộ)", và một dòng bên dưới các danh sách tầng nêu tên các chiều dịch còn thiếu kèm liên kết "Tải xuống" tới các danh sách đã lọc. Với tự động phát hiện, chiều từ tiếng Anh sang ngôn ngữ đích được tính; với tiếng Anh làm ngôn ngữ đích, tính ít nhất một chiều sang tiếng Anh. Cặp không hỗ trợ được nêu tên trên dòng đó, không tô đỏ. Các dấu đánh dấu cập nhật theo việc cài đặt và xóa thực hiện ở các trang khác.
 
 ## Ngôn ngữ giao diện
 

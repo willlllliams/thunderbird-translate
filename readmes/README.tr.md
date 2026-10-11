@@ -6,8 +6,6 @@ Thunderbird Translate, okuduğunuz iletinin gövdesini doğrudan ileti bölmesin
 
 Bu belge daha önce Thunderbird eklentisi kullanmamış okurlar için yazılmıştır. Sırasıyla kurulum, kullanım, yapılandırma ve çalışma ilkesini anlatır.
 
-![Demo: iletiyi çevirme, iki dilli ve yalnızca çeviri arasında geçiş, hedef dili değiştirme](../docs/demo.gif)
-
 ## Özellikler
 
 - Gövde çevirisi: eklenti ileti gövdesindeki paragraf düzeyindeki içeriği bulur. Bunlar paragraflar, liste öğeleri, tablo hücreleri, başlıklar, alıntı blokları, yalnızca metin içeren div öğeleri ve düz metin iletilerde boş satırlarla ayrılmış paragraflardır. Kod, zaten hedef dilde olan paragraflar, sayılar, çıplak bağlantılar ve boşluklar atlanır.
@@ -61,7 +59,7 @@ Her adım tek bir karar ister ve seçimi hemen kaydeder. "Geri", "İleri" ve "Bu
 | 1 Diller | arayüz dili, kaynak dil (varsayılan olarak "Otomatik algıla"), hedef dil | her zaman |
 | 2 Görünüm | iki dilli veya yalnızca çeviri; örnek bir iletinin geçerli çeviri stiliyle önizlemesi | her zaman |
 | 3 Çeviri kademeleri | sözlük, makine çevirisi ve yapay zekâ kademelerinin hızı, kalitesi, gizliliği ve maliyeti; her kademenin hizmeti veya "Kullanılmıyor"; en az bir kademenin hizmeti olmalıdır | her zaman |
-| 4 Çevrimdışı çeviri | 1. adımdaki dillerin gerektirdiği sözlük paketleri ve Bergamot yönleri, boyut, lisans ve kaynak belirtimiyle; işaretlenenler "Seçilenleri indir" ile ilerleme gösterilerek indirilir | sözlük kademesi kullanılıyor veya makine çevirisi kademesi Bergamot kullanıyor |
+| 4 Çevrimdışı çeviri | her sözlük paketi ve Bergamot yönü, boyut, lisans ve kaynak belirtimiyle; dillerinize ait olanlar başta gelir ve işaretlidir; işaretlenenler "Seçilenleri indir" ile ilerleme gösterilerek veya "Yaygın dilleri indir" ile indirilir | sözlük kademesi kullanılıyor veya makine çevirisi kademesi Bergamot kullanıyor |
 | 5 Çevrimiçi makine çevirisi | makine çevirmeninin alanları: Google için doldurulacak alan yoktur; Microsoft için "Varsayılan arayüz (ücretsiz)" veya "Kendi anahtarımı kullan (Azure Translator)" seçilir; DeepLX için uç nokta ve belirteç girilir; "Bağlantıyı test et" | makine çevirisi kademesi Google, Microsoft veya DeepLX kullanıyor |
 | 6 Yapay zekâ çevirisi | yapay zekâ sağlayıcısı, API anahtarı, model, sıcaklık ve düşünme modu, "Bağlantıyı test et" ve "Hassas çeviri" anahtarı; düşünme modunun ve hassas çevirinin çeviriyi yavaşlattığını ve pahalılaştırdığını belirten bir not | yapay zekâ kademesi kullanılıyor |
 | 7 İstemler | üç istem ve hazır ayar kitaplığı (bkz. "İstem hazır ayarları") | yapay zekâ kademesi kullanılıyor |
@@ -69,12 +67,12 @@ Her adım tek bir karar ister ve seçimi hemen kaydeder. "Geri", "İleri" ve "Bu
 
 Önceki seçimlerin gerektirmediği bir adım listede üstü çizili olarak kalır ve gezinme onu atlar. Örneğin 3. adımda bir yapay zekâ hizmeti seçilirse 6. ve 7. adımlar yeniden etkin olur.
 
-Kaynak dil Japonca, hedef dil Basitleştirilmiş Çince olduğunda 4. adım şunları önerir:
+4. adım her iki kataloğun tüm yönlerini listeler; sıra ve etiketler [Çevrimdışı listeler](#çevrimdışı-listeler) bölümünde anlatılır. Nelerin işaretli olduğu kaynak dile bağlıdır:
 
-- sözlük: sürümde Japonca → Çince paketi varsa bu paket, yoksa Japonca → İngilizce ve İngilizce → Çince paketleri;
-- Bergamot: ja → en ve en → zh-Hans yönleri, çünkü her Bergamot modelinin bir tarafı İngilizcedir.
+- Sabit bir kaynak dil: çiftin gerektirdiği yönler. Japonca → Basitleştirilmiş Çince için bunlar, sürümde varsa Japonca → Çince sözlük paketi, yoksa Japonca → İngilizce ve İngilizce → Çince paketleri ile Bergamot'un ja → en ve en → zh-Hans yönleridir; çünkü her Bergamot modelinin bir tarafı İngilizcedir.
+- "Otomatik algıla": önerilen dillerin İngilizceyle iki yöndeki yönleri. Bir not yolu açıklar: başka dildeki bir ileti "dil → İngilizce" yönüyle İngilizceye, oradan "İngilizce → hedef dil" yönüyle hedef dile çevrilir.
 
-"Otomatik algıla" seçiliyken 4. adım İngilizceden başlayan paketleri ve yönleri listeler. Listenin altındaki bir not, aldığınız diğer her dil için o dilden İngilizceye giden yönün kurulmasını ister.
+"Seçilenleri indir" hiçbir şey işaretli değilken devre dışıdır ve yanındaki satır o zaman "Önce indirilecek öğeleri işaretleyin." der. İndirme sırasında "N öğe indiriliyor…", sonunda "İndirmeler tamamlandı." veya başarısız indirmelerin sayısını gösterir; başarısız her satırda nedeni görünür.
 
 Son adımdaki (8. adım) "Örnek iletiyi çevir" düğmesi sayfada kısa bir ileti gösterir (kaynak dil İngilizce veya Almanca ise kaynak dilde, değilse İngilizce, hedef dil İngilizceyse Almanca) ve onu geçerli ayarlarla çevirir. Sayfa, içerik betiğinin paragraf algılama ve görüntüleme modüllerini kullanır ve istekleri arka plan betiğine görüntülenen bir iletiyle aynı bağlantı üzerinden gönderir. Bu yüzden sonuç, kullanılan kademeler dahil, gerçek bir iletinin nasıl görüneceğini gösterir.
 
@@ -87,7 +85,7 @@ Bir ileti açın. İleti başlığı araç çubuğunda "İletiyi çevir" düğme
 - "Bu iletiyi çevir": çeviriyi başlatır. Bir çeviri sürerken veya gösterilirken düğmenin adı "Özgün metni göster" olur ve tıklandığında özgün metni geri getirir.
 - Görünüm: iki dilli ile yalnızca çeviri arasında geçiş yapar; değişiklik geçerli iletiye hemen uygulanır.
 - Kaynak dil ve hedef dil: varsayılan kaynak dil "Otomatik algıla"dır. İkisinden biri değiştirildiğinde, çevrilmekte olan ileti yeniden çevrilir. İkisi aynı dil olduğunda bir uyarı görünür.
-- Çeviri kademeleri: her kademe için bir liste vardır (Kademe 1: Sözlük, Kademe 2: Makine çevirisi, Kademe 3: Yapay zekâ çevirisi). Her liste "Kullanılmıyor" seçeneğini ve o kademeye eklenmiş hizmetleri içerir. En az bir kademenin bir hizmeti olmalıdır; kullanılan son kademe için "Kullanılmıyor" seçilirse seçim reddedilir ve bir uyarı gösterilir. Listelerin altındaki "+ Çeviri hizmeti ekle" ayarlar sayfasını çeviri hizmetleri bölümünde açar.
+- Çeviri kademeleri: her kademe için bir liste vardır (Kademe 1: Sözlük, Kademe 2: Makine çevirisi, Kademe 3: Yapay zekâ çevirisi). Her liste "Kullanılmıyor" seçeneğini, o kademeye eklenmiş hizmetleri ve son öğe olarak "+ Çeviri hizmeti ekle…" öğesini içerir. Bu öğe ayarlar sayfasını kademenin çeviri hizmetleri bölümünde açar ve listeyi önceki değerinde bırakır. En az bir kademenin bir hizmeti olmalıdır; kullanılan son kademe için "Kullanılmıyor" seçilirse seçim reddedilir ve bir uyarı gösterilir. Seçili bir sözlük veya Bergamot, geçerli diller için verisi eksikse işaretlenir; bkz. [Eksik çevrimdışı veriler](#eksik-çevrimdışı-veriler).
 - Hassas çeviri: yapay zekâ kademesinin bir hizmeti olduğunda görünür.
 - Hedef dilde olmayan iletileri otomatik olarak çevir: işaretliyse, gövdesi hedef dilde olmayan bir ileti açıldığı anda çevrilir.
 - "Kurulum rehberi": kurulum rehberini yeni bir sekmede açar.
@@ -105,10 +103,10 @@ Ayarlar sayfası, Eklenti yöneticisinde bu eklentinin "Seçenekler" düğmesiyl
 | Bölüm | İçerik |
 | --- | --- |
 | Genel | Arayüz dili, kaynak dil, hedef dil, varsayılan görünüm modu, "Hedef dilde olmayan iletileri otomatik olarak çevir" anahtarı |
-| Çeviri kademeleri | Her kademenin hizmeti veya "Kullanılmıyor"; hassas çeviri |
-| Çeviri hizmetleri | İki grupta hizmetler, "Eklenenler" ve "Eklenebilenler"; her hizmetin uç noktası, API anahtarı, modeli, sıcaklığı ve düşünme modu; "Bağlantıyı test et", "Ekle", "Bu hizmeti kullan" ve "Kaldır" düğmeleri |
-| Sözlükler | Sözlük kademesinin dil çiftleri, boyut, lisans ve kaynak belirtimiyle; indirme ve silme; paketlerin sürüm etiketi (gelişmiş) |
-| Çevrimdışı çeviri modelleri (Bergamot) | Bergamot modellerinin yön çiftleri, boyut ve sürümle; dile göre süzme; indirme, güncelleme, iptal ve silme; geçerli dillerin gerektirdiği yönler |
+| Çeviri kademeleri | Her kademenin hizmeti veya "Kullanılmıyor", verisi eksik bir çevrimdışı hizmetin işaretiyle; hassas çeviri; eksik çevrimdışı verilere ilişkin sessize alınmış bildirimler ve bunları geri getiren "Yeniden hatırlat" |
+| Çeviri hizmetleri | İki grupta hizmetler, "Eklenenler" ve "Eklenebilenler", kademeye göre süzülmüş; her hizmetin uç noktası, API anahtarı, modeli, sıcaklığı ve düşünme modu; "Bağlantıyı test et", "Ekle", "Bu hizmeti kullan" ve "Kaldır" düğmeleri |
+| Sözlükler | Sürümdeki tüm paketler, boyut, lisans ve kaynak belirtimiyle, önerilen dillerin paketleri başta; süzme; "Yaygın dilleri indir"; indirme ve silme; paketlerin sürüm etiketi (gelişmiş) |
+| Çevrimdışı çeviri modelleri (Bergamot) | Bergamot modellerinin tüm yönleri, boyut ve sürümle, önerilen dillerin yönleri başta; dile göre süzme; "Yaygın dilleri indir"; indirme, güncelleme, iptal ve silme; geçerli dillerin gerektirdiği yönler |
 | İstemler (yapay zekâ kademesi) | Hazır ayar kitaplığı; iki dilli görüntüleme, yalnızca çeviri görüntüleme ve hassas çeviri istemleri; her birinde "Yerleşik istemi geri yükle" düğmesi |
 | İstek gruplama | Toplama aralığı, istek başına en fazla karakter ve paragraf sayısı, eşzamanlı istek sayısı, yeniden deneme sayısı, istek zaman aşımı (varsayılan 60 saniye; Ollama, LM Studio ve düşünme modu için üç katı), yapay zekâ isteklerinin birleştirilip birleştirilmeyeceği |
 | Çeviri stili | Sol kenarlık, kesikli sol kenarlık, vurgulama veya sade; vurgu rengi, metin opaklığı, yazı tipi boyutu oranı; anlık önizleme |
@@ -199,6 +197,7 @@ Hazır ayar kitaplığı ayarlar sayfasında üç istemin üstünde ve kurulum r
 
 | Hazır ayar | Çeşitler | İsteme eklenen kural |
 | --- | --- | --- |
+| Düz (kural eklenmez), ilk öğe | yok | yok: uygulandığında hazır ayarların isteme eklediği tüm blokları kaldırır ve sizin yazdığınız metni korur; bundan sonra yerleşik istemle aynı olan bir istem yeniden boş olarak saklanır |
 | Ağız veya bölgesel kullanım | hedef dile göre: Basitleştirilmiş Çince için Kantonca (Hong Kong) ve Sichuan ağzı; Geleneksel Çince için Kantonca (Hong Kong) ve Tayvan kullanımı; İngiliz İngilizcesi ve Amerikan İngilizcesi; Brezilya Portekizcesi ve Avrupa Portekizcesi; Meksika İspanyolcası ve İspanya İspanyolcası; Kanada Fransızcası (Quebec); İsviçre standart Almancası | o çeşitle, onun yazımı, sözcük dağarcığı ve hitap biçimleriyle yazmak |
 | Zor sözcüklerde özgün terim | yok | normal çevirmek ve her zor sözcüğün veya teknik terimin ardından özgün terimi parantez içinde, paragraf başına bir kez vermek, örneğin "durum tespiti (due diligence)" |
 | Zor sözcüklerin açıklaması | yok | paragrafı çevirmek, ardından paragraftaki zor sözcükleri aynı paragrafın sonunda tek bir parantez içinde hedef dilde açıklamak: 〔Not: terim: açıklama; …〕 |
@@ -260,7 +259,44 @@ Paketler iki kaynaktan oluşturulur: wiktextract ile çıkarılıp kaikki.org ta
 
 Bergamot hizmeti, Mozilla'nın MPL-2.0 lisansıyla yayımladığı Firefox Translations motoru ve modelleriyle bilgisayarınızda çeviri yapar. Motor eklentiyle birlikte gelir. Her çeviri yönü Mozilla'dan bir kez indirilir (13 ile 48 MB arası) ve eklentinin IndexedDB alanında saklanır. Yüklenmiş bir yön yaklaşık 200 MB bellek kullanır ve beş dakika kullanılmadığında serbest bırakılır. Her modelin bir tarafı İngilizcedir; bu yüzden Japoncadan Çinceye çeviri Japonca → İngilizce ve İngilizce → Çince yönlerini kullanır.
 
-Ayarlar sayfasının "Çevrimdışı çeviri modelleri (Bergamot)" bölümü 58 dil arasındaki 114 yön çiftini boyut ve sürümleriyle listeler; liste dile göre süzülebilir. Bölüm, geçerli kaynak ve hedef dilin gerektirdiği yönleri belirtir ve bunları listenin başına koyar. İndirmeler ilerlemelerini gösterir ve iptal edilebilir. Model listesinin yüklenmesi, 30 saniye içinde yanıt gelmezse başarısız olur; 30 saniye boyunca veri almayan bir indirme hatayla durur. Mozilla'nın daha yeni bir sürümünü sunduğu kurulu bir çiftte "Güncelle" düğmesi görünür. Geçerli dillerin gerektirdiği bir çifti silmek onay ister. Kurulum, çeviri ve kaldırma, motorun çalıştığı arka plan betiğinde yürütülür. Model seçimi, doğrulama, depolama ve motor [docs/bergamot.md](../docs/bergamot.md) belgesinde anlatılır.
+Ayarlar sayfasının "Çevrimdışı çeviri modelleri (Bergamot)" bölümü 58 dil arasındaki 114 yön çiftini boyut ve sürümleriyle, [Çevrimdışı listeler](#çevrimdışı-listeler) bölümünde anlatılan sırayla listeler. Bölüm, geçerli kaynak ve hedef dilin gerektirdiği yönleri belirtir. İndirmeler ilerlemelerini gösterir ve iptal edilebilir. Model listesinin yüklenmesi, 30 saniye içinde yanıt gelmezse başarısız olur; 30 saniye boyunca veri almayan bir indirme hatayla durur. Mozilla'nın daha yeni bir sürümünü sunduğu kurulu bir çiftte "Güncelle" düğmesi görünür. Geçerli dillerin gerektirdiği bir çifti silmek onay ister. Kurulum, çeviri ve kaldırma, motorun çalıştığı arka plan betiğinde yürütülür. Model seçimi, doğrulama, depolama ve motor [docs/bergamot.md](../docs/bergamot.md) belgesinde anlatılır.
+
+## Çevrimdışı listeler
+
+Ayarlar sayfasındaki ve kurulum rehberinin 4. adımındaki sözlük listesi ile Bergamot listesi, kataloglarındaki tüm yönleri ve kurulu olanları gösterir. Süzme alanı dil adlarını veya `ja>en` gibi yönleri kabul eder; birden çok terim virgülle ayrılır.
+
+Önerilen dillerin yönleri başta gelir. Önerilen bir dil, önem sırasına göre şu kaynaklardan birinden veya birkaçından gelir:
+
+1. hedef dil;
+2. sabitse kaynak dil;
+3. eklentinin arayüz dili ("Thunderbird ile aynı" Thunderbird'ün dili sayılır);
+4. Thunderbird'ün arayüz dili;
+5. sistem dilleri (`i18n.getPreferredSystemLanguages()`; bu yöntemi olmayan Thunderbird sürümleri `Intl` biçimlerinin yerel ayarını kullanır).
+
+İngilizce dışındaki her önerilen X dili için X → İngilizce ve İngilizce → X yönleri önerilir; sözlük için ayrıca sürümde varsa X ile hedef dil arasındaki doğrudan paketler de önerilir. Önerilen her satır kaynaklarını etiket olarak taşır ("Hedef dil", "Kaynak dil", "Eklenti dili", "Thunderbird dili", "Sistem dili"); ayrıca hedef dile giden yön "Doğrudan", İngilizce üzerinden izlenen yola hizmet eden İngilizceye giden yön "İngilizce üzerinden" etiketini taşır. Diğer yönler adlarına göre arkadan gelir.
+
+"Yaygın dilleri indir", sekiz sabit dilin İngilizceye ve İngilizceden yönlerini indirir: Basitleştirilmiş Çince, İspanyolca, Fransızca, Almanca, Japonca, Portekizce, Rusça ve Korece; katalogda bulundukları ölçüde. İndirmeden önce yönleri ve toplam boyutlarını listeler; kurulu yönler dışarıda bırakılır. Hepsi kurulduğunda düğme devre dışıdır ve "Yaygın dillerin hepsi kurulu." der.
+
+## Eksik çevrimdışı veriler
+
+Bir dil çiftinin neye ihtiyaç duyduğuna ilişkin kural her yerde aynıdır:
+
+| Hizmet | Bir tarafı İngilizce olan çift | İngilizcesiz çift |
+| --- | --- | --- |
+| Sözlük | doğrudan paket | sürümde varsa doğrudan paket, yoksa kaynak → İngilizce ve İngilizce → hedef |
+| Bergamot | doğrudan yön | kaynak → İngilizce ve İngilizce → hedef |
+
+Basitleştirilmiş ↔ Geleneksel Çince ve katalogun yönlerini sunmadığı çiftler desteklenmez: indirilecek bir şey yoktur ve paragraflar diğer kademelere gider.
+
+Sözlük kademesi veya makine kademesindeki Bergamot, bir paket ya da model eksik olduğu için bir iletinin paragraflarında başarısız olduğunda, ilk çeviri turu bittikten sonra iletinin üstünde bir bildirim görünür. Bildirim ileti başına bir kez ve yalnızca kullanılan çevrimdışı kademeler için görünür. Her hizmet ve dil çifti için bir satır listeler, örneğin "Sözlük: Japonca → Basitleştirilmiş Çince, eksik: Japonca → İngilizce ve İngilizce → Basitleştirilmiş Çince", ve üç denetimi vardır:
+
+- "Ayarlardan indir", ayarlar sayfasını iki çevrimdışı liste de eksik yönlere göre süzülmüş olarak açar.
+- "Bu diller için bana tekrar hatırlatma", listelenen kayıtları hizmet ve dil çiftine göre sessize alır. Sessize alınan kayıtlar ayarlar sayfasında "Çeviri kademeleri" bölümünde "Eksik çevrimdışı verilerle ilgili bildirimler" başlığı altında listelenir ve "Yeniden hatırlat" bunları geri getirir.
+- "Kapat" bildirimi kaldırır.
+
+Dili yalnızca tahmin edilen paragraflar, ağ hataları ve desteklenmeyen çiftler sayılmaz. Paragraflar yine diğer kademelerin çevirilerini alır; yalnızca çevrimdışı kademeler kullanılıyorsa başarısız kalırlar.
+
+Açılır pencerede ve ayarlar sayfasında, geçerli dillerin gerektirdiği veriden yoksun seçili bir sözlük veya Bergamot kırmızıyla "Sözlük (yerel model indirilmedi)" veya "Bergamot (yerel model indirilmedi)" olarak görünür; kademe listelerinin altındaki bir satır eksik yönleri adlandırır ve süzülmüş listelere giden bir "İndir" bağlantısı içerir. Otomatik algılamada İngilizceden hedef dile giden yön sayılır; hedef dil İngilizce ise İngilizceye giden en az bir yön sayılır. Desteklenmeyen bir çift bu satırda kırmızı olmadan adlandırılır. İşaretler, başka sayfalarda yapılan kurulumları ve silmeleri izler.
 
 ## Arayüz dili
 

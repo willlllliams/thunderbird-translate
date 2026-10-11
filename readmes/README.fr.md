@@ -6,8 +6,6 @@ Thunderbird Translate est une extension Thunderbird qui traduit le corps du mess
 
 Ce document s’adresse à des lecteurs qui n’ont encore jamais utilisé d’extension Thunderbird. Il suit l’ordre installation, utilisation, configuration, puis fonctionnement interne.
 
-![Démo : traduire un message, basculer entre bilingue et traduction seule, changer la langue cible](../docs/demo.gif)
-
 ## Fonctionnalités
 
 - Traduction du corps du message : l’extension repère le contenu de niveau paragraphe dans le corps du message : paragraphes, éléments de liste, cellules de tableau, titres, citations, blocs div contenant uniquement du texte, et paragraphes séparés par une ligne vide dans les messages en texte brut. Le code, les paragraphes déjà dans la langue cible, les nombres, les liens nus et les espaces sont ignorés.
@@ -67,7 +65,7 @@ La visite suivante reprend à l’étape où le guide a été quitté. Après «
 | 1 Langues | langue de l’interface, langue source (« Détecter automatiquement » par défaut), langue cible | toujours |
 | 2 Affichage | bilingue ou traduction seule, avec un aperçu d’un message d’exemple dans le style de traduction actuel | toujours |
 | 3 Niveaux de traduction | vitesse, qualité, confidentialité et coût des niveaux dictionnaire, traduction automatique et IA ; le service de chaque niveau ou « Non utilisé », avec au moins un niveau doté d’un service | toujours |
-| 4 Traduction hors ligne | les packs de dictionnaires et les directions Bergamot nécessaires aux langues de l’étape 1, avec taille, licence et attribution ; on coche ceux à télécharger, puis « Télécharger la sélection » les télécharge en affichant la progression | le niveau dictionnaire est utilisé, ou le niveau traduction automatique utilise Bergamot |
+| 4 Traduction hors ligne | tous les packs de dictionnaires et toutes les directions Bergamot, avec taille, licence et attribution, ceux de vos langues en premier et cochés ; on coche ceux à télécharger, puis « Télécharger la sélection » les télécharge en affichant la progression, ou « Télécharger les langues courantes » | le niveau dictionnaire est utilisé, ou le niveau traduction automatique utilise Bergamot |
 | 5 Traduction automatique en ligne | les champs du traducteur automatique : rien à remplir pour Google, mode gratuit ou mode avec clé Azure pour Microsoft, point de terminaison et jeton pour DeepLX ; « Tester la connexion » | le niveau traduction automatique utilise Google, Microsoft ou DeepLX |
 | 6 Traduction par l’IA | le fournisseur d’IA, sa clé d’API, le modèle, la température et le mode réflexion, « Tester la connexion » et l’option « Traduction précise » ; une remarque indique que le mode réflexion et la traduction précise rendent la traduction plus lente et plus coûteuse | le niveau IA est utilisé |
 | 7 Invites | les trois invites et la bibliothèque de préréglages (voir Préréglages d’invite) | le niveau IA est utilisé |
@@ -75,12 +73,12 @@ La visite suivante reprend à l’étape où le guide a été quitté. Après «
 
 Une étape dont les choix précédents n’ont pas besoin reste dans la liste, barrée, et la navigation la saute. Par exemple, choisir un service d’IA à l’étape 3 fait revenir les étapes 6 et 7.
 
-Avec le japonais comme langue source et le chinois simplifié comme langue cible, l’étape 4 recommande les téléchargements suivants :
+L’étape 4 liste toutes les directions des deux catalogues ; l’ordre et les étiquettes sont décrits dans la section [Listes hors ligne](#listes-hors-ligne). Ce qui est coché dépend de la langue source :
 
-- Dictionnaire : le pack japonais → chinois lorsque la publication le contient, sinon les deux packs japonais → anglais et anglais → chinois.
-- Bergamot : les directions ja → en et en → zh-Hans, car chaque modèle Bergamot a l’anglais d’un côté.
+- Langue source fixe : les directions dont la paire a besoin. Pour le japonais → chinois simplifié, ce sont le pack de dictionnaire japonais → chinois lorsque la publication le contient, sinon japonais → anglais et anglais → chinois, et les directions Bergamot ja → en et en → zh-Hans, car chaque modèle Bergamot a l’anglais d’un côté.
+- « Détecter automatiquement » : les directions des langues recommandées dans les deux sens avec l’anglais. Une remarque explique le chemin : un message dans une autre langue passe en anglais avec « langue → anglais », puis de l’anglais vers la langue cible avec « anglais → langue cible ».
 
-Avec « Détecter automatiquement », l’étape 4 recommande les packs et les directions à partir de l’anglais. Une remarque demande alors d’installer la direction vers l’anglais de chaque autre langue que vous recevez.
+« Télécharger la sélection » est désactivé tant que rien n’est coché, et la ligne à côté indique alors « Cochez d’abord les éléments à télécharger. ». Pendant le téléchargement, elle affiche « Téléchargement de N éléments… », à la fin « Téléchargements terminés. » ou le nombre de téléchargements échoués ; chaque ligne en échec montre sa raison.
 
 « Traduire le message d’exemple », à l’étape 8, affiche dans la page un court e-mail (dans la langue source lorsque c’est l’anglais ou l’allemand, sinon en anglais, ou en allemand lorsque la langue cible est l’anglais) et le traduit avec les paramètres actuels. La page utilise la détection des paragraphes et le rendu du script de contenu. Elle envoie les requêtes au script d’arrière-plan par la même connexion qu’un message affiché. Le résultat montre donc l’aspect qu’aura un vrai message, niveaux utilisés compris.
 
@@ -93,7 +91,7 @@ Ouvrez un message. Un bouton « Traduire le message » apparaît dans la barre
 - « Traduire ce message » : lance la traduction. Tant qu’une traduction est en cours ou affichée, le bouton indique « Afficher l’original » et restaure l’original lorsqu’on clique dessus.
 - Affichage : bascule entre bilingue et traduction seule ; le changement s’applique immédiatement au message courant.
 - Langue source et langue cible : « Détecter automatiquement » est la langue source par défaut. Après un changement de l’une ou de l’autre, un message en cours de traduction est traduit à nouveau. Une remarque s’affiche lorsque les deux langues sont identiques.
-- Niveaux de traduction : une liste par niveau (1 Dictionnaire, 2 Traduction automatique, 3 Traduction par l’IA), chacune avec « Non utilisé » et les services ajoutés de ce niveau. Au moins un niveau doit avoir un service ; choisir « Non utilisé » pour le dernier niveau utilisé est refusé avec une remarque. « + Ajouter un service de traduction » sous les listes ouvre la page de paramètres sur les services de traduction.
+- Niveaux de traduction : une liste par niveau (1 Dictionnaire, 2 Traduction automatique, 3 Traduction par l’IA), chacune avec « Non utilisé », les services ajoutés de ce niveau et, en dernière entrée, « + Ajouter un service de traduction… ». Cette entrée ouvre la page de paramètres sur les services de traduction du niveau et laisse la liste à sa valeur. Au moins un niveau doit avoir un service ; choisir « Non utilisé » pour le dernier niveau utilisé est refusé avec une remarque. Un dictionnaire ou un Bergamot sélectionné auquel il manque des données pour les langues actuelles est signalé, voir [Données hors ligne manquantes](#données-hors-ligne-manquantes).
 - Traduction précise : affichée lorsque le niveau IA a un service.
 - Traduire automatiquement les messages qui ne sont pas dans la langue cible : lorsque cette case est cochée, un message dont le corps n’est pas dans la langue cible est traduit dès son ouverture.
 - Guide de configuration : ouvre le guide de configuration dans un nouvel onglet.
@@ -111,10 +109,10 @@ Ouvrez la page de paramètres avec le bouton « Options » de cette extension 
 | Section | Contenu |
 | --- | --- |
 | Général | Langue de l’interface, langue source, langue cible, mode d’affichage par défaut, option « Traduire automatiquement les messages qui ne sont pas dans la langue cible » |
-| Niveaux de traduction | Le service de chaque niveau ou « Non utilisé » ; traduction précise |
-| Services de traduction | Services répartis en deux groupes, « Ajoutés » et « Disponibles » ; point de terminaison, clé d’API, modèle, température et mode réflexion de chaque service ; boutons « Tester la connexion », « Ajouter », « Utiliser ce service » et « Retirer » |
-| Dictionnaires | Paires de langues du niveau dictionnaire, avec taille, licence et attribution ; téléchargement et suppression ; étiquette de version des packs (avancé) |
-| Modèles de traduction hors ligne (Bergamot) | Paires de directions des modèles Bergamot, avec taille et version ; filtre par langue ; téléchargement, mise à jour, annulation et suppression ; directions nécessaires aux langues actuelles |
+| Niveaux de traduction | Le service de chaque niveau ou « Non utilisé », avec le signalement d’un service hors ligne auquel il manque des données ; traduction précise ; les rappels mis en sourdine sur les données hors ligne manquantes, avec « Réactiver les rappels » |
+| Services de traduction | Services répartis en deux groupes, « Ajoutés » et « Disponibles », filtrés par niveau ; point de terminaison, clé d’API, modèle, température et mode réflexion de chaque service ; boutons « Tester la connexion », « Ajouter », « Utiliser ce service » et « Retirer » |
+| Dictionnaires | Tous les packs de la publication, avec taille, licence et attribution, ceux des langues recommandées en premier ; filtre ; « Télécharger les langues courantes » ; téléchargement et suppression ; étiquette de version des packs (avancé) |
+| Modèles de traduction hors ligne (Bergamot) | Toutes les directions des modèles Bergamot, avec taille et version, celles des langues recommandées en premier ; filtre par langue ; « Télécharger les langues courantes » ; téléchargement, mise à jour, annulation et suppression ; directions nécessaires aux langues actuelles |
 | Invites (niveau IA) | La bibliothèque de préréglages ; les invites de l’affichage bilingue, de l’affichage de la traduction seule et de la traduction précise, chacune avec « Rétablir l’invite intégrée » |
 | Regroupement des requêtes | Fenêtre de collecte, nombre maximal de caractères et de paragraphes par requête, requêtes simultanées, nouvelles tentatives, délai d’attente par requête (60 secondes par défaut ; trois fois plus long pour Ollama, LM Studio et le mode réflexion), fusion ou non des requêtes d’IA |
 | Style de traduction | Bordure gauche, bordure gauche en tirets, surlignage ou sans style ; couleur d’accentuation, opacité du texte, taille de police relative ; aperçu en direct |
@@ -209,6 +207,7 @@ La ligne « Exemple » montre une phrase source et le résultat attendu avec l
 
 | Préréglage | Variantes | Règle ajoutée à l’invite |
 | --- | --- | --- |
+| Simple (sans règle ajoutée), la première entrée | aucune | aucune : l’appliquer retire chaque bloc qu’un préréglage a ajouté à l’invite et conserve le texte que vous avez écrit ; une invite qui redevient alors l’invite intégrée est de nouveau enregistrée comme vide |
 | Dialecte ou usage régional | selon la langue cible : cantonais (Hong Kong) et sichuanais pour le chinois simplifié ; cantonais (Hong Kong) et usage de Taïwan pour le chinois traditionnel ; anglais britannique et anglais américain ; portugais du Brésil et portugais européen ; espagnol du Mexique et espagnol d’Espagne ; français canadien (Québec) ; allemand standard suisse | rédiger dans cette variante, avec son orthographe, son vocabulaire et ses formes d’adresse |
 | Mots difficiles avec l’original | aucune | traduire normalement et mettre le terme original entre parenthèses après chaque mot difficile ou terme technique, une fois par paragraphe, par exemple « audit préalable (due diligence) » |
 | Explication des mots difficiles | aucune | traduire le paragraphe, puis expliquer ses mots difficiles dans la langue cible à la fin du même paragraphe, dans une seule paire de crochets : 〔Note : terme : explication ; …〕 |
@@ -281,7 +280,44 @@ Chaque pack indique sa propre source et sa licence dans l’index, et la page de
 
 Le service Bergamot traduit sur votre ordinateur avec le moteur et les modèles de Firefox Translations, publiés par Mozilla sous MPL-2.0. Le moteur est livré avec l’extension ; chaque direction de traduction est téléchargée une seule fois depuis Mozilla (13 à 48 Mo) et stockée dans la base IndexedDB de l’extension. Une direction chargée occupe environ 200 Mo de mémoire et est libérée après cinq minutes sans utilisation. Chaque modèle a l’anglais d’un côté : du japonais vers le chinois, le service utilise donc japonais → anglais et anglais → chinois.
 
-La section « Modèles de traduction hors ligne (Bergamot) » de la page de paramètres liste les 114 paires de directions entre 58 langues, avec leur taille et leur version, et se filtre par langue. Elle nomme les directions dont la langue source et la langue cible actuelles ont besoin et les place en tête de liste. Les téléchargements affichent leur progression et peuvent être annulés ; le chargement de la liste des modèles échoue après 30 secondes sans réponse, et un téléchargement qui ne reçoit aucune donnée pendant 30 secondes s’arrête avec une erreur ; une paire installée pour laquelle Mozilla propose une version plus récente affiche « Mettre à jour ». La suppression d’une paire dont les langues actuelles ont besoin demande une confirmation. L’installation, la traduction et la suppression s’exécutent dans le script d’arrière-plan, où se trouve le moteur. [docs/bergamot.md](../docs/bergamot.md) décrit le choix des modèles, leur vérification, leur stockage et le moteur.
+La section « Modèles de traduction hors ligne (Bergamot) » de la page de paramètres liste les 114 paires de directions entre 58 langues, avec leur taille et leur version, dans l’ordre décrit dans la section [Listes hors ligne](#listes-hors-ligne). Elle nomme les directions dont la langue source et la langue cible actuelles ont besoin. Les téléchargements affichent leur progression et peuvent être annulés ; le chargement de la liste des modèles échoue après 30 secondes sans réponse, et un téléchargement qui ne reçoit aucune donnée pendant 30 secondes s’arrête avec une erreur ; une paire installée pour laquelle Mozilla propose une version plus récente affiche « Mettre à jour ». La suppression d’une paire dont les langues actuelles ont besoin demande une confirmation. L’installation, la traduction et la suppression s’exécutent dans le script d’arrière-plan, où se trouve le moteur. [docs/bergamot.md](../docs/bergamot.md) décrit le choix des modèles, leur vérification, leur stockage et le moteur.
+
+## Listes hors ligne
+
+La liste des dictionnaires et la liste Bergamot, sur la page de paramètres et à l’étape 4 du guide de configuration, montrent chaque direction de leur catalogue et les directions installées. Un champ de filtre accepte des noms de langues ou des directions telles que `ja>en` ; plusieurs termes se séparent par des virgules.
+
+Les directions des langues recommandées viennent en premier. Une langue recommandée provient d’une ou de plusieurs de ces sources, par ordre d’importance :
+
+1. la langue cible ;
+2. la langue source, lorsqu’elle est fixe ;
+3. la langue de l’interface de l’extension (« Suivre Thunderbird » compte comme la langue de Thunderbird) ;
+4. la langue de l’interface de Thunderbird ;
+5. les langues du système (`i18n.getPreferredSystemLanguages()` ; les versions de Thunderbird qui n’ont pas cette fonction utilisent la locale des formats `Intl`).
+
+Pour chaque langue recommandée X autre que l’anglais, les directions X → anglais et anglais → X sont recommandées, et pour le dictionnaire aussi les packs directs entre X et la langue cible lorsque la publication les contient. Chaque ligne recommandée porte ses sources comme étiquettes (« Langue cible », « Langue source », « Langue de l’extension », « Langue de Thunderbird », « Langue du système »), plus « Direct » pour une direction vers la langue cible et « Via l’anglais » pour une direction vers l’anglais qui sert le chemin par l’anglais. Les autres directions suivent par nom.
+
+« Télécharger les langues courantes » télécharge les directions depuis et vers l’anglais de huit langues fixes : chinois simplifié, espagnol, français, allemand, japonais, portugais, russe et coréen, pour autant que le catalogue les contienne. Avant le téléchargement, le bouton liste les directions et leur taille totale ; les directions déjà installées en sont exclues. Lorsque toutes sont installées, le bouton est désactivé et indique « Toutes les langues courantes sont installées. ».
+
+## Données hors ligne manquantes
+
+La règle sur ce dont une paire de langues a besoin est la même partout :
+
+| Service | Paire avec l’anglais d’un côté | Paire sans anglais |
+| --- | --- | --- |
+| Dictionnaire | le pack direct | le pack direct lorsque la publication le contient, sinon source → anglais et anglais → cible |
+| Bergamot | la direction directe | source → anglais et anglais → cible |
+
+Le chinois simplifié ↔ traditionnel et les paires dont le catalogue n’offre pas les directions ne sont pas prises en charge : il n’y a rien à télécharger, et les paragraphes vont aux autres niveaux.
+
+Lorsque le niveau dictionnaire ou Bergamot dans le niveau traduction automatique échoue pour des paragraphes d’un message parce qu’un pack ou un modèle manque, une remarque apparaît au-dessus du message une fois le premier tour de traduction terminé. Elle apparaît une fois par message et seulement pour les niveaux hors ligne utilisés. Elle liste une ligne par service et par paire de langues, par exemple « Dictionnaire : japonais → chinois simplifié, manquant : japonais → anglais et anglais → chinois simplifié », et comporte trois commandes :
+
+- « Télécharger dans les paramètres » ouvre la page de paramètres avec les deux listes hors ligne filtrées sur les directions manquantes.
+- « Ne plus me le rappeler pour ces langues » met en sourdine les entrées listées, par service et par paire de langues. Les entrées en sourdine sont listées sous « Niveaux de traduction » dans la page de paramètres (« Rappels sur les données hors ligne manquantes »), et « Réactiver les rappels » les rétablit.
+- « Fermer » supprime la remarque.
+
+Les paragraphes dont la langue n’a été que devinée, les erreurs réseau et les paires non prises en charge ne comptent pas. Les paragraphes reçoivent toujours les traductions des autres niveaux ; lorsque seuls des niveaux hors ligne sont utilisés, ils restent en échec.
+
+Dans la fenêtre contextuelle et sur la page de paramètres, un dictionnaire ou un Bergamot sélectionné auquel manque ce dont les langues actuelles ont besoin s’affiche « Dictionnaire (modèle local non téléchargé) » ou « Bergamot (modèle local non téléchargé) » en rouge, et une ligne sous les listes de niveaux nomme les directions manquantes avec un lien « Télécharger » vers les listes filtrées. Avec la détection automatique, la direction de l’anglais vers la langue cible compte ; pour l’anglais comme langue cible, au moins une direction vers l’anglais. Une paire non prise en charge est nommée sur cette ligne sans rouge. Les signalements suivent les installations et les suppressions faites sur d’autres pages.
 
 
 ## Langue de l’interface

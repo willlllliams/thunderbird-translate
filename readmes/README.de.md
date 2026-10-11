@@ -6,8 +6,6 @@ Thunderbird Translate ist eine Erweiterung für Thunderbird, die den Text der ge
 
 Dieses Dokument richtet sich an Leser, die noch keine Thunderbird-Erweiterung verwendet haben. Es folgt der Reihenfolge Installation, Verwendung, Konfiguration und Funktionsweise.
 
-![Demo: Nachricht übersetzen, zwischen zweisprachig und nur Übersetzung wechseln, Zielsprache ändern](../docs/demo.gif)
-
 ## Funktionen
 
 - Übersetzung des Nachrichtentexts: Die Erweiterung erkennt Inhalte auf Absatzebene im Nachrichtentext, also Absätze, Listeneinträge, Tabellenzellen, Überschriften, Zitatblöcke, reine Text-divs und durch Leerzeilen getrennte Absätze in Nur-Text-Nachrichten. Code, Absätze, die bereits in der Zielsprache verfasst sind, Zahlen, nackte Links und Leerraum werden übersprungen.
@@ -67,7 +65,7 @@ Beim nächsten Aufruf beginnt der Assistent bei dem Schritt, an dem er verlassen
 | 1 Sprachen | Sprache der Benutzeroberfläche, Ausgangssprache (standardmäßig „Automatisch erkennen“), Zielsprache | immer |
 | 2 Anzeige | „Zweisprachig“ oder „Nur Übersetzung“, mit einer Vorschau einer Beispielnachricht in der aktuellen Darstellung der Übersetzung | immer |
 | 3 Übersetzungsstufen | Geschwindigkeit, Qualität, Datenschutz und Kosten der Stufen Wörterbuch, maschinelle Übersetzung und KI; der Dienst jeder Stufe oder „Nicht verwendet“, wobei mindestens eine Stufe einen Dienst hat | immer |
-| 4 Offline-Übersetzung | die Wörterbuchpakete und Bergamot-Richtungen, die die Sprachen aus Schritt 1 benötigen, mit Größe, Lizenz und Quellenangabe; die gewünschten ankreuzen, dann „Auswahl herunterladen“ mit Fortschrittsanzeige | die Wörterbuch-Stufe wird verwendet, oder die Stufe für maschinelle Übersetzung verwendet Bergamot |
+| 4 Offline-Übersetzung | alle Wörterbuchpakete und Bergamot-Richtungen mit Größe, Lizenz und Quellenangabe, die Ihrer Sprachen zuerst und angekreuzt; die gewünschten ankreuzen, dann „Auswahl herunterladen“ mit Fortschrittsanzeige oder „Häufige Sprachen herunterladen“ | die Wörterbuch-Stufe wird verwendet, oder die Stufe für maschinelle Übersetzung verwendet Bergamot |
 | 5 Online-Maschinenübersetzung | die Felder des maschinellen Übersetzers: bei Google nichts auszufüllen, bei Microsoft kostenloser Modus oder Modus mit Azure-Schlüssel, bei DeepLX Endpunkt und Token; „Verbindung testen“ | die Stufe für maschinelle Übersetzung verwendet Google, Microsoft oder DeepLX |
 | 6 KI-Übersetzung | der KI-Anbieter, sein API-Schlüssel, Modell, Temperatur und Denkmodus, „Verbindung testen“ und die Option „Präzise Übersetzung“; ein Hinweis, dass Denkmodus und präzise Übersetzung die Übersetzung langsamer und teurer machen | die KI-Stufe wird verwendet |
 | 7 Prompts | die drei Prompts und die Prompt-Vorlagen (siehe Abschnitt „Prompt-Vorlagen“) | die KI-Stufe wird verwendet |
@@ -75,12 +73,12 @@ Beim nächsten Aufruf beginnt der Assistent bei dem Schritt, an dem er verlassen
 
 Ein Schritt, den die bisherigen Entscheidungen nicht erfordern, bleibt durchgestrichen in der Liste, und die Navigation überspringt ihn. Wird zum Beispiel in Schritt 3 ein KI-Dienst gewählt, kehren die Schritte 6 und 7 zurück.
 
-Bei Japanisch als Ausgangssprache und vereinfachtem Chinesisch als Zielsprache empfiehlt Schritt 4 folgende Downloads:
+Schritt 4 listet alle Richtungen beider Kataloge auf; die Reihenfolge und die Kennzeichnungen beschreibt der Abschnitt [Offline-Listen](#offline-listen). Was angekreuzt ist, hängt von der Ausgangssprache ab:
 
-- Wörterbuch: das Paket Japanisch → Chinesisch, wenn das Release es enthält, sonst die beiden Pakete Japanisch → Englisch und Englisch → Chinesisch.
-- Bergamot: die Richtungen ja → en und en → zh-Hans, weil jedes Bergamot-Modell auf einer Seite Englisch hat.
+- Feste Ausgangssprache: die Richtungen, die das Sprachpaar benötigt. Für Japanisch → vereinfachtes Chinesisch sind das das Wörterbuchpaket Japanisch → Chinesisch, wenn das Release es enthält, sonst Japanisch → Englisch und Englisch → Chinesisch, und die Bergamot-Richtungen ja → en und en → zh-Hans, weil jedes Bergamot-Modell auf einer Seite Englisch hat.
+- „Automatisch erkennen“: die Richtungen der empfohlenen Sprachen in beiden Richtungen mit Englisch. Ein Hinweis erklärt den Weg: Eine Nachricht in einer anderen Sprache geht mit „Sprache → Englisch“ nach Englisch und von dort mit „Englisch → Zielsprache“ in die Zielsprache.
 
-Mit „Automatisch erkennen“ empfiehlt Schritt 4 die Pakete und Richtungen ab Englisch. Ein Hinweis bittet dann darum, für jede weitere Sprache, in der Nachrichten eintreffen, die Richtung nach Englisch zu installieren.
+„Auswahl herunterladen“ ist deaktiviert, solange nichts angekreuzt ist; die Zeile daneben lautet dann „Haken Sie zuerst die Elemente an, die heruntergeladen werden sollen.“. Während des Downloads steht dort „N Elemente werden heruntergeladen…“, am Ende „Downloads abgeschlossen.“ oder die Anzahl der fehlgeschlagenen Downloads; jede fehlgeschlagene Zeile zeigt ihren Grund.
 
 „Beispielnachricht übersetzen“ in Schritt 8 stellt eine kurze E-Mail auf der Seite dar (in der Ausgangssprache, wenn diese Englisch oder Deutsch ist, sonst auf Englisch, oder auf Deutsch, wenn die Zielsprache Englisch ist) und übersetzt sie mit den aktuellen Einstellungen. Die Seite verwendet die Absatzerkennung und die Darstellung des Inhaltsskripts. Sie sendet die Anfragen über dieselbe Verbindung an das Hintergrundskript wie eine angezeigte Nachricht. Das Ergebnis zeigt deshalb, wie eine echte Nachricht aussehen wird, einschließlich der verwendeten Stufen.
 
@@ -93,7 +91,7 @@ Nach dem Öffnen einer Nachricht erscheint in der Symbolleiste des Nachrichtenko
 - „Diese Nachricht übersetzen“: startet die Übersetzung. Solange eine Übersetzung läuft oder angezeigt wird, lautet die Schaltfläche „Original anzeigen“ und stellt bei einem Klick das Original wieder her.
 - Anzeige: schaltet zwischen „Zweisprachig“ und „Nur Übersetzung“ um; die Änderung gilt sofort für die aktuelle Nachricht.
 - Ausgangssprache und Zielsprache: Standard für die Ausgangssprache ist „Automatisch erkennen“. Nach einer Änderung einer der beiden wird eine gerade übersetzte Nachricht erneut übersetzt. Sind beide dieselbe Sprache, erscheint ein Hinweis.
-- Übersetzungsstufen: eine Liste pro Stufe („Stufe 1: Wörterbuch“, „Stufe 2: Maschinelle Übersetzung“, „Stufe 3: KI-Übersetzung“), jeweils mit „Nicht verwendet“ und den hinzugefügten Diensten dieser Stufe. Mindestens eine Stufe braucht einen Dienst; wird für die letzte Stufe mit Dienst „Nicht verwendet“ gewählt, lehnt das Pop-up dies mit einem Hinweis ab. „+ Übersetzungsdienst hinzufügen“ unter den Listen öffnet die Einstellungsseite bei den Übersetzungsdiensten.
+- Übersetzungsstufen: eine Liste pro Stufe („Stufe 1: Wörterbuch“, „Stufe 2: Maschinelle Übersetzung“, „Stufe 3: KI-Übersetzung“), jeweils mit „Nicht verwendet“, den hinzugefügten Diensten dieser Stufe und als letztem Eintrag „+ Übersetzungsdienst hinzufügen…“. Dieser Eintrag öffnet die Einstellungsseite bei den Übersetzungsdiensten der Stufe und lässt die Liste bei ihrem Wert. Mindestens eine Stufe braucht einen Dienst; wird für die letzte Stufe mit Dienst „Nicht verwendet“ gewählt, lehnt das Pop-up dies mit einem Hinweis ab. Ein gewähltes Wörterbuch oder Bergamot, dem Daten für die aktuellen Sprachen fehlen, ist gekennzeichnet, siehe [Fehlende Offline-Daten](#fehlende-offline-daten).
 - Präzise Übersetzung: wird angezeigt, solange die KI-Stufe einen Dienst hat.
 - Nachrichten, die nicht in der Zielsprache verfasst sind, automatisch übersetzen: Ist diese Option aktiviert, wird eine Nachricht, deren Text nicht in der Zielsprache verfasst ist, beim Öffnen sofort übersetzt.
 - Einrichtungsassistent: öffnet den Einrichtungsassistenten in einem neuen Tab.
@@ -111,10 +109,10 @@ Die Einstellungsseite öffnet sich über die Schaltfläche „Einstellungen“ d
 | Abschnitt | Inhalt |
 | --- | --- |
 | Allgemein | Sprache der Benutzeroberfläche, Ausgangssprache, Zielsprache, Standard-Anzeigemodus, Option „Nachrichten, die nicht in der Zielsprache verfasst sind, automatisch übersetzen“ |
-| Übersetzungsstufen | Der Dienst jeder Stufe oder „Nicht verwendet“; präzise Übersetzung |
-| Übersetzungsdienste | Dienste in zwei Gruppen, „Hinzugefügt“ und „Verfügbar“; Endpunkt, API-Schlüssel, Modell, Temperatur und Denkmodus jedes Dienstes; Schaltflächen „Verbindung testen“, „Hinzufügen“, „Diesen Dienst verwenden“ und „Entfernen“ |
-| Wörterbücher | Sprachpaare der Wörterbuch-Stufe mit Größe, Lizenz und Quellenangabe; Herunterladen und Löschen; Release-Tag der Wörterbuchpakete (erweitert) |
-| Offline-Übersetzungsmodelle (Bergamot) | Richtungspaare der Bergamot-Modelle mit Größe und Version; Filter nach Sprache; Herunterladen, Aktualisieren, Abbrechen und Löschen; die Richtungen, die die aktuellen Sprachen benötigen |
+| Übersetzungsstufen | Der Dienst jeder Stufe oder „Nicht verwendet“, mit der Kennzeichnung eines Offline-Dienstes, dem Daten fehlen; präzise Übersetzung; die stummgeschalteten Hinweise auf fehlende Offline-Daten, mit „Wieder erinnern“ |
+| Übersetzungsdienste | Dienste in zwei Gruppen, „Hinzugefügt“ und „Verfügbar“, nach Stufe gefiltert; Endpunkt, API-Schlüssel, Modell, Temperatur und Denkmodus jedes Dienstes; Schaltflächen „Verbindung testen“, „Hinzufügen“, „Diesen Dienst verwenden“ und „Entfernen“ |
+| Wörterbücher | Alle Pakete des Releases mit Größe, Lizenz und Quellenangabe, die der empfohlenen Sprachen zuerst; Filter; „Häufige Sprachen herunterladen“; Herunterladen und Löschen; Release-Tag der Wörterbuchpakete (erweitert) |
+| Offline-Übersetzungsmodelle (Bergamot) | Alle Richtungen der Bergamot-Modelle mit Größe und Version, die der empfohlenen Sprachen zuerst; Filter nach Sprache; „Häufige Sprachen herunterladen“; Herunterladen, Aktualisieren, Abbrechen und Löschen; die Richtungen, die die aktuellen Sprachen benötigen |
 | Prompts (KI-Stufe) | Die Prompt-Vorlagen; die Prompts für die zweisprachige Anzeige, die Anzeige nur der Übersetzung und die präzise Übersetzung, jeweils mit „Integrierten Prompt wiederherstellen“ |
 | Bündelung von Anfragen | Sammelzeitraum, maximale Zeichen und Absätze pro Anfrage, gleichzeitige Anfragen, Wiederholungsversuche, Zeitlimit pro Anfrage (standardmäßig 60 Sekunden; bei Ollama, LM Studio und Denkmodus dreimal so lang), ob KI-Anfragen zusammengefasst werden |
 | Darstellung der Übersetzung | Linie links, gestrichelte Linie links, Hervorhebung oder schlicht; Akzentfarbe, Textdeckkraft, relative Schriftgröße; Live-Vorschau |
@@ -205,6 +203,7 @@ Die Zeile „Beispiel“ zeigt einen Ausgangssatz und das erwartete Ergebnis der
 
 | Vorlage | Varianten | Regel, die an den Prompt angehängt wird |
 | --- | --- | --- |
+| Normal (keine zusätzlichen Regeln), der erste Eintrag | keine | keine: Das Anwenden entfernt jeden Block, den eine Vorlage zum Prompt hinzugefügt hat, und behält den selbst geschriebenen Text; ein Prompt, der danach dem integrierten entspricht, wird wieder leer gespeichert |
 | Dialekt oder regionaler Sprachgebrauch | je nach Zielsprache: Kantonesisch (Hongkong) und Sichuanesisch für vereinfachtes Chinesisch; Kantonesisch (Hongkong) und Sprachgebrauch in Taiwan für traditionelles Chinesisch; Britisches und Amerikanisches Englisch; Brasilianisches und Europäisches Portugiesisch; Mexikanisches Spanisch und Spanisch (Spanien); Kanadisches Französisch (Québec); Schweizer Hochdeutsch | in dieser Variante schreiben, mit ihrer Rechtschreibung, ihrem Wortschatz und ihren Anredeformen |
 | Schwierige Wörter mit Original | keine | normal übersetzen und nach jedem schwierigen Wort oder Fachbegriff den Originalbegriff in Klammern setzen, einmal pro Absatz, zum Beispiel „Unternehmensprüfung (due diligence)“ |
 | Erklärung schwieriger Wörter | keine | den Absatz übersetzen und danach am Ende desselben Absatzes seine schwierigen Wörter in der Zielsprache erklären, in einer einzigen Klammer: 〔Anmerkung: Begriff: Erklärung; …〕 |
@@ -266,7 +265,44 @@ Die Pakete werden aus Wiktionary erstellt, extrahiert mit wiktextract und veröf
 
 Der Dienst Bergamot übersetzt auf dem eigenen Rechner mit der Engine und den Modellen von Firefox Translations, die Mozilla unter MPL-2.0 veröffentlicht. Die Engine wird mit der Erweiterung ausgeliefert; jede Übersetzungsrichtung wird einmal von Mozilla heruntergeladen, 13 bis 48 MB, und in der IndexedDB der Erweiterung gespeichert. Eine geladene Richtung belegt etwa 200 MB Arbeitsspeicher und wird nach fünf Minuten ohne Verwendung freigegeben. Jedes Modell hat Englisch auf einer Seite, deshalb nutzt Japanisch nach Chinesisch die Richtungen Japanisch → Englisch und Englisch → Chinesisch.
 
-Der Abschnitt „Offline-Übersetzungsmodelle (Bergamot)“ der Einstellungsseite listet die 114 Richtungspaare zwischen 58 Sprachen mit Größe und Version auf, filterbar nach Sprache. Er nennt die Richtungen, die die aktuelle Ausgangs- und Zielsprache benötigen, und listet sie zuerst auf. Downloads zeigen ihren Fortschritt und lassen sich abbrechen; das Laden der Modellliste schlägt fehl, wenn nach 30 Sekunden keine Antwort kommt, und ein Download, der 30 Sekunden lang keine Daten erhält, bricht mit einem Fehler ab; bietet Mozilla für ein installiertes Paar eine neuere Version an, erscheint „Aktualisieren“. Das Löschen eines Paars, das die aktuellen Sprachen benötigen, verlangt eine Bestätigung. Installation, Übersetzung und Entfernen laufen im Hintergrundskript, in dem die Engine arbeitet. [docs/bergamot.md](../docs/bergamot.md) beschreibt Modellauswahl, Prüfung, Speicherung und die Engine.
+Der Abschnitt „Offline-Übersetzungsmodelle (Bergamot)“ der Einstellungsseite listet die 114 Richtungspaare zwischen 58 Sprachen mit Größe und Version auf, in der Reihenfolge, die der Abschnitt [Offline-Listen](#offline-listen) beschreibt. Er nennt die Richtungen, die die aktuelle Ausgangs- und Zielsprache benötigen. Downloads zeigen ihren Fortschritt und lassen sich abbrechen; das Laden der Modellliste schlägt fehl, wenn nach 30 Sekunden keine Antwort kommt, und ein Download, der 30 Sekunden lang keine Daten erhält, bricht mit einem Fehler ab; bietet Mozilla für ein installiertes Paar eine neuere Version an, erscheint „Aktualisieren“. Das Löschen eines Paars, das die aktuellen Sprachen benötigen, verlangt eine Bestätigung. Installation, Übersetzung und Entfernen laufen im Hintergrundskript, in dem die Engine arbeitet. [docs/bergamot.md](../docs/bergamot.md) beschreibt Modellauswahl, Prüfung, Speicherung und die Engine.
+
+## Offline-Listen
+
+Die Wörterbuch-Liste und die Bergamot-Liste auf der Einstellungsseite und in Schritt 4 des Einrichtungsassistenten zeigen jede Richtung ihres Katalogs und die installierten. Ein Filterfeld nimmt Sprachnamen oder Richtungen wie `ja>en`; mehrere Begriffe werden durch Kommas getrennt.
+
+Die Richtungen der empfohlenen Sprachen stehen zuerst. Eine empfohlene Sprache stammt aus einer oder mehreren dieser Quellen, nach Wichtigkeit geordnet:
+
+1. die Zielsprache;
+2. die Ausgangssprache, wenn sie fest eingestellt ist;
+3. die Sprache der Benutzeroberfläche der Erweiterung („Wie Thunderbird“ zählt als Sprache von Thunderbird);
+4. die Sprache der Benutzeroberfläche von Thunderbird;
+5. die Systemsprachen (`i18n.getPreferredSystemLanguages()`; Thunderbird-Versionen ohne diese Funktion verwenden die Locale der `Intl`-Formate).
+
+Für jede empfohlene Sprache X außer Englisch sind die Richtungen X → Englisch und Englisch → X empfohlen, beim Wörterbuch außerdem die direkten Pakete zwischen X und der Zielsprache, wenn das Release sie enthält. Jede empfohlene Zeile trägt ihre Quellen als Kennzeichnungen („Zielsprache“, „Ausgangssprache“, „Sprache der Erweiterung“, „Thunderbird-Sprache“, „Systemsprache“), dazu „Direkt“ für eine Richtung in die Zielsprache und „Über Englisch“ für eine Richtung nach Englisch, die den Weg über Englisch bedient. Die übrigen Richtungen folgen nach Namen.
+
+„Häufige Sprachen herunterladen“ lädt die Richtungen von und nach Englisch für acht feste Sprachen: vereinfachtes Chinesisch, Spanisch, Französisch, Deutsch, Japanisch, Portugiesisch, Russisch und Koreanisch, soweit der Katalog sie enthält. Vor dem Download listet die Schaltfläche die Richtungen und ihre Gesamtgröße auf; installierte Richtungen entfallen. Sind alle installiert, ist die Schaltfläche deaktiviert und zeigt „Die häufigen Sprachen sind alle installiert.“.
+
+## Fehlende Offline-Daten
+
+Die Regel, was ein Sprachpaar benötigt, gilt überall gleich:
+
+| Dienst | Paar mit Englisch auf einer Seite | Paar ohne Englisch |
+| --- | --- | --- |
+| Wörterbuch | das direkte Paket | das direkte Paket, wenn das Release es enthält, sonst Ausgangssprache → Englisch und Englisch → Zielsprache |
+| Bergamot | die direkte Richtung | Ausgangssprache → Englisch und Englisch → Zielsprache |
+
+Vereinfachtes ↔ traditionelles Chinesisch und Paare, deren Richtungen der Katalog nicht anbietet, sind nicht unterstützt: Es gibt nichts herunterzuladen, und die Absätze gehen an die anderen Stufen.
+
+Schlägt die Wörterbuch-Stufe oder Bergamot in der Stufe für maschinelle Übersetzung für Absätze einer Nachricht fehl, weil ein Paket oder Modell fehlt, erscheint über der Nachricht ein Hinweis, sobald die erste Übersetzungsrunde abgeschlossen ist. Er erscheint einmal pro Nachricht und nur für die verwendeten Offline-Stufen. Er nennt eine Zeile pro Dienst und Sprachpaar, zum Beispiel „Wörterbuch: Japanisch → Vereinfachtes Chinesisch, fehlt: Japanisch → Englisch und Englisch → Vereinfachtes Chinesisch“, und hat drei Bedienelemente:
+
+- „In den Einstellungen herunterladen“ öffnet die Einstellungsseite, wobei beide Offline-Listen auf die fehlenden Richtungen gefiltert sind.
+- „Für diese Sprachen nicht mehr erinnern“ schaltet die aufgeführten Einträge stumm, pro Dienst und Sprachpaar. Die stummgeschalteten Einträge stehen auf der Einstellungsseite unter „Übersetzungsstufen“ („Hinweise auf fehlende Offline-Daten“), und „Wieder erinnern“ holt sie zurück.
+- „Schließen“ entfernt den Hinweis.
+
+Absätze, deren Sprache nur geraten wurde, Netzwerkfehler und nicht unterstützte Paare zählen nicht. Die Absätze erhalten weiterhin die Übersetzungen der anderen Stufen; wenn nur Offline-Stufen verwendet werden, bleiben sie fehlgeschlagen.
+
+Im Pop-up und auf der Einstellungsseite lautet ein gewähltes Wörterbuch oder Bergamot, dem das fehlt, was die aktuellen Sprachen benötigen, „Wörterbuch (lokales Modell nicht heruntergeladen)“ oder „Bergamot (lokales Modell nicht heruntergeladen)“ in Rot, und eine Zeile unter den Stufenlisten nennt die fehlenden Richtungen mit einem Link „Herunterladen“ zu den gefilterten Listen. Bei automatischer Erkennung zählt die Richtung von Englisch in die Zielsprache; bei Englisch als Zielsprache mindestens eine Richtung nach Englisch. Ein nicht unterstütztes Paar steht ohne Rot auf dieser Zeile. Die Kennzeichnungen folgen Installationen und Löschungen, die auf anderen Seiten vorgenommen werden.
 
 ## Sprache der Benutzeroberfläche
 

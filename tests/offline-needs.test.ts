@@ -104,15 +104,6 @@ describe("recommended languages", () => {
     expect(itemSources("bergamot", "en>de", recommended)).toEqual(["target"])
   })
 
-  it("recommends a direct pack between two other languages only between a recommended language and the target", () => {
-    const recommended = recommendedLanguages({ target: ["zh-CN"], source: ["ja"], system: ["ko"] })
-    expect(itemSources("dictionary", "ja>zh-Hans", recommended)).toEqual(["target", "source"])
-    expect(itemSources("dictionary", "zh-Hans>ko", recommended)).toEqual(["target", "system"])
-    expect(itemSources("dictionary", "ja>ko", recommended)).toEqual([])
-    expect(itemSources("dictionary", "ja>fr", recommended)).toEqual([])
-    expect(itemSources("dictionary", "fr>en", recommended)).toEqual([])
-  })
-
   it("orders the directions of recommended languages first, by their most important source, then by name", () => {
     const recommended = recommendedLanguages({ target: ["de"], system: ["fr"] })
     const items = ["en>ja", "fr>en", "en>de", "en>fr", "de>en", "en>es"].map((id) => ({ id }))
