@@ -17,10 +17,6 @@ interface ThunderbirdExtras {
     setBadgeBackgroundColor(details: { color: string | null; tabId?: number }): Promise<void>
     setTitle(details: { title: string | null; tabId?: number }): Promise<void>
   }
-  messageDisplay?: {
-    getDisplayedMessages?(tabId: number): Promise<unknown>
-    getDisplayedMessage?(tabId: number): Promise<unknown>
-  }
 }
 
 type Ext = typeof browser & ThunderbirdExtras

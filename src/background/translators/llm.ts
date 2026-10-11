@@ -6,6 +6,7 @@ import { createLanguageModel } from "../providers/factory"
 import { modelRejectsTemperature, thinkingOptions } from "../providers/thinking"
 import {
   ANALYSIS_SYSTEM_PROMPT,
+  BatchParseError,
   buildAnalysisPrompt,
   buildBatchPrompt,
   buildSinglePrompt,
@@ -27,14 +28,6 @@ export interface LlmCallOptions {
   /** Precise mode: message context appended to the system prompt, identical for every request of one message. */
   contextPrefix?: string
   fetchFn?: typeof fetch
-}
-
-/** Thrown when a batched answer cannot be mapped back onto the paragraphs. */
-export class BatchParseError extends Error {
-  constructor(message: string) {
-    super(message)
-    this.name = "BatchParseError"
-  }
 }
 
 async function callModel(instructions: SystemModelMessage, prompt: string, opts: LlmCallOptions): Promise<string> {

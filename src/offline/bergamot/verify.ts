@@ -1,11 +1,7 @@
 /** sha256 checks and zstd decompression of model files. */
 
 import { decompress } from "fzstd"
-
-export async function sha256Hex(bytes: Uint8Array): Promise<string> {
-  const digest = await crypto.subtle.digest("SHA-256", bytes as Uint8Array<ArrayBuffer>)
-  return Array.from(new Uint8Array(digest), (b) => b.toString(16).padStart(2, "0")).join("")
-}
+import { sha256Hex } from "../../shared/download"
 
 export interface ExpectedFile {
   name: string

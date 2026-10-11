@@ -8,14 +8,13 @@
  * needed directions are listed, each with a check box, downloaded together.
  */
 
-import { appLang } from "../background/dictionary/format"
 import type { BergamotPairInfo } from "../offline/bergamot"
 import { describeError } from "../shared/errors"
 import { getI18n, t } from "../shared/i18n"
-import { LANGUAGES } from "../shared/languages"
+import { appLang, LANGUAGES, pairKey } from "../shared/languages"
 import type { BergamotProgress, BergamotRequired, BergamotResult } from "../shared/messages"
 import { send } from "../shared/page"
-import { h } from "./dom"
+import { button, h } from "./dom"
 
 export interface BergamotSectionDeps {
   /** Source ("auto" or a code) and target language of the settings. */
@@ -29,8 +28,6 @@ export interface BergamotSectionDeps {
   pick?: boolean
   pollMs?: number
 }
-
-const key = (src: string, tgt: string) => `${src}>${tgt}`
 
 /** Name of a model tag (en, zh-Hans, nb…) in the interface language. */
 function tagName(tag: string): string {
@@ -123,18 +120,12 @@ export class BergamotSection {
 
   /** Welcome page: download the picked directions. */
   async downloadPicked(): Promise<void> {
-    const picked = this.rows().filter((p) => !p.installed && !this.unpicked.has(key(p.src, p.tgt)) && !this.installing.has(key(p.src, p.tgt)))
+    const picked = this.rows().filter((p) => !p.installed && !this.unpicked.has(pairKey(p.src, p.tgt)) && !this.installing.has(pairKey(p.src, p.tgt)))
     await Promise.all(picked.map((p) => this.install(p)))
   }
 
-  private button(text: string, onClick: () => void, primary = false): HTMLButtonElement {
-    const b = h("button", { type: "button", className: primary ? "primary" : "", text })
-    b.addEventListener("click", onClick)
-    return b
-  }
-
   private renderRow(p: BergamotPairInfo): HTMLLIElement {
-    const id = key(p.src, p.tgt)
+    const id = pairKey(p.src, p.tgt)
     const name = pairName([p.src, p.tgt])
     let label: HTMLElement = h("span", { className: "dict-name", text: name })
     if (this.deps.pick && !p.installed) {
@@ -155,23 +146,23 @@ export class BergamotSection {
       const percent = progress?.total ? Math.min(100, Math.round((progress.done / progress.total) * 100)) : 0
       li.append(
         h("span", { text: t("dictDownloading", [percent]) }),
-        this.button(t("buttonCancel"), () => void send({ type: "bergamotCancel", src: p.src, tgt: p.tgt })),
+        button(t("buttonCancel"), () => void send({ type: "bergamotCancel", src: p.src, tgt: p.tgt })),
       )
     } else if (this.confirming.has(id)) {
       li.append(
         h("span", { className: "field-warning", text: t("bergamotDeleteNeeded") }),
-        this.button(t("buttonDeleteAnyway"), () => void this.remove(p)),
-        this.button(t("buttonCancel"), () => {
+        button(t("buttonDeleteAnyway"), () => void this.remove(p)),
+        button(t("buttonCancel"), () => {
           this.confirming.delete(id)
           this.render()
         }),
       )
     } else if (!this.deps.pick) {
-      if (!p.installed) li.append(this.button(t("buttonDownload"), () => void this.install(p), true))
-      if (p.installedVersion) li.append(this.button(t("buttonUpdate"), () => void this.install(p), true))
+      if (!p.installed) li.append(button(t("buttonDownload"), () => void this.install(p), true))
+      if (p.installedVersion) li.append(button(t("buttonUpdate"), () => void this.install(p), true))
       if (p.installed) {
         li.append(
-          this.button(t("buttonDelete"), () => {
+          button(t("buttonDelete"), () => {
             if (!this.isNeeded(p.src, p.tgt)) return void this.remove(p)
             this.confirming.add(id)
             this.render()
@@ -196,7 +187,7 @@ export class BergamotSection {
   }
 
   private async install(p: BergamotPairInfo): Promise<void> {
-    const id = key(p.src, p.tgt)
+    const id = pairKey(p.src, p.tgt)
     this.rowErrors.delete(id)
     this.installing.add(id)
     this.poll()
@@ -208,7 +199,7 @@ export class BergamotSection {
   }
 
   private async remove(p: BergamotPairInfo): Promise<void> {
-    const id = key(p.src, p.tgt)
+    const id = pairKey(p.src, p.tgt)
     this.confirming.delete(id)
     this.rowErrors.delete(id)
     const r = await send<BergamotResult | undefined>({ type: "bergamotRemove", src: p.src, tgt: p.tgt }).catch((error): BergamotResult => ({ ok: false, error: describeError(error, getI18n()) }))

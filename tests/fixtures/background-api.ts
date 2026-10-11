@@ -12,7 +12,7 @@ function event<A extends unknown[]>() {
 }
 
 /** A content script's Port as the background script sees it. */
-export function fakePort(tabId: number | undefined, name = CONTENT_PORT_NAME) {
+function fakePort(tabId: number | undefined, name = CONTENT_PORT_NAME) {
   const onMessage = event<[unknown]>()
   const onDisconnect = event<[]>()
   const posted: PortPush[] = []

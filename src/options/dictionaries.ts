@@ -6,14 +6,14 @@
  * itself and tells the background script to read the packs again.
  */
 
-import { appLang, dictLang } from "../background/dictionary/format"
+import { dictLang } from "../background/dictionary/format"
 import { fetchDictionaryIndex, type IndexedPack, installPack } from "../background/dictionary/download"
-import { DictionaryStore, type InstalledPack, packId } from "../background/dictionary/store"
+import { DictionaryStore, type InstalledPack } from "../background/dictionary/store"
 import { describeError } from "../shared/errors"
 import { getI18n, t } from "../shared/i18n"
-import { getLanguage } from "../shared/languages"
+import { appLang, getLanguage, pairKey } from "../shared/languages"
 import { send } from "../shared/page"
-import { h } from "./dom"
+import { button, h } from "./dom"
 
 /** What a row shows: the index entry when the release has the pack, the stored description when it is installed. */
 interface Row {
@@ -47,8 +47,8 @@ export function neededPackIds(source: string, target: string, available: { src: 
   const src = dictLang(source === "auto" ? "en" : source)
   const tgt = dictLang(target)
   if (!src || !tgt || src === tgt) return []
-  if (src === "en" || tgt === "en" || available.some((p) => p.src === src && p.tgt === tgt)) return [packId(src, tgt)]
-  return [packId(src, "en"), packId("en", tgt)]
+  if (src === "en" || tgt === "en" || available.some((p) => p.src === src && p.tgt === tgt)) return [pairKey(src, tgt)]
+  return [pairKey(src, "en"), pairKey("en", tgt)]
 }
 
 export class DictionarySection {
@@ -80,7 +80,7 @@ export class DictionarySection {
 
   private rows(): Row[] {
     const rows = new Map<string, Row>()
-    for (const pack of this.available) rows.set(packId(pack.src, pack.tgt), { id: packId(pack.src, pack.tgt), available: pack })
+    for (const pack of this.available) rows.set(pairKey(pack.src, pack.tgt), { id: pairKey(pack.src, pack.tgt), available: pack })
     for (const pack of this.installed) rows.set(pack.id, { ...rows.get(pack.id), id: pack.id, installed: pack })
     if (!this.deps.needed) return [...rows.values()]
     const { source, target } = this.deps.needed()
@@ -118,13 +118,9 @@ export class DictionarySection {
     if (progress !== undefined) {
       li.append(h("span", { text: t("dictDownloading", [progress]) }))
     } else if (installed && !this.deps.needed) {
-      const remove = h("button", { type: "button", text: t("buttonDelete") })
-      remove.addEventListener("click", () => void this.remove(id))
-      li.append(remove)
+      li.append(button(t("buttonDelete"), () => void this.remove(id)))
     } else if (available && !this.deps.needed) {
-      const download = h("button", { type: "button", className: "primary", text: t("buttonDownload") })
-      download.addEventListener("click", () => void this.download(available))
-      li.append(download)
+      li.append(button(t("buttonDownload"), () => void this.download(available), true))
     }
     li.append(h("span", { className: "attribution hint", text: (available ?? installed)!.attribution }))
     const error = this.rowErrors.get(id)
@@ -145,7 +141,7 @@ export class DictionarySection {
   }
 
   private async download(pack: IndexedPack): Promise<void> {
-    const id = packId(pack.src, pack.tgt)
+    const id = pairKey(pack.src, pack.tgt)
     this.rowErrors.delete(id)
     this.progress.set(id, 0)
     this.render()

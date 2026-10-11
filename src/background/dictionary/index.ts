@@ -12,9 +12,9 @@
 
 import { LocalizedError } from "../../shared/errors"
 import { detectLanguage, type LanguageDetector } from "../../shared/lang-detect"
-import { baseLang } from "../../shared/languages"
+import { baseLang, pairKey } from "../../shared/languages"
 import { dictKey, dictLang, type DictPack, gunzip, parsePack } from "./format"
-import { DictionaryStore, packId } from "./store"
+import { DictionaryStore } from "./store"
 
 const MAX_PHRASE_WORDS = 3
 /** Languages written without spaces between words. */
@@ -111,7 +111,7 @@ export class Dictionary {
 
   /** A pack in memory, read on first use; null when it is not installed. */
   private pack(src: string, tgt: string): Promise<DictPack | null> {
-    const id = packId(src, tgt)
+    const id = pairKey(src, tgt)
     let pack = this.packs.get(id)
     if (!pack) {
       pack = this.store.data(id).then(async (data) => (data ? parsePack(await gunzip(data)) : null))

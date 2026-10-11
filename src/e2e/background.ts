@@ -15,7 +15,8 @@ import { SETTINGS_KEY } from "../shared/settings"
 import { readSettings } from "../shared/settings-store"
 import type { KeyValueStorage } from "../background/cache"
 import { fetchDictionaryIndex, installPack, releaseUrl } from "../background/dictionary/download"
-import { DictionaryStore, packId } from "../background/dictionary/store"
+import { DictionaryStore } from "../background/dictionary/store"
+import { pairKey } from "../shared/languages"
 import { E2E_MARKER } from "./marker"
 import { WORKER_FILE, type WorkerResponse } from "../offline/bergamot/protocol"
 
@@ -48,10 +49,10 @@ async function installDictionary(dictionary: { invalidate(): void }): Promise<st
   const installed = new Set((await store.list()).map((p) => p.id))
   const packs = await fetchDictionaryIndex(DICT_TAG, releaseFetch)
   for (const pack of packs) {
-    if (!installed.has(packId(pack.src, pack.tgt))) await installPack(pack, DICT_TAG, store, { fetchFn: releaseFetch })
+    if (!installed.has(pairKey(pack.src, pack.tgt))) await installPack(pack, DICT_TAG, store, { fetchFn: releaseFetch })
   }
   dictionary.invalidate()
-  return packs.map((p) => packId(p.src, p.tgt))
+  return packs.map((p) => pairKey(p.src, p.tgt))
 }
 
 /**

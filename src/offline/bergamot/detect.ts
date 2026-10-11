@@ -13,9 +13,9 @@ export interface DetectionResult {
 export type LanguageDetector = (text: string) => Promise<DetectionResult>
 
 /** Letters needed before the detector is asked (punctuation, digits and spaces do not count). */
-export const MIN_DETECT_LETTERS = 12
+const MIN_DETECT_LETTERS = 12
 /** Share of the text the top language must cover. */
-export const MIN_DETECT_PERCENTAGE = 60
+const MIN_DETECT_PERCENTAGE = 60
 const SAMPLE_CHARS = 4000
 
 /** CLD code → Remote Settings tag; undefined for "und" and empty answers. */

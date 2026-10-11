@@ -51,19 +51,10 @@ if (!locales.includes(manifest.default_locale)) {
 }
 console.log(`_locales: ${locales.join(", ")}`)
 
-const result = await esbuild.build({
-  entryPoints: {
-    background: "src/background/index.ts",
-    content: "src/content/index.ts",
-    popup: "src/popup/index.ts",
-    options: "src/options/index.ts",
-    welcome: "src/welcome/index.ts",
-    "bergamot-worker": "src/offline/bergamot/worker.ts",
-  },
+const options = {
   absWorkingDir: root,
   outdir: dist,
   bundle: true,
-  format: "iife",
   platform: "browser",
   target: ["firefox128"],
   // Prefer browser builds of dependencies; never pull Node built-ins.
@@ -75,7 +66,24 @@ const result = await esbuild.build({
   logLevel: "info",
   metafile: true,
   define: { "process.env.NODE_ENV": '"production"', __DEBUG__: String(debug), __E2E__: String(e2e), __E2E_SERVER__: JSON.stringify(e2eServer) },
-})
+}
+// The background script is an ES module ("type": "module" in the manifest), so the packages of the AI SDK
+// become chunks that load with the first AI request. Content script, pages and worker stay classic scripts.
+const builds = await Promise.all([
+  esbuild.build({ ...options, entryPoints: { background: "src/background/index.ts" }, format: "esm", splitting: true, chunkNames: "chunks/[name]-[hash]" }),
+  esbuild.build({
+    ...options,
+    entryPoints: {
+      content: "src/content/index.ts",
+      popup: "src/popup/index.ts",
+      options: "src/options/index.ts",
+      welcome: "src/welcome/index.ts",
+      "bergamot-worker": "src/offline/bergamot/worker.ts",
+    },
+    format: "iife",
+  }),
+])
+const result = { metafile: { inputs: Object.assign({}, ...builds.map((b) => b.metafile.inputs)), outputs: Object.assign({}, ...builds.map((b) => b.metafile.outputs)) } }
 
 // Guard: a Node built-in in a bundle means it would fail inside Thunderbird.
 const nodeImports = Object.keys(result.metafile.inputs).filter((p) => p.startsWith("node:") || /^(fs|path|crypto|stream|http|https|zlib|os)$/.test(p))
@@ -93,9 +101,10 @@ if (e2e && withHooks.length === 0) {
   console.error("e2e build without the e2e hooks")
   process.exit(1)
 }
-for (const [file, info] of Object.entries(result.metafile.outputs)) {
-  if (file.endsWith(".js")) console.log(`${file}: ${(info.bytes / 1024).toFixed(0)} KiB`)
-}
+const jsOutputs = Object.entries(result.metafile.outputs).filter(([file]) => file.endsWith(".js"))
+for (const [file, info] of jsOutputs) if (!file.includes("/chunks/")) console.log(`${file}: ${(info.bytes / 1024).toFixed(0)} KiB`)
+const chunks = jsOutputs.filter(([file]) => file.includes("/chunks/"))
+console.log(`${chunks.length} chunks of the background script: ${(chunks.reduce((n, [, info]) => n + info.bytes, 0) / 1024).toFixed(0)} KiB`)
 
 // Pack the xpi (a zip with manifest.json at the root).
 const files = {}

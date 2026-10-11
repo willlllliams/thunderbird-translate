@@ -14,3 +14,10 @@ export function h<K extends keyof HTMLElementTagNameMap>(
   for (const c of children) if (c !== null) el.append(c)
   return el
 }
+
+/** A button that runs `onClick`; `primary` for the main action of its row. */
+export function button(text: string, onClick: () => void, primary = false): HTMLButtonElement {
+  const b = h("button", { type: "button", className: primary ? "primary" : undefined, text })
+  b.addEventListener("click", onClick)
+  return b
+}

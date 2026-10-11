@@ -12,7 +12,7 @@ Tài liệu này viết cho người đọc chưa từng dùng tiện ích của
 
 - Dịch nội dung thư: tiện ích tìm nội dung ở cấp đoạn trong phần thân thư, gồm đoạn văn, mục danh sách, ô bảng, tiêu đề, khối trích dẫn, div chỉ chứa văn bản, và các đoạn được ngăn cách bằng dòng trống trong thư văn bản thuần. Mã nguồn, các đoạn đã ở ngôn ngữ đích, con số, liên kết trơn và khoảng trắng được bỏ qua.
 - Hai chế độ hiển thị: chế độ song ngữ chèn một khối bản dịch có viền trái nhạt dưới đoạn gốc, vẫn dễ đọc khi dùng giao diện tối. Chế độ chỉ bản dịch thay đoạn gốc bằng bản dịch; đoạn gốc được giữ trong bộ nhớ và được đặt lại khi tắt dịch.
-- Cập nhật trực tiếp: khi đổi chế độ hiển thị hoặc ngôn ngữ đích trong lúc thư đang được dịch, trang được vẽ lại mà không cần mở lại thư. Đổi chế độ hiển thị chỉ vẽ lại từ các bản dịch đã nhận và không gửi yêu cầu mới.
+- Cập nhật trực tiếp: khi đổi chế độ hiển thị hoặc ngôn ngữ đích trong lúc thư đang được dịch, trang được vẽ lại mà không cần mở lại thư. Đổi chế độ hiển thị sẽ vẽ lại các bản dịch của từ điển và dịch máy đã nhận; tầng AI được hỏi lại với lời nhắc của chế độ mới, và bộ nhớ đệm trả lời khi đã có bản dịch đó.
 - Điểm truy cập: nút "Dịch thư" trên thanh công cụ ở phần đầu thư cùng cửa sổ bật lên của nút, và hai phím tắt Alt+A (dịch / hiện bản gốc) và Alt+S (chuyển song ngữ / chỉ bản dịch).
 - Dịch khi mở thư (tùy chọn): thư không ở ngôn ngữ đích được dịch ngay khi mở, không cần nhấn nút.
 - Gộp yêu cầu: tập lệnh nền gom các đoạn trong 50 ms rồi gộp thành một yêu cầu, có giới hạn số yêu cầu đồng thời, thử lại với thời gian chờ tăng theo hàm mũ, và bộ nhớ đệm cục bộ.
@@ -46,7 +46,7 @@ npm test
 npm run build
 ```
 
-`npm run build` dùng esbuild để đóng gói tập lệnh nền, tập lệnh nội dung, cửa sổ bật lên, trang cài đặt và trang hướng dẫn thiết lập vào `dist/`, tạo `dist/_locales/<language>/messages.json` từ các tệp trong `locales/`, rồi nén `dist/` thành `web-ext-artifacts/thunderbird-translate-<version>.xpi`. Bước nén dùng thư viện fflate viết bằng JavaScript thuần và không cần lệnh zip của hệ thống.
+`npm run build` dùng esbuild để đóng gói tập lệnh nền, tập lệnh nội dung, cửa sổ bật lên, trang cài đặt, trang hướng dẫn thiết lập và worker của Bergamot vào `dist/`, tạo `dist/_locales/<language>/messages.json` từ các tệp trong `locales/`, rồi nén `dist/` thành `web-ext-artifacts/thunderbird-translate-<version>.xpi`. Bước nén dùng thư viện fflate viết bằng JavaScript thuần và không cần lệnh zip của hệ thống. Tập lệnh nền là một mô-đun ES: AI SDK nằm trong một chunk riêng dưới `dist/chunks/` và chỉ được nạp khi tầng AI được dùng, nên Thunderbird khởi động tiện ích mà không cần nó. Lần build đầu tiên tải engine Bergamot (wasm) phiên bản đã cố định từ Mozilla về `.cache/`, xem [docs/bergamot.md](../docs/bergamot.md).
 
 Trong lúc phát triển, bạn có thể nạp tiện ích mà không cần đóng gói: trong Thunderbird mở Công cụ → Công cụ nhà phát triển → Gỡ lỗi tiện ích, nhấn "Tải tiện ích tạm thời…" và chọn `dist/manifest.json`.
 
@@ -76,7 +76,7 @@ Khi ngôn ngữ nguồn là tiếng Nhật và ngôn ngữ đích là tiếng Tr
 
 Khi chọn "Tự động phát hiện", bước 4 đề xuất các gói và chiều dịch từ tiếng Anh. Một ghi chú bên dưới danh sách đề nghị cài chiều dịch sang tiếng Anh cho mỗi ngôn ngữ khác mà bạn nhận thư.
 
-Nút "Dịch thư mẫu" ở bước 8 hiển thị một thư tiếng Anh ngắn trên trang (thư tiếng Đức khi ngôn ngữ đích là tiếng Anh) và dịch thư đó bằng cài đặt hiện tại. Trang dùng phần nhận diện đoạn và phần hiển thị của tập lệnh nội dung, và gửi yêu cầu đến tập lệnh nền qua cùng kết nối như một thư đang hiển thị. Vì vậy kết quả cho thấy một thư thật sẽ trông thế nào, kể cả các tầng đang dùng.
+Nút "Dịch thư mẫu" ở bước 8 hiển thị một thư ngắn trên trang (bằng ngôn ngữ nguồn khi đó là tiếng Anh hoặc tiếng Đức, nếu không thì bằng tiếng Anh, hoặc bằng tiếng Đức khi ngôn ngữ đích là tiếng Anh) và dịch thư đó bằng cài đặt hiện tại. Trang dùng phần nhận diện đoạn và phần hiển thị của tập lệnh nội dung, và gửi yêu cầu đến tập lệnh nền qua cùng kết nối như một thư đang hiển thị. Vì vậy kết quả cho thấy một thư thật sẽ trông thế nào, kể cả các tầng đang dùng.
 
 Hướng dẫn dùng chung các thành phần với trang cài đặt: các trường cấu hình dịch vụ và kiểm tra kết nối, danh sách từ điển và Bergamot, trình sửa lời nhắc kèm các mẫu có sẵn.
 
@@ -256,7 +256,7 @@ Các gói được tạo từ Wiktionary, do wiktextract trích xuất và kaikk
 
 ## Dịch ngoại tuyến (Bergamot)
 
-Dịch vụ Bergamot dịch ngay trên máy tính của bạn bằng công cụ dịch và các mô hình của Firefox Translations, do Mozilla phát hành theo giấy phép MPL-2.0. Công cụ dịch đi kèm tiện ích; mỗi chiều dịch được tải xuống một lần từ Mozilla, dung lượng 24 đến 48 MB, và được lưu trong IndexedDB của tiện ích. Một chiều dịch đã nạp chiếm khoảng 200 MB bộ nhớ và được giải phóng sau năm phút không dùng. Mọi mô hình đều có tiếng Anh ở một phía, nên dịch tiếng Nhật sang tiếng Trung dùng chiều Nhật → Anh và chiều Anh → Trung.
+Dịch vụ Bergamot dịch ngay trên máy tính của bạn bằng công cụ dịch và các mô hình của Firefox Translations, do Mozilla phát hành theo giấy phép MPL-2.0. Công cụ dịch đi kèm tiện ích; mỗi chiều dịch được tải xuống một lần từ Mozilla, dung lượng 13 đến 48 MB, và được lưu trong IndexedDB của tiện ích. Một chiều dịch đã nạp chiếm khoảng 200 MB bộ nhớ và được giải phóng sau năm phút không dùng. Mọi mô hình đều có tiếng Anh ở một phía, nên dịch tiếng Nhật sang tiếng Trung dùng chiều Nhật → Anh và chiều Anh → Trung.
 
 Phần "Mô hình dịch ngoại tuyến (Bergamot)" của trang cài đặt liệt kê 114 chiều dịch giữa 58 ngôn ngữ kèm dung lượng và phiên bản, có thể lọc theo ngôn ngữ. Phần này nêu các chiều dịch mà ngôn ngữ nguồn và ngôn ngữ đích hiện tại cần và đưa chúng lên đầu danh sách. Quá trình tải xuống hiển thị tiến độ và có thể hủy; một chiều dịch đã cài mà Mozilla cung cấp phiên bản mới hơn sẽ hiện nút "Cập nhật". Khi xóa một chiều dịch mà ngôn ngữ hiện tại cần, tiện ích yêu cầu xác nhận. Việc cài đặt, dịch và gỡ đều chạy trong tập lệnh nền, nơi công cụ dịch hoạt động. [docs/bergamot.md](../docs/bergamot.md) mô tả cách chọn mô hình, kiểm tra, lưu trữ và công cụ dịch.
 
@@ -449,7 +449,7 @@ Số token đầu vào giảm khoảng 63%, và số yêu cầu giảm từ 20 x
 
 - Khóa API chỉ được lưu trong `storage.local` của hồ sơ Thunderbird hiện tại và chỉ được gửi kèm các yêu cầu đến điểm cuối của nhà cung cấp tương ứng.
 - Tập lệnh nội dung chạy bên trong trang thư; các cài đặt mà tập lệnh này nhận từ tập lệnh nền không bao giờ chứa khóa.
-- Văn bản thư chỉ được gửi đến dịch vụ của các tầng đang dùng. Từ điển và Bergamot dịch trên máy tính của bạn và không gửi văn bản đi đâu cả. Gói từ điển được tải từ các bản phát hành GitHub của kho mã này, còn mô hình Bergamot được tải từ Mozilla, và chỉ khi bạn nhấn "Tải xuống". Tiện ích không thu thập số liệu thống kê và không liên hệ với địa chỉ mạng nào khác.
+- Văn bản thư chỉ được gửi đến dịch vụ của các tầng đang dùng. Từ điển và Bergamot dịch trên máy tính của bạn và không gửi văn bản đi đâu cả. Trang cài đặt và trang hướng dẫn thiết lập đọc danh sách gói từ điển từ các bản phát hành GitHub của kho mã này và danh sách mô hình Bergamot từ Mozilla; bản thân các gói và mô hình chỉ được tải khi bạn nhấn "Tải xuống". Không yêu cầu nào trong số này mang văn bản thư. Tiện ích không thu thập số liệu thống kê và không liên hệ với địa chỉ mạng nào khác.
 - Bộ nhớ đệm bản dịch được lưu cục bộ và có thể tắt hoặc xóa trên trang cài đặt.
 - Khi dùng Google, Microsoft, DeepLX hoặc một dịch vụ AI trực tuyến, văn bản thư rời khỏi máy tính của bạn. Với thư nhạy cảm, chỉ dùng từ điển, Bergamot và các mô hình AI cục bộ như Ollama hoặc LM Studio; chúng giữ mọi yêu cầu trên chính máy của bạn.
 
@@ -500,11 +500,14 @@ src/
   e2e/           hooks of the e2e test build (left out of every other build)
 locales/         interface text, one JSON file per language; en.json is the reference
 static/          manifest.json, HTML, CSS, SVG icon
-scripts/         build, locale generation and checks, live endpoint test
+scripts/         build, Bergamot engine download, locale generation and checks, live endpoint test
+vendor/          Bergamot engine glue script (bergamot-translator.js)
+tools/           dict-build: the pipeline that builds the dictionary packs
 readmes/         translated versions of this README
-docs/            demo GIF used in this README
+docs/            developer notes on Bergamot and the dictionary packs, demo GIF used in this README
 tests/           vitest tests
 e2e/             end-to-end test in a real Thunderbird: runner, mock server, fixture messages
+.github/         workflows: build and release, dictionary packs
 ```
 
 ## Dịch giao diện

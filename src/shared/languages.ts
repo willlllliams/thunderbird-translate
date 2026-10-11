@@ -48,3 +48,25 @@ export function getLanguage(code: string): LanguageInfo {
 export function baseLang(code: string): string {
   return code.toLowerCase().split(/[-_]/)[0]
 }
+
+/**
+ * Language of a code, with Chinese told apart by script: "zh", "zh-CN",
+ * "zh-SG" → "zh-Hans"; "zh-TW", "zh-HK", "zh-MO", "zh-Hant" → "zh-Hant";
+ * any other code → its primary subtag ("pt-BR" → "pt").
+ */
+export function languageTag(code: string): string {
+  const [base, ...rest] = code.trim().toLowerCase().split(/[-_]/)
+  if (base !== "zh") return base
+  return rest.some((p) => p === "hant" || p === "tw" || p === "hk" || p === "mo") ? "zh-Hant" : "zh-Hans"
+}
+
+/** Code of LANGUAGES for a language tag: "zh-Hans" → "zh-CN", "zh-Hant" → "zh-TW". */
+export function appLang(tag: string): string {
+  if (tag === "zh-Hans") return "zh-CN"
+  return tag === "zh-Hant" ? "zh-TW" : tag
+}
+
+/** Key of a translation direction, e.g. "en>zh-Hans", for dictionary packs and offline models. */
+export function pairKey(src: string, tgt: string): string {
+  return `${src}>${tgt}`
+}

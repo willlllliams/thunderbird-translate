@@ -5,10 +5,12 @@
  * Used by the settings page; the installed packs go to DictionaryStore.
  */
 
+import { readBody, sha256Hex } from "../../shared/download"
 import { LocalizedError } from "../../shared/errors"
+import { pairKey } from "../../shared/languages"
 import { fetchOk } from "../queue/request-queue"
-import { gunzip, parsePack, sha256Hex } from "./format"
-import { type DictionaryStore, packId } from "./store"
+import { gunzip, parsePack } from "./format"
+import type { DictionaryStore } from "./store"
 
 const RELEASES = "https://github.com/willlllliams/thunderbird-translate/releases/download"
 
@@ -60,35 +62,20 @@ export interface DownloadOptions {
 export async function installPack(pack: IndexedPack, tag: string, store: DictionaryStore, { fetchFn = fetch, onProgress }: DownloadOptions = {}): Promise<void> {
   const resp = await fetchOk(fetchFn, { url: releaseUrl(tag, pack.file), init: { method: "GET", headers: {} } }, "GitHub")
   const total = Number(resp.headers.get("content-length")) || pack.bytes
-  const chunks: Uint8Array[] = []
-  let loaded = 0
-  const reader = resp.body!.getReader()
-  for (;;) {
-    const { done, value } = await reader.read()
-    if (done) break
-    chunks.push(value)
-    loaded += value.byteLength
-    onProgress?.(loaded, total)
-  }
-  const data = new Uint8Array(loaded)
-  let offset = 0
-  for (const chunk of chunks) {
-    data.set(chunk, offset)
-    offset += chunk.byteLength
-  }
+  const data = await readBody(resp, (loaded) => onProgress?.(loaded, total))
   if ((await sha256Hex(data)) !== pack.sha256.toLowerCase()) throw new LocalizedError("errDictionaryChecksum", [pack.file])
   const parsed = parsePack(await gunzip(data))
   if (parsed.src !== pack.src || parsed.tgt !== pack.tgt) throw new LocalizedError("errDictionaryFormat")
   await store.put(
     {
-      id: packId(pack.src, pack.tgt),
+      id: pairKey(pack.src, pack.tgt),
       src: pack.src,
       tgt: pack.tgt,
       version: parsed.version,
       source: pack.source,
       license: pack.license,
       attribution: pack.attribution,
-      bytes: loaded,
+      bytes: data.byteLength,
       entries: parsed.entries.size,
       forms: parsed.forms.size,
     },

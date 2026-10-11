@@ -7,9 +7,9 @@
  * pair, and every file of a pair at the same version as its model file.
  */
 
-import { pairKey } from "./languages"
+import { pairKey } from "../../shared/languages"
 
-export const MODEL_FILE_TYPES = ["model", "lex", "vocab", "srcvocab", "trgvocab"] as const
+const MODEL_FILE_TYPES = ["model", "lex", "vocab", "srcvocab", "trgvocab"] as const
 export type ModelFileType = (typeof MODEL_FILE_TYPES)[number]
 
 export interface RemoteAttachment {

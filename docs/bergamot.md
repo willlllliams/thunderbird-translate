@@ -4,19 +4,19 @@ The module in `src/offline/bergamot/` translates plain text on the user's comput
 
 ## Interface
 
-All functions are exported from `src/offline/bergamot/index.ts`. Translation runs in a Worker started by the page that calls `bergamotTranslate`, so call it from the background page. Installation, removal and listing work in any extension page, but routing them through the background as well keeps one engine aware of all changes: a pair reinstalled from another page stays loaded in its old version until the background engine stops after 5 idle minutes.
+`src/offline/bergamot/index.ts` exports `getBergamot()`, the `BergamotManager` of the background page (created on first use with the browser's IndexedDB, `fetch`, `Worker` and `i18n.detectLanguage`), and `requiredPairs`. Translation runs in a Worker started by the page that owns the manager, so the extension keeps the manager in the background page. The settings page and the setup guide reach it through the messages handled in `src/background/bergamot-admin.ts`, so one engine sees every installation and removal.
 
-| Function | Result |
+| Method or function | Result |
 | --- | --- |
-| `bergamotTranslate(texts, src, tgt, options?)` | `Promise<string[]>`, one output per input, same order |
-| `listBergamotPairs(forceRefresh?)` | `Promise<BergamotPairInfo[]>`, sorted by source, then target |
-| `installBergamotPair(src, tgt, onProgress?, signal?)` | `Promise<void>`; `onProgress(doneBytes, totalBytes)` |
-| `removeBergamotPair(src, tgt)` | `Promise<void>` |
+| `translate(texts, src, tgt, options?)` | `Promise<string[]>`, one output per input, same order |
+| `listPairs(forceRefresh?)` | `Promise<BergamotPairInfo[]>`, sorted by source, then target |
+| `install(src, tgt, onProgress?, signal?)` | `Promise<void>`; `onProgress(doneBytes, totalBytes)`; a second call for a pair being installed returns the running installation |
+| `remove(src, tgt)` | `Promise<void>` |
+| `missingPairs(pairs)` | the entries of `pairs` that are not installed |
 | `requiredPairs(src, tgt)` | `Array<[string, string]>`, the direction pairs a translation needs |
-| `missingBergamotPairs(src, tgt)` | the entries of `requiredPairs(src, tgt)` that are not installed |
-| `normalizeBergamotLang(code)` | the model tag for an application or detector code |
+| `normalizeBergamotLang(code)` (`languages.ts`) | the model tag for an application or detector code |
 
-`bergamotTranslate` behaves as follows:
+`translate` behaves as follows:
 
 - `src` may be `"auto"`. The source language then comes from `browser.i18n.detectLanguage` on the first 4000 characters. When the sample has fewer than 12 letters, the detector marks its answer unreliable, or the top language covers less than 60 % of the text, `options.fallbackSource` is used instead. Without a fallback this case throws `bergamotDetectFailed`.
 - When source and target are the same language, the texts come back unchanged.
@@ -50,6 +50,7 @@ Mozilla's models use BCP 47 tags with scripts for Chinese. `normalizeBergamotLan
 | `no` | `nb` |
 | `in` | `id` |
 | `fil` | `tl` |
+| `ji` | `yi` |
 | any other tag | its primary subtag, e.g. `pt-BR` → `pt` |
 
 Every model has English on one side. A pair without English runs through two models in one engine call (`translateViaPivoting`): Japanese to Simplified Chinese uses `ja → en`, then `en → zh-Hans`. `requiredPairs` returns the pairs for a translation:
@@ -79,7 +80,7 @@ Rule 5 matters for pairs such as `en → ko`: the Android set (3.1) has separate
 
 On 2026-10-11 the collection held 404 records, and the rules leave 114 direction pairs among 58 languages. A model file is 12 to 45 MB compressed; `en → zh-Hans` downloads 34.5 MiB in total.
 
-The list is kept in memory for 6 hours and saved in IndexedDB. When Mozilla cannot be reached, the saved copy is used. When there is no saved copy, the call throws `bergamotRecordsFailed`.
+The list is kept in memory for 6 hours and saved in IndexedDB. When Mozilla cannot be reached, the saved copy is used. When there is no saved copy, or when the caller forces a refresh (the reload button of the settings page), the call throws `bergamotRecordsFailed`.
 
 ## Installation and storage
 
@@ -129,7 +130,7 @@ Worker messages are defined in `protocol.ts`. Each request carries an id, the wo
 
 | Request | Answer |
 | --- | --- |
-| `load { key, src, tgt, files }` (compressed `ArrayBuffer`s, transferred) | `ok`, current heap size |
+| `load { key, src, tgt, files }` (compressed `ArrayBuffer`s, transferred) | `ok` |
 | `unload { key }` | `ok` |
 | `translate { keys, texts }` (one key, or two for English in between) | `ok`, `result: string[]` |
 
@@ -154,7 +155,7 @@ The manifest gains the `unlimitedStorage` permission and an explicit policy, `sc
 
 ## Message keys for the interface
 
-The module throws `BergamotError`, a subclass of `LocalizedError`. `describeError` shows it in the interface language once these keys exist in `locales/*.json`. Until then `Error.message` carries the English text from `errors.ts`, and the server or engine detail follows it after ` - `.
+The module throws `LocalizedError` with the keys below, so `describeError` shows the message in the interface language. The server or engine detail follows it after ` - `. Storage, model list and worker failures inside the module are plain `Error`s whose message becomes that detail.
 
 | Key | English text | Placeholders |
 | --- | --- | --- |

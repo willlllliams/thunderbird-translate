@@ -134,13 +134,10 @@ export class TranslationController {
     this.collected = collectParagraphs(root)
 
     const all = this.collected.units
-    const candidates: Unit[] = []
-    for (const unit of all) {
-      const inTarget = await isInTargetLanguage(unit.text, s.targetLang, this.deps.detect, s.sourceLang)
-      // Stopped or restarted while the language was detected.
-      if (session !== this.session) return
-      if (!inTarget) candidates.push(unit)
-    }
+    const inTarget = await Promise.all(all.map((unit) => isInTargetLanguage(unit.text, s.targetLang, this.deps.detect, s.sourceLang)))
+    // Stopped or restarted while the language was detected.
+    if (session !== this.session) return
+    const candidates = all.filter((_, i) => !inTarget[i])
     this.units = candidates
     if (s.precise && candidates.length > 0) {
       this.context = createMailContext(

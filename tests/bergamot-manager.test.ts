@@ -4,7 +4,6 @@ import { afterEach, describe, expect, it, vi } from "vitest"
 import { browserDetector, detectSourceLanguage } from "../src/offline/bergamot/detect"
 import { BergamotEngine, EngineError } from "../src/offline/bergamot/engine"
 import { normalizeBergamotLang } from "../src/offline/bergamot/languages"
-import { DEFAULT_ATTACHMENTS_BASE } from "../src/offline/bergamot/manager"
 import type { WorkerRequest } from "../src/offline/bergamot/protocol"
 import { compareVersions, type ModelRecord, selectPairs } from "../src/offline/bergamot/records"
 import { BergamotStore, DB_NAME } from "../src/offline/bergamot/store"
@@ -33,7 +32,7 @@ describe("model list", () => {
       const { manager, server } = makeManager(files)
       const real = server.mock.getMockImplementation()!
       server.mock.mockImplementation(async (input, init) => (String(input) === SERVER ? root : real(input, init)))
-      expect((await manager.getRecords()).attachmentsBase).toBe(DEFAULT_ATTACHMENTS_BASE)
+      expect((await manager.getRecords()).attachmentsBase).toBe("https://firefox-settings-attachments.cdn.mozilla.net/")
     }
   })
 
@@ -333,11 +332,10 @@ describe("BergamotStore edge cases", () => {
     expect(await store.listPairs()).toEqual([])
   })
 
-  it("closes for another page's upgrade, and after close()", async () => {
+  it("closes for another page's upgrade", async () => {
     const factory = new IDBFactory()
     const store = new BergamotStore(factory)
     await store.setMeta("k", 1)
-    store.close()
     expect(await store.getMeta("k")).toBe(1)
     // An upgrade elsewhere is not blocked by this connection.
     await new Promise<void>((resolve, reject) => {

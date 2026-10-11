@@ -12,7 +12,7 @@ Thunderbird Translate는 읽고 있는 메시지의 본문을 메시지 창에�
 
 - 본문 번역: 메시지 본문에서 단락 단위의 내용을 찾습니다. 대상은 단락, 목록 항목, 표 셀, 제목, 인용 블록, 텍스트만 담은 div, 그리고 일반 텍스트 메일에서 빈 줄로 구분된 단락입니다. 코드, 이미 대상 언어로 작성된 단락, 숫자, 링크만 있는 내용, 공백은 건너뜁니다.
 - 두 가지 표시 방식: 이중 언어 방식은 원문 아래에 옅은 왼쪽 테두리가 있는 번역문 블록을 삽입하며, 어두운 테마에서도 잘 읽힙니다. 번역문만 방식은 원문을 번역문으로 대체합니다. 원문은 메모리에 보관했다가 번역을 끄면 되돌려 놓습니다.
-- 실시간 반영: 메시지가 번역된 상태에서 표시 방식이나 대상 언어를 바꾸면 메시지를 다시 열지 않아도 화면을 다시 그립니다. 표시 방식을 바꿀 때는 이미 받은 번역문으로 다시 그리며 새 요청을 보내지 않습니다.
+- 실시간 반영: 메시지가 번역된 상태에서 표시 방식이나 대상 언어를 바꾸면 메시지를 다시 열지 않아도 화면을 다시 그립니다. 표시 방식을 바꾸면 이미 받은 사전과 기계 번역의 번역문을 다시 그리고, AI 단계에는 새 표시 방식의 프롬프트로 다시 요청하며, 캐시에 같은 번역이 있으면 캐시가 응답합니다.
 - 진입점: 메시지 헤더 도구 모음의 "메시지 번역" 버튼과 그 팝업, 그리고 단축키 Alt+A(번역 / 원문 표시)와 Alt+S(이중 언어 / 번역문만 전환)가 있습니다.
 - 메시지를 열 때 번역(선택 사항): 대상 언어가 아닌 메시지를 여는 즉시 번역합니다.
 - 요청 일괄 처리: 백그라운드 스크립트가 50 ms 동안 단락을 모아 하나의 요청으로 병합합니다. 동시 요청 수 제한, 지수 백오프 재시도, 로컬 캐시를 함께 사용합니다.
@@ -46,7 +46,7 @@ npm test
 npm run build
 ```
 
-`npm run build`는 esbuild로 백그라운드 스크립트, 콘텐츠 스크립트, 팝업, 설정 페이지, 설정 안내를 `dist/`에 번들링하고, `locales/`의 파일로부터 `dist/_locales/<language>/messages.json`을 생성한 뒤, `dist/`를 `web-ext-artifacts/thunderbird-translate-<version>.xpi`로 패키징합니다. 패키징에는 순수 JavaScript 라이브러리인 fflate를 사용하므로 시스템의 zip 명령이 필요하지 않습니다.
+`npm run build`는 esbuild로 백그라운드 스크립트, 콘텐츠 스크립트, 팝업, 설정 페이지, 설정 안내, Bergamot 워커를 `dist/`에 번들링하고, `locales/`의 파일로부터 `dist/_locales/<language>/messages.json`을 생성한 뒤, `dist/`를 `web-ext-artifacts/thunderbird-translate-<version>.xpi`로 패키징합니다. 패키징에는 순수 JavaScript 라이브러리인 fflate를 사용하므로 시스템의 zip 명령이 필요하지 않습니다. 백그라운드 스크립트는 ES 모듈입니다. AI SDK는 `dist/chunks/` 아래의 별도 청크로 분리되어 AI 단계를 사용할 때 로드되므로, Thunderbird는 AI SDK 없이 확장 기능을 시작합니다. 첫 빌드에서는 고정된 버전의 Bergamot 엔진(wasm)을 Mozilla에서 `.cache/`로 내려받습니다. 자세한 내용은 [docs/bergamot.md](../docs/bergamot.md)를 참고하십시오.
 
 개발 중에는 패키징하지 않고 확장 기능을 불러올 수 있습니다. Thunderbird에서 도구 → 개발자 도구 → 부가 기능 디버그를 열고 "임시 부가 기능 로드…"를 클릭한 다음 `dist/manifest.json`을 선택합니다.
 
@@ -76,7 +76,7 @@ npm run build
 
 원본 언어가 "자동 감지"이면 4번 과정은 영어에서 번역하는 사전 팩과 방향을 추천합니다. 또한 받는 메일의 다른 언어마다 그 언어에서 영어로 가는 방향을 설치하라는 안내를 표시합니다.
 
-8번 과정의 "예시 메시지 번역"은 짧은 영어 메일(대상 언어가 영어이면 독일어 메일)을 페이지 안에 그린 뒤 현재 설정으로 번역합니다. 이 페이지는 콘텐츠 스크립트의 단락 감지와 렌더링 모듈을 사용하고, 표시된 메시지와 같은 연결로 백그라운드 스크립트에 요청을 보냅니다. 따라서 결과는 실제 메시지에서 보이는 모습과 같으며, 사용 중인 단계의 임시 번역과 최종 번역도 표시됩니다.
+8번 과정의 "예시 메시지 번역"은 짧은 메일(원본 언어가 영어나 독일어이면 그 언어로, 그 밖에는 영어로, 대상 언어가 영어이면 독일어로 쓴 메일)을 페이지 안에 그린 뒤 현재 설정으로 번역합니다. 이 페이지는 콘텐츠 스크립트의 단락 감지와 렌더링 모듈을 사용하고, 표시된 메시지와 같은 연결로 백그라운드 스크립트에 요청을 보냅니다. 따라서 결과는 실제 메시지에서 보이는 모습과 같으며, 사용 중인 단계의 임시 번역과 최종 번역도 표시됩니다.
 
 설정 안내는 설정 페이지와 같은 구성 요소를 사용합니다. 서비스 설정 항목과 연결 테스트, 사전과 Bergamot 목록, 프리셋이 포함된 프롬프트 편집기입니다.
 
@@ -273,7 +273,7 @@ f	<key>	<lemmaKey>
 
 ## 오프라인 번역 (Bergamot)
 
-Bergamot 서비스는 Firefox Translations의 엔진과 모델로 사용자의 컴퓨터에서 번역합니다. 엔진과 모델은 Mozilla가 MPL-2.0으로 공개했습니다. 엔진은 확장 기능에 포함되어 있고, 각 번역 방향의 모델은 Mozilla에서 한 번 내려받아(24~48 MB) 확장 기능의 IndexedDB에 저장합니다. 불러온 방향 하나는 약 200 MB의 메모리를 사용하며, 5분 동안 쓰지 않으면 해제됩니다. 모든 모델은 한쪽이 영어이므로, 일본어에서 중국어로 번역할 때는 일본어 → 영어와 영어 → 중국어 두 방향을 사용합니다.
+Bergamot 서비스는 Firefox Translations의 엔진과 모델로 사용자의 컴퓨터에서 번역합니다. 엔진과 모델은 Mozilla가 MPL-2.0으로 공개했습니다. 엔진은 확장 기능에 포함되어 있고, 각 번역 방향의 모델은 Mozilla에서 한 번 내려받아(13~48 MB) 확장 기능의 IndexedDB에 저장합니다. 불러온 방향 하나는 약 200 MB의 메모리를 사용하며, 5분 동안 쓰지 않으면 해제됩니다. 모든 모델은 한쪽이 영어이므로, 일본어에서 중국어로 번역할 때는 일본어 → 영어와 영어 → 중국어 두 방향을 사용합니다.
 
 설정 페이지의 "오프라인 번역 모델 (Bergamot)" 섹션은 58개 언어 사이의 114개 방향 쌍을 크기, 버전과 함께 나열하며, 언어로 필터링할 수 있습니다. 섹션에는 현재 원본 언어와 대상 언어에 필요한 방향이 표시되고, 그 방향이 목록 맨 앞에 옵니다. 내려받는 동안 진행 상황이 표시되며 취소할 수 있습니다. 설치한 쌍에 대해 Mozilla가 더 새로운 버전을 제공하면 "업데이트"가 표시됩니다. 현재 언어에 필요한 쌍을 삭제하면 먼저 확인을 요청합니다. 설치, 번역, 삭제는 엔진이 있는 백그라운드 스크립트에서 실행됩니다. 모델 선택, 검증, 저장, 엔진에 대한 설명은 [docs/bergamot.md](../docs/bergamot.md)에 있습니다.
 
@@ -466,7 +466,7 @@ $$
 
 - API 키는 현재 Thunderbird 프로필의 `storage.local`에만 저장되며, 해당 제공자의 엔드포인트로 보내는 요청에만 포함됩니다.
 - 콘텐츠 스크립트는 메시지 페이지 안에서 실행됩니다. 콘텐츠 스크립트가 백그라운드 스크립트에서 받는 설정에는 키가 들어 있지 않습니다.
-- 메시지 텍스트는 사용 중인 단계의 서비스로만 전송됩니다. 사전과 Bergamot은 사용자의 컴퓨터에서 번역하며 텍스트를 어디에도 보내지 않습니다. 사전 팩은 이 저장소의 GitHub 릴리스에서, Bergamot 모델은 Mozilla에서 내려받으며, 두 경우 모두 "내려받기"를 클릭할 때만 내려받습니다. 확장 기능은 통계를 수집하지 않으며 그 밖의 네트워크 주소에 접속하지 않습니다.
+- 메시지 텍스트는 사용 중인 단계의 서비스로만 전송됩니다. 사전과 Bergamot은 사용자의 컴퓨터에서 번역하며 텍스트를 어디에도 보내지 않습니다. 설정 페이지와 설정 안내는 사전 팩 목록을 이 저장소의 GitHub 릴리스에서, Bergamot 모델 목록을 Mozilla에서 읽어 옵니다. 팩과 모델 자체는 "내려받기"를 클릭할 때만 내려받습니다. 이 요청들에는 메시지 텍스트가 담기지 않습니다. 확장 기능은 통계를 수집하지 않으며 그 밖의 네트워크 주소에 접속하지 않습니다.
 - 번역 캐시는 로컬에 저장되며, 설정 페이지에서 끄거나 지울 수 있습니다.
 - Google, Microsoft, DeepLX 또는 온라인 AI 서비스를 사용하면 메시지 텍스트가 컴퓨터를 떠납니다. 민감한 메일에는 사전, Bergamot, 그리고 Ollama나 LM Studio 같은 로컬 AI 모델만 사용하세요. 이 서비스들은 모든 요청을 자신의 컴퓨터 안에서 처리합니다.
 
@@ -517,11 +517,14 @@ src/
   e2e/           hooks of the e2e test build (left out of every other build)
 locales/         interface text, one JSON file per language; en.json is the reference
 static/          manifest.json, HTML, CSS, SVG icon
-scripts/         build, locale generation and checks, live endpoint test
+scripts/         build, Bergamot engine download, locale generation and checks, live endpoint test
+vendor/          Bergamot engine glue script (bergamot-translator.js)
+tools/           dict-build: the pipeline that builds the dictionary packs
 readmes/         translated versions of this README
-docs/            demo GIF used in this README
+docs/            developer notes on Bergamot and the dictionary packs, demo GIF used in this README
 tests/           vitest tests
 e2e/             end-to-end test in a real Thunderbird: runner, mock server, fixture messages
+.github/         workflows: build and release, dictionary packs
 ```
 
 ## 인터페이스 번역

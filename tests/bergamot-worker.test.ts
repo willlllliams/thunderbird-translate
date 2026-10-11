@@ -78,7 +78,7 @@ function fakeBergamot() {
       created.options.push(this)
     }
   }
-  const module = { AlignedMemory, AlignedMemoryList: Vec, TranslationModel, BlockingService, VectorString, VectorResponseOptions, HEAPU8: new Uint8Array(64) }
+  const module = { AlignedMemory, AlignedMemoryList: Vec, TranslationModel, BlockingService, VectorString, VectorResponseOptions }
   return { module: module as unknown as BergamotModule, events, created }
 }
 
@@ -93,13 +93,13 @@ describe("worker engine handler", () => {
     const getBergamot = vi.fn(async () => module)
     const handle = createEngineHandler(getBergamot)
 
-    expect(await handle({ id: 1, type: "load", key: "ja>en", src: "ja", tgt: "en", files: [file("model", "m"), file("lex", "l"), file("vocab", "v")] })).toMatchObject({ id: 1, ok: true, wasmHeapBytes: 64 })
+    expect(await handle({ id: 1, type: "load", key: "ja>en", src: "ja", tgt: "en", files: [file("model", "m"), file("lex", "l"), file("vocab", "v")] })).toEqual({ id: 1, ok: true })
     expect(
       await handle({ id: 2, type: "load", key: "en>ko", src: "en", tgt: "ko", files: [file("model", "m"), file("srcvocab", "s"), file("trgvocab", "t")] }),
     ).toMatchObject({ ok: true })
     expect(events).toEqual(["model ja>en align=256/64 vocabs=1", "model en>ko align=256/undefined vocabs=2"])
 
-    expect(await handle({ id: 3, type: "translate", keys: ["ja>en"], texts: ["a", "b"] })).toEqual({ id: 3, ok: true, result: ["ja>en:a", "ja>en:b"], wasmHeapBytes: 64 })
+    expect(await handle({ id: 3, type: "translate", keys: ["ja>en"], texts: ["a", "b"] })).toEqual({ id: 3, ok: true, result: ["ja>en:a", "ja>en:b"] })
     expect(await handle({ id: 4, type: "translate", keys: ["ja>en", "en>ko"], texts: ["c"] })).toMatchObject({ result: ["ja>en>ko:c"] })
     expect(created.strings.every((v) => v.deleted) && created.options.every((v) => v.deleted)).toBe(true)
     expect(created.options[0]!.items).toEqual([

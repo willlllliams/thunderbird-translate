@@ -28,7 +28,7 @@ export class FakeWorker implements WorkerLike {
       response = { id: message.id, ok: false, error: this.failNext }
       this.failNext = null
     } else if (message.type === "translate") {
-      response = { id: message.id, ok: true, result: message.texts.map((t) => `[${message.keys.join("+")}]${t}`), wasmHeapBytes: 1234 }
+      response = { id: message.id, ok: true, result: message.texts.map((t) => `[${message.keys.join("+")}]${t}`) }
     } else {
       response = { id: message.id, ok: true }
     }
@@ -71,7 +71,8 @@ export function modelFile(src: string, tgt: string, fileType: string, version = 
 /** model, lex and vocab of one direction. */
 export const triple = (src: string, tgt: string, version = "3.0") => ["model", "lex", "vocab"].map((t) => modelFile(src, tgt, t, version))
 
-export const SERVER = "https://rs.example/v1/"
+/** Mozilla's address, so the manager of the background page (getBergamot) reaches this fake server too. */
+export const SERVER = "https://firefox.settings.services.mozilla.com/v1/"
 export const CDN = "https://cdn.example/"
 export const RECORDS_URL = `${SERVER}buckets/main/collections/translations-models-v2/records`
 

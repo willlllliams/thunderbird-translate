@@ -75,7 +75,7 @@
   text-decoration: underline dotted;
 }
 
-/* Race mode: the fast service's translation, shown until the AI translation replaces it. */
+/* A lower tier's translation, shown until the highest tier's translation replaces it. */
 .tt-translation.tt-provisional {
   font-style: italic;
   opacity: calc(var(--tt-opacity, 0.85) * 0.75);

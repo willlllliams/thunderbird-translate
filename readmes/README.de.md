@@ -12,7 +12,7 @@ Dieses Dokument richtet sich an Leser, die noch keine Thunderbird-Erweiterung ve
 
 - Übersetzung des Nachrichtentexts: Die Erweiterung erkennt Inhalte auf Absatzebene im Nachrichtentext, also Absätze, Listeneinträge, Tabellenzellen, Überschriften, Zitatblöcke, reine Text-divs und durch Leerzeilen getrennte Absätze in Nur-Text-Nachrichten. Code, Absätze, die bereits in der Zielsprache verfasst sind, Zahlen, nackte Links und Leerraum werden übersprungen.
 - Zwei Anzeigemodi: Der zweisprachige Modus fügt unter dem Original einen Übersetzungsblock mit einer hellen Linie links ein, der auch in dunklen Themes lesbar ist. Der Modus „Nur Übersetzung“ ersetzt das Original durch die Übersetzung; das Original bleibt im Speicher und wird beim Ausschalten der Übersetzung wieder eingesetzt.
-- Sofortige Aktualisierung: Wird der Anzeigemodus oder die Zielsprache geändert, während eine Nachricht übersetzt ist, stellt die Erweiterung die Seite neu dar, ohne dass die Nachricht erneut geöffnet werden muss. Ein Wechsel des Anzeigemodus zeichnet die Seite aus den bereits erhaltenen Übersetzungen neu und sendet keine neuen Anfragen.
+- Sofortige Aktualisierung: Wird der Anzeigemodus oder die Zielsprache geändert, während eine Nachricht übersetzt ist, stellt die Erweiterung die Seite neu dar, ohne dass die Nachricht erneut geöffnet werden muss. Ein Wechsel des Anzeigemodus zeichnet die bereits erhaltenen Übersetzungen des Wörterbuchs und der maschinellen Übersetzung neu; die KI-Stufe wird mit dem Prompt des neuen Modus erneut gefragt, und der Cache antwortet, wenn er diese Übersetzung schon hat.
 - Bedienung: die Schaltfläche „Nachricht übersetzen“ in der Symbolleiste des Nachrichtenkopfs mit ihrem Pop-up sowie die Tastenkombinationen Alt+A (übersetzen / Original anzeigen) und Alt+S (zweisprachig / nur Übersetzung umschalten).
 - Beim Öffnen automatisch übersetzen (optional): Nachrichten, die nicht in der Zielsprache verfasst sind, werden beim Öffnen sofort übersetzt.
 - Bündelung von Anfragen: Das Hintergrundskript sammelt Absätze 50 ms lang und fasst sie in einer Anfrage zusammen. Dazu kommen eine Begrenzung gleichzeitiger Anfragen, Wiederholungsversuche mit exponentiellem Backoff und ein lokaler Cache.
@@ -46,7 +46,7 @@ npm test
 npm run build
 ```
 
-`npm run build` bündelt das Hintergrundskript, das Inhaltsskript, das Pop-up, die Einstellungsseite und den Einrichtungsassistenten mit esbuild nach `dist/`, erzeugt `dist/_locales/<language>/messages.json` aus den Dateien in `locales/` und packt `dist/` in `web-ext-artifacts/thunderbird-translate-<version>.xpi`. Zum Packen dient die reine JavaScript-Bibliothek fflate; ein zip-Befehl des Systems wird nicht benötigt.
+`npm run build` bündelt das Hintergrundskript, das Inhaltsskript, das Pop-up, die Einstellungsseite, den Einrichtungsassistenten und den Bergamot-Worker mit esbuild nach `dist/`, erzeugt `dist/_locales/<language>/messages.json` aus den Dateien in `locales/` und packt `dist/` in `web-ext-artifacts/thunderbird-translate-<version>.xpi`. Zum Packen dient die reine JavaScript-Bibliothek fflate; ein zip-Befehl des Systems wird nicht benötigt. Das Hintergrundskript ist ein ES-Modul: Das AI SDK liegt in einem eigenen Chunk unter `dist/chunks/`, der erst geladen wird, wenn die KI-Stufe verwendet wird; Thunderbird startet die Erweiterung also ohne es. Der erste Build lädt die festgelegte Version der Bergamot-Engine (wasm) von Mozilla nach `.cache/` herunter, siehe [docs/bergamot.md](../docs/bergamot.md).
 
 Während der Entwicklung lässt sich die Erweiterung ohne Packen laden: In Thunderbird Extras → Entwicklerwerkzeuge → Add-ons debuggen öffnen, auf „Temporäres Add-on laden…“ klicken und `dist/manifest.json` auswählen.
 
@@ -82,7 +82,7 @@ Bei Japanisch als Ausgangssprache und vereinfachtem Chinesisch als Zielsprache e
 
 Mit „Automatisch erkennen“ empfiehlt Schritt 4 die Pakete und Richtungen ab Englisch. Ein Hinweis bittet dann darum, für jede weitere Sprache, in der Nachrichten eintreffen, die Richtung nach Englisch zu installieren.
 
-„Beispielnachricht übersetzen“ in Schritt 8 stellt eine kurze englische E-Mail auf der Seite dar (eine deutsche, wenn die Zielsprache Englisch ist) und übersetzt sie mit den aktuellen Einstellungen. Die Seite verwendet die Absatzerkennung und die Darstellung des Inhaltsskripts. Sie sendet die Anfragen über dieselbe Verbindung an das Hintergrundskript wie eine angezeigte Nachricht. Das Ergebnis zeigt deshalb, wie eine echte Nachricht aussehen wird, einschließlich der verwendeten Stufen.
+„Beispielnachricht übersetzen“ in Schritt 8 stellt eine kurze E-Mail auf der Seite dar (in der Ausgangssprache, wenn diese Englisch oder Deutsch ist, sonst auf Englisch, oder auf Deutsch, wenn die Zielsprache Englisch ist) und übersetzt sie mit den aktuellen Einstellungen. Die Seite verwendet die Absatzerkennung und die Darstellung des Inhaltsskripts. Sie sendet die Anfragen über dieselbe Verbindung an das Hintergrundskript wie eine angezeigte Nachricht. Das Ergebnis zeigt deshalb, wie eine echte Nachricht aussehen wird, einschließlich der verwendeten Stufen.
 
 Der Assistent verwendet dieselben Komponenten wie die Einstellungsseite: die Felder der Dienste mit dem Verbindungstest, die Listen der Wörterbücher und der Bergamot-Modelle und den Prompt-Editor mit seinen Vorlagen.
 
@@ -262,7 +262,7 @@ Die Pakete werden aus Wiktionary erstellt, extrahiert mit wiktextract und veröf
 
 ## Offline-Übersetzung (Bergamot)
 
-Der Dienst Bergamot übersetzt auf dem eigenen Rechner mit der Engine und den Modellen von Firefox Translations, die Mozilla unter MPL-2.0 veröffentlicht. Die Engine wird mit der Erweiterung ausgeliefert; jede Übersetzungsrichtung wird einmal von Mozilla heruntergeladen, 24 bis 48 MB, und in der IndexedDB der Erweiterung gespeichert. Eine geladene Richtung belegt etwa 200 MB Arbeitsspeicher und wird nach fünf Minuten ohne Verwendung freigegeben. Jedes Modell hat Englisch auf einer Seite, deshalb nutzt Japanisch nach Chinesisch die Richtungen Japanisch → Englisch und Englisch → Chinesisch.
+Der Dienst Bergamot übersetzt auf dem eigenen Rechner mit der Engine und den Modellen von Firefox Translations, die Mozilla unter MPL-2.0 veröffentlicht. Die Engine wird mit der Erweiterung ausgeliefert; jede Übersetzungsrichtung wird einmal von Mozilla heruntergeladen, 13 bis 48 MB, und in der IndexedDB der Erweiterung gespeichert. Eine geladene Richtung belegt etwa 200 MB Arbeitsspeicher und wird nach fünf Minuten ohne Verwendung freigegeben. Jedes Modell hat Englisch auf einer Seite, deshalb nutzt Japanisch nach Chinesisch die Richtungen Japanisch → Englisch und Englisch → Chinesisch.
 
 Der Abschnitt „Offline-Übersetzungsmodelle (Bergamot)“ der Einstellungsseite listet die 114 Richtungspaare zwischen 58 Sprachen mit Größe und Version auf, filterbar nach Sprache. Er nennt die Richtungen, die die aktuelle Ausgangs- und Zielsprache benötigen, und listet sie zuerst auf. Downloads zeigen ihren Fortschritt und lassen sich abbrechen; bietet Mozilla für ein installiertes Paar eine neuere Version an, erscheint „Aktualisieren“. Das Löschen eines Paars, das die aktuellen Sprachen benötigen, verlangt eine Bestätigung. Installation, Übersetzung und Entfernen laufen im Hintergrundskript, in dem die Engine arbeitet. [docs/bergamot.md](../docs/bergamot.md) beschreibt Modellauswahl, Prüfung, Speicherung und die Engine.
 
@@ -455,7 +455,7 @@ Die Eingabe-Tokens sinken um etwa 63 %, und die Zahl der Anfragen sinkt von 20 a
 
 - API-Schlüssel werden nur in `storage.local` des aktuellen Thunderbird-Profils gespeichert und nur mit Anfragen an den Endpunkt des zugehörigen Anbieters gesendet.
 - Das Inhaltsskript läuft innerhalb der Nachrichtenseite; die Einstellungen, die es vom Hintergrundskript erhält, enthalten nie Schlüssel.
-- Nachrichtentext wird nur an die Dienste der verwendeten Stufen gesendet. Das Wörterbuch und Bergamot übersetzen auf dem eigenen Rechner und senden keinen Text. Wörterbuchpakete werden aus den GitHub-Releases dieses Repositorys und Bergamot-Modelle von Mozilla heruntergeladen, und zwar nur nach einem Klick auf „Herunterladen“. Die Erweiterung erhebt keine Statistiken und kontaktiert keine andere Netzwerkadresse.
+- Nachrichtentext wird nur an die Dienste der verwendeten Stufen gesendet. Das Wörterbuch und Bergamot übersetzen auf dem eigenen Rechner und senden keinen Text. Die Einstellungsseite und der Einrichtungsassistent lesen die Liste der Wörterbuchpakete aus den GitHub-Releases dieses Repositorys und die Liste der Bergamot-Modelle von Mozilla; die Pakete und Modelle selbst werden nur nach einem Klick auf „Herunterladen“ heruntergeladen. Keine dieser Anfragen enthält Nachrichtentext. Die Erweiterung erhebt keine Statistiken und kontaktiert keine andere Netzwerkadresse.
 - Der Übersetzungs-Cache wird lokal gespeichert und lässt sich auf der Einstellungsseite ausschalten oder leeren.
 - Mit Google, Microsoft, DeepLX oder einem Online-KI-Dienst verlässt der Nachrichtentext den eigenen Rechner. Für vertrauliche Nachrichten nur das Wörterbuch, Bergamot und lokale KI-Modelle wie Ollama oder LM Studio verwenden; sie halten jede Anfrage auf dem eigenen Rechner.
 
@@ -506,11 +506,14 @@ src/
   e2e/           hooks of the e2e test build (left out of every other build)
 locales/         interface text, one JSON file per language; en.json is the reference
 static/          manifest.json, HTML, CSS, SVG icon
-scripts/         build, locale generation and checks, live endpoint test
+scripts/         build, Bergamot engine download, locale generation and checks, live endpoint test
+vendor/          Bergamot engine glue script (bergamot-translator.js)
+tools/           dict-build: the pipeline that builds the dictionary packs
 readmes/         translated versions of this README
-docs/            demo GIF used in this README
+docs/            developer notes on Bergamot and the dictionary packs, demo GIF used in this README
 tests/           vitest tests
 e2e/             end-to-end test in a real Thunderbird: runner, mock server, fixture messages
+.github/         workflows: build and release, dictionary packs
 ```
 
 ## Übersetzung der Benutzeroberfläche

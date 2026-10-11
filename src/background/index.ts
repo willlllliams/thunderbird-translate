@@ -41,6 +41,8 @@ const service = new TranslationService({ getSettings: () => settings, cache, dic
 function adoptSettings(stored: unknown): void {
   settings = readSettings(stored)
   cache.configure(settings.cache.enabled, settings.cache.maxEntries)
+  // The AI SDK is a chunk of its own (scripts/build.mjs), loaded once the AI tier is in use; a failure shows with the first AI request.
+  if (settings.tiers.ai) import("./translators/llm").catch(() => {})
 }
 
 // Test build (npm run e2e): settings and dictionary pack of the local mock server, before anything is translated.

@@ -29,8 +29,8 @@ import { RequestQueue } from "./queue/request-queue"
 import { bergamotTranslateBatch } from "./translators/bergamot"
 import { deeplxTranslate } from "./translators/deeplx"
 import { googleTranslateBatch } from "./translators/google"
-import { BatchParseError, llmAnalyzeMail, llmTranslateBatch, llmTranslateSingle, type LlmCallOptions } from "./translators/llm"
-import { buildContextBlock, type MailAnalysis, MAX_PREFIX_TEXT_CHARS, parseAnalysis, type Segment } from "./translators/llm-prompt"
+import type { LlmCallOptions } from "./translators/llm"
+import { BatchParseError, buildContextBlock, type MailAnalysis, MAX_PREFIX_TEXT_CHARS, parseAnalysis, type Segment } from "./translators/llm-prompt"
 import { AZURE_LIMITS, microsoftTranslateBatch } from "./translators/microsoft"
 
 type ItemResult = { ok: true; text: string } | { ok: false; error: string }
@@ -80,6 +80,14 @@ export interface LlmImpl {
   analyze: (text: string, opts: LlmCallOptions) => Promise<MailAnalysis | null>
 }
 
+/** The AI SDK, loaded with the first AI request: the background script starts without it (scripts/build.mjs makes it a chunk). */
+const loadLlm = () => import("./translators/llm")
+const LAZY_LLM: LlmImpl = {
+  batch: async (segments, opts) => (await loadLlm()).llmTranslateBatch(segments, opts),
+  single: async (segment, opts) => (await loadLlm()).llmTranslateSingle(segment, opts),
+  analyze: async (text, opts) => (await loadLlm()).llmAnalyzeMail(text, opts),
+}
+
 export interface ServiceDeps {
   getSettings: () => Settings
   cache: PersistentCache
@@ -122,7 +130,7 @@ export class TranslationService {
   private readonly dictionary: Pick<Dictionary, "translate">
 
   constructor(private readonly deps: ServiceDeps) {
-    this.llm = deps.llm ?? { batch: llmTranslateBatch, single: llmTranslateSingle, analyze: llmAnalyzeMail }
+    this.llm = deps.llm ?? LAZY_LLM
     this.dictionary = deps.dictionary ?? new Dictionary()
     this.requestQueue = new RequestQueue({
       concurrency: () => deps.getSettings().batch.concurrency,
@@ -182,7 +190,11 @@ export class TranslationService {
   }
 
   async translate(req: ProviderRequest): Promise<string> {
-    const job = this.job(req)
+    return this.run(this.job(req))
+  }
+
+  /** The cached result, or the job's place in a batch. */
+  private async run(job: Job): Promise<string> {
     return (await this.deps.cache.get(job.key)) ?? this.enqueue(job)
   }
 
@@ -203,7 +215,7 @@ export class TranslationService {
 
   private async settle(job: Job): Promise<TranslateResponse> {
     try {
-      return { ok: true, text: (await this.deps.cache.get(job.key)) ?? (await this.enqueue(job)) }
+      return { ok: true, text: await this.run(job) }
     } catch (error) {
       return { ok: false, error: this.errorMessage(error) }
     }

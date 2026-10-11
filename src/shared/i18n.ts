@@ -9,6 +9,7 @@
  */
 
 import enSource from "../../locales/en.json"
+import { languageTag } from "./languages"
 import { DEFAULT_LOCALE, localeToLanguageTag, resolveUiLocale, textDirection, type UiLocale } from "./locales"
 
 export type MessageKey = keyof typeof enSource
@@ -42,9 +43,6 @@ export function compileMessagesJson(json: unknown): MessageTable {
   }
   return out
 }
-
-/** Codes that Intl.DisplayNames names better with a script subtag. */
-const DISPLAY_CODES: Record<string, string> = { "zh-CN": "zh-Hans", "zh-TW": "zh-Hant" }
 
 export class I18n {
   /** BCP 47 tag, e.g. "zh-CN". */
@@ -95,7 +93,8 @@ export class I18n {
     }
     let local: string | undefined
     try {
-      local = this.displayNames?.of(DISPLAY_CODES[code] ?? code)
+      // Intl.DisplayNames names Chinese better by script (zh-Hans) than by region (zh-CN).
+      local = this.displayNames?.of(code.startsWith("zh") ? languageTag(code) : code)
     } catch {
       local = undefined
     }

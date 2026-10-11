@@ -4,7 +4,6 @@ import { afterEach, describe, expect, it, vi } from "vitest"
 import { LocalizedError } from "../src/shared/errors"
 import { detectSourceLanguage, mapDetectedLanguage } from "../src/offline/bergamot/detect"
 import { BergamotEngine } from "../src/offline/bergamot/engine"
-import { BergamotError } from "../src/offline/bergamot/errors"
 import { normalizeBergamotLang, requiredPairs } from "../src/offline/bergamot/languages"
 import { BergamotManager } from "../src/offline/bergamot/manager"
 import { compareVersions, type ModelRecord, modelConfig, selectPairs } from "../src/offline/bergamot/records"
@@ -287,7 +286,6 @@ describe("BergamotEngine", () => {
     expect(loadPair).toHaveBeenCalledTimes(2)
     expect(workers[0]!.log).toEqual(["load:ja>en", "load:en>zh-Hans", "translate:ja>en+en>zh-Hans", "translate:en>zh-Hans"])
     expect(workers[0]!.transfers.slice(0, 2)).toEqual([1, 1])
-    expect(engine.heapBytes).toBe(1234)
     engine.shutdown()
   })
 
@@ -398,7 +396,7 @@ describe("BergamotManager", () => {
     files[1]!.body = new Uint8Array(zstdCompressSync(new TextEncoder().encode("tampered")))
     const { manager, store } = makeManager(files)
     const error = await manager.install("en", "fr").catch((e) => e)
-    expect(error).toBeInstanceOf(BergamotError)
+    expect(error).toBeInstanceOf(LocalizedError)
     expect(error).toBeInstanceOf(LocalizedError)
     expect(error.i18nText.key).toBe("bergamotChecksumMismatch")
     expect(error.message).toContain("lex.enfr.bin")

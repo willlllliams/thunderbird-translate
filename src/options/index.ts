@@ -4,12 +4,12 @@ import { getI18n, t } from "../shared/i18n"
 import { localizeDocument } from "../shared/i18n-dom"
 import { loadExtensionI18n } from "../shared/i18n-ext"
 import { normalizeUiLanguageSetting } from "../shared/locales"
-import { $, fillSelect, languageOptions, send, sourceLanguageOptions, tierChoice, tierOptions, uiLanguageOptions } from "../shared/page"
-import { getPreset, PROVIDER_PRESETS, providerDisplayName, type ProviderPreset, TIER_NAME_KEYS, TIERS, tierOf } from "../shared/providers"
+import { $, fillSelect, fillTierSelects, languageOptions, onTierChange, send, showSaved, sourceLanguageOptions, uiLanguageOptions } from "../shared/page"
+import { getPreset, PROVIDER_PRESETS, providerDisplayName, type ProviderPreset, TIER_NAME_KEYS, tierOf } from "../shared/providers"
 import { addedProviders, addProvidersInUse, type DisplayMode, enabledTiers, removalBlocker, type Settings, type StylePreset } from "../shared/settings"
 import { BergamotSection } from "./bergamot"
 import { DictionarySection } from "./dictionaries"
-import { h } from "./dom"
+import { button, h } from "./dom"
 import { PromptEditor } from "./prompt-editor"
 import { type PanelState, providerConfig, providerFields, providerTitle, testButton, testResult } from "./provider-panel"
 import { type Control, SettingsSession } from "./session"
@@ -28,15 +28,9 @@ function remoteChanged(before: Settings): void {
   applyPreview()
   if (settings.uiLanguage !== before.uiLanguage) return void changeUiLanguage(settings.uiLanguage)
   if (providerState(settings) === providerState(before)) return
-  fillTierSelects()
+  fillTierSelects(settings)
   renderProviderList()
   if (!$("providerPanel").contains(document.activeElement)) renderProviderPanel()
-}
-
-function showSaved(): void {
-  const saved = $("saved")
-  saved.classList.add("show")
-  setTimeout(() => saved.classList.remove("show"), 1200)
 }
 
 /** Side list in two groups: added services, then the ones that can be added. */
@@ -60,20 +54,12 @@ function renderProviderList(): void {
   )
 }
 
-/** The tier selectors, which list the added services of each tier. */
-function fillTierSelects(): void {
-  TIERS.forEach((tier, i) => {
-    $(`tierLabel-${tier}`).textContent = t("tierLabel", [i + 1, t(TIER_NAME_KEYS[tier])])
-    fillSelect($<HTMLSelectElement>(`tier-${tier}`), tierOptions(settings, tier), settings.tiers[tier] ?? "")
-  })
-}
-
 /** A service was added or removed, or a service came into use: redraw everything that lists services. */
 function providersChanged(): void {
   addProvidersInUse(settings)
   renderProviderList()
   renderProviderPanel()
-  fillTierSelects()
+  fillTierSelects(settings)
   showTierControls()
   session.save()
 }
@@ -91,11 +77,6 @@ function renderProviderPanel(): void {
   // Not added: "Add". Added: "Use this service" (in its tier) and "Remove"; the services of the tiers cannot be removed.
   const actions = h("div", { className: "row" })
   const blockedHint = h("p", { className: "hint remove-hint" })
-  const button = (text: string, onClick: () => void, primary = false) => {
-    const b = h("button", { type: "button", className: primary ? "primary" : "", text })
-    b.addEventListener("click", onClick)
-    return b
-  }
   const state: PanelState = {
     p,
     cfg,
@@ -104,7 +85,7 @@ function renderProviderPanel(): void {
       if (!value || cfg.enabled) return
       cfg.enabled = true
       renderProviderList()
-      fillTierSelects()
+      fillTierSelects(settings)
       renderActions()
     },
   }
@@ -158,7 +139,7 @@ function applyLanguage(): void {
   fillSelect($<HTMLSelectElement>("uiLanguage"), uiLanguageOptions(i18n), settings.uiLanguage)
   fillSelect($<HTMLSelectElement>("sourceLang"), sourceLanguageOptions(i18n), settings.sourceLang)
   fillSelect($<HTMLSelectElement>("targetLang"), languageOptions(i18n), settings.targetLang)
-  fillTierSelects()
+  fillTierSelects(settings)
   renderProviderList()
   renderProviderPanel()
   dictionaries.render()
@@ -213,16 +194,13 @@ async function main(): Promise<void> {
   session.bindCheck("autoTranslate", () => settings.autoTranslate, (v) => (settings.autoTranslate = v))
 
   // Tiers
-  for (const tier of TIERS) {
-    const select = $<HTMLSelectElement>(`tier-${tier}`)
-    select.addEventListener("change", () => {
-      const value = tierChoice(select, settings.tiers, tier)
-      $("tiersEmpty").hidden = value !== undefined
-      if (value === undefined) return
+  onTierChange(
+    () => settings.tiers,
+    (tier, value) => {
       settings.tiers[tier] = value
       providersChanged()
-    })
-  }
+    },
+  )
   session.bindCheck("preciseEnabled", () => settings.precise.enabled, (v) => (settings.precise.enabled = v))
   session.track($("sameLanguage"), showTierControls)
 

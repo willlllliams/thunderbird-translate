@@ -4,17 +4,18 @@
  */
 
 import { type LanguageDetector, detectSourceLanguage } from "./detect"
-import { BergamotEngine, type EngineOptions, EngineError, type WorkerLike } from "./engine"
-import { BergamotError, errorText } from "./errors"
-import { BergamotInternalError } from "./internal-error"
-import { normalizeBergamotLang, pairKey, requiredPairs } from "./languages"
+import { readBody } from "../../shared/download"
+import { LocalizedError } from "../../shared/errors"
+import { pairKey } from "../../shared/languages"
+import { BergamotEngine, type EngineOptions, type WorkerLike } from "./engine"
+import { normalizeBergamotLang, requiredPairs } from "./languages"
 import { type ModelFileType, type ModelRecord, type PairFiles, selectPairs } from "./records"
 import type { BergamotStore, StoredFile, StoredPair } from "./store"
 import { prepareTexts } from "./text"
 import { verifyModelFile } from "./verify"
 
-export const DEFAULT_SERVER_URL = "https://firefox.settings.services.mozilla.com/v1/"
-export const DEFAULT_ATTACHMENTS_BASE = "https://firefox-settings-attachments.cdn.mozilla.net/"
+const DEFAULT_SERVER_URL = "https://firefox.settings.services.mozilla.com/v1/"
+const DEFAULT_ATTACHMENTS_BASE = "https://firefox-settings-attachments.cdn.mozilla.net/"
 const MODELS_PATH = "buckets/main/collections/translations-models-v2/records"
 /** The model list is fetched again after this long. */
 const RECORDS_TTL_MS = 6 * 60 * 60 * 1000
@@ -50,6 +51,11 @@ export interface ManagerDeps {
   attachmentsBase?: string
   now?: () => number
   engine?: Partial<Pick<EngineOptions, "maxModels" | "idleMs" | "setTimer" | "clearTimer">>
+}
+
+function errorText(error: unknown): string {
+  if (error instanceof Error) return error.message || error.name
+  return String(error)
 }
 
 interface CachedRecords {
@@ -96,7 +102,7 @@ export class BergamotManager {
 
   private async fetchJson(url: string): Promise<unknown> {
     const res = await this.deps.fetch(url, { cache: "no-cache" })
-    if (!res.ok) throw new BergamotInternalError(`${url}: HTTP ${res.status}`)
+    if (!res.ok) throw new Error(`${url}: HTTP ${res.status}`)
     return res.json()
   }
 
@@ -115,7 +121,7 @@ export class BergamotManager {
   private async downloadRecords(): Promise<CachedRecords> {
     const [body, attachmentsBase] = await Promise.all([this.fetchJson(this.serverUrl + MODELS_PATH), this.attachmentsBase()])
     const data = (body as { data?: unknown })?.data
-    if (!Array.isArray(data)) throw new BergamotInternalError("the model list has no data array")
+    if (!Array.isArray(data)) throw new Error("the model list has no data array")
     const cached: CachedRecords = { fetchedAt: this.now(), attachmentsBase, records: (data as ModelRecord[]).map(slim) }
     try {
       await this.deps.store.setMeta(RECORDS_META_KEY, cached)
@@ -141,7 +147,7 @@ export class BergamotManager {
           this.records = saved
           return saved
         }
-        throw new BergamotError("bergamotRecordsFailed", [], errorText(e))
+        throw new LocalizedError("bergamotRecordsFailed", [], errorText(e))
       } finally {
         this.recordsLoading = null
       }
@@ -182,7 +188,7 @@ export class BergamotManager {
     try {
       return await this.deps.store.listPairs()
     } catch (e) {
-      throw new BergamotError("bergamotStorageFailed", [], errorText(e))
+      throw new LocalizedError("bergamotStorageFailed", [], errorText(e))
     }
   }
 
@@ -199,44 +205,24 @@ export class BergamotManager {
     return task
   }
 
-  private async download(url: string, name: string, onChunk: (n: number) => void, signal?: AbortSignal): Promise<Uint8Array> {
+  /** One file; `onProgress` gets the bytes received so far. */
+  private async download(url: string, name: string, onProgress: (received: number) => void, signal?: AbortSignal): Promise<Uint8Array<ArrayBuffer>> {
     let res: Response
     try {
       res = await this.deps.fetch(url, { signal })
     } catch (e) {
       if (signal?.aborted) throw e
-      throw new BergamotError("bergamotDownloadFailed", [name], errorText(e))
+      throw new LocalizedError("bergamotDownloadFailed", [name], errorText(e))
     }
-    if (!res.ok) throw new BergamotError("bergamotDownloadFailed", [name], `HTTP ${res.status}`)
-    if (!res.body) {
-      const bytes = new Uint8Array(await res.arrayBuffer())
-      onChunk(bytes.byteLength)
-      return bytes
-    }
-    const reader = res.body.getReader()
-    const chunks: Uint8Array[] = []
-    let received = 0
-    for (;;) {
-      const { done, value } = await reader.read()
-      if (done) break
-      chunks.push(value)
-      received += value.byteLength
-      onChunk(value.byteLength)
-    }
-    const bytes = new Uint8Array(received)
-    let offset = 0
-    for (const c of chunks) {
-      bytes.set(c, offset)
-      offset += c.byteLength
-    }
-    return bytes
+    if (!res.ok) throw new LocalizedError("bergamotDownloadFailed", [name], `HTTP ${res.status}`)
+    return readBody(res, onProgress)
   }
 
   private async doInstall(src: string, tgt: string, onProgress?: (done: number, total: number) => void, signal?: AbortSignal): Promise<void> {
     const key = pairKey(src, tgt)
     const { attachmentsBase } = await this.getRecords()
     const pair = (await this.availablePairs()).get(key)
-    if (!pair) throw new BergamotError("bergamotUnsupportedPair", [src, tgt])
+    if (!pair) throw new LocalizedError("bergamotUnsupportedPair", [src, tgt])
     const existing = await this.deps.store.getPair(key).catch(() => undefined)
     if (existing && existing.version === pair.version) {
       onProgress?.(pair.bytes, pair.bytes)
@@ -248,11 +234,12 @@ export class BergamotManager {
     const files: StoredFile[] = []
     for (const record of pair.files) {
       signal?.throwIfAborted()
+      const before = done
       const bytes = await this.download(
         attachmentsBase + record.attachment.location,
         record.name,
-        (n) => {
-          done += n
+        (received) => {
+          done = before + received
           onProgress?.(Math.min(done, pair.bytes), pair.bytes)
         },
         signal,
@@ -263,8 +250,8 @@ export class BergamotManager {
         decompressedHash: record.decompressedHash,
         decompressedSize: record.decompressedSize,
       })
-      if (!check.ok) throw new BergamotError("bergamotChecksumMismatch", [record.name], check.detail)
-      files.push({ hash: record.attachment.hash.toLowerCase(), bytes: bytes.buffer as ArrayBuffer })
+      if (!check.ok) throw new LocalizedError("bergamotChecksumMismatch", [record.name], check.detail)
+      files.push({ hash: record.attachment.hash.toLowerCase(), bytes: bytes.buffer })
     }
     signal?.throwIfAborted()
 
@@ -289,7 +276,7 @@ export class BergamotManager {
     try {
       await this.deps.store.putPair(stored, files)
     } catch (e) {
-      throw new BergamotError("bergamotStorageFailed", [], errorText(e))
+      throw new LocalizedError("bergamotStorageFailed", [], errorText(e))
     }
     if (existing) await this.engine.forget(key).catch(() => {})
     onProgress?.(pair.bytes, pair.bytes)
@@ -301,7 +288,7 @@ export class BergamotManager {
     try {
       await this.deps.store.deletePair(key)
     } catch (e) {
-      throw new BergamotError("bergamotStorageFailed", [], errorText(e))
+      throw new LocalizedError("bergamotStorageFailed", [], errorText(e))
     }
   }
 
@@ -310,10 +297,10 @@ export class BergamotManager {
     let files: Awaited<ReturnType<BergamotStore["readFiles"]>>
     try {
       pair = await this.deps.store.getPair(key)
-      if (!pair) throw new BergamotInternalError(`${key} is not installed`)
+      if (!pair) throw new Error(`${key} is not installed`)
       files = await this.deps.store.readFiles(pair)
     } catch (e) {
-      throw new BergamotError("bergamotStorageFailed", [], errorText(e))
+      throw new LocalizedError("bergamotStorageFailed", [], errorText(e))
     }
     return { src: pair.src, tgt: pair.tgt, files: files.map((f) => ({ fileType: f.fileType, name: f.name, bytes: f.bytes })) }
   }
@@ -328,18 +315,18 @@ export class BergamotManager {
 
   async translate(texts: string[], src: string, tgt: string, options: TranslateOptions = {}): Promise<string[]> {
     const target = normalizeBergamotLang(tgt)
-    if (!target || target === "auto") throw new BergamotError("bergamotUnsupportedPair", [src, tgt])
+    if (!target || target === "auto") throw new LocalizedError("bergamotUnsupportedPair", [src, tgt])
     let source = normalizeBergamotLang(src)
     if (!source || source === "auto") {
       const detected = await detectSourceLanguage(texts, this.deps.detector, options.fallbackSource)
-      if (!detected) throw new BergamotError("bergamotDetectFailed")
+      if (!detected) throw new LocalizedError("bergamotDetectFailed")
       source = detected
     }
     if (source === target || texts.length === 0) return texts.slice()
 
     const pairs = requiredPairs(source, target)
     const missing = await this.missingPairs(pairs)
-    if (missing.length) throw new BergamotError("bergamotModelMissing", [source, target, missing.map(([s, t]) => `${s} → ${t}`).join(", ")])
+    if (missing.length) throw new LocalizedError("bergamotModelMissing", [source, target, missing.map(([s, t]) => `${s} → ${t}`).join(", ")])
 
     const prepared = prepareTexts(texts, source)
     if (prepared.inputs.length === 0) return texts.slice()
@@ -350,8 +337,8 @@ export class BergamotManager {
       )
       return prepared.rebuild(out)
     } catch (e) {
-      if (e instanceof BergamotError) throw e
-      throw new BergamotError("bergamotEngineFailed", [], e instanceof EngineError ? e.message : errorText(e))
+      if (e instanceof LocalizedError) throw e
+      throw new LocalizedError("bergamotEngineFailed", [], errorText(e))
     }
   }
 }

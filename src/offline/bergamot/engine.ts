@@ -20,7 +20,7 @@ export interface WorkerLike {
   onerror: ((event: { message?: string } | Event) => void) | null
 }
 
-export interface PairPayload {
+interface PairPayload {
   src: string
   tgt: string
   files: WorkerModelFile[]
@@ -36,8 +36,8 @@ export interface EngineOptions {
   clearTimer?: (handle: unknown) => void
 }
 
-export const DEFAULT_MAX_MODELS = 2
-export const DEFAULT_IDLE_MS = 5 * 60 * 1000
+const DEFAULT_MAX_MODELS = 2
+const DEFAULT_IDLE_MS = 5 * 60 * 1000
 
 export class EngineError extends Error {
   constructor(message: string) {
@@ -55,8 +55,6 @@ export class BergamotEngine {
   private chain: Promise<unknown> = Promise.resolve()
   private busy = 0
   private idleTimer: unknown = null
-  /** Wasm heap size reported by the worker after the last request. */
-  heapBytes = 0
 
   private readonly maxModels: number
   private readonly idleMs: number
@@ -192,7 +190,6 @@ export class BergamotEngine {
       }
     })
     if (!response.ok) throw new EngineError(response.error)
-    if (response.wasmHeapBytes) this.heapBytes = response.wasmHeapBytes
     return response
   }
 }

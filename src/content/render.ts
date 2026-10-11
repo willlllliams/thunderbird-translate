@@ -6,8 +6,8 @@
  * - translation-only: the unit's children are swapped for the translation;
  *   the original nodes are kept in memory and put back on clear().
  *
- * A translation can carry a mark: a provisional result of the fast service
- * in race mode, or a fast result kept after the AI request failed.
+ * A translation can carry a mark: a provisional result of a lower tier while
+ * the highest tier runs, or a lower result kept after the highest tier failed.
  */
 
 import type { DisplayMode, Settings, StylePreset } from "../shared/settings"

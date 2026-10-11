@@ -10,7 +10,7 @@ import type { TranslateResponse } from "../shared/messages"
 import { send } from "../shared/page"
 import { checkBaseURL, type ProviderPreset, providerDisplayName } from "../shared/providers"
 import { emptyProviderConfig, type ProviderConfig } from "../shared/settings"
-import { h } from "./dom"
+import { button, h } from "./dom"
 import type { SettingsSession } from "./session"
 
 /** The service shown and its configuration. */
@@ -45,9 +45,7 @@ function renderBaseUrlWarning(box: HTMLElement, p: ProviderPreset, input: HTMLIn
   }
   const children: HTMLElement[] = [h("div", { text: issue.kind === "invalid" ? t("warnBaseUrlInvalid") : t("hintWebHost", [issue.host]) })]
   if (p.defaultBaseURL) {
-    const button = h("button", { type: "button", text: t("buttonRestoreBaseUrl") })
-    button.addEventListener("click", restore)
-    children.push(h("div", { className: "row" }, h("span", { text: t("warnBaseUrlDefault", [p.defaultBaseURL]) }), button))
+    children.push(h("div", { className: "row" }, h("span", { text: t("warnBaseUrlDefault", [p.defaultBaseURL]) }), button(t("buttonRestoreBaseUrl"), restore)))
   }
   box.replaceChildren(...children)
   box.hidden = false

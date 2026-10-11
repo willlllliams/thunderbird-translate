@@ -5,6 +5,8 @@
  * Locale codes use the `_locales` directory spelling (zh_CN, pt_BR).
  */
 
+import { baseLang, languageTag } from "./languages"
+
 export const SUPPORTED_LOCALES = ["en", "zh_CN", "zh_TW", "ja", "ko", "fr", "de", "es", "pt_BR", "ru", "tr", "vi"] as const
 
 export type UiLocale = (typeof SUPPORTED_LOCALES)[number]
@@ -46,20 +48,11 @@ export function normalizeUiLanguageSetting(value: unknown): UiLanguageSetting {
  * zh_CN, "pt-*" → pt_BR, otherwise the primary subtag; unknown → en.
  */
 export function matchUiLocale(tag: string | null | undefined): UiLocale {
-  const parts = String(tag ?? "")
-    .trim()
-    .replace(/_/g, "-")
-    .toLowerCase()
-    .split("-")
-    .filter(Boolean)
-  const base = parts[0]
-  if (!base) return DEFAULT_LOCALE
-  if (base === "zh") {
-    return parts.some((p) => p === "tw" || p === "hk" || p === "mo" || p === "hant") ? "zh_TW" : "zh_CN"
-  }
-  if (base === "pt") return "pt_BR"
-  const exact = SUPPORTED_LOCALES.find((l) => l.toLowerCase() === base)
-  return exact ?? DEFAULT_LOCALE
+  const lang = languageTag(String(tag ?? ""))
+  if (lang === "zh-Hant") return "zh_TW"
+  if (lang === "zh-Hans") return "zh_CN"
+  if (lang === "pt") return "pt_BR"
+  return SUPPORTED_LOCALES.find((l) => l === lang) ?? DEFAULT_LOCALE
 }
 
 /** Locale actually used for a setting value, given Thunderbird's UI language. */
@@ -73,6 +66,5 @@ export function localeToLanguageTag(locale: UiLocale): string {
 }
 
 export function textDirection(tag: string): "ltr" | "rtl" {
-  const base = tag.toLowerCase().split(/[-_]/)[0]
-  return RTL_LANGUAGES.has(base) ? "rtl" : "ltr"
+  return RTL_LANGUAGES.has(baseLang(tag)) ? "rtl" : "ltr"
 }

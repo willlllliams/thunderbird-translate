@@ -8,11 +8,11 @@
  * words point to, else English.
  */
 
-import { bergamotTranslate } from "../../offline/bergamot"
+import { getBergamot } from "../../offline/bergamot"
 import { detectLanguage } from "../../shared/lang-detect"
 
 export async function bergamotTranslateBatch(texts: string[], sourceLang: string, targetLang: string): Promise<string[]> {
-  if (sourceLang !== "auto") return bergamotTranslate(texts, sourceLang, targetLang)
+  if (sourceLang !== "auto") return getBergamot().translate(texts, sourceLang, targetLang)
   const fallbackSource = (await detectLanguage(texts.join("\n"))) ?? "en"
-  return bergamotTranslate(texts, "auto", targetLang, { fallbackSource })
+  return getBergamot().translate(texts, "auto", targetLang, { fallbackSource })
 }

@@ -4,8 +4,7 @@ import { t } from "../shared/i18n"
 import { localizeDocument } from "../shared/i18n-dom"
 import { loadExtensionI18n } from "../shared/i18n-ext"
 import { IDLE_TAB_STATE, type TabState } from "../shared/messages"
-import { $, fillSelect, languageOptions, send, sourceLanguageOptions, tierChoice, tierOptions } from "../shared/page"
-import { type Tier, TIER_NAME_KEYS, TIERS } from "../shared/providers"
+import { $, fillSelect, fillTierSelects, languageOptions, onTierChange, send, sourceLanguageOptions } from "../shared/page"
 import { type DisplayMode, SETTINGS_KEY } from "../shared/settings"
 import { loadSettings, readSettings, updateSettings } from "../shared/settings-store"
 
@@ -22,17 +21,13 @@ async function main(): Promise<void> {
   const lastError = $<HTMLParagraphElement>("lastError")
   const sourceLang = $<HTMLSelectElement>("sourceLang")
   const targetLang = $<HTMLSelectElement>("targetLang")
-  const tierSelect = (tier: Tier) => $<HTMLSelectElement>(`tier-${tier}`)
   const autoTranslate = $<HTMLInputElement>("autoTranslate")
   const preciseEnabled = $<HTMLInputElement>("preciseEnabled")
 
   const fillSelects = () => {
     fillSelect(sourceLang, sourceLanguageOptions(), settings.sourceLang)
     fillSelect(targetLang, languageOptions(), settings.targetLang)
-    TIERS.forEach((tier, i) => {
-      $(`tierLabel-${tier}`).textContent = t("tierLabel", [i + 1, t(TIER_NAME_KEYS[tier])])
-      fillSelect(tierSelect(tier), tierOptions(settings, tier), settings.tiers[tier] ?? "")
-    })
+    fillTierSelects(settings)
   }
   const modeRadios = Array.from(document.querySelectorAll<HTMLInputElement>('input[name="mode"]'))
   // The switches follow settings changed elsewhere, e.g. on the settings page. Precise translation applies to the AI tier only.
@@ -53,14 +48,10 @@ async function main(): Promise<void> {
 
   sourceLang.addEventListener("change", () => void updateSettings((s) => (s.sourceLang = sourceLang.value)))
   targetLang.addEventListener("change", () => void updateSettings((s) => (s.targetLang = targetLang.value)))
-  for (const tier of TIERS) {
-    const select = tierSelect(tier)
-    select.addEventListener("change", () => {
-      const value = tierChoice(select, settings.tiers, tier)
-      $("tiersEmpty").hidden = value !== undefined
-      if (value !== undefined) void updateSettings((s) => (s.tiers[tier] = value))
-    })
-  }
+  onTierChange(
+    () => settings.tiers,
+    (tier, value) => void updateSettings((s) => (s.tiers[tier] = value)),
+  )
   autoTranslate.addEventListener("change", () => void updateSettings((s) => (s.autoTranslate = autoTranslate.checked)))
   preciseEnabled.addEventListener("change", () => void updateSettings((s) => (s.precise.enabled = preciseEnabled.checked)))
   $("openOptions").addEventListener("click", (e) => {

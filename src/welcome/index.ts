@@ -15,8 +15,8 @@ import { getI18n, t } from "../shared/i18n"
 import { localizeDocument } from "../shared/i18n-dom"
 import { loadExtensionI18n } from "../shared/i18n-ext"
 import { normalizeUiLanguageSetting } from "../shared/locales"
-import { $, fillSelect, languageOptions, sourceLanguageOptions, tierChoice, tierOptions, uiLanguageOptions } from "../shared/page"
-import { getPreset, TIER_NAME_KEYS, TIERS } from "../shared/providers"
+import { $, fillSelect, fillTierSelects, languageOptions, onTierChange, showSaved, sourceLanguageOptions, tierOptions, uiLanguageOptions } from "../shared/page"
+import { getPreset, type Tier } from "../shared/providers"
 import { addProvidersInUse, type DisplayMode, type Settings } from "../shared/settings"
 import { BergamotSection } from "../options/bergamot"
 import { DictionarySection } from "../options/dictionaries"
@@ -145,18 +145,11 @@ function renderModePreview(): void {
 
 /* ---------- step 3: tiers ---------- */
 
-/** Every service of each tier, not only the added ones: choosing one adds it. */
-function fillTierSelects(): void {
-  TIERS.forEach((tier, i) => {
-    $(`tierLabel-${tier}`).textContent = t("tierLabel", [i + 1, t(TIER_NAME_KEYS[tier])])
-    fillSelect($<HTMLSelectElement>(`tier-${tier}`), tierOptions(settings, tier, getI18n(), true), settings.tiers[tier] ?? "")
-  })
-}
-
-function setTier(tier: (typeof TIERS)[number], id: string | null): void {
+/** Choosing a service for a tier adds it; the selectors list every service of each tier, not only the added ones. */
+function setTier(tier: Tier, id: string | null): void {
   settings.tiers[tier] = id
   addProvidersInUse(settings)
-  fillTierSelects()
+  fillTierSelects(settings, true)
   renderStepList()
   session.save()
 }
@@ -242,7 +235,7 @@ function applyLanguage(): void {
   fillSelect($<HTMLSelectElement>("uiLanguage"), uiLanguageOptions(i18n), settings.uiLanguage)
   fillSelect($<HTMLSelectElement>("sourceLang"), sourceLanguageOptions(i18n), settings.sourceLang)
   fillSelect($<HTMLSelectElement>("targetLang"), languageOptions(i18n), settings.targetLang)
-  fillTierSelects()
+  fillTierSelects(settings, true)
   renderStepList()
   prompts.refresh()
   dictionaries.render()
@@ -260,7 +253,7 @@ async function changeUiLanguage(value: unknown): Promise<void> {
 /** Changes made elsewhere (popup, settings page) were taken over. */
 function remoteChanged(before: Settings): void {
   if (settings.uiLanguage !== before.uiLanguage) return void changeUiLanguage(settings.uiLanguage)
-  fillTierSelects()
+  fillTierSelects(settings, true)
   renderStepList()
   showSameLanguage()
   const section = document.querySelector(`section[data-step="${step}"]`)
@@ -272,11 +265,7 @@ async function main(): Promise<void> {
   session = await SettingsSession.open()
   settings = session.settings
   session.onRemoteChange = remoteChanged
-  session.onSaved = () => {
-    const saved = $("saved")
-    saved.classList.add("show")
-    setTimeout(() => saved.classList.remove("show"), 1200)
-  }
+  session.onSaved = showSaved
   const languages = () => ({ source: settings.sourceLang, target: settings.targetLang })
   dictionaries = new DictionarySection({ tag: () => settings.dictionary.releaseTag, list: $("dictList"), status: $("dictStatus"), needed: languages })
   bergamot = new BergamotSection({ languages, list: $("bergamotList"), status: $("bergamotStatus"), needed: $("bergamotNeeded"), pick: true })
@@ -308,14 +297,7 @@ async function main(): Promise<void> {
   }
 
   // Step 3: at least one tier keeps a service.
-  for (const tier of TIERS) {
-    const select = $<HTMLSelectElement>(`tier-${tier}`)
-    select.addEventListener("change", () => {
-      const value = tierChoice(select, settings.tiers, tier)
-      $("tiersEmpty").hidden = value !== undefined
-      if (value !== undefined) setTier(tier, value)
-    })
-  }
+  onTierChange(() => settings.tiers, setTier)
 
   // Step 4
   $("downloadPicked").addEventListener("click", () => void downloadPicked())

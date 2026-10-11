@@ -15,7 +15,7 @@
 
 kaikki.org 按语言提供 English Wiktionary 版本的抽取结果。`<Language>` 依次取 English、Chinese、Japanese、Korean、French、German、Spanish、Portuguese、Russian、Turkish、Vietnamese。zh-Hans 与 zh-Hant 共用 Chinese 文件。本文写作时各文件的 `Last-Modified` 为 2026-10-03，kaikki.org 大约每周更新一次。
 
-数据包的署名如下，发布页、索引文件和扩展的关于页面都应带上对应署名：
+数据包的署名如下。发布页和索引文件带上对应署名，扩展在设置页“词典”部分的每个数据包旁显示它：
 
 - Wiktionary contributors（via kaikki.org / wiktextract），CC BY-SA 4.0。
 - ECDICT by skywind3000，MIT License。
@@ -62,7 +62,7 @@ lookup(key):
   否则                      -> 未命中
 ```
 
-分词后按最长匹配查多词短语效果更好：从当前词起依次拼接最多 4 个词查表，取最长的命中。`tools/dict-build/demo.mjs` 实现了这一过程。
+分词后按最长匹配查多词短语效果更好：从当前词起依次拼接多个词查表，取最长的命中。扩展运行时最多拼接 3 个词（`src/background/dictionary/index.ts` 的 `MAX_PHRASE_WORDS`）。`tools/dict-build/demo.mjs` 演示同一过程，上限为 4 个词。
 
 ## 索引文件
 

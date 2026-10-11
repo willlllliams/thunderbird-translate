@@ -2,6 +2,19 @@
 
 All notable changes to this project are documented in this file. Versions follow [Semantic Versioning](https://semver.org/).
 
+## 1.5.2
+
+### Fixed
+
+- Starting the download of an offline model that was already downloading (from the settings page and the setup guide at the same time) replaced the running entry: both pages showed 0 % and "Cancel" stopped nothing. The second request now waits for the running download, shares its progress and is cancelled with it.
+
+### Changed
+
+- The background script is an ES module, and the AI SDK is a chunk of its own that loads once the AI tier is in use. The script Thunderbird runs at start shrank from 1640 KiB to 54 KiB (plus a 47 KiB shared chunk); in the e2e runs on Thunderbird 156 the background script ran 47 ms after its page started instead of 186 ms, with unchanged times to the first dictionary, Google and AI results.
+- Internal clean-up without change in behaviour: one mapping of language codes to Chinese script tags, one IndexedDB helper, one download reader and SHA-256 for dictionary packs and offline models, the offline engine's errors are plain `LocalizedError`s, the forwarding functions of the offline module are gone, and the popup, settings page and setup guide share the tier selectors.
+- Documentation: the size of an offline model direction is 13 to 48 MB (was given as 24 to 48 MB); the README now says that the settings page reads the lists of dictionary packs and offline models when it opens, and that switching the display mode asks the AI tier again.
+- The coverage gate of CI is 97 % lines and statements, 93 % branches and 96 % functions, lowered after 1.5.1 to leave headroom.
+
 ## 1.5.1
 
 ### Fixed

@@ -12,7 +12,7 @@ Bu belge daha önce Thunderbird eklentisi kullanmamış okurlar için yazılmı�
 
 - Gövde çevirisi: eklenti ileti gövdesindeki paragraf düzeyindeki içeriği bulur. Bunlar paragraflar, liste öğeleri, tablo hücreleri, başlıklar, alıntı blokları, yalnızca metin içeren div öğeleri ve düz metin iletilerde boş satırlarla ayrılmış paragraflardır. Kod, zaten hedef dilde olan paragraflar, sayılar, çıplak bağlantılar ve boşluklar atlanır.
 - İki görünüm modu: iki dilli modda özgün metnin altına açık renkli sol kenarlığı olan bir çeviri bloğu eklenir; bu blok koyu temalarda da okunur. Yalnızca çeviri modunda özgün metnin yerine çeviri gösterilir; özgün metin bellekte tutulur ve çeviri kapatıldığında geri konur.
-- Anlık güncelleme: bir ileti çevrilmişken görünüm modu veya hedef dil değiştirilirse sayfa, ileti yeniden açılmadan yeniden çizilir. Görünüm modunun değiştirilmesi önceden alınmış çevirilerle yeniden çizim yapar ve yeni istek göndermez.
+- Anlık güncelleme: bir ileti çevrilmişken görünüm modu veya hedef dil değiştirilirse sayfa, ileti yeniden açılmadan yeniden çizilir. Görünüm modunun değiştirilmesi, sözlük ve makine çevirisinden önceden alınmış çevirileri yeniden çizer; yapay zekâ kademesine yeni modun istemiyle yeniden sorulur ve önbellek bu çeviriye zaten sahipse yanıtı o verir.
 - Giriş noktaları: ileti başlığı araç çubuğundaki "İletiyi çevir" düğmesi ve açılır penceresi, ayrıca Alt+A (çevir / özgün metni göster) ve Alt+S (iki dilli / yalnızca çeviri arasında geç) kısayolları.
 - Açılışta otomatik çevir (isteğe bağlı): hedef dilde olmayan iletiler açıldıkları anda çevrilir.
 - İstek gruplama: arka plan betiği paragrafları 50 ms boyunca toplar ve tek bir istekte birleştirir. Eşzamanlı istek sınırı, üstel geri çekilmeli yeniden deneme ve yerel önbellek de bu sürecin parçasıdır.
@@ -46,7 +46,7 @@ npm test
 npm run build
 ```
 
-`npm run build`, arka plan betiğini, içerik betiğini, açılır pencereyi, ayarlar sayfasını ve kurulum rehberini esbuild ile `dist/` dizinine paketler, `locales/` içindeki dosyalardan `dist/_locales/<language>/messages.json` dosyalarını üretir ve `dist/` dizinini `web-ext-artifacts/thunderbird-translate-<version>.xpi` olarak paketler. Paketleme saf JavaScript ile yazılmış fflate kitaplığını kullanır ve sistemde zip komutu gerektirmez.
+`npm run build`, arka plan betiğini, içerik betiğini, açılır pencereyi, ayarlar sayfasını, kurulum rehberini ve Bergamot çalışanını (worker) esbuild ile `dist/` dizinine paketler, `locales/` içindeki dosyalardan `dist/_locales/<language>/messages.json` dosyalarını üretir ve `dist/` dizinini `web-ext-artifacts/thunderbird-translate-<version>.xpi` olarak paketler. Paketleme saf JavaScript ile yazılmış fflate kitaplığını kullanır ve sistemde zip komutu gerektirmez. Arka plan betiği bir ES modülüdür: AI SDK, `dist/chunks/` altında ayrı bir parçadadır (chunk) ve yapay zekâ kademesi kullanılmaya başlandığında yüklenir; böylece Thunderbird eklentiyi onsuz başlatır. İlk build, sabitlenmiş Bergamot motorunu (wasm) Mozilla'dan indirip `.cache/` içine koyar, bkz. [docs/bergamot.md](../docs/bergamot.md).
 
 Geliştirme sırasında eklenti paketlenmeden yüklenebilir: Thunderbird'de Araçlar → Geliştirici araçları → Eklentilerde hata ayıkla'yı açın, "Geçici eklenti yükle…" düğmesine tıklayın ve `dist/manifest.json` dosyasını seçin.
 
@@ -76,7 +76,7 @@ Kaynak dil Japonca, hedef dil Basitleştirilmiş Çince olduğunda 4. adım şun
 
 "Otomatik algıla" seçiliyken 4. adım İngilizceden başlayan paketleri ve yönleri listeler. Listenin altındaki bir not, aldığınız diğer her dil için o dilden İngilizceye giden yönün kurulmasını ister.
 
-Son adımdaki (8. adım) "Örnek iletiyi çevir" düğmesi sayfada kısa bir İngilizce ileti gösterir (hedef dil İngilizceyse Almanca bir ileti) ve onu geçerli ayarlarla çevirir. Sayfa, içerik betiğinin paragraf algılama ve görüntüleme modüllerini kullanır ve istekleri arka plan betiğine görüntülenen bir iletiyle aynı bağlantı üzerinden gönderir. Bu yüzden sonuç, kullanılan kademeler dahil, gerçek bir iletinin nasıl görüneceğini gösterir.
+Son adımdaki (8. adım) "Örnek iletiyi çevir" düğmesi sayfada kısa bir ileti gösterir (kaynak dil İngilizce veya Almanca ise kaynak dilde, değilse İngilizce, hedef dil İngilizceyse Almanca) ve onu geçerli ayarlarla çevirir. Sayfa, içerik betiğinin paragraf algılama ve görüntüleme modüllerini kullanır ve istekleri arka plan betiğine görüntülenen bir iletiyle aynı bağlantı üzerinden gönderir. Bu yüzden sonuç, kullanılan kademeler dahil, gerçek bir iletinin nasıl görüneceğini gösterir.
 
 Rehber ayarlar sayfasıyla aynı bileşenleri kullanır: hizmet alanları ve bağlantı testi, sözlük ve Bergamot listeleri, hazır ayarlarıyla birlikte istem düzenleyicisi.
 
@@ -256,7 +256,7 @@ Paketler iki kaynaktan oluşturulur: wiktextract ile çıkarılıp kaikki.org ta
 
 ## Çevrimdışı çeviri (Bergamot)
 
-Bergamot hizmeti, Mozilla'nın MPL-2.0 lisansıyla yayımladığı Firefox Translations motoru ve modelleriyle bilgisayarınızda çeviri yapar. Motor eklentiyle birlikte gelir. Her çeviri yönü Mozilla'dan bir kez indirilir (24 ile 48 MB arası) ve eklentinin IndexedDB alanında saklanır. Yüklenmiş bir yön yaklaşık 200 MB bellek kullanır ve beş dakika kullanılmadığında serbest bırakılır. Her modelin bir tarafı İngilizcedir; bu yüzden Japoncadan Çinceye çeviri Japonca → İngilizce ve İngilizce → Çince yönlerini kullanır.
+Bergamot hizmeti, Mozilla'nın MPL-2.0 lisansıyla yayımladığı Firefox Translations motoru ve modelleriyle bilgisayarınızda çeviri yapar. Motor eklentiyle birlikte gelir. Her çeviri yönü Mozilla'dan bir kez indirilir (13 ile 48 MB arası) ve eklentinin IndexedDB alanında saklanır. Yüklenmiş bir yön yaklaşık 200 MB bellek kullanır ve beş dakika kullanılmadığında serbest bırakılır. Her modelin bir tarafı İngilizcedir; bu yüzden Japoncadan Çinceye çeviri Japonca → İngilizce ve İngilizce → Çince yönlerini kullanır.
 
 Ayarlar sayfasının "Çevrimdışı çeviri modelleri (Bergamot)" bölümü 58 dil arasındaki 114 yön çiftini boyut ve sürümleriyle listeler; liste dile göre süzülebilir. Bölüm, geçerli kaynak ve hedef dilin gerektirdiği yönleri belirtir ve bunları listenin başına koyar. İndirmeler ilerlemelerini gösterir ve iptal edilebilir. Mozilla'nın daha yeni bir sürümünü sunduğu kurulu bir çiftte "Güncelle" düğmesi görünür. Geçerli dillerin gerektirdiği bir çifti silmek onay ister. Kurulum, çeviri ve kaldırma, motorun çalıştığı arka plan betiğinde yürütülür. Model seçimi, doğrulama, depolama ve motor [docs/bergamot.md](../docs/bergamot.md) belgesinde anlatılır.
 
@@ -449,7 +449,7 @@ Girdi token sayısı yaklaşık %63 azalır ve istek sayısı 20'den 1'e düşer
 
 - API anahtarları yalnızca geçerli Thunderbird profilinin `storage.local` alanında saklanır ve yalnızca ilgili sağlayıcının uç noktasına giden isteklerle gönderilir.
 - İçerik betiği ileti sayfasının içinde çalışır; arka plan betiğinden aldığı ayarlar hiçbir zaman anahtar içermez.
-- İleti metni yalnızca kullanılan kademelerin hizmetlerine gönderilir. Sözlük ve Bergamot bilgisayarınızda çeviri yapar ve hiçbir yere metin göndermez. Sözlük paketleri bu deponun GitHub sürümlerinden, Bergamot modelleri ise Mozilla'dan indirilir; indirme yalnızca "İndir" düğmesine tıkladığınızda yapılır. Eklenti istatistik toplamaz ve başka hiçbir ağ adresiyle bağlantı kurmaz.
+- İleti metni yalnızca kullanılan kademelerin hizmetlerine gönderilir. Sözlük ve Bergamot bilgisayarınızda çeviri yapar ve hiçbir yere metin göndermez. Ayarlar sayfası ve kurulum rehberi, sözlük paketlerinin listesini bu deponun GitHub sürümlerinden, Bergamot modellerinin listesini ise Mozilla'dan okur; paketlerin ve modellerin kendisi yalnızca "İndir" düğmesine tıkladığınızda indirilir. Bu isteklerin hiçbiri ileti metni taşımaz. Eklenti istatistik toplamaz ve başka hiçbir ağ adresiyle bağlantı kurmaz.
 - Çeviri önbelleği yerel olarak saklanır ve ayarlar sayfasından kapatılabilir veya temizlenebilir.
 - Google, Microsoft, DeepLX veya çevrimiçi bir yapay zekâ hizmeti kullanıldığında ileti metni bilgisayarınızdan çıkar. Hassas iletiler için yalnızca sözlüğü, Bergamot'u ve Ollama veya LM Studio gibi yerel yapay zekâ modellerini kullanın; bunlar her isteği kendi makinenizde tutar.
 
@@ -500,11 +500,14 @@ src/
   e2e/           hooks of the e2e test build (left out of every other build)
 locales/         interface text, one JSON file per language; en.json is the reference
 static/          manifest.json, HTML, CSS, SVG icon
-scripts/         build, locale generation and checks, live endpoint test
+scripts/         build, Bergamot engine download, locale generation and checks, live endpoint test
+vendor/          Bergamot engine glue script (bergamot-translator.js)
+tools/           dict-build: the pipeline that builds the dictionary packs
 readmes/         translated versions of this README
-docs/            demo GIF used in this README
+docs/            developer notes on Bergamot and the dictionary packs, demo GIF used in this README
 tests/           vitest tests
 e2e/             end-to-end test in a real Thunderbird: runner, mock server, fixture messages
+.github/         workflows: build and release, dictionary packs
 ```
 
 ## Arayüzü çevirme

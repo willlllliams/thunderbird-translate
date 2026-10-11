@@ -28,7 +28,7 @@ Each line below introduces the extension in one language and links to the full R
 
 - Body translation: the extension finds paragraph-level content in the message body: paragraphs, list items, table cells, headings, block quotes, text-only divs, and blank-line separated paragraphs in plain-text mail. Code, paragraphs already in the target language, numbers, bare links and whitespace are skipped.
 - Two display modes: bilingual mode inserts a translation block with a light left border under the original, readable in dark themes as well. Translation-only mode replaces the original with the translation; the original is kept in memory and put back when translation is turned off.
-- Live updates: changing the display mode or the target language while a message is translated re-renders the page without reopening the message. Changing the display mode redraws from translations already received and sends no new requests.
+- Live updates: changing the display mode or the target language while a message is translated re-renders the page without reopening the message. Changing the display mode redraws the dictionary and machine translations already received; the AI tier is asked again with the prompt of the new mode, and the cache answers when it already has that translation.
 - Entry points: the "Translate message" button in the message header toolbar with its popup, and the shortcuts Alt+A (translate / show original) and Alt+S (switch bilingual / translation-only).
 - Optional translation on opening: messages not in the target language are translated as soon as they are opened.
 - Request batching: the background script collects paragraphs for 50 ms and merges them into one request, with a concurrency limit, retries with exponential backoff, and a local cache.
@@ -62,7 +62,7 @@ npm test
 npm run build
 ```
 
-`npm run build` bundles the background script, the content script, the popup, the settings page and the setup guide into `dist/` with esbuild, generates `dist/_locales/<language>/messages.json` from the files in `locales/`, and packs `dist/` into `web-ext-artifacts/thunderbird-translate-<version>.xpi`. Packing uses the pure JavaScript fflate library and needs no system zip command.
+`npm run build` bundles the background script, the content script, the popup, the settings page, the setup guide and the Bergamot worker into `dist/` with esbuild, generates `dist/_locales/<language>/messages.json` from the files in `locales/`, and packs `dist/` into `web-ext-artifacts/thunderbird-translate-<version>.xpi`. Packing uses the pure JavaScript fflate library and needs no system zip command. The background script is an ES module: the AI SDK is a separate chunk under `dist/chunks/` that loads once the AI tier is in use, so Thunderbird starts the extension without it. The first build downloads the pinned Bergamot engine (wasm) from Mozilla into `.cache/`, see [docs/bergamot.md](docs/bergamot.md).
 
 During development you can load the extension without packing it: in Thunderbird open Tools → Developer Tools → Debug Add-ons, click "Load Temporary Add-on" and select `dist/manifest.json`.
 
@@ -87,7 +87,7 @@ A step that the earlier choices do not need stays in the list, struck through, a
 
 For a source language set to Japanese and a target language set to Simplified Chinese, step 4 lists the dictionary pack Japanese → Chinese when the release has it, otherwise Japanese → English and English → Chinese, and the Bergamot directions ja → en and en → zh-Hans, since every Bergamot model has English on one side. With "Detect automatically" it lists the packs and directions from English, and a note asks for the direction into English of every other language you receive.
 
-"Translate the sample message" in step 8 renders a short English email in the page (a German one when the target language is English) and translates it with the current settings. The page uses the paragraph detection and rendering of the content script and sends the requests to the background script over the same connection as a displayed message, so the result shows what a real message will look like, including the tiers in use.
+"Translate the sample message" in step 8 renders a short email in the page, in the source language when it is English or German, otherwise in English, or in German when the target language is English, and translates it with the current settings. The page uses the paragraph detection and rendering of the content script and sends the requests to the background script over the same connection as a displayed message, so the result shows what a real message will look like, including the tiers in use.
 
 The guide uses the same components as the settings page: the service fields and connection test, the dictionary and Bergamot lists, and the prompt editor with its presets.
 
@@ -261,7 +261,7 @@ The packs are built from Wiktionary, extracted by wiktextract and published by k
 
 ## Offline translation (Bergamot)
 
-The Bergamot service translates on your computer with the engine and the models of Firefox Translations, published by Mozilla under MPL-2.0. The engine ships with the extension; each translation direction is downloaded once from Mozilla, 24 to 48 MB, and stored in the extension's IndexedDB. A loaded direction takes about 200 MB of memory and is released after five minutes without use. Every model has English on one side, so Japanese to Chinese uses Japanese → English and English → Chinese.
+The Bergamot service translates on your computer with the engine and the models of Firefox Translations, published by Mozilla under MPL-2.0. The engine ships with the extension; each translation direction is downloaded once from Mozilla, 13 to 48 MB, and stored in the extension's IndexedDB. A loaded direction takes about 200 MB of memory and is released after five minutes without use. Every model has English on one side, so Japanese to Chinese uses Japanese → English and English → Chinese.
 
 The section "Offline translation models (Bergamot)" of the settings page lists the 114 direction pairs among 58 languages with size and version, filtered by language. It names the directions the current source and target language need and lists them first. Downloads show their progress and can be canceled; an installed pair with a newer version offered by Mozilla shows "Update". Deleting a pair that the current languages need asks for confirmation. Installation, translation and removal run in the background script, where the engine lives. [docs/bergamot.md](docs/bergamot.md) describes model selection, verification, storage and the engine.
 
@@ -454,7 +454,7 @@ Input tokens drop by about 63%, and the number of requests drops from 20 to 1. O
 
 - API keys are stored only in `storage.local` of the current Thunderbird profile and are sent only with requests to the endpoint of the matching provider.
 - The content script runs inside the message page; the settings it receives from the background script never contain keys.
-- Message text is sent only to the services of the tiers in use. The dictionary and Bergamot translate on your computer and send no text anywhere. Dictionary packs are downloaded from this repository's GitHub releases and Bergamot models from Mozilla, only when you click "Download". The extension collects no statistics and contacts no other network address.
+- Message text is sent only to the services of the tiers in use. The dictionary and Bergamot translate on your computer and send no text anywhere. The settings page and the setup guide read the list of dictionary packs from this repository's GitHub releases and the list of Bergamot models from Mozilla; the packs and models themselves are downloaded only when you click "Download". None of these requests carries message text. The extension collects no statistics and contacts no other network address.
 - The translation cache is stored locally and can be turned off or cleared on the settings page.
 - With Google, Microsoft, DeepLX or an online AI service, message text leaves your computer. For sensitive mail, use only the dictionary, Bergamot and local AI models such as Ollama or LM Studio, which keep every request on your own machine.
 
@@ -505,11 +505,14 @@ src/
   e2e/           hooks of the e2e test build (left out of every other build)
 locales/         interface text, one JSON file per language; en.json is the reference
 static/          manifest.json, HTML, CSS, SVG icon
-scripts/         build, locale generation and checks, live endpoint test
+scripts/         build, Bergamot engine download, locale generation and checks, live endpoint test
+vendor/          Bergamot engine glue script (bergamot-translator.js)
+tools/           dict-build: the pipeline that builds the dictionary packs
 readmes/         translated versions of this README
-docs/            demo GIF used in this README
+docs/            developer notes on Bergamot and the dictionary packs, demo GIF used in this README
 tests/           vitest tests
 e2e/             end-to-end test in a real Thunderbird: runner, mock server, fixture messages
+.github/         workflows: build and release, dictionary packs
 ```
 
 ## Translating the interface

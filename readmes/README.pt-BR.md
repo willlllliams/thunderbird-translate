@@ -12,7 +12,7 @@ Este documento foi escrito para quem nunca usou uma extensão do Thunderbird. El
 
 - Tradução do corpo: a extensão encontra o conteúdo em nível de parágrafo no corpo da mensagem: parágrafos, itens de lista, células de tabela, títulos, citações em bloco, divs que contêm apenas texto e, em mensagens de texto simples, parágrafos separados por linhas em branco. Código, parágrafos que já estão no idioma de destino, números, links soltos e espaços em branco são ignorados.
 - Dois modos de exibição: o modo bilíngue insere abaixo do original um bloco de tradução com uma borda esquerda clara, legível também em temas escuros. O modo só tradução substitui o original pela tradução; o original fica guardado na memória e volta ao lugar quando a tradução é desativada.
-- Atualização imediata: mudar o modo de exibição ou o idioma de destino enquanto uma mensagem está traduzida redesenha a página sem reabrir a mensagem. Mudar o modo de exibição redesenha a partir das traduções já recebidas e não envia novas requisições.
+- Atualização imediata: mudar o modo de exibição ou o idioma de destino enquanto uma mensagem está traduzida redesenha a página sem reabrir a mensagem. Mudar o modo de exibição redesenha as traduções do dicionário e da tradução automática já recebidas; o nível de IA é consultado de novo com o prompt do novo modo, e o cache responde quando já tem essa tradução.
 - Pontos de acesso: o botão "Traduzir mensagem" na barra de ferramentas do cabeçalho da mensagem, com seu pop-up, e os atalhos Alt+A (traduzir / mostrar original) e Alt+S (alternar bilíngue / só tradução).
 - Traduzir automaticamente ao abrir (opcional): mensagens que não estão no idioma de destino são traduzidas assim que são abertas.
 - Agrupamento de requisições: o script em segundo plano reúne parágrafos durante 50 ms e os junta em uma única requisição, com limite de concorrência, novas tentativas com espera exponencial (exponential backoff) e cache local.
@@ -46,7 +46,7 @@ npm test
 npm run build
 ```
 
-`npm run build` empacota com o esbuild o script em segundo plano, o script de conteúdo, o pop-up, a página de configurações e o guia de configuração em `dist/`, gera `dist/_locales/<language>/messages.json` a partir dos arquivos em `locales/` e compacta `dist/` em `web-ext-artifacts/thunderbird-translate-<version>.xpi`. A compactação usa a biblioteca fflate, escrita em JavaScript puro, e não precisa do comando zip do sistema.
+`npm run build` empacota com o esbuild o script em segundo plano, o script de conteúdo, o pop-up, a página de configurações, o guia de configuração e o worker do Bergamot em `dist/`, gera `dist/_locales/<language>/messages.json` a partir dos arquivos em `locales/` e compacta `dist/` em `web-ext-artifacts/thunderbird-translate-<version>.xpi`. A compactação usa a biblioteca fflate, escrita em JavaScript puro, e não precisa do comando zip do sistema. O script em segundo plano é um módulo ES: o AI SDK fica em um chunk separado em `dist/chunks/`, carregado quando o nível de IA entra em uso, e por isso o Thunderbird inicia a extensão sem ele. O primeiro build baixa da Mozilla o motor Bergamot (wasm) na versão fixada e o grava em `.cache/`, veja [docs/bergamot.md](../docs/bergamot.md).
 
 Durante o desenvolvimento, é possível carregar a extensão sem empacotá-la: no Thunderbird, abra Ferramentas → Ferramentas de desenvolvimento → Depurar extensões, clique em "Carregar extensão temporária" e selecione `dist/manifest.json`.
 
@@ -82,7 +82,7 @@ Com japonês como idioma de origem e chinês simplificado como idioma de destino
 
 Com "Detectar automaticamente", a etapa 4 recomenda os pacotes e as direções a partir do inglês. Um aviso pede então que você instale a direção para o inglês de cada um dos outros idiomas em que recebe mensagens.
 
-"Traduzir a mensagem de exemplo", na etapa 8, renderiza na página um e-mail curto em inglês (em alemão quando o idioma de destino é o inglês) e o traduz com as configurações atuais. A página usa a detecção de parágrafos e a renderização do script de conteúdo. Ela envia as requisições ao script em segundo plano pela mesma conexão de uma mensagem exibida. Por isso, o resultado mostra como uma mensagem real vai ficar, incluindo os níveis em uso.
+"Traduzir a mensagem de exemplo", na etapa 8, renderiza na página um e-mail curto (no idioma de origem quando ele é inglês ou alemão, senão em inglês, ou em alemão quando o idioma de destino é o inglês) e o traduz com as configurações atuais. A página usa a detecção de parágrafos e a renderização do script de conteúdo. Ela envia as requisições ao script em segundo plano pela mesma conexão de uma mensagem exibida. Por isso, o resultado mostra como uma mensagem real vai ficar, incluindo os níveis em uso.
 
 O guia usa os mesmos componentes da página de configurações: os campos dos serviços com o teste de conexão, as listas de dicionários e de modelos do Bergamot e o editor de prompts com as predefinições.
 
@@ -262,7 +262,7 @@ Os pacotes são gerados a partir do Wiktionary, extraído pelo wiktextract e pub
 
 ## Tradução offline (Bergamot)
 
-O serviço Bergamot traduz no seu computador com o mecanismo e os modelos do Firefox Translations, publicados pela Mozilla sob a MPL-2.0. O mecanismo vem junto com a extensão; cada direção de tradução é baixada uma única vez da Mozilla, com 24 a 48 MB, e guardada no IndexedDB da extensão. Uma direção carregada ocupa cerca de 200 MB de memória e é liberada após cinco minutos sem uso. Todos os modelos têm o inglês de um dos lados, por isso de japonês para chinês são usadas as direções japonês → inglês e inglês → chinês.
+O serviço Bergamot traduz no seu computador com o mecanismo e os modelos do Firefox Translations, publicados pela Mozilla sob a MPL-2.0. O mecanismo vem junto com a extensão; cada direção de tradução é baixada uma única vez da Mozilla, com 13 a 48 MB, e guardada no IndexedDB da extensão. Uma direção carregada ocupa cerca de 200 MB de memória e é liberada após cinco minutos sem uso. Todos os modelos têm o inglês de um dos lados, por isso de japonês para chinês são usadas as direções japonês → inglês e inglês → chinês.
 
 A seção "Modelos de tradução offline (Bergamot)" da página de configurações lista os 114 pares de direções entre 58 idiomas, com tamanho e versão, e permite filtrar por idioma. Ela indica as direções de que os idiomas de origem e de destino atuais precisam e as coloca no início da lista. Os downloads mostram o progresso e podem ser cancelados; um par instalado para o qual a Mozilla oferece uma versão mais nova mostra "Atualizar". Excluir um par de que os idiomas atuais precisam pede confirmação. A instalação, a tradução e a remoção são executadas no script em segundo plano, onde fica o mecanismo. [docs/bergamot.md](../docs/bergamot.md) descreve a seleção dos modelos, a verificação, o armazenamento e o mecanismo.
 
@@ -455,7 +455,7 @@ Os tokens de entrada caem cerca de 63%, e o número de requisições cai de 20 p
 
 - As chaves de API ficam armazenadas apenas em `storage.local` do perfil atual do Thunderbird e são enviadas apenas nas requisições ao endpoint do provedor correspondente.
 - O script de conteúdo roda dentro da página da mensagem; as configurações que ele recebe do script em segundo plano nunca contêm chaves.
-- O texto da mensagem é enviado apenas aos serviços dos níveis em uso. O dicionário e o Bergamot traduzem no seu computador e não enviam texto a lugar nenhum. Os pacotes de dicionário são baixados das releases deste repositório no GitHub e os modelos do Bergamot, da Mozilla, apenas quando você clica em "Baixar". A extensão não coleta estatísticas e não acessa nenhum outro endereço de rede.
+- O texto da mensagem é enviado apenas aos serviços dos níveis em uso. O dicionário e o Bergamot traduzem no seu computador e não enviam texto a lugar nenhum. A página de configurações e o guia de configuração leem a lista de pacotes de dicionário nas releases deste repositório no GitHub e a lista de modelos do Bergamot na Mozilla; os pacotes e os modelos em si são baixados apenas quando você clica em "Baixar". Nenhuma dessas requisições leva texto de mensagem. A extensão não coleta estatísticas e não acessa nenhum outro endereço de rede.
 - O cache de traduções é armazenado localmente e pode ser desativado ou limpo na página de configurações.
 - Com o Google, a Microsoft, o DeepLX ou um serviço de IA online, o texto da mensagem sai do seu computador. Para mensagens sensíveis, use apenas o dicionário, o Bergamot e modelos de IA locais como o Ollama ou o LM Studio, que mantêm todas as requisições na sua própria máquina.
 
@@ -506,11 +506,14 @@ src/
   e2e/           ganchos do build de teste e2e (fora de todos os outros builds)
 locales/         textos da interface, um arquivo JSON por idioma; en.json é a referência
 static/          manifest.json, HTML, CSS, ícone SVG
-scripts/         build, geração e verificação das traduções, teste dos endpoints reais
+scripts/         build, download do motor Bergamot, geração e verificação das traduções, teste dos endpoints reais
+vendor/          script de ligação do motor Bergamot (bergamot-translator.js)
+tools/           dict-build: o pipeline que gera os pacotes de dicionário
 readmes/         versões traduzidas deste README
-docs/            GIF de demonstração usado neste README
+docs/            notas para desenvolvedores sobre o Bergamot e os pacotes de dicionário, GIF de demonstração usado neste README
 tests/           testes do vitest
 e2e/             teste de ponta a ponta num Thunderbird real: executor, servidor simulado, mensagens de exemplo
+.github/         workflows: build e release, pacotes de dicionário
 ```
 
 ## Traduzir a interface

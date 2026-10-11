@@ -5,7 +5,6 @@
  * a time.
  */
 
-import { BergamotInternalError } from "./internal-error"
 import { GLUE_FILE, WASM_FILE, type WorkerRequest, type WorkerResponse } from "./protocol"
 import { createEngineHandler, instantiateBergamot, type LoadBergamot } from "./worker-core"
 import { zstdDecompress } from "./verify"
@@ -22,9 +21,9 @@ const scope = self as unknown as WorkerScope
 
 async function loadEngine() {
   scope.importScripts(new URL(GLUE_FILE, scope.location.href).href)
-  if (typeof scope.loadBergamot !== "function") throw new BergamotInternalError(`${GLUE_FILE} did not define loadBergamot`)
+  if (typeof scope.loadBergamot !== "function") throw new Error(`${GLUE_FILE} did not define loadBergamot`)
   const res = await fetch(new URL(WASM_FILE, scope.location.href).href)
-  if (!res.ok) throw new BergamotInternalError(`${WASM_FILE}: HTTP ${res.status}`)
+  if (!res.ok) throw new Error(`${WASM_FILE}: HTTP ${res.status}`)
   const wasm = zstdDecompress(new Uint8Array(await res.arrayBuffer()))
   return instantiateBergamot(scope.loadBergamot, wasm)
 }

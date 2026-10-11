@@ -1,7 +1,7 @@
 import { LocalizedError } from "./errors"
 import { hashText } from "./hash"
-import { baseLang, LANGUAGES } from "./languages"
-import { matchUiLocale, normalizeUiLanguageSetting, type UiLanguageSetting } from "./locales"
+import { appLang, LANGUAGES, languageTag } from "./languages"
+import { normalizeUiLanguageSetting, type UiLanguageSetting } from "./locales"
 import { DEFAULT_PROMPTS, PROMPT_KINDS, type PromptKind, promptText } from "./prompts"
 import { DEFAULT_PROVIDER_ID, getPreset, PROVIDER_PRESETS, type ProviderPreset, type Tier, TIERS, tierOf } from "./providers"
 
@@ -84,15 +84,14 @@ export interface Settings {
 export const SETTINGS_KEY = "settings"
 
 /** Release of the dictionary packs on GitHub; the settings page can point to another one. */
-export const DEFAULT_DICT_TAG = "dicts-v1"
+const DEFAULT_DICT_TAG = "dicts-v1"
 
-export const DEFAULT_TIERS: TierSettings = { dictionary: null, machine: DEFAULT_PROVIDER_ID, ai: null }
+const DEFAULT_TIERS: TierSettings = { dictionary: null, machine: DEFAULT_PROVIDER_ID, ai: null }
 
 /** Target language for a fresh installation: the interface language when it is a target language, else English. */
 export function defaultTargetLang(uiLang?: string): string {
-  const base = baseLang(uiLang ?? "")
-  if (base === "zh") return matchUiLocale(uiLang) === "zh_TW" ? "zh-TW" : "zh-CN"
-  return LANGUAGES.find((l) => l.code === base)?.code ?? "en"
+  const code = appLang(languageTag(uiLang ?? ""))
+  return LANGUAGES.some((l) => l.code === code) ? code : "en"
 }
 
 export function createDefaultSettings(uiLang?: string): Settings {

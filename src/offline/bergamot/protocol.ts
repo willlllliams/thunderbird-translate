@@ -21,7 +21,7 @@ export type WorkerRequest =
   | { id: number; type: "translate"; keys: string[]; texts: string[] }
 
 export type WorkerResponse =
-  | { id: number; ok: true; result?: string[]; wasmHeapBytes?: number }
+  | { id: number; ok: true; result?: string[] }
   | { id: number; ok: false; error: string }
 
 /** Path of the worker script inside the extension. */

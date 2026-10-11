@@ -2,9 +2,10 @@
 import { IDBFactory } from "fake-indexeddb"
 import { describe, expect, it, vi } from "vitest"
 import { type IndexedPack, fetchDictionaryIndex, installPack, releaseUrl } from "../src/background/dictionary/download"
-import { appLang, dictKey, dictLang, parsePack } from "../src/background/dictionary/format"
+import { dictKey, dictLang, parsePack } from "../src/background/dictionary/format"
 import { Dictionary, translateText } from "../src/background/dictionary"
-import { DictionaryStore, packId } from "../src/background/dictionary/store"
+import { DictionaryStore } from "../src/background/dictionary/store"
+import { appLang, pairKey } from "../src/shared/languages"
 import { describeError } from "../src/shared/errors"
 import { ENGLISH } from "../src/shared/i18n"
 import { gz, packEntry, releaseServer, tsv } from "./fixtures/dictionary"
@@ -272,7 +273,7 @@ describe("storage, download and the dictionary tier", () => {
     await dictionary.translate(["hello"], "en", "zh-CN")
     await dictionary.translate(["world"], "en", "zh-CN")
     expect(data).toHaveBeenCalledTimes(1)
-    await store.remove(packId("en", "zh-Hans"))
+    await store.remove(pairKey("en", "zh-Hans"))
     dictionary.invalidate()
     await expect(dictionary.translate(["hello"], "en", "zh-CN")).rejects.toThrow(/not installed/)
     await installPack(indexEntry("dict-en-zh-Hans.tsv.gz"), "dicts-v1", store, { fetchFn: asFetch(releases) })

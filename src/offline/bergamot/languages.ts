@@ -5,35 +5,25 @@
  * English (ja → zh-Hans) runs through two models: ja → en, then en → zh-Hans.
  */
 
+import { languageTag } from "../../shared/languages"
+
 /** The language every model has on one side. */
-export const PIVOT = "en"
+const PIVOT = "en"
 
 /** Direction pair [source, target]. */
 export type LanguagePair = [string, string]
 
+/** Old and alternative codes and the tag of the models. */
+const ALIASES: Record<string, string> = { iw: "he", no: "nb", in: "id", fil: "tl", ji: "yi" }
+
 /**
- * Remote Settings tag for an application or detector code:
- * zh, zh-CN, zh-SG → zh-Hans; zh-TW, zh-HK, zh-MO → zh-Hant; iw → he;
- * no → nb; in → id; fil → tl; other tags keep their primary subtag (pt-BR → pt).
- * "auto" stays "auto"; an empty string stays empty.
+ * Remote Settings tag for an application or detector code: languageTag()
+ * (zh-CN → zh-Hans, zh-TW → zh-Hant, pt-BR → pt), then iw → he, no → nb,
+ * in → id, fil → tl, ji → yi. "auto" stays "auto"; an empty string stays empty.
  */
 export function normalizeBergamotLang(code: string): string {
-  const tag = code.trim().replace(/_/g, "-")
-  if (!tag) return ""
-  const parts = tag.toLowerCase().split("-")
-  const base = parts[0]
-  if (base === "auto") return "auto"
-  if (base === "zh") {
-    const traditional = parts.slice(1).some((p) => p === "hant" || p === "tw" || p === "hk" || p === "mo")
-    return traditional ? "zh-Hant" : "zh-Hans"
-  }
-  const ALIASES: Record<string, string> = { iw: "he", no: "nb", in: "id", fil: "tl", ji: "yi" }
-  return ALIASES[base] ?? base
-}
-
-/** Storage and engine key of a direction pair, e.g. "en>zh-Hans". */
-export function pairKey(src: string, tgt: string): string {
-  return `${src}>${tgt}`
+  const tag = languageTag(code)
+  return ALIASES[tag] ?? tag
 }
 
 /**

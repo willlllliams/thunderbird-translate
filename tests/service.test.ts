@@ -1,8 +1,8 @@
 import { describe, expect, it, vi } from "vitest"
 import { CACHE_STORAGE_KEY, cacheKey, LruCache, PersistentCache } from "../src/background/cache"
 import { errorContext, type LlmImpl, type TranslationService } from "../src/background/service"
-import { BatchParseError, type LlmCallOptions, llmAnalyzeMail, llmTranslateBatch, llmTranslateSingle } from "../src/background/translators/llm"
-import { MAX_PREFIX_TEXT_CHARS, type Segment } from "../src/background/translators/llm-prompt"
+import { type LlmCallOptions, llmAnalyzeMail, llmTranslateBatch, llmTranslateSingle } from "../src/background/translators/llm"
+import { BatchParseError, MAX_PREFIX_TEXT_CHARS, type Segment } from "../src/background/translators/llm-prompt"
 import { ENGLISH } from "../src/shared/i18n"
 import { createMailContext } from "../src/shared/mail-context"
 import type { TranslateRequest, TranslateResponse } from "../src/shared/messages"
@@ -111,6 +111,14 @@ describe("TranslationService with an LLM", () => {
     s.tiers.ai = "openai"
     s.providers.openai.apiKey = "sk-test"
   }
+
+  it("loads the AI SDK module on first use and sends one request per batch", async () => {
+    const fetchFn = vi.fn(async () => chatCompletion(JSON.stringify(["你好", "再见"])))
+    const { service } = setup(useOpenAI, { fetchFn: asFetch(fetchFn) })
+    const out = await Promise.all(["Hello", "Goodbye"].map((t) => service.translate({ text: t, targetLang: "zh-CN", providerId: "openai" })))
+    expect(out).toEqual(["你好", "再见"])
+    expect(fetchFn).toHaveBeenCalledTimes(1)
+  })
 
   it("sends one LLM call per batch", async () => {
     const llm: LlmImpl = {

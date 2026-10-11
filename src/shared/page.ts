@@ -1,12 +1,12 @@
 /** Helpers shared by the popup, the settings page and the welcome page. */
 
 import { ext } from "./ext"
-import { getI18n, type I18n } from "./i18n"
+import { getI18n, type I18n, t } from "./i18n"
 import { thunderbirdUiLanguage } from "./i18n-ext"
 import { LANGUAGES } from "./languages"
 import { LOCALE_NATIVE_NAMES, localeToLanguageTag, matchUiLocale, SUPPORTED_LOCALES } from "./locales"
 import type { BackgroundRequest } from "./messages"
-import { PROVIDER_PRESETS, providerDisplayName, type Tier, tierOf } from "./providers"
+import { PROVIDER_PRESETS, providerDisplayName, type Tier, TIER_NAME_KEYS, TIERS, tierOf } from "./providers"
 import { addedProviders, type Settings, type TierSettings, tiersValid } from "./settings"
 
 export const $ = <T extends HTMLElement>(id: string) => document.getElementById(id) as T
@@ -48,13 +48,35 @@ export function tierOptions(settings: Settings, tier: Tier, i18n: I18n = getI18n
   return [new Option(i18n.t("tierNotUsed"), ""), ...services.map((p) => new Option(providerDisplayName(p, i18n), p.id))]
 }
 
+/** The tier selectors of a page ("tier-<tier>" with label "tierLabel-<tier>"); with `all`, every service of each tier. */
+export function fillTierSelects(settings: Settings, all = false): void {
+  TIERS.forEach((tier, i) => {
+    $(`tierLabel-${tier}`).textContent = t("tierLabel", [i + 1, t(TIER_NAME_KEYS[tier])])
+    fillSelect($<HTMLSelectElement>(`tier-${tier}`), tierOptions(settings, tier, getI18n(), all), settings.tiers[tier] ?? "")
+  })
+}
+
 /**
- * Value of a tier select after a change, or undefined when it would leave
- * every tier empty; the select then shows the current value again.
+ * Follow the tier selectors. A choice that would leave every tier empty is
+ * refused: the select shows the current value again and the "tiersEmpty"
+ * note appears.
  */
-export function tierChoice(select: HTMLSelectElement, tiers: TierSettings, tier: Tier): string | null | undefined {
-  const value = select.value || null
-  if (tiersValid({ ...tiers, [tier]: value })) return value
-  select.value = tiers[tier] ?? ""
-  return undefined
+export function onTierChange(tiers: () => TierSettings, apply: (tier: Tier, value: string | null) => void): void {
+  for (const tier of TIERS) {
+    const select = $<HTMLSelectElement>(`tier-${tier}`)
+    select.addEventListener("change", () => {
+      const value = select.value || null
+      const valid = tiersValid({ ...tiers(), [tier]: value })
+      $("tiersEmpty").hidden = valid
+      if (valid) apply(tier, value)
+      else select.value = tiers()[tier] ?? ""
+    })
+  }
+}
+
+/** Flash the "Saved" note of a settings page. */
+export function showSaved(): void {
+  const saved = $("saved")
+  saved.classList.add("show")
+  setTimeout(() => saved.classList.remove("show"), 1200)
 }

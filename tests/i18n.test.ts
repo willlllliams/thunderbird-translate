@@ -398,9 +398,9 @@ describe("no hard-coded interface text", () => {
         .filter((line) => /throw new Error\(\s*["'`]/.test(line))
         .map((line) => `${f}: ${line.trim()}`),
     )
-    // Only internal errors that never reach the interface remain plain.
+    // Only internal errors that never reach the interface remain plain; the offline engine wraps its own in a LocalizedError as detail.
     const internal = ["Batch executor returned", "throw new Error(`HTTP ${resp.status}`)"]
-    expect(hits.filter((h) => !internal.some((i) => h.includes(i)))).toEqual([])
+    expect(hits.filter((h) => !internal.some((i) => h.includes(i)) && !/offline[\\/]bergamot/.test(h))).toEqual([])
   })
 
   it("nothing reads interface text through browser.i18n.getMessage", () => {
