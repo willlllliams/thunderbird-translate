@@ -1,0 +1,105 @@
+name: Dictionary packs
+
+# Builds the word-for-word dictionary packs (tools/dict-build) from the current
+# kaikki.org Wiktionary dumps and ECDICT, then uploads every pack plus
+# dict-index.json and dict-build-report.json to the release of the given tag.
+# A full run downloads about 1.25 GB, reads about 9.9 GB of JSON lines and takes
+# roughly 15-30 minutes; see docs/dictionary-packs.md.
+
+on:
+  workflow_dispatch:
+    inputs:
+      pairs:
+        description: 'Comma-separated directions such as "en-de,de-en", or "all"'
+        required: false
+        default: all
+      tag:
+        description: Release tag that receives the packs
+        required: false
+        default: dicts-v1
+
+permissions:
+  contents: write
+
+concurrency:
+  group: dicts-${{ inputs.tag }}
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 240
+    env:
+      PAIRS: ${{ inputs.pairs }}
+      TAG: ${{ inputs.tag }}
+      # The English pass keeps translation candidates, inflection forms and
+      # citation counts for all languages in memory.
+      NODE_OPTIONS: --max-old-space-size=8192
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 24
+
+      - name: Show free disk space
+        run: df -h "$RUNNER_TEMP" .
+
+      # A run for a subset of pairs rebuilds only those packs. Starting from the
+      # assets already on the release keeps dict-index.json complete.
+      - name: Fetch existing packs from the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mkdir -p "$RUNNER_TEMP/dicts"
+          if gh release view "$TAG" --repo "$GITHUB_REPOSITORY" > /dev/null 2>&1; then
+            gh release download "$TAG" --repo "$GITHUB_REPOSITORY" --dir "$RUNNER_TEMP/dicts" \
+              --pattern 'dict-*.tsv.gz' --pattern 'dict-index.json' --pattern 'dict-build-report.json' --clobber || true
+          fi
+          ls -l "$RUNNER_TEMP/dicts"
+
+      - name: Build packs
+        working-directory: tools/dict-build
+        run: |
+          node build.mjs \
+            --pairs "$PAIRS" \
+            --out "$RUNNER_TEMP/dicts" \
+            --cache "$RUNNER_TEMP/dict-cache" \
+            --pack-version "$(date -u +%Y%m%d)"
+
+      - name: Verify packs
+        working-directory: tools/dict-build
+        run: node verify.mjs "$RUNNER_TEMP/dicts"
+
+      - name: Summarize
+        run: |
+          {
+            echo '| Pack | Entries | Forms | Bytes |'
+            echo '| --- | ---: | ---: | ---: |'
+            node -e '
+              const idx = require(process.argv[1]);
+              for (const p of idx.packs) console.log(`| ${p.file} | ${p.entries} | ${p.forms} | ${p.bytes} |`);
+            ' "$RUNNER_TEMP/dicts/dict-index.json"
+          } >> "$GITHUB_STEP_SUMMARY"
+          du -sh "$RUNNER_TEMP/dict-cache" "$RUNNER_TEMP/dicts"
+
+      - name: Upload to release
+        uses: softprops/action-gh-release@v3
+        with:
+          tag_name: ${{ inputs.tag }}
+          name: Dictionary packs (${{ inputs.tag }})
+          target_commitish: ${{ github.sha }}
+          make_latest: false
+          overwrite_files: true
+          fail_on_unmatched_files: true
+          body: |
+            Word-for-word dictionary packs for the dictionary translation service.
+            Format and build rules: docs/dictionary-packs.md.
+
+            Sources and licenses:
+            - Wiktionary contributors, via kaikki.org / wiktextract (CC BY-SA 4.0): all packs except dict-en-zh-Hans.
+            - ECDICT by skywind3000 (MIT): dict-en-zh-Hans.
+          files: |
+            ${{ runner.temp }}/dicts/dict-*.tsv.gz
+            ${{ runner.temp }}/dicts/dict-index.json
+            ${{ runner.temp }}/dicts/dict-build-report.json

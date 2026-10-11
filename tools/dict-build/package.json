@@ -1,0 +1,18 @@
+{
+  "name": "thunderbird-translate-dict-build",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Builds word-for-word dictionary packs from Wiktionary (kaikki.org) and ECDICT",
+  "type": "module",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "build": "node build.mjs --pairs all --out dist",
+    "build:sample": "node build.mjs --pairs en-de,de-en --out dist --limit 200000",
+    "build:ecdict": "node build.mjs --pairs en-zh-Hans --out dist",
+    "verify": "node verify.mjs dist",
+    "demo": "node demo.mjs dist"
+  },
+  "license": "GPL-3.0-or-later"
+}

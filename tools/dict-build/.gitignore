@@ -1,0 +1,4 @@
+# Downloaded source data (kaikki.org dumps, ECDICT) and generated packs
+.cache/
+dist/
+*.part
