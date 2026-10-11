@@ -4,6 +4,7 @@
   "actionTitle": "İletiyi çevir",
   "commandToggle": "Çevir / özgün metni göster",
   "commandMode": "İki dilli / yalnızca çeviri arasında geç",
+  "commandRetranslate": "Önbelleği kullanmadan yeniden çevir",
   "badgeOn": "AÇIK",
   "statusTranslating": "Çevriliyor…",
   "statusFailed": "Çeviri başarısız oldu, yeniden denemek için tıklayın",
@@ -12,6 +13,8 @@
 
   "popupTranslate": "Bu iletiyi çevir",
   "popupShowOriginal": "Özgün metni göster",
+  "popupRetranslate": "Yeniden çevir",
+  "popupRetranslateHint": "Bu iletiyi önbellekteki çevirileri kullanmadan yeniden çevir",
   "popupNotConnected": "İleti içeriğine erişilemiyor. İletiyi yeniden açıp tekrar deneyin.",
   "popupProgress": "Çevrildi: $1 / $2",
   "popupProgressProvisional": "Çevrildi: $1 / $2 ($3 geçici)",
@@ -36,7 +39,7 @@
   "labelAutoTranslate": "Hedef dilde olmayan iletileri otomatik olarak çevir",
   "labelPrecise": "Hassas çeviri",
   "popupSettings": "Ayarlar",
-  "popupShortcuts": "Kısayollar: Alt+A çevir, Alt+S görünümü değiştir",
+  "popupShortcuts": "Kısayollar: Alt+A çevir, Alt+S görünümü değiştir, Alt+R yeniden çevir",
 
   "optionsTitle": "Thunderbird Translate ayarları",
   "sectionGeneral": "Genel",

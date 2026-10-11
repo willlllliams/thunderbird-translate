@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-/** Popup: translation state of the message, the toggle button, every switch, the links and the interface language. */
+/** Popup: translation state of the message, the toggle and retranslate buttons, every switch, the links and the interface language. */
 import { readLocaleSources } from "../scripts/locales.mjs"
 import { afterEach, describe, expect, it, vi } from "vitest"
 import { ENGLISH } from "../src/shared/i18n"
@@ -42,6 +42,8 @@ describe("translation state", () => {
     expect($<HTMLButtonElement>("toggle").disabled).toBe(disabled)
     expect($("toggle").classList.contains("active")).toBe(state.active)
     expect($("toggle").textContent).toBe(ENGLISH.t(state.active ? "popupShowOriginal" : "popupTranslate"))
+    // Retranslating is offered only beside "Show original".
+    expect($("retranslate").hidden).toBe(!state.active)
     expect($("lastError").hidden).toBe(true)
   })
 
@@ -75,6 +77,9 @@ describe("translation state", () => {
     $("toggle").click()
     await new Promise((r) => setTimeout(r, 20))
     expect(sendMessage.mock.calls.map(([req]) => req.type)).not.toContain("toggleTab")
+    $("retranslate").click()
+    await new Promise((r) => setTimeout(r, 20))
+    expect(sendMessage.mock.calls.map(([req]) => req.type)).not.toContain("retranslateTab")
     expect(sendMessage.mock.calls.map(([req]) => req.type)).not.toContain("getTabState")
   })
 })
@@ -91,6 +96,28 @@ describe("controls", () => {
     expect(page.sendMessage).toHaveBeenCalledWith({ type: "toggleTab", tabId: 3 })
     await vi.waitFor(() => expect($("toggle").textContent).toBe(ENGLISH.t("popupShowOriginal")))
     expect(page.sendMessage).toHaveBeenCalledWith({ type: "getTabState", tabId: 3 })
+  })
+
+  it("retranslates a translated message and keeps offering it", async () => {
+    const page = await popup(tabState({ active: true, total: 3, done: 3 }))
+    expect($("retranslate").textContent).toBe(ENGLISH.t("popupRetranslate"))
+    expect($("retranslate").title).toBe(ENGLISH.t("popupRetranslateHint"))
+    $("retranslate").click()
+    expect(page.sendMessage).toHaveBeenCalledWith({ type: "retranslateTab", tabId: 3 })
+    expect(page.sendMessage).not.toHaveBeenCalledWith({ type: "toggleTab", tabId: 3 })
+    await new Promise((r) => setTimeout(r, 200))
+    expect($("retranslate").hidden).toBe(false)
+  })
+
+  it("hides the retranslate button once the original is shown again", async () => {
+    let state = tabState({ active: true, total: 3, done: 3 })
+    const page = await popup(() => state)
+    page.sendMessage.mockImplementation(async (req) => {
+      if (req.type === "toggleTab") state = tabState({})
+      return req.type === "getTabState" ? state : undefined
+    })
+    $("toggle").click()
+    await vi.waitFor(() => expect($("retranslate").hidden).toBe(true))
   })
 
   it("saves the display mode, automatic translation and the target language", async () => {
@@ -134,7 +161,7 @@ describe("controls", () => {
     expect(page.close).toHaveBeenCalledTimes(1)
   })
 
-  it("names both keyboard shortcuts", async () => {
+  it("names the keyboard shortcuts", async () => {
     await popup(tabState({}))
     expect(document.querySelector("footer .hint")!.textContent).toBe(ENGLISH.t("popupShortcuts"))
   })

@@ -11,7 +11,7 @@ Dieses Dokument richtet sich an Leser, die noch keine Thunderbird-Erweiterung ve
 - Übersetzung des Nachrichtentexts: Die Erweiterung erkennt Inhalte auf Absatzebene im Nachrichtentext, also Absätze, Listeneinträge, Tabellenzellen, Überschriften, Zitatblöcke, reine Text-divs und durch Leerzeilen getrennte Absätze in Nur-Text-Nachrichten. Code, Absätze, die bereits in der Zielsprache verfasst sind, Zahlen, nackte Links und Leerraum werden übersprungen.
 - Zwei Anzeigemodi: Der zweisprachige Modus fügt unter dem Original einen Übersetzungsblock mit einer hellen Linie links ein, der auch in dunklen Themes lesbar ist. Der Modus „Nur Übersetzung“ ersetzt das Original durch die Übersetzung; das Original bleibt im Speicher und wird beim Ausschalten der Übersetzung wieder eingesetzt.
 - Sofortige Aktualisierung: Wird der Anzeigemodus oder die Zielsprache geändert, während eine Nachricht übersetzt ist, stellt die Erweiterung die Seite neu dar, ohne dass die Nachricht erneut geöffnet werden muss. Ein Wechsel des Anzeigemodus zeichnet die bereits erhaltenen Übersetzungen des Wörterbuchs und der maschinellen Übersetzung neu; die KI-Stufe wird mit dem Prompt des neuen Modus erneut gefragt, und der Cache antwortet, wenn er diese Übersetzung schon hat.
-- Bedienung: die Schaltfläche „Nachricht übersetzen“ in der Symbolleiste des Nachrichtenkopfs mit ihrem Pop-up sowie die Tastenkombinationen Alt+A (übersetzen / Original anzeigen) und Alt+S (zweisprachig / nur Übersetzung umschalten).
+- Bedienung: die Schaltfläche „Nachricht übersetzen“ in der Symbolleiste des Nachrichtenkopfs mit ihrem Pop-up sowie die Tastenkombinationen Alt+A (übersetzen / Original anzeigen), Alt+S (zweisprachig / nur Übersetzung umschalten) und Alt+R (ohne Cache neu übersetzen).
 - Beim Öffnen automatisch übersetzen (optional): Nachrichten, die nicht in der Zielsprache verfasst sind, werden beim Öffnen sofort übersetzt.
 - Bündelung von Anfragen: Das Hintergrundskript sammelt Absätze 50 ms lang und fasst sie in einer Anfrage zusammen. Dazu kommen eine Begrenzung gleichzeitiger Anfragen pro Dienst, Wiederholungsversuche mit exponentiellem Backoff, ein Zeitlimit pro Anfrage und ein lokaler Cache. Ein Absatz, der länger ist, als eine Anfrage aufnehmen kann, wird in Stücke aus ganzen Zeilen geteilt; nur eine einzelne Zeile, die länger als eine Anfrage ist, wird zwischen Sätzen geteilt.
 - Drei Übersetzungsstufen: Wörterbuch, maschinelle Übersetzung und KI. Jede Stufe hat einen eigenen Dienst oder wird nicht verwendet; jeder Absatz geht gleichzeitig an alle verwendeten Stufen. Eine niedrigere Stufe wird als vorläufige Übersetzung angezeigt, bis die höchste Stufe sie ersetzt, und bleibt stehen, wenn die höchste Stufe fehlschlägt.
@@ -89,6 +89,7 @@ Der Assistent verwendet dieselben Komponenten wie die Einstellungsseite: die Fel
 Nach dem Öffnen einer Nachricht erscheint in der Symbolleiste des Nachrichtenkopfs die Schaltfläche „Nachricht übersetzen“. Ein Klick darauf öffnet ein Pop-up mit folgenden Elementen:
 
 - „Diese Nachricht übersetzen“: startet die Übersetzung. Solange eine Übersetzung läuft oder angezeigt wird, lautet die Schaltfläche „Original anzeigen“ und stellt bei einem Klick das Original wieder her.
+- „Neu übersetzen“: erscheint neben „Original anzeigen“, solange die Nachricht übersetzt ist. Die Schaltfläche übersetzt die Nachricht im aktuellen Anzeigemodus erneut und fragt jede Stufe neu an: Weder der Cache noch eine noch laufende Anfrage antwortet, die neuen Ergebnisse ersetzen die zwischengespeicherten, und die präzise Übersetzung analysiert die Nachricht erneut. Niedrigere Stufen zeigen wie gewohnt vorläufige Übersetzungen; die Übersetzungen anderer Nachrichten bleiben im Cache.
 - Anzeige: schaltet zwischen „Zweisprachig“ und „Nur Übersetzung“ um; die Änderung gilt sofort für die aktuelle Nachricht.
 - Ausgangssprache und Zielsprache: Standard für die Ausgangssprache ist „Automatisch erkennen“. Nach einer Änderung einer der beiden wird eine gerade übersetzte Nachricht erneut übersetzt. Sind beide dieselbe Sprache, erscheint ein Hinweis.
 - Übersetzungsstufen: eine Liste pro Stufe („Stufe 1: Wörterbuch“, „Stufe 2: Maschinelle Übersetzung“, „Stufe 3: KI-Übersetzung“), jeweils mit „Nicht verwendet“, den hinzugefügten Diensten dieser Stufe und als letztem Eintrag „+ Übersetzungsdienst hinzufügen…“. Dieser Eintrag öffnet die Einstellungsseite bei den Übersetzungsdiensten der Stufe und lässt die Liste bei ihrem Wert. Mindestens eine Stufe braucht einen Dienst; wird für die letzte Stufe mit Dienst „Nicht verwendet“ gewählt, lehnt das Pop-up dies mit einem Hinweis ab. Ein gewähltes Wörterbuch oder Bergamot, dem Daten für die aktuellen Sprachen fehlen, ist gekennzeichnet, siehe [Fehlende Offline-Daten](#fehlende-offline-daten).
@@ -98,7 +99,7 @@ Nach dem Öffnen einer Nachricht erscheint in der Symbolleiste des Nachrichtenko
 
 Das Pop-up zeigt den Fortschritt an, zum Beispiel „8 von 12 übersetzt“. Absätze, die noch eine vorläufige Übersetzung einer niedrigeren Stufe zeigen, werden getrennt gezählt, zum Beispiel „7 von 9 übersetzt (2 vorläufig)“. Schlagen für einen Absatz alle Stufen fehl, erscheint dahinter in Rot „Übersetzung fehlgeschlagen, zum Wiederholen klicken“. Beim Darüberfahren mit der Maus wird der Fehler angezeigt; ein Klick übersetzt diesen Absatz erneut.
 
-Alt+A übersetzt die aktuelle Nachricht oder stellt das Original wieder her; Alt+S schaltet zwischen „Zweisprachig“ und „Nur Übersetzung“ um. Beide Tastenkombinationen lassen sich im Zahnradmenü der Add-ons-Verwaltung unter „Tastenkombinationen für Erweiterungen verwalten“ ändern.
+Alt+A übersetzt die aktuelle Nachricht oder stellt das Original wieder her; Alt+S schaltet zwischen „Zweisprachig“ und „Nur Übersetzung“ um; Alt+R übersetzt die aktuelle Nachricht neu wie „Neu übersetzen“ im Pop-up und tut nichts, solange die Nachricht nicht übersetzt ist. Alle drei Tastenkombinationen lassen sich im Zahnradmenü der Add-ons-Verwaltung unter „Tastenkombinationen für Erweiterungen verwalten“ ändern.
 
 Im Modus „Nur Übersetzung“ zeigt ein Tooltip den Originaltext an, wenn der Mauszeiger über einer Übersetzung steht.
 
@@ -534,7 +535,7 @@ Die Eingabe-Tokens sinken um etwa 63 %, und die Zahl der Anfragen sinkt von 20 a
 ```bash
 npm test               # vitest unit tests
 npm run test:coverage  # unit tests with coverage; fails below the thresholds in vitest.config.ts
-npm run e2e            # headless Thunderbird (THUNDERBIRD_BIN) against a local mock server: three tiers, mode switch, restore; offline downloads of the setup guide
+npm run e2e            # headless Thunderbird (THUNDERBIRD_BIN) against a local mock server: three tiers, mode switch, restore, retranslation; offline downloads of the setup guide
 npm run typecheck      # TypeScript type check
 npm run locales:check  # check every locales/<language>.json against locales/en.json
 npm run live-test      # call the real Google and Microsoft endpoints through the extension's own modules, with and without a source language
@@ -546,7 +547,7 @@ Die Unit-Tests decken ab: Bündelgruppierung und Warteschlangen, Auswertung der 
 
 | Szenario | Prüft |
 | --- | --- |
-| HTML-Nachricht | Absatzerkennung, die Reihenfolge Wörterbuch → Google → KI für jeden Absatz, vorläufige und endgültige Übersetzungen, der Wechsel zur reinen Übersetzung (nur die KI-Stufe wird erneut angefragt), Wiederherstellung des ursprünglichen DOM |
+| HTML-Nachricht | Absatzerkennung, die Reihenfolge Wörterbuch → Google → KI für jeden Absatz, vorläufige und endgültige Übersetzungen, der Wechsel zur reinen Übersetzung (nur die KI-Stufe wird erneut angefragt), Wiederherstellung des ursprünglichen DOM, erneutes Übersetzen aus dem Gedächtnis ohne Anfrage und Alt+R: Jede Stufe wird trotz Cache erneut angefragt, und die neue KI-Übersetzung wird angezeigt |
 | Nachricht als reiner Text | dasselbe für eine Nachricht als reiner Text mit einem Zitat |
 | Offline-Downloads des Einrichtungsassistenten | Thunderbird startet ohne Nachricht und öffnet den Einrichtungsassistenten; der Test geht zum Offline-Schritt, lädt das Wörterbuchpaket und das Bergamot-Modell mit Fortschritt vom Mock-Server herunter, prüft, dass beide gespeichert sind, und löscht sie wieder |
 

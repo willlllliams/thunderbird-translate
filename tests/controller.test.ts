@@ -259,6 +259,81 @@ describe("settings changes while active", () => {
   })
 })
 
+describe("retranslation", () => {
+  const TIERS: Tier[] = ["dictionary", "machine", "ai"]
+
+  it("forgets the results, asks every tier again past the cache in the same display mode, with provisional results on the way", async () => {
+    const first = answering((text, tier) => ok(`${tier}:${text}`))
+    const r = manualTranslate()
+    let translate: ControllerDeps["translate"] = first
+    const { c, reports } = await mount("<p>Good morning</p><p>See you later</p>", tieredSettings(TIERS, { mode: "translation-only" }), {
+      translate: (req, onTier) => translate(req, onTier),
+    })
+    await c.start()
+    expect(first.mock.calls.every(([req]) => req.bypassCache === undefined)).toBe(true)
+    translate = r.translate
+    const again = c.retranslate()
+    await vi.waitFor(() => expect(r.translate).toHaveBeenCalledTimes(2))
+    expect(r.translate.mock.calls.map(([req]) => [req.text, req.tiers, req.bypassCache])).toEqual([
+      ["Good morning", TIERS, true],
+      ["See you later", TIERS, true],
+    ])
+    expect(shown().kind).toBe("loading")
+    expect(c.active).toBe(true)
+    r.answer("Good morning", "dictionary", ok("D2"))
+    expect(shown()).toMatchObject({ kind: "provisional", text: "D2" })
+    r.answer("Good morning", "ai", ok("AI2"))
+    expect(shown()).toEqual({ kind: "done", text: "AI2" })
+    expect(document.querySelector(".tt-translation.tt-only")).not.toBeNull()
+    for (const text of ["Good morning", "See you later"]) {
+      for (const tier of TIERS) r.answer(text, tier, ok(`${tier}2:${text}`))
+      r.done(text)
+    }
+    await again
+    await vi.waitFor(() => expect(reports.at(-1)).toMatchObject({ active: true, total: 2, done: 2 }))
+
+    // The new results are what the page remembers; a plain restart asks nothing and passes no cache.
+    c.stop()
+    await c.start()
+    expect(r.translate).toHaveBeenCalledTimes(2)
+    expect(shown()).toEqual({ kind: "done", text: "ai2:Good morning" })
+  })
+
+  it("does nothing while the message is not translated", async () => {
+    const translate = answering((text) => ok(`T:${text}`))
+    const { c, original } = await mount("<p>Good morning</p>", publicSettings(), { translate })
+    await c.retranslate()
+    expect(c.active).toBe(false)
+    expect(translate).not.toHaveBeenCalled()
+    expect(document.body.innerHTML).toBe(original)
+  })
+
+  it("registers the message again in precise mode for a new analysis, and a later restart is a plain one", async () => {
+    const translate = answering((text, tier) => ok(`${tier}:${text}`))
+    const contexts: [MailContext, boolean][] = []
+    const settings = tieredSettings(["machine", "ai"], { precise: true })
+    const { c } = await mount("<p>Good morning</p>", settings, { translate, setContext: (ctx, bypass) => contexts.push([ctx, bypass]) })
+    await c.start()
+    await c.retranslate()
+    expect(contexts.map(([, bypass]) => bypass)).toEqual([false, true])
+    expect(translate.mock.calls[1][0]).toMatchObject({ context: { id: contexts[1][0].id, index: 0 }, bypassCache: true })
+    // A new target language restarts without passing the cache.
+    await c.updateSettings({ ...settings, targetLang: "ja" })
+    expect(contexts.at(-1)![1]).toBe(false)
+    expect(translate.mock.calls.at(-1)![0].bypassCache).toBeUndefined()
+  })
+
+  it("keeps the notice of the message closed: it opens one round and clears the old one", async () => {
+    const notice = { begin: vi.fn(), add: vi.fn(), end: vi.fn(), clear: vi.fn() }
+    const { c } = await mount("<p>Good morning</p>", publicSettings(), { translate: answering((text) => ok(`T:${text}`)), notice })
+    await c.start()
+    await c.retranslate()
+    expect(notice.clear).toHaveBeenCalledTimes(1)
+    expect(notice.begin).toHaveBeenCalledTimes(2)
+    expect(notice.end).toHaveBeenCalledTimes(2)
+  })
+})
+
 describe("paragraphs already in the target language", () => {
   it("translates Simplified Chinese for a Traditional Chinese target and skips Traditional Chinese", async () => {
     const translate = answering((text) => ok(`T:${text}`))

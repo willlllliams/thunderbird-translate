@@ -428,13 +428,14 @@ flowchart LR
 3. `storage.onChanged`：设置写入 `storage.local` 后，后台、设置页、popup 分别监听 `settings` 键的变化；后台再把公开设置通过端口广播给所有内容脚本。
 4. 后台与 Bergamot worker 之间的 `postMessage`：`load`、`unload`、`translate`，每个请求带编号，worker 对每个请求恰好应答一次。
 
-另有 `commands.onCommand`（快捷键 `Alt+A` 切换翻译，`Alt+S` 切换显示模式），在后台直接处理。测试构建还有 `src/e2e/` 的钩子消息，不在正式构建中。
+另有 `commands.onCommand`（快捷键 `Alt+A` 切换翻译，`Alt+S` 切换显示模式，`Alt+R` 忽略缓存重新翻译），在后台直接处理。测试构建还有 `src/e2e/` 的钩子消息，不在正式构建中。
 
 ## BackgroundRequest
 
 | 消息类型 | 发送方 | 处理方 | 回复 |
 | :--- | :--- | :--- | :--- |
-| `toggleTab` | `popup/index.ts` | 后台 `toggleTab()`，向该标签页的端口推送 `toggle` | 无 |
+| `toggleTab` | `popup/index.ts` | 后台 `postToTab()`，向该标签页的端口推送 `toggle` | 无 |
+| `retranslateTab` | `popup/index.ts` 的“重新翻译”按钮 | 后台 `postToTab()`，向该标签页的端口推送 `retranslate` | 无 |
 | `getTabState` | `popup/index.ts` | 后台 `tabStates` 表 | `TabState` |
 | `testProvider` | `options/provider-panel.ts`（设置页与欢迎页的"测试"按钮） | `TranslationService.testProvider()`，绕过缓存与批处理 | `TranslateResponse` |
 | `clearCache` | `options/index.ts` | `PersistentCache.clear()` | 无 |
@@ -455,12 +456,13 @@ flowchart LR
 | 消息类型 | 方向 | 发送方 | 处理方 |
 | :--- | :--- | :--- | :--- |
 | `settings` | 后台到内容 | 后台：端口连接后一次，设置变化时对所有端口广播 | `content/client.ts`，按到达顺序应用，必要时先加载界面语言的消息 |
-| `toggle` | 后台到内容 | 后台 `toggleTab()`（popup 或快捷键触发） | `TranslationController.toggle()` |
+| `toggle` | 后台到内容 | 后台 `postToTab()`（popup 或快捷键触发） | `TranslationController.toggle()` |
+| `retranslate` | 后台到内容 | 后台 `postToTab()`（popup 或快捷键触发） | `TranslationController.retranslate()`：清空已记住的结果，停止后以 `bypassCache` 重新开始 |
 | `tier` | 后台到内容 | 后台 `translateForPage()` 的回调，每个层级一次 | `client.ts` 的 `pending` 表，交给 `controller` 的 `receive()` |
 | `done` | 后台到内容 | 后台，一个请求的所有层级都报告后 | `client.ts` 结束该请求的 Promise |
 | `state` | 内容到后台 | `controller.report()` | 后台更新 `tabStates` 与徽标 |
-| `context` | 内容到后台 | 精确模式下 `controller.start()` | `TranslationService.setContext()` |
-| `translate` | 内容到后台 | `controller.translateUnit()` | 后台 `translateForPage()` |
+| `context` | 内容到后台 | 精确模式下 `controller.start()`；重新翻译时带 `bypassCache` | `TranslationService.setContext()`，带 `bypassCache` 时该邮件的下一次分析不读缓存 |
+| `translate` | 内容到后台 | `controller.translateUnit()` | 后台 `translateForPage()`；请求带 `bypassCache` 时不读缓存、不复用同一段落进行中的请求，新结果覆盖缓存 |
 
 ## 一次三层翻译的时序
 

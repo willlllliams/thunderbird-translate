@@ -11,7 +11,7 @@ Ce document s’adresse à des lecteurs qui n’ont encore jamais utilisé d’e
 - Traduction du corps du message : l’extension repère le contenu de niveau paragraphe dans le corps du message : paragraphes, éléments de liste, cellules de tableau, titres, citations, blocs div contenant uniquement du texte, et paragraphes séparés par une ligne vide dans les messages en texte brut. Le code, les paragraphes déjà dans la langue cible, les nombres, les liens nus et les espaces sont ignorés.
 - Deux modes d’affichage : le mode bilingue insère sous l’original un bloc de traduction marqué d’une fine bordure gauche, lisible aussi avec les thèmes sombres. Le mode traduction seule remplace l’original par la traduction ; l’original est conservé en mémoire et remis en place lorsque la traduction est désactivée.
 - Mises à jour en direct : changer le mode d’affichage ou la langue cible pendant qu’un message est traduit actualise la page sans rouvrir le message. Changer le mode d’affichage redessine les traductions du dictionnaire et de la traduction automatique déjà reçues ; le niveau IA est interrogé de nouveau avec l’invite du nouveau mode, et le cache répond lorsqu’il a déjà cette traduction.
-- Points d’accès : le bouton « Traduire le message » de la barre d’outils de l’en-tête du message, avec sa fenêtre contextuelle, et les raccourcis Alt+A (traduire / afficher l’original) et Alt+S (basculer entre bilingue et traduction seule).
+- Points d’accès : le bouton « Traduire le message » de la barre d’outils de l’en-tête du message, avec sa fenêtre contextuelle, et les raccourcis Alt+A (traduire / afficher l’original), Alt+S (basculer entre bilingue et traduction seule) et Alt+R (retraduire sans le cache).
 - Traduire automatiquement à l’ouverture (facultatif) : les messages qui ne sont pas dans la langue cible sont traduits dès leur ouverture.
 - Regroupement des requêtes : le script d’arrière-plan collecte les paragraphes pendant 50 ms et les fusionne en une seule requête, avec une limite de requêtes simultanées par service, de nouvelles tentatives à intervalle exponentiel, un délai d’attente par requête et un cache local. Un paragraphe plus long que ce qu’une requête peut contenir est découpé en morceaux de lignes entières ; seule une ligne qui dépasse à elle seule la taille d’une requête est coupée entre deux phrases.
 - Trois niveaux de traduction : dictionnaire, traduction automatique et IA. Chaque niveau a son propre service ou n’est pas utilisé ; chaque paragraphe est envoyé en même temps à tous les niveaux utilisés. Un niveau inférieur s’affiche comme traduction provisoire jusqu’à ce que le niveau le plus élevé la remplace, et reste affiché lorsque le niveau le plus élevé échoue.
@@ -89,6 +89,7 @@ Le guide utilise les mêmes composants que la page de paramètres : les champs 
 Ouvrez un message. Un bouton « Traduire le message » apparaît dans la barre d’outils de l’en-tête du message. Un clic sur ce bouton ouvre une fenêtre contextuelle avec les commandes suivantes :
 
 - « Traduire ce message » : lance la traduction. Tant qu’une traduction est en cours ou affichée, le bouton indique « Afficher l’original » et restaure l’original lorsqu’on clique dessus.
+- « Retraduire » : apparaît à côté de « Afficher l’original » tant que le message est traduit. Le bouton traduit de nouveau le message dans le mode d’affichage actuel et interroge de nouveau chaque niveau : ni le cache ni une requête encore en cours ne répondent, les nouveaux résultats remplacent ceux du cache, et la traduction précise analyse de nouveau le message. Les niveaux inférieurs affichent comme d’habitude des traductions provisoires ; les traductions des autres messages restent dans le cache.
 - Affichage : bascule entre bilingue et traduction seule ; le changement s’applique immédiatement au message courant.
 - Langue source et langue cible : « Détecter automatiquement » est la langue source par défaut. Après un changement de l’une ou de l’autre, un message en cours de traduction est traduit à nouveau. Une remarque s’affiche lorsque les deux langues sont identiques.
 - Niveaux de traduction : une liste par niveau (1 Dictionnaire, 2 Traduction automatique, 3 Traduction par l’IA), chacune avec « Non utilisé », les services ajoutés de ce niveau et, en dernière entrée, « + Ajouter un service de traduction… ». Cette entrée ouvre la page de paramètres sur les services de traduction du niveau et laisse la liste à sa valeur. Au moins un niveau doit avoir un service ; choisir « Non utilisé » pour le dernier niveau utilisé est refusé avec une remarque. Un dictionnaire ou un Bergamot sélectionné auquel il manque des données pour les langues actuelles est signalé, voir [Données hors ligne manquantes](#données-hors-ligne-manquantes).
@@ -98,7 +99,7 @@ Ouvrez un message. Un bouton « Traduire le message » apparaît dans la barre
 
 La fenêtre contextuelle affiche la progression, par exemple « 8 sur 12 traduits ». Les paragraphes qui affichent encore la traduction provisoire d’un niveau inférieur sont comptés à part, par exemple « 7 sur 9 traduits (2 provisoires) ». Lorsque tous les niveaux échouent pour un paragraphe, la mention rouge « Échec de la traduction, cliquez pour réessayer » apparaît après lui ; le survol affiche l’erreur et un clic relance la traduction de ce paragraphe.
 
-Alt+A traduit le message courant ou restaure l’original ; Alt+S bascule entre bilingue et traduction seule. Les deux raccourcis se modifient via « Gérer les raccourcis d’extensions » dans le menu d’engrenage du gestionnaire de modules complémentaires.
+Alt+A traduit le message courant ou restaure l’original ; Alt+S bascule entre bilingue et traduction seule ; Alt+R retraduit le message courant comme « Retraduire » dans la fenêtre contextuelle et ne fait rien tant que le message n’est pas traduit. Les trois raccourcis se modifient via « Gérer les raccourcis d’extensions » dans le menu d’engrenage du gestionnaire de modules complémentaires.
 
 En mode traduction seule, le survol d’une traduction affiche le texte original dans une infobulle.
 
@@ -550,7 +551,7 @@ Les jetons en entrée baissent d’environ 63 %, et le nombre de requêtes pass
 ```bash
 npm test               # vitest unit tests
 npm run test:coverage  # unit tests with coverage; fails below the thresholds in vitest.config.ts
-npm run e2e            # headless Thunderbird (THUNDERBIRD_BIN) against a local mock server: three tiers, mode switch, restore; offline downloads of the setup guide
+npm run e2e            # headless Thunderbird (THUNDERBIRD_BIN) against a local mock server: three tiers, mode switch, restore, retranslation; offline downloads of the setup guide
 npm run typecheck      # TypeScript type check
 npm run locales:check  # check every locales/<language>.json against locales/en.json
 npm run live-test      # call the real Google and Microsoft endpoints through the extension's own modules, with and without a source language
@@ -562,7 +563,7 @@ Les tests unitaires couvrent le groupement en lots et les files d’attente, l�
 
 | Scénario | Vérifications |
 | --- | --- |
-| Message HTML | détection des paragraphes, ordre dictionnaire → Google → IA pour chaque paragraphe, traductions provisoires et définitives, passage à la traduction seule (seul le niveau IA est redemandé), restauration du DOM d’origine |
+| Message HTML | détection des paragraphes, ordre dictionnaire → Google → IA pour chaque paragraphe, traductions provisoires et définitives, passage à la traduction seule (seul le niveau IA est redemandé), restauration du DOM d’origine, nouvelle traduction depuis la mémoire sans aucune requête, et Alt+R : chaque niveau est interrogé de nouveau alors que tout est en cache, et la nouvelle traduction IA s’affiche |
 | Message en texte brut | la même chose pour un message en texte brut avec une citation |
 | Téléchargements hors ligne du guide de configuration | Thunderbird démarre sans message et ouvre le guide de configuration ; le test passe à l’étape hors ligne, télécharge le pack de dictionnaire et le modèle Bergamot depuis le serveur fictif avec leur progression, vérifie que les deux sont enregistrés, puis les supprime |
 

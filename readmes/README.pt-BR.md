@@ -11,7 +11,7 @@ Este documento foi escrito para quem nunca usou uma extensão do Thunderbird. El
 - Tradução do corpo: a extensão encontra o conteúdo em nível de parágrafo no corpo da mensagem: parágrafos, itens de lista, células de tabela, títulos, citações em bloco, divs que contêm apenas texto e, em mensagens de texto simples, parágrafos separados por linhas em branco. Código, parágrafos que já estão no idioma de destino, números, links soltos e espaços em branco são ignorados.
 - Dois modos de exibição: o modo bilíngue insere abaixo do original um bloco de tradução com uma borda esquerda clara, legível também em temas escuros. O modo só tradução substitui o original pela tradução; o original fica guardado na memória e volta ao lugar quando a tradução é desativada.
 - Atualização imediata: mudar o modo de exibição ou o idioma de destino enquanto uma mensagem está traduzida redesenha a página sem reabrir a mensagem. Mudar o modo de exibição redesenha as traduções do dicionário e da tradução automática já recebidas; o nível de IA é consultado de novo com o prompt do novo modo, e o cache responde quando já tem essa tradução.
-- Pontos de acesso: o botão "Traduzir mensagem" na barra de ferramentas do cabeçalho da mensagem, com seu pop-up, e os atalhos Alt+A (traduzir / mostrar original) e Alt+S (alternar bilíngue / só tradução).
+- Pontos de acesso: o botão "Traduzir mensagem" na barra de ferramentas do cabeçalho da mensagem, com seu pop-up, e os atalhos Alt+A (traduzir / mostrar original), Alt+S (alternar bilíngue / só tradução) e Alt+R (traduzir de novo sem usar o cache).
 - Traduzir automaticamente ao abrir (opcional): mensagens que não estão no idioma de destino são traduzidas assim que são abertas.
 - Agrupamento de requisições: o script em segundo plano reúne parágrafos durante 50 ms e os junta em uma única requisição, com limite de concorrência por serviço, novas tentativas com espera exponencial (exponential backoff), tempo limite por requisição e cache local. Um parágrafo maior do que uma requisição comporta é dividido em pedaços formados por linhas inteiras; só uma linha isolada maior do que uma requisição é cortada entre frases.
 - Três níveis de tradução: dicionário, tradução automática e IA. Cada nível tem seu próprio serviço ou fica sem uso; cada parágrafo vai ao mesmo tempo a todos os níveis em uso. Um nível inferior é exibido como tradução provisória até que o nível mais alto o substitua, e permanece quando o nível mais alto falha.
@@ -89,6 +89,7 @@ O guia usa os mesmos componentes da página de configurações: os campos dos se
 Abra uma mensagem. Um botão "Traduzir mensagem" aparece na barra de ferramentas do cabeçalho da mensagem. Ao clicar nele, abre-se um pop-up com estes controles:
 
 - "Traduzir esta mensagem": inicia a tradução. Enquanto uma tradução está em andamento ou sendo exibida, o botão passa a mostrar "Mostrar original" e, ao ser clicado, restaura o original.
+- "Traduzir de novo": aparece ao lado de "Mostrar original" enquanto a mensagem está traduzida. Traduz a mensagem de novo no modo de exibição atual e consulta de novo todos os níveis: nem o cache nem uma solicitação ainda em andamento respondem, os novos resultados substituem os do cache e a tradução precisa analisa a mensagem de novo. Os níveis inferiores mostram traduções provisórias como sempre; as traduções de outras mensagens continuam no cache.
 - Exibição: alterna entre bilíngue e só tradução; a mudança vale imediatamente para a mensagem atual.
 - Idioma de origem e idioma de destino: "Detectar automaticamente" é o idioma de origem padrão. Depois de mudar qualquer um dos dois, uma mensagem em tradução é traduzida de novo. Um aviso aparece quando os dois são o mesmo idioma.
 - Níveis de tradução: uma lista por nível (1 Dicionário, 2 Tradução automática, 3 Tradução por IA), cada uma com "Não usado", os serviços adicionados daquele nível e, como última entrada, "+ Adicionar serviço de tradução…". Essa entrada abre a página de configurações na seção de serviços de tradução do nível e deixa a lista no seu valor. Pelo menos um nível precisa de um serviço; escolher "Não usado" para o último nível com serviço é recusado com um aviso. Um dicionário ou um Bergamot selecionado ao qual faltam dados para os idiomas atuais aparece marcado, veja [Dados offline ausentes](#dados-offline-ausentes).
@@ -98,7 +99,7 @@ Abra uma mensagem. Um botão "Traduzir mensagem" aparece na barra de ferramentas
 
 O pop-up mostra o progresso, por exemplo "8 de 12 traduzidos". Os parágrafos que ainda mostram a tradução provisória de um nível inferior são contados à parte, por exemplo "7 de 9 traduzidos (2 provisórios)". Quando todos os níveis falham para um parágrafo, aparece depois dele o aviso vermelho "Falha na tradução, clique para tentar novamente"; ao passar o mouse sobre ele, o erro é exibido, e ao clicar, aquele parágrafo é traduzido de novo.
 
-Alt+A traduz a mensagem atual ou restaura o original; Alt+S alterna entre bilíngue e só tradução. Os dois atalhos podem ser alterados em "Gerenciar atalhos de extensões", no menu de engrenagem do Gerenciador de extensões.
+Alt+A traduz a mensagem atual ou restaura o original; Alt+S alterna entre bilíngue e só tradução; Alt+R traduz de novo a mensagem atual como "Traduzir de novo" no pop-up e não faz nada enquanto a mensagem não está traduzida. Os três atalhos podem ser alterados em "Gerenciar atalhos de extensões", no menu de engrenagem do Gerenciador de extensões.
 
 No modo só tradução, passar o mouse sobre uma tradução mostra o texto original em uma dica de ferramenta.
 
@@ -530,7 +531,7 @@ Os tokens de entrada caem cerca de 63%, e o número de requisições cai de 20 p
 ```bash
 npm test               # testes unitários do vitest
 npm run test:coverage  # testes unitários com cobertura; falham abaixo dos limites de vitest.config.ts
-npm run e2e            # Thunderbird sem interface (THUNDERBIRD_BIN) contra um servidor simulado local: três camadas, troca de modo, restauração; downloads offline do guia de configuração
+npm run e2e            # Thunderbird sem interface (THUNDERBIRD_BIN) contra um servidor simulado local: três camadas, troca de modo, restauração, nova tradução sem cache; downloads offline do guia de configuração
 npm run typecheck      # verificação de tipos do TypeScript
 npm run locales:check  # verifica cada locales/<language>.json em relação a locales/en.json
 npm run live-test      # chama os endpoints reais do Google e da Microsoft pelos módulos da própria extensão, com e sem idioma de origem
@@ -542,7 +543,7 @@ Os testes unitários cobrem o agrupamento e as filas de lotes, a análise da sa�
 
 | Cenário | O que verifica |
 | --- | --- |
-| Mensagem HTML | detecção de parágrafos, a ordem dicionário → Google → IA para cada parágrafo, traduções provisórias e finais, a troca para somente tradução (só o nível de IA é consultado de novo), restauração do DOM original |
+| Mensagem HTML | detecção de parágrafos, a ordem dicionário → Google → IA para cada parágrafo, traduções provisórias e finais, a troca para somente tradução (só o nível de IA é consultado de novo), restauração do DOM original, nova tradução a partir da memória sem nenhuma solicitação e Alt+R: todos os níveis são consultados de novo mesmo com tudo em cache, e a nova tradução de IA é exibida |
 | Mensagem em texto simples | o mesmo para uma mensagem em texto simples com uma citação |
 | Downloads offline do guia de configuração | o Thunderbird inicia sem mensagem e abre o guia de configuração; o teste vai à etapa offline, baixa o pacote de dicionário e o modelo do Bergamot do servidor simulado com o progresso, verifica que ambos foram gravados e os exclui de novo |
 

@@ -35,7 +35,7 @@ declare const __E2E_SERVER__: string
 
 /** Messages of the e2e content script; they carry no "type", so the regular handler ignores them. */
 export type E2eMessage =
-  | { e2e: "command"; command: "toggle-translation" | "toggle-display-mode" }
+  | { e2e: "command"; command: "toggle-translation" | "toggle-display-mode" | "retranslate" }
   | { e2e: "report"; report: unknown }
   | { e2e: "log"; message: string }
   /** Answer: the scenario of the run. */

@@ -5,9 +5,10 @@
 //    dictionary / Google / AI on the mock server and drive the content script).
 // 2. For each fixture message, start a headless Thunderbird on a temporary profile
 //    with the xpi preinstalled and the message opened from the command line.
-// 3. The content script translates, switches to translation-only and restores the
-//    original, then reports what it saw; this script checks the report together
-//    with the requests the mock server received.
+// 3. The content script translates, switches to translation-only, restores the
+//    original, translates again from what it remembers and retranslates past every
+//    cache, then reports what it saw; this script checks the report together with
+//    the requests the mock server received.
 // 4. The "missing" run opens a message with the dictionary and Bergamot tiers and
 //    nothing installed: the notice about missing offline data appears, is muted,
 //    stays away when translating again, and stays away with Google instead.
@@ -104,11 +105,14 @@ function check(c, ready, report, calls) {
     expect(s.mode === "only" && s.mark === null && s.text.startsWith("[AI translation-only] "), "translation-only shows something other than the AI translation", s)
   }
 
-  // Requests the mock server saw, split at the mode switch.
+  // Requests the mock server saw, split at the mode switch and at the retranslation.
   const switchAt = calls.findIndex((x) => x.type === "mark" && x.command === "toggle-display-mode")
+  const retranslateAt = calls.findIndex((x) => x.type === "mark" && x.command === "retranslate")
   expect(switchAt !== -1, "the mode switch command never reached the background script")
+  expect(retranslateAt > switchAt, "the retranslate command never reached the background script")
   const before = calls.slice(0, switchAt)
-  const after = calls.slice(switchAt + 1)
+  const after = calls.slice(switchAt + 1, retranslateAt)
+  const retranslated = calls.slice(retranslateAt + 1)
   const ai = (list) => list.filter((x) => x.type === "ai")
   expect(before.some((x) => x.type === "google"), "Google was not requested")
   expect(ai(before).length > 0 && ai(before).every((x) => x.mode === "bilingual"), "AI requests before the switch must use the bilingual prompt", ai(before))
@@ -121,6 +125,28 @@ function check(c, ready, report, calls) {
   expect(restored?.identical === true, "the restored message differs from the original", restored && { original: restored.original, after: restored.after })
   expect(restored?.leftovers === 0 && restored?.styleLeft === false, "elements of the extension remain after restoring", restored)
   expect(restored?.state?.active === false, "the content script still reports itself active", restored?.state)
+
+  // Translated again: every paragraph from what the page remembers, nothing requested.
+  const cachedAt = calls.findLastIndex((x, i) => i < retranslateAt && x.type === "mark" && x.command === "toggle-translation")
+  expect(cachedAt > switchAt && !calls.slice(cachedAt, retranslateAt).some((x) => x.type === "google" || x.type === "ai"), "translating again requested a service", calls.slice(cachedAt, retranslateAt))
+  expect(report.events.every((e) => e.phase !== "cached"), "translating again asked the background", report.events.filter((e) => e.phase === "cached"))
+  expect(report.cached?.state?.done === c.paragraphs && report.cached.shown?.every((s) => s.mode === "only" && s.text.startsWith("[AI translation-only] ")), "translating again does not show the remembered AI translations", report.cached)
+
+  // Retranslation: every tier answers again for every paragraph, in tier order, with provisional results on the way.
+  const third = report.events.filter((e) => e.phase === "retranslate")
+  const thirdByRequest = Map.groupBy(third, (e) => e.id)
+  expect(thirdByRequest.size === c.paragraphs, `retranslation: expected ${c.paragraphs} paragraph requests`, thirdByRequest.size)
+  for (const [id, events] of thirdByRequest) {
+    expect(JSON.stringify(events.map((e) => e.tier)) === JSON.stringify(TIER_ORDER) && events.every((e) => e.ok), `retranslation request ${id}: tiers arrived as ${events.map((e) => `${e.tier}:${e.ok}`).join(", ")}`)
+  }
+  expect(third.flatMap((e) => e.shown).some((s) => s.mark === "provisional"), "retranslation: no provisional translation was shown")
+  expect(retranslated.some((x) => x.type === "google"), "retranslation: Google was not requested again", retranslated)
+  expect(ai(retranslated).length > 0 && ai(retranslated).every((x) => x.mode === "translation-only"), "retranslation: AI requests must use the translation-only prompt of the current mode", ai(retranslated))
+  const again = report.retranslated
+  expect(again?.state?.done === c.paragraphs && again.state.failed === 0 && again.shown?.length === c.paragraphs, "retranslation: not every paragraph has the AI translation", again?.state)
+  for (const s of again?.shown ?? []) {
+    expect(s.mode === "only" && s.mark === null && /^\[AI translation-only #\d+\] /.test(s.text), "retranslation shows something other than the new AI translation", s)
+  }
   return failures
 }
 
@@ -275,7 +301,8 @@ ${JSON.stringify(report, null, 2)}`)
           failures = check(c, ready, report, server.calls)
           if (failures.length) failures.push(`message body as displayed:\n${report.originalHtml}`)
           const firstRequest = report.events?.filter((e) => e.phase === "translate" && e.id === report.events[0].id).map((e) => `${e.tier} ${e.at} ms`)
-          console.log(`  ${c.name}: ${report.translated?.state?.total ?? "?"} paragraphs; first paragraph: ${firstRequest?.join(" → ")}; Bergamot worker: ${ready.bergamotWorker}; ${systemLanguages}`)
+          const retranslated = report.retranslated?.shown?.[0]?.text?.slice(0, 40)
+          console.log(`  ${c.name}: ${report.translated?.state?.total ?? "?"} paragraphs; first paragraph: ${firstRequest?.join(" → ")}; retranslated: ${retranslated}; Bergamot worker: ${ready.bergamotWorker}; ${systemLanguages}`)
         }
       } catch (error) {
         failures = [String(error.message ?? error)]

@@ -2,6 +2,13 @@
 
 All notable changes to this project are documented in this file. Versions follow [Semantic Versioning](https://semver.org/).
 
+## 1.8.0
+
+### Added
+
+- Retranslate. While a message is translated, the popup shows "Retranslate" next to "Show original", and the new shortcut Alt+R does the same (the command `retranslate`; it does nothing while the message is not translated). The message is translated again in the current display mode, and every tier is asked anew: the page forgets the results it kept for the message, the background script reads no cache entry and joins no request still running for the same paragraph, and the new results replace the cached ones. In precise translation the message is analysed again and the new analysis replaces the cached one. Lower tiers show provisional translations as usual, failures are handled as before, the notice about missing offline data keeps its once-per-message rule, and the cached translations of other messages are untouched. The command description and the button are translated into all 12 interface languages, and the shortcut hint of the popup names Alt+R.
+- The end-to-end test translates the HTML and plain-text messages once more from what the page remembers (no request reaches the mock server), then presses Alt+R: every paragraph is asked from all three tiers again although everything is cached, and the new AI translation of the mock server's second answer is shown.
+
 ## 1.7.0
 
 ### Added

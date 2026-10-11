@@ -154,8 +154,9 @@ function offlineDataChanged(): void {
   })
 }
 
-function toggleTab(tabId: number): void {
-  for (const port of ports.get(tabId) ?? []) safePost(port, { type: "toggle" })
+/** A command for the content scripts of one tab: toggle or retranslate. */
+function postToTab(tabId: number, msg: PortPush): void {
+  for (const port of ports.get(tabId) ?? []) safePost(port, msg)
 }
 
 async function updateBadge(tabId: number): Promise<void> {
@@ -188,7 +189,7 @@ ext.runtime.onConnect.addListener((port) => {
         break
       }
       case "context":
-        service.setContext(msg.context)
+        service.setContext(msg.context, msg.bypassCache === true)
         break
       case "translate":
         void settingsReady
@@ -233,7 +234,9 @@ async function handle(req: BackgroundRequest): Promise<unknown> {
   await settingsReady
   switch (req.type) {
     case "toggleTab":
-      return toggleTab(req.tabId)
+      return postToTab(req.tabId, { type: "toggle" })
+    case "retranslateTab":
+      return postToTab(req.tabId, { type: "retranslate" })
     case "getTabState":
       return tabStates.get(req.tabId) ?? IDLE_TAB_STATE
     case "testProvider":
@@ -287,11 +290,18 @@ ext.runtime.onMessage.addListener((message: unknown) => {
 
 /* ---------- keyboard shortcuts ---------- */
 
+/** Commands for the message of the tab of the shortcut, else of the active tab. */
+const TAB_COMMANDS = new Map<string, PortPush>([
+  ["toggle-translation", { type: "toggle" }],
+  ["retranslate", { type: "retranslate" }],
+])
+
 async function runCommand(command: string, tab?: browser.tabs.Tab): Promise<void> {
   await settingsReady
-  if (command === "toggle-translation") {
+  const push = TAB_COMMANDS.get(command)
+  if (push) {
     const tabId = tab?.id ?? (await ext.tabs.query({ active: true, currentWindow: true }))[0]?.id
-    if (tabId !== undefined) toggleTab(tabId)
+    if (tabId !== undefined) postToTab(tabId, push)
   } else if (command === "toggle-display-mode") {
     await updateSettings((s) => (s.mode = s.mode === "bilingual" ? "translation-only" : "bilingual"))
   }

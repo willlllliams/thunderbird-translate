@@ -4,6 +4,7 @@
   "actionTitle": "Translate message",
   "commandToggle": "Translate / show original",
   "commandMode": "Switch bilingual / translation-only",
+  "commandRetranslate": "Translate again, ignoring the cache",
   "badgeOn": "ON",
   "statusTranslating": "Translating…",
   "statusFailed": "Translation failed, click to retry",
@@ -12,6 +13,8 @@
 
   "popupTranslate": "Translate this message",
   "popupShowOriginal": "Show original",
+  "popupRetranslate": "Retranslate",
+  "popupRetranslateHint": "Translate this message again without cached translations",
   "popupNotConnected": "No message content available. Reopen the message and try again.",
   "popupProgress": "Translated $1 of $2",
   "popupProgressProvisional": "Translated $1 of $2 ($3 provisional)",
@@ -36,7 +39,7 @@
   "labelAutoTranslate": "Automatically translate messages not in the target language",
   "labelPrecise": "Precise translation",
   "popupSettings": "Settings",
-  "popupShortcuts": "Shortcuts: Alt+A translate, Alt+S switch display",
+  "popupShortcuts": "Shortcuts: Alt+A translate, Alt+S switch display, Alt+R retranslate",
 
   "optionsTitle": "Thunderbird Translate settings",
   "sectionGeneral": "General",

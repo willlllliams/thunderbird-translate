@@ -348,6 +348,41 @@ describe("TranslationService: tiers, caps and precise mode details", () => {
       expect(llm.analyze).not.toHaveBeenCalled()
     })
 
+    it("analyses a retranslated message again, once for all its requests, and keeps the analysis of another message", async () => {
+      const storage = memoryStorage()
+      const OTHER = ["Another mail, first part here.", "Another mail, second part."]
+      const first = fakeLlm(ANALYSIS)
+      let round = 0
+      first.llm.analyze.mockImplementation(async () => ({ summary: `Round ${++round}.`, glossary: [], tone: "" }))
+      const { service } = setup(precise, { llm: first.llm, cache: new PersistentCache(storage, 100, 0) })
+      await translateMail(service, PARAGRAPHS)
+      await translateMail(service, OTHER)
+      expect(first.llm.analyze).toHaveBeenCalledTimes(2)
+
+      // Retranslation of the first message: registered as fresh, every paragraph past the cache.
+      const context = createMailContext(PARAGRAPHS, [0, 1, 2])
+      service.setContext(context, true)
+      first.prefixes.length = 0
+      const again = PARAGRAPHS.map((text, index) => translateOne(service, { text, targetLang: "zh-CN", providerId: "openai", context: { id: context.id, index }, bypassCache: true }))
+      expect(await Promise.all(again)).toEqual(PARAGRAPHS.map((text) => `AI(${text})`))
+      expect(first.llm.analyze).toHaveBeenCalledTimes(3)
+      expect(first.prefixes).toHaveLength(PARAGRAPHS.length)
+      expect(first.prefixes.every((prefix) => prefix?.includes("Summary: Round 3."))).toBe(true)
+
+      // A new background script over the same storage, translations gone: the stored analyses are the new one and the other message's.
+      await vi.waitFor(() => expect(storage.data.get(CACHE_STORAGE_KEY)).toHaveLength(PARAGRAPHS.length + OTHER.length + 2))
+      const entries = storage.data.get(CACHE_STORAGE_KEY) as [string, string][]
+      storage.data.set(CACHE_STORAGE_KEY, entries.filter(([key]) => key.includes(":analysis|")))
+      const second = fakeLlm(ANALYSIS)
+      const later = setup(precise, { llm: second.llm, cache: new PersistentCache(storage, 100, 0) }).service
+      await translateMail(later, PARAGRAPHS)
+      expect(second.prefixes.every((prefix) => prefix?.includes("Summary: Round 3."))).toBe(true)
+      second.prefixes.length = 0
+      await translateMail(later, OTHER)
+      expect(second.prefixes.every((prefix) => prefix?.includes("Summary: Round 2."))).toBe(true)
+      expect(second.llm.analyze).not.toHaveBeenCalled()
+    })
+
     it("sends the message context in the system message, without Anthropic's cache mark to other services", async () => {
       const bodies: { messages: { role: string; content: unknown }[] }[] = []
       const isAnalysis = (system: unknown) => String(system).startsWith("You prepare the translation")
@@ -366,6 +401,68 @@ describe("TranslationService: tiers, caps and precise mode details", () => {
         expect(JSON.stringify(b)).not.toContain("cache_control")
       }
     })
+  })
+})
+
+describe("retranslation (bypassCache)", () => {
+  /** Google stand-in whose answers name the request they came in: R1(…), R2(…). */
+  const rounds = (gate?: Promise<void>) => {
+    let n = 0
+    return vi.fn(async (_url: string, init: RequestInit) => {
+      const round = ++n
+      if (round === 1 && gate) await gate
+      return jsonResponse(new URLSearchParams(String(init.body)).getAll("q").map((q) => [`R${round}(${q})`, "en"]))
+    })
+  }
+  const google = (text: string, bypassCache?: boolean) => ({ text, targetLang: "zh-CN", providerId: "google-free", ...(bypassCache ? { bypassCache } : {}) })
+
+  it("reads no cache, translates anew and replaces the cached result; other paragraphs keep theirs", async () => {
+    const fetchFn = rounds()
+    const { service, cache } = setup(() => {}, { fetchFn })
+    expect(await translateOne(service, google("One"))).toBe("R1(One)")
+    expect(await translateOne(service, google("Two"))).toBe("R2(Two)")
+    const get = vi.spyOn(cache, "get")
+    expect(await translateOne(service, google("One", true))).toBe("R3(One)")
+    expect(get).not.toHaveBeenCalled()
+    get.mockRestore()
+    expect(await translateOne(service, google("One"))).toBe("R3(One)")
+    expect(await translateOne(service, google("Two"))).toBe("R2(Two)")
+    expect(fetchFn).toHaveBeenCalledTimes(3)
+  })
+
+  it("does not wait for a running request of the same paragraph", async () => {
+    let release!: () => void
+    const fetchFn = rounds(new Promise<void>((resolve) => (release = resolve)))
+    const { service } = setup(() => {}, { fetchFn })
+    const running = translateOne(service, google("Same"))
+    await vi.waitFor(() => expect(fetchFn).toHaveBeenCalledTimes(1))
+    expect(await translateOne(service, google("Same", true))).toBe("R2(Same)")
+    release()
+    expect(await running).toBe("R1(Same)")
+  })
+
+  it("asks every tier again when the highest tier's result is cached", async () => {
+    let n = 0
+    const llm: LlmImpl = {
+      batch: vi.fn(async (segs: Segment[]) => segs.map((g) => `AI${++n}(${g.text})`)),
+      single: vi.fn(async (g: Segment) => `AI${++n}(${g.text})`),
+      analyze: vi.fn(async () => null),
+    }
+    const { service } = setup((s) => {
+      s.tiers.machine = "google-free"
+      s.tiers.ai = "openai"
+      s.providers.openai.apiKey = "sk"
+    }, { fetchFn: rounds(), llm })
+    const ask = async (bypassCache?: boolean) => {
+      const reports: [Tier, TranslateResponse][] = []
+      const req: TranslateRequest = { text: "Hello", sourceLang: "auto", targetLang: "zh-CN", tiers: ["machine", "ai"], ...(bypassCache ? { bypassCache } : {}) }
+      await service.translateForPage(req, (tier, result) => reports.push([tier, result]))
+      return Object.fromEntries(reports)
+    }
+    expect(await ask()).toEqual({ machine: { ok: true, text: "R1(Hello)" }, ai: { ok: true, text: "AI1(Hello)" } })
+    expect(await ask()).toEqual({ ai: { ok: true, text: "AI1(Hello)" } })
+    expect(await ask(true)).toEqual({ machine: { ok: true, text: "R2(Hello)" }, ai: { ok: true, text: "AI2(Hello)" } })
+    expect(await ask()).toEqual({ ai: { ok: true, text: "AI2(Hello)" } })
   })
 })
 

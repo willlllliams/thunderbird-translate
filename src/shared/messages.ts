@@ -10,6 +10,8 @@ import type { ProviderConfig, PublicSettings, TierSettings } from "./settings"
 /** Requests sent with runtime.sendMessage to the background script. */
 export type BackgroundRequest =
   | { type: "toggleTab"; tabId: number }
+  /** Translate the message of the tab again, past every cache; nothing happens while it is not translated. */
+  | { type: "retranslateTab"; tabId: number }
   | { type: "getTabState"; tabId: number }
   | { type: "testProvider"; providerId: string; config: ProviderConfig; targetLang: string }
   | { type: "clearCache" }
@@ -93,6 +95,8 @@ export interface TranslateRequest {
   tiers: Tier[]
   /** Precise mode: the message registered with a "context" report and the paragraph's position in it. */
   context?: { id: string; index: number }
+  /** Retranslation: the cache and running requests for the same paragraph do not answer; the new result replaces the cached one. */
+  bypassCache?: boolean
 }
 
 /** Result of one tier for one paragraph, and the answer to testProvider. A failure for lack of a dictionary pack or offline model names what is missing. */
@@ -119,6 +123,8 @@ export const IDLE_TAB_STATE: TabState = { connected: false, active: false, total
 export type PortPush =
   | { type: "settings"; settings: PublicSettings }
   | { type: "toggle" }
+  /** Translate the displayed message again, past every cache. */
+  | { type: "retranslate" }
   /** The result of one tier for request `id`. */
   | { type: "tier"; id: number; tier: Tier; result: TranslateResponse }
   /** Request `id` is complete; tiers that did not report were not asked. */
@@ -129,7 +135,8 @@ export type PortPush =
 /** Messages sent from content scripts to background over the Port. */
 export type PortReport =
   | { type: "state"; state: Omit<TabState, "connected"> }
-  | { type: "context"; context: MailContext }
+  /** bypassCache: retranslation, the analysis of the message is made again. */
+  | { type: "context"; context: MailContext; bypassCache?: boolean }
   | { type: "translate"; id: number; request: TranslateRequest }
 
 export const CONTENT_PORT_NAME = "tt-content"

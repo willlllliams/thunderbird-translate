@@ -2,7 +2,7 @@
   "manifest_version": 2,
   "name": "__MSG_extensionName__",
   "description": "__MSG_extensionDescription__",
-  "version": "1.7.0",
+  "version": "1.8.0",
   "default_locale": "en",
   "browser_specific_settings": {
     "gecko": {
@@ -37,6 +37,10 @@
     "toggle-display-mode": {
       "suggested_key": { "default": "Alt+S" },
       "description": "__MSG_commandMode__"
+    },
+    "retranslate": {
+      "suggested_key": { "default": "Alt+R" },
+      "description": "__MSG_commandRetranslate__"
     }
   },
   "permissions": ["messagesRead", "messagesModify", "storage", "unlimitedStorage", "tabs", "<all_urls>"],

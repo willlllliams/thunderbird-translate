@@ -11,7 +11,7 @@ Este documento está escrito para lectores que no han usado antes una extensión
 - Traducción del cuerpo: la extensión localiza el contenido a nivel de párrafo en el cuerpo del mensaje: párrafos, elementos de lista, celdas de tabla, encabezados, citas en bloque, div que solo contienen texto y párrafos separados por líneas en blanco en el correo de texto sin formato. Se omiten el código, los párrafos que ya están en el idioma de destino, los números, los enlaces sueltos y los espacios en blanco.
 - Dos modos de visualización: el modo bilingüe inserta debajo del original un bloque de traducción con un borde izquierdo claro, legible también en temas oscuros. El modo solo traducción sustituye el original por la traducción; el original se conserva en memoria y se repone al desactivar la traducción.
 - Actualización inmediata: si cambia el modo de visualización o el idioma de destino mientras un mensaje está traducido, la página se vuelve a dibujar sin reabrir el mensaje. Cambiar el modo de visualización redibuja las traducciones del diccionario y de traducción automática ya recibidas; al nivel de IA se le vuelve a preguntar con el prompt del nuevo modo, y la caché responde cuando ya tiene esa traducción.
-- Puntos de acceso: el botón "Traducir mensaje" de la barra de herramientas de la cabecera del mensaje, con su ventana emergente, y los atajos Alt+A (traducir / mostrar original) y Alt+S (cambiar entre bilingüe y solo traducción).
+- Puntos de acceso: el botón "Traducir mensaje" de la barra de herramientas de la cabecera del mensaje, con su ventana emergente, y los atajos Alt+A (traducir / mostrar original), Alt+S (cambiar entre bilingüe y solo traducción) y Alt+R (volver a traducir sin usar la caché).
 - Traducir automáticamente al abrir (opcional): los mensajes que no están en el idioma de destino se traducen en cuanto se abren.
 - Agrupación de solicitudes: el script de segundo plano recoge párrafos durante 50 ms y los combina en una sola solicitud, con un límite de concurrencia por servicio, reintentos con espera exponencial, un tiempo de espera por solicitud y una caché local. Un párrafo más largo de lo que admite una solicitud se divide en trozos de líneas enteras; solo una línea suelta más larga que una solicitud se corta entre frases.
 - Tres niveles de traducción: diccionario, traducción automática e IA. Cada nivel tiene su propio servicio o no se usa; cada párrafo se envía a la vez a todos los niveles en uso. Un nivel inferior se muestra como traducción provisional hasta que el nivel más alto lo sustituye, y se mantiene si el nivel más alto falla.
@@ -89,6 +89,7 @@ La guía usa los mismos componentes que la página de configuración: los campos
 Abra un mensaje. En la barra de herramientas de la cabecera del mensaje aparece el botón "Traducir mensaje". Al hacer clic se abre una ventana emergente con estos controles:
 
 - "Traducir este mensaje": inicia la traducción. Mientras una traducción está en curso o se muestra, el botón dice "Mostrar original" y, al hacer clic, restaura el original.
+- "Volver a traducir": aparece junto a "Mostrar original" mientras el mensaje está traducido. Traduce de nuevo el mensaje en el modo de visualización actual y consulta otra vez a todos los niveles: no responden ni la caché ni una solicitud que siga en curso, los resultados nuevos sustituyen a los guardados en la caché y la traducción precisa vuelve a analizar el mensaje. Los niveles inferiores muestran traducciones provisionales como siempre; las traducciones de otros mensajes siguen en la caché.
 - Visualización: cambia entre bilingüe y solo traducción; el cambio se aplica de inmediato al mensaje actual.
 - Idioma de origen e idioma de destino: "Detectar automáticamente" es el idioma de origen predeterminado. Tras un cambio de cualquiera de los dos, el mensaje que se está traduciendo se vuelve a traducir. Si ambos son el mismo idioma, aparece un aviso.
 - Niveles de traducción: una lista por nivel ("Nivel 1: Diccionario", "Nivel 2: Traducción automática", "Nivel 3: Traducción de IA"), cada una con "No se usa", los servicios añadidos de ese nivel y, como última entrada, "+ Añadir servicio de traducción…". Esa entrada abre la página de configuración en los servicios de traducción del nivel y deja la lista en su valor. Al menos un nivel necesita un servicio; si se elige "No se usa" en el último que queda, el cambio se rechaza con un aviso. Un diccionario o un Bergamot seleccionado al que le faltan datos para los idiomas actuales aparece marcado, véase [Datos sin conexión que faltan](#datos-sin-conexión-que-faltan).
@@ -98,7 +99,7 @@ Abra un mensaje. En la barra de herramientas de la cabecera del mensaje aparece 
 
 La ventana emergente muestra el progreso, por ejemplo "Traducidos 8 de 12". Los párrafos que aún muestran la traducción provisional de un nivel inferior se cuentan aparte, por ejemplo "Traducidos 7 de 9 (2 provisionales)". Cuando todos los niveles fallan en un párrafo, aparece a continuación un aviso rojo "Error al traducir, haga clic para reintentar"; al pasar el puntero por encima se muestra el error y al hacer clic se vuelve a intentar ese párrafo.
 
-Alt+A traduce el mensaje actual o restaura el original; Alt+S cambia entre bilingüe y solo traducción. Ambos atajos se pueden cambiar en "Administrar atajos de teclado de extensiones", dentro del menú de engranaje del Administrador de complementos.
+Alt+A traduce el mensaje actual o restaura el original; Alt+S cambia entre bilingüe y solo traducción; Alt+R vuelve a traducir el mensaje actual igual que "Volver a traducir" en la ventana emergente y no hace nada mientras el mensaje no está traducido. Los tres atajos se pueden cambiar en "Administrar atajos de teclado de extensiones", dentro del menú de engranaje del Administrador de complementos.
 
 En el modo solo traducción, al pasar el puntero sobre una traducción se muestra el texto original en una descripción emergente.
 
@@ -530,7 +531,7 @@ Los tokens de entrada se reducen en torno a un 63 %, y el número de solicitudes
 ```bash
 npm test               # vitest unit tests
 npm run test:coverage  # unit tests with coverage; fails below the thresholds in vitest.config.ts
-npm run e2e            # headless Thunderbird (THUNDERBIRD_BIN) against a local mock server: three tiers, mode switch, restore; offline downloads of the setup guide
+npm run e2e            # headless Thunderbird (THUNDERBIRD_BIN) against a local mock server: three tiers, mode switch, restore, retranslation; offline downloads of the setup guide
 npm run typecheck      # TypeScript type check
 npm run locales:check  # check every locales/<language>.json against locales/en.json
 npm run live-test      # call the real Google and Microsoft endpoints through the extension's own modules, with and without a source language
@@ -542,7 +543,7 @@ Las pruebas unitarias cubren la agrupación en lotes y las colas, el análisis d
 
 | Escenario | Qué comprueba |
 | --- | --- |
-| Mensaje HTML | detección de párrafos, el orden diccionario → Google → IA para cada párrafo, traducciones provisionales y finales, el cambio a solo traducción (solo se vuelve a consultar al nivel de IA), restauración del DOM original |
+| Mensaje HTML | detección de párrafos, el orden diccionario → Google → IA para cada párrafo, traducciones provisionales y finales, el cambio a solo traducción (solo se vuelve a consultar al nivel de IA), restauración del DOM original, nueva traducción desde la memoria sin ninguna solicitud y Alt+R: se vuelve a consultar a todos los niveles aunque todo esté en caché y se muestra la nueva traducción de IA |
 | Mensaje de texto sin formato | lo mismo para un mensaje de texto sin formato con una cita |
 | Descargas sin conexión de la guía de configuración | Thunderbird se inicia sin mensaje y abre la guía de configuración; la prueba va al paso sin conexión, descarga el paquete de diccionario y el modelo de Bergamot desde el servidor simulado con su progreso, comprueba que ambos quedan guardados y los elimina de nuevo |
 

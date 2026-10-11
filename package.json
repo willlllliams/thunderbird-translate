@@ -1,6 +1,6 @@
 {
   "name": "thunderbird-translate",
-  "version": "1.7.0",
+  "version": "1.8.0",
   "private": true,
   "description": "Thunderbird MailExtension that translates email bodies in place (bilingual or translation-only), with free translators and 20+ AI providers.",
   "license": "GPL-3.0-or-later",

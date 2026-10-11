@@ -27,7 +27,7 @@ Each line below introduces the extension in one language and links to the full R
 - Body translation: the extension finds paragraph-level content in the message body: paragraphs, list items, table cells, headings, block quotes, text-only divs, and blank-line separated paragraphs in plain-text mail. Code, paragraphs already in the target language, numbers, bare links and whitespace are skipped.
 - Two display modes: bilingual mode inserts a translation block with a light left border under the original, readable in dark themes as well. Translation-only mode replaces the original with the translation; the original is kept in memory and put back when translation is turned off.
 - Live updates: changing the display mode or the target language while a message is translated re-renders the page without reopening the message. Changing the display mode redraws the dictionary and machine translations already received; the AI tier is asked again with the prompt of the new mode, and the cache answers when it already has that translation.
-- Entry points: the "Translate message" button in the message header toolbar with its popup, and the shortcuts Alt+A (translate / show original) and Alt+S (switch bilingual / translation-only).
+- Entry points: the "Translate message" button in the message header toolbar with its popup, and the shortcuts Alt+A (translate / show original), Alt+S (switch bilingual / translation-only) and Alt+R (translate again past the cache).
 - Optional translation on opening: messages not in the target language are translated as soon as they are opened.
 - Request batching: the background script collects paragraphs for 50 ms and merges them into one request, with a concurrency limit per service, retries with exponential backoff, a request timeout and a local cache. A paragraph longer than one request may carry is split into pieces of whole lines; only a single line longer than a request is cut between sentences.
 - Three translation tiers: dictionary, machine translation and AI. Each tier has its own service or is not used; every paragraph goes to all tiers in use at once. A lower tier is shown as a provisional translation until the highest tier replaces it, and stays when the highest tier fails.
@@ -99,6 +99,7 @@ The guide uses the same components as the settings page: the service fields and 
 Open a message. A "Translate message" button appears in the message header toolbar. Clicking it opens a popup with these controls:
 
 - "Translate this message": starts translating. While a translation is running or shown, the button reads "Show original" and restores the original when clicked.
+- "Retranslate": appears next to "Show original" while the message is translated. It translates the message again in the current display mode and asks every tier anew: neither the cache nor a request still running answers, the new results replace the cached ones, and precise translation analyses the message again. Lower tiers show provisional translations as usual; translations of other messages stay in the cache.
 - Display: switches between bilingual and translation-only; the change applies to the current message immediately.
 - Source language and target language: "Detect automatically" is the default source language. After a change of either, a message being translated is translated again. A note appears when both are the same language.
 - Translation tiers: one list per tier (1 dictionary, 2 machine translation, 3 AI translation), each with "Not used", the added services of that tier and, as last entry, "+ Add translation service…". That entry opens the settings page at the translation services of the tier and leaves the list at its value. At least one tier needs a service; choosing "Not used" for the last one is refused with a note. A selected dictionary or Bergamot that lacks data for the current languages is marked, see [Missing offline data](#missing-offline-data).
@@ -108,7 +109,7 @@ Open a message. A "Translate message" button appears in the message header toolb
 
 The popup shows the progress, for example "Translated 8 of 12". Paragraphs that still show a provisional translation of a lower tier are counted separately, for example "Translated 7 of 9 (2 provisional)". When every tier fails for a paragraph, a red "Translation failed, click to retry" appears after it; hovering shows the error and clicking retries that paragraph.
 
-Alt+A translates the current message or restores the original; Alt+S switches between bilingual and translation-only. Both shortcuts can be changed under "Manage Extension Shortcuts" in the gear menu of the Add-ons Manager.
+Alt+A translates the current message or restores the original; Alt+S switches between bilingual and translation-only; Alt+R retranslates the current message like "Retranslate" in the popup and does nothing while the message is not translated. All three shortcuts can be changed under "Manage Extension Shortcuts" in the gear menu of the Add-ons Manager.
 
 In translation-only mode, hovering over a translation shows the original text in a tooltip.
 
@@ -534,7 +535,7 @@ Input tokens drop by about 63%, and the number of requests drops from 20 to 1. O
 ```bash
 npm test               # vitest unit tests
 npm run test:coverage  # unit tests with coverage; fails below the thresholds in vitest.config.ts
-npm run e2e            # headless Thunderbird (THUNDERBIRD_BIN) against a local mock server: three tiers, mode switch, restore; offline downloads of the setup guide
+npm run e2e            # headless Thunderbird (THUNDERBIRD_BIN) against a local mock server: three tiers, mode switch, restore, retranslation; offline downloads of the setup guide
 npm run typecheck      # TypeScript type check
 npm run locales:check  # check every locales/<language>.json against locales/en.json
 npm run live-test      # call the real Google and Microsoft endpoints through the extension's own modules, with and without a source language
@@ -546,7 +547,7 @@ The unit tests cover batch grouping and queues, AI output parsing and fallback, 
 
 | Scenario | What it checks |
 | --- | --- |
-| HTML message | paragraph detection, the order dictionary → Google → AI for every paragraph, provisional and final translations, the switch to translation-only (only the AI tier is asked again), restoring the original DOM |
+| HTML message | paragraph detection, the order dictionary → Google → AI for every paragraph, provisional and final translations, the switch to translation-only (only the AI tier is asked again), restoring the original DOM, translating again from memory without any request, and Alt+R: every tier is asked again although everything is cached, and the new AI translation is shown |
 | Plain-text message | the same for a plain-text message with a quote |
 | Offline downloads of the setup guide | Thunderbird starts without a message and opens the setup guide; the test goes to the offline step, downloads the dictionary pack and the Bergamot model from the mock server with progress, checks that both are stored and deletes them again |
 

@@ -178,15 +178,21 @@ describe("connectContent", () => {
     expect(lastState()).toMatchObject({ active: true, total: 0 })
   })
 
-  it("posts the message context in precise mode", async () => {
+  it("posts the message context in precise mode, marked on a retranslation pushed by the background", async () => {
     const client = connectContent({ root: () => document.body })
     settingsPush(tieredSettings(["machine", "ai"], { precise: true }))
     await client.ready
     void client.controller.start()
     await vi.waitFor(() => expect(port.posted("translate")).toHaveLength(1))
-    const [{ context }] = port.posted("context")
-    expect(context.paragraphs).toEqual(["Good morning everyone"])
-    expect(port.posted("translate")[0].request.context).toEqual({ id: context.id, index: 0 })
+    const [first] = port.posted("context")
+    expect(first).toEqual({ type: "context", context: first.context })
+    expect(first.context.paragraphs).toEqual(["Good morning everyone"])
+    expect(port.posted("translate")[0].request.context).toEqual({ id: first.context.id, index: 0 })
+
+    port.push({ type: "retranslate" })
+    await vi.waitFor(() => expect(port.posted("translate")).toHaveLength(2))
+    expect(port.posted("context").at(-1)).toEqual({ type: "context", context: first.context, bypassCache: true })
+    expect(port.posted("translate")[1].request).toMatchObject({ tiers: ["machine", "ai"], bypassCache: true })
   })
 
   it("on disconnect fails the tiers that did not answer, settles the requests and stops reporting", async () => {

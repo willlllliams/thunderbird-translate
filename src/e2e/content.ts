@@ -3,8 +3,10 @@
  * build (see src/e2e/background.ts).
  *
  * On the displayed message it translates every paragraph, switches the
- * display mode with the keyboard command, restores the original and sends
- * what it saw to the background script, which forwards it to the mock server.
+ * display mode with the keyboard command, restores the original, translates
+ * again from what the page remembers, retranslates with the keyboard command
+ * past every cache and sends what it saw to the background script, which
+ * forwards it to the mock server.
  * In the "missing" scenario (no pack or model installed) it reads the notice
  * about missing offline data instead, mutes it, translates again, then
  * switches to Google without the dictionary and translates once more.
@@ -38,7 +40,7 @@ interface TierEvent {
   shown: Shown[]
 }
 
-type Phase = "translate" | "mode" | "restore"
+type Phase = "translate" | "mode" | "restore" | "cached" | "retranslate"
 
 const TIMEOUT_MS = 30_000
 
@@ -177,6 +179,19 @@ export function createE2eProbe(root: () => HTMLElement | null, controller: Trans
           styleLeft: document.getElementById("tt-style-vars") !== null,
           ...(body.innerHTML === original ? {} : { original: original.slice(0, 4000), after: body.innerHTML.slice(0, 4000) }),
         }
+
+        // Translated again: the page and the cache know every paragraph.
+        phase = "cached"
+        await send({ e2e: "command", command: "toggle-translation" })
+        await until("the remembered translation", () => last !== null && last.active && last.total > 0 && last.done === last.total)
+        report.cached = { state: last, shown: snapshot(body) }
+
+        // Retranslated: every tier is asked again although everything is cached.
+        phase = "retranslate"
+        await send({ e2e: "command", command: "retranslate" })
+        const total = last!.total
+        await until("the AI results of the retranslation", () => events.filter((e) => e.phase === "retranslate" && e.tier === "ai").length >= total && last?.done === total)
+        report.retranslated = { state: last, shown: snapshot(body) }
       } catch (error) {
         report.error = error instanceof Error ? `${error.message}\n${error.stack}` : String(error)
       }

@@ -13,7 +13,10 @@
  * batch may carry is translated in pieces and cached as a whole. Precise
  * mode adds the message as context to AI requests: neighbouring paragraphs
  * always, plus an analysis of the whole message (summary, glossary, tone)
- * when the message does not fit into one request.
+ * when the message does not fit into one request. A retranslation
+ * (bypassCache) asks every tier again: neither the cache nor a running
+ * request answers, the new results replace the cached ones, and in precise
+ * mode the message is analysed again.
  */
 
 import { getBergamot } from "../offline/bergamot"
@@ -55,6 +58,8 @@ interface Job {
   key: string
   /** Precise mode: the message and the paragraph's position in it. */
   mail?: { context: MailContext; index: number }
+  /** Retranslation: neither the cache nor a running request answers; the result replaces the cached one. */
+  fresh?: boolean
 }
 
 /** Hard caps for the free and local services, applied on top of the user's batch settings. Microsoft with a key has its own caps. */
@@ -129,6 +134,8 @@ export class TranslationService {
   private readonly contexts = new LruCache<MailContext>(MAX_CONTEXTS)
   /** Analyses by cache key, finished or running, so the batches of one message share one request. */
   private readonly analyses = new LruCache<Promise<MailAnalysis | null>>(MAX_CONTEXTS)
+  /** Messages registered for a retranslation, by context id: their next analysis is made again. */
+  private readonly freshContexts = new LruCache<true>(MAX_CONTEXTS)
   private readonly llm: LlmImpl
   private readonly dictionary: Pick<Dictionary, "translate" | "signature">
 
@@ -181,9 +188,10 @@ export class TranslationService {
     return describeError(error, this.deps.i18n?.() ?? ENGLISH, provider ? errorContext(provider) : {})
   }
 
-  /** Precise mode: register a message before its paragraphs are requested. */
-  setContext(context: MailContext): void {
+  /** Precise mode: register a message before its paragraphs are requested; for a retranslation (fresh) its analysis is made again. */
+  setContext(context: MailContext, fresh = false): void {
     this.contexts.set(context.id, context)
+    if (fresh) this.freshContexts.set(context.id, true)
   }
 
   /** The work of one tier for one paragraph. `data`: signature of the dictionary packs or offline models the service translates with. */
@@ -206,11 +214,13 @@ export class TranslationService {
       key: cacheKey(providerId, provider.model, `${req.sourceLang}>${req.targetLang}`, req.text, sig),
       batchKey: [providerId, provider.model, req.sourceLang, req.targetLang, sig].join("|"),
       ...(context && req.context ? { mail: { context, index: req.context.index } } : {}),
+      ...(req.bypassCache ? { fresh: true } : {}),
     }
   }
 
   /** The cached result, or the result of the running request for the same paragraph, or a new one. */
   private async run(job: Job): Promise<string> {
+    if (job.fresh) return this.translateParts(job)
     const cached = await this.deps.cache.get(job.key)
     if (cached !== undefined) return cached
     let running = this.inflight.get(job.key)
@@ -274,7 +284,7 @@ export class TranslationService {
     }
     const top = jobs.at(-1)
     if (!top) return
-    const cached = await this.deps.cache.get(top[1].key)
+    const cached = req.bypassCache ? undefined : await this.deps.cache.get(top[1].key)
     if (cached !== undefined) return onTier(top[0], { ok: true, text: cached })
     await Promise.all(jobs.map(async ([tier, job]) => onTier(tier, await this.settle(job))))
   }
@@ -324,26 +334,29 @@ export class TranslationService {
    */
   private async contextPrefix(job: Job): Promise<string> {
     const { context } = job.mail!
+    // The first request of a retranslation takes the mark; the requests after it share the new analysis.
+    const fresh = this.freshContexts.get(context.id) !== undefined
+    this.freshContexts.delete(context.id)
     const limits = this.limitsFor(job.provider)
     const chars = context.targets.reduce((n, i) => n + (context.paragraphs[i]?.length ?? 0), 0)
     if (chars <= limits.maxChars && context.targets.length <= limits.maxItems) return ""
-    const analysis = await this.analysis(job)
+    const analysis = await this.analysis(job, fresh)
     return buildContextBlock(analysis, context.text.length <= MAX_PREFIX_TEXT_CHARS ? context.text : "")
   }
 
   /** The analysis of the message, shared by the requests of one configuration (endpoint, thinking, temperature, languages). */
-  private analysis(job: Job): Promise<MailAnalysis | null> {
+  private analysis(job: Job, fresh: boolean): Promise<MailAnalysis | null> {
     const key = cacheKey(job.provider.id, job.provider.model, `${job.sourceLang}>${job.targetLang}`, job.mail!.context.text, `${job.variant}:analysis`)
-    let analysis = this.analyses.get(key)
+    let analysis = fresh ? undefined : this.analyses.get(key)
     if (!analysis) {
-      analysis = this.loadAnalysis(key, job)
+      analysis = this.loadAnalysis(key, job, fresh)
       this.analyses.set(key, analysis)
     }
     return analysis
   }
 
-  private async loadAnalysis(key: string, job: Job): Promise<MailAnalysis | null> {
-    const cached = await this.deps.cache.get(key)
+  private async loadAnalysis(key: string, job: Job, fresh: boolean): Promise<MailAnalysis | null> {
+    const cached = fresh ? undefined : await this.deps.cache.get(key)
     if (cached !== undefined) return parseAnalysis(cached)
     try {
       const analysis = await this.queue(job.provider).run(() => this.llm.analyze(job.mail!.context.text, this.llmOptions(job)))

@@ -18,6 +18,9 @@
  * mode, is requested again while the other tiers keep their results.
  * Results are kept for the message on screen, so showing it again asks
  * nothing; they are forgotten when dictionary packs or offline models change.
+ * retranslate(): forget those results and translate the message again from
+ * the start in the same display mode, with every request marked to pass the
+ * background's cache (and, in precise mode, its analysis of the message).
  * A paragraph that an offline tier could not translate for lack of a
  * dictionary pack or offline model is reported to the notice (notice.ts).
  */
@@ -37,8 +40,8 @@ export interface ControllerDeps {
   root: () => HTMLElement | null
   /** Ask the given tiers; each result comes through onTier, the promise settles when the request is complete. */
   translate: (request: TranslateRequest, onTier: (tier: Tier, result: TranslateResponse) => void) => Promise<void>
-  /** Precise mode: register the message with the background before its paragraphs are requested. */
-  setContext?: (context: MailContext) => void
+  /** Precise mode: register the message with the background before its paragraphs are requested; bypassCache for a retranslation. */
+  setContext?: (context: MailContext, bypassCache: boolean) => void
   detect?: LanguageDetector
   report?: (state: Omit<TabState, "connected">) => void
   /** Told when a translation starts and when every paragraph has its answers, of each paragraph without a dictionary pack or offline model, and when the translation stops. */
@@ -73,6 +76,8 @@ export class TranslationController {
   private renderer: Renderer | null = null
   /** Results already received, keyed by tier signature + languages + text. */
   private memo = new Map<string, string>()
+  /** The running translation is a retranslation: its requests pass the background's cache. */
+  private bypassCache = false
   private lastError = ""
   private reportTimer: ReturnType<typeof setTimeout> | null = null
   private reportPending = false
@@ -148,16 +153,25 @@ export class TranslationController {
     return true
   }
 
+  /** Translate the message on screen again, past every cache; nothing happens while it is not translated. */
+  async retranslate(): Promise<void> {
+    if (!this.active) return
+    this.memo.clear()
+    this.stop()
+    await this.start(true)
+  }
+
   async toggle(): Promise<void> {
     if (this.active) this.stop()
     else await this.start()
   }
 
-  async start(): Promise<void> {
+  async start(bypassCache = false): Promise<void> {
     const s = this.settings
     const root = this.deps.root()
     if (this.active || !s || !root) return
     this.active = true
+    this.bypassCache = bypassCache
     const session = ++this.session
     this.renderer = new Renderer(root.ownerDocument)
     this.renderer.stylePreset = s.style.preset
@@ -176,7 +190,7 @@ export class TranslationController {
         all.map((u) => u.text),
         candidates.map((u) => all.indexOf(u)),
       )
-      this.deps.setContext?.(this.context)
+      this.deps.setContext?.(this.context, bypassCache)
     }
     this.report()
     await Promise.all(candidates.map((unit) => this.translateUnit(unit, session)))
@@ -217,6 +231,7 @@ export class TranslationController {
       targetLang: s.targetLang,
       tiers,
       ...(this.context && index >= 0 ? { context: { id: this.context.id, index } } : {}),
+      ...(this.bypassCache ? { bypassCache: true } : {}),
     }
   }
 

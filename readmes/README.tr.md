@@ -11,7 +11,7 @@ Bu belge daha önce Thunderbird eklentisi kullanmamış okurlar için yazılmı�
 - Gövde çevirisi: eklenti ileti gövdesindeki paragraf düzeyindeki içeriği bulur. Bunlar paragraflar, liste öğeleri, tablo hücreleri, başlıklar, alıntı blokları, yalnızca metin içeren div öğeleri ve düz metin iletilerde boş satırlarla ayrılmış paragraflardır. Kod, zaten hedef dilde olan paragraflar, sayılar, çıplak bağlantılar ve boşluklar atlanır.
 - İki görünüm modu: iki dilli modda özgün metnin altına açık renkli sol kenarlığı olan bir çeviri bloğu eklenir; bu blok koyu temalarda da okunur. Yalnızca çeviri modunda özgün metnin yerine çeviri gösterilir; özgün metin bellekte tutulur ve çeviri kapatıldığında geri konur.
 - Anlık güncelleme: bir ileti çevrilmişken görünüm modu veya hedef dil değiştirilirse sayfa, ileti yeniden açılmadan yeniden çizilir. Görünüm modunun değiştirilmesi, sözlük ve makine çevirisinden önceden alınmış çevirileri yeniden çizer; yapay zekâ kademesine yeni modun istemiyle yeniden sorulur ve önbellek bu çeviriye zaten sahipse yanıtı o verir.
-- Giriş noktaları: ileti başlığı araç çubuğundaki "İletiyi çevir" düğmesi ve açılır penceresi, ayrıca Alt+A (çevir / özgün metni göster) ve Alt+S (iki dilli / yalnızca çeviri arasında geç) kısayolları.
+- Giriş noktaları: ileti başlığı araç çubuğundaki "İletiyi çevir" düğmesi ve açılır penceresi, ayrıca Alt+A (çevir / özgün metni göster), Alt+S (iki dilli / yalnızca çeviri arasında geç) ve Alt+R (önbelleği kullanmadan yeniden çevir) kısayolları.
 - Açılışta otomatik çevir (isteğe bağlı): hedef dilde olmayan iletiler açıldıkları anda çevrilir.
 - İstek gruplama: arka plan betiği paragrafları 50 ms boyunca toplar ve tek bir istekte birleştirir. Hizmet başına eşzamanlı istek sınırı, üstel geri çekilmeli yeniden deneme, istek zaman aşımı ve yerel önbellek de bu sürecin parçasıdır. Bir isteğin taşıyabileceğinden uzun bir paragraf, bütün satırlardan oluşan parçalara bölünür; yalnızca bir isteğe sığmayan tek bir satır cümle aralarından kesilir.
 - Üç çeviri kademesi: sözlük, makine çevirisi ve yapay zekâ. Her kademenin kendi hizmeti vardır ya da kademe kullanılmaz; her paragraf kullanılan tüm kademelere aynı anda gider. Alt kademenin sonucu, en yüksek kademe onun yerini alana kadar geçici çeviri olarak gösterilir ve en yüksek kademe başarısız olursa yerinde kalır.
@@ -83,6 +83,7 @@ Rehber ayarlar sayfasıyla aynı bileşenleri kullanır: hizmet alanları ve ba�
 Bir ileti açın. İleti başlığı araç çubuğunda "İletiyi çevir" düğmesi görünür. Bu düğmeye tıklandığında aşağıdaki denetimleri içeren bir açılır pencere açılır:
 
 - "Bu iletiyi çevir": çeviriyi başlatır. Bir çeviri sürerken veya gösterilirken düğmenin adı "Özgün metni göster" olur ve tıklandığında özgün metni geri getirir.
+- "Yeniden çevir": ileti çevrilmiş durumdayken "Özgün metni göster" düğmesinin yanında görünür. İletiyi geçerli görüntüleme modunda yeniden çevirir ve her kademeye yeniden sorar: ne önbellek ne de hâlâ süren bir istek yanıt verir, yeni sonuçlar önbellektekilerin yerini alır ve hassas çeviri iletiyi yeniden analiz eder. Alt kademeler her zamanki gibi geçici çeviriler gösterir; diğer iletilerin çevirileri önbellekte kalır.
 - Görünüm: iki dilli ile yalnızca çeviri arasında geçiş yapar; değişiklik geçerli iletiye hemen uygulanır.
 - Kaynak dil ve hedef dil: varsayılan kaynak dil "Otomatik algıla"dır. İkisinden biri değiştirildiğinde, çevrilmekte olan ileti yeniden çevrilir. İkisi aynı dil olduğunda bir uyarı görünür.
 - Çeviri kademeleri: her kademe için bir liste vardır (Kademe 1: Sözlük, Kademe 2: Makine çevirisi, Kademe 3: Yapay zekâ çevirisi). Her liste "Kullanılmıyor" seçeneğini, o kademeye eklenmiş hizmetleri ve son öğe olarak "+ Çeviri hizmeti ekle…" öğesini içerir. Bu öğe ayarlar sayfasını kademenin çeviri hizmetleri bölümünde açar ve listeyi önceki değerinde bırakır. En az bir kademenin bir hizmeti olmalıdır; kullanılan son kademe için "Kullanılmıyor" seçilirse seçim reddedilir ve bir uyarı gösterilir. Seçili bir sözlük veya Bergamot, geçerli diller için verisi eksikse işaretlenir; bkz. [Eksik çevrimdışı veriler](#eksik-çevrimdışı-veriler).
@@ -92,7 +93,7 @@ Bir ileti açın. İleti başlığı araç çubuğunda "İletiyi çevir" düğme
 
 Açılır pencere ilerlemeyi gösterir, örneğin "Çevrildi: 8 / 12". Hâlâ bir alt kademenin geçici çevirisini gösteren paragraflar ayrı sayılır, örneğin "Çevrildi: 7 / 9 (2 geçici)". Bir paragraf için tüm kademeler başarısız olursa paragrafın arkasında kırmızı renkte "Çeviri başarısız oldu, yeniden denemek için tıklayın" yazısı belirir. Fare imleci üzerine getirildiğinde hata gösterilir; tıklandığında o paragraf yeniden denenir.
 
-Alt+A geçerli iletiyi çevirir veya özgün metni geri getirir; Alt+S iki dilli ile yalnızca çeviri arasında geçiş yapar. İki kısayol da Eklenti yöneticisinin dişli menüsündeki "Eklenti kısayollarını yönet" bölümünden değiştirilebilir.
+Alt+A geçerli iletiyi çevirir veya özgün metni geri getirir; Alt+S iki dilli ile yalnızca çeviri arasında geçiş yapar; Alt+R geçerli iletiyi açılır penceredeki "Yeniden çevir" gibi yeniden çevirir ve ileti çevrilmemişken hiçbir şey yapmaz. Üç kısayol da Eklenti yöneticisinin dişli menüsündeki "Eklenti kısayollarını yönet" bölümünden değiştirilebilir.
 
 Yalnızca çeviri modunda fare imleci bir çevirinin üzerine getirildiğinde özgün metin bir araç ipucunda gösterilir.
 
@@ -524,7 +525,7 @@ Girdi token sayısı yaklaşık %63 azalır ve istek sayısı 20'den 1'e düşer
 ```bash
 npm test               # vitest unit tests
 npm run test:coverage  # unit tests with coverage; fails below the thresholds in vitest.config.ts
-npm run e2e            # headless Thunderbird (THUNDERBIRD_BIN) against a local mock server: three tiers, mode switch, restore; offline downloads of the setup guide
+npm run e2e            # headless Thunderbird (THUNDERBIRD_BIN) against a local mock server: three tiers, mode switch, restore, retranslation; offline downloads of the setup guide
 npm run typecheck      # TypeScript type check
 npm run locales:check  # check every locales/<language>.json against locales/en.json
 npm run live-test      # call the real Google and Microsoft endpoints through the extension's own modules, with and without a source language
@@ -536,7 +537,7 @@ Birim testleri şunları kapsar: grup oluşturma ve kuyruklar; yapay zekâ çık
 
 | Senaryo | Neyi denetler |
 | --- | --- |
-| HTML iletisi | paragrafların algılanması, her paragraf için sözlük → Google → yapay zekâ sırası, geçici ve son çeviriler, yalnızca çeviri moduna geçiş (yalnızca yapay zekâ kademesi yeniden sorulur), özgün DOM'un geri yüklenmesi |
+| HTML iletisi | paragrafların algılanması, her paragraf için sözlük → Google → yapay zekâ sırası, geçici ve son çeviriler, yalnızca çeviri moduna geçiş (yalnızca yapay zekâ kademesi yeniden sorulur), özgün DOM'un geri yüklenmesi, bellekteki çevirilerle istek göndermeden yeniden çeviri ve Alt+R: her şey önbellekte olsa da her kademeye yeniden sorulur ve yeni yapay zekâ çevirisi gösterilir |
 | Düz metin iletisi | alıntı içeren bir düz metin iletisi için aynısı |
 | Kurulum rehberinin çevrimdışı indirmeleri | Thunderbird iletisiz başlar ve kurulum rehberini açar; test çevrimdışı adıma gider, sözlük paketini ve Bergamot modelini sahte sunucudan ilerleme göstererek indirir, ikisinin de kaydedildiğini doğrular ve yeniden siler |
 

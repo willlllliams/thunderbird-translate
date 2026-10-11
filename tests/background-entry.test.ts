@@ -209,7 +209,7 @@ describe("content script ports", () => {
     await vi.waitFor(() => expect(google).toHaveBeenCalledTimes(2))
   })
 
-  it("registers the message for precise mode", async () => {
+  it("registers the message for precise mode, for a retranslation with a new analysis", async () => {
     const bg = stubBackgroundApi({ stored: stored(createDefaultSettings()) })
     vi.resetModules()
     // Spy on the module instance the background script is about to load.
@@ -217,7 +217,9 @@ describe("content script ports", () => {
     await import("../src/background/index")
     const context = createMailContext(["Hello", "World"], [0, 1])
     bg.connect(4).send({ type: "context", context })
-    expect(setContext).toHaveBeenCalledWith(context)
+    expect(setContext).toHaveBeenCalledWith(context, false)
+    bg.connect(4).send({ type: "context", context, bypassCache: true })
+    expect(setContext).toHaveBeenLastCalledWith(context, true)
     setContext.mockRestore()
   })
 
@@ -243,6 +245,14 @@ describe("requests from pages", () => {
     expect(other.posted.some((m) => m.type === "toggle")).toBe(false)
     // A tab without a content script: nothing to do.
     expect(await bg.send({ type: "toggleTab", tabId: 9 })).toBeUndefined()
+  })
+
+  it("asks the content scripts of a tab to retranslate", async () => {
+    const bg = await start({ stored: stored(createDefaultSettings()) })
+    const [a, b, other] = [bg.connect(4), bg.connect(4), bg.connect(5)]
+    expect(await bg.send({ type: "retranslateTab", tabId: 4 })).toBeUndefined()
+    for (const port of [a, b]) expect(port.posted.at(-1)).toEqual({ type: "retranslate" })
+    expect(other.posted.some((m) => m.type === "retranslate")).toBe(false)
   })
 
   it("tests a service and describes its failure", async () => {
@@ -422,12 +432,25 @@ describe("keyboard shortcuts", () => {
     expect(five.posted.at(-1)).toEqual({ type: "toggle" })
   })
 
+  it("retranslates the message of the tab of the shortcut, else of the active tab", async () => {
+    const bg = await start({ stored: stored(createDefaultSettings()), activeTabs: [{ id: 5 }] })
+    const [four, five] = [bg.connect(4), bg.connect(5)]
+    await bg.command("retranslate", { id: 4 })
+    expect(four.posted.at(-1)).toEqual({ type: "retranslate" })
+    expect(five.posted.some((m) => m.type === "retranslate")).toBe(false)
+    await bg.command("retranslate")
+    expect(five.posted.at(-1)).toEqual({ type: "retranslate" })
+    expect(four.posted.filter((m) => m.type === "toggle")).toEqual([])
+  })
+
   it("does nothing without an active tab", async () => {
     const bg = await start({ stored: stored(createDefaultSettings()) })
     const port = bg.connect(4)
     await bg.command("toggle-translation")
+    await bg.command("retranslate")
     await bg.command("unknown-command", { id: 4 })
-    expect(port.posted.some((m) => m.type === "toggle")).toBe(false)
+    await bg.command("toString", { id: 4 })
+    expect(port.posted.some((m) => m.type === "toggle" || m.type === "retranslate")).toBe(false)
   })
 
   it("switches the display mode back and forth and tells the content scripts", async () => {

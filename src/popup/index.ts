@@ -17,6 +17,7 @@ async function main(): Promise<void> {
   const tabId = tab?.id
 
   const toggle = $<HTMLButtonElement>("toggle")
+  const retranslate = $<HTMLButtonElement>("retranslate")
   const status = $<HTMLParagraphElement>("status")
   const lastError = $<HTMLParagraphElement>("lastError")
   const sourceLang = $<HTMLSelectElement>("sourceLang")
@@ -84,6 +85,8 @@ async function main(): Promise<void> {
     toggle.disabled = !st.connected
     toggle.classList.toggle("active", st.active)
     toggle.textContent = st.active ? t("popupShowOriginal") : t("popupTranslate")
+    // Retranslating needs a translated message.
+    retranslate.hidden = !(st.connected && st.active)
     if (!st.connected) status.textContent = t("popupNotConnected")
     else if (!st.active) status.textContent = t("popupIdle")
     else if (st.total === 0) status.textContent = t("popupNothing")
@@ -124,11 +127,16 @@ async function main(): Promise<void> {
     })
   })
 
-  toggle.addEventListener("click", async () => {
-    if (tabId === undefined) return
-    await send({ type: "toggleTab", tabId })
-    setTimeout(refresh, 150)
-  })
+  for (const [button, type] of [
+    [toggle, "toggleTab"],
+    [retranslate, "retranslateTab"],
+  ] as const) {
+    button.addEventListener("click", async () => {
+      if (tabId === undefined) return
+      await send({ type, tabId })
+      setTimeout(refresh, 150)
+    })
+  }
 
   // Packs or models were installed or deleted on another page.
   ext.runtime.onMessage.addListener((message: unknown) => {

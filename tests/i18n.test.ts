@@ -498,15 +498,18 @@ describe("keyboard shortcuts", () => {
   const manifest = JSON.parse(readFileSync(join(root, "static", "manifest.json"), "utf8"))
   const commands = manifest.commands as Record<string, { suggested_key: { default: string }; description: string }>
 
-  it("describe both commands with their own keys", () => {
+  it("describe the three commands with their own keys", () => {
     expect(Object.fromEntries(Object.entries(commands).map(([id, c]) => [id, c.description]))).toEqual({
       "toggle-translation": "__MSG_commandToggle__",
       "toggle-display-mode": "__MSG_commandMode__",
+      retranslate: "__MSG_commandRetranslate__",
     })
+    expect(new Set(Object.values(commands).map((c) => c.suggested_key.default))).toEqual(new Set(["Alt+A", "Alt+S", "Alt+R"]))
   })
 
   it.each(SUPPORTED_LOCALES)("%s: names the suggested keys in the popup hint and describes each command", (locale) => {
     for (const c of Object.values(commands)) expect(sources[locale].popupShortcuts).toContain(c.suggested_key.default)
-    expect(sources[locale].commandToggle).not.toBe(sources[locale].commandMode)
+    const descriptions = ["commandToggle", "commandMode", "commandRetranslate"].map((key) => sources[locale][key])
+    expect(new Set(descriptions).size).toBe(3)
   })
 })

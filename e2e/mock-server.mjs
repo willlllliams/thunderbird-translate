@@ -1,6 +1,7 @@
 // Local stand-in for every service the e2e build talks to:
 // - Google's free endpoint (translate_a/t, translate_a/single): "[G] <text>"
-// - an OpenAI-compatible chat completions API: "[AI <mode>] <text>", the mode read from the system prompt
+// - an OpenAI-compatible chat completions API: "[AI <mode>] <text>", the mode read from the system prompt;
+//   the same text in the same mode asked again gets "[AI <mode> #<n>] <text>", n counting the requests
 // - the dictionary packs of a GitHub release (dict-index.json and the packs en -> zh-Hans and zh-Hans -> en built from fixtures/)
 // - Mozilla Remote Settings for Bergamot (/bergamot/v1/): the server root, the model records of en -> zh-Hans and
 //   zh-Hans -> en and the zstd-compressed attachments, all made of fake bytes
@@ -114,6 +115,8 @@ export async function startMockServer({ fixtures, googleDelayMs = 300, aiDelayMs
   let scenario = "message"
   const calls = []
   const posted = new Map()
+  /** How often the AI service was asked for each mode and text. */
+  const aiAsked = new Map()
   const waiters = new Map()
 
   const deliver = (path, body) => {
@@ -164,7 +167,11 @@ export async function startMockServer({ fixtures, googleDelayMs = 300, aiDelayMs
         const { batch, texts } = segmentsOf(user)
         calls.push({ type: "ai", mode, batch, count: texts.length, model: body.model, auth: req.headers.authorization ?? "", at: Date.now() })
         await sleep(aiDelayMs)
-        const out = texts.map((t) => `[AI ${mode}] ${t}`)
+        const out = texts.map((t) => {
+          const n = (aiAsked.get(`${mode}\n${t}`) ?? 0) + 1
+          aiAsked.set(`${mode}\n${t}`, n)
+          return `[AI ${mode}${n > 1 ? ` #${n}` : ""}] ${t}`
+        })
         const content = batch ? JSON.stringify(out) : out[0]
         return send(res, 200, {
           id: "e2e",
@@ -244,6 +251,7 @@ export async function startMockServer({ fixtures, googleDelayMs = 300, aiDelayMs
     reset() {
       calls.length = 0
       posted.clear()
+      aiAsked.clear()
     },
     close: () => new Promise((resolve) => server.close(resolve)),
   }

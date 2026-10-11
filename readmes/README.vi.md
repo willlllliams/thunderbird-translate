@@ -11,7 +11,7 @@ Tài liệu này viết cho người đọc chưa từng dùng tiện ích của
 - Dịch nội dung thư: tiện ích tìm nội dung ở cấp đoạn trong phần thân thư, gồm đoạn văn, mục danh sách, ô bảng, tiêu đề, khối trích dẫn, div chỉ chứa văn bản, và các đoạn được ngăn cách bằng dòng trống trong thư văn bản thuần. Mã nguồn, các đoạn đã ở ngôn ngữ đích, con số, liên kết trơn và khoảng trắng được bỏ qua.
 - Hai chế độ hiển thị: chế độ song ngữ chèn một khối bản dịch có viền trái nhạt dưới đoạn gốc, vẫn dễ đọc khi dùng giao diện tối. Chế độ chỉ bản dịch thay đoạn gốc bằng bản dịch; đoạn gốc được giữ trong bộ nhớ và được đặt lại khi tắt dịch.
 - Cập nhật trực tiếp: khi đổi chế độ hiển thị hoặc ngôn ngữ đích trong lúc thư đang được dịch, trang được vẽ lại mà không cần mở lại thư. Đổi chế độ hiển thị sẽ vẽ lại các bản dịch của từ điển và dịch máy đã nhận; tầng AI được hỏi lại với lời nhắc của chế độ mới, và bộ nhớ đệm trả lời khi đã có bản dịch đó.
-- Điểm truy cập: nút "Dịch thư" trên thanh công cụ ở phần đầu thư cùng cửa sổ bật lên của nút, và hai phím tắt Alt+A (dịch / hiện bản gốc) và Alt+S (chuyển song ngữ / chỉ bản dịch).
+- Điểm truy cập: nút "Dịch thư" trên thanh công cụ ở phần đầu thư cùng cửa sổ bật lên của nút, và ba phím tắt Alt+A (dịch / hiện bản gốc), Alt+S (chuyển song ngữ / chỉ bản dịch) và Alt+R (dịch lại, bỏ qua bộ nhớ đệm).
 - Dịch khi mở thư (tùy chọn): thư không ở ngôn ngữ đích được dịch ngay khi mở, không cần nhấn nút.
 - Gộp yêu cầu: tập lệnh nền gom các đoạn trong 50 ms rồi gộp thành một yêu cầu, có giới hạn số yêu cầu đồng thời cho mỗi dịch vụ, thử lại với thời gian chờ tăng theo hàm mũ, thời gian chờ tối đa mỗi yêu cầu và bộ nhớ đệm cục bộ. Một đoạn dài hơn mức một yêu cầu có thể mang được tách thành các phần gồm trọn từng dòng; chỉ một dòng đơn lẻ dài hơn một yêu cầu mới bị cắt giữa các câu.
 - Ba tầng dịch: từ điển, dịch máy và dịch bằng AI. Mỗi tầng có một dịch vụ riêng hoặc không được dùng; mỗi đoạn được gửi cùng lúc đến mọi tầng đang dùng. Kết quả của tầng thấp hơn được hiển thị như bản dịch tạm cho đến khi tầng cao nhất thay thế nó, và được giữ lại khi tầng cao nhất thất bại.
@@ -83,6 +83,7 @@ Hướng dẫn dùng chung các thành phần với trang cài đặt: các trư
 Mở một thư. Nút "Dịch thư" xuất hiện trên thanh công cụ ở phần đầu thư. Nhấn nút này sẽ mở một cửa sổ bật lên với các điều khiển sau:
 
 - "Dịch thư này": bắt đầu dịch. Khi bản dịch đang chạy hoặc đang hiển thị, nút đổi thành "Hiện bản gốc" và nhấn vào sẽ khôi phục bản gốc.
+- "Dịch lại": hiện bên cạnh "Hiện bản gốc" khi thư đang được dịch. Nút này dịch lại thư theo chế độ hiển thị hiện tại và hỏi lại mọi tầng: bộ nhớ đệm và yêu cầu còn đang chạy đều không trả lời, kết quả mới thay cho kết quả trong bộ nhớ đệm, và chế độ dịch chính xác phân tích lại thư. Các tầng thấp hơn vẫn hiện bản dịch tạm thời như thường lệ; bản dịch của các thư khác vẫn nằm trong bộ nhớ đệm.
 - Hiển thị: chuyển giữa song ngữ và chỉ bản dịch; thay đổi áp dụng ngay cho thư hiện tại.
 - Ngôn ngữ nguồn và ngôn ngữ đích: ngôn ngữ nguồn mặc định là "Tự động phát hiện". Sau khi đổi một trong hai, thư đang được dịch sẽ được dịch lại. Khi hai ngôn ngữ trùng nhau, một dòng ghi chú xuất hiện.
 - Các tầng dịch: mỗi tầng có một danh sách (Tầng 1: Từ điển, Tầng 2: Dịch máy, Tầng 3: Dịch bằng AI), gồm "Không dùng", các dịch vụ đã thêm của tầng đó và, ở mục cuối, "+ Thêm dịch vụ dịch…". Mục này mở trang cài đặt tại phần dịch vụ dịch của tầng đó và giữ danh sách ở giá trị trước. Phải có ít nhất một tầng được gán dịch vụ; khi chọn "Không dùng" cho tầng cuối cùng còn dịch vụ, lựa chọn bị từ chối kèm một dòng ghi chú. Từ điển hoặc Bergamot đã chọn mà thiếu dữ liệu cho các ngôn ngữ hiện tại sẽ được đánh dấu, xem [Thiếu dữ liệu ngoại tuyến](#thiếu-dữ-liệu-ngoại-tuyến).
@@ -92,7 +93,7 @@ Mở một thư. Nút "Dịch thư" xuất hiện trên thanh công cụ ở ph�
 
 Cửa sổ bật lên hiển thị tiến độ, ví dụ "Đã dịch 8 trên 12". Các đoạn vẫn hiển thị bản dịch tạm của một tầng thấp hơn được đếm riêng, ví dụ "Đã dịch 7 trên 9 (2 đoạn là bản dịch tạm)". Khi mọi tầng đều dịch lỗi một đoạn, dòng chữ đỏ "Dịch thất bại, nhấn để thử lại" xuất hiện sau đoạn đó; di chuột lên sẽ thấy thông báo lỗi, nhấn vào sẽ dịch lại đoạn đó.
 
-Alt+A dịch thư hiện tại hoặc khôi phục bản gốc; Alt+S chuyển giữa song ngữ và chỉ bản dịch. Có thể đổi cả hai phím tắt trong mục "Quản lý phím tắt tiện ích mở rộng" ở menu bánh răng của Trình quản lý tiện ích.
+Alt+A dịch thư hiện tại hoặc khôi phục bản gốc; Alt+S chuyển giữa song ngữ và chỉ bản dịch; Alt+R dịch lại thư hiện tại giống nút "Dịch lại" trong cửa sổ bật lên và không làm gì khi thư chưa được dịch. Có thể đổi cả ba phím tắt trong mục "Quản lý phím tắt tiện ích mở rộng" ở menu bánh răng của Trình quản lý tiện ích.
 
 Ở chế độ chỉ bản dịch, di chuột lên một bản dịch sẽ hiện văn bản gốc trong chú thích nổi.
 
@@ -524,7 +525,7 @@ Số token đầu vào giảm khoảng 63%, và số yêu cầu giảm từ 20 x
 ```bash
 npm test               # vitest unit tests
 npm run test:coverage  # unit tests with coverage; fails below the thresholds in vitest.config.ts
-npm run e2e            # headless Thunderbird (THUNDERBIRD_BIN) against a local mock server: three tiers, mode switch, restore; offline downloads of the setup guide
+npm run e2e            # headless Thunderbird (THUNDERBIRD_BIN) against a local mock server: three tiers, mode switch, restore, retranslation; offline downloads of the setup guide
 npm run typecheck      # TypeScript type check
 npm run locales:check  # check every locales/<language>.json against locales/en.json
 npm run live-test      # call the real Google and Microsoft endpoints through the extension's own modules, with and without a source language
@@ -536,7 +537,7 @@ Các bài kiểm thử đơn vị bao gồm: nhóm lô và hàng đợi; phân t
 
 | Kịch bản | Kiểm tra gì |
 | --- | --- |
-| Thư HTML | nhận diện đoạn, thứ tự từ điển → Google → AI cho từng đoạn, bản dịch tạm thời và bản dịch cuối, chuyển sang chỉ hiện bản dịch (chỉ tầng AI được hỏi lại), khôi phục DOM gốc |
+| Thư HTML | nhận diện đoạn, thứ tự từ điển → Google → AI cho từng đoạn, bản dịch tạm thời và bản dịch cuối, chuyển sang chỉ hiện bản dịch (chỉ tầng AI được hỏi lại), khôi phục DOM gốc, dịch lại từ bộ nhớ của trang mà không gửi yêu cầu nào, và Alt+R: mọi tầng được hỏi lại dù đã có trong bộ nhớ đệm, rồi bản dịch AI mới được hiển thị |
 | Thư văn bản thuần | tương tự cho một thư văn bản thuần có phần trích dẫn |
 | Tải xuống ngoại tuyến trong hướng dẫn thiết lập | Thunderbird khởi động không có thư và mở hướng dẫn thiết lập; kiểm thử đi tới bước ngoại tuyến, tải gói từ điển và mô hình Bergamot từ máy chủ giả lập kèm tiến trình, kiểm tra cả hai đã được lưu rồi xóa chúng đi |
 

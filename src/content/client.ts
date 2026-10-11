@@ -72,7 +72,7 @@ export function connectContent({ root, contentScript = false }: ClientOptions): 
         pending.set(id, { resolve, onTier, tiers: new Set(request.tiers) })
         post({ type: "translate", id, request })
       }),
-    setContext: (context) => post({ type: "context", context }),
+    setContext: (context, bypassCache) => post({ type: "context", context, ...(bypassCache ? { bypassCache } : {}) }),
     detect: browserDetector(ext.i18n),
     report: (state) => {
       if (__DEBUG__) {
@@ -117,6 +117,8 @@ export function connectContent({ root, contentScript = false }: ClientOptions): 
       })
     } else if (msg.type === "toggle") {
       void controller.toggle()
+    } else if (msg.type === "retranslate") {
+      void controller.retranslate()
     } else if (msg.type === "dataChanged") {
       controller.forgetResults()
     } else if (msg.type === "tier") {

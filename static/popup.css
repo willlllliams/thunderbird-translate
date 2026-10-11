@@ -20,8 +20,14 @@ header {
   margin-bottom: 10px;
 }
 
+.actions {
+  display: flex;
+  gap: 6px;
+}
+
 button.primary {
-  width: 100%;
+  flex: 1;
+  min-width: 0;
   padding: 8px;
   border: 0;
   border-radius: 6px;
@@ -33,6 +39,20 @@ button.primary {
 
 button.primary.active {
   background: #6b7280;
+}
+
+button.secondary {
+  padding: 8px 10px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: transparent;
+  color: inherit;
+  font-size: 14px;
+  cursor: pointer;
+}
+
+button.secondary[hidden] {
+  display: none;
 }
 
 button.primary:disabled {
