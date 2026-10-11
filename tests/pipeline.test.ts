@@ -21,10 +21,20 @@ import { createMailContext } from "../src/shared/mail-context"
 import type { TranslateRequest, TranslateResponse } from "../src/shared/messages"
 import type { Tier } from "../src/shared/providers"
 import { createDefaultSettings, type Settings } from "../src/shared/settings"
-import { asFetch, chatCompletion, createService, jsonResponse, translateOne } from "./helpers"
+import { asFetch, chatCompletion, createService, fakeDictionary, jsonResponse, translateOne } from "./helpers"
+
+/** The texts of the q parameters of a Google request. */
+const queries = (init?: RequestInit) => new URLSearchParams(String(init?.body)).getAll("q")
 
 /** Google endpoint answering G(<text>) for every q of the batch. */
-const googleEcho = () => vi.fn(async (_url: string, init: RequestInit) => jsonResponse(new URLSearchParams(String(init.body)).getAll("q").map((q) => [`G(${q})`, "en"])))
+const echo = async (_url: string | URL | Request, init?: RequestInit) => jsonResponse(queries(init).map((q) => [`G(${q})`, "en"]))
+const googleEcho = () => vi.fn(echo)
+
+/** The texts sent to Google, piece by piece. */
+const sent = (fetchFn: ReturnType<typeof googleEcho>) => fetchFn.mock.calls.flatMap(([, init]) => queries(init))
+
+/** The AI SDK on the fetch of the service, instead of a stand-in. */
+const sdkLlm: LlmImpl = { batch: llmTranslateBatch, single: llmTranslateSingle, analyze: llmAnalyzeMail }
 
 /** A fetch that never answers; it fails only when its signal is aborted. */
 const hanging = () =>
@@ -65,10 +75,7 @@ describe("tiers side by side", () => {
       }),
       analyze: vi.fn(async () => null),
     }
-    const dictionary = {
-      translate: vi.fn(async (texts: string[]) => texts.map((t): PromiseSettledResult<string> => ({ status: "fulfilled", value: `D(${t})` }))),
-      signature: vi.fn(async () => "packs"),
-    }
+    const dictionary = fakeDictionary()
     const { service } = setup(
       (s) => {
         withOpenAI(s)
@@ -152,34 +159,19 @@ describe("request timeout", () => {
     expect(error).toContain(ENGLISH.t("hintTimeout"))
     expect(fetchFn).toHaveBeenCalledTimes(2)
     // Nothing stays pending: the next request goes out again and can succeed.
-    fetchFn.mockImplementationOnce(async (_url, init) => jsonResponse(new URLSearchParams(String(init?.body)).getAll("q").map((q) => [`G(${q})`, "en"])))
+    fetchFn.mockImplementationOnce(echo)
     expect(await translateOne(service, { text: "Hello", providerId: "google-free" })).toBe("G(Hello)")
   })
 
-  it("applies to AI requests through the AI SDK", async () => {
+  it.each([0, 3])("H1: applies to AI requests through the AI SDK and sends a timed-out one only once (%i retries)", async (maxRetries) => {
     const fetchFn = hanging()
     const { service } = setup(
       (s) => {
         withOpenAI(s)
         s.batch.timeoutSeconds = 0.5
-        s.batch.maxRetries = 0
+        s.batch.maxRetries = maxRetries
       },
-      { fetchFn: asFetch(fetchFn), llm: { batch: llmTranslateBatch, single: llmTranslateSingle, analyze: llmAnalyzeMail } },
-    )
-    const error = await translateOne(service, { text: "Hello", providerId: "openai" }).catch((e: Error) => e.message)
-    expect(error).toContain(ENGLISH.t("errTimeout", ["OpenAI", "1"]))
-    expect(fetchFn).toHaveBeenCalledTimes(1)
-  })
-
-  it("H1: sends a timed-out AI request only once, also with retries configured", async () => {
-    const fetchFn = hanging()
-    const { service } = setup(
-      (s) => {
-        withOpenAI(s)
-        s.batch.timeoutSeconds = 0.5
-        s.batch.maxRetries = 3
-      },
-      { fetchFn: asFetch(fetchFn), llm: { batch: llmTranslateBatch, single: llmTranslateSingle, analyze: llmAnalyzeMail } },
+      { fetchFn: asFetch(fetchFn), llm: sdkLlm },
     )
     const error = await translateOne(service, { text: "Hello", providerId: "openai" }).catch((e: Error) => e.message)
     expect(error).toContain(ENGLISH.t("errTimeout", ["OpenAI", "1"]))
@@ -243,7 +235,7 @@ describe("merged AI answers", () => {
       if (prompt.includes("segments")) return chatCompletion(prompt.includes("Good night") ? '["", "晚安"]' : '["", "早上好"]')
       return chatCompletion("你好")
     })
-    const { service } = setup(withOpenAI, { fetchFn: asFetch(fetchFn), llm: { batch: llmTranslateBatch, single: llmTranslateSingle, analyze: llmAnalyzeMail } })
+    const { service } = setup(withOpenAI, { fetchFn: asFetch(fetchFn), llm: sdkLlm })
     const out = await Promise.all(["Hello", "Good night"].map((text) => translateOne(service, { text, providerId: "openai" })))
     expect(out).toEqual(["你好", "你好"])
     expect(fetchFn).toHaveBeenCalledTimes(3)
@@ -260,7 +252,7 @@ describe("paragraphs longer than a batch", () => {
     const sentences = Array.from({ length: 12 }, (_, i) => `Sentence number ${i} of a very long paragraph that goes on.`)
     const text = sentences.join(" ")
     const out = await translateOne(service, { text, providerId: "google-free", targetLang: "en" })
-    const pieces = fetchFn.mock.calls.flatMap(([, init]) => new URLSearchParams(String(init.body)).getAll("q"))
+    const pieces = sent(fetchFn)
     expect(pieces.length).toBeGreaterThan(1)
     expect(pieces.every((p) => p.length <= 200)).toBe(true)
     expect(pieces.join(" ")).toBe(text)
@@ -276,7 +268,7 @@ describe("paragraphs longer than a batch", () => {
     const text = Array.from({ length: 60 }, (_, i) => `> Line ${i} of the quoted reply, kept exactly as it was written there.`).join("\n")
     expect(text.length).toBeGreaterThan(3000)
     const out = await translateOne(service, { text, providerId: "google-free", targetLang: "en" })
-    const pieces = fetchFn.mock.calls.flatMap(([, init]) => new URLSearchParams(String(init.body)).getAll("q"))
+    const pieces = sent(fetchFn)
     expect(pieces).toHaveLength(2)
     expect(pieces.every((p) => p.length <= 3000 && p.includes("\n"))).toBe(true)
     expect(pieces.join("\n")).toBe(text)
@@ -288,14 +280,14 @@ describe("paragraphs longer than a batch", () => {
     const { service } = setup((s) => (s.batch.maxCharsPerBatch = 200), { fetchFn: asFetch(fetchFn) })
     const text = `\n${"A sentence that is long enough to need a piece of its own, more or less. ".repeat(4).trim()}`
     const out = await translateOne(service, { text, providerId: "google-free", targetLang: "en" })
-    const pieces = fetchFn.mock.calls.flatMap(([, init]) => new URLSearchParams(String(init.body)).getAll("q"))
+    const pieces = sent(fetchFn)
     expect(pieces.length).toBeGreaterThan(1)
     expect(pieces.every((p) => p.trim().length > 0)).toBe(true)
     expect(out.startsWith("\nG(")).toBe(true)
   })
 
   it("are joined without spaces for Chinese, and keep their line breaks", async () => {
-    const fetchFn = vi.fn(async (_url: string, init: RequestInit) => jsonResponse(new URLSearchParams(String(init.body)).getAll("q").map((q, i) => [`句${q.length}-${i}。`, "en"])))
+    const fetchFn = vi.fn(async (_url: string, init: RequestInit) => jsonResponse(queries(init).map((q, i) => [`句${q.length}-${i}。`, "en"])))
     const { service } = setup((s) => (s.batch.maxCharsPerBatch = 200), { fetchFn: asFetch(fetchFn) })
     const line = "A sentence that is long enough to need a piece of its own, more or less. ".repeat(3).trim()
     const out = await translateOne(service, { text: `${line}\n${line}`, providerId: "google-free" })

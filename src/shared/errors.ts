@@ -51,11 +51,7 @@ export class NetworkError extends Error {
   }
 }
 
-/**
- * The service did not answer within `ms`. The request queue retries it once
- * for translators and never for AI services, whose answer would be slow
- * again and charged again (background/queue/request-queue.ts).
- */
+/** The service did not answer within `ms`; retried as RequestQueueOptions.timeoutRetries says (background/queue/request-queue.ts). */
 export class TimeoutError extends LocalizedError {
   readonly isRetryable = true
 

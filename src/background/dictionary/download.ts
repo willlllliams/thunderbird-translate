@@ -5,8 +5,9 @@
  * Used by the settings page; the installed packs go to DictionaryStore.
  */
 
-import { IDLE_TIMEOUT_MS, idleSignal, LIST_TIMEOUT_MS, readBody, sha256Hex } from "../../shared/download"
+import { downloadBody, IDLE_TIMEOUT_MS, LIST_TIMEOUT_MS } from "../../shared/download"
 import { LocalizedError } from "../../shared/errors"
+import { sha256Hex } from "../../shared/hash"
 import { pairKey } from "../../shared/languages"
 import { fetchOk } from "../queue/request-queue"
 import { gunzip, parsePack } from "./format"
@@ -62,30 +63,13 @@ export interface DownloadOptions {
   idleMs?: number
 }
 
-/** The file of a pack; fails when nothing arrives for `idleMs`, however long the whole download takes. */
-async function downloadPack(url: string, fallbackTotal: number, { fetchFn = fetch, onProgress, signal, idleMs = IDLE_TIMEOUT_MS }: DownloadOptions): Promise<Uint8Array<ArrayBuffer>> {
-  const idle = idleSignal(idleMs, signal)
-  try {
-    const resp = await fetchOk({ fetchFn }, { url, init: { method: "GET", headers: {}, signal: idle.signal } }, "GitHub")
-    const total = Number(resp.headers.get("content-length")) || fallbackTotal
-    return await readBody(
-      resp,
-      (loaded) => {
-        idle.kick()
-        onProgress?.(loaded, total)
-      },
-      idle.signal,
-    )
-  } catch (error) {
-    throw idle.stalled() ? new LocalizedError("errDownloadStalled", ["GitHub", String(Math.round(idleMs / 1000))]) : error
-  } finally {
-    idle.stop()
-  }
-}
-
 /** Download a pack, check its SHA-256 and its content, and store it. */
-export async function installPack(pack: IndexedPack, tag: string, store: DictionaryStore, options: DownloadOptions = {}): Promise<void> {
-  const data = await downloadPack(releaseUrl(tag, pack.file), pack.bytes, options)
+export async function installPack(pack: IndexedPack, tag: string, store: DictionaryStore, { fetchFn = fetch, onProgress, signal, idleMs = IDLE_TIMEOUT_MS }: DownloadOptions = {}): Promise<void> {
+  const data = await downloadBody(
+    (idle) => fetchOk({ fetchFn }, { url: releaseUrl(tag, pack.file), init: { method: "GET", headers: {}, signal: idle } }, "GitHub"),
+    (loaded, resp) => onProgress?.(loaded, Number(resp.headers.get("content-length")) || pack.bytes),
+    { name: "GitHub", idleMs, signal },
+  )
   if ((await sha256Hex(data)) !== pack.sha256.toLowerCase()) throw new LocalizedError("errDictionaryChecksum", [pack.file])
   const parsed = parsePack(await gunzip(data))
   if (parsed.src !== pack.src || parsed.tgt !== pack.tgt) throw new LocalizedError("errDictionaryFormat")

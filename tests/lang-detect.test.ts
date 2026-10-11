@@ -1,6 +1,6 @@
 /** Script-based language guesses, the target-language check before translation, and the browser detector wrapper. */
 import { describe, expect, it } from "vitest"
-import { browserDetector, candidateLanguages, detectLanguage, isInTargetLanguage, type LanguageDetector } from "../src/shared/lang-detect"
+import { browserDetector, candidateLanguages, detectSourceLanguage, isInTargetLanguage, type LanguageDetector } from "../src/shared/lang-detect"
 import { createMailContext } from "../src/shared/mail-context"
 
 const says = (lang: string | null): LanguageDetector => async () => lang
@@ -42,18 +42,18 @@ describe("isInTargetLanguage", () => {
   })
 })
 
-describe("detectLanguage", () => {
+describe("detectSourceLanguage", () => {
   it.each<[string, string, LanguageDetector | undefined, string | null]>([
     ["no letters", "1234", says("en"), null],
-    ["Chinese variant from the detector", "這是一段繁體中文", says("zh-TW"), "zh-TW"],
-    ["detector answer that contradicts the script", "这是一段中文", says("ja"), "zh"],
-    ["detector fails, single-candidate script", "これは日本語です", broken, "ja"],
+    ["Chinese variant from the detector", "你好，我明天下午有空，可以一起去", says("zh-TW"), "zh-TW"],
+    ["detector answer that contradicts the script", "这是一段中文，用来测试检测结果", says("ja"), "zh"],
+    ["detector fails, single-candidate script", "これは日本語の文章です、よろしく", broken, "ja"],
     ["several candidates, no detector", "Привет, как дела?", undefined, null],
     ["Latin text, detector answer taken", "Bonjour à tous", says("fr"), "fr"],
     ["Latin text, English stop words", "Thank you for the report, it is very useful", undefined, "en"],
     ["Latin text, unknown language", "Bonjour à tous", says(null), null],
   ])("%s", async (_name, text, detect, expected) => {
-    expect(await detectLanguage(text, detect)).toBe(expected)
+    expect(await detectSourceLanguage(text, detect)).toBe(expected)
   })
 })
 
@@ -109,8 +109,8 @@ describe("Simplified and Traditional Chinese", () => {
   })
 
   it("names Traditional text zh-TW for the services that need a source language", async () => {
-    expect(await detectLanguage(TRADITIONAL)).toBe("zh-TW")
-    expect(await detectLanguage(SIMPLIFIED)).toBe("zh")
+    expect(await detectSourceLanguage(TRADITIONAL)).toBe("zh-TW")
+    expect(await detectSourceLanguage(SIMPLIFIED)).toBe("zh")
   })
 
   it("uses tables of distinct characters of the same length", async () => {
@@ -123,12 +123,12 @@ describe("Simplified and Traditional Chinese", () => {
 })
 
 describe("detector thresholds of the offline tier", () => {
-  it("asks the detector only from minLetters letters on", async () => {
+  it("asks the detector only from 12 letters on", async () => {
     let asked = 0
     const detect: LanguageDetector = async () => (asked++, "de")
-    expect(await detectLanguage("Danke!", detect, { minLetters: 12 })).toBeNull()
+    expect(await detectSourceLanguage("Danke!", detect)).toBeNull()
     expect(asked).toBe(0)
-    expect(await detectLanguage("Vielen Dank für die Antwort", detect, { minLetters: 12 })).toBe("de")
+    expect(await detectSourceLanguage("Vielen Dank für die Antwort", detect)).toBe("de")
     expect(asked).toBe(1)
   })
 

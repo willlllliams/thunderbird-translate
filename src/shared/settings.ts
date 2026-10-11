@@ -169,17 +169,11 @@ function normalizeTiers(stored: Partial<Settings> & LegacySettings): TierSetting
 }
 
 /**
- * Built-in prompts of every release, current ones included: a stored copy
- * of one of them is not the user's own prompt. A release that changes
- * DEFAULT_PROMPTS adds the prompts it replaces here.
+ * Whether `text` is a built-in prompt of some release, the current one
+ * included: a stored copy of one of them is not the user's own prompt. A
+ * release that changes DEFAULT_PROMPTS adds the prompts it replaces here.
  */
-const BUILT_IN_PROMPTS: Record<PromptKind, string[]> = {
-  bilingual: [PROMPT_1_0, DEFAULT_PROMPTS.bilingual],
-  translationOnly: [PROMPT_1_0, DEFAULT_PROMPTS.translationOnly],
-  precise: [PROMPT_1_0, DEFAULT_PROMPTS.precise],
-}
-
-const isBuiltInPrompt = (kind: PromptKind, text: string) => BUILT_IN_PROMPTS[kind].includes(text.trim())
+const isBuiltInPrompt = (kind: PromptKind, text: string) => [PROMPT_1_0, DEFAULT_PROMPTS[kind]].includes(text.trim())
 
 /**
  * Prompts from stored settings; empty stands for the built-in prompt, so a

@@ -20,3 +20,9 @@ function cyrb53(str: string, seed: number): number {
 export function hashText(str: string): string {
   return cyrb53(str, 0).toString(36) + cyrb53(str, 0x9e3779b9).toString(36) + str.length.toString(36)
 }
+
+/** Hex SHA-256 of downloaded files (dictionary packs, offline models). */
+export async function sha256Hex(data: ArrayBuffer | Uint8Array): Promise<string> {
+  const digest = new Uint8Array(await crypto.subtle.digest("SHA-256", data as Uint8Array<ArrayBuffer>))
+  return Array.from(digest, (b) => b.toString(16).padStart(2, "0")).join("")
+}

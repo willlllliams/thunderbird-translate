@@ -153,24 +153,19 @@ export interface FetchOptions {
  */
 export async function fetchOk({ fetchFn, timeoutMs }: FetchOptions, { url, init }: RequestSpec, label: string): Promise<Response> {
   const signal = timeoutMs ? AbortSignal.timeout(timeoutMs) : undefined
-  const failure = (error: unknown) => (signal?.aborted ? new TimeoutError(label, timeoutMs!) : new NetworkError(url, error))
   let resp: Response
   try {
     resp = await (fetchFn ?? fetch)(url, signal ? { ...init, signal } : init)
-  } catch (error) {
-    throw failure(error)
-  }
-  if (resp.ok) {
-    if (!signal) return resp
-    // The timeout covers the body as well: read it here, where an expired signal becomes a TimeoutError.
-    try {
+    if (resp.ok && signal) {
+      // The timeout covers the body as well: read it here, where an expired signal becomes a TimeoutError.
       const body = await resp.arrayBuffer()
       // An empty body stays null: a 204 answer may not carry one.
-      return new Response(body.byteLength ? body : null, resp)
-    } catch (error) {
-      throw failure(error)
+      resp = new Response(body.byteLength ? body : null, resp)
     }
+  } catch (error) {
+    throw signal?.aborted ? new TimeoutError(label, timeoutMs!) : new NetworkError(url, error)
   }
+  if (resp.ok) return resp
   const body = await resp.text().catch(() => "")
   const text: ErrorText = { key: "errHttp", args: [label, String(resp.status)], detail: body ? body.slice(0, 300) : undefined }
   throw new HttpError(

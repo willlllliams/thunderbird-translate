@@ -150,7 +150,6 @@ export class TranslationService {
       queue = new RequestQueue({
         concurrency: () => batch().concurrency,
         maxRetries: () => batch().maxRetries,
-        // A model that timed out would time out again, and each attempt is charged.
         timeoutRetries: getPreset(provider.id)?.kind === "llm" ? 0 : 1,
         sleep: this.deps.sleep,
       })
@@ -186,16 +185,10 @@ export class TranslationService {
     this.contexts.set(context.id, context)
   }
 
-  /** Signature of the installed data a service translates with: dictionary packs or offline models. */
-  private dataSignature(kind: "dictionary" | "bergamot"): Promise<string> {
-    return (kind === "dictionary" ? this.dictionary.signature() : getBergamot().signature()).catch(() => "")
-  }
-
-  /** The work of one tier for one paragraph. `data`: dataSignature() of the service. */
+  /** The work of one tier for one paragraph. `data`: signature of the dictionary packs or offline models the service translates with. */
   private job(req: TranslateRequest, providerId: string, settings: Settings, data: string): Job {
     const provider = resolveProvider(settings, providerId)
-    const preset = getPreset(providerId)
-    const kind = isAiProvider(preset) ? promptKindFor(settings) : undefined
+    const kind = isAiProvider(getPreset(providerId)) ? promptKindFor(settings) : undefined
     const prompt = kind ? promptText(settings.prompts, kind) : undefined
     const context = kind === "precise" && req.context ? this.contexts.get(req.context.id) : undefined
     // Everything besides the text that shapes the result keeps cache entries and batches apart.
@@ -261,7 +254,8 @@ export class TranslationService {
     const data: Partial<Record<Tier, string>> = {}
     for (const tier of tiers) {
       const kind = getPreset(settings.tiers[tier]!)?.kind
-      if (kind === "dictionary" || kind === "bergamot") data[tier] = await this.dataSignature(kind)
+      if (kind === "dictionary") data[tier] = await this.dictionary.signature().catch(() => "")
+      if (kind === "bergamot") data[tier] = await getBergamot().signature().catch(() => "")
     }
     const jobs: [Tier, Job][] = []
     for (const tier of tiers) {

@@ -2,6 +2,12 @@
 
 All notable changes to this project are documented in this file. Versions follow [Semantic Versioning](https://semver.org/).
 
+## 1.6.2
+
+### Changed
+
+- Internal simplification: dictionary packs and offline models share one download routine with the idle timeout, the source language of a paragraph is named by one function, and the tests share their stand-ins. Behavior is unchanged.
+
 ## 1.6.1
 
 ### Fixed

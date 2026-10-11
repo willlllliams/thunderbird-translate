@@ -47,6 +47,17 @@ export function memoryStorage(): KeyValueStorage & { data: Map<string, unknown> 
   }
 }
 
+/** Dictionary stand-in that answers D(<text>), once `gate` resolves. */
+export function fakeDictionary(gate?: Promise<void>) {
+  return {
+    translate: vi.fn(async (texts: string[], _source: string, _target: string) => {
+      await gate
+      return texts.map((t): PromiseSettledResult<string> => ({ status: "fulfilled", value: `D(${t})` }))
+    }),
+    signature: vi.fn(async () => "packs"),
+  }
+}
+
 const serviceSettings = new WeakMap<TranslationService, Settings>()
 
 /** Translation service over `settings`: 5 ms batch window, in-memory cache, retries without waiting. */

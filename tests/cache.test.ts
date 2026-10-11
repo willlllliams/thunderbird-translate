@@ -2,10 +2,8 @@
 import { afterEach, describe, expect, it, vi } from "vitest"
 import { CACHE_STORAGE_KEY, cacheKey, LruCache, PersistentCache } from "../src/background/cache"
 import { hashText } from "../src/shared/hash"
-import { createMailContext } from "../src/shared/mail-context"
-import { promptText } from "../src/shared/prompts"
 import { createDefaultSettings, type Settings } from "../src/shared/settings"
-import { createService, memoryStorage, translateOne } from "./helpers"
+import { createService, fakeDictionary, memoryStorage, translateOne } from "./helpers"
 
 afterEach(() => vi.useRealTimers())
 
@@ -238,10 +236,8 @@ describe("cache keys of the translation service", () => {
     const settings = createDefaultSettings()
     settings.tiers.dictionary = "dictionary"
     let packs = "en>zh-Hans@1"
-    const dictionary = {
-      translate: vi.fn(async (texts: string[]) => texts.map((t): PromiseSettledResult<string> => ({ status: "fulfilled", value: `D(${t})` }))),
-      signature: vi.fn(async () => packs),
-    }
+    const dictionary = fakeDictionary()
+    dictionary.signature.mockImplementation(async () => packs)
     const { service } = createService(settings, { dictionary })
     const ask = () => translateOne(service, { text: "Hello", providerId: "dictionary" })
     await ask()

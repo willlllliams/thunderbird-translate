@@ -3,7 +3,7 @@
  * dependency (fetch, IndexedDB, Worker) injected.
  */
 
-import { IDLE_TIMEOUT_MS, idleSignal, LIST_TIMEOUT_MS, readBody } from "../../shared/download"
+import { downloadBody, IDLE_TIMEOUT_MS, LIST_TIMEOUT_MS } from "../../shared/download"
 import { LocalizedError, TimeoutError } from "../../shared/errors"
 import { hashText } from "../../shared/hash"
 import { pairKey } from "../../shared/languages"
@@ -205,25 +205,17 @@ export class BergamotManager {
 
   /** One file; `onProgress` gets the bytes received so far. Fails when nothing arrives for a while, however long the whole download takes. */
   private async download(url: string, name: string, onProgress: (received: number) => void, signal?: AbortSignal): Promise<Uint8Array<ArrayBuffer>> {
-    const idleMs = this.deps.idleTimeoutMs ?? IDLE_TIMEOUT_MS
-    const idle = idleSignal(idleMs, signal)
-    try {
-      const res = await this.deps.fetch(url, { signal: idle.signal })
+    const request = async (idle: AbortSignal) => {
+      const res = await this.deps.fetch(url, { signal: idle })
       if (!res.ok) throw new LocalizedError("bergamotDownloadFailed", [name], `HTTP ${res.status}`)
-      return await readBody(
-        res,
-        (received) => {
-          idle.kick()
-          onProgress(received)
-        },
-        idle.signal,
-      )
+      return res
+    }
+    try {
+      return await downloadBody(request, onProgress, { name, idleMs: this.deps.idleTimeoutMs ?? IDLE_TIMEOUT_MS, signal })
     } catch (e) {
-      if (idle.stalled()) throw new LocalizedError("errDownloadStalled", [name, String(Math.round(idleMs / 1000))])
+      // A stalled download is a LocalizedError as well.
       if (signal?.aborted || e instanceof LocalizedError) throw e
       throw new LocalizedError("bergamotDownloadFailed", [name], errorText(e))
-    } finally {
-      idle.stop()
     }
   }
 

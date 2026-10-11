@@ -11,9 +11,9 @@
  * source language chosen by the user decides; otherwise a stop-word ratio
  * recognises English.
  *
- * detectLanguage() uses the same steps to name the language of a text, for
- * the services that need a source language (dictionary, offline models);
- * sourceDetector() and detectSourceLanguage() give both the same thresholds.
+ * detectSourceLanguage() uses the same steps to name the language of a text,
+ * for the services that need a source language (dictionary, offline models),
+ * with the detector of sourceDetector().
  */
 
 import { baseLang, languageTag } from "./languages"
@@ -85,7 +85,7 @@ export const SIMPLIFIED_ONLY = "们这说为发会国对时个来过还进动现
 export const TRADITIONAL_ONLY = "們這說為發會國對時個來過還進動現經問題開關長門見東車書學寫讀請謝認識讓給無實從應該樣點電話號業務產處辦網絡郵報際間買賣錢銀計設達運難愛頭體氣萬與將當總結決議論場區級聯"
 
 /** "zh-Hans" or "zh-Hant" when the characters of one standard outnumber the other's; null when the text has none of them. */
-export function chineseScript(text: string): "zh-Hans" | "zh-Hant" | null {
+function chineseScript(text: string): "zh-Hans" | "zh-Hant" | null {
   let hans = 0
   let hant = 0
   for (const ch of text) {
@@ -147,15 +147,22 @@ export async function isInTargetLanguage(text: string, targetLang: string, detec
 const letterCount = (text: string) => text.replace(/[\s\p{N}\p{P}\p{S}]/gu, "").length
 
 /**
- * Language of a text as the detector names it ("en", "zh", "zh-TW"…), or null
- * when neither the script, the detector nor the English stop words tell.
- * The detector is asked only from `minLetters` letters on: on shorter texts
- * its answers are guesses.
+ * Thresholds for naming the source language of a paragraph: the detector is
+ * asked from 12 letters on, and its answer counts when it covers 60 % of the
+ * text. Below that its answers are guesses.
  */
-export async function detectLanguage(text: string, detect?: LanguageDetector, { minLetters = 0 } = {}): Promise<string | null> {
+const MIN_DETECT_LETTERS = 12
+const MIN_DETECT_PERCENTAGE = 60
+
+/**
+ * Source language of a paragraph for the dictionary and the offline models,
+ * as the detector of sourceDetector() names it ("en", "zh", "zh-TW"…), or
+ * null when neither the script, the detector nor the English stop words tell.
+ */
+export async function detectSourceLanguage(text: string, detect?: LanguageDetector): Promise<string | null> {
   const candidates = candidateLanguages(text)
   if (candidates.length === 0) return null
-  if (detect && letterCount(text) >= minLetters) {
+  if (detect && letterCount(text) >= MIN_DETECT_LETTERS) {
     try {
       const detected = await detect(text)
       // The detector also tells Chinese variants apart.
@@ -169,21 +176,9 @@ export async function detectLanguage(text: string, detect?: LanguageDetector, { 
   return englishScore(text) >= 0.12 ? "en" : null
 }
 
-/**
- * Thresholds for naming the source language of a paragraph: the detector is
- * asked from 12 letters on, and its answer counts when it covers 60 % of the
- * text. Below that its answers are guesses.
- */
-const SOURCE_DETECTION = { minLetters: 12, minPercentage: 60 }
-
-/** Source language of a paragraph for the dictionary and the offline models; `detect` comes from sourceDetector(). */
-export function detectSourceLanguage(text: string, detect: LanguageDetector | undefined): Promise<string | null> {
-  return detectLanguage(text, detect, SOURCE_DETECTION)
-}
-
 /** The browser's detector with the thresholds of detectSourceLanguage(). */
 export function sourceDetector(i18n: BrowserI18n | undefined): LanguageDetector | undefined {
-  return browserDetector(i18n, SOURCE_DETECTION.minPercentage)
+  return browserDetector(i18n, MIN_DETECT_PERCENTAGE)
 }
 
 type BrowserI18n = { detectLanguage?: (t: string) => Promise<{ isReliable: boolean; languages: { language: string; percentage: number }[] }> }

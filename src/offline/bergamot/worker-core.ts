@@ -12,7 +12,7 @@ import { zstdDecompress } from "./verify"
 interface Deletable {
   delete(): void
 }
-export interface AlignedMemory extends Deletable {
+interface AlignedMemory extends Deletable {
   getByteArrayView(): Uint8Array
 }
 interface Vector<T> extends Deletable {
@@ -20,16 +20,16 @@ interface Vector<T> extends Deletable {
   get(i: number): T
   push_back(v: T): void
 }
-export interface TranslationModel extends Deletable {}
+interface TranslationModel extends Deletable {}
 interface Response {
   getTranslatedText(): string
 }
-export interface ResponseOptions {
+interface ResponseOptions {
   qualityScores: boolean
   alignment: boolean
   html: boolean
 }
-export interface BlockingService extends Deletable {
+interface BlockingService extends Deletable {
   translate(model: TranslationModel, texts: Vector<string>, options: Vector<ResponseOptions>): Vector<Response>
   translateViaPivoting(first: TranslationModel, second: TranslationModel, texts: Vector<string>, options: Vector<ResponseOptions>): Vector<Response>
 }

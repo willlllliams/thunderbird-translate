@@ -1,7 +1,7 @@
 /** sha256 checks and zstd decompression of model files. */
 
 import { decompress } from "fzstd"
-import { sha256Hex } from "../../shared/download"
+import { sha256Hex } from "../../shared/hash"
 
 export interface ExpectedFile {
   name: string
@@ -11,7 +11,7 @@ export interface ExpectedFile {
   decompressedSize: number
 }
 
-export type VerifyFailure = { ok: false; stage: "compressed" | "decompressed" | "zstd"; detail: string }
+type VerifyFailure = { ok: false; stage: "compressed" | "decompressed" | "zstd"; detail: string }
 export type VerifyResult = { ok: true } | VerifyFailure
 
 /** Check the compressed hash, decompress, then check the decompressed size and hash. */

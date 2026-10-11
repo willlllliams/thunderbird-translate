@@ -12,7 +12,7 @@ import { pairKey } from "../../shared/languages"
 const MODEL_FILE_TYPES = ["model", "lex", "vocab", "srcvocab", "trgvocab"] as const
 export type ModelFileType = (typeof MODEL_FILE_TYPES)[number]
 
-export interface RemoteAttachment {
+interface RemoteAttachment {
   /** Path below the attachments base URL. */
   location: string
   /** sha256 (hex) of the compressed file. */

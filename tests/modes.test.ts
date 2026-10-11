@@ -9,7 +9,7 @@ import type { TranslateRequest, TranslateResponse } from "../src/shared/messages
 import { DEFAULT_PROMPTS } from "../src/shared/prompts"
 import type { Tier } from "../src/shared/providers"
 import { createDefaultSettings, type Settings } from "../src/shared/settings"
-import { anthropicMessage, asFetch, createService, jsonResponse, type OneRequest, translateOne } from "./helpers"
+import { anthropicMessage, asFetch, createService, fakeDictionary, jsonResponse, type OneRequest, translateOne } from "./helpers"
 
 function deferred() {
   let resolve!: () => void
@@ -43,17 +43,6 @@ function fakeLlm(gate?: Promise<void>, analysis: MailAnalysis | null = null) {
     analyze: vi.fn(async (_text: string, _opts: LlmCallOptions): Promise<MailAnalysis | null> => analysis),
   } satisfies LlmImpl
   return { llm, calls }
-}
-
-/** Dictionary stand-in that answers D(<text>). */
-function fakeDictionary(gate?: Promise<void>) {
-  return {
-    translate: vi.fn(async (texts: string[], _source: string, _target: string) => {
-      await gate
-      return texts.map((t): PromiseSettledResult<string> => ({ status: "fulfilled", value: `D(${t})` }))
-    }),
-    signature: vi.fn(async () => "packs"),
-  }
 }
 
 type Extra = { llm?: LlmImpl; fetchFn?: unknown; dictionary?: ReturnType<typeof fakeDictionary> }

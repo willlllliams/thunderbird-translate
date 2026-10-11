@@ -17,7 +17,7 @@
 
 import type { MessageKey } from "./i18n"
 
-export type PresetId = "dialect" | "keepTerms" | "explainTerms" | "style"
+type PresetId = "dialect" | "keepTerms" | "explainTerms" | "style"
 
 export interface PresetOption {
   id: string
