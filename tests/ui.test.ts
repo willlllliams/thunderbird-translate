@@ -461,8 +461,6 @@ describe("offline models on the settings page", () => {
       switch (req.type) {
         case "bergamotList":
           return { ok: true, pairs: PAIRS }
-        case "bergamotRequired":
-          return req.src === "ja" ? { required: [["ja", "en"], ["en", "zh-Hans"]], missing: [["ja", "en"]] } : { required: [["en", "zh-Hans"]], missing: [] }
         case "bergamotInstall":
           return new Promise((r) => (finishInstall = r))
         case "bergamotProgress":

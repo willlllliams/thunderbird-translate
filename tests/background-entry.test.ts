@@ -394,7 +394,7 @@ describe("requests from pages", () => {
     expect(await bg.send({ type: "cacheStats" })).toEqual({ size: 0 })
   })
 
-  it.each(["bergamotList", "bergamotProgress", "bergamotInstall", "bergamotCancel", "bergamotRemove", "bergamotRequired"])("hands %s to the offline model manager", async (type) => {
+  it.each(["bergamotList", "bergamotProgress", "bergamotInstall", "bergamotCancel", "bergamotRemove"])("hands %s to the offline model manager", async (type) => {
     const handleBergamot = vi.fn(async (req: { type: string }) => ({ handled: req.type }))
     vi.doMock("../src/background/bergamot-admin", () => ({ handleBergamot }))
     const bg = await start({ stored: stored(createDefaultSettings()) })

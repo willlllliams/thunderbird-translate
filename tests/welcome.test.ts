@@ -384,8 +384,6 @@ describe("welcome page", () => {
               { src: "fr", tgt: "en", version: "1", architecture: "base", bytes: 30e6, rawBytes: 1, installed: false },
             ],
           }
-        case "bergamotRequired":
-          return { required: [["ja", "en"], ["en", "zh-Hans"]], missing: [["ja", "en"]] }
         case "bergamotInstall":
           return { ok: true }
         case "bergamotProgress":
@@ -603,7 +601,7 @@ describe("welcome page", () => {
     const requests: BackgroundRequest[] = []
     const respond = (req: BackgroundRequest) => {
       requests.push(req)
-      return req.type === "bergamotList" ? { ok: true, pairs: [] } : req.type === "bergamotRequired" ? { required: [], missing: [] } : undefined
+      return req.type === "bergamotList" ? { ok: true, pairs: [] } : undefined
     }
     await openPage("welcome", settings((s) => (s.tiers.dictionary = "dictionary")), { stored: { [WELCOME_KEY]: { step: "offline" } }, respond })
     await vi.waitFor(() => expect(current()).toBe("offline"))

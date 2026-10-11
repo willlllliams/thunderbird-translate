@@ -118,20 +118,6 @@ describe("model management in the background script", () => {
     expect(await handleBergamot({ type: "bergamotInstall", src: "ja", tgt: "en" })).toEqual({ ok: false, error: "disk full" })
   })
 
-  it("names the directions a language pair needs", async () => {
-    expect(await handleBergamot({ type: "bergamotRequired", src: "ja", tgt: "zh-CN" })).toEqual({
-      required: [
-        ["ja", "en"],
-        ["en", "zh-Hans"],
-      ],
-      missing: [["ja", "en"]],
-    })
-    expect(engine.missingPairs).toHaveBeenCalledWith([
-      ["ja", "en"],
-      ["en", "zh-Hans"],
-    ])
-  })
-
   it("removes a pair", async () => {
     expect(await handleBergamot({ type: "bergamotRemove", src: "ja", tgt: "en" })).toEqual({ ok: true })
     expect(engine.remove).toHaveBeenCalledWith("ja", "en")
@@ -145,13 +131,6 @@ describe("model management failures", () => {
     expect(engine.listPairs).toHaveBeenCalledWith(false)
     engine.remove.mockRejectedValueOnce(new Error("locked"))
     expect(await handleBergamot({ type: "bergamotRemove", src: "ja", tgt: "en" })).toEqual({ ok: false, error: "locked" })
-  })
-
-  it.each([
-    ["auto", "en"],
-    ["", "de"],
-  ])("needs nothing for the languages %j → %j", async (src, tgt) => {
-    expect(await handleBergamot({ type: "bergamotRequired", src, tgt })).toEqual({ required: [], missing: [] })
   })
 
   it("ignores cancelling a pair that is not being installed", async () => {

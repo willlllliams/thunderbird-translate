@@ -117,10 +117,19 @@ export function recommendedLanguages(codes: Partial<Record<LanguageSource, reado
   return [...found].map(([tag, sources]) => ({ tag, sources }))
 }
 
-/** Sources of a direction: those of its languages other than English, most important first; empty when none is recommended. */
+/**
+ * Sources of a direction, most important first; empty when it is not
+ * recommended. A direction with English is recommended when its other
+ * language is; a direct pack between two other languages when both are
+ * recommended and one of them is the target language.
+ */
 export function itemSources(service: OfflineService, id: string, recommended: readonly SourcedLanguage[]): LanguageSource[] {
   const sides = id.split(">").filter((tag) => tag !== "en")
-  const sources = new Set(recommended.filter((l) => sides.includes(serviceLang(service, l.tag) ?? "")).flatMap((l) => l.sources))
+  const of = (tag: string) => recommended.find((l) => serviceLang(service, l.tag) === tag)?.sources ?? []
+  const per = sides.map(of)
+  if (per.some((s) => s.length === 0)) return []
+  if (sides.length === 2 && !per.some((s) => s.includes("target"))) return []
+  const sources = new Set(per.flat())
   return LANGUAGE_SOURCES.filter((s) => sources.has(s))
 }
 

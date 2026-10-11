@@ -270,7 +270,6 @@ async function handle(req: BackgroundRequest): Promise<unknown> {
     case "bergamotList":
     case "bergamotProgress":
     case "bergamotCancel":
-    case "bergamotRequired":
       return handleBergamot(req)
     case "clearCache":
       return cache.clear()
