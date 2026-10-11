@@ -14,12 +14,14 @@ Bu belge daha önce Thunderbird eklentisi kullanmamış okurlar için yazılmı�
 - İki görünüm modu: iki dilli modda özgün metnin altına açık renkli sol kenarlığı olan bir çeviri bloğu eklenir; bu blok koyu temalarda da okunur. Yalnızca çeviri modunda özgün metnin yerine çeviri gösterilir; özgün metin bellekte tutulur ve çeviri kapatıldığında geri konur.
 - Anlık güncelleme: bir ileti çevrilmişken görünüm modu veya hedef dil değiştirilirse sayfa, ileti yeniden açılmadan yeniden çizilir. Görünüm modunun değiştirilmesi önceden alınmış çevirilerle yeniden çizim yapar ve yeni istek göndermez.
 - Giriş noktaları: ileti başlığı araç çubuğundaki "İletiyi çevir" düğmesi ve açılır penceresi, ayrıca Alt+A (çevir / özgün metni göster) ve Alt+S (iki dilli / yalnızca çeviri arasında geç) kısayolları.
-- İsteğe bağlı otomatik çeviri: hedef dilde olmayan iletiler açıldıkları anda çevrilir.
+- Açılışta otomatik çevir (isteğe bağlı): hedef dilde olmayan iletiler açıldıkları anda çevrilir.
 - İstek gruplama: arka plan betiği paragrafları 50 ms boyunca toplar ve tek bir istekte birleştirir. Eşzamanlı istek sınırı, üstel geri çekilmeli yeniden deneme ve yerel önbellek de bu sürecin parçasıdır.
 - Üç çeviri kademesi: sözlük, makine çevirisi ve yapay zekâ. Her kademenin kendi hizmeti vardır ya da kademe kullanılmaz; her paragraf kullanılan tüm kademelere aynı anda gider. Alt kademenin sonucu, en yüksek kademe onun yerini alana kadar geçici çeviri olarak gösterilir ve en yüksek kademe başarısız olursa yerinde kalır.
 - Hizmetler: çevrimdışı bir sözlük, 4 makine çevirmeni (Google Translate, Microsoft Translator, DeepLX, çevrimdışı Bergamot modelleri) ve 22 yapay zekâ sağlayıcısı ön ayarı; bu ön ayarlardan biri "Özel OpenAI uyumlu" seçeneğidir. Kademe listelerinde yalnızca eklediğiniz hizmetler görünür.
 - Kaynak dil: otomatik algılama veya sabit bir dil; seçilen değer her hizmete iletilir.
 - Yapay zekâ kademesi için üç istem: biri iki dilli görünüm, biri yalnızca çeviri görünümü, biri de hassas çeviri için.
+- İstem hazır ayarları: hedef dilin bölgesel bir çeşidi, zor sözcüklerin ardından parantez içinde özgün terim, zor sözcüklere kısa açıklamalar ve dört yazım üslubu için hazır kurallar. Bir hazır ayar üç istemden herhangi birine eklenir.
+- Kurulum rehberi: kurulumdan sonra açılır ve dilleri, görünüm modunu, kademeleri, çevrimdışı indirmeleri, hizmetleri ve istemleri adım adım ayarlar. Son adımda örnek bir iletinin deneme çevirisini yapar.
 - Hassas çeviri (yapay zekâ kademesi): her isteğin bağlamı iletinin tamamıdır; bu sayede adlar, terimler ve hitap biçimleri paragraflar arasında tutarlı kalır.
 - Her yapay zekâ sağlayıcısı için varsayılan olarak kapalı bir düşünme modu anahtarı.
 - 12 dilde arayüz. Arayüz dili varsayılan olarak Thunderbird'ün dilini izler ve ayarlar sayfasından seçilebilir.
@@ -44,9 +46,39 @@ npm test
 npm run build
 ```
 
-`npm run build`, arka plan betiğini, içerik betiğini, açılır pencereyi ve ayarlar sayfasını esbuild ile `dist/` dizinine paketler, `locales/` içindeki dosyalardan `dist/_locales/<language>/messages.json` dosyalarını üretir ve `dist/` dizinini `web-ext-artifacts/thunderbird-translate-<version>.xpi` olarak paketler. Paketleme saf JavaScript ile yazılmış fflate kitaplığını kullanır ve sistemde zip komutu gerektirmez.
+`npm run build`, arka plan betiğini, içerik betiğini, açılır pencereyi, ayarlar sayfasını ve kurulum rehberini esbuild ile `dist/` dizinine paketler, `locales/` içindeki dosyalardan `dist/_locales/<language>/messages.json` dosyalarını üretir ve `dist/` dizinini `web-ext-artifacts/thunderbird-translate-<version>.xpi` olarak paketler. Paketleme saf JavaScript ile yazılmış fflate kitaplığını kullanır ve sistemde zip komutu gerektirmez.
 
 Geliştirme sırasında eklenti paketlenmeden yüklenebilir: Thunderbird'de Araçlar → Geliştirici araçları → Eklentilerde hata ayıkla'yı açın, "Geçici eklenti yükle…" düğmesine tıklayın ve `dist/manifest.json` dosyasını seçin.
+
+## Kurulum rehberi
+
+Yeni bir kurulumdan sonra Thunderbird kurulum rehberini bir sekmede açar. Eklentinin veya Thunderbird'ün güncellenmesi rehberi açmaz. Rehber daha sonra açılır penceredeki "Kurulum rehberi" bağlantısıyla ve ayarlar sayfasının üst kısmındaki "Kurulum rehberi" düğmesiyle açılabilir.
+
+Her adım tek bir karar ister ve seçimi hemen kaydeder. "Geri", "İleri" ve "Bu adımı atla" adımlar arasında geçiş yapar. İlerleme çubuğunun altındaki numaralı liste herhangi bir adıma atlar. "Rehberden çık" sekmeyi istendiği an kapatır. Rehber bir sonraki açılışta bırakıldığı adımdan devam eder; "Bitir" düğmesine basıldıktan sonra baştan başlar.
+
+| Adım | İçerik | Gösterildiği durum |
+| --- | --- | --- |
+| 1 Diller | arayüz dili, kaynak dil (varsayılan olarak "Otomatik algıla"), hedef dil | her zaman |
+| 2 Görünüm | iki dilli veya yalnızca çeviri; örnek bir iletinin geçerli çeviri stiliyle önizlemesi | her zaman |
+| 3 Çeviri kademeleri | sözlük, makine çevirisi ve yapay zekâ kademelerinin hızı, kalitesi, gizliliği ve maliyeti; her kademenin hizmeti veya "Kullanılmıyor"; en az bir kademenin hizmeti olmalıdır | her zaman |
+| 4 Çevrimdışı çeviri | 1. adımdaki dillerin gerektirdiği sözlük paketleri ve Bergamot yönleri, boyut, lisans ve kaynak belirtimiyle; işaretlenenler "Seçilenleri indir" ile ilerleme gösterilerek indirilir | sözlük kademesi kullanılıyor veya makine çevirisi kademesi Bergamot kullanıyor |
+| 5 Çevrimiçi makine çevirisi | makine çevirmeninin alanları: Google için doldurulacak alan yoktur; Microsoft için "Varsayılan arayüz (ücretsiz)" veya "Kendi anahtarımı kullan (Azure Translator)" seçilir; DeepLX için uç nokta ve belirteç girilir; "Bağlantıyı test et" | makine çevirisi kademesi Google, Microsoft veya DeepLX kullanıyor |
+| 6 Yapay zekâ çevirisi | yapay zekâ sağlayıcısı, API anahtarı, model, sıcaklık ve düşünme modu, "Bağlantıyı test et" ve "Hassas çeviri" anahtarı; düşünme modunun ve hassas çevirinin çeviriyi yavaşlattığını ve pahalılaştırdığını belirten bir not | yapay zekâ kademesi kullanılıyor |
+| 7 İstemler | üç istem ve hazır ayar kitaplığı (bkz. "İstem hazır ayarları") | yapay zekâ kademesi kullanılıyor |
+| 8 Hazır | çeviri yolları (araç çubuğu düğmesi, Alt+A, Alt+S), "Hedef dilde olmayan iletileri otomatik olarak çevir" anahtarı ve "Örnek iletiyi çevir" düğmesi | her zaman |
+
+Önceki seçimlerin gerektirmediği bir adım listede üstü çizili olarak kalır ve gezinme onu atlar. Örneğin 3. adımda bir yapay zekâ hizmeti seçilirse 6. ve 7. adımlar yeniden etkin olur.
+
+Kaynak dil Japonca, hedef dil Basitleştirilmiş Çince olduğunda 4. adım şunları önerir:
+
+- sözlük: sürümde Japonca → Çince paketi varsa bu paket, yoksa Japonca → İngilizce ve İngilizce → Çince paketleri;
+- Bergamot: ja → en ve en → zh-Hans yönleri, çünkü her Bergamot modelinin bir tarafı İngilizcedir.
+
+"Otomatik algıla" seçiliyken 4. adım İngilizceden başlayan paketleri ve yönleri listeler. Listenin altındaki bir not, aldığınız diğer her dil için o dilden İngilizceye giden yönün kurulmasını ister.
+
+Son adımdaki (8. adım) "Örnek iletiyi çevir" düğmesi sayfada kısa bir İngilizce ileti gösterir (hedef dil İngilizceyse Almanca bir ileti) ve onu geçerli ayarlarla çevirir. Sayfa, içerik betiğinin paragraf algılama ve görüntüleme modüllerini kullanır ve istekleri arka plan betiğine görüntülenen bir iletiyle aynı bağlantı üzerinden gönderir. Bu yüzden sonuç, kullanılan kademeler dahil, gerçek bir iletinin nasıl görüneceğini gösterir.
+
+Rehber ayarlar sayfasıyla aynı bileşenleri kullanır: hizmet alanları ve bağlantı testi, sözlük ve Bergamot listeleri, hazır ayarlarıyla birlikte istem düzenleyicisi.
 
 ## Kullanım
 
@@ -58,6 +90,7 @@ Bir ileti açın. İleti başlığı araç çubuğunda "İletiyi çevir" düğme
 - Çeviri kademeleri: her kademe için bir liste vardır (Kademe 1: Sözlük, Kademe 2: Makine çevirisi, Kademe 3: Yapay zekâ çevirisi). Her liste "Kullanılmıyor" seçeneğini ve o kademeye eklenmiş hizmetleri içerir. En az bir kademenin bir hizmeti olmalıdır; kullanılan son kademe için "Kullanılmıyor" seçilirse seçim reddedilir ve bir uyarı gösterilir. Listelerin altındaki "+ Çeviri hizmeti ekle" ayarlar sayfasını çeviri hizmetleri bölümünde açar.
 - Hassas çeviri: yapay zekâ kademesinin bir hizmeti olduğunda görünür.
 - Hedef dilde olmayan iletileri otomatik olarak çevir: işaretliyse, gövdesi hedef dilde olmayan bir ileti açıldığı anda çevrilir.
+- "Kurulum rehberi": kurulum rehberini yeni bir sekmede açar.
 
 Açılır pencere ilerlemeyi gösterir, örneğin "Çevrildi: 8 / 12". Hâlâ bir alt kademenin geçici çevirisini gösteren paragraflar ayrı sayılır, örneğin "Çevrildi: 7 / 9 (2 geçici)". Bir paragraf için tüm kademeler başarısız olursa paragrafın arkasında kırmızı renkte "Çeviri başarısız oldu, yeniden denemek için tıklayın" yazısı belirir. Fare imleci üzerine getirildiğinde hata gösterilir; tıklandığında o paragraf yeniden denenir.
 
@@ -67,16 +100,16 @@ Yalnızca çeviri modunda fare imleci bir çevirinin üzerine getirildiğinde ö
 
 ## Ayarlar
 
-Ayarlar sayfası, Eklenti yöneticisinde bu eklentinin "Seçenekler" düğmesiyle açılır. Ayarlar otomatik olarak kaydedilir; yazıldıklarında sağ üst köşede "Kaydedildi" görünür.
+Ayarlar sayfası, Eklenti yöneticisinde bu eklentinin "Seçenekler" düğmesiyle açılır. Ayarlar otomatik olarak kaydedilir; yazıldıklarında sağ üst köşede "Kaydedildi" görünür. Bu yazının yanındaki "Kurulum rehberi" düğmesi kurulum rehberini açar.
 
 | Bölüm | İçerik |
 | --- | --- |
-| Genel | Arayüz dili, kaynak dil, hedef dil, varsayılan görünüm modu, otomatik çeviri |
+| Genel | Arayüz dili, kaynak dil, hedef dil, varsayılan görünüm modu, "Hedef dilde olmayan iletileri otomatik olarak çevir" anahtarı |
 | Çeviri kademeleri | Her kademenin hizmeti veya "Kullanılmıyor"; hassas çeviri |
 | Çeviri hizmetleri | İki grupta hizmetler, "Eklenenler" ve "Eklenebilenler"; her hizmetin uç noktası, API anahtarı, modeli, sıcaklığı ve düşünme modu; "Bağlantıyı test et", "Ekle", "Bu hizmeti kullan" ve "Kaldır" düğmeleri |
 | Sözlükler | Sözlük kademesinin dil çiftleri, boyut, lisans ve kaynak belirtimiyle; indirme ve silme; paketlerin sürüm etiketi (gelişmiş) |
 | Çevrimdışı çeviri modelleri (Bergamot) | Bergamot modellerinin yön çiftleri, boyut ve sürümle; dile göre süzme; indirme, güncelleme, iptal ve silme; geçerli dillerin gerektirdiği yönler |
-| İstemler (yapay zekâ kademesi) | İki dilli görüntüleme, yalnızca çeviri görüntüleme ve hassas çeviri istemleri; her birinde "Yerleşik istemi geri yükle" düğmesi |
+| İstemler (yapay zekâ kademesi) | Hazır ayar kitaplığı; iki dilli görüntüleme, yalnızca çeviri görüntüleme ve hassas çeviri istemleri; her birinde "Yerleşik istemi geri yükle" düğmesi |
 | İstek gruplama | Toplama aralığı, istek başına en fazla karakter ve paragraf sayısı, eşzamanlı istek sayısı, yeniden deneme sayısı, yapay zekâ isteklerinin birleştirilip birleştirilmeyeceği |
 | Çeviri stili | Sol kenarlık, kesikli sol kenarlık, vurgulama veya sade; vurgu rengi, metin opaklığı, yazı tipi boyutu oranı; anlık önizleme |
 | Önbellek | Önbelleği açma veya kapatma, önbellekteki en fazla paragraf sayısı, geçerli kayıt sayısı, önbelleği temizleme |
@@ -151,6 +184,29 @@ Yapay zekâ kademesinin üç sistem istemi vardır. Her biri ayarlar sayfasında
 | Hassas çeviri | hassas çeviri açıkken yapay zekâ kademesi, iki görünüm modunda da | terim listesi, özet ve komşu paragraflar kullanılarak ileti boyunca tutarlı terimler, adlar ve hitap biçimleri |
 
 Önbellek anahtarları ve grup anahtarları istemin türünü ve metninin özet değerini içerir. Bu nedenle bir istem düzenlendiğinde eski metinle yapılmış çeviriler hiçbir zaman döndürülmez. 1.3 veya daha eski bir sürümün kaydettiği özel sistem istemi iki görünüm modunun da istemi olur; hassas çeviri istemi yerleşik metniyle başlar.
+
+### İstem hazır ayarları
+
+Hazır ayar kitaplığı ayarlar sayfasında üç istemin üstünde ve kurulum rehberinin 7. adımında bulunur. Bir hazır ayar şöyle uygulanır:
+
+1. "Hazır ayar" listesinden bir hazır ayar seçin. Hazır ayarın çeşitleri varsa "Çeşit" listesinden bir çeşit seçin.
+2. "Eklenecek istem" listesinden bir istem seçin.
+3. "Hazır ayarı uygula" düğmesine tıklayın.
+
+"Örnek:" satırı bir kaynak cümleyi ve seçilen hazır ayarın beklenen sonucunu gösterir.
+
+| Hazır ayar | Çeşitler | İsteme eklenen kural |
+| --- | --- | --- |
+| Ağız veya bölgesel kullanım | hedef dile göre: Basitleştirilmiş Çince için Kantonca (Hong Kong) ve Sichuan ağzı; Geleneksel Çince için Kantonca (Hong Kong) ve Tayvan kullanımı; İngiliz İngilizcesi ve Amerikan İngilizcesi; Brezilya Portekizcesi ve Avrupa Portekizcesi; Meksika İspanyolcası ve İspanya İspanyolcası; Kanada Fransızcası (Quebec); İsviçre standart Almancası | o çeşitle, onun yazımı, sözcük dağarcığı ve hitap biçimleriyle yazmak |
+| Zor sözcüklerde özgün terim | yok | normal çevirmek ve her zor sözcüğün veya teknik terimin ardından özgün terimi parantez içinde, paragraf başına bir kez vermek, örneğin "durum tespiti (due diligence)" |
+| Zor sözcüklerin açıklaması | yok | paragrafı çevirmek, ardından paragraftaki zor sözcükleri aynı paragrafın sonunda tek bir parantez içinde hedef dilde açıklamak: 〔Not: terim: açıklama; …〕 |
+| Yazım üslubu | resmî iş dili, gündelik, öğrenenler için sade dil, edebî | o üslubu kullanmak ve anlamın tamamını korumak |
+
+Çeşit listesi hedef dile göre değişir. Japonca gibi bölgesel çeşidi olmayan bir hedef dilde "Ağız veya bölgesel kullanım" hazır ayarı sunulmaz.
+
+Bir hazır ayar, istemin sonuna boş bir satırdan sonra İngilizce bir kural bloğu ekler. Blok `Style (this rule takes precedence over the rules above):` gibi bir başlıkla başlar. Bu yüzden blok, yerleşik istemdeki "Do not add explanations" gibi genel kuralların önüne geçer. Aynı hazır ayar yeniden uygulanınca kendi bloğunun yerini alır; farklı hazır ayarların blokları birbirine eklenir. İstem kutusu birleşik metni gösterir ve düzenlenebilir kalır. "Yerleşik istemi geri yükle" tüm eklemeleri kaldırır.
+
+Hazır ayarlar paragraf başına tek çeviri ilkesini korur. Zor sözcüklerin açıklamaları kendi paragraflarının çevirisinin içinde kalır ve blok bunların ayrı bir paragraf veya dizi öğesi olarak döndürülmesini yasaklar. Bu yüzden bir grup yine paragraf başına tam olarak bir öğe içeren bir JSON dizisi (veya numaralandırılmış bölümler) olarak döner. Testler dört hazır ayarın hepsini tek bir isteme uygular ve taklit edilmiş bir modelin yanıtını iki biçimde de ayrıştırır.
 
 ## Hassas çeviri
 
@@ -410,6 +466,9 @@ Girdi token sayısı yaklaşık %63 azalır ve istek sayısı 20'den 1'e düşer
 - Düşünme anahtarı model adlarının eşleştirilmesiyle çalışır. Adı hiçbir kalıba uymayan yeni bir model, `src/background/providers/thinking.ts` içindeki tablo genişletilene kadar düşünme parametresi almaz.
 - Kullanılan her kademe kendi isteklerini gönderir. Yapay zekâ kademesi ve makine çevirisi kademesi birlikte kullanıldığında her ileti makine çevirmenine de istek gönderir; bu istekler ücretsiz Google ve Microsoft uç noktalarının hız sınırlarına sayılır.
 - Sözlük çevirisi sözcük sözcük bir karşılıktır: kaynak metnin sözcük sırasını korur ve sözcükleri çekimlemez. Paketlerde bulunmayan sözcükler çevrilmeden kalır.
+- Kurulum rehberinin örnek iletisi İngilizcedir; hedef dil İngilizce olduğunda Almancadır. Kaynak dil bu ikisinden farklı bir dile sabitlenmişse deneme çevirisi İngilizce metni yine o kaynak dille gönderir.
+- Kurulum rehberi etkin sekmeyken Alt+A'ya basılırsa örnek ileti çevrilir veya özgün hâline döner. Bu durumda deneme düğmesinin etiketi değişmez.
+- Hazır ayarlar modele verilen talimatlardır. Bir ağzın veya üslubun ne kadar izlendiği modele bağlıdır; küçük modeller bölgesel çeşitleri daha sık karıştırır.
 - Bergamot ve sözlük bir grubu tek bir kaynak dille çevirir. Otomatik algılamada Bergamot tüm grubun dilini algılar; bu yüzden dilleri karışık bir grup, baskın dildeymiş gibi çevrilir.
 
 ## Testler
@@ -421,7 +480,7 @@ npm run locales:check  # check every locales/<language>.json against locales/en.
 npm run live-test      # call the real Google and Microsoft endpoints through the extension's own modules, with and without a source language
 ```
 
-Birim testleri şunları kapsar: grup oluşturma ve kuyruklar; yapay zekâ çıktısının ayrıştırılması ve geri dönüş; paragraf algılama ile iki dilli ve yalnızca çeviri görüntüleme ve geri yükleme (jsdom içinde); Google, Microsoft ve DeepLX için istek oluşturma ve yanıt ayrıştırma (taklit edilmiş fetch ile); her yapay zekâ ön ayarının istek URL'si ve kimlik doğrulama başlıkları; her sağlayıcının düşünme parametreleri; ayarların eklenen hizmetlere, kademelere ve istemlere taşınması; açılır pencere ve ayarlar sayfasındaki kademe listeleri, tüm kademelerin boş bırakılmasının reddedilmesi ve kaldırma koruması; kademeler (önce yanıt veren ve sonra yerini bırakan alt kademe, önce yanıt veren en yüksek kademe ve ardından yok sayılan alt kademe sonuçları, başarısız olan en yüksek kademe ve korunan alt kademe sonucu, tüm kademelerin başarısız olması, kullanılmayan kademeler, önbellekteki en yüksek kademe); istem seçimi ve önbellek anahtarları; yapay zekâ kademesini yeniden sorgulayan ve diğer kademeleri yalnızca yeniden çizen görünüm modu değişikliği; her hizmetin isteklerinde ve önbellek anahtarında kaynak dil; sözlük paketleri (ayrıştırma, sözcüklere ayırma ve ifade eşleştirme, çekimli biçimler, İngilizce üzerinden çeviri, eksik paketler, sağlama toplamıyla indirme; bellek içi bir IndexedDB ile); taklit edilmiş bir motorla Bergamot hizmeti ve model yönetimi; hassas çeviri (tek istek, gruplarla analiz, başarısız analiz, önbellek anahtarları ve iletiye göre gruplar, Anthropic önbellek denetimiyle aynı istem öneki); yerelleştirme. Yerelleştirme testleri tüm dillerde anahtar kümelerinin ve yer tutucuların aynı olduğunu, bildirimdeki her `__MSG_*__` başvurusunu, Thunderbird dillerinin desteklenen dillere eşlenmesini, eksik anahtarlar için İngilizceye geri dönüşü ve HTML sayfalarında ve kaynak kodda sabit kodlanmış arayüz metni bulunmadığını denetler.
+Birim testleri şunları kapsar: grup oluşturma ve kuyruklar; yapay zekâ çıktısının ayrıştırılması ve geri dönüş; paragraf algılama ile iki dilli ve yalnızca çeviri görüntüleme ve geri yükleme (jsdom içinde); Google, Microsoft ve DeepLX için istek oluşturma ve yanıt ayrıştırma (taklit edilmiş fetch ile); her yapay zekâ ön ayarının istek URL'si ve kimlik doğrulama başlıkları; her sağlayıcının düşünme parametreleri; ayarların eklenen hizmetlere, kademelere ve istemlere taşınması; açılır pencere ve ayarlar sayfasındaki kademe listeleri, tüm kademelerin boş bırakılmasının reddedilmesi ve kaldırma koruması; kademeler (önce yanıt veren ve sonra yerini bırakan alt kademe, önce yanıt veren en yüksek kademe ve ardından yok sayılan alt kademe sonuçları, başarısız olan en yüksek kademe ve korunan alt kademe sonucu, tüm kademelerin başarısız olması, kullanılmayan kademeler, önbellekteki en yüksek kademe); istem seçimi ve önbellek anahtarları; yapay zekâ kademesini yeniden sorgulayan ve diğer kademeleri yalnızca yeniden çizen görünüm modu değişikliği; her hizmetin isteklerinde ve önbellek anahtarında kaynak dil; sözlük paketleri (ayrıştırma, sözcüklere ayırma ve ifade eşleştirme, çekimli biçimler, İngilizce üzerinden çeviri, eksik paketler, sağlama toplamıyla indirme; bellek içi bir IndexedDB ile); taklit edilmiş bir motorla Bergamot hizmeti ve model yönetimi; hassas çeviri (tek istek, gruplarla analiz, başarısız analiz, önbellek anahtarları ve iletiye göre gruplar, Anthropic önbellek denetimiyle aynı istem öneki); kurulum rehberi (yalnızca yeni kurulumda açılma, atlanan adımlarla ve kalınan adımdan devam ederek adımlar arasında gezinme, her adımın kaydedilmesi, önerilen sözlük paketleri ve Bergamot yönleri ile bunların indirilmesi, hizmet yapılandırması ve bağlantı testi, istemlerde hazır ayarlar, içerik betiği modülleri üzerinden deneme çevirisi); istem hazır ayarları (hedef dile göre çeşitler, üç istemin her biriyle birleştirme, aynı hazır ayarın kendi bloğunun yerini alması, tüm hazır ayarlar uygulanmışken grup ayrıştırma); yerelleştirme. Yerelleştirme testleri tüm dillerde anahtar kümelerinin ve yer tutucuların aynı olduğunu, bildirimdeki her `__MSG_*__` başvurusunu, Thunderbird dillerinin desteklenen dillere eşlenmesini, eksik anahtarlar için İngilizceye geri dönüşü ve HTML sayfalarında ve kaynak kodda sabit kodlanmış arayüz metni bulunmadığını denetler.
 
 `npm run build:debug`, bir ileti açılır açılmaz çeviriye başlayan ve ilerlemeyi konsola yazan bir hata ayıklama xpi'si üretir; bu sürüm tüm akışı gerçek bir Thunderbird'de denetlemek içindir.
 
@@ -432,7 +491,8 @@ src/
   background/    background script: translation service, batch and request queues, cache, provider factory, translators, dictionary, offline model management
   content/       content script: paragraph detection, rendering, language detection, translation state
   popup/         popup
-  options/       settings page
+  options/       settings page and the parts the setup guide shares: service fields, dictionary and Bergamot lists, prompt editor, settings session
+  welcome/       setup guide: steps and navigation
   offline/       Bergamot engine module: model list, download, storage, worker
   shared/        shared settings, provider presets, prompts, language table and detection, message types, i18n runtime
 locales/         interface text, one JSON file per language; en.json is the reference

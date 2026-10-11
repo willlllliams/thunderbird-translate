@@ -53,20 +53,26 @@ export function createService(settings: Settings, deps: Partial<ServiceDeps> = {
 const localeSources = readLocaleSources()
 
 /**
- * Load the popup or the settings page and run its script with a fake
- * extension API holding `settings`. `respond` answers background requests;
- * cacheStats reports an empty cache.
+ * Load the popup, the settings page or the welcome page and run its script
+ * with a fake extension API holding `settings` (and `stored`, other
+ * storage.local keys). `respond` answers background requests; cacheStats
+ * reports an empty cache.
  */
 export async function openPage(
-  page: "popup" | "options",
+  page: "popup" | "options" | "welcome",
   settings: Settings,
   {
     uiLanguage = "en-US",
     respond,
     fetchUrl,
+    connect,
+    stored: other = {},
   }: {
     uiLanguage?: string
     respond?: (req: BackgroundRequest) => unknown
+    /** runtime.connect(), for the content script's Port. */
+    connect?: (info: { name: string }) => unknown
+    stored?: Record<string, unknown>
     /** Answers fetch() for URLs other than the packaged messages, e.g. the dictionary index; a failed request otherwise. */
     fetchUrl?: (url: string) => Promise<Response>
   } = {},
@@ -74,18 +80,29 @@ export async function openPage(
   const html = readFileSync(join(__dirname, "..", "static", `${page}.html`), "utf8")
   document.documentElement.innerHTML = new DOMParser().parseFromString(html, "text/html").documentElement.innerHTML
   let stored = structuredClone(settings)
+  const local: Record<string, unknown> = structuredClone(other)
   const created: string[] = []
+  const removed: number[] = []
   const listeners: ((changes: object, area: string) => void)[] = []
   const notify = () => listeners.forEach((l) => l({ settings: { newValue: structuredClone(stored) } }, "local"))
   const sendMessage = vi.fn(async (req: BackgroundRequest) => respond?.(req) ?? (req.type === "cacheStats" ? { size: 0 } : undefined))
   vi.stubGlobal("browser", {
-    runtime: { sendMessage, getURL: (path: string) => `moz-extension://test/${path}`, openOptionsPage: vi.fn() },
-    tabs: { query: async () => [], create: vi.fn(async ({ url }: { url: string }) => void created.push(url)) },
+    runtime: { sendMessage, getURL: (path: string) => `moz-extension://test/${path}`, openOptionsPage: vi.fn(), connect },
+    tabs: {
+      query: async () => [],
+      create: vi.fn(async ({ url }: { url: string }) => void created.push(url)),
+      getCurrent: async () => ({ id: 7 }),
+      remove: async (id: number) => void removed.push(id),
+    },
     storage: {
       local: {
-        get: async () => ({ settings: structuredClone(stored) }),
-        set: async (v: { settings: Settings }) => {
-          stored = structuredClone(v.settings)
+        get: async (key: string) => (key === "settings" ? { settings: structuredClone(stored) } : { [key]: structuredClone(local[key]) }),
+        set: async (v: Record<string, unknown>) => {
+          for (const [key, value] of Object.entries(v)) {
+            if (key !== "settings") local[key] = structuredClone(value)
+          }
+          if (!("settings" in v)) return
+          stored = structuredClone(v.settings as Settings)
           notify()
         },
       },
@@ -101,11 +118,15 @@ export async function openPage(
     if (fetchUrl) return fetchUrl(url)
     throw new TypeError("NetworkError when attempting to fetch resource.")
   })
-  await (page === "popup" ? import("../src/popup/index") : import("../src/options/index"))
+  const modules = { popup: () => import("../src/popup/index"), options: () => import("../src/options/index"), welcome: () => import("../src/welcome/index") }
+  await modules[page]()
   return {
     created,
+    removed,
     sendMessage,
     stored: () => stored,
+    /** Other storage.local keys, e.g. the welcome page's state. */
+    local: (key: string) => local[key],
     /** Another page writes settings. `announce` = false: the storage change event has not reached this page yet. */
     external(change: (s: Settings) => void, announce = true) {
       change(stored)

@@ -10,8 +10,15 @@
  * in race mode, or a fast result kept after the AI request failed.
  */
 
-import type { DisplayMode, StylePreset } from "../shared/settings"
+import type { DisplayMode, Settings, StylePreset } from "../shared/settings"
 import { CLS_STATUS, CLS_TRANSLATION, type Unit } from "./paragraphs"
+
+/** The colour, opacity and size of the translations inside `el`, as CSS variables. */
+export function setStyleVars(el: HTMLElement, style: Settings["style"]): void {
+  el.style.setProperty("--tt-color", style.color)
+  el.style.setProperty("--tt-opacity", String(style.opacity))
+  el.style.setProperty("--tt-scale", String(style.fontScale))
+}
 
 interface UnitDom {
   added: HTMLElement | null

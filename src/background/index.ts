@@ -18,6 +18,7 @@ import { handleBergamot } from "./bergamot-admin"
 import { type KeyValueStorage, PersistentCache } from "./cache"
 import { Dictionary } from "./dictionary"
 import { TranslationService } from "./service"
+import { openWelcomeOnInstall } from "./welcome"
 
 declare const __DEBUG__: boolean
 
@@ -189,6 +190,13 @@ ext.commands.onCommand.addListener(async (command: string, tab?: browser.tabs.Ta
   } else if (command === "toggle-display-mode") {
     await updateSettings((s) => (s.mode = s.mode === "bilingual" ? "translation-only" : "bilingual"))
   }
+})
+
+/* ---------- installation ---------- */
+
+ext.runtime.onInstalled.addListener((details) => {
+  if (__DEBUG__) console.info("[thunderbird-translate] installed:", details.reason)
+  void openWelcomeOnInstall(details)
 })
 
 /* ---------- content script registration ---------- */

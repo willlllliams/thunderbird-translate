@@ -30,12 +30,14 @@ Each line below introduces the extension in one language and links to the full R
 - Two display modes: bilingual mode inserts a translation block with a light left border under the original, readable in dark themes as well. Translation-only mode replaces the original with the translation; the original is kept in memory and put back when translation is turned off.
 - Live updates: changing the display mode or the target language while a message is translated re-renders the page without reopening the message. Changing the display mode redraws from translations already received and sends no new requests.
 - Entry points: the "Translate message" button in the message header toolbar with its popup, and the shortcuts Alt+A (translate / show original) and Alt+S (switch bilingual / translation-only).
-- Optional automatic translation: messages not in the target language are translated as soon as they are opened.
+- Optional translation on opening: messages not in the target language are translated as soon as they are opened.
 - Request batching: the background script collects paragraphs for 50 ms and merges them into one request, with a concurrency limit, retries with exponential backoff, and a local cache.
 - Three translation tiers: dictionary, machine translation and AI. Each tier has its own service or is not used; every paragraph goes to all tiers in use at once. A lower tier is shown as a provisional translation until the highest tier replaces it, and stays when the highest tier fails.
 - Services: an offline dictionary, 4 machine translators (Google Translate, Microsoft Translator, DeepLX, offline Bergamot models) and 22 AI provider presets, one of which is "Custom OpenAI-compatible". Only the services you have added appear in the tier lists.
 - Source language: automatic detection or a fixed language, passed to every service.
 - Three prompts for the AI tier: one for bilingual display, one for translation-only display and one for precise translation.
+- Prompt presets: ready-made rules for a regional variety of the target language, difficult words with the original in parentheses, short explanations of difficult words, and four writing styles, added to any of the three prompts.
+- Setup guide: opens after installation and sets up languages, display mode, tiers, offline downloads, services and prompts step by step, ending with a trial translation of a sample message.
 - Precise translation (AI tier): the whole message is the context of every request, so names, terms and forms of address stay consistent across paragraphs.
 - Thinking mode switch for each AI provider, off by default.
 - Interface in 12 languages. The interface language follows Thunderbird by default and can be chosen on the settings page.
@@ -60,9 +62,34 @@ npm test
 npm run build
 ```
 
-`npm run build` bundles the background script, the content script, the popup and the settings page into `dist/` with esbuild, generates `dist/_locales/<language>/messages.json` from the files in `locales/`, and packs `dist/` into `web-ext-artifacts/thunderbird-translate-<version>.xpi`. Packing uses the pure JavaScript fflate library and needs no system zip command.
+`npm run build` bundles the background script, the content script, the popup, the settings page and the setup guide into `dist/` with esbuild, generates `dist/_locales/<language>/messages.json` from the files in `locales/`, and packs `dist/` into `web-ext-artifacts/thunderbird-translate-<version>.xpi`. Packing uses the pure JavaScript fflate library and needs no system zip command.
 
 During development you can load the extension without packing it: in Thunderbird open Tools → Developer Tools → Debug Add-ons, click "Load Temporary Add-on" and select `dist/manifest.json`.
+
+## Setup guide
+
+After a new installation Thunderbird opens the setup guide in a tab. Updates of the extension or of Thunderbird do not open it. The guide is also available later from the "Setup guide" link in the popup and the "Setup guide" button at the top of the settings page.
+
+Each step asks for one decision and saves it at once. "Back", "Next" and "Skip this step" move between steps, the numbered list under the progress bar jumps to any step, and "Exit guide" closes the tab at any time. The next visit starts at the step where the guide was left; after "Finish" it starts from the beginning.
+
+| Step | Contents | Shown when |
+| --- | --- | --- |
+| 1 Languages | interface language, source language ("Detect automatically" by default), target language | always |
+| 2 Display | bilingual or translation only, with a preview of a sample message in the current translation style | always |
+| 3 Translation tiers | speed, quality, privacy and cost of the dictionary, machine translation and AI tiers; the service of each tier or "Not used", at least one tier with a service | always |
+| 4 Offline translation | the dictionary packs and Bergamot directions the languages of step 1 need, with size, license and attribution; tick the ones to download, then "Download selected" with progress | the dictionary tier is used or the machine tier uses Bergamot |
+| 5 Online machine translation | the fields of the machine translator: nothing to fill in for Google, free or Azure key mode for Microsoft, endpoint and token for DeepLX; "Test connection" | the machine tier uses Google, Microsoft or DeepLX |
+| 6 AI translation | the AI provider, its API key, model, temperature and thinking mode, "Test connection", and the precise translation switch; a note that thinking mode and precise translation make translation slower and more expensive | the AI tier is used |
+| 7 Prompts | the three prompts and the preset library (see Prompt presets) | the AI tier is used |
+| 8 Done | how to translate (toolbar button, Alt+A, Alt+S), the switch "Automatically translate messages not in the target language", and "Translate the sample message" | always |
+
+A step that the earlier choices do not need stays in the list, struck through, and the navigation passes over it. Choosing an AI service in step 3, for example, brings steps 6 and 7 back.
+
+For a source language set to Japanese and a target language set to Simplified Chinese, step 4 lists the dictionary pack Japanese → Chinese when the release has it, otherwise Japanese → English and English → Chinese, and the Bergamot directions ja → en and en → zh-Hans, since every Bergamot model has English on one side. With "Detect automatically" it lists the packs and directions from English, and a note asks for the direction into English of every other language you receive.
+
+"Translate the sample message" in step 8 renders a short English email in the page (a German one when the target language is English) and translates it with the current settings. The page uses the paragraph detection and rendering of the content script and sends the requests to the background script over the same connection as a displayed message, so the result shows what a real message will look like, including the tiers in use.
+
+The guide uses the same components as the settings page: the service fields and connection test, the dictionary and Bergamot lists, and the prompt editor with its presets.
 
 ## Usage
 
@@ -74,6 +101,7 @@ Open a message. A "Translate message" button appears in the message header toolb
 - Translation tiers: one list per tier (1 dictionary, 2 machine translation, 3 AI translation), each with "Not used" and the added services of that tier. At least one tier needs a service; choosing "Not used" for the last one is refused with a note. "+ Add translation service" below the lists opens the settings page at the translation services.
 - Precise translation: shown while the AI tier has a service.
 - Automatically translate messages not in the target language: when checked, a message whose body is not in the target language is translated as soon as it is opened.
+- Setup guide: opens the setup guide in a new tab.
 
 The popup shows the progress, for example "Translated 8 of 12". Paragraphs that still show a provisional translation of a lower tier are counted separately, for example "Translated 7 of 9 (2 provisional)". When every tier fails for a paragraph, a red "Translation failed, click to retry" appears after it; hovering shows the error and clicking retries that paragraph.
 
@@ -83,16 +111,16 @@ In translation-only mode, hovering over a translation shows the original text in
 
 ## Settings
 
-Open the settings page with the "Options" button of this extension in the Add-ons Manager. Settings are saved automatically; "Saved" appears in the top right corner once they are written.
+Open the settings page with the "Options" button of this extension in the Add-ons Manager. Settings are saved automatically; "Saved" appears in the top right corner once they are written. The "Setup guide" button next to it opens the setup guide.
 
 | Section | Contents |
 | --- | --- |
-| General | Interface language, source language, target language, default display mode, automatic translation |
+| General | Interface language, source language, target language, default display mode, the switch "Automatically translate messages not in the target language" |
 | Translation tiers | The service of each tier or "Not used"; precise translation |
 | Translation services | Services in two groups, "Added" and "Available to add"; endpoint, API key, model, temperature and thinking mode of each service; "Test connection", "Add", "Use this service" and "Remove" buttons |
 | Dictionaries | Language pairs of the dictionary tier with size, license and attribution; download and delete; release tag of the packs (advanced) |
 | Offline translation models (Bergamot) | Direction pairs of the Bergamot models with size and version; filter by language; download, update, cancel and delete; the directions the current languages need |
-| Prompts (AI tier) | The prompts for bilingual display, translation-only display and precise translation, each with "Restore built-in prompt" |
+| Prompts (AI tier) | The preset library; the prompts for bilingual display, translation-only display and precise translation, each with "Restore built-in prompt" |
 | Request batching | Collection window, maximum characters and paragraphs per request, concurrency, retries, whether to merge AI requests |
 | Translation style | Left border, dashed left border, highlight or plain; accent color, text opacity, font size ratio; live preview |
 | Cache | Cache on or off, maximum cached paragraphs, current number of entries, clear cache |
@@ -167,6 +195,23 @@ The AI tier has three system prompts. Each can be edited on the settings page an
 | Precise translation | the AI tier while precise translation is on, in both display modes | consistent terms, names and forms of address across the message, using the glossary, the summary and the neighbouring paragraphs |
 
 Cache keys and batch keys contain the kind of prompt and a hash of its text. Editing a prompt therefore never returns translations made with the old text. A custom system prompt saved by version 1.3 or earlier becomes the prompt of both display modes; the precise prompt starts with its built-in text.
+
+### Prompt presets
+
+The preset library sits above the three prompts on the settings page and in step 7 of the setup guide. Choose a preset, a variant where the preset has variants, and the prompt to add it to, then click "Apply preset". The line "Example" shows a source sentence and the expected result of the chosen preset.
+
+| Preset | Variants | Rule added to the prompt |
+| --- | --- | --- |
+| Dialect or regional usage | by target language: Cantonese (Hong Kong) and Sichuanese for Simplified Chinese; Cantonese (Hong Kong) and Taiwan usage for Traditional Chinese; British and American English; Brazilian and European Portuguese; Mexican Spanish and Spanish of Spain; Canadian French (Quebec); Swiss Standard German | write in that variety, with its spelling, vocabulary and forms of address |
+| Difficult words with the original | none | translate normally and put the original term in parentheses after each difficult word or technical term, once per paragraph, for example 尽职调查（due diligence） |
+| Explanations of difficult words | none | translate the paragraph, then explain its difficult words in the target language at the end of the same paragraph in one bracket: 〔Note: term: explanation; …〕 |
+| Writing style | formal business, casual, plain language for learners, literary | use that register and keep the complete meaning |
+
+The variant list follows the target language. A target language without varieties, such as Japanese, does not offer the dialect preset.
+
+A preset adds a block of English rules to the end of the prompt, after a blank line. The block starts with a heading such as `Style (this rule takes precedence over the rules above):`, so it overrides general rules of the built-in prompt such as "Do not add explanations". Applying the same preset again replaces its block; different presets add up. The prompt box shows the combined text and stays editable, and "Restore built-in prompt" removes every addition.
+
+The presets keep one translation per paragraph. The explanations of difficult words stay inside the translation of their paragraph, and the block forbids returning them as a separate paragraph or array element, so a batch still comes back as a JSON array (or numbered segments) with exactly one entry per paragraph. The tests apply all four presets to one prompt and parse the answer of a mocked model in both formats.
 
 ## Precise translation
 
@@ -426,6 +471,9 @@ Input tokens drop by about 63%, and the number of requests drops from 20 to 1. O
 - The thinking switch works by matching model names. A new model whose name matches none of the patterns gets no thinking parameter until the table in `src/background/providers/thinking.ts` is extended.
 - Every tier in use sends its own requests. With the AI tier and the machine tier both in use, each message also costs requests to the machine translator, which count against the rate limits of the free Google and Microsoft endpoints.
 - Dictionary translation is a word-by-word gloss: it keeps the word order of the source and does not inflect. Words outside the packs stay untranslated.
+- The sample message of the setup guide is in English, or in German when the target language is English. With a fixed source language other than these two, the trial still sends that source language with the English text.
+- Alt+A pressed while the setup guide is the active tab translates or restores the sample message; the label of the trial button then does not follow.
+- The presets are instructions to the model. How closely a dialect or style is followed depends on the model; small models mix regional varieties more often.
 - Bergamot and the dictionary translate a batch with one source language. With automatic detection, Bergamot detects the language of the whole batch, so a batch that mixes languages is translated as the dominant one.
 
 ## Tests
@@ -437,7 +485,7 @@ npm run locales:check  # check every locales/<language>.json against locales/en.
 npm run live-test      # call the real Google and Microsoft endpoints through the extension's own modules, with and without a source language
 ```
 
-The unit tests cover batch grouping and queues, AI output parsing and fallback, paragraph detection with bilingual and translation-only rendering and restoring (in jsdom), request building and response parsing for Google, Microsoft and DeepLX (with a mocked fetch), the request URL and authentication headers of every AI preset, the thinking parameters of every provider, the migration of settings to added services and to tiers and prompts, the popup and settings page tier lists, the refusal of all-empty tiers and the removal protection, the tiers (lower tier first and replaced, highest tier first with later lower results ignored, highest tier failing with the lower result kept, all tiers failing, unused tiers, cached highest tier), prompt selection and cache keys, a display mode switch that asks the AI tier again and only re-renders the others, the source language in the requests of every service and in the cache key, dictionary packs (parsing, word splitting and phrase matching, inflected forms, translation through English, missing packs, download with checksum, with an in-memory IndexedDB), the Bergamot service and its model management with a mocked engine, precise translation (single request, analysis with batches, failed analysis, cache keys and batches per message, identical prompt prefix with Anthropic cache control), and localization: identical key sets and placeholders in all languages, every `__MSG_*__` reference in the manifest, mapping of Thunderbird languages to supported languages, fallback to English for missing keys, and the absence of hard-coded interface text in the HTML pages and sources.
+The unit tests cover batch grouping and queues, AI output parsing and fallback, paragraph detection with bilingual and translation-only rendering and restoring (in jsdom), request building and response parsing for Google, Microsoft and DeepLX (with a mocked fetch), the request URL and authentication headers of every AI preset, the thinking parameters of every provider, the migration of settings to added services and to tiers and prompts, the popup and settings page tier lists, the refusal of all-empty tiers and the removal protection, the tiers (lower tier first and replaced, highest tier first with later lower results ignored, highest tier failing with the lower result kept, all tiers failing, unused tiers, cached highest tier), prompt selection and cache keys, a display mode switch that asks the AI tier again and only re-renders the others, the source language in the requests of every service and in the cache key, dictionary packs (parsing, word splitting and phrase matching, inflected forms, translation through English, missing packs, download with checksum, with an in-memory IndexedDB), the Bergamot service and its model management with a mocked engine, precise translation (single request, analysis with batches, failed analysis, cache keys and batches per message, identical prompt prefix with Anthropic cache control), the setup guide (opening only on a new installation, step navigation with skipped steps and resuming, saving of every step, recommended dictionary packs and Bergamot directions and their download, service configuration and connection test, presets on the prompts, the trial translation through the content script modules), the prompt presets (variants by target language, composition with each of the three prompts, replacement of the same preset, batch parsing with every preset applied), and localization: identical key sets and placeholders in all languages, every `__MSG_*__` reference in the manifest, mapping of Thunderbird languages to supported languages, fallback to English for missing keys, and the absence of hard-coded interface text in the HTML pages and sources.
 
 `npm run build:debug` produces a debug xpi that starts translating as soon as a message is opened and writes progress to the console, for checking the whole flow in a real Thunderbird.
 
@@ -448,7 +496,8 @@ src/
   background/    background script: translation service, batch and request queues, cache, provider factory, translators, dictionary, offline model management
   content/       content script: paragraph detection, rendering, language detection, translation state
   popup/         popup
-  options/       settings page
+  options/       settings page and the parts the setup guide shares: service fields, dictionary and Bergamot lists, prompt editor, settings session
+  welcome/       setup guide: steps and navigation
   offline/       Bergamot engine module: model list, download, storage, worker
   shared/        shared settings, provider presets, prompts, language table and detection, message types, i18n runtime
 locales/         interface text, one JSON file per language; en.json is the reference

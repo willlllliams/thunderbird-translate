@@ -14,12 +14,14 @@ Ce document s’adresse à des lecteurs qui n’ont encore jamais utilisé d’e
 - Deux modes d’affichage : le mode bilingue insère sous l’original un bloc de traduction marqué d’une fine bordure gauche, lisible aussi avec les thèmes sombres. Le mode traduction seule remplace l’original par la traduction ; l’original est conservé en mémoire et remis en place lorsque la traduction est désactivée.
 - Mises à jour en direct : changer le mode d’affichage ou la langue cible pendant qu’un message est traduit actualise la page sans rouvrir le message. Changer le mode d’affichage redessine la page à partir des traductions déjà reçues et n’envoie aucune nouvelle requête.
 - Points d’accès : le bouton « Traduire le message » de la barre d’outils de l’en-tête du message, avec sa fenêtre contextuelle, et les raccourcis Alt+A (traduire / afficher l’original) et Alt+S (basculer entre bilingue et traduction seule).
-- Traduction automatique facultative : les messages qui ne sont pas dans la langue cible sont traduits dès leur ouverture.
+- Traduire automatiquement à l’ouverture (facultatif) : les messages qui ne sont pas dans la langue cible sont traduits dès leur ouverture.
 - Regroupement des requêtes : le script d’arrière-plan collecte les paragraphes pendant 50 ms et les fusionne en une seule requête, avec une limite de requêtes simultanées, de nouvelles tentatives à intervalle exponentiel et un cache local.
 - Trois niveaux de traduction : dictionnaire, traduction automatique et IA. Chaque niveau a son propre service ou n’est pas utilisé ; chaque paragraphe est envoyé en même temps à tous les niveaux utilisés. Un niveau inférieur s’affiche comme traduction provisoire jusqu’à ce que le niveau le plus élevé la remplace, et reste affiché lorsque le niveau le plus élevé échoue.
 - Services : un dictionnaire hors ligne, 4 traducteurs automatiques (Google Translate, Microsoft Translator, DeepLX, modèles hors ligne Bergamot) et 22 préréglages de fournisseurs d’IA, dont « Service personnalisé compatible OpenAI ». Seuls les services que vous avez ajoutés apparaissent dans les listes des niveaux.
 - Langue source : détection automatique ou langue fixée, transmise à chaque service.
 - Trois invites pour le niveau IA : une pour l’affichage bilingue, une pour l’affichage de la traduction seule et une pour la traduction précise.
+- Préréglages d’invite : des règles prêtes à l’emploi pour une variante régionale de la langue cible, pour les mots difficiles suivis de l’original entre parenthèses, pour de courtes explications des mots difficiles et pour quatre styles d’écriture, à ajouter à l’une des trois invites.
+- Guide de configuration : il s’ouvre après l’installation et règle pas à pas les langues, le mode d’affichage, les niveaux, les téléchargements hors ligne, les services et les invites ; il se termine par la traduction d’essai d’un message d’exemple.
 - Traduction précise (niveau IA) : le message entier sert de contexte à chaque requête, de sorte que les noms, les termes et les formes d’adresse restent cohérents d’un paragraphe à l’autre.
 - Commutateur du mode réflexion pour chaque fournisseur d’IA, désactivé par défaut.
 - Interface en 12 langues. La langue de l’interface suit celle de Thunderbird par défaut et peut être choisie sur la page de paramètres.
@@ -44,9 +46,45 @@ npm test
 npm run build
 ```
 
-`npm run build` regroupe avec esbuild le script d’arrière-plan, le script de contenu, la fenêtre contextuelle et la page de paramètres dans `dist/`, génère `dist/_locales/<language>/messages.json` à partir des fichiers de `locales/`, puis empaquette `dist/` dans `web-ext-artifacts/thunderbird-translate-<version>.xpi`. L’empaquetage utilise la bibliothèque fflate, écrite en JavaScript pur, et ne nécessite aucune commande zip du système.
+`npm run build` regroupe avec esbuild le script d’arrière-plan, le script de contenu, la fenêtre contextuelle, la page de paramètres et le guide de configuration dans `dist/`, génère `dist/_locales/<language>/messages.json` à partir des fichiers de `locales/`, puis empaquette `dist/` dans `web-ext-artifacts/thunderbird-translate-<version>.xpi`. L’empaquetage utilise la bibliothèque fflate, écrite en JavaScript pur, et ne nécessite aucune commande zip du système.
 
 Pendant le développement, vous pouvez charger l’extension sans l’empaqueter : dans Thunderbird, ouvrez Outils → Outils de développement → Déboguer les modules, cliquez sur « Charger un module temporaire… » et sélectionnez `dist/manifest.json`.
+
+## Guide de configuration
+
+Après une nouvelle installation, Thunderbird ouvre le guide de configuration dans un onglet. Les mises à jour de l’extension ou de Thunderbird ne l’ouvrent pas. Le guide reste accessible ensuite par le lien « Guide de configuration » de la fenêtre contextuelle et par le bouton « Guide de configuration » en haut de la page de paramètres.
+
+Chaque étape demande une seule décision et l’enregistre aussitôt. On navigue entre les étapes de trois façons :
+
+- « Précédent », « Suivant » et « Passer cette étape » passent d’une étape à l’autre.
+- La liste numérotée sous la barre de progression mène directement à n’importe quelle étape.
+- « Quitter le guide » ferme l’onglet à tout moment.
+
+La visite suivante reprend à l’étape où le guide a été quitté. Après « Terminer », elle recommence au début.
+
+| Étape | Contenu | Affichée lorsque |
+| --- | --- | --- |
+| 1 Langues | langue de l’interface, langue source (« Détecter automatiquement » par défaut), langue cible | toujours |
+| 2 Affichage | bilingue ou traduction seule, avec un aperçu d’un message d’exemple dans le style de traduction actuel | toujours |
+| 3 Niveaux de traduction | vitesse, qualité, confidentialité et coût des niveaux dictionnaire, traduction automatique et IA ; le service de chaque niveau ou « Non utilisé », avec au moins un niveau doté d’un service | toujours |
+| 4 Traduction hors ligne | les packs de dictionnaires et les directions Bergamot nécessaires aux langues de l’étape 1, avec taille, licence et attribution ; on coche ceux à télécharger, puis « Télécharger la sélection » les télécharge en affichant la progression | le niveau dictionnaire est utilisé, ou le niveau traduction automatique utilise Bergamot |
+| 5 Traduction automatique en ligne | les champs du traducteur automatique : rien à remplir pour Google, mode gratuit ou mode avec clé Azure pour Microsoft, point de terminaison et jeton pour DeepLX ; « Tester la connexion » | le niveau traduction automatique utilise Google, Microsoft ou DeepLX |
+| 6 Traduction par l’IA | le fournisseur d’IA, sa clé d’API, le modèle, la température et le mode réflexion, « Tester la connexion » et l’option « Traduction précise » ; une remarque indique que le mode réflexion et la traduction précise rendent la traduction plus lente et plus coûteuse | le niveau IA est utilisé |
+| 7 Invites | les trois invites et la bibliothèque de préréglages (voir Préréglages d’invite) | le niveau IA est utilisé |
+| 8 Terminé | la façon de traduire (bouton de la barre d’outils, Alt+A, Alt+S), l’option « Traduire automatiquement les messages qui ne sont pas dans la langue cible » et « Traduire le message d’exemple » | toujours |
+
+Une étape dont les choix précédents n’ont pas besoin reste dans la liste, barrée, et la navigation la saute. Par exemple, choisir un service d’IA à l’étape 3 fait revenir les étapes 6 et 7.
+
+Avec le japonais comme langue source et le chinois simplifié comme langue cible, l’étape 4 recommande les téléchargements suivants :
+
+- Dictionnaire : le pack japonais → chinois lorsque la publication le contient, sinon les deux packs japonais → anglais et anglais → chinois.
+- Bergamot : les directions ja → en et en → zh-Hans, car chaque modèle Bergamot a l’anglais d’un côté.
+
+Avec « Détecter automatiquement », l’étape 4 recommande les packs et les directions à partir de l’anglais. Une remarque demande alors d’installer la direction vers l’anglais de chaque autre langue que vous recevez.
+
+« Traduire le message d’exemple », à l’étape 8, affiche dans la page un court e-mail en anglais (en allemand lorsque la langue cible est l’anglais) et le traduit avec les paramètres actuels. La page utilise la détection des paragraphes et le rendu du script de contenu. Elle envoie les requêtes au script d’arrière-plan par la même connexion qu’un message affiché. Le résultat montre donc l’aspect qu’aura un vrai message, niveaux utilisés compris.
+
+Le guide utilise les mêmes composants que la page de paramètres : les champs des services et le test de connexion, les listes des dictionnaires et de Bergamot, et l’éditeur d’invites avec ses préréglages.
 
 ## Utilisation
 
@@ -58,6 +96,7 @@ Ouvrez un message. Un bouton « Traduire le message » apparaît dans la barre
 - Niveaux de traduction : une liste par niveau (1 Dictionnaire, 2 Traduction automatique, 3 Traduction par l’IA), chacune avec « Non utilisé » et les services ajoutés de ce niveau. Au moins un niveau doit avoir un service ; choisir « Non utilisé » pour le dernier niveau utilisé est refusé avec une remarque. « + Ajouter un service de traduction » sous les listes ouvre la page de paramètres sur les services de traduction.
 - Traduction précise : affichée lorsque le niveau IA a un service.
 - Traduire automatiquement les messages qui ne sont pas dans la langue cible : lorsque cette case est cochée, un message dont le corps n’est pas dans la langue cible est traduit dès son ouverture.
+- Guide de configuration : ouvre le guide de configuration dans un nouvel onglet.
 
 La fenêtre contextuelle affiche la progression, par exemple « 8 sur 12 traduits ». Les paragraphes qui affichent encore la traduction provisoire d’un niveau inférieur sont comptés à part, par exemple « 7 sur 9 traduits (2 provisoires) ». Lorsque tous les niveaux échouent pour un paragraphe, la mention rouge « Échec de la traduction, cliquez pour réessayer » apparaît après lui ; le survol affiche l’erreur et un clic relance la traduction de ce paragraphe.
 
@@ -67,16 +106,16 @@ En mode traduction seule, le survol d’une traduction affiche le texte original
 
 ## Paramètres
 
-Ouvrez la page de paramètres avec le bouton « Options » de cette extension dans le gestionnaire de modules complémentaires. Les paramètres sont enregistrés automatiquement ; « Enregistré » s’affiche en haut à droite une fois l’écriture terminée.
+Ouvrez la page de paramètres avec le bouton « Options » de cette extension dans le gestionnaire de modules complémentaires. Les paramètres sont enregistrés automatiquement ; « Enregistré » s’affiche en haut à droite une fois l’écriture terminée. Le bouton « Guide de configuration », à côté de cette mention, ouvre le guide de configuration.
 
 | Section | Contenu |
 | --- | --- |
-| Général | Langue de l’interface, langue source, langue cible, mode d’affichage par défaut, traduction automatique |
+| Général | Langue de l’interface, langue source, langue cible, mode d’affichage par défaut, option « Traduire automatiquement les messages qui ne sont pas dans la langue cible » |
 | Niveaux de traduction | Le service de chaque niveau ou « Non utilisé » ; traduction précise |
 | Services de traduction | Services répartis en deux groupes, « Ajoutés » et « Disponibles » ; point de terminaison, clé d’API, modèle, température et mode réflexion de chaque service ; boutons « Tester la connexion », « Ajouter », « Utiliser ce service » et « Retirer » |
 | Dictionnaires | Paires de langues du niveau dictionnaire, avec taille, licence et attribution ; téléchargement et suppression ; étiquette de version des packs (avancé) |
 | Modèles de traduction hors ligne (Bergamot) | Paires de directions des modèles Bergamot, avec taille et version ; filtre par langue ; téléchargement, mise à jour, annulation et suppression ; directions nécessaires aux langues actuelles |
-| Invites (niveau IA) | Les invites de l’affichage bilingue, de l’affichage de la traduction seule et de la traduction précise, chacune avec « Rétablir l’invite intégrée » |
+| Invites (niveau IA) | La bibliothèque de préréglages ; les invites de l’affichage bilingue, de l’affichage de la traduction seule et de la traduction précise, chacune avec « Rétablir l’invite intégrée » |
 | Regroupement des requêtes | Fenêtre de collecte, nombre maximal de caractères et de paragraphes par requête, requêtes simultanées, nouvelles tentatives, fusion ou non des requêtes d’IA |
 | Style de traduction | Bordure gauche, bordure gauche en tirets, surlignage ou sans style ; couleur d’accentuation, opacité du texte, taille de police relative ; aperçu en direct |
 | Cache | Cache activé ou désactivé, nombre maximal de paragraphes en cache, nombre actuel d’entrées, vidage du cache |
@@ -155,6 +194,29 @@ Le niveau IA a trois invites système. Chacune se modifie sur la page de paramè
 | Traduction précise | le niveau IA tant que la traduction précise est activée, dans les deux modes d’affichage | des termes, des noms et des formes d’adresse cohérents dans tout le message, à l’aide du glossaire, du résumé et des paragraphes voisins |
 
 Les clés de cache et les clés de lot contiennent le type d’invite et une empreinte de son texte. Modifier une invite ne renvoie donc jamais de traductions faites avec l’ancien texte. Une invite système personnalisée enregistrée par la version 1.3 ou antérieure devient l’invite des deux modes d’affichage ; l’invite de traduction précise commence avec son texte intégré.
+
+### Préréglages d’invite
+
+La bibliothèque de préréglages se trouve au-dessus des trois invites sur la page de paramètres, et à l’étape 7 du guide de configuration. Pour appliquer un préréglage :
+
+1. Choisissez un préréglage dans « Préréglage ». Si le préréglage a des variantes, choisissez aussi une variante dans « Variante ».
+2. Choisissez dans « Ajouter à l’invite » l’invite qui reçoit le préréglage.
+3. Cliquez sur « Appliquer le préréglage ».
+
+La ligne « Exemple » montre une phrase source et le résultat attendu avec le préréglage choisi.
+
+| Préréglage | Variantes | Règle ajoutée à l’invite |
+| --- | --- | --- |
+| Dialecte ou usage régional | selon la langue cible : cantonais (Hong Kong) et sichuanais pour le chinois simplifié ; cantonais (Hong Kong) et usage de Taïwan pour le chinois traditionnel ; anglais britannique et anglais américain ; portugais du Brésil et portugais européen ; espagnol du Mexique et espagnol d’Espagne ; français canadien (Québec) ; allemand standard suisse | rédiger dans cette variante, avec son orthographe, son vocabulaire et ses formes d’adresse |
+| Mots difficiles avec l’original | aucune | traduire normalement et mettre le terme original entre parenthèses après chaque mot difficile ou terme technique, une fois par paragraphe, par exemple « audit préalable (due diligence) » |
+| Explication des mots difficiles | aucune | traduire le paragraphe, puis expliquer ses mots difficiles dans la langue cible à la fin du même paragraphe, dans une seule paire de crochets : 〔Note : terme : explication ; …〕 |
+| Style d’écriture | professionnel soutenu, familier, langage simple pour apprenants, littéraire | adopter ce registre et conserver le sens complet |
+
+La liste des variantes suit la langue cible. Une langue cible sans variantes, comme le japonais, ne propose pas le préréglage « Dialecte ou usage régional ».
+
+Un préréglage ajoute un bloc de règles en anglais à la fin de l’invite, après une ligne vide. Le bloc commence par un titre comme `Style (this rule takes precedence over the rules above):`. Il l’emporte donc sur les règles générales de l’invite intégrée, comme « Do not add explanations ». Appliquer de nouveau le même préréglage remplace son bloc ; des préréglages différents s’additionnent. Le champ de l’invite affiche le texte combiné et reste modifiable. « Rétablir l’invite intégrée » retire tous les ajouts.
+
+Les préréglages conservent une traduction par paragraphe. Les explications des mots difficiles restent dans la traduction de leur paragraphe, et le bloc interdit de les renvoyer comme paragraphe ou élément de tableau séparé. Un lot revient donc toujours sous forme de tableau JSON (ou de segments numérotés) avec exactement une entrée par paragraphe. Les tests appliquent les quatre préréglages à une même invite et analysent la réponse d’un modèle simulé dans les deux formats.
 
 ## Traduction précise
 
@@ -426,6 +488,9 @@ Les jetons en entrée baissent d’environ 63 %, et le nombre de requêtes pass
 - Le commutateur de réflexion fonctionne par correspondance de noms de modèles. Un nouveau modèle dont le nom ne correspond à aucun motif ne reçoit aucun paramètre de réflexion tant que le tableau de `src/background/providers/thinking.ts` n’est pas complété.
 - Chaque niveau utilisé envoie ses propres requêtes. Lorsque le niveau IA et le niveau traduction automatique sont tous deux utilisés, chaque message coûte aussi des requêtes au traducteur automatique, et ces requêtes comptent dans les limites de débit des points de terminaison gratuits de Google et Microsoft.
 - La traduction par dictionnaire est une glose mot à mot : elle garde l’ordre des mots de la source et ne fléchit pas les mots. Les mots absents des packs restent non traduits.
+- Le message d’exemple du guide de configuration est en anglais, ou en allemand lorsque la langue cible est l’anglais. Avec une langue source fixée autre que ces deux langues, l’essai envoie quand même cette langue source avec le texte anglais.
+- Alt+A, pressé alors que le guide de configuration est l’onglet actif, traduit ou restaure le message d’exemple. L’intitulé du bouton d’essai ne suit alors pas ce changement.
+- Les préréglages sont des instructions destinées au modèle. Le respect d’un dialecte ou d’un style dépend du modèle ; les petits modèles mélangent plus souvent les variantes régionales.
 - Bergamot et le dictionnaire traduisent un lot avec une seule langue source. Avec la détection automatique, Bergamot détecte la langue du lot entier ; un lot qui mélange plusieurs langues est donc traduit comme s’il était entièrement dans la langue dominante.
 
 ## Tests
@@ -437,7 +502,7 @@ npm run locales:check  # check every locales/<language>.json against locales/en.
 npm run live-test      # call the real Google and Microsoft endpoints through the extension's own modules, with and without a source language
 ```
 
-Les tests unitaires couvrent le groupement en lots et les files d’attente, l’analyse des réponses d’IA et le repli, la détection des paragraphes avec le rendu bilingue et traduction seule ainsi que la restauration (dans jsdom), la construction des requêtes et l’analyse des réponses pour Google, Microsoft et DeepLX (avec un fetch simulé), l’URL de requête et les en-têtes d’authentification de chaque préréglage d’IA, les paramètres de réflexion de chaque fournisseur, la migration des paramètres vers les services ajoutés ainsi que vers les niveaux et les invites, les listes des niveaux dans la fenêtre contextuelle et sur la page de paramètres, le refus de niveaux tous vides et la protection contre le retrait, les niveaux (niveau inférieur en premier puis remplacé, niveau le plus élevé en premier avec les résultats inférieurs ultérieurs ignorés, échec du niveau le plus élevé avec conservation du résultat inférieur, échec de tous les niveaux, niveaux non utilisés, niveau le plus élevé en cache), le choix de l’invite et les clés de cache, un changement du mode d’affichage qui sollicite de nouveau le niveau IA et ne fait que redessiner les autres, la langue source dans les requêtes de chaque service et dans la clé de cache, les packs de dictionnaires (analyse, découpage en mots et correspondance des expressions, formes fléchies, traduction via l’anglais, packs manquants, téléchargement avec somme de contrôle, avec une base IndexedDB en mémoire), le service Bergamot et sa gestion des modèles avec un moteur simulé, la traduction précise (requête unique, analyse avec lots, échec de l’analyse, clés de cache et lots par message, préfixe d’invite identique avec le contrôle de cache d’Anthropic), et la localisation : jeux de clés et paramètres de substitution identiques dans toutes les langues, chaque référence `__MSG_*__` du manifeste, correspondance des langues de Thunderbird avec les langues prises en charge, repli sur l’anglais pour les clés manquantes, et absence de texte d’interface codé en dur dans les pages HTML et les sources.
+Les tests unitaires couvrent le groupement en lots et les files d’attente, l’analyse des réponses d’IA et le repli, la détection des paragraphes avec le rendu bilingue et traduction seule ainsi que la restauration (dans jsdom), la construction des requêtes et l’analyse des réponses pour Google, Microsoft et DeepLX (avec un fetch simulé), l’URL de requête et les en-têtes d’authentification de chaque préréglage d’IA, les paramètres de réflexion de chaque fournisseur, la migration des paramètres vers les services ajoutés ainsi que vers les niveaux et les invites, les listes des niveaux dans la fenêtre contextuelle et sur la page de paramètres, le refus de niveaux tous vides et la protection contre le retrait, les niveaux (niveau inférieur en premier puis remplacé, niveau le plus élevé en premier avec les résultats inférieurs ultérieurs ignorés, échec du niveau le plus élevé avec conservation du résultat inférieur, échec de tous les niveaux, niveaux non utilisés, niveau le plus élevé en cache), le choix de l’invite et les clés de cache, un changement du mode d’affichage qui sollicite de nouveau le niveau IA et ne fait que redessiner les autres, la langue source dans les requêtes de chaque service et dans la clé de cache, les packs de dictionnaires (analyse, découpage en mots et correspondance des expressions, formes fléchies, traduction via l’anglais, packs manquants, téléchargement avec somme de contrôle, avec une base IndexedDB en mémoire), le service Bergamot et sa gestion des modèles avec un moteur simulé, la traduction précise (requête unique, analyse avec lots, échec de l’analyse, clés de cache et lots par message, préfixe d’invite identique avec le contrôle de cache d’Anthropic), le guide de configuration (ouverture uniquement lors d’une nouvelle installation, navigation entre les étapes avec étapes sautées et reprise, enregistrement de chaque étape, packs de dictionnaires et directions Bergamot recommandés et leur téléchargement, configuration des services et test de connexion, préréglages appliqués aux invites, traduction d’essai par les modules du script de contenu), les préréglages d’invite (variantes selon la langue cible, combinaison avec chacune des trois invites, remplacement d’un même préréglage, analyse des lots avec tous les préréglages appliqués), et la localisation : jeux de clés et paramètres de substitution identiques dans toutes les langues, chaque référence `__MSG_*__` du manifeste, correspondance des langues de Thunderbird avec les langues prises en charge, repli sur l’anglais pour les clés manquantes, et absence de texte d’interface codé en dur dans les pages HTML et les sources.
 
 `npm run build:debug` produit un xpi de débogage qui commence à traduire dès qu’un message est ouvert et écrit la progression dans la console, pour vérifier l’ensemble du déroulement dans un vrai Thunderbird.
 
@@ -448,7 +513,8 @@ src/
   background/    background script: translation service, batch and request queues, cache, provider factory, translators, dictionary, offline model management
   content/       content script: paragraph detection, rendering, language detection, translation state
   popup/         popup
-  options/       settings page
+  options/       settings page and the parts the setup guide shares: service fields, dictionary and Bergamot lists, prompt editor, settings session
+  welcome/       setup guide: steps and navigation
   offline/       Bergamot engine module: model list, download, storage, worker
   shared/        shared settings, provider presets, prompts, language table and detection, message types, i18n runtime
 locales/         interface text, one JSON file per language; en.json is the reference

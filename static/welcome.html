@@ -1,0 +1,179 @@
+<!doctype html>
+<html lang="en" dir="ltr">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title data-i18n="welcomeTitle"></title>
+    <link rel="stylesheet" href="options.css" />
+    <link rel="stylesheet" href="content.css" />
+    <link rel="stylesheet" href="welcome.css" />
+  </head>
+  <body>
+    <header class="top">
+      <img src="icons/icon.svg" alt="" width="32" height="32" />
+      <h1 data-i18n="welcomeTitle"></h1>
+      <span id="saved" class="saved" data-i18n="saved"></span>
+      <button type="button" id="exitGuide" data-i18n="buttonExitGuide"></button>
+    </header>
+
+    <nav class="wizard-progress" data-i18n-aria-label="welcomeProgress">
+      <div id="progressTrack" class="progress-track" role="progressbar" aria-valuemin="1" data-i18n-aria-label="welcomeProgress"><div id="progressBar" class="progress-bar"></div></div>
+      <ol id="stepList" class="step-list"></ol>
+    </nav>
+
+    <main>
+      <section class="step" data-step="language" hidden>
+        <h2 tabindex="-1" data-i18n="stepLanguage"></h2>
+        <p data-i18n="welcomeIntro"></p>
+        <div class="grid">
+          <label><span data-i18n="labelUiLanguage"></span><select id="uiLanguage"></select></label>
+          <label><span data-i18n="labelSourceLang"></span><select id="sourceLang"></select></label>
+          <label><span data-i18n="labelTargetLang"></span><select id="targetLang"></select></label>
+        </div>
+        <p id="sameLanguage" class="field-warning" data-i18n="hintSameLanguage" hidden></p>
+        <p class="hint" data-i18n="welcomeLanguageHint"></p>
+      </section>
+
+      <section class="step" data-step="display" hidden>
+        <h2 tabindex="-1" data-i18n="stepDisplay"></h2>
+        <p data-i18n="welcomeDisplayIntro"></p>
+        <div class="choices" role="radiogroup" data-i18n-aria-label="labelMode">
+          <label class="choice">
+            <input type="radio" name="mode" value="bilingual" />
+            <span><strong data-i18n="modeBilingual"></strong><span class="hint" data-i18n="welcomeBilingualHint"></span></span>
+          </label>
+          <label class="choice">
+            <input type="radio" name="mode" value="translation-only" />
+            <span><strong data-i18n="modeTranslationOnly"></strong><span class="hint" data-i18n="welcomeTranslationOnlyHint"></span></span>
+          </label>
+        </div>
+        <p class="hint" data-i18n="welcomePreviewLabel"></p>
+        <div id="modePreview" class="sample-mail"></div>
+      </section>
+
+      <section class="step" data-step="tiers" hidden>
+        <h2 tabindex="-1" data-i18n="stepTiers"></h2>
+        <p data-i18n="welcomeTiersIntro"></p>
+        <div class="table-wrap">
+          <table class="tier-table">
+            <thead>
+              <tr>
+                <td></td>
+                <th scope="col" data-i18n="tierDictionary"></th>
+                <th scope="col" data-i18n="tierMachine"></th>
+                <th scope="col" data-i18n="tierAi"></th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <th scope="row" data-i18n="welcomeRowSpeed"></th>
+                <td data-i18n="welcomeSpeedDictionary"></td>
+                <td data-i18n="welcomeSpeedMachine"></td>
+                <td data-i18n="welcomeSpeedAi"></td>
+              </tr>
+              <tr>
+                <th scope="row" data-i18n="welcomeRowQuality"></th>
+                <td data-i18n="welcomeQualityDictionary"></td>
+                <td data-i18n="welcomeQualityMachine"></td>
+                <td data-i18n="welcomeQualityAi"></td>
+              </tr>
+              <tr>
+                <th scope="row" data-i18n="welcomeRowPrivacy"></th>
+                <td data-i18n="welcomePrivacyDictionary"></td>
+                <td data-i18n="welcomePrivacyMachine"></td>
+                <td data-i18n="welcomePrivacyAi"></td>
+              </tr>
+              <tr>
+                <th scope="row" data-i18n="welcomeRowCost"></th>
+                <td data-i18n="welcomeCostDictionary"></td>
+                <td data-i18n="welcomeCostMachine"></td>
+                <td data-i18n="welcomeCostAi"></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="grid">
+          <label><span id="tierLabel-dictionary"></span><select id="tier-dictionary"></select></label>
+          <label><span id="tierLabel-machine"></span><select id="tier-machine"></select></label>
+          <label><span id="tierLabel-ai"></span><select id="tier-ai"></select></label>
+        </div>
+        <p id="tiersEmpty" class="field-warning" data-i18n="tiersEmpty" hidden></p>
+        <p class="hint" data-i18n="welcomeTiersHint"></p>
+      </section>
+
+      <section class="step" data-step="offline" hidden>
+        <h2 tabindex="-1" data-i18n="stepOffline"></h2>
+        <p data-i18n="welcomeOfflineIntro"></p>
+        <div id="offlineDictionary">
+          <h3 data-i18n="sectionDictionaries"></h3>
+          <p class="hint" data-i18n="dictionaryAttribution"></p>
+          <p id="dictStatus" class="hint" role="status"></p>
+          <ul id="dictList" class="dict-list"></ul>
+        </div>
+        <div id="offlineBergamot">
+          <h3 data-i18n="sectionBergamot"></h3>
+          <p class="hint" data-i18n="bergamotHint"></p>
+          <p id="bergamotNeeded" class="hint"></p>
+          <p id="bergamotStatus" class="hint" role="status"></p>
+          <ul id="bergamotList" class="dict-list"></ul>
+        </div>
+        <button type="button" id="downloadPicked" class="primary" data-i18n="buttonDownloadSelected"></button>
+      </section>
+
+      <section class="step" data-step="machine" hidden>
+        <h2 tabindex="-1" data-i18n="stepMachine"></h2>
+        <p data-i18n="welcomeMachineIntro"></p>
+        <div id="machinePanel" class="provider-panel"></div>
+      </section>
+
+      <section class="step" data-step="ai" hidden>
+        <h2 tabindex="-1" data-i18n="stepAi"></h2>
+        <p data-i18n="welcomeAiIntro"></p>
+        <div class="grid">
+          <label><span data-i18n="labelAiService"></span><select id="aiService"></select></label>
+        </div>
+        <div id="aiPanel" class="provider-panel"></div>
+        <label class="check">
+          <input type="checkbox" id="preciseEnabled" />
+          <span data-i18n="labelPrecise"></span>
+        </label>
+        <p class="hint" data-i18n="hintPrecise"></p>
+        <p class="field-warning" data-i18n="welcomeAiRequests"></p>
+      </section>
+
+      <section class="step" data-step="prompts" hidden>
+        <h2 tabindex="-1" data-i18n="stepPrompts"></h2>
+        <p data-i18n="welcomePromptsIntro"></p>
+        <p class="hint" data-i18n="promptsHint"></p>
+        <div id="promptEditor"></div>
+      </section>
+
+      <section class="step" data-step="finish" hidden>
+        <h2 tabindex="-1" data-i18n="stepFinish"></h2>
+        <p data-i18n="welcomeFinishIntro"></p>
+        <ul class="usage">
+          <li data-i18n="welcomeUseButton"></li>
+          <li data-i18n="welcomeUseAltA"></li>
+          <li data-i18n="welcomeUseAltS"></li>
+        </ul>
+        <label class="check">
+          <input type="checkbox" id="autoTranslate" />
+          <span data-i18n="labelAutoTranslate"></span>
+        </label>
+        <h3 data-i18n="welcomeTryTitle"></h3>
+        <p class="hint" data-i18n="welcomeTryHint"></p>
+        <button type="button" id="tryIt" class="primary" data-i18n="buttonTryIt"></button>
+        <div id="trySample" class="sample-mail" hidden></div>
+        <p><button type="button" id="openOptions" data-i18n="buttonOpenSettings"></button></p>
+      </section>
+    </main>
+
+    <footer class="wizard-nav">
+      <button type="button" id="prevStep" data-i18n="buttonBack"></button>
+      <span class="spacer"></span>
+      <button type="button" id="skipStep" data-i18n="buttonSkipStep"></button>
+      <button type="button" id="nextStep" class="primary" data-i18n="buttonNext"></button>
+    </footer>
+    <script src="welcome.js"></script>
+  </body>
+</html>

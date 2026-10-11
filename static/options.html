@@ -11,6 +11,7 @@
       <img src="icons/icon.svg" alt="" width="32" height="32" />
       <h1 data-i18n="optionsTitle"></h1>
       <span id="saved" class="saved" data-i18n="saved"></span>
+      <button type="button" id="openWelcome" data-i18n="openWelcome"></button>
     </header>
 
     <main>
@@ -99,21 +100,7 @@
       <section id="prompts">
         <h2 data-i18n="sectionPrompts"></h2>
         <p class="hint" data-i18n="promptsHint"></p>
-        <div class="prompt">
-          <label for="prompt-bilingual" data-i18n="labelPromptBilingual"></label>
-          <textarea id="prompt-bilingual" rows="9" spellcheck="false"></textarea>
-          <button type="button" id="reset-bilingual" data-i18n="buttonResetPrompt"></button>
-        </div>
-        <div class="prompt">
-          <label for="prompt-translationOnly" data-i18n="labelPromptTranslationOnly"></label>
-          <textarea id="prompt-translationOnly" rows="9" spellcheck="false"></textarea>
-          <button type="button" id="reset-translationOnly" data-i18n="buttonResetPrompt"></button>
-        </div>
-        <div class="prompt">
-          <label for="prompt-precise" data-i18n="labelPromptPrecise"></label>
-          <textarea id="prompt-precise" rows="9" spellcheck="false"></textarea>
-          <button type="button" id="reset-precise" data-i18n="buttonResetPrompt"></button>
-        </div>
+        <div id="promptEditor"></div>
       </section>
 
       <section>

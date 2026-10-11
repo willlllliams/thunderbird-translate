@@ -14,12 +14,14 @@ Dieses Dokument richtet sich an Leser, die noch keine Thunderbird-Erweiterung ve
 - Zwei Anzeigemodi: Der zweisprachige Modus fügt unter dem Original einen Übersetzungsblock mit einer hellen Linie links ein, der auch in dunklen Themes lesbar ist. Der Modus „Nur Übersetzung“ ersetzt das Original durch die Übersetzung; das Original bleibt im Speicher und wird beim Ausschalten der Übersetzung wieder eingesetzt.
 - Sofortige Aktualisierung: Wird der Anzeigemodus oder die Zielsprache geändert, während eine Nachricht übersetzt ist, stellt die Erweiterung die Seite neu dar, ohne dass die Nachricht erneut geöffnet werden muss. Ein Wechsel des Anzeigemodus zeichnet die Seite aus den bereits erhaltenen Übersetzungen neu und sendet keine neuen Anfragen.
 - Bedienung: die Schaltfläche „Nachricht übersetzen“ in der Symbolleiste des Nachrichtenkopfs mit ihrem Pop-up sowie die Tastenkombinationen Alt+A (übersetzen / Original anzeigen) und Alt+S (zweisprachig / nur Übersetzung umschalten).
-- Optionale automatische Übersetzung: Nachrichten, die nicht in der Zielsprache verfasst sind, werden beim Öffnen sofort übersetzt.
+- Beim Öffnen automatisch übersetzen (optional): Nachrichten, die nicht in der Zielsprache verfasst sind, werden beim Öffnen sofort übersetzt.
 - Bündelung von Anfragen: Das Hintergrundskript sammelt Absätze 50 ms lang und fasst sie in einer Anfrage zusammen. Dazu kommen eine Begrenzung gleichzeitiger Anfragen, Wiederholungsversuche mit exponentiellem Backoff und ein lokaler Cache.
 - Drei Übersetzungsstufen: Wörterbuch, maschinelle Übersetzung und KI. Jede Stufe hat einen eigenen Dienst oder wird nicht verwendet; jeder Absatz geht gleichzeitig an alle verwendeten Stufen. Eine niedrigere Stufe wird als vorläufige Übersetzung angezeigt, bis die höchste Stufe sie ersetzt, und bleibt stehen, wenn die höchste Stufe fehlschlägt.
 - Dienste: ein Offline-Wörterbuch, 4 maschinelle Übersetzer (Google Translate, Microsoft Translator, DeepLX, Offline-Modelle von Bergamot) und 22 Voreinstellungen für KI-Anbieter, darunter „Benutzerdefiniert (OpenAI-kompatibel)“. In den Listen der Stufen erscheinen nur hinzugefügte Dienste.
 - Ausgangssprache: automatische Erkennung oder eine feste Sprache, die an jeden Dienst übergeben wird.
 - Drei Prompts für die KI-Stufe: einer für die zweisprachige Anzeige, einer für die Anzeige nur der Übersetzung und einer für die präzise Übersetzung.
+- Prompt-Vorlagen: fertige Regeln für eine regionale Variante der Zielsprache, für schwierige Wörter mit dem Original in Klammern, für kurze Erklärungen schwieriger Wörter und für vier Schreibstile. Jede Vorlage lässt sich an einen der drei Prompts anhängen.
+- Einrichtungsassistent: Er öffnet sich nach der Installation und richtet Schritt für Schritt Sprachen, Anzeigemodus, Stufen, Offline-Downloads, Dienste und Prompts ein. Zum Schluss übersetzt er probeweise eine Beispielnachricht.
 - Präzise Übersetzung (KI-Stufe): Die gesamte Nachricht dient jeder Anfrage als Kontext, sodass Namen, Fachbegriffe und Anredeformen über alle Absätze hinweg einheitlich bleiben.
 - Schalter für den Denkmodus bei jedem KI-Anbieter, standardmäßig ausgeschaltet.
 - Benutzeroberfläche in 12 Sprachen. Die Sprache der Benutzeroberfläche folgt standardmäßig Thunderbird und lässt sich auf der Einstellungsseite wählen.
@@ -44,9 +46,45 @@ npm test
 npm run build
 ```
 
-`npm run build` bündelt das Hintergrundskript, das Inhaltsskript, das Pop-up und die Einstellungsseite mit esbuild nach `dist/`, erzeugt `dist/_locales/<language>/messages.json` aus den Dateien in `locales/` und packt `dist/` in `web-ext-artifacts/thunderbird-translate-<version>.xpi`. Zum Packen dient die reine JavaScript-Bibliothek fflate; ein zip-Befehl des Systems wird nicht benötigt.
+`npm run build` bündelt das Hintergrundskript, das Inhaltsskript, das Pop-up, die Einstellungsseite und den Einrichtungsassistenten mit esbuild nach `dist/`, erzeugt `dist/_locales/<language>/messages.json` aus den Dateien in `locales/` und packt `dist/` in `web-ext-artifacts/thunderbird-translate-<version>.xpi`. Zum Packen dient die reine JavaScript-Bibliothek fflate; ein zip-Befehl des Systems wird nicht benötigt.
 
 Während der Entwicklung lässt sich die Erweiterung ohne Packen laden: In Thunderbird Extras → Entwicklerwerkzeuge → Add-ons debuggen öffnen, auf „Temporäres Add-on laden…“ klicken und `dist/manifest.json` auswählen.
+
+## Einrichtungsassistent
+
+Nach einer Neuinstallation öffnet Thunderbird den Einrichtungsassistenten in einem Tab. Updates der Erweiterung oder von Thunderbird öffnen ihn nicht. Später ist der Assistent über den Link „Einrichtungsassistent“ im Pop-up und über die Schaltfläche „Einrichtungsassistent“ oben auf der Einstellungsseite erreichbar.
+
+Jeder Schritt fragt nach genau einer Entscheidung und speichert sie sofort. Für die Navigation gibt es drei Möglichkeiten:
+
+- „Zurück“, „Weiter“ und „Schritt überspringen“ wechseln zwischen den Schritten.
+- Die nummerierte Liste unter dem Fortschrittsbalken springt zu einem beliebigen Schritt.
+- „Assistent beenden“ schließt den Tab jederzeit.
+
+Beim nächsten Aufruf beginnt der Assistent bei dem Schritt, an dem er verlassen wurde. Nach „Fertigstellen“ beginnt er wieder von vorn.
+
+| Schritt | Inhalt | Angezeigt, wenn |
+| --- | --- | --- |
+| 1 Sprachen | Sprache der Benutzeroberfläche, Ausgangssprache (standardmäßig „Automatisch erkennen“), Zielsprache | immer |
+| 2 Anzeige | „Zweisprachig“ oder „Nur Übersetzung“, mit einer Vorschau einer Beispielnachricht in der aktuellen Darstellung der Übersetzung | immer |
+| 3 Übersetzungsstufen | Geschwindigkeit, Qualität, Datenschutz und Kosten der Stufen Wörterbuch, maschinelle Übersetzung und KI; der Dienst jeder Stufe oder „Nicht verwendet“, wobei mindestens eine Stufe einen Dienst hat | immer |
+| 4 Offline-Übersetzung | die Wörterbuchpakete und Bergamot-Richtungen, die die Sprachen aus Schritt 1 benötigen, mit Größe, Lizenz und Quellenangabe; die gewünschten ankreuzen, dann „Auswahl herunterladen“ mit Fortschrittsanzeige | die Wörterbuch-Stufe wird verwendet, oder die Stufe für maschinelle Übersetzung verwendet Bergamot |
+| 5 Online-Maschinenübersetzung | die Felder des maschinellen Übersetzers: bei Google nichts auszufüllen, bei Microsoft kostenloser Modus oder Modus mit Azure-Schlüssel, bei DeepLX Endpunkt und Token; „Verbindung testen“ | die Stufe für maschinelle Übersetzung verwendet Google, Microsoft oder DeepLX |
+| 6 KI-Übersetzung | der KI-Anbieter, sein API-Schlüssel, Modell, Temperatur und Denkmodus, „Verbindung testen“ und die Option „Präzise Übersetzung“; ein Hinweis, dass Denkmodus und präzise Übersetzung die Übersetzung langsamer und teurer machen | die KI-Stufe wird verwendet |
+| 7 Prompts | die drei Prompts und die Prompt-Vorlagen (siehe Abschnitt „Prompt-Vorlagen“) | die KI-Stufe wird verwendet |
+| 8 Fertig | die Bedienung (Schaltfläche in der Symbolleiste, Alt+A, Alt+S), die Option „Nachrichten, die nicht in der Zielsprache verfasst sind, automatisch übersetzen“ und „Beispielnachricht übersetzen“ | immer |
+
+Ein Schritt, den die bisherigen Entscheidungen nicht erfordern, bleibt durchgestrichen in der Liste, und die Navigation überspringt ihn. Wird zum Beispiel in Schritt 3 ein KI-Dienst gewählt, kehren die Schritte 6 und 7 zurück.
+
+Bei Japanisch als Ausgangssprache und vereinfachtem Chinesisch als Zielsprache empfiehlt Schritt 4 folgende Downloads:
+
+- Wörterbuch: das Paket Japanisch → Chinesisch, wenn das Release es enthält, sonst die beiden Pakete Japanisch → Englisch und Englisch → Chinesisch.
+- Bergamot: die Richtungen ja → en und en → zh-Hans, weil jedes Bergamot-Modell auf einer Seite Englisch hat.
+
+Mit „Automatisch erkennen“ empfiehlt Schritt 4 die Pakete und Richtungen ab Englisch. Ein Hinweis bittet dann darum, für jede weitere Sprache, in der Nachrichten eintreffen, die Richtung nach Englisch zu installieren.
+
+„Beispielnachricht übersetzen“ in Schritt 8 stellt eine kurze englische E-Mail auf der Seite dar (eine deutsche, wenn die Zielsprache Englisch ist) und übersetzt sie mit den aktuellen Einstellungen. Die Seite verwendet die Absatzerkennung und die Darstellung des Inhaltsskripts. Sie sendet die Anfragen über dieselbe Verbindung an das Hintergrundskript wie eine angezeigte Nachricht. Das Ergebnis zeigt deshalb, wie eine echte Nachricht aussehen wird, einschließlich der verwendeten Stufen.
+
+Der Assistent verwendet dieselben Komponenten wie die Einstellungsseite: die Felder der Dienste mit dem Verbindungstest, die Listen der Wörterbücher und der Bergamot-Modelle und den Prompt-Editor mit seinen Vorlagen.
 
 ## Verwendung
 
@@ -58,6 +96,7 @@ Nach dem Öffnen einer Nachricht erscheint in der Symbolleiste des Nachrichtenko
 - Übersetzungsstufen: eine Liste pro Stufe („Stufe 1: Wörterbuch“, „Stufe 2: Maschinelle Übersetzung“, „Stufe 3: KI-Übersetzung“), jeweils mit „Nicht verwendet“ und den hinzugefügten Diensten dieser Stufe. Mindestens eine Stufe braucht einen Dienst; wird für die letzte Stufe mit Dienst „Nicht verwendet“ gewählt, lehnt das Pop-up dies mit einem Hinweis ab. „+ Übersetzungsdienst hinzufügen“ unter den Listen öffnet die Einstellungsseite bei den Übersetzungsdiensten.
 - Präzise Übersetzung: wird angezeigt, solange die KI-Stufe einen Dienst hat.
 - Nachrichten, die nicht in der Zielsprache verfasst sind, automatisch übersetzen: Ist diese Option aktiviert, wird eine Nachricht, deren Text nicht in der Zielsprache verfasst ist, beim Öffnen sofort übersetzt.
+- Einrichtungsassistent: öffnet den Einrichtungsassistenten in einem neuen Tab.
 
 Das Pop-up zeigt den Fortschritt an, zum Beispiel „8 von 12 übersetzt“. Absätze, die noch eine vorläufige Übersetzung einer niedrigeren Stufe zeigen, werden getrennt gezählt, zum Beispiel „7 von 9 übersetzt (2 vorläufig)“. Schlagen für einen Absatz alle Stufen fehl, erscheint dahinter in Rot „Übersetzung fehlgeschlagen, zum Wiederholen klicken“. Beim Darüberfahren mit der Maus wird der Fehler angezeigt; ein Klick übersetzt diesen Absatz erneut.
 
@@ -67,16 +106,16 @@ Im Modus „Nur Übersetzung“ zeigt ein Tooltip den Originaltext an, wenn der 
 
 ## Einstellungen
 
-Die Einstellungsseite öffnet sich über die Schaltfläche „Einstellungen“ dieser Erweiterung in der Add-ons-Verwaltung. Einstellungen werden automatisch gespeichert; sobald sie geschrieben sind, erscheint oben rechts „Gespeichert“.
+Die Einstellungsseite öffnet sich über die Schaltfläche „Einstellungen“ dieser Erweiterung in der Add-ons-Verwaltung. Einstellungen werden automatisch gespeichert; sobald sie geschrieben sind, erscheint oben rechts „Gespeichert“. Die Schaltfläche „Einrichtungsassistent“ daneben öffnet den Einrichtungsassistenten.
 
 | Abschnitt | Inhalt |
 | --- | --- |
-| Allgemein | Sprache der Benutzeroberfläche, Ausgangssprache, Zielsprache, Standard-Anzeigemodus, automatische Übersetzung |
+| Allgemein | Sprache der Benutzeroberfläche, Ausgangssprache, Zielsprache, Standard-Anzeigemodus, Option „Nachrichten, die nicht in der Zielsprache verfasst sind, automatisch übersetzen“ |
 | Übersetzungsstufen | Der Dienst jeder Stufe oder „Nicht verwendet“; präzise Übersetzung |
 | Übersetzungsdienste | Dienste in zwei Gruppen, „Hinzugefügt“ und „Verfügbar“; Endpunkt, API-Schlüssel, Modell, Temperatur und Denkmodus jedes Dienstes; Schaltflächen „Verbindung testen“, „Hinzufügen“, „Diesen Dienst verwenden“ und „Entfernen“ |
 | Wörterbücher | Sprachpaare der Wörterbuch-Stufe mit Größe, Lizenz und Quellenangabe; Herunterladen und Löschen; Release-Tag der Wörterbuchpakete (erweitert) |
 | Offline-Übersetzungsmodelle (Bergamot) | Richtungspaare der Bergamot-Modelle mit Größe und Version; Filter nach Sprache; Herunterladen, Aktualisieren, Abbrechen und Löschen; die Richtungen, die die aktuellen Sprachen benötigen |
-| Prompts (KI-Stufe) | Die Prompts für die zweisprachige Anzeige, die Anzeige nur der Übersetzung und die präzise Übersetzung, jeweils mit „Integrierten Prompt wiederherstellen“ |
+| Prompts (KI-Stufe) | Die Prompt-Vorlagen; die Prompts für die zweisprachige Anzeige, die Anzeige nur der Übersetzung und die präzise Übersetzung, jeweils mit „Integrierten Prompt wiederherstellen“ |
 | Bündelung von Anfragen | Sammelzeitraum, maximale Zeichen und Absätze pro Anfrage, gleichzeitige Anfragen, Wiederholungsversuche, ob KI-Anfragen zusammengefasst werden |
 | Darstellung der Übersetzung | Linie links, gestrichelte Linie links, Hervorhebung oder schlicht; Akzentfarbe, Textdeckkraft, relative Schriftgröße; Live-Vorschau |
 | Cache | Cache ein oder aus, maximale Anzahl zwischengespeicherter Absätze, aktuelle Anzahl der Einträge, Cache leeren |
@@ -151,6 +190,29 @@ Die KI-Stufe hat drei System-Prompts. Jeder lässt sich auf der Einstellungsseit
 | Präzise Übersetzung | die KI-Stufe, solange die präzise Übersetzung eingeschaltet ist, in beiden Anzeigemodi | einheitliche Begriffe, Namen und Anredeformen in der ganzen Nachricht, gestützt auf das Glossar, die Zusammenfassung und die benachbarten Absätze |
 
 Cache-Schlüssel und Bündelschlüssel enthalten die Art des Prompts und einen Hash seines Texts. Nach dem Bearbeiten eines Prompts kommen daher nie Übersetzungen zurück, die mit dem alten Text entstanden sind. Ein eigener System-Prompt, den Version 1.3 oder früher gespeichert hat, wird zum Prompt beider Anzeigemodi; der Prompt für die präzise Übersetzung beginnt mit seinem integrierten Text.
+
+### Prompt-Vorlagen
+
+Die Prompt-Vorlagen stehen auf der Einstellungsseite über den drei Prompts und im Einrichtungsassistenten in Schritt 7. Eine Vorlage wird so angewendet:
+
+1. Unter „Vorlage“ eine Vorlage wählen. Hat die Vorlage Varianten, unter „Variante“ zusätzlich eine Variante wählen.
+2. Unter „Zu Prompt hinzufügen“ den Prompt wählen, der die Vorlage erhält.
+3. Auf „Vorlage anwenden“ klicken.
+
+Die Zeile „Beispiel“ zeigt einen Ausgangssatz und das erwartete Ergebnis der gewählten Vorlage.
+
+| Vorlage | Varianten | Regel, die an den Prompt angehängt wird |
+| --- | --- | --- |
+| Dialekt oder regionaler Sprachgebrauch | je nach Zielsprache: Kantonesisch (Hongkong) und Sichuanesisch für vereinfachtes Chinesisch; Kantonesisch (Hongkong) und Sprachgebrauch in Taiwan für traditionelles Chinesisch; Britisches und Amerikanisches Englisch; Brasilianisches und Europäisches Portugiesisch; Mexikanisches Spanisch und Spanisch (Spanien); Kanadisches Französisch (Québec); Schweizer Hochdeutsch | in dieser Variante schreiben, mit ihrer Rechtschreibung, ihrem Wortschatz und ihren Anredeformen |
+| Schwierige Wörter mit Original | keine | normal übersetzen und nach jedem schwierigen Wort oder Fachbegriff den Originalbegriff in Klammern setzen, einmal pro Absatz, zum Beispiel „Unternehmensprüfung (due diligence)“ |
+| Erklärung schwieriger Wörter | keine | den Absatz übersetzen und danach am Ende desselben Absatzes seine schwierigen Wörter in der Zielsprache erklären, in einer einzigen Klammer: 〔Anmerkung: Begriff: Erklärung; …〕 |
+| Schreibstil | Förmlich-geschäftlich, Locker, Einfache Sprache für Lernende, Literarisch | dieses Register verwenden und die vollständige Bedeutung erhalten |
+
+Die Liste der Varianten richtet sich nach der Zielsprache. Eine Zielsprache ohne regionale Varianten, etwa Japanisch, bietet die Vorlage „Dialekt oder regionaler Sprachgebrauch“ nicht an.
+
+Eine Vorlage hängt einen Block englischer Regeln nach einer Leerzeile an das Ende des Prompts an. Der Block beginnt mit einer Überschrift wie `Style (this rule takes precedence over the rules above):`. Er hat damit Vorrang vor allgemeinen Regeln des integrierten Prompts wie „Do not add explanations“. Wird dieselbe Vorlage erneut angewendet, ersetzt sie ihren Block; verschiedene Vorlagen summieren sich. Das Prompt-Feld zeigt den zusammengesetzten Text und bleibt bearbeitbar. „Integrierten Prompt wiederherstellen“ entfernt alle Zusätze.
+
+Die Vorlagen behalten eine Übersetzung pro Absatz bei. Die Erklärungen schwieriger Wörter bleiben in der Übersetzung ihres Absatzes, und der Block verbietet, sie als eigenen Absatz oder eigenes Array-Element zurückzugeben. Ein Bündel kommt deshalb weiterhin als JSON-Array (oder als nummerierte Segmente) mit genau einem Eintrag pro Absatz zurück. Die Tests wenden alle vier Vorlagen auf einen Prompt an und werten die Antwort eines simulierten Modells in beiden Formaten aus.
 
 ## Präzise Übersetzung
 
@@ -410,6 +472,9 @@ Die Eingabe-Tokens sinken um etwa 63 %, und die Zahl der Anfragen sinkt von 20 a
 - Der Denkmodus-Schalter arbeitet mit dem Abgleich von Modellnamen. Ein neues Modell, dessen Name keinem Muster entspricht, erhält keinen Denk-Parameter, bis die Tabelle in `src/background/providers/thinking.ts` erweitert wird.
 - Jede verwendete Stufe sendet eigene Anfragen. Sind die KI-Stufe und die Stufe für maschinelle Übersetzung beide belegt, kostet jede Nachricht zusätzlich Anfragen an den maschinellen Übersetzer; diese zählen gegen die Ratenlimits der kostenlosen Endpunkte von Google und Microsoft.
 - Die Wörterbuchübersetzung ist eine Wort-für-Wort-Glosse: Sie behält die Wortstellung des Originals bei und flektiert nicht. Wörter, die in den Paketen fehlen, bleiben unübersetzt.
+- Die Beispielnachricht des Einrichtungsassistenten ist englisch, oder deutsch, wenn die Zielsprache Englisch ist. Bei einer anderen festen Ausgangssprache sendet die Probeübersetzung trotzdem diese Ausgangssprache zusammen mit dem englischen Text.
+- Wird Alt+A gedrückt, während der Einrichtungsassistent der aktive Tab ist, wird die Beispielnachricht übersetzt oder wiederhergestellt. Die Beschriftung der Schaltfläche für die Probeübersetzung folgt dieser Änderung nicht.
+- Die Vorlagen sind Anweisungen an das Modell. Wie genau ein Dialekt oder Stil eingehalten wird, hängt vom Modell ab; kleine Modelle vermischen regionale Varianten häufiger.
 - Bergamot und das Wörterbuch übersetzen ein Bündel mit einer einzigen Ausgangssprache. Bei automatischer Erkennung bestimmt Bergamot die Sprache des ganzen Bündels; ein Bündel mit gemischten Sprachen wird deshalb als die vorherrschende Sprache übersetzt.
 
 ## Tests
@@ -421,7 +486,7 @@ npm run locales:check  # check every locales/<language>.json against locales/en.
 npm run live-test      # call the real Google and Microsoft endpoints through the extension's own modules, with and without a source language
 ```
 
-Die Unit-Tests decken ab: Bündelgruppierung und Warteschlangen, Auswertung der KI-Ausgabe und Rückfall, Absatzerkennung mit zweisprachiger Darstellung, Darstellung als reine Übersetzung und Wiederherstellung (in jsdom), Aufbau der Anfragen und Auswertung der Antworten für Google, Microsoft und DeepLX (mit einem Mock von fetch), die Anfrage-URL und die Authentifizierungs-Header jeder KI-Voreinstellung, die Denk-Parameter jedes Anbieters, die Migration der Einstellungen zu hinzugefügten Diensten sowie zu Stufen und Prompts, die Stufenlisten in Pop-up und Einstellungsseite, die Ablehnung, alle Stufen leer zu lassen, und den Schutz vor dem Entfernen, die Stufen (niedrigere Stufe zuerst und danach ersetzt, höchste Stufe zuerst mit ignorierten späteren Ergebnissen niedrigerer Stufen, Fehler der höchsten Stufe mit erhaltenem niedrigerem Ergebnis, Fehler aller Stufen, unbenutzte Stufen, höchste Stufe im Cache), die Auswahl der Prompts und ihre Cache-Schlüssel, einen Wechsel des Anzeigemodus, der die KI-Stufe erneut anfragt und die übrigen Stufen nur neu darstellt, die Ausgangssprache in den Anfragen jedes Dienstes und im Cache-Schlüssel, die Wörterbuchpakete (Auswertung, Zerlegung in Wörter und Abgleich von Wendungen, flektierte Formen, Übersetzung über Englisch, fehlende Pakete, Download mit Prüfsumme, mit einer IndexedDB im Arbeitsspeicher), den Dienst Bergamot und seine Modellverwaltung mit einer simulierten Engine, die präzise Übersetzung (einzelne Anfrage, Analyse mit Bündeln, fehlgeschlagene Analyse, Cache-Schlüssel und Bündel pro Nachricht, identisches Prompt-Präfix mit der Cache-Control von Anthropic) sowie die Lokalisierung. Bei der Lokalisierung prüfen sie identische Schlüsselmengen und Platzhalter in allen Sprachen, jede `__MSG_*__`-Referenz im Manifest, die Zuordnung von Thunderbird-Sprachen zu unterstützten Sprachen, den Rückfall auf Englisch bei fehlenden Schlüsseln und das Fehlen fest kodierter Oberflächentexte in den HTML-Seiten und Quelltexten.
+Die Unit-Tests decken ab: Bündelgruppierung und Warteschlangen, Auswertung der KI-Ausgabe und Rückfall, Absatzerkennung mit zweisprachiger Darstellung, Darstellung als reine Übersetzung und Wiederherstellung (in jsdom), Aufbau der Anfragen und Auswertung der Antworten für Google, Microsoft und DeepLX (mit einem Mock von fetch), die Anfrage-URL und die Authentifizierungs-Header jeder KI-Voreinstellung, die Denk-Parameter jedes Anbieters, die Migration der Einstellungen zu hinzugefügten Diensten sowie zu Stufen und Prompts, die Stufenlisten in Pop-up und Einstellungsseite, die Ablehnung, alle Stufen leer zu lassen, und den Schutz vor dem Entfernen, die Stufen (niedrigere Stufe zuerst und danach ersetzt, höchste Stufe zuerst mit ignorierten späteren Ergebnissen niedrigerer Stufen, Fehler der höchsten Stufe mit erhaltenem niedrigerem Ergebnis, Fehler aller Stufen, unbenutzte Stufen, höchste Stufe im Cache), die Auswahl der Prompts und ihre Cache-Schlüssel, einen Wechsel des Anzeigemodus, der die KI-Stufe erneut anfragt und die übrigen Stufen nur neu darstellt, die Ausgangssprache in den Anfragen jedes Dienstes und im Cache-Schlüssel, die Wörterbuchpakete (Auswertung, Zerlegung in Wörter und Abgleich von Wendungen, flektierte Formen, Übersetzung über Englisch, fehlende Pakete, Download mit Prüfsumme, mit einer IndexedDB im Arbeitsspeicher), den Dienst Bergamot und seine Modellverwaltung mit einer simulierten Engine, die präzise Übersetzung (einzelne Anfrage, Analyse mit Bündeln, fehlgeschlagene Analyse, Cache-Schlüssel und Bündel pro Nachricht, identisches Prompt-Präfix mit der Cache-Control von Anthropic), den Einrichtungsassistenten (Öffnen nur bei einer Neuinstallation, Navigation zwischen den Schritten mit übersprungenen Schritten und Fortsetzen, Speichern jedes Schritts, empfohlene Wörterbuchpakete und Bergamot-Richtungen und deren Download, Konfiguration der Dienste und Verbindungstest, Vorlagen in den Prompts, Probeübersetzung über die Module des Inhaltsskripts), die Prompt-Vorlagen (Varianten je nach Zielsprache, Zusammensetzung mit jedem der drei Prompts, Ersetzen derselben Vorlage, Auswertung von Bündeln mit allen angewendeten Vorlagen) sowie die Lokalisierung. Bei der Lokalisierung prüfen sie identische Schlüsselmengen und Platzhalter in allen Sprachen, jede `__MSG_*__`-Referenz im Manifest, die Zuordnung von Thunderbird-Sprachen zu unterstützten Sprachen, den Rückfall auf Englisch bei fehlenden Schlüsseln und das Fehlen fest kodierter Oberflächentexte in den HTML-Seiten und Quelltexten.
 
 `npm run build:debug` erzeugt eine Debug-xpi, die beim Öffnen einer Nachricht sofort mit der Übersetzung beginnt und den Fortschritt in die Konsole schreibt. Damit lässt sich der gesamte Ablauf in einem echten Thunderbird prüfen.
 
@@ -432,7 +497,8 @@ src/
   background/    background script: translation service, batch and request queues, cache, provider factory, translators, dictionary, offline model management
   content/       content script: paragraph detection, rendering, language detection, translation state
   popup/         popup
-  options/       settings page
+  options/       settings page and the parts the setup guide shares: service fields, dictionary and Bergamot lists, prompt editor, settings session
+  welcome/       setup guide: steps and navigation
   offline/       Bergamot engine module: model list, download, storage, worker
   shared/        shared settings, provider presets, prompts, language table and detection, message types, i18n runtime
 locales/         interface text, one JSON file per language; en.json is the reference

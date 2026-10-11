@@ -94,6 +94,7 @@ describe("locale files", () => {
       readFileSync(join(root, "static", "manifest.json"), "utf8"),
       readFileSync(join(root, "static", "options.html"), "utf8"),
       readFileSync(join(root, "static", "popup.html"), "utf8"),
+      readFileSync(join(root, "static", "welcome.html"), "utf8"),
     ].join("\n")
     const unused = enKeys.filter((k) => !new RegExp(`["_]${k}["_]`).test(corpus))
     expect(unused).toEqual([])
@@ -310,7 +311,7 @@ function listFiles(dir: string, ext: string): string[] {
 }
 
 describe("no hard-coded interface text", () => {
-  for (const page of ["popup.html", "options.html"]) {
+  for (const page of ["popup.html", "options.html", "welcome.html"]) {
     describe(page, () => {
       const doc = new DOMParser().parseFromString(readFileSync(join(root, "static", page), "utf8"), "text/html")
 
@@ -380,8 +381,8 @@ describe("no hard-coded interface text", () => {
   })
 
   it("TypeScript sources contain no CJK text outside the name tables", () => {
-    // Product names, language self-names and script detection are data, not interface text.
-    const allowed = ["providers.ts", "languages.ts", "locales.ts", "lang-detect.ts"]
+    // Product names, language self-names, script detection and the examples inside prompt rules are data, not interface text.
+    const allowed = ["providers.ts", "languages.ts", "locales.ts", "lang-detect.ts", "prompt-presets.ts"]
     const hits = sourceFiles
       .filter((f) => !allowed.some((a) => f.endsWith(a)))
       .filter((f) => /[぀-ヿ㐀-鿿가-힯]/.test(code(f)))

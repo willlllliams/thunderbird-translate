@@ -4,7 +4,8 @@ import { IDBFactory } from "fake-indexeddb"
 import { afterEach, describe, expect, it, vi } from "vitest"
 import { ENGLISH } from "../src/shared/i18n"
 import type { BackgroundRequest } from "../src/shared/messages"
-import { DEFAULT_PROMPTS } from "../src/shared/prompts"
+import { applyPreset, getPromptPreset } from "../src/shared/prompt-presets"
+import { DEFAULT_PROMPTS, PROMPT_KINDS } from "../src/shared/prompts"
 import { createDefaultSettings } from "../src/shared/settings"
 import { jsonResponse, openPage } from "./helpers"
 
@@ -52,6 +53,13 @@ describe("popup", () => {
     expect(document.querySelector<HTMLElement>("#tiersEmpty")!.hidden).toBe(false)
     await new Promise((r) => setTimeout(r, 20))
     expect(stored().tiers.ai).toBe("openai")
+  })
+
+  it("links to the setup guide", async () => {
+    const { created } = await openPage("popup", createDefaultSettings("en"))
+    await vi.waitFor(() => expect(document.querySelector("#openWelcome")!.textContent).toBe(ENGLISH.t("openWelcome")))
+    document.querySelector<HTMLAnchorElement>("#openWelcome")!.click()
+    expect(created).toEqual(["moz-extension://test/welcome.html"])
   })
 
   it("shows the precise switch with an AI tier", async () => {
@@ -162,6 +170,44 @@ describe("settings page", () => {
     document.querySelector<HTMLButtonElement>("#reset-translationOnly")!.click()
     expect(box("translationOnly").value).toBe(DEFAULT_PROMPTS.translationOnly)
     await vi.waitFor(() => expect(stored().prompts.translationOnly).toBe(DEFAULT_PROMPTS.translationOnly))
+  })
+
+  it("applies presets to each of the three prompts, keeps the box editable and restores the default", async () => {
+    const s = createDefaultSettings("en")
+    s.targetLang = "pt"
+    const { stored } = await openPage("options", s)
+    const box = (kind: string) => document.querySelector<HTMLTextAreaElement>(`#prompt-${kind}`)!
+    await vi.waitFor(() => expect(optionTexts(select("presetId"))).toEqual(["dialect", "keepTerms", "explainTerms", "style"]))
+    choose(select("presetId"), "dialect")
+    expect(optionTexts(select("presetOption"))).toEqual(["pt-BR", "pt-PT"])
+    const dialect = getPromptPreset("dialect")!
+    for (const kind of PROMPT_KINDS) {
+      choose(select("presetOption"), "pt-PT")
+      choose(select("presetKind"), kind)
+      document.querySelector<HTMLButtonElement>("#presetApply")!.click()
+      expect(box(kind).value).toBe(applyPreset(DEFAULT_PROMPTS[kind], dialect, dialect.options!.find((o) => o.id === "pt-PT")))
+    }
+    await vi.waitFor(() => expect(stored().prompts.precise).toContain(dialect.heading))
+    expect(stored().prompts.bilingual).toContain(dialect.heading)
+
+    box("bilingual").value += "\n- Keep it short."
+    box("bilingual").dispatchEvent(new Event("input"))
+    await vi.waitFor(() => expect(stored().prompts.bilingual.endsWith("- Keep it short.")).toBe(true))
+    document.querySelector<HTMLButtonElement>("#reset-bilingual")!.click()
+    await vi.waitFor(() => expect(stored().prompts.bilingual).toBe(DEFAULT_PROMPTS.bilingual))
+
+    // Another target language changes the offered variants.
+    choose(select("targetLang"), "en")
+    expect(optionTexts(select("presetOption"))).toEqual(["en-GB", "en-US"])
+    choose(select("targetLang"), "ja")
+    expect(optionTexts(select("presetId"))).not.toContain("dialect")
+  })
+
+  it("opens the setup guide", async () => {
+    const { created } = await openPage("options", createDefaultSettings("en"))
+    await vi.waitFor(() => expect(document.querySelector("#openWelcome")!.textContent).toBe(ENGLISH.t("openWelcome")))
+    document.querySelector<HTMLButtonElement>("#openWelcome")!.click()
+    expect(created).toEqual(["moz-extension://test/welcome.html"])
   })
 
   it("disables the thinking switch for providers without a thinking parameter", async () => {

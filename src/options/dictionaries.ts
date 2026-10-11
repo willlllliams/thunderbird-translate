@@ -1,17 +1,18 @@
 /**
- * "Dictionaries" section of the settings page: the packs of the release
- * index and the installed ones, with download (progress, checksum) and
- * delete. The page writes IndexedDB itself and tells the background script
- * to read the packs again.
+ * Dictionary packs of the release index and the installed ones, with
+ * download (progress, checksum) and delete: the "Dictionaries" section of
+ * the settings page, and on the welcome page the packs the languages need,
+ * each with a check box, downloaded together. The page writes IndexedDB
+ * itself and tells the background script to read the packs again.
  */
 
-import { appLang } from "../background/dictionary/format"
+import { appLang, dictLang } from "../background/dictionary/format"
 import { fetchDictionaryIndex, type IndexedPack, installPack } from "../background/dictionary/download"
 import { DictionaryStore, type InstalledPack, packId } from "../background/dictionary/store"
 import { describeError } from "../shared/errors"
 import { getI18n, t } from "../shared/i18n"
 import { getLanguage } from "../shared/languages"
-import { $, send } from "../shared/page"
+import { send } from "../shared/page"
 import { h } from "./dom"
 
 /** What a row shows: the index entry when the release has the pack, the stored description when it is installed. */
@@ -24,6 +25,10 @@ interface Row {
 export interface DictionarySectionDeps {
   /** Release tag of the settings. */
   tag: () => string
+  list: HTMLElement
+  status: HTMLElement
+  /** Welcome page: only the packs these languages need, with check boxes instead of download buttons. */
+  needed?: () => { source: string; target: string }
   store?: DictionaryStore
   fetchFn?: typeof fetch
 }
@@ -31,6 +36,19 @@ export interface DictionarySectionDeps {
 function languageName(code: string): string {
   const lang = getLanguage(appLang(code))
   return getI18n().languageName(lang.code, lang.native)
+}
+
+/**
+ * Packs that translate `source` into `target`, as the dictionary uses them:
+ * the direct pack when the release has it, otherwise the two packs through
+ * English. Automatic detection counts as English.
+ */
+export function neededPackIds(source: string, target: string, available: { src: string; tgt: string }[]): string[] {
+  const src = dictLang(source === "auto" ? "en" : source)
+  const tgt = dictLang(target)
+  if (!src || !tgt || src === tgt) return []
+  if (src === "en" || tgt === "en" || available.some((p) => p.src === src && p.tgt === tgt)) return [packId(src, tgt)]
+  return [packId(src, "en"), packId("en", tgt)]
 }
 
 export class DictionarySection {
@@ -41,6 +59,8 @@ export class DictionarySection {
   /** Download progress in percent, by pack id. */
   private progress = new Map<string, number>()
   private rowErrors = new Map<string, string>()
+  /** Check boxes the user cleared; every other pack shown and not installed is picked. */
+  private unpicked = new Set<string>()
   private readonly store: DictionaryStore
 
   constructor(private readonly deps: DictionarySectionDeps) {
@@ -62,7 +82,15 @@ export class DictionarySection {
     const rows = new Map<string, Row>()
     for (const pack of this.available) rows.set(packId(pack.src, pack.tgt), { id: packId(pack.src, pack.tgt), available: pack })
     for (const pack of this.installed) rows.set(pack.id, { ...rows.get(pack.id), id: pack.id, installed: pack })
-    return [...rows.values()]
+    if (!this.deps.needed) return [...rows.values()]
+    const { source, target } = this.deps.needed()
+    return neededPackIds(source, target, this.available).flatMap((id) => rows.get(id) ?? [])
+  }
+
+  /** Welcome page: download the picked packs. */
+  async downloadPicked(): Promise<void> {
+    const picked = this.rows().filter((row) => row.available && !row.installed && !this.unpicked.has(row.id))
+    await Promise.all(picked.map((row) => this.download(row.available!)))
   }
 
   render(): void {
@@ -70,9 +98,9 @@ export class DictionarySection {
     let status = ""
     if (this.loading) status = t("dictLoading")
     else if (this.indexError) status = t("dictIndexFailed", [this.indexError])
-    else if (rows.length === 0) status = t("dictNone")
-    $("dictStatus").textContent = status
-    $("dictList").replaceChildren(...rows.map((row) => this.renderRow(row)))
+    else if (rows.length === 0) status = this.deps.needed ? t("dictNoneForPair") : t("dictNone")
+    this.deps.status.textContent = status
+    this.deps.list.replaceChildren(...rows.map((row) => this.renderRow(row)))
   }
 
   private renderRow({ id, available, installed }: Row): HTMLLIElement {
@@ -82,18 +110,18 @@ export class DictionarySection {
     const li = h(
       "li",
       {},
-      h("span", { className: "dict-name", text: name }),
+      this.deps.needed && available && !installed ? this.checkbox(id, name, this.progress.has(id)) : h("span", { className: "dict-name", text: name }),
       h("span", { className: "dict-meta hint", text: meta }),
       installed ? h("span", { className: "tag active", text: t("dictInstalled") }) : null,
     )
     const progress = this.progress.get(id)
     if (progress !== undefined) {
       li.append(h("span", { text: t("dictDownloading", [progress]) }))
-    } else if (installed) {
+    } else if (installed && !this.deps.needed) {
       const remove = h("button", { type: "button", text: t("buttonDelete") })
       remove.addEventListener("click", () => void this.remove(id))
       li.append(remove)
-    } else if (available) {
+    } else if (available && !this.deps.needed) {
       const download = h("button", { type: "button", className: "primary", text: t("buttonDownload") })
       download.addEventListener("click", () => void this.download(available))
       li.append(download)
@@ -102,6 +130,13 @@ export class DictionarySection {
     const error = this.rowErrors.get(id)
     if (error) li.append(h("div", { className: "test-result fail", text: error }))
     return li
+  }
+
+  /** Check box with the pack's name, for a pack to download; disabled while it downloads. */
+  private checkbox(id: string, name: string, disabled: boolean): HTMLElement {
+    const box = h("input", { type: "checkbox", checked: !this.unpicked.has(id), disabled })
+    box.addEventListener("change", () => (box.checked ? this.unpicked.delete(id) : this.unpicked.add(id)))
+    return h("label", { className: "check dict-name" }, box, h("span", { text: name }))
   }
 
   private async changed(): Promise<void> {

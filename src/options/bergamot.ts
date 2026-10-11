@@ -1,10 +1,11 @@
 /**
- * "Offline translation models" section of the settings page: the direction
- * pairs offered by Mozilla and the installed ones, with download, update,
- * cancel and delete. The background script does the work (see
- * src/background/bergamot-admin.ts); the page polls the download progress.
- * The directions the current source and target languages need come first,
- * and deleting one of them asks for confirmation.
+ * Offline translation models: the direction pairs offered by Mozilla and
+ * the installed ones, with download, update, cancel and delete. The
+ * background script does the work (see src/background/bergamot-admin.ts);
+ * the page polls the download progress. On the settings page the
+ * directions the current source and target languages need come first, and
+ * deleting one of them asks for confirmation. On the welcome page only the
+ * needed directions are listed, each with a check box, downloaded together.
  */
 
 import { appLang } from "../background/dictionary/format"
@@ -13,12 +14,19 @@ import { describeError } from "../shared/errors"
 import { getI18n, t } from "../shared/i18n"
 import { LANGUAGES } from "../shared/languages"
 import type { BergamotProgress, BergamotRequired, BergamotResult } from "../shared/messages"
-import { $, send } from "../shared/page"
+import { send } from "../shared/page"
 import { h } from "./dom"
 
 export interface BergamotSectionDeps {
   /** Source ("auto" or a code) and target language of the settings. */
   languages: () => { source: string; target: string }
+  list: HTMLElement
+  status: HTMLElement
+  /** Where the needed directions are named; settings page only. */
+  needed?: HTMLElement
+  filter?: HTMLInputElement
+  /** Welcome page: only the needed directions, with check boxes instead of download buttons. */
+  pick?: boolean
   pollMs?: number
 }
 
@@ -47,6 +55,8 @@ export class BergamotSection {
   private installing = new Set<string>()
   private confirming = new Set<string>()
   private rowErrors = new Map<string, string>()
+  /** Check boxes the user cleared; every other direction shown and not installed is picked. */
+  private unpicked = new Set<string>()
   private timer: ReturnType<typeof setInterval> | null = null
 
   constructor(private readonly deps: BergamotSectionDeps) {}
@@ -90,18 +100,31 @@ export class BergamotSection {
   }
 
   render(): void {
-    const filter = $<HTMLInputElement>("bergamotFilter").value.trim().toLowerCase()
-    const matches = (tag: string) => tag.toLowerCase().includes(filter) || tagName(tag).toLowerCase().includes(filter)
-    const rows = this.pairs
-      .filter((p) => !filter || matches(p.src) || matches(p.tgt))
-      .sort((a, b) => Number(this.isNeeded(b.src, b.tgt)) - Number(this.isNeeded(a.src, a.tgt)))
+    const rows = this.rows()
     let status = ""
     if (this.loading) status = t("bergamotLoading")
     else if (this.listError) status = this.listError
+    else if (rows.length === 0 && this.deps.pick) status = this.neededText() ? "" : t("bergamotNoneNeeded")
     else if (rows.length === 0 && this.pairs.length > 0) status = t("bergamotNoMatch")
-    $("bergamotNeeded").textContent = this.neededText()
-    $("bergamotStatus").textContent = status
-    $("bergamotList").replaceChildren(...rows.map((p) => this.renderRow(p)))
+    if (this.deps.needed) this.deps.needed.textContent = this.neededText()
+    this.deps.status.textContent = status
+    this.deps.list.replaceChildren(...rows.map((p) => this.renderRow(p)))
+  }
+
+  /** Pairs shown: the needed ones first, then those matching the filter; on the welcome page the needed ones only. */
+  private rows(): BergamotPairInfo[] {
+    if (this.deps.pick) return this.pairs.filter((p) => this.isNeeded(p.src, p.tgt))
+    const filter = this.deps.filter?.value.trim().toLowerCase() ?? ""
+    const matches = (tag: string) => tag.toLowerCase().includes(filter) || tagName(tag).toLowerCase().includes(filter)
+    return this.pairs
+      .filter((p) => !filter || matches(p.src) || matches(p.tgt))
+      .sort((a, b) => Number(this.isNeeded(b.src, b.tgt)) - Number(this.isNeeded(a.src, a.tgt)))
+  }
+
+  /** Welcome page: download the picked directions. */
+  async downloadPicked(): Promise<void> {
+    const picked = this.rows().filter((p) => !p.installed && !this.unpicked.has(key(p.src, p.tgt)) && !this.installing.has(key(p.src, p.tgt)))
+    await Promise.all(picked.map((p) => this.install(p)))
   }
 
   private button(text: string, onClick: () => void, primary = false): HTMLButtonElement {
@@ -113,10 +136,16 @@ export class BergamotSection {
   private renderRow(p: BergamotPairInfo): HTMLLIElement {
     const id = key(p.src, p.tgt)
     const name = pairName([p.src, p.tgt])
+    let label: HTMLElement = h("span", { className: "dict-name", text: name })
+    if (this.deps.pick && !p.installed) {
+      const box = h("input", { type: "checkbox", checked: !this.unpicked.has(id), disabled: this.installing.has(id) })
+      box.addEventListener("change", () => (box.checked ? this.unpicked.delete(id) : this.unpicked.add(id)))
+      label = h("label", { className: "check dict-name" }, box, h("span", { text: name }))
+    }
     const li = h(
       "li",
       {},
-      h("span", { className: "dict-name", text: name }),
+      label,
       h("span", { className: "dict-meta hint", text: t("bergamotPairMeta", [(p.bytes / 1048576).toFixed(1), p.version]) }),
       p.installed ? h("span", { className: "tag active", text: t("dictInstalled") }) : null,
     )
@@ -137,7 +166,7 @@ export class BergamotSection {
           this.render()
         }),
       )
-    } else {
+    } else if (!this.deps.pick) {
       if (!p.installed) li.append(this.button(t("buttonDownload"), () => void this.install(p), true))
       if (p.installedVersion) li.append(this.button(t("buttonUpdate"), () => void this.install(p), true))
       if (p.installed) {

@@ -48,6 +48,7 @@ const result = await esbuild.build({
     content: "src/content/index.ts",
     popup: "src/popup/index.ts",
     options: "src/options/index.ts",
+    welcome: "src/welcome/index.ts",
     "bergamot-worker": "src/offline/bergamot/worker.ts",
   },
   absWorkingDir: root,

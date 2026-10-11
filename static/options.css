@@ -336,6 +336,22 @@ button.primary {
   display: none;
 }
 
+/* Preset library above the prompts. */
+.presets {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 4px 16px 12px;
+  margin: 12px 0 18px;
+}
+
+.presets [hidden] {
+  display: none;
+}
+
+.preset-example q {
+  font-style: italic;
+}
+
 .prompt {
   display: flex;
   flex-direction: column;

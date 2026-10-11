@@ -14,12 +14,14 @@ Este documento está escrito para lectores que no han usado antes una extensión
 - Dos modos de visualización: el modo bilingüe inserta debajo del original un bloque de traducción con un borde izquierdo claro, legible también en temas oscuros. El modo solo traducción sustituye el original por la traducción; el original se conserva en memoria y se repone al desactivar la traducción.
 - Actualización inmediata: si cambia el modo de visualización o el idioma de destino mientras un mensaje está traducido, la página se vuelve a dibujar sin reabrir el mensaje. Cambiar el modo de visualización redibuja a partir de las traducciones ya recibidas y no envía solicitudes nuevas.
 - Puntos de acceso: el botón "Traducir mensaje" de la barra de herramientas de la cabecera del mensaje, con su ventana emergente, y los atajos Alt+A (traducir / mostrar original) y Alt+S (cambiar entre bilingüe y solo traducción).
-- Traducción automática opcional: los mensajes que no están en el idioma de destino se traducen en cuanto se abren.
+- Traducir automáticamente al abrir (opcional): los mensajes que no están en el idioma de destino se traducen en cuanto se abren.
 - Agrupación de solicitudes: el script de segundo plano recoge párrafos durante 50 ms y los combina en una sola solicitud, con un límite de concurrencia, reintentos con espera exponencial y una caché local.
 - Tres niveles de traducción: diccionario, traducción automática e IA. Cada nivel tiene su propio servicio o no se usa; cada párrafo se envía a la vez a todos los niveles en uso. Un nivel inferior se muestra como traducción provisional hasta que el nivel más alto lo sustituye, y se mantiene si el nivel más alto falla.
 - Servicios: un diccionario sin conexión, 4 traductores automáticos (Google Translate, Microsoft Translator, DeepLX y los modelos sin conexión de Bergamot) y 22 configuraciones predefinidas de proveedores de IA, una de las cuales es "Personalizado compatible con OpenAI". En las listas de los niveles solo aparecen los servicios que se han añadido.
 - Idioma de origen: detección automática o un idioma fijo, que se transmite a todos los servicios.
 - Tres prompts para el nivel de IA: uno para la visualización bilingüe, otro para la visualización solo de la traducción y otro para la traducción precisa.
+- Preajustes de prompt: reglas listas para usar para una variedad regional del idioma de destino, para las palabras difíciles con el original entre paréntesis, para explicaciones breves de las palabras difíciles y para cuatro estilos de redacción. Cada preajuste se puede añadir a cualquiera de los tres prompts.
+- Guía de configuración: se abre después de la instalación y configura paso a paso los idiomas, el modo de visualización, los niveles, las descargas sin conexión, los servicios y los prompts. Termina con una traducción de prueba de un mensaje de ejemplo.
 - Traducción precisa (nivel de IA): el mensaje completo sirve de contexto a cada solicitud, de modo que los nombres, los términos y las formas de tratamiento se mantienen coherentes entre párrafos.
 - Interruptor del modo de razonamiento para cada proveedor de IA, desactivado de forma predeterminada.
 - Interfaz en 12 idiomas. El idioma de la interfaz sigue al de Thunderbird de forma predeterminada y se puede elegir en la página de configuración.
@@ -44,9 +46,45 @@ npm test
 npm run build
 ```
 
-`npm run build` empaqueta con esbuild el script de segundo plano, el script de contenido, la ventana emergente y la página de configuración en `dist/`, genera `dist/_locales/<language>/messages.json` a partir de los archivos de `locales/` y comprime `dist/` en `web-ext-artifacts/thunderbird-translate-<version>.xpi`. La compresión usa la biblioteca fflate, escrita íntegramente en JavaScript, y no necesita ningún comando zip del sistema.
+`npm run build` empaqueta con esbuild el script de segundo plano, el script de contenido, la ventana emergente, la página de configuración y la guía de configuración en `dist/`, genera `dist/_locales/<language>/messages.json` a partir de los archivos de `locales/` y comprime `dist/` en `web-ext-artifacts/thunderbird-translate-<version>.xpi`. La compresión usa la biblioteca fflate, escrita íntegramente en JavaScript, y no necesita ningún comando zip del sistema.
 
 Durante el desarrollo puede cargar la extensión sin empaquetarla: en Thunderbird abra Herramientas → Herramientas de desarrollador → Depurar complementos, haga clic en "Cargar complemento temporal…" y seleccione `dist/manifest.json`.
+
+## Guía de configuración
+
+Después de una instalación nueva, Thunderbird abre la guía de configuración en una pestaña. Las actualizaciones de la extensión o de Thunderbird no la abren. Más adelante, la guía se abre con el enlace "Guía de configuración" de la ventana emergente y con el botón "Guía de configuración" de la parte superior de la página de configuración.
+
+Cada paso pide una sola decisión y la guarda al momento. Hay tres formas de moverse entre los pasos:
+
+- "Atrás", "Siguiente" y "Omitir este paso" pasan de un paso a otro.
+- La lista numerada bajo la barra de progreso salta a cualquier paso.
+- "Salir de la guía" cierra la pestaña en cualquier momento.
+
+La siguiente visita empieza en el paso en que se dejó la guía. Después de "Terminar", empieza desde el principio.
+
+| Paso | Contenido | Se muestra cuando |
+| --- | --- | --- |
+| 1 Idiomas | idioma de la interfaz, idioma de origen ("Detectar automáticamente" de forma predeterminada), idioma de destino | siempre |
+| 2 Visualización | bilingüe o solo traducción, con una vista previa de un mensaje de ejemplo en el estilo de traducción actual | siempre |
+| 3 Niveles de traducción | velocidad, calidad, privacidad y coste de los niveles de diccionario, traducción automática e IA; el servicio de cada nivel o "No se usa", con al menos un nivel con servicio | siempre |
+| 4 Traducción sin conexión | los paquetes de diccionario y las direcciones de Bergamot que necesitan los idiomas del paso 1, con tamaño, licencia y atribución; se marcan los que se quieren descargar y "Descargar lo seleccionado" los descarga mostrando el progreso | el nivel de diccionario está en uso o el nivel de traducción automática usa Bergamot |
+| 5 Traducción automática en línea | los campos del traductor automático: nada que rellenar para Google, modo gratuito o modo con clave de Azure para Microsoft, endpoint y token para DeepLX; "Probar conexión" | el nivel de traducción automática usa Google, Microsoft o DeepLX |
+| 6 Traducción de IA | el proveedor de IA, su clave de API, el modelo, la temperatura y el modo de razonamiento, "Probar conexión" y la opción "Traducción precisa"; un aviso de que el modo de razonamiento y la traducción precisa hacen la traducción más lenta y más cara | el nivel de IA está en uso |
+| 7 Prompts | los tres prompts y la biblioteca de preajustes (véase "Preajustes de prompt") | el nivel de IA está en uso |
+| 8 Listo | cómo traducir (botón de la barra de herramientas, Alt+A, Alt+S), la opción "Traducir automáticamente los mensajes que no estén en el idioma de destino" y "Traducir el mensaje de ejemplo" | siempre |
+
+Un paso que las elecciones anteriores no necesitan sigue en la lista, tachado, y la navegación lo salta. Por ejemplo, elegir un servicio de IA en el paso 3 hace que vuelvan los pasos 6 y 7.
+
+Con japonés como idioma de origen y chino simplificado como idioma de destino, el paso 4 recomienda estas descargas:
+
+- Diccionario: el paquete japonés → chino si la versión publicada lo incluye; si no, los dos paquetes japonés → inglés e inglés → chino.
+- Bergamot: las direcciones ja → en y en → zh-Hans, porque todos los modelos de Bergamot tienen el inglés en uno de sus lados.
+
+Con "Detectar automáticamente", el paso 4 recomienda los paquetes y las direcciones desde el inglés. Un aviso pide entonces instalar la dirección hacia el inglés de cada uno de los demás idiomas en que recibe correo.
+
+"Traducir el mensaje de ejemplo", en el paso 8, muestra en la página un correo breve en inglés (en alemán cuando el idioma de destino es el inglés) y lo traduce con la configuración actual. La página usa la detección de párrafos y el dibujado del script de contenido. Envía las solicitudes al script de segundo plano por la misma conexión que un mensaje mostrado. Por eso el resultado muestra cómo se verá un mensaje real, incluidos los niveles en uso.
+
+La guía usa los mismos componentes que la página de configuración: los campos de los servicios con la prueba de conexión, las listas de diccionarios y de modelos de Bergamot, y el editor de prompts con sus preajustes.
 
 ## Uso
 
@@ -58,6 +96,7 @@ Abra un mensaje. En la barra de herramientas de la cabecera del mensaje aparece 
 - Niveles de traducción: una lista por nivel ("Nivel 1: Diccionario", "Nivel 2: Traducción automática", "Nivel 3: Traducción de IA"), cada una con "No se usa" y los servicios añadidos de ese nivel. Al menos un nivel necesita un servicio; si se elige "No se usa" en el último que queda, el cambio se rechaza con un aviso. "+ Añadir servicio de traducción", debajo de las listas, abre la página de configuración en los servicios de traducción.
 - Traducción precisa: aparece mientras el nivel de IA tiene un servicio.
 - Traducir automáticamente los mensajes que no estén en el idioma de destino: si está marcada, un mensaje cuyo cuerpo no está en el idioma de destino se traduce en cuanto se abre.
+- Guía de configuración: abre la guía de configuración en una pestaña nueva.
 
 La ventana emergente muestra el progreso, por ejemplo "Traducidos 8 de 12". Los párrafos que aún muestran la traducción provisional de un nivel inferior se cuentan aparte, por ejemplo "Traducidos 7 de 9 (2 provisionales)". Cuando todos los niveles fallan en un párrafo, aparece a continuación un aviso rojo "Error al traducir, haga clic para reintentar"; al pasar el puntero por encima se muestra el error y al hacer clic se vuelve a intentar ese párrafo.
 
@@ -67,16 +106,16 @@ En el modo solo traducción, al pasar el puntero sobre una traducción se muestr
 
 ## Configuración
 
-Abra la página de configuración con el botón "Opciones" de esta extensión en el Administrador de complementos. La configuración se guarda automáticamente; cuando se ha escrito, aparece "Guardado" en la esquina superior derecha.
+Abra la página de configuración con el botón "Opciones" de esta extensión en el Administrador de complementos. La configuración se guarda automáticamente; cuando se ha escrito, aparece "Guardado" en la esquina superior derecha. El botón "Guía de configuración", junto a ese indicador, abre la guía de configuración.
 
 | Sección | Contenido |
 | --- | --- |
-| General | Idioma de la interfaz, idioma de origen, idioma de destino, modo de visualización predeterminado, traducción automática |
+| General | Idioma de la interfaz, idioma de origen, idioma de destino, modo de visualización predeterminado, opción "Traducir automáticamente los mensajes que no estén en el idioma de destino" |
 | Niveles de traducción | El servicio de cada nivel o "No se usa"; traducción precisa |
 | Servicios de traducción | Servicios en dos grupos, "Añadidos" y "Disponibles"; endpoint, clave de API, modelo, temperatura y modo de razonamiento de cada servicio; botones "Probar conexión", "Añadir", "Usar este servicio" y "Quitar" |
 | Diccionarios | Pares de idiomas del nivel de diccionario con tamaño, licencia y atribución; descarga y eliminación; etiqueta de versión de los paquetes (avanzado) |
 | Modelos de traducción sin conexión (Bergamot) | Pares de direcciones de los modelos de Bergamot con tamaño y versión; filtro por idioma; descarga, actualización, cancelación y eliminación; las direcciones que necesitan los idiomas actuales |
-| Prompts (nivel de IA) | Los prompts de la visualización bilingüe, de la visualización solo de la traducción y de la traducción precisa, cada uno con "Restaurar el prompt integrado" |
+| Prompts (nivel de IA) | La biblioteca de preajustes; los prompts de la visualización bilingüe, de la visualización solo de la traducción y de la traducción precisa, cada uno con "Restaurar el prompt integrado" |
 | Agrupación de solicitudes | Ventana de recogida, máximo de caracteres y de párrafos por solicitud, concurrencia, reintentos, si se combinan las solicitudes de IA |
 | Estilo de la traducción | Borde izquierdo, borde izquierdo discontinuo, resaltado o sin formato; color de acento, opacidad del texto, proporción del tamaño de letra; vista previa inmediata |
 | Caché | Caché activada o desactivada, máximo de párrafos en caché, número actual de entradas, vaciar caché |
@@ -151,6 +190,29 @@ El nivel de IA tiene tres prompts del sistema. Cada uno se puede editar en la p�
 | Traducción precisa | el nivel de IA mientras la traducción precisa está activada, en ambos modos de visualización | términos, nombres y formas de tratamiento coherentes en todo el mensaje, usando el glosario, el resumen y los párrafos vecinos |
 
 Las claves de caché y las claves de lote contienen el tipo de prompt y un hash de su texto. Por eso, editar un prompt nunca devuelve traducciones hechas con el texto anterior. Un prompt del sistema personalizado guardado por la versión 1.3 o anterior pasa a ser el prompt de ambos modos de visualización; el prompt preciso empieza con su texto integrado.
+
+### Preajustes de prompt
+
+La biblioteca de preajustes está encima de los tres prompts en la página de configuración y en el paso 7 de la guía de configuración. Para aplicar un preajuste:
+
+1. Elija un preajuste en "Preajuste". Si el preajuste tiene variantes, elija también una variante en "Variante".
+2. Elija en "Añadir al prompt" el prompt que recibe el preajuste.
+3. Haga clic en "Aplicar preajuste".
+
+La línea "Ejemplo" muestra una frase de origen y el resultado esperado con el preajuste elegido.
+
+| Preajuste | Variantes | Regla que se añade al prompt |
+| --- | --- | --- |
+| Dialecto o uso regional | según el idioma de destino: cantonés (Hong Kong) y sichuanés para el chino simplificado; cantonés (Hong Kong) y uso de Taiwán para el chino tradicional; inglés británico e inglés estadounidense; portugués de Brasil y portugués europeo; español de México y español de España; francés canadiense (Quebec); alemán estándar suizo | escribir en esa variedad, con su ortografía, su vocabulario y sus formas de tratamiento |
+| Palabras difíciles con el original | ninguna | traducir con normalidad y poner el término original entre paréntesis después de cada palabra difícil o término técnico, una vez por párrafo, por ejemplo "auditoría previa (due diligence)" |
+| Explicación de palabras difíciles | ninguna | traducir el párrafo y después explicar sus palabras difíciles en el idioma de destino al final del mismo párrafo, dentro de un solo corchete: 〔Nota: término: explicación; …〕 |
+| Estilo de redacción | formal de negocios, coloquial, lenguaje sencillo para estudiantes, literario | usar ese registro y conservar el significado completo |
+
+La lista de variantes depende del idioma de destino. Un idioma de destino sin variedades, como el japonés, no ofrece el preajuste "Dialecto o uso regional".
+
+Un preajuste añade un bloque de reglas en inglés al final del prompt, tras una línea en blanco. El bloque empieza con un encabezado como `Style (this rule takes precedence over the rules above):`. Por eso prevalece sobre las reglas generales del prompt integrado, como "Do not add explanations". Volver a aplicar el mismo preajuste sustituye su bloque; los preajustes distintos se suman. El cuadro del prompt muestra el texto combinado y sigue siendo editable. "Restaurar el prompt integrado" elimina todos los añadidos.
+
+Los preajustes mantienen una traducción por párrafo. Las explicaciones de las palabras difíciles quedan dentro de la traducción de su párrafo, y el bloque prohíbe devolverlas como párrafo o elemento de array aparte. Por eso un lote sigue volviendo como array JSON (o como segmentos numerados) con exactamente una entrada por párrafo. Las pruebas aplican los cuatro preajustes a un mismo prompt y analizan la respuesta de un modelo simulado en ambos formatos.
 
 ## Traducción precisa
 
@@ -410,6 +472,9 @@ Los tokens de entrada se reducen en torno a un 63 %, y el número de solicitudes
 - El interruptor de razonamiento funciona comparando nombres de modelo. Un modelo nuevo cuyo nombre no coincide con ningún patrón no recibe ningún parámetro de razonamiento hasta que se amplíe la tabla de `src/background/providers/thinking.ts`.
 - Cada nivel en uso envía sus propias solicitudes. Con el nivel de IA y el de traducción automática en uso a la vez, cada mensaje cuesta también solicitudes al traductor automático, que cuentan para los límites de frecuencia de los endpoints gratuitos de Google y Microsoft.
 - La traducción con diccionario es una glosa palabra por palabra: conserva el orden de las palabras del original y no flexiona. Las palabras que no están en los paquetes quedan sin traducir.
+- El mensaje de ejemplo de la guía de configuración está en inglés, o en alemán cuando el idioma de destino es el inglés. Con un idioma de origen fijo distinto de esos dos, la prueba envía igualmente ese idioma de origen junto con el texto en inglés.
+- Si se pulsa Alt+A mientras la guía de configuración es la pestaña activa, se traduce o se restaura el mensaje de ejemplo. La etiqueta del botón de prueba no sigue ese cambio.
+- Los preajustes son instrucciones para el modelo. Hasta qué punto se respeta un dialecto o un estilo depende del modelo; los modelos pequeños mezclan variedades regionales con más frecuencia.
 - Bergamot y el diccionario traducen un lote con un solo idioma de origen. Con la detección automática, Bergamot detecta el idioma del lote completo, de modo que un lote que mezcla idiomas se traduce como si estuviera en el idioma predominante.
 
 ## Pruebas
@@ -421,7 +486,7 @@ npm run locales:check  # check every locales/<language>.json against locales/en.
 npm run live-test      # call the real Google and Microsoft endpoints through the extension's own modules, with and without a source language
 ```
 
-Las pruebas unitarias cubren la agrupación en lotes y las colas, el análisis de la salida de IA y la alternativa de reserva, la detección de párrafos con el dibujado y la restauración en modo bilingüe y solo traducción (en jsdom), la construcción de solicitudes y el análisis de respuestas de Google, Microsoft y DeepLX (con un fetch simulado), la URL de solicitud y las cabeceras de autenticación de cada configuración predefinida de IA, los parámetros de razonamiento de cada proveedor, la migración de los ajustes a servicios añadidos y a niveles y prompts, las listas de niveles de la ventana emergente y de la página de configuración, el rechazo de que todos los niveles queden vacíos y la protección contra la eliminación, los niveles (nivel inferior primero y después sustituido, nivel más alto primero con los resultados inferiores posteriores ignorados, fallo del nivel más alto con el resultado inferior conservado, fallo de todos los niveles, niveles sin usar, nivel más alto en caché), la selección de prompts y las claves de caché, un cambio del modo de visualización que vuelve a consultar al nivel de IA y solo vuelve a dibujar los demás, el idioma de origen en las solicitudes de cada servicio y en la clave de caché, los paquetes de diccionario (análisis, división en palabras y coincidencia de expresiones, formas flexionadas, traducción a través del inglés, paquetes que faltan, descarga con suma de comprobación, con una IndexedDB en memoria), el servicio Bergamot y su gestión de modelos con un motor simulado, la traducción precisa (solicitud única, análisis con lotes, análisis fallido, claves de caché y lotes por mensaje, prefijo de prompt idéntico con el control de caché de Anthropic), y la localización: conjuntos de claves y marcadores idénticos en todos los idiomas, cada referencia `__MSG_*__` del manifiesto, la asignación de los idiomas de Thunderbird a los idiomas admitidos, el recurso al inglés para las claves que faltan y la ausencia de texto de interfaz escrito directamente en las páginas HTML y en el código fuente.
+Las pruebas unitarias cubren la agrupación en lotes y las colas, el análisis de la salida de IA y la alternativa de reserva, la detección de párrafos con el dibujado y la restauración en modo bilingüe y solo traducción (en jsdom), la construcción de solicitudes y el análisis de respuestas de Google, Microsoft y DeepLX (con un fetch simulado), la URL de solicitud y las cabeceras de autenticación de cada configuración predefinida de IA, los parámetros de razonamiento de cada proveedor, la migración de los ajustes a servicios añadidos y a niveles y prompts, las listas de niveles de la ventana emergente y de la página de configuración, el rechazo de que todos los niveles queden vacíos y la protección contra la eliminación, los niveles (nivel inferior primero y después sustituido, nivel más alto primero con los resultados inferiores posteriores ignorados, fallo del nivel más alto con el resultado inferior conservado, fallo de todos los niveles, niveles sin usar, nivel más alto en caché), la selección de prompts y las claves de caché, un cambio del modo de visualización que vuelve a consultar al nivel de IA y solo vuelve a dibujar los demás, el idioma de origen en las solicitudes de cada servicio y en la clave de caché, los paquetes de diccionario (análisis, división en palabras y coincidencia de expresiones, formas flexionadas, traducción a través del inglés, paquetes que faltan, descarga con suma de comprobación, con una IndexedDB en memoria), el servicio Bergamot y su gestión de modelos con un motor simulado, la traducción precisa (solicitud única, análisis con lotes, análisis fallido, claves de caché y lotes por mensaje, prefijo de prompt idéntico con el control de caché de Anthropic), la guía de configuración (apertura solo en una instalación nueva, navegación entre pasos con pasos omitidos y continuación, guardado de cada paso, paquetes de diccionario y direcciones de Bergamot recomendados y su descarga, configuración de los servicios y prueba de conexión, preajustes en los prompts, traducción de prueba a través de los módulos del script de contenido), los preajustes de prompt (variantes según el idioma de destino, combinación con cada uno de los tres prompts, sustitución del mismo preajuste, análisis de lotes con todos los preajustes aplicados), y la localización: conjuntos de claves y marcadores idénticos en todos los idiomas, cada referencia `__MSG_*__` del manifiesto, la asignación de los idiomas de Thunderbird a los idiomas admitidos, el recurso al inglés para las claves que faltan y la ausencia de texto de interfaz escrito directamente en las páginas HTML y en el código fuente.
 
 `npm run build:debug` genera un xpi de depuración que empieza a traducir en cuanto se abre un mensaje y escribe el progreso en la consola, para comprobar el flujo completo en un Thunderbird real.
 
@@ -432,7 +497,8 @@ src/
   background/    background script: translation service, batch and request queues, cache, provider factory, translators, dictionary, offline model management
   content/       content script: paragraph detection, rendering, language detection, translation state
   popup/         popup
-  options/       settings page
+  options/       settings page and the parts the setup guide shares: service fields, dictionary and Bergamot lists, prompt editor, settings session
+  welcome/       setup guide: steps and navigation
   offline/       Bergamot engine module: model list, download, storage, worker
   shared/        shared settings, provider presets, prompts, language table and detection, message types, i18n runtime
 locales/         interface text, one JSON file per language; en.json is the reference

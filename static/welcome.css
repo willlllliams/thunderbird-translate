@@ -1,0 +1,200 @@
+/* Welcome page; builds on options.css (colors, fields, buttons, lists). */
+
+main {
+  max-width: 820px;
+  padding-bottom: 96px;
+}
+
+.wizard-progress {
+  max-width: 820px;
+  margin: 0 auto;
+  padding: 12px 24px 0;
+}
+
+.progress-track {
+  height: 6px;
+  border-radius: 3px;
+  background: var(--border);
+  overflow: hidden;
+}
+
+.progress-bar {
+  height: 100%;
+  background: var(--accent);
+  transition: width 0.2s;
+}
+
+.step-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 6px;
+  list-style: none;
+  margin: 10px 0 0;
+  padding: 0;
+}
+
+.step-list button {
+  padding: 2px 10px;
+  border-radius: 12px;
+  font-size: 12px;
+}
+
+.step-list .current button {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+}
+
+.step-list .skipped button {
+  text-decoration: line-through;
+  opacity: 0.55;
+  cursor: default;
+}
+
+.step h2 {
+  font-size: 20px;
+  border: 0;
+  margin-bottom: 4px;
+}
+
+.step h2:focus {
+  outline: none;
+}
+
+.step h3 {
+  font-size: 15px;
+  margin: 18px 0 6px;
+}
+
+.step > p {
+  max-width: 70ch;
+}
+
+.choices {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 10px;
+  margin: 12px 0;
+}
+
+.choice {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 10px 12px;
+  cursor: pointer;
+}
+
+.choice:has(input:checked) {
+  border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 10%, transparent);
+}
+
+.choice > span {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.sample-mail {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 4px 16px;
+  margin: 8px 0 12px;
+  background: var(--panel);
+}
+
+.sample-mail[hidden] {
+  display: none;
+}
+
+.table-wrap {
+  overflow-x: auto;
+  margin: 12px 0;
+}
+
+.tier-table {
+  border-collapse: collapse;
+  width: 100%;
+  font-size: 13px;
+}
+
+.tier-table th,
+.tier-table td {
+  border: 1px solid var(--border);
+  padding: 6px 8px;
+  text-align: start;
+  vertical-align: top;
+}
+
+.tier-table thead th,
+.tier-table tbody th {
+  background: var(--panel);
+}
+
+.tier-table tbody th {
+  white-space: nowrap;
+}
+
+.usage {
+  padding-inline-start: 20px;
+}
+
+.wizard-nav {
+  position: fixed;
+  inset-inline: 0;
+  bottom: 0;
+  display: flex;
+  gap: 8px;
+  justify-content: center;
+  padding: 10px max(24px, calc((100% - 820px) / 2 + 24px));
+  border-top: 1px solid var(--border);
+  background: Canvas;
+}
+
+.wizard-nav button {
+  white-space: nowrap;
+}
+
+.wizard-nav .spacer {
+  flex: 1;
+}
+
+.wizard-nav button[hidden] {
+  display: none;
+}
+
+button:disabled {
+  opacity: 0.55;
+  cursor: default;
+}
+
+button:focus-visible,
+select:focus-visible,
+input:focus-visible,
+textarea:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
+@media (max-width: 600px) {
+  .top {
+    flex-wrap: wrap;
+    padding: 10px 16px;
+  }
+
+  main,
+  .wizard-progress {
+    padding-inline: 16px;
+  }
+
+  .wizard-nav {
+    padding: 8px 16px;
+  }
+
+  .tier-table {
+    font-size: 12px;
+  }
+}

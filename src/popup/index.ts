@@ -68,6 +68,11 @@ async function main(): Promise<void> {
     void ext.runtime.openOptionsPage()
     window.close()
   })
+  $("openWelcome").addEventListener("click", (e) => {
+    e.preventDefault()
+    void ext.tabs.create({ url: ext.runtime.getURL("welcome.html") })
+    window.close()
+  })
   $("addProvider").addEventListener("click", () => {
     void ext.tabs.create({ url: ext.runtime.getURL("options.html#providers") })
     window.close()

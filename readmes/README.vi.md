@@ -14,12 +14,14 @@ Tài liệu này viết cho người đọc chưa từng dùng tiện ích của
 - Hai chế độ hiển thị: chế độ song ngữ chèn một khối bản dịch có viền trái nhạt dưới đoạn gốc, vẫn dễ đọc khi dùng giao diện tối. Chế độ chỉ bản dịch thay đoạn gốc bằng bản dịch; đoạn gốc được giữ trong bộ nhớ và được đặt lại khi tắt dịch.
 - Cập nhật trực tiếp: khi đổi chế độ hiển thị hoặc ngôn ngữ đích trong lúc thư đang được dịch, trang được vẽ lại mà không cần mở lại thư. Đổi chế độ hiển thị chỉ vẽ lại từ các bản dịch đã nhận và không gửi yêu cầu mới.
 - Điểm truy cập: nút "Dịch thư" trên thanh công cụ ở phần đầu thư cùng cửa sổ bật lên của nút, và hai phím tắt Alt+A (dịch / hiện bản gốc) và Alt+S (chuyển song ngữ / chỉ bản dịch).
-- Dịch tự động (tùy chọn): thư không ở ngôn ngữ đích được dịch ngay khi mở.
+- Dịch khi mở thư (tùy chọn): thư không ở ngôn ngữ đích được dịch ngay khi mở, không cần nhấn nút.
 - Gộp yêu cầu: tập lệnh nền gom các đoạn trong 50 ms rồi gộp thành một yêu cầu, có giới hạn số yêu cầu đồng thời, thử lại với thời gian chờ tăng theo hàm mũ, và bộ nhớ đệm cục bộ.
 - Ba tầng dịch: từ điển, dịch máy và dịch bằng AI. Mỗi tầng có một dịch vụ riêng hoặc không được dùng; mỗi đoạn được gửi cùng lúc đến mọi tầng đang dùng. Kết quả của tầng thấp hơn được hiển thị như bản dịch tạm cho đến khi tầng cao nhất thay thế nó, và được giữ lại khi tầng cao nhất thất bại.
 - Dịch vụ: một từ điển ngoại tuyến, 4 trình dịch máy (Google Dịch, Microsoft Translator, DeepLX, các mô hình Bergamot ngoại tuyến) và 22 cấu hình sẵn cho nhà cung cấp AI, trong đó có "Tùy chỉnh tương thích OpenAI". Danh sách của các tầng chỉ hiện những dịch vụ bạn đã thêm.
 - Ngôn ngữ nguồn: tự động phát hiện hoặc một ngôn ngữ cố định, được truyền cho mọi dịch vụ.
 - Ba lời nhắc cho tầng AI: một cho hiển thị song ngữ, một cho hiển thị chỉ bản dịch và một cho dịch chính xác.
+- Mẫu có sẵn cho lời nhắc: các quy tắc soạn sẵn cho một biến thể vùng miền của ngôn ngữ đích, cho từ khó kèm nguyên văn trong ngoặc, cho lời giải thích ngắn về từ khó và cho bốn văn phong. Mỗi mẫu có thể thêm vào bất kỳ lời nhắc nào trong ba lời nhắc.
+- Hướng dẫn thiết lập: tự mở sau khi cài đặt và thiết lập từng bước ngôn ngữ, chế độ hiển thị, các tầng dịch, dữ liệu tải về để dịch ngoại tuyến, dịch vụ và lời nhắc. Bước cuối dịch thử một thư mẫu.
 - Dịch chính xác (tầng AI): toàn bộ thư làm ngữ cảnh cho mọi yêu cầu, nên tên riêng, thuật ngữ và cách xưng hô nhất quán giữa các đoạn.
 - Công tắc chế độ suy nghĩ cho từng nhà cung cấp AI, mặc định tắt.
 - Giao diện có 12 ngôn ngữ. Ngôn ngữ giao diện mặc định theo Thunderbird và có thể chọn trên trang cài đặt.
@@ -44,9 +46,39 @@ npm test
 npm run build
 ```
 
-`npm run build` dùng esbuild để đóng gói tập lệnh nền, tập lệnh nội dung, cửa sổ bật lên và trang cài đặt vào `dist/`, tạo `dist/_locales/<language>/messages.json` từ các tệp trong `locales/`, rồi nén `dist/` thành `web-ext-artifacts/thunderbird-translate-<version>.xpi`. Bước nén dùng thư viện fflate viết bằng JavaScript thuần và không cần lệnh zip của hệ thống.
+`npm run build` dùng esbuild để đóng gói tập lệnh nền, tập lệnh nội dung, cửa sổ bật lên, trang cài đặt và trang hướng dẫn thiết lập vào `dist/`, tạo `dist/_locales/<language>/messages.json` từ các tệp trong `locales/`, rồi nén `dist/` thành `web-ext-artifacts/thunderbird-translate-<version>.xpi`. Bước nén dùng thư viện fflate viết bằng JavaScript thuần và không cần lệnh zip của hệ thống.
 
 Trong lúc phát triển, bạn có thể nạp tiện ích mà không cần đóng gói: trong Thunderbird mở Công cụ → Công cụ nhà phát triển → Gỡ lỗi tiện ích, nhấn "Tải tiện ích tạm thời…" và chọn `dist/manifest.json`.
+
+## Hướng dẫn thiết lập
+
+Sau khi cài mới, Thunderbird mở hướng dẫn thiết lập trong một thẻ. Việc cập nhật tiện ích hoặc Thunderbird không mở hướng dẫn. Sau này có thể mở lại hướng dẫn bằng liên kết "Hướng dẫn thiết lập" trong cửa sổ bật lên và bằng nút "Hướng dẫn thiết lập" ở đầu trang cài đặt.
+
+Mỗi bước hỏi một quyết định và lưu lựa chọn ngay. Các nút "Quay lại", "Tiếp" và "Bỏ qua bước này" chuyển giữa các bước. Danh sách đánh số bên dưới thanh tiến độ cho phép nhảy đến bất kỳ bước nào. Nút "Thoát hướng dẫn" đóng thẻ bất cứ lúc nào. Lần mở sau, hướng dẫn tiếp tục từ bước đã dừng; sau khi nhấn "Hoàn tất", hướng dẫn bắt đầu lại từ bước đầu.
+
+| Bước | Nội dung | Hiện khi |
+| --- | --- | --- |
+| 1 Ngôn ngữ | ngôn ngữ giao diện, ngôn ngữ nguồn (mặc định "Tự động phát hiện"), ngôn ngữ đích | luôn hiện |
+| 2 Cách hiển thị | song ngữ hoặc chỉ bản dịch, kèm bản xem trước một thư mẫu theo kiểu bản dịch hiện tại | luôn hiện |
+| 3 Các tầng dịch | tốc độ, chất lượng, quyền riêng tư và chi phí của tầng từ điển, tầng dịch máy và tầng AI; dịch vụ của từng tầng hoặc "Không dùng"; ít nhất một tầng phải có dịch vụ | luôn hiện |
+| 4 Dịch ngoại tuyến | các gói từ điển và chiều dịch Bergamot mà ngôn ngữ ở bước 1 cần, kèm dung lượng, giấy phép và ghi nhận nguồn; đánh dấu mục cần tải rồi nhấn "Tải mục đã chọn", tiến độ tải được hiển thị | tầng từ điển đang dùng hoặc tầng dịch máy dùng Bergamot |
+| 5 Dịch máy trực tuyến | các trường của trình dịch máy: Google không cần điền gì; Microsoft có "Giao diện mặc định (miễn phí)" và "Dùng khóa của tôi (Azure Translator)"; DeepLX cần điểm cuối và token; nút "Kiểm tra kết nối" | tầng dịch máy dùng Google, Microsoft hoặc DeepLX |
+| 6 Dịch bằng AI | nhà cung cấp AI, khóa API, mô hình, nhiệt độ và chế độ suy nghĩ, nút "Kiểm tra kết nối" và công tắc "Dịch chính xác"; ghi chú rằng chế độ suy nghĩ và dịch chính xác làm việc dịch chậm hơn và tốn kém hơn | tầng AI đang dùng |
+| 7 Lời nhắc | ba lời nhắc và thư viện mẫu có sẵn (xem "Mẫu có sẵn cho lời nhắc") | tầng AI đang dùng |
+| 8 Xong | cách dịch (nút trên thanh công cụ, Alt+A, Alt+S), công tắc "Tự động dịch thư không ở ngôn ngữ đích" và nút "Dịch thư mẫu" | luôn hiện |
+
+Bước mà các lựa chọn trước đó không cần vẫn nằm trong danh sách, bị gạch ngang, và thao tác chuyển bước bỏ qua nó. Ví dụ, chọn một dịch vụ AI ở bước 3 sẽ làm bước 6 và bước 7 xuất hiện lại.
+
+Khi ngôn ngữ nguồn là tiếng Nhật và ngôn ngữ đích là tiếng Trung giản thể, bước 4 đề xuất như sau:
+
+- Từ điển: gói Nhật → Trung nếu bản phát hành có gói này, nếu không thì hai gói Nhật → Anh và Anh → Trung;
+- Bergamot: hai chiều ja → en và en → zh-Hans, vì mọi mô hình Bergamot đều có tiếng Anh ở một phía.
+
+Khi chọn "Tự động phát hiện", bước 4 đề xuất các gói và chiều dịch từ tiếng Anh. Một ghi chú bên dưới danh sách đề nghị cài chiều dịch sang tiếng Anh cho mỗi ngôn ngữ khác mà bạn nhận thư.
+
+Nút "Dịch thư mẫu" ở bước 8 hiển thị một thư tiếng Anh ngắn trên trang (thư tiếng Đức khi ngôn ngữ đích là tiếng Anh) và dịch thư đó bằng cài đặt hiện tại. Trang dùng phần nhận diện đoạn và phần hiển thị của tập lệnh nội dung, và gửi yêu cầu đến tập lệnh nền qua cùng kết nối như một thư đang hiển thị. Vì vậy kết quả cho thấy một thư thật sẽ trông thế nào, kể cả các tầng đang dùng.
+
+Hướng dẫn dùng chung các thành phần với trang cài đặt: các trường cấu hình dịch vụ và kiểm tra kết nối, danh sách từ điển và Bergamot, trình sửa lời nhắc kèm các mẫu có sẵn.
 
 ## Sử dụng
 
@@ -58,6 +90,7 @@ Mở một thư. Nút "Dịch thư" xuất hiện trên thanh công cụ ở ph�
 - Các tầng dịch: mỗi tầng có một danh sách (Tầng 1: Từ điển, Tầng 2: Dịch máy, Tầng 3: Dịch bằng AI), gồm "Không dùng" và các dịch vụ đã thêm của tầng đó. Phải có ít nhất một tầng được gán dịch vụ; khi chọn "Không dùng" cho tầng cuối cùng còn dịch vụ, lựa chọn bị từ chối kèm một dòng ghi chú. Mục "+ Thêm dịch vụ dịch" bên dưới các danh sách mở trang cài đặt tại phần dịch vụ dịch.
 - Dịch chính xác: hiện khi tầng AI có dịch vụ.
 - Tự động dịch thư không ở ngôn ngữ đích: khi được đánh dấu, thư có nội dung không ở ngôn ngữ đích sẽ được dịch ngay khi mở.
+- "Hướng dẫn thiết lập": mở hướng dẫn thiết lập trong một thẻ mới.
 
 Cửa sổ bật lên hiển thị tiến độ, ví dụ "Đã dịch 8 trên 12". Các đoạn vẫn hiển thị bản dịch tạm của một tầng thấp hơn được đếm riêng, ví dụ "Đã dịch 7 trên 9 (2 đoạn là bản dịch tạm)". Khi mọi tầng đều dịch lỗi một đoạn, dòng chữ đỏ "Dịch thất bại, nhấn để thử lại" xuất hiện sau đoạn đó; di chuột lên sẽ thấy thông báo lỗi, nhấn vào sẽ dịch lại đoạn đó.
 
@@ -67,16 +100,16 @@ Alt+A dịch thư hiện tại hoặc khôi phục bản gốc; Alt+S chuyển g
 
 ## Cài đặt tiện ích
 
-Mở trang cài đặt bằng nút "Tùy chọn" của tiện ích này trong Trình quản lý tiện ích. Cài đặt được lưu tự động; dòng chữ "Đã lưu" xuất hiện ở góc trên bên phải sau khi ghi xong.
+Mở trang cài đặt bằng nút "Tùy chọn" của tiện ích này trong Trình quản lý tiện ích. Cài đặt được lưu tự động; dòng chữ "Đã lưu" xuất hiện ở góc trên bên phải sau khi ghi xong. Nút "Hướng dẫn thiết lập" bên cạnh dòng chữ đó mở hướng dẫn thiết lập.
 
 | Mục | Nội dung |
 | --- | --- |
-| Chung | Ngôn ngữ giao diện, ngôn ngữ nguồn, ngôn ngữ đích, chế độ hiển thị mặc định, dịch tự động |
+| Chung | Ngôn ngữ giao diện, ngôn ngữ nguồn, ngôn ngữ đích, chế độ hiển thị mặc định, công tắc "Tự động dịch thư không ở ngôn ngữ đích" |
 | Các tầng dịch | Dịch vụ của từng tầng hoặc "Không dùng"; dịch chính xác |
 | Dịch vụ dịch | Dịch vụ chia thành hai nhóm, "Đã thêm" và "Có thể thêm"; điểm cuối, khóa API, mô hình, nhiệt độ và chế độ suy nghĩ của từng dịch vụ; nút "Kiểm tra kết nối", "Thêm", "Dùng dịch vụ này" và "Gỡ" |
 | Từ điển | Các cặp ngôn ngữ của tầng từ điển kèm dung lượng, giấy phép và ghi nhận nguồn; tải xuống và xóa; thẻ bản phát hành của các gói (nâng cao) |
 | Mô hình dịch ngoại tuyến (Bergamot) | Các chiều dịch của mô hình Bergamot kèm dung lượng và phiên bản; lọc theo ngôn ngữ; tải xuống, cập nhật, hủy và xóa; các chiều dịch mà ngôn ngữ hiện tại cần |
-| Lời nhắc (tầng AI) | Lời nhắc cho hiển thị song ngữ, hiển thị chỉ bản dịch và dịch chính xác, mỗi lời nhắc có nút "Khôi phục lời nhắc tích hợp sẵn" |
+| Lời nhắc (tầng AI) | Thư viện mẫu có sẵn; lời nhắc cho hiển thị song ngữ, hiển thị chỉ bản dịch và dịch chính xác, mỗi lời nhắc có nút "Khôi phục lời nhắc tích hợp sẵn" |
 | Gộp yêu cầu | Thời gian gom đoạn, số ký tự và số đoạn tối đa mỗi yêu cầu, số yêu cầu đồng thời, số lần thử lại, có gộp yêu cầu AI hay không |
 | Kiểu bản dịch | Viền trái, viền trái nét đứt, tô sáng hoặc đơn giản; màu nhấn, độ đục của chữ, tỷ lệ cỡ chữ; xem trước trực tiếp |
 | Bộ nhớ đệm | Bật hoặc tắt bộ nhớ đệm, số đoạn tối đa trong bộ nhớ đệm, số mục hiện có, xóa bộ nhớ đệm |
@@ -151,6 +184,29 @@ Tầng AI có ba lời nhắc hệ thống. Mỗi lời nhắc có thể sửa t
 | Dịch chính xác | tầng AI khi dịch chính xác đang bật, ở cả hai chế độ hiển thị | thuật ngữ, tên riêng và cách xưng hô nhất quán trong toàn bộ thư, dựa vào bảng thuật ngữ, bản tóm tắt và các đoạn lân cận |
 
 Khóa bộ nhớ đệm và khóa lô chứa loại lời nhắc và giá trị băm của nội dung lời nhắc. Vì vậy, sau khi sửa một lời nhắc, tiện ích không bao giờ trả về bản dịch tạo bằng nội dung cũ. Lời nhắc hệ thống tùy chỉnh do phiên bản 1.3 trở về trước lưu trở thành lời nhắc của cả hai chế độ hiển thị; lời nhắc dịch chính xác bắt đầu với nội dung tích hợp sẵn.
+
+### Mẫu có sẵn cho lời nhắc
+
+Thư viện mẫu có sẵn nằm phía trên ba lời nhắc trên trang cài đặt và ở bước 7 của hướng dẫn thiết lập. Cách áp dụng một mẫu:
+
+1. Chọn một mẫu trong danh sách "Mẫu có sẵn". Nếu mẫu có biến thể, chọn một biến thể trong danh sách "Biến thể".
+2. Chọn một lời nhắc trong danh sách "Thêm vào lời nhắc".
+3. Nhấn "Áp dụng mẫu".
+
+Dòng "Ví dụ:" cho thấy một câu nguồn và kết quả mong đợi của mẫu đã chọn.
+
+| Mẫu | Biến thể | Quy tắc thêm vào lời nhắc |
+| --- | --- | --- |
+| Phương ngữ hoặc cách dùng vùng miền | theo ngôn ngữ đích: tiếng Quảng Đông (Hồng Kông) và tiếng Tứ Xuyên cho tiếng Trung giản thể; tiếng Quảng Đông (Hồng Kông) và cách dùng ở Đài Loan cho tiếng Trung phồn thể; tiếng Anh Anh và tiếng Anh Mỹ; tiếng Bồ Đào Nha Brazil và tiếng Bồ Đào Nha châu Âu; tiếng Tây Ban Nha Mexico và tiếng Tây Ban Nha (Tây Ban Nha); tiếng Pháp Canada (Québec); tiếng Đức chuẩn Thụy Sĩ | viết bằng biến thể đó, theo chính tả, từ vựng và cách xưng hô của nó |
+| Giữ nguyên văn cho từ khó | không có | dịch bình thường và ghi nguyên văn trong ngoặc sau mỗi từ khó hoặc thuật ngữ chuyên môn, mỗi đoạn một lần, ví dụ "thẩm định (due diligence)" |
+| Giải thích từ khó | không có | dịch đoạn văn, rồi giải thích các từ khó của đoạn bằng ngôn ngữ đích ở cuối chính đoạn đó, trong một cặp ngoặc: 〔Ghi chú: thuật ngữ: giải thích; …〕 |
+| Văn phong | trang trọng, kinh doanh; thân mật; ngôn ngữ đơn giản cho người học; văn chương | dùng sắc thái đó và giữ trọn ý nghĩa |
+
+Danh sách biến thể thay đổi theo ngôn ngữ đích. Với ngôn ngữ đích không có biến thể vùng miền, ví dụ tiếng Nhật, mẫu "Phương ngữ hoặc cách dùng vùng miền" không xuất hiện.
+
+Mẫu thêm một khối quy tắc tiếng Anh vào cuối lời nhắc, sau một dòng trống. Khối bắt đầu bằng một dòng tiêu đề như `Style (this rule takes precedence over the rules above):`, nên khối được ưu tiên hơn các quy tắc chung của lời nhắc tích hợp sẵn, chẳng hạn "Do not add explanations". Áp dụng lại cùng một mẫu sẽ thay khối của mẫu đó; khối của các mẫu khác nhau được cộng dồn. Ô lời nhắc hiển thị văn bản đã ghép và vẫn sửa được. Nút "Khôi phục lời nhắc tích hợp sẵn" xóa mọi phần đã thêm.
+
+Các mẫu giữ nguyên quy ước mỗi đoạn một bản dịch. Lời giải thích từ khó nằm trong bản dịch của đoạn chứa nó, và khối quy tắc cấm trả lời giải thích thành một đoạn hoặc một phần tử mảng riêng. Vì vậy một lô vẫn được trả về dưới dạng mảng JSON (hoặc các phân đoạn có đánh số) với đúng một mục cho mỗi đoạn. Các bài kiểm thử áp dụng cả bốn mẫu vào một lời nhắc và phân tích câu trả lời của một mô hình giả lập ở cả hai định dạng.
 
 ## Dịch chính xác
 
@@ -410,6 +466,9 @@ Số token đầu vào giảm khoảng 63%, và số yêu cầu giảm từ 20 x
 - Công tắc suy nghĩ hoạt động bằng cách so khớp tên mô hình. Một mô hình mới có tên không khớp mẫu nào sẽ không nhận tham số suy nghĩ cho đến khi bảng trong `src/background/providers/thinking.ts` được mở rộng.
 - Mỗi tầng đang dùng gửi yêu cầu riêng. Khi cả tầng AI và tầng dịch máy đều được dùng, mỗi thư còn tốn thêm yêu cầu đến trình dịch máy, và các yêu cầu này tính vào giới hạn tần suất của các điểm cuối miễn phí của Google và Microsoft.
 - Dịch bằng từ điển là bản dịch từng từ: giữ thứ tự từ của văn bản nguồn và không biến tố. Các từ không có trong gói được giữ nguyên, không dịch.
+- Thư mẫu của hướng dẫn thiết lập viết bằng tiếng Anh, hoặc bằng tiếng Đức khi ngôn ngữ đích là tiếng Anh. Khi ngôn ngữ nguồn được cố định là một ngôn ngữ khác hai ngôn ngữ này, bản dịch thử vẫn gửi văn bản tiếng Anh kèm ngôn ngữ nguồn đó.
+- Khi thẻ hướng dẫn thiết lập đang được chọn, nhấn Alt+A sẽ dịch thư mẫu hoặc khôi phục bản gốc của nó. Khi đó nhãn của nút dịch thử không đổi theo.
+- Mẫu có sẵn là chỉ dẫn cho mô hình. Mức độ tuân theo một phương ngữ hoặc văn phong tùy thuộc vào mô hình; mô hình nhỏ dễ trộn lẫn các biến thể vùng miền hơn.
 - Bergamot và từ điển dịch một lô với một ngôn ngữ nguồn. Khi tự động phát hiện, Bergamot nhận diện ngôn ngữ của cả lô, nên một lô trộn nhiều ngôn ngữ được dịch theo ngôn ngữ chiếm ưu thế.
 
 ## Kiểm thử
@@ -421,7 +480,7 @@ npm run locales:check  # check every locales/<language>.json against locales/en.
 npm run live-test      # call the real Google and Microsoft endpoints through the extension's own modules, with and without a source language
 ```
 
-Các bài kiểm thử đơn vị bao gồm: nhóm lô và hàng đợi; phân tích đầu ra AI và cơ chế dự phòng; nhận diện đoạn cùng việc hiển thị song ngữ, chỉ bản dịch và khôi phục (trong jsdom); dựng yêu cầu và phân tích phản hồi cho Google, Microsoft và DeepLX (với fetch giả lập); URL yêu cầu và header xác thực của mọi cấu hình sẵn AI; tham số suy nghĩ của từng nhà cung cấp; việc chuyển cài đặt cũ sang dịch vụ đã thêm, sang các tầng và các lời nhắc; danh sách của các tầng trong cửa sổ bật lên và trang cài đặt, việc từ chối để mọi tầng đều trống, và cơ chế chặn gỡ; các tầng (tầng thấp hơn đến trước rồi bị thay thế, tầng cao nhất đến trước và kết quả tầng thấp hơn đến sau bị bỏ qua, tầng cao nhất thất bại và kết quả tầng thấp hơn được giữ lại, mọi tầng đều thất bại, tầng không dùng, tầng cao nhất trúng bộ nhớ đệm); việc chọn lời nhắc và khóa bộ nhớ đệm; việc đổi chế độ hiển thị hỏi lại tầng AI và chỉ vẽ lại các tầng khác; ngôn ngữ nguồn trong yêu cầu của mọi dịch vụ và trong khóa bộ nhớ đệm; gói từ điển (phân tích tệp, tách từ và so khớp cụm từ, dạng biến tố, dịch qua tiếng Anh, thiếu gói, tải xuống kèm kiểm tra giá trị SHA-256, với một IndexedDB trong bộ nhớ); dịch vụ Bergamot và việc quản lý mô hình của nó với công cụ dịch giả lập; dịch chính xác (một yêu cầu, phân tích kèm nhiều lô, phân tích thất bại, khóa bộ nhớ đệm và lô theo từng thư, tiền tố lời nhắc giống hệt với điều khiển bộ nhớ đệm của Anthropic); và bản địa hóa: tập khóa và phần giữ chỗ giống nhau ở mọi ngôn ngữ, mọi tham chiếu `__MSG_*__` trong manifest, ánh xạ ngôn ngữ của Thunderbird sang ngôn ngữ được hỗ trợ, quay về tiếng Anh khi thiếu khóa, và việc không có văn bản giao diện viết cứng trong các trang HTML và mã nguồn.
+Các bài kiểm thử đơn vị bao gồm: nhóm lô và hàng đợi; phân tích đầu ra AI và cơ chế dự phòng; nhận diện đoạn cùng việc hiển thị song ngữ, chỉ bản dịch và khôi phục (trong jsdom); dựng yêu cầu và phân tích phản hồi cho Google, Microsoft và DeepLX (với fetch giả lập); URL yêu cầu và header xác thực của mọi cấu hình sẵn AI; tham số suy nghĩ của từng nhà cung cấp; việc chuyển cài đặt cũ sang dịch vụ đã thêm, sang các tầng và các lời nhắc; danh sách của các tầng trong cửa sổ bật lên và trang cài đặt, việc từ chối để mọi tầng đều trống, và cơ chế chặn gỡ; các tầng (tầng thấp hơn đến trước rồi bị thay thế, tầng cao nhất đến trước và kết quả tầng thấp hơn đến sau bị bỏ qua, tầng cao nhất thất bại và kết quả tầng thấp hơn được giữ lại, mọi tầng đều thất bại, tầng không dùng, tầng cao nhất trúng bộ nhớ đệm); việc chọn lời nhắc và khóa bộ nhớ đệm; việc đổi chế độ hiển thị hỏi lại tầng AI và chỉ vẽ lại các tầng khác; ngôn ngữ nguồn trong yêu cầu của mọi dịch vụ và trong khóa bộ nhớ đệm; gói từ điển (phân tích tệp, tách từ và so khớp cụm từ, dạng biến tố, dịch qua tiếng Anh, thiếu gói, tải xuống kèm kiểm tra giá trị SHA-256, với một IndexedDB trong bộ nhớ); dịch vụ Bergamot và việc quản lý mô hình của nó với công cụ dịch giả lập; dịch chính xác (một yêu cầu, phân tích kèm nhiều lô, phân tích thất bại, khóa bộ nhớ đệm và lô theo từng thư, tiền tố lời nhắc giống hệt với điều khiển bộ nhớ đệm của Anthropic); hướng dẫn thiết lập (chỉ mở khi cài mới, chuyển bước có bỏ qua bước không cần và tiếp tục từ bước đã dừng, lưu từng bước, gói từ điển và chiều dịch Bergamot được đề xuất cùng việc tải chúng, cấu hình dịch vụ và kiểm tra kết nối, mẫu có sẵn trên lời nhắc, dịch thử qua các mô-đun của tập lệnh nội dung); mẫu có sẵn cho lời nhắc (biến thể theo ngôn ngữ đích, kết hợp với từng lời nhắc trong ba lời nhắc, thay khối khi áp dụng lại cùng một mẫu, phân tích lô khi áp dụng mọi mẫu); và bản địa hóa: tập khóa và phần giữ chỗ giống nhau ở mọi ngôn ngữ, mọi tham chiếu `__MSG_*__` trong manifest, ánh xạ ngôn ngữ của Thunderbird sang ngôn ngữ được hỗ trợ, quay về tiếng Anh khi thiếu khóa, và việc không có văn bản giao diện viết cứng trong các trang HTML và mã nguồn.
 
 `npm run build:debug` tạo một bản xpi gỡ lỗi, bắt đầu dịch ngay khi mở thư và ghi tiến độ ra console, dùng để kiểm tra toàn bộ luồng trong Thunderbird thật.
 
@@ -432,7 +491,8 @@ src/
   background/    background script: translation service, batch and request queues, cache, provider factory, translators, dictionary, offline model management
   content/       content script: paragraph detection, rendering, language detection, translation state
   popup/         popup
-  options/       settings page
+  options/       settings page and the parts the setup guide shares: service fields, dictionary and Bergamot lists, prompt editor, settings session
+  welcome/       setup guide: steps and navigation
   offline/       Bergamot engine module: model list, download, storage, worker
   shared/        shared settings, provider presets, prompts, language table and detection, message types, i18n runtime
 locales/         interface text, one JSON file per language; en.json is the reference
