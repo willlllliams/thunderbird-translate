@@ -159,7 +159,7 @@ describe("settings page", () => {
     await vi.waitFor(() => expect(stored().tiers.machine).toBe("microsoft-free"))
   })
 
-  it("edits the three prompts and restores a default", async () => {
+  it("edits the three prompts and restores a default; the built-in prompt shows in the box and is stored as empty", async () => {
     const { stored } = await openPage("options", createDefaultSettings("en"))
     const box = (kind: string) => document.querySelector<HTMLTextAreaElement>(`#prompt-${kind}`)!
     await vi.waitFor(() => expect(box("precise").value).toBe(DEFAULT_PROMPTS.precise))
@@ -169,7 +169,14 @@ describe("settings page", () => {
     await vi.waitFor(() => expect(stored().prompts.translationOnly).toBe("Natural {{to}}."))
     document.querySelector<HTMLButtonElement>("#reset-translationOnly")!.click()
     expect(box("translationOnly").value).toBe(DEFAULT_PROMPTS.translationOnly)
-    await vi.waitFor(() => expect(stored().prompts.translationOnly).toBe(DEFAULT_PROMPTS.translationOnly))
+    await vi.waitFor(() => expect(stored().prompts.translationOnly).toBe(""))
+    // Typing the built-in text back stores nothing either.
+    box("precise").value = "Short."
+    box("precise").dispatchEvent(new Event("input"))
+    await vi.waitFor(() => expect(stored().prompts.precise).toBe("Short."))
+    box("precise").value = `${DEFAULT_PROMPTS.precise}\n`
+    box("precise").dispatchEvent(new Event("input"))
+    await vi.waitFor(() => expect(stored().prompts.precise).toBe(""))
   })
 
   it("applies presets to each of the three prompts, keeps the box editable and restores the default", async () => {
@@ -194,7 +201,8 @@ describe("settings page", () => {
     box("bilingual").dispatchEvent(new Event("input"))
     await vi.waitFor(() => expect(stored().prompts.bilingual.endsWith("- Keep it short.")).toBe(true))
     document.querySelector<HTMLButtonElement>("#reset-bilingual")!.click()
-    await vi.waitFor(() => expect(stored().prompts.bilingual).toBe(DEFAULT_PROMPTS.bilingual))
+    await vi.waitFor(() => expect(stored().prompts.bilingual).toBe(""))
+    expect(box("bilingual").value).toBe(DEFAULT_PROMPTS.bilingual)
 
     // Another target language changes the offered variants.
     choose(select("targetLang"), "en")

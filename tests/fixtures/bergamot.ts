@@ -2,7 +2,6 @@
 import { zstdCompressSync } from "node:zlib"
 import { IDBFactory } from "fake-indexeddb"
 import { vi } from "vitest"
-import type { LanguageDetector } from "../../src/offline/bergamot/detect"
 import type { WorkerLike } from "../../src/offline/bergamot/engine"
 import { BergamotManager, type ManagerDeps } from "../../src/offline/bergamot/manager"
 import type { WorkerRequest, WorkerResponse } from "../../src/offline/bergamot/protocol"
@@ -102,7 +101,7 @@ export function fakeServer(files: FakeFile[]) {
 }
 
 /** A manager over `files` with an in-memory store and fake workers; `deps` replaces any dependency. */
-export function makeManager(files: FakeFile[], detector?: LanguageDetector, deps: Partial<ManagerDeps> = {}) {
+export function makeManager(files: FakeFile[], deps: Partial<ManagerDeps> = {}) {
   const server = fakeServer(files)
   const workers: FakeWorker[] = []
   const store = deps.store ?? new BergamotStore(new IDBFactory())
@@ -110,7 +109,6 @@ export function makeManager(files: FakeFile[], detector?: LanguageDetector, deps
     store,
     fetch: server.fetch,
     serverUrl: server.SERVER,
-    detector,
     createWorker: () => {
       const w = new FakeWorker()
       workers.push(w)

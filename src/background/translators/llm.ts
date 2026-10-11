@@ -1,5 +1,5 @@
 import { generateText, type SystemModelMessage } from "ai"
-import { LocalizedError } from "../../shared/errors"
+import { LocalizedError, TimeoutError } from "../../shared/errors"
 import { getPreset } from "../../shared/providers"
 import type { ResolvedProvider } from "../../shared/settings"
 import { createLanguageModel } from "../providers/factory"
@@ -28,22 +28,31 @@ export interface LlmCallOptions {
   /** Precise mode: message context appended to the system prompt, identical for every request of one message. */
   contextPrefix?: string
   fetchFn?: typeof fetch
+  /** A request without an answer after this long fails with TimeoutError. */
+  timeoutMs?: number
 }
 
 async function callModel(instructions: SystemModelMessage, prompt: string, opts: LlmCallOptions): Promise<string> {
   const { id, model, temperature, thinking } = opts.provider
   const reasoning = thinkingOptions(id, model, thinking)
   const sendTemperature = temperature !== null && !reasoning.dropTemperature && !modelRejectsTemperature(id, model)
-  const result = await generateText({
-    model: createLanguageModel(opts.provider, opts.fetchFn),
-    instructions,
-    prompt,
-    ...(sendTemperature ? { temperature } : {}),
-    ...(reasoning.providerOptions ? { providerOptions: reasoning.providerOptions } : {}),
-    // Retries are handled by our RequestQueue.
-    maxRetries: 0,
-  })
-  return result.text
+  const abortSignal = opts.timeoutMs ? AbortSignal.timeout(opts.timeoutMs) : undefined
+  try {
+    const result = await generateText({
+      model: createLanguageModel(opts.provider, opts.fetchFn),
+      instructions,
+      prompt,
+      ...(sendTemperature ? { temperature } : {}),
+      ...(reasoning.providerOptions ? { providerOptions: reasoning.providerOptions } : {}),
+      abortSignal,
+      // Retries are handled by our RequestQueue.
+      maxRetries: 0,
+    })
+    return result.text
+  } catch (error) {
+    if (abortSignal?.aborted) throw new TimeoutError(getPreset(id)?.name ?? id, opts.timeoutMs!)
+    throw error
+  }
 }
 
 /** System message of a translation request: the system prompt, then the message context in precise mode. */
@@ -70,7 +79,7 @@ export async function llmTranslateSingle(segment: Segment, opts: LlmCallOptions)
 export async function llmTranslateBatch(segments: Segment[], opts: LlmCallOptions): Promise<string[]> {
   if (segments.length === 1) return [await llmTranslateSingle(segments[0], opts)]
   const raw = await callModel(translationInstructions(opts), buildBatchPrompt(segments, languages(opts)), opts)
-  const parsed = parseBatchOutput(raw, segments.length)
+  const parsed = parseBatchOutput(raw, segments.length, segments.map((s) => s.text))
   if (!parsed) throw new BatchParseError(`Could not parse ${segments.length} translations from the model output`)
   return parsed
 }

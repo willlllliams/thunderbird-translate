@@ -8,6 +8,8 @@
  * - After `idleMs` without requests (default 5 minutes) the worker is
  *   terminated: the wasm heap never shrinks, so this is the only way to give
  *   the memory back.
+ * - A worker that does not answer a request within `timeoutMs` (default 2
+ *   minutes) is terminated; the next request starts a fresh one.
  */
 
 import type { WorkerModelFile, WorkerRequest, WorkerResponse } from "./protocol"
@@ -32,12 +34,14 @@ export interface EngineOptions {
   loadPair: (key: string) => Promise<PairPayload>
   maxModels?: number
   idleMs?: number
+  timeoutMs?: number
   setTimer?: (fn: () => void, ms: number) => unknown
   clearTimer?: (handle: unknown) => void
 }
 
 const DEFAULT_MAX_MODELS = 2
 const DEFAULT_IDLE_MS = 5 * 60 * 1000
+const DEFAULT_TIMEOUT_MS = 2 * 60 * 1000
 
 export class EngineError extends Error {
   constructor(message: string) {
@@ -180,6 +184,11 @@ export class BergamotEngine {
   private async request(message: WorkerRequest, transfer: Transferable[] = []): Promise<WorkerResponse & { ok: true }> {
     const worker = this.ensureWorker()
     const id = this.nextId++
+    const timeoutMs = this.options.timeoutMs ?? DEFAULT_TIMEOUT_MS
+    const timer = this.setTimer(() => {
+      // A worker stuck in wasm answers nothing else either: replace it.
+      if (this.pending.has(id)) this.kill(new EngineError(`offline engine did not answer within ${Math.round(timeoutMs / 1000)} s`))
+    }, timeoutMs)
     const response = await new Promise<WorkerResponse>((resolve, reject) => {
       this.pending.set(id, { resolve, reject })
       try {
@@ -188,7 +197,7 @@ export class BergamotEngine {
         this.pending.delete(id)
         reject(e instanceof Error ? e : new Error(String(e)))
       }
-    })
+    }).finally(() => this.clearTimer(timer))
     if (!response.ok) throw new EngineError(response.error)
     return response
   }

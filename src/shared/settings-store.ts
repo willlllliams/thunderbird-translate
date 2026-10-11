@@ -17,11 +17,24 @@ async function saveSettings(settings: Settings): Promise<void> {
   await ext.storage.local.set({ [SETTINGS_KEY]: settings })
 }
 
-export async function updateSettings(change: (s: Settings) => void): Promise<Settings> {
-  const s = await loadSettings()
-  change(s)
-  await saveSettings(s)
-  return s
+/** Changes of this page, written one after the other. */
+let updates: Promise<unknown> = Promise.resolve()
+
+/**
+ * Apply one change (popup, keyboard shortcut) to the settings in storage:
+ * only what `change` touches is merged into the stored settings, as the
+ * settings page does with saveChanges(), and changes of one page never
+ * overtake each other.
+ */
+export function updateSettings(change: (s: Settings) => void): Promise<Settings> {
+  const update = updates.then(async () => {
+    const base = await loadSettings()
+    const edited = structuredClone(base)
+    change(edited)
+    return saveChanges(base, edited)
+  })
+  updates = update.catch(() => {})
+  return update
 }
 
 type Tree = Record<string, unknown>

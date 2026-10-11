@@ -91,7 +91,7 @@ export function decodeHtml(s: string): string {
 
 /** Send one translate request and read its `expected` translations. */
 async function translate(spec: RequestSpec, expected: number, opts: FetchOptions, decode = false): Promise<string[]> {
-  const resp = await fetchOk(opts.fetchFn, spec, "Microsoft")
+  const resp = await fetchOk(opts, spec, "Microsoft")
   return parseMicrosoftResponse(await resp.json(), expected, decode)
 }
 

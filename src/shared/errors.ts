@@ -51,6 +51,51 @@ export class NetworkError extends Error {
   }
 }
 
+/** The service did not answer within the request timeout of the settings; retried like a network failure. */
+export class TimeoutError extends LocalizedError {
+  readonly isRetryable = true
+
+  constructor(service: string, ms: number) {
+    super("errTimeout", [service, String(Math.round(ms / 1000))], undefined, "hintTimeout")
+    this.name = "TimeoutError"
+  }
+}
+
+/* ---------- secrets in error texts ---------- */
+
+/** Query parameters that commonly carry credentials. */
+const SECRET_PARAM = /key|token|auth|secret|sig|pass|credential|session/i
+/** A path segment that looks like a token: 20 or more characters with letters and digits, no dot. */
+const TOKEN_SEGMENT = /^(?=.*\d)(?=.*[A-Za-z])[\w:-]{20,}$/
+
+/** The URL with user info, token-like path segments and credential parameters replaced by ***. */
+export function redactUrl(url: string): string {
+  let u: URL
+  try {
+    u = new URL(url)
+  } catch {
+    return url
+  }
+  const secretParams = [...new Set(u.searchParams.keys())].filter((key) => SECRET_PARAM.test(key))
+  const segments = u.pathname.split("/")
+  const tokens = segments.filter((segment) => TOKEN_SEGMENT.test(decodeURIComponent(segment)))
+  if (!u.username && !u.password && tokens.length === 0 && secretParams.length === 0) return url
+  if (u.username) u.username = "***"
+  if (u.password) u.password = "***"
+  u.pathname = segments.map((segment) => (tokens.includes(segment) ? "***" : segment)).join("/")
+  for (const key of secretParams) u.searchParams.set(key, "***")
+  return u.toString()
+}
+
+/** `text` with every occurrence of the secrets, also URL-encoded, replaced by ***. */
+function redactSecrets(text: string, secrets: readonly string[] = []): string {
+  for (const secret of secrets) {
+    if (secret.length < 4) continue
+    for (const form of new Set([secret, encodeURIComponent(secret)])) text = text.replaceAll(form, "***")
+  }
+  return text
+}
+
 /* ---------- HTTP details ---------- */
 
 /** Reason phrases (RFC 9110 and widespread extensions) for responses whose statusText is empty. */
@@ -188,6 +233,8 @@ export interface ErrorContext {
   model?: string
   /** Microsoft Translator called with the user's Azure key. */
   keyMode?: boolean
+  /** API key or token of the request; replaced by *** wherever it shows up in the description. */
+  secrets?: string[]
 }
 
 export interface ErrorReport {
@@ -255,7 +302,7 @@ function endpointHints(ctx: ErrorContext, i18n: I18n): string[] {
   const service = ctx.service || "API"
   if (ctx.defaultBaseURL) {
     if (ctx.baseURL && !sameEndpoint(ctx.baseURL, ctx.defaultBaseURL)) {
-      hints.push(i18n.t("hintEndpointDiffers", [service, ctx.defaultBaseURL, ctx.baseURL]))
+      hints.push(i18n.t("hintEndpointDiffers", [service, ctx.defaultBaseURL, redactUrl(ctx.baseURL)]))
     } else {
       hints.push(i18n.t("hintEndpointDefault", [service, ctx.defaultBaseURL]))
     }
@@ -381,6 +428,7 @@ function analyze(error: unknown, ctx: ErrorContext, i18n: I18n, depth: number): 
 export function analyzeError(error: unknown, i18n: I18n, ctx: ErrorContext = {}): ErrorReport {
   const report = analyze(error, ctx, i18n, 0)
   if (!report.reason.trim()) report.reason = i18n.t("errUnknown")
+  if (report.url) report.url = redactUrl(report.url)
   return report
 }
 
@@ -397,10 +445,10 @@ function formatErrorReport(report: ErrorReport, i18n: I18n): string {
  * Text for the user in the given language, one item per line (first line =
  * reason). Never empty. Errors with a message key are translated; HTTP,
  * network and AI SDK errors get the status, the server's message, the URL
- * and suggestions.
+ * and suggestions. Keys, tokens and credential parameters are masked.
  */
 export function describeError(error: unknown, i18n: I18n, ctx: ErrorContext = {}): string {
-  return formatErrorReport(analyzeError(error, i18n, ctx), i18n)
+  return redactSecrets(formatErrorReport(analyzeError(error, i18n, ctx), i18n), ctx.secrets)
 }
 
 /** First line of a description, for places with room for one line only. */

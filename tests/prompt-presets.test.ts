@@ -6,7 +6,7 @@ import { ENGLISH } from "../src/shared/i18n"
 import { LANGUAGES } from "../src/shared/languages"
 import { DEFAULT_PROMPTS, PROMPT_KINDS } from "../src/shared/prompts"
 import { createDefaultSettings } from "../src/shared/settings"
-import { chatCompletion, createService } from "./helpers"
+import { chatCompletion, createService, translateOne } from "./helpers"
 
 const preset = (id: string) => getPromptPreset(id)!
 const option = (p: PromptPreset, id: string) => p.options!.find((o) => o.id === id)!
@@ -107,7 +107,7 @@ describe("batch format with presets", () => {
     const { service } = createService(settings, { fetchFn, llm: { batch: llmTranslateBatch, single: llmTranslateSingle, analyze: llmAnalyzeMail } })
     const translate = () =>
       Promise.all(
-        ["We finished the due diligence.", "The term sheet is attached.", "Thanks!"].map((text) => service.translate({ text, targetLang: "zh-TW", providerId: "openai" })),
+        ["We finished the due diligence.", "The term sheet is attached.", "Thanks!"].map((text) => translateOne(service, { text, targetLang: "zh-TW", providerId: "openai" })),
       )
     return { translate, bodies, fetchFn }
   }

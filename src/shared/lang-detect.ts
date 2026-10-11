@@ -3,7 +3,9 @@
  *
  * Step 1 counts characters per writing system. Non-Latin scripts identify
  * the language (or a small set of candidates) directly: kana means Japanese,
- * Hangul means Korean, Han without kana means Chinese.
+ * Hangul means Korean, Han without kana means Chinese. Chinese text is told
+ * apart as Simplified or Traditional by characters that exist in one form
+ * only (们/們, 这/這…).
  * Step 2, for Latin and Cyrillic text, asks the browser's language detector
  * (i18n.detectLanguage, CLD) when available. Without a reliable answer, a
  * source language chosen by the user decides; otherwise a stop-word ratio
@@ -13,7 +15,7 @@
  * the services that need a source language (dictionary, offline models).
  */
 
-import { baseLang } from "./languages"
+import { baseLang, languageTag } from "./languages"
 
 type ScriptGroup = "han" | "kana" | "hangul" | "cyrillic" | "arabic" | "hebrew" | "thai" | "greek" | "devanagari" | "latin"
 
@@ -73,6 +75,26 @@ export function candidateLanguages(text: string): string[] {
   }
 }
 
+/**
+ * Frequent characters written differently in Simplified and Traditional
+ * Chinese, position by position. Characters that both standards use (后, 里,
+ * 系, 只…) are left out.
+ */
+export const SIMPLIFIED_ONLY = "们这说为发会国对时个来过还进动现经问题开关长门见东车书学写读请谢认识让给无实从应该样点电话号业务产处办网络邮报际间买卖钱银计设达运难爱头体气万与将当总结决议论场区级联"
+export const TRADITIONAL_ONLY = "們這說為發會國對時個來過還進動現經問題開關長門見東車書學寫讀請謝認識讓給無實從應該樣點電話號業務產處辦網絡郵報際間買賣錢銀計設達運難愛頭體氣萬與將當總結決議論場區級聯"
+
+/** "zh-Hans" or "zh-Hant" when the characters of one standard outnumber the other's; null when the text has none of them. */
+export function chineseScript(text: string): "zh-Hans" | "zh-Hant" | null {
+  let hans = 0
+  let hant = 0
+  for (const ch of text) {
+    if (SIMPLIFIED_ONLY.includes(ch)) hans++
+    else if (TRADITIONAL_ONLY.includes(ch)) hant++
+  }
+  if (hans === hant) return null
+  return hans > hant ? "zh-Hans" : "zh-Hant"
+}
+
 const EN_STOPWORDS = new Set(
   "the a an and or but of to in on at for with from by is are was were be been it this that these those you your we our i me my he she they them his her their not no do does did have has had will would can could should please thanks thank regards hi hello dear as if so about".split(
     " ",
@@ -91,7 +113,9 @@ export type LanguageDetector = (text: string) => Promise<string | null>
 /**
  * Whether a paragraph is already in the target language. `sourceLang` is the
  * user's choice ("auto" or a code): paragraphs the detectors cannot place are
- * taken to be in that language.
+ * taken to be in that language. For a Chinese target, the paragraph must also
+ * be written in the target's standard; text without characters that tell the
+ * two apart reads the same in both.
  */
 export async function isInTargetLanguage(text: string, targetLang: string, detect?: LanguageDetector, sourceLang = "auto"): Promise<boolean> {
   const target = baseLang(targetLang)
@@ -99,6 +123,7 @@ export async function isInTargetLanguage(text: string, targetLang: string, detec
   if (candidates.length === 0) return false
   if (candidates[0] !== "latin") {
     if (!candidates.includes(target)) return false
+    if (target === "zh") return (chineseScript(text) ?? languageTag(targetLang)) === languageTag(targetLang)
     if (candidates.length === 1) return true
   } else if (["zh", "ja", "ko", "ru", "uk", "ar", "he", "th", "el", "hi"].includes(target)) {
     // Target uses a non-Latin script, text is Latin.
@@ -118,14 +143,18 @@ export async function isInTargetLanguage(text: string, targetLang: string, detec
   return candidates[0] !== "latin"
 }
 
+const letterCount = (text: string) => text.replace(/[\s\p{N}\p{P}\p{S}]/gu, "").length
+
 /**
  * Language of a text as the detector names it ("en", "zh", "zh-TW"…), or null
  * when neither the script, the detector nor the English stop words tell.
+ * The detector is asked only from `minLetters` letters on: on shorter texts
+ * its answers are guesses.
  */
-export async function detectLanguage(text: string, detect?: LanguageDetector): Promise<string | null> {
+export async function detectLanguage(text: string, detect?: LanguageDetector, { minLetters = 0 } = {}): Promise<string | null> {
   const candidates = candidateLanguages(text)
   if (candidates.length === 0) return null
-  if (detect) {
+  if (detect && letterCount(text) >= minLetters) {
     try {
       const detected = await detect(text)
       // The detector also tells Chinese variants apart.
@@ -134,17 +163,20 @@ export async function detectLanguage(text: string, detect?: LanguageDetector): P
       // fall through to the script
     }
   }
+  if (candidates[0] === "zh") return chineseScript(text) === "zh-Hant" ? "zh-TW" : "zh"
   if (candidates[0] !== "latin") return candidates.length === 1 ? candidates[0] : null
   return englishScore(text) >= 0.12 ? "en" : null
 }
 
-/** Wrap browser.i18n.detectLanguage, accepting only reliable answers. */
-export function browserDetector(i18n: { detectLanguage?: (t: string) => Promise<{ isReliable: boolean; languages: { language: string; percentage: number }[] }> } | undefined): LanguageDetector | undefined {
+type BrowserI18n = { detectLanguage?: (t: string) => Promise<{ isReliable: boolean; languages: { language: string; percentage: number }[] }> }
+
+/** Wrap browser.i18n.detectLanguage, accepting only reliable answers whose top language covers at least `minPercentage` of the text. */
+export function browserDetector(i18n: BrowserI18n | undefined, minPercentage = 0): LanguageDetector | undefined {
   if (!i18n?.detectLanguage) return undefined
   return async (text) => {
     const r = await i18n.detectLanguage!(text)
     const top = r?.languages?.[0]
-    if (!r?.isReliable || !top || top.language === "und") return null
+    if (!r?.isReliable || !top || top.language === "und" || top.percentage < minPercentage) return null
     return top.language
   }
 }

@@ -153,6 +153,16 @@ describe("content script ports", () => {
     expect(bg.api.messageDisplayAction.setBadgeBackgroundColor).toHaveBeenCalledWith({ tabId: 4, color: "#4c8bf5" })
   })
 
+  it("redraws the badge only when the tab is switched on or off, not for every progress report", async () => {
+    const bg = await start({ stored: stored(createDefaultSettings()) })
+    const port = bg.connect(4)
+    await vi.waitFor(() => expect(bg.api.messageDisplayAction.setBadgeText).toHaveBeenCalledTimes(1))
+    for (let done = 0; done <= 5; done++) port.send({ type: "state", state: { active: true, total: 5, done, provisional: 0, failed: 0 } })
+    port.send({ type: "state", state: { active: false, total: 0, done: 0, provisional: 0, failed: 0 } })
+    await vi.waitFor(() => expect(bg.api.messageDisplayAction.setBadgeText).toHaveBeenCalledTimes(3))
+    expect(bg.api.messageDisplayAction.setBadgeText.mock.calls.map(([d]) => d.text)).toEqual(["", localeText("en", "badgeOn"), ""])
+  })
+
   it("survives a badge of a tab that is already closed", async () => {
     const bg = await start({ stored: stored(createDefaultSettings()) })
     bg.api.messageDisplayAction.setBadgeText.mockRejectedValue(new Error("Invalid tab ID"))
@@ -252,6 +262,16 @@ describe("requests from pages", () => {
     expect(answer.messages.actionTitle).toBe(localeText("de", "actionTitle"))
     // "auto" follows Thunderbird's language.
     expect(((await bg.send({ type: "getLocaleMessages", uiLanguage: "auto" })) as { locale: string }).locale).toBe("en")
+  })
+
+  it("reads and compiles the messages of a locale once, however many messages are displayed", async () => {
+    const bg = await start({ stored: stored(createDefaultSettings()) })
+    const reads = () => vi.mocked(fetch).mock.calls.filter(([url]) => String(url).endsWith("/_locales/fr/messages.json")).length
+    const answers = await Promise.all([1, 2, 3].map(() => bg.send({ type: "getLocaleMessages", uiLanguage: "fr" })))
+    await bg.send({ type: "getLocaleMessages", uiLanguage: "fr" })
+    expect(reads()).toBe(1)
+    expect(answers[0]).toEqual(answers[2])
+    expect((answers[0] as { messages: Record<string, string> }).messages.actionTitle).toBe(localeText("fr", "actionTitle"))
   })
 
   it("reads the dictionary packs again after a change", async () => {

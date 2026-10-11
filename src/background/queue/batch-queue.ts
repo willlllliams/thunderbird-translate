@@ -6,11 +6,63 @@
  * - a group is flushed when the time window elapses, when it reaches
  *   `maxItems`, or when adding the next item would exceed `maxChars`;
  * - an item larger than `maxChars` travels alone.
+ *
+ * splitText() and joinParts() cut a paragraph longer than `maxChars` into
+ * pieces that fit, and put the translated pieces together again.
  */
+
+import { baseLang } from "../../shared/languages"
 
 export interface BatchLimits {
   maxItems: number
   maxChars: number
+}
+
+/** A piece of a paragraph and the whitespace that followed it in the paragraph. */
+export interface TextPart {
+  text: string
+  gap: string
+}
+
+/** `text` cut into pieces of at most `max` characters, each at a space when there is one in its second half. */
+function hardCut(text: string, max: number): string[] {
+  const pieces: string[] = []
+  while (text.length > max) {
+    let cut = text.lastIndexOf(" ", max - 1) + 1
+    if (cut <= max / 2) cut = max - (/[\uD800-\uDBFF]/.test(text[max - 1]) ? 1 : 0)
+    pieces.push(text.slice(0, cut))
+    text = text.slice(cut)
+  }
+  return [...pieces, text]
+}
+
+/**
+ * A paragraph in pieces of at most `maxChars` characters: whole sentences
+ * (Intl.Segmenter) as long as they fit, a longer sentence cut by length.
+ * A line break always ends a piece, so the lines survive translation.
+ * A paragraph that fits stays one piece.
+ */
+export function splitText(text: string, maxChars: number): TextPart[] {
+  if (text.length <= maxChars) return [{ text, gap: "" }]
+  const sentences = [...new Intl.Segmenter(undefined, { granularity: "sentence" }).segment(text)].flatMap((s) => hardCut(s.segment, maxChars))
+  const pieces: string[] = []
+  for (const sentence of sentences) {
+    const last = pieces.at(-1)
+    // Whitespace alone stays with the piece before it.
+    const joins = last !== undefined && (!sentence.trim() || (!/\n\s*$/.test(last) && last.length + sentence.length <= maxChars))
+    if (joins) pieces[pieces.length - 1] += sentence
+    else pieces.push(sentence)
+  }
+  return pieces.map((piece) => {
+    const body = piece.trimEnd()
+    return { text: body, gap: piece.slice(body.length) }
+  })
+}
+
+/** Translations of the pieces of splitText() as one text: line breaks as in the source, else a space, none for Chinese and Japanese. */
+export function joinParts(parts: readonly TextPart[], translations: readonly string[], targetLang: string): string {
+  const space = ["zh", "ja"].includes(baseLang(targetLang)) ? "" : " "
+  return translations.map((text, i) => (i === parts.length - 1 ? text : text + (parts[i].gap.includes("\n") ? parts[i].gap : space))).join("")
 }
 
 /** Pure grouping used by the queue and by tests: split a list into batches within limits. */

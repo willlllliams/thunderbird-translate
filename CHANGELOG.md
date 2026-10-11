@@ -2,6 +2,38 @@
 
 All notable changes to this project are documented in this file. Versions follow [Semantic Versioning](https://semver.org/).
 
+## 1.6.0
+
+### Added
+
+- Request timeout, 60 seconds by default, under "Request batching" on the settings page (5 to 600 seconds). Online services and AI requests that do not answer in time are cancelled, retried like network errors and then reported as "no answer within N s" with a hint to raise the timeout. A Bergamot worker that does not answer within 2 minutes is terminated and replaced with the next request.
+- A paragraph longer than the character limit of one request is split at sentence boundaries (`Intl.Segmenter`, a cut by length for a single overlong sentence, always at a line break), translated in pieces and joined in order: no space for Chinese and Japanese, a space otherwise, line breaks as in the original. Every tier does this; the cache holds the whole paragraph.
+
+### Fixed
+
+- One request queue served all tiers, so AI requests could take every slot and hold back the dictionary and machine translation: with 20 paragraphs and AI merging off, no machine result arrived before the AI answers. Every service now has its own queue with its own concurrency limit.
+- A request without an answer kept its paragraph spinning for good, and turning translation off and on again joined the same pending request. Requests now end with the timeout, and a failed or timed-out request is no longer shared with later ones.
+- One paragraph the dictionary could not translate (no pack for its language) failed the whole batch. The dictionary and Bergamot now report every paragraph on its own.
+- A merged AI answer with an empty translation counted as a result and the paragraph showed nothing. An empty translation now sends the batch paragraph by paragraph, as an empty single answer already failed; text without letters or digits may still translate to nothing.
+- Bergamot detected one source language for a whole batch. It now detects every paragraph, translates each language in its own request and keeps the order; a language without models fails for its paragraphs only.
+- The DeepLX token could appear in error texts (the "Request URL" line, tooltips of the page and the popup), and the endpoint was part of the settings sent to the content script. Error texts now mask the key or token of the service, token-like URL path segments, user info and credential parameters; the content script receives a hash of the endpoint.
+- The cache key did not contain the endpoint, the thinking switch, the temperature or the installed dictionary packs, so changing them returned old translations. They are part of the key now, which stays compact (one hash for all of them); installing or deleting a dictionary pack changes it.
+- With a Traditional Chinese target, Simplified Chinese paragraphs were skipped as already translated, and the other way round. The two standards are told apart by characters that exist in one of them only.
+- The built-in prompts were written into the settings at installation, so improved prompts of a new version never reached anyone. Unchanged prompts are stored as empty; stored copies of the current built-in prompts, or of the one of 1.3 and earlier, are cleared when the settings are read, prompts written by the user stay. The prompt boxes show the built-in text.
+- After one failed save, the settings page and the setup guide saved nothing more, and the setup guide's navigation could stop. A failed save is now shown in place of "Saved" and the next change is saved as usual.
+- An unknown target language in the settings became Simplified Chinese; it now becomes the default target of the interface language.
+- The content script reported its progress for every result, and the background script redrew the badge every time. Reports now go out at most every 100 ms with the last state always sent, and the badge changes only when translation is switched on or off.
+- When Google's batch answer had an unexpected shape, the paragraph-by-paragraph requests bypassed the request queue, its concurrency limit and retries, and one failing paragraph failed all. They now go through the queue and fail one by one.
+- A failed read of the stored cache let the next write replace every stored entry with the few of the session. The read is now tried again, and nothing is written before it succeeded.
+- Changes from the popup and the keyboard shortcut could overwrite each other. They are now written one after the other and merged like the edits of the settings page.
+- Every displayed message made the background script read and compile the messages of the interface language again; they are now kept per language.
+
+### Changed
+
+- Language detection has one implementation (`src/shared/lang-detect.ts`); the offline engine's own detector is gone. Two installation requests for the same offline model are merged in one place, which shares progress and cancellation.
+- The service tests run on the production path `translateForPage()`; the test-only entry `TranslationService.translate()` is gone.
+- The e2e probe waits for the throttled progress reports.
+
 ## 1.5.2
 
 ### Fixed

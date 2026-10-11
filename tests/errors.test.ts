@@ -3,13 +3,13 @@ import { APICallError, JSONParseError, NoContentGeneratedError, RetryError } fro
 import { afterEach, describe, expect, it, vi } from "vitest"
 import { compileMessagesJson, ENGLISH, I18n } from "../src/shared/i18n"
 import { readLocaleSources, toMessagesJson } from "../scripts/locales.mjs"
-import { analyzeError, describeError, type ErrorContext, firstLine, httpStatusLine, LocalizedError, NetworkError, renderErrorText, summarizeResponseBody } from "../src/shared/errors"
+import { analyzeError, describeError, type ErrorContext, firstLine, httpStatusLine, LocalizedError, NetworkError, redactUrl, renderErrorText, summarizeResponseBody } from "../src/shared/errors"
 import { checkBaseURL, getPreset, PROVIDER_PRESETS, sameEndpoint, urlHost } from "../src/shared/providers"
 import { errorContext } from "../src/background/service"
 import { HttpError } from "../src/background/queue/request-queue"
 import { googleTranslateBatch } from "../src/background/translators/google"
 import { createDefaultSettings, resolveProviderConfig } from "../src/shared/settings"
-import { asFetch, createService, openPage } from "./helpers"
+import { asFetch, createService, openPage, translateOne } from "./helpers"
 
 const sources = readLocaleSources()
 const zh = new I18n("zh_CN", compileMessagesJson(toMessagesJson(sources.zh_CN)))
@@ -125,6 +125,39 @@ describe("describeError: API call errors", () => {
     const text = describeError(parse, ENGLISH, deepseekCtx("https://platform.deepseek.com"))
     expect(text).toContain(ENGLISH.t("errUnreadableResponse", ["DeepSeek"]))
     expect(text).toContain(ENGLISH.t("hintHtmlResponse"))
+  })
+})
+
+describe("secrets in error texts", () => {
+  it.each([
+    ["a token path segment", "https://api.deeplx.org/u7Rk29xQpL4mZ8vT1nW5/translate", "https://api.deeplx.org/***/translate"],
+    ["credential parameters", "https://x.example/t?token=abc&key=k1&api-version=3.0&access_token=z", "https://x.example/t?token=***&key=***&api-version=3.0&access_token=***"],
+    ["user info", "https://user:pw@x.example/v1", "https://***:***@x.example/v1"],
+    ["nothing secret: left as it is", "https://api.deepseek.com/chat/completions", "https://api.deepseek.com/chat/completions"],
+    ["a model name with dots", "https://g.example/v1beta/models/gemini-2.5-flash-preview-0520:generateContent", "https://g.example/v1beta/models/gemini-2.5-flash-preview-0520:generateContent"],
+    ["no URL", "not a url", "not a url"],
+  ])("masks %s", (_name, url, expected) => {
+    expect(redactUrl(url)).toBe(expected)
+  })
+
+  it("never shows the DeepLX token of the request, in the URL line, the hints or the server message", async () => {
+    const token = "tok-12/ab"
+    const provider = resolveProviderConfig("deeplx", { apiKey: token, baseURL: "https://dlx.example/{{apiKey}}/translate", model: "" })
+    const url = `https://dlx.example/${encodeURIComponent(token)}/translate`
+    const error = new HttpError("DeepLX request failed: HTTP 401", 401, undefined, undefined, url, `{"message":"bad token ${token}"}`)
+    const text = describeError(error, ENGLISH, errorContext(provider))
+    expect(text).toContain("Request URL: https://dlx.example/***/translate")
+    expect(text).not.toContain(token)
+    expect(text).not.toContain(encodeURIComponent(token))
+    // The same through the service, as the page and the popup show it.
+    const fetchFn = vi.fn(async () => new Response(`{"message":"bad token ${token}"}`, { status: 401 }))
+    const settings = createDefaultSettings()
+    settings.providers.deeplx = { enabled: true, apiKey: token, baseURL: "https://dlx.example/{{apiKey}}/translate", model: "" }
+    const { service } = createService(settings, { fetchFn: asFetch(fetchFn) })
+    const shown = await translateOne(service, { text: "Hello", providerId: "deeplx" }).catch((e: Error) => e.message)
+    expect(shown).toContain("***")
+    expect(shown).not.toContain(token)
+    expect(shown).not.toContain(encodeURIComponent(token))
   })
 })
 

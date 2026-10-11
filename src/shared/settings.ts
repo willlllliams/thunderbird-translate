@@ -35,14 +35,16 @@ export function emptyProviderConfig(): ProviderConfig {
 interface BatchSettings {
   /** Window for collecting paragraphs into one request (ms). */
   batchDelayMs: number
-  /** Upper bound on characters per merged request. */
+  /** Upper bound on characters per merged request; a longer paragraph is split at sentence boundaries. */
   maxCharsPerBatch: number
   /** Upper bound on paragraphs per merged request. */
   maxItemsPerBatch: number
   /** Concurrent requests to the provider. */
   concurrency: number
-  /** Retries for retryable failures (429, 5xx, network). */
+  /** Retries for retryable failures (429, 5xx, network, timeout). */
   maxRetries: number
+  /** A request without an answer after this many seconds fails (and is retried). */
+  timeoutSeconds: number
   /** Merge paragraphs into one LLM call. Off = one call per paragraph. */
   llmBatchEnabled: boolean
 }
@@ -109,10 +111,10 @@ export function createDefaultSettings(uiLang?: string): Settings {
     autoTranslate: false,
     tiers: { ...DEFAULT_TIERS },
     providers,
-    prompts: { ...DEFAULT_PROMPTS },
+    prompts: { bilingual: "", translationOnly: "", precise: "" },
     precise: { enabled: false },
     dictionary: { releaseTag: DEFAULT_DICT_TAG },
-    batch: { batchDelayMs: 50, maxCharsPerBatch: 3000, maxItemsPerBatch: 30, concurrency: 4, maxRetries: 3, llmBatchEnabled: true },
+    batch: { batchDelayMs: 50, maxCharsPerBatch: 3000, maxItemsPerBatch: 30, concurrency: 4, maxRetries: 3, timeoutSeconds: 60, llmBatchEnabled: true },
     cache: { enabled: true, maxEntries: 5000 },
     style: { preset: "border", color: "#4c8bf5", opacity: 0.85, fontScale: 1 },
   }
@@ -166,17 +168,23 @@ function normalizeTiers(stored: Partial<Settings> & LegacySettings): TierSetting
   return tiersValid(tiers) ? tiers : { ...DEFAULT_TIERS }
 }
 
-/** Prompts from stored settings. A custom system prompt of 1.3 and earlier becomes the prompt of both display modes. */
+/** Whether a stored prompt is a copy of the built-in prompt of its kind, current or earlier, rather than the user's own. */
+const isBuiltInPrompt = (kind: PromptKind, text: string) => [LEGACY_DEFAULT_PROMPT, DEFAULT_PROMPTS[kind]].includes(text.trim())
+
+/**
+ * Prompts from stored settings; empty stands for the built-in prompt, so a
+ * new release brings its improved prompts to everyone who did not write
+ * their own. A custom system prompt of 1.3 and earlier becomes the prompt of
+ * both display modes.
+ */
 function normalizePrompts(stored: Partial<Settings> & LegacySettings): Record<PromptKind, string> {
-  const prompts = { ...DEFAULT_PROMPTS }
+  const prompts: Record<PromptKind, string> = { bilingual: "", translationOnly: "", precise: "" }
+  const own = (kind: PromptKind, value: unknown) => (typeof value === "string" && value.trim() && !isBuiltInPrompt(kind, value) ? value : "")
   if (stored.prompts && typeof stored.prompts === "object") {
-    for (const kind of PROMPT_KINDS) {
-      const value = (stored.prompts as Partial<Record<PromptKind, unknown>>)[kind]
-      if (typeof value === "string") prompts[kind] = value
-    }
-  } else if (typeof stored.systemPrompt === "string" && stored.systemPrompt.trim() && stored.systemPrompt.trim() !== LEGACY_DEFAULT_PROMPT) {
-    prompts.bilingual = stored.systemPrompt
-    prompts.translationOnly = stored.systemPrompt
+    for (const kind of PROMPT_KINDS) prompts[kind] = own(kind, (stored.prompts as Partial<Record<PromptKind, unknown>>)[kind])
+  } else {
+    prompts.bilingual = own("bilingual", stored.systemPrompt)
+    prompts.translationOnly = own("translationOnly", stored.systemPrompt)
   }
   return prompts
 }
@@ -212,7 +220,7 @@ export function normalizeSettings(stored: unknown, uiLang?: string): Settings {
   const settings: Settings = {
     uiLanguage: normalizeUiLanguageSetting(s.uiLanguage),
     sourceLang: LANGUAGES.some((l) => l.code === s.sourceLang) ? (s.sourceLang as string) : "auto",
-    targetLang: typeof s.targetLang === "string" && s.targetLang ? s.targetLang : d.targetLang,
+    targetLang: LANGUAGES.some((l) => l.code === s.targetLang) ? (s.targetLang as string) : d.targetLang,
     mode: s.mode === "translation-only" ? "translation-only" : "bilingual",
     autoTranslate: s.autoTranslate === true,
     tiers: normalizeTiers(s),
@@ -226,6 +234,7 @@ export function normalizeSettings(stored: unknown, uiLang?: string): Settings {
       maxItemsPerBatch: num(b.maxItemsPerBatch, d.batch.maxItemsPerBatch, 1, 200),
       concurrency: num(b.concurrency, d.batch.concurrency, 1, 20),
       maxRetries: num(b.maxRetries, d.batch.maxRetries, 0, 10),
+      timeoutSeconds: num(b.timeoutSeconds, d.batch.timeoutSeconds, 5, 600),
       llmBatchEnabled: b.llmBatchEnabled !== false,
     },
     cache: {
@@ -333,7 +342,7 @@ export function resolveProviderConfig(providerId: string, cfg: Omit<ProviderConf
   }
 }
 
-/** Settings that content scripts may see. Never contains API keys. */
+/** Settings that content scripts may see. Never contains API keys, nor endpoints, which may hold a token. */
 export interface PublicSettings {
   uiLanguage: UiLanguageSetting
   sourceLang: string
@@ -357,10 +366,10 @@ export function toPublicSettings(settings: Settings): PublicSettings {
   const signatures: Partial<Record<Tier, string>> = {}
   for (const tier of enabledTiers(settings.tiers)) {
     const r = resolveProvider(settings, settings.tiers[tier]!)
-    let signature = `${r.id}|${r.model}|${r.baseURL}|${r.mode}`
+    let signature = `${r.id}|${r.model}|${hashText(r.baseURL)}|${r.mode}`
     if (tier === "ai") {
       const kind = promptKindFor(settings)
-      signature += `|${kind}:${hashText(promptText(settings.prompts, kind))}`
+      signature += `|${r.thinking}|${r.temperature}|${kind}:${hashText(promptText(settings.prompts, kind))}`
     }
     signatures[tier] = signature
   }

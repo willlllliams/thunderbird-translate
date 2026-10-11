@@ -8,7 +8,6 @@
  * two models (see requiredPairs). Details: docs/bergamot.md.
  */
 
-import { browserDetector } from "./detect"
 import type { WorkerLike } from "./engine"
 import { BergamotManager } from "./manager"
 import { WORKER_FILE } from "./protocol"
@@ -22,7 +21,7 @@ declare const __E2E_SERVER__: string
 
 let manager: BergamotManager | null = null
 
-/** The manager of the background page, created on first use with the browser's IndexedDB, fetch, Worker and language detector. */
+/** The manager of the background page, created on first use with the browser's IndexedDB, fetch and Worker. */
 export function getBergamot(): BergamotManager {
   manager ??= new BergamotManager({
     store: new BergamotStore(indexedDB),
@@ -30,7 +29,6 @@ export function getBergamot(): BergamotManager {
     serverUrl: __E2E__ ? `${__E2E_SERVER__}/bergamot/v1/` : undefined,
     fetch: (input, init) => fetch(input, init),
     createWorker: () => new Worker(browser.runtime.getURL(WORKER_FILE)) as unknown as WorkerLike,
-    detector: browserDetector(),
   })
   return manager
 }

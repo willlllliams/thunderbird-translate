@@ -83,15 +83,18 @@ const SNAPSHOTS = {
   },
 } as const
 
+/** Prompts as stored: empty stands for the built-in prompt. */
+const BUILT_IN = { bilingual: "", translationOnly: "", precise: "" }
+
 const migrated = Object.fromEntries(Object.entries(SNAPSHOTS).map(([v, s]) => [v, normalizeSettings(s, "en")])) as Record<keyof typeof SNAPSHOTS, Settings>
 
 describe("settings of earlier versions", () => {
   it("1.0: the current machine translator becomes the machine tier; a custom prompt goes to both display modes; the rest is kept", () => {
     const s = migrated["1.0"]
     expect(s.tiers).toEqual({ dictionary: null, machine: "deeplx", ai: null })
-    expect(s.prompts).toEqual({ ...DEFAULT_PROMPTS, bilingual: SNAPSHOTS["1.0"].systemPrompt, translationOnly: SNAPSHOTS["1.0"].systemPrompt })
+    expect(s.prompts).toEqual({ precise: "", bilingual: SNAPSHOTS["1.0"].systemPrompt, translationOnly: SNAPSHOTS["1.0"].systemPrompt })
     expect(s).toMatchObject({ targetLang: "ja", mode: "translation-only", autoTranslate: true, sourceLang: "auto", uiLanguage: "auto" })
-    expect(s.batch).toEqual({ ...batch, llmBatchEnabled: true })
+    expect(s.batch).toEqual({ ...batch, timeoutSeconds: 60, llmBatchEnabled: true })
     expect(s.cache).toEqual({ enabled: false, maxEntries: 800 })
     expect(s.style).toEqual(style)
     expect(s.dictionary.releaseTag).toBe("dicts-v1")
@@ -104,7 +107,7 @@ describe("settings of earlier versions", () => {
     expect(s.tiers).toEqual({ dictionary: null, machine: null, ai: "ollama" })
     expect(s.providers.ollama).toEqual({ enabled: true, apiKey: "", baseURL: "", model: "qwen3:8b", temperature: 0.1 })
     expect(s.providers.lmstudio.enabled).toBe(false)
-    expect(s.prompts).toEqual(DEFAULT_PROMPTS)
+    expect(s.prompts).toEqual(BUILT_IN)
     expect(s.uiLanguage).toBe("de")
   })
 
@@ -116,7 +119,7 @@ describe("settings of earlier versions", () => {
     expect(s.precise.enabled).toBe(true)
     expect(s.batch.llmBatchEnabled).toBe(false)
     // The built-in prompt with extra white space is still the built-in prompt.
-    expect(s.prompts).toEqual(DEFAULT_PROMPTS)
+    expect(s.prompts).toEqual(BUILT_IN)
   })
 
   it("1.3: Microsoft Translator keeps key mode, region and endpoint; race mode off adds no tier", () => {
@@ -124,7 +127,7 @@ describe("settings of earlier versions", () => {
     expect(s.tiers).toEqual({ dictionary: null, machine: "microsoft-free", ai: null })
     expect(s.providers["microsoft-free"]).toEqual({ ...SNAPSHOTS["1.3"].providers["microsoft-free"] })
     expect(resolveProvider(s, "microsoft-free")).toMatchObject({ mode: "key", region: "westeurope", baseURL: "https://tt.cognitiveservices.azure.com/translate" })
-    expect(s.prompts).toEqual(DEFAULT_PROMPTS)
+    expect(s.prompts).toEqual(BUILT_IN)
   })
 
   it("1.4: tiers, prompts, source language, precise mode and dictionary release are taken over as they are", () => {
@@ -200,11 +203,22 @@ describe("normalization of each field", () => {
     ["dictionary.releaseTag", 5, "dicts-v1"],
     ["targetLang", "", "en"],
     ["targetLang", 5, "en"],
+    ["targetLang", "xx", "en"],
+    ["targetLang", "zh-TW", "zh-TW"],
+    ["batch.timeoutSeconds", 1, 5],
+    ["batch.timeoutSeconds", 9999, 600],
+    ["batch.timeoutSeconds", "x", 60],
     ["sourceLang", "auto", "auto"],
     ["sourceLang", "zh-TW", "zh-TW"],
     ["uiLanguage", "pt-BR", "auto"],
   ])("%s: %j → %j", (path, value, expected) => {
     expect(field(at(path, value), path)).toEqual(expected)
+  })
+
+  it("replaces an unknown target language with the default of the interface language, not with Chinese", () => {
+    expect(normalizeSettings({ targetLang: "klingon" }, "ja").targetLang).toBe("ja")
+    expect(normalizeSettings({ targetLang: "de-CH" }, "fr").targetLang).toBe("fr")
+    expect(normalizeSettings({ targetLang: "pt-BR" }, "eo").targetLang).toBe("en")
   })
 
   it.each([null, undefined, "settings", 42, true])("stored settings %j give the defaults", (stored) => {
@@ -219,7 +233,14 @@ describe("normalization of each field", () => {
 
   it("takes the prompts that are strings, keeps the defaults for the others and ignores an old system prompt next to them", () => {
     const s = normalizeSettings({ prompts: { bilingual: "", translationOnly: 5, precise: "P" }, systemPrompt: "Old {{to}}" })
-    expect(s.prompts).toEqual({ bilingual: "", translationOnly: DEFAULT_PROMPTS.translationOnly, precise: "P" })
+    expect(s.prompts).toEqual({ bilingual: "", translationOnly: "", precise: "P" })
+  })
+
+  it("stores no copy of a built-in prompt, current or earlier, so a new release brings its prompts; prompts of the user stay", () => {
+    const stored = { bilingual: `  ${DEFAULT_PROMPTS.bilingual}\n`, translationOnly: DEFAULT_PROMPTS.precise, precise: `${DEFAULT_PROMPTS.precise} Be brief.` }
+    // The precise prompt chosen for translation-only display is the user's choice.
+    expect(normalizeSettings({ prompts: stored }).prompts).toEqual({ bilingual: "", translationOnly: DEFAULT_PROMPTS.precise, precise: stored.precise })
+    expect(normalizeSettings({ prompts: { ...BUILT_IN, bilingual: LEGACY_DEFAULT_PROMPT } }).prompts).toEqual(BUILT_IN)
   })
 
   it("cleans each provider configuration", () => {

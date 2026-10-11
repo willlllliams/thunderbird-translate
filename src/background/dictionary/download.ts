@@ -46,7 +46,7 @@ function isIndexedPack(value: unknown): value is IndexedPack {
 
 export async function fetchDictionaryIndex(tag: string, fetchFn: typeof fetch = fetch): Promise<IndexedPack[]> {
   const url = releaseUrl(tag, "dict-index.json")
-  const resp = await fetchOk(fetchFn, { url, init: { method: "GET", headers: {} } }, "GitHub")
+  const resp = await fetchOk({ fetchFn }, { url, init: { method: "GET", headers: {} } }, "GitHub")
   const json = (await resp.json().catch(() => null)) as { version?: unknown; packs?: unknown } | null
   if (json?.version !== 1 || !Array.isArray(json.packs)) throw new LocalizedError("errUnexpectedResponse", ["dict-index.json"])
   return json.packs.filter(isIndexedPack)
@@ -60,7 +60,7 @@ export interface DownloadOptions {
 
 /** Download a pack, check its SHA-256 and its content, and store it. */
 export async function installPack(pack: IndexedPack, tag: string, store: DictionaryStore, { fetchFn = fetch, onProgress }: DownloadOptions = {}): Promise<void> {
-  const resp = await fetchOk(fetchFn, { url: releaseUrl(tag, pack.file), init: { method: "GET", headers: {} } }, "GitHub")
+  const resp = await fetchOk({ fetchFn }, { url: releaseUrl(tag, pack.file), init: { method: "GET", headers: {} } }, "GitHub")
   const total = Number(resp.headers.get("content-length")) || pack.bytes
   const data = await readBody(resp, (loaded) => onProgress?.(loaded, total))
   if ((await sha256Hex(data)) !== pack.sha256.toLowerCase()) throw new LocalizedError("errDictionaryChecksum", [pack.file])

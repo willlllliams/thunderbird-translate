@@ -2,7 +2,8 @@
  * Settings as edited on an extension page (settings page, welcome page).
  * Edits are saved 300 ms after the last change, on top of what is in
  * storage, so changes made elsewhere in the meantime survive; changes made
- * elsewhere are taken over, except for the control being edited.
+ * elsewhere are taken over, except for the control being edited. A failed
+ * save is reported through onSaveError and does not stop later saves.
  */
 
 import { ext } from "../shared/ext"
@@ -18,6 +19,8 @@ export class SettingsSession {
   onRemoteChange: (before: Settings) => void = () => {}
   /** Runs after each save. */
   onSaved: () => void = () => {}
+  /** Runs when a save failed; the edits stay on the page and go with the next save. */
+  onSaveError: (error: unknown) => void = () => {}
   /** Settings as this page last read or wrote them: the reference for what the user changed. */
   private baseline: Settings
   private timer: ReturnType<typeof setTimeout> | null = null
@@ -52,14 +55,18 @@ export class SettingsSession {
     this.timer = setTimeout(() => void this.flush(), 300)
   }
 
-  /** Save now what is pending. */
+  /** Save now what is pending. Never rejects. */
   flush(): Promise<void> {
     if (this.timer) {
       clearTimeout(this.timer)
       this.timer = null
       this.saving = this.saving.then(async () => {
-        this.absorb(await saveChanges(this.baseline, this.settings))
-        this.onSaved()
+        try {
+          this.absorb(await saveChanges(this.baseline, this.settings))
+          this.onSaved()
+        } catch (error) {
+          this.onSaveError(error)
+        }
       })
     }
     return this.saving

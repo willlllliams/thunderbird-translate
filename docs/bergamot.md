@@ -4,13 +4,13 @@ The module in `src/offline/bergamot/` translates plain text on the user's comput
 
 ## Interface
 
-`src/offline/bergamot/index.ts` exports `getBergamot()`, the `BergamotManager` of the background page (created on first use with the browser's IndexedDB, `fetch`, `Worker` and `i18n.detectLanguage`), and `requiredPairs`. Translation runs in a Worker started by the page that owns the manager, so the extension keeps the manager in the background page. The settings page and the setup guide reach it through the messages handled in `src/background/bergamot-admin.ts`, so one engine sees every installation and removal.
+`src/offline/bergamot/index.ts` exports `getBergamot()`, the `BergamotManager` of the background page (created on first use with the browser's IndexedDB, `fetch` and `Worker`), and `requiredPairs`. Translation runs in a Worker started by the page that owns the manager, so the extension keeps the manager in the background page. The settings page and the setup guide reach it through the messages handled in `src/background/bergamot-admin.ts`, so one engine sees every installation and removal.
 
 | Method or function | Result |
 | --- | --- |
-| `translate(texts, src, tgt, options?)` | `Promise<string[]>`, one output per input, same order |
+| `translate(texts, src, tgt)` | `Promise<string[]>`, one output per input, same order |
 | `listPairs(forceRefresh?)` | `Promise<BergamotPairInfo[]>`, sorted by source, then target |
-| `install(src, tgt, onProgress?, signal?)` | `Promise<void>`; `onProgress(doneBytes, totalBytes)`; a second call for a pair being installed returns the running installation |
+| `install(src, tgt, onProgress?, signal?)` | `Promise<void>`; `onProgress(doneBytes, totalBytes)`. Requests of the pages go through `bergamot-admin.ts`, which runs one installation per pair: a second request shares the running one's progress, cancellation and result |
 | `remove(src, tgt)` | `Promise<void>` |
 | `missingPairs(pairs)` | the entries of `pairs` that are not installed |
 | `requiredPairs(src, tgt)` | `Array<[string, string]>`, the direction pairs a translation needs |
@@ -18,11 +18,12 @@ The module in `src/offline/bergamot/` translates plain text on the user's comput
 
 `translate` behaves as follows:
 
-- `src` may be `"auto"`. The source language then comes from `browser.i18n.detectLanguage` on the first 4000 characters. When the sample has fewer than 12 letters, the detector marks its answer unreliable, or the top language covers less than 60 % of the text, `options.fallbackSource` is used instead. Without a fallback this case throws `bergamotDetectFailed`.
+- `src` is a language; `"auto"` throws `bergamotDetectFailed`. Automatic detection happens before, in `src/background/translators/bergamot.ts`, for every text on its own with the shared detection of `src/shared/lang-detect.ts`: `browser.i18n.detectLanguage` from 12 letters on, when it is reliable and its top language covers at least 60 % of the text, else the script and the English stop words. A text that none of these place takes the language found most often among the texts of the call, else English. The texts of each language go to `translate` together, and the results are put back in their order; a language whose models are missing fails for its texts only.
 - When source and target are the same language, the texts come back unchanged.
 - Empty and whitespace-only texts come back unchanged without reaching the engine. Leading and trailing whitespace of every text is kept, and line breaks inside a text survive translation.
 - Input is plain text. The engine also has an HTML mode, but it misplaces tags in Chinese, Japanese and Korean output, so the module does not use it.
 - When a needed pair is not installed, the call throws `bergamotModelMissing` and names the missing pairs.
+- A worker that does not answer a request within 2 minutes is terminated, the call fails with `bergamotEngineFailed`, and the next call starts a fresh worker.
 
 `BergamotPairInfo` has these fields:
 

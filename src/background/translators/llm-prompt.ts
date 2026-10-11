@@ -234,7 +234,9 @@ function fromJson(value: unknown, n: number): string[] | null {
 
 /**
  * Parse a batched answer into exactly `n` strings, or return null so the
- * caller can fall back to one request per paragraph.
+ * caller can fall back to one request per paragraph. An empty translation
+ * counts as a failed parse, as an empty answer does for a single paragraph,
+ * unless its source (`sources[i]`) has no letters or digits either.
  *
  * Accepted forms, tried in order:
  * 1. JSON array (or an object wrapping one), possibly inside a code fence or
@@ -243,7 +245,13 @@ function fromJson(value: unknown, n: number): string[] | null {
  * 3. numbered lines: "[1] …", "1. …", "1) …";
  * 4. paragraphs separated by standalone "%%" lines.
  */
-export function parseBatchOutput(raw: string, n: number): string[] | null {
+export function parseBatchOutput(raw: string, n: number, sources?: readonly string[]): string[] | null {
+  const out = parseBatch(raw, n)
+  const blank = (i: number) => !/[\p{L}\p{N}]/u.test(sources?.[i] ?? "x")
+  return out && out.every((text, i) => text || blank(i)) ? out : null
+}
+
+function parseBatch(raw: string, n: number): string[] | null {
   const s = cleanModelOutput(raw)
   if (!s) return null
 

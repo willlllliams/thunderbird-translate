@@ -39,6 +39,10 @@ body {
   opacity: 1;
 }
 
+.saved.error {
+  color: #c5221f;
+}
+
 main {
   max-width: 980px;
   margin: 0 auto;

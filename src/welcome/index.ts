@@ -15,7 +15,7 @@ import { getI18n, t } from "../shared/i18n"
 import { localizeDocument } from "../shared/i18n-dom"
 import { loadExtensionI18n } from "../shared/i18n-ext"
 import { normalizeUiLanguageSetting } from "../shared/locales"
-import { $, fillSelect, fillTierSelects, languageOptions, onTierChange, showSaved, sourceLanguageOptions, tierOptions, uiLanguageOptions } from "../shared/page"
+import { $, fillSelect, fillTierSelects, languageOptions, onTierChange, showSaved, showSaveError, sourceLanguageOptions, tierOptions, uiLanguageOptions } from "../shared/page"
 import { getPreset, type Tier } from "../shared/providers"
 import { addProvidersInUse, type DisplayMode, type Settings } from "../shared/settings"
 import { BergamotSection } from "../options/bergamot"
@@ -270,6 +270,7 @@ async function main(): Promise<void> {
   settings = session.settings
   session.onRemoteChange = remoteChanged
   session.onSaved = showSaved
+  session.onSaveError = showSaveError
   const languages = () => ({ source: settings.sourceLang, target: settings.targetLang })
   dictionaries = new DictionarySection({ tag: () => settings.dictionary.releaseTag, list: $("dictList"), status: $("dictStatus"), needed: languages, fetchFn: __E2E__ ? releaseFetch : undefined })
   bergamot = new BergamotSection({ languages, list: $("bergamotList"), status: $("bergamotStatus"), needed: $("bergamotNeeded"), pick: true })

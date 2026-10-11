@@ -1,5 +1,6 @@
 /** Helpers shared by the popup, the settings page and the welcome page. */
 
+import { describeError, firstLine } from "./errors"
 import { ext } from "./ext"
 import { getI18n, type I18n, t } from "./i18n"
 import { thunderbirdUiLanguage } from "./i18n-ext"
@@ -77,6 +78,18 @@ export function onTierChange(tiers: () => TierSettings, apply: (tier: Tier, valu
 /** Flash the "Saved" note of a settings page. */
 export function showSaved(): void {
   const saved = $("saved")
+  saved.textContent = t("saved")
+  saved.title = ""
+  saved.classList.remove("error")
   saved.classList.add("show")
-  setTimeout(() => saved.classList.remove("show"), 1200)
+  setTimeout(() => saved.classList.contains("error") || saved.classList.remove("show"), 1200)
+}
+
+/** Show in place of the "Saved" note that saving failed, until a save succeeds. */
+export function showSaveError(error: unknown): void {
+  const saved = $("saved")
+  const description = describeError(error, getI18n())
+  saved.textContent = t("errSaveFailed", [firstLine(description)])
+  saved.title = description
+  saved.classList.add("show", "error")
 }

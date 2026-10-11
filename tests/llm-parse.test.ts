@@ -42,6 +42,14 @@ describe("batch prompt", () => {
 })
 
 describe("parseBatchOutput", () => {
+  it("rejects an empty translation, as the single-paragraph path does, unless its source has no letters or digits", () => {
+    expect(parseBatchOutput('["", "B"]', 2)).toBeNull()
+    expect(parseBatchOutput('["  ", "B"]', 2, ["Hello", "b"])).toBeNull()
+    expect(parseBatchOutput('<seg id="1"></seg><seg id="2">B</seg>', 2, ["Hello", "b"])).toBeNull()
+    expect(parseBatchOutput('["", "B"]', 2, ["— * —", "b"])).toEqual(["", "B"])
+    expect(parseBatchOutput('["", "B"]', 2, ["   ", "b"])).toEqual(["", "B"])
+  })
+
   it("parses a plain JSON array", () => {
     expect(parseBatchOutput('["你好", "再见"]', 2)).toEqual(["你好", "再见"])
   })

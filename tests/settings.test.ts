@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest"
-import { DEFAULT_PROMPTS, promptText } from "../src/shared/prompts"
+import { DEFAULT_PROMPTS, PROMPT_KINDS, promptText } from "../src/shared/prompts"
 import { getPreset } from "../src/shared/providers"
 import {
   addedByDefault,
@@ -148,17 +148,20 @@ describe("source language", () => {
 })
 
 describe("prompts", () => {
-  it("default to the three built-in prompts", () => {
-    expect(createDefaultSettings().prompts).toEqual(DEFAULT_PROMPTS)
+  it("default to the three built-in prompts, stored as empty texts", () => {
+    const s = createDefaultSettings()
+    expect(s.prompts).toEqual({ bilingual: "", translationOnly: "", precise: "" })
+    expect(PROMPT_KINDS.map((kind) => promptText(s.prompts, kind))).toEqual(PROMPT_KINDS.map((kind) => DEFAULT_PROMPTS[kind]))
   })
 
   it("migrate a custom system prompt to both display modes", () => {
     const s = normalizeSettings({ systemPrompt: "Translate into {{to}} like a pirate." })
-    expect(s.prompts).toEqual({ ...DEFAULT_PROMPTS, bilingual: "Translate into {{to}} like a pirate.", translationOnly: "Translate into {{to}} like a pirate." })
+    expect(s.prompts).toEqual({ precise: "", bilingual: "Translate into {{to}} like a pirate.", translationOnly: "Translate into {{to}} like a pirate." })
   })
 
   it("do not migrate an empty system prompt or a copy of the old built-in one", () => {
-    expect(normalizeSettings({ systemPrompt: "" }).prompts).toEqual(DEFAULT_PROMPTS)
+    const builtIn = { bilingual: "", translationOnly: "", precise: "" }
+    expect(normalizeSettings({ systemPrompt: "" }).prompts).toEqual(builtIn)
     const oldDefault = `You are a professional translator working on email messages.
 Translate the user's text into {{to}}.
 Rules:
@@ -167,7 +170,7 @@ Rules:
 - Keep line breaks and list markers.
 - If a passage is already in {{to}}, return it unchanged.
 - Output only the translation. Do not add explanations, notes, quotes or labels.`
-    expect(normalizeSettings({ systemPrompt: oldDefault }).prompts).toEqual(DEFAULT_PROMPTS)
+    expect(normalizeSettings({ systemPrompt: oldDefault }).prompts).toEqual(builtIn)
   })
 
   it("fall back to the default when a prompt is emptied", () => {
@@ -205,6 +208,22 @@ describe("public settings", () => {
     expect(b.signatures.dictionary).toBe(a.signatures.dictionary)
     s.prompts.translationOnly = "Other {{to}}"
     expect(toPublicSettings(s).signatures.ai).not.toBe(b.signatures.ai)
+  })
+
+  it("hold no key, token or endpoint that may carry one, in any field", () => {
+    const s = createDefaultSettings()
+    s.tiers = { dictionary: null, machine: "deeplx", ai: "openai" }
+    s.providers.deeplx = { enabled: true, apiKey: "dlx-token-7f3a", baseURL: "https://api.deeplx.org/u7Rk29xQpL4mZ8vT1nW5/translate?token=dlx-query-9c1e", model: "" }
+    s.providers.openai = { enabled: true, apiKey: "sk-live-4b8d", baseURL: "https://proxy.example/v1?key=sk-query-2e6f", model: "gpt-x" }
+    const secrets = ["dlx-token-7f3a", "u7Rk29xQpL4mZ8vT1nW5", "dlx-query-9c1e", "sk-live-4b8d", "sk-query-2e6f", "api.deeplx.org", "proxy.example"]
+    const leaves = (v: unknown): string[] => (v && typeof v === "object" ? Object.values(v).flatMap(leaves) : [String(v)])
+    const pub = toPublicSettings(s)
+    for (const value of [...leaves(pub), ...Object.keys(pub.signatures)]) for (const secret of secrets) expect(value).not.toContain(secret)
+    // Another endpoint still changes the signature, so the page asks the tier again.
+    s.providers.deeplx.baseURL = "https://other.example/translate"
+    expect(toPublicSettings(s).signatures.machine).not.toBe(pub.signatures.machine)
+    s.providers.openai.temperature = 0.2
+    expect(toPublicSettings(s).signatures.ai).not.toBe(pub.signatures.ai)
   })
 
   it("list only the tiers in use, without keys", () => {

@@ -53,6 +53,8 @@ type View =
   | { kind: "error"; error: string }
 
 const STYLE_ID = "tt-style-vars"
+/** Progress goes to the background at most this often; the last state always follows. */
+const REPORT_INTERVAL_MS = 100
 
 export class TranslationController {
   active = false
@@ -66,10 +68,28 @@ export class TranslationController {
   /** Results already received, keyed by tier signature + languages + text. */
   private memo = new Map<string, string>()
   private lastError = ""
+  private reportTimer: ReturnType<typeof setTimeout> | null = null
+  private reportPending = false
 
   constructor(private readonly deps: ControllerDeps) {}
 
+  /** Send the state now, or once the interval since the last report has passed. */
   private report(): void {
+    if (this.reportTimer) {
+      this.reportPending = true
+      return
+    }
+    this.sendReport()
+    this.reportTimer = setTimeout(() => {
+      this.reportTimer = null
+      if (this.reportPending) {
+        this.reportPending = false
+        this.report()
+      }
+    }, REPORT_INTERVAL_MS)
+  }
+
+  private sendReport(): void {
     const count = { done: 0, provisional: 0, failed: 0 }
     for (const unit of this.results.keys()) {
       const view = this.view(unit)

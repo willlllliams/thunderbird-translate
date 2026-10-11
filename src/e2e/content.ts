@@ -95,19 +95,21 @@ export function createE2eProbe(root: () => HTMLElement | null, controller: Trans
         report.originalHtml = original.slice(0, 8000)
 
         await controller.start()
+        // Progress reports are throttled: wait for the one of the finished translation.
+        await until("the final progress report", () => last !== null && last.total > 0 && last.done + last.failed === last.total)
         report.translated = { state: last, shown: snapshot(body) }
 
         phase = "mode"
         await send({ e2e: "command", command: "toggle-display-mode" })
         await until("translation-only mode with AI results", () => {
           const shown = snapshot(body)
-          return shown.length > 0 && shown.every((s) => s.mode === "only") && last !== null && last.total > 0 && last.done === last.total
+          return shown.length > 0 && shown.every((s) => s.mode === "only" && !s.mark) && last !== null && last.total > 0 && last.done === last.total
         })
         report.translationOnly = { state: last, shown: snapshot(body) }
 
         phase = "restore"
         await send({ e2e: "command", command: "toggle-translation" })
-        await until("the original", () => !controller.active)
+        await until("the original", () => !controller.active && last?.active === false)
         report.restored = {
           state: last,
           identical: body.innerHTML === original,

@@ -11,6 +11,7 @@ import {
   type PortReport,
   type TabState,
 } from "../shared/messages"
+import { resolveUiLocale } from "../shared/locales"
 import { SETTINGS_KEY, type Settings, toPublicSettings } from "../shared/settings"
 import { readSettings, updateSettings } from "../shared/settings-store"
 import { browserDetector } from "../shared/lang-detect"
@@ -122,10 +123,13 @@ ext.runtime.onConnect.addListener((port) => {
   port.onMessage.addListener((raw) => {
     const msg = raw as PortReport
     switch (msg?.type) {
-      case "state":
+      case "state": {
+        const wasActive = tabStates.get(tabId)?.active
         tabStates.set(tabId, { connected: true, ...msg.state })
-        void updateBadge(tabId)
+        // Progress reports come many times a second; the badge only shows whether the tab is translated.
+        if (msg.state.active !== wasActive) void updateBadge(tabId)
         break
+      }
       case "context":
         service.setContext(msg.context)
         break
@@ -150,6 +154,20 @@ ext.runtime.onConnect.addListener((port) => {
 
 /* ---------- requests from content scripts, popup and options ---------- */
 
+/** Messages of each interface language, read and compiled once: every displayed message asks for them. */
+const localeTables = new Map<string, Promise<LocaleMessages>>()
+
+function localeMessages(setting: unknown): Promise<LocaleMessages> {
+  const locale = resolveUiLocale(setting, uiLang)
+  let table = localeTables.get(locale)
+  if (!table) {
+    // Content scripts get their messages here instead of fetching moz-extension:// URLs.
+    table = loadI18n(locale, uiLang, fetchPackagedMessages).then(({ locale, messages }) => ({ locale, messages }))
+    localeTables.set(locale, table)
+  }
+  return table
+}
+
 async function handle(req: BackgroundRequest): Promise<unknown> {
   await settingsReady
   switch (req.type) {
@@ -163,11 +181,8 @@ async function handle(req: BackgroundRequest): Promise<unknown> {
       } catch (error) {
         return { ok: false, error: describeError(error, getI18n()) }
       }
-    case "getLocaleMessages": {
-      // Content scripts get their messages here instead of fetching moz-extension:// URLs.
-      const loaded = await loadI18n(req.uiLanguage, uiLang, fetchPackagedMessages)
-      return { locale: loaded.locale, messages: loaded.messages } satisfies LocaleMessages
-    }
+    case "getLocaleMessages":
+      return localeMessages(req.uiLanguage)
     case "dictionaryChanged":
       return dictionary.invalidate()
     case "bergamotList":

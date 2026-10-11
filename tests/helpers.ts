@@ -6,7 +6,8 @@ import { vi } from "vitest"
 import { readLocaleSources, toMessagesJson } from "../scripts/locales.mjs"
 import { type KeyValueStorage, PersistentCache } from "../src/background/cache"
 import { type ServiceDeps, TranslationService } from "../src/background/service"
-import type { BackgroundRequest } from "../src/shared/messages"
+import type { BackgroundRequest, TranslateRequest, TranslateResponse } from "../src/shared/messages"
+import { getPreset, tierOf } from "../src/shared/providers"
 import type { Settings } from "../src/shared/settings"
 
 /** Hex SHA-256, as in dict-index.json and the Bergamot model records. */
@@ -46,12 +47,36 @@ export function memoryStorage(): KeyValueStorage & { data: Map<string, unknown> 
   }
 }
 
+const serviceSettings = new WeakMap<TranslationService, Settings>()
+
 /** Translation service over `settings`: 5 ms batch window, in-memory cache, retries without waiting. */
 export function createService(settings: Settings, deps: Partial<ServiceDeps> = {}) {
   settings.batch.batchDelayMs = 5
   const cache = deps.cache ?? new PersistentCache(memoryStorage(), 100, 10)
   const service = new TranslationService({ getSettings: () => settings, sleep: async () => {}, ...deps, cache })
+  serviceSettings.set(service, settings)
   return { settings, service, cache }
+}
+
+/** One paragraph for one service: `providerId` becomes the service of its tier. */
+export interface OneRequest extends Partial<Omit<TranslateRequest, "tiers">> {
+  text: string
+  providerId: string
+}
+
+/**
+ * Translate one paragraph the way the page does (translateForPage), asking
+ * only the tier of `providerId`. Resolves with the translation, rejects with
+ * the error text the page would show.
+ */
+export async function translateOne(service: TranslationService, { providerId, ...req }: OneRequest): Promise<string> {
+  const settings = serviceSettings.get(service)!
+  const tier = tierOf(getPreset(providerId)!)
+  settings.tiers[tier] = providerId
+  let result: TranslateResponse | undefined
+  await service.translateForPage({ sourceLang: "auto", targetLang: "zh-CN", ...req, tiers: [tier] }, (_tier, r) => (result = r))
+  if (!result?.ok) throw new Error(result?.error)
+  return result.text
 }
 
 const localeSources = readLocaleSources()

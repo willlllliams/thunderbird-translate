@@ -5,12 +5,13 @@
  * HTTP request carries the whole batch and the response is an array with one
  * entry per `q`, so no separator parsing is needed.
  *
- * Fallback path: translate_a/single, one paragraph per request; used when the
- * batch response has an unexpected shape.
+ * Fallback path: translate_a/single, one paragraph per request; the caller
+ * uses it when the batch response has an unexpected shape (BatchParseError).
  */
 
 import { LocalizedError } from "../../shared/errors"
 import { type FetchOptions, fetchOk, type RequestSpec } from "../queue/request-queue"
+import { BatchParseError } from "./llm-prompt"
 
 const DEFAULT_BASE = "https://translate.googleapis.com"
 
@@ -65,19 +66,19 @@ export function parseGoogleSingleResponse(json: unknown): string {
     .join("")
 }
 
+/** One request for all texts. Throws BatchParseError when the answer has an unexpected shape. */
 export async function googleTranslateBatch(texts: string[], targetLang: string, opts: GoogleOptions = {}): Promise<string[]> {
   if (texts.length === 0) return []
-  const resp = await fetchOk(opts.fetchFn, buildGoogleBatchRequest(texts, targetLang, opts), "Google")
+  const resp = await fetchOk(opts, buildGoogleBatchRequest(texts, targetLang, opts), "Google")
   const json = await resp.json()
   try {
     return parseGoogleBatchResponse(json, texts.length)
-  } catch {
-    // Shape drift: translate paragraph by paragraph instead.
-    return Promise.all(texts.map((t) => googleTranslateSingle(t, targetLang, opts)))
+  } catch (error) {
+    throw new BatchParseError(error instanceof Error ? error.message : String(error))
   }
 }
 
-async function googleTranslateSingle(text: string, targetLang: string, opts: GoogleOptions): Promise<string> {
-  const resp = await fetchOk(opts.fetchFn, buildGoogleSingleRequest(text, targetLang, opts), "Google")
+export async function googleTranslateSingle(text: string, targetLang: string, opts: GoogleOptions): Promise<string> {
+  const resp = await fetchOk(opts, buildGoogleSingleRequest(text, targetLang, opts), "Google")
   return parseGoogleSingleResponse(await resp.json())
 }

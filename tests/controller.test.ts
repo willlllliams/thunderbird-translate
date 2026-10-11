@@ -86,14 +86,14 @@ describe("tier combinations", () => {
     await vi.waitFor(() => expect(translate).toHaveBeenCalledTimes(1))
     expect(translate.mock.calls[0][0].tiers).toEqual(tiers)
     expect(shown()).toEqual(expected)
-    expect(reports.at(-1)).toMatchObject({ active: true, total: 1, ...counts })
+    await vi.waitFor(() => expect(reports.at(-1)).toMatchObject({ active: true, total: 1, ...counts }))
   })
 
   it("does not report a lower tier's failure as the last error", async () => {
     const { c, reports } = await mount("<p>Good morning</p>", tieredSettings(["machine", "ai"]), { translate: scripted({ machine: fail("MT down") }) })
     void c.start()
     await vi.waitFor(() => expect(shown().kind).toBe("loading"))
-    expect(reports.at(-1)).not.toHaveProperty("lastError")
+    await vi.waitFor(() => expect(reports.at(-1)).not.toHaveProperty("lastError"))
   })
 
   it("the retry button asks again only the tiers that failed", async () => {
@@ -158,7 +158,7 @@ describe("results", () => {
     const { c, reports } = await mount("<p>Good morning</p>", tieredSettings(["machine", "ai"]), { translate })
     await c.start()
     expect(shown()).toMatchObject({ kind: "fallback", text: "MT", label: AI_FAILED, title: expect.stringContaining("Port closed") })
-    expect(reports.at(-1)).toMatchObject({ failed: 1, lastError: expect.stringContaining("Port closed") })
+    await vi.waitFor(() => expect(reports.at(-1)).toMatchObject({ failed: 1, lastError: expect.stringContaining("Port closed") }))
   })
 
   it("forgets tiers the background did not answer, and asks them with the next request", async () => {
@@ -166,7 +166,7 @@ describe("results", () => {
     const translate = vi.fn(async (_req: TranslateRequest, onTier: OnTier) => onTier("ai", ok("AI")))
     const { c, reports } = await mount("<p>Good morning</p>", tieredSettings(["machine", "ai"]), { translate })
     await c.start()
-    expect(reports.at(-1)).toMatchObject({ done: 1, provisional: 0, failed: 0 })
+    await vi.waitFor(() => expect(reports.at(-1)).toMatchObject({ done: 1, provisional: 0, failed: 0 }))
     await c.updateSettings(tieredSettings(["machine", "ai"], { mode: "translation-only" }))
     expect(translate.mock.calls.map(([req]) => req.tiers)).toEqual([
       ["machine", "ai"],
@@ -259,6 +259,27 @@ describe("settings changes while active", () => {
   })
 })
 
+describe("paragraphs already in the target language", () => {
+  it("translates Simplified Chinese for a Traditional Chinese target and skips Traditional Chinese", async () => {
+    const translate = answering((text) => ok(`T:${text}`))
+    const { c } = await mount("<p>我们这个月的报告已经发给你了。</p><p>我們這個月的報告已經發給你了。</p>", publicSettings({ targetLang: "zh-TW" }), { translate })
+    await c.start()
+    expect(translate.mock.calls.map(([req]) => req.text)).toEqual(["我们这个月的报告已经发给你了。"])
+  })
+})
+
+describe("progress reports", () => {
+  it("go out at most every 100 ms while results arrive, and the last state always follows", async () => {
+    const paragraphs = Array.from({ length: 40 }, (_, i) => `<p>Paragraph number ${i}</p>`).join("")
+    const { c, reports } = await mount(paragraphs, tieredSettings(["machine", "ai"]), { translate: answering((text, tier) => ok(`${tier}:${text}`)) })
+    await c.start()
+    // Every paragraph got two results, each a change of state; the reports stay few.
+    expect(reports.length).toBeLessThan(5)
+    await vi.waitFor(() => expect(reports.at(-1)).toEqual({ active: true, total: 40, done: 40, provisional: 0, failed: 0 }))
+    expect(reports.length).toBeLessThan(6)
+  })
+})
+
 describe("lifecycle", () => {
   it("does nothing without settings or without a root", async () => {
     const translate = answering((text) => ok(text))
@@ -284,7 +305,7 @@ describe("lifecycle", () => {
     await c.toggle()
     expect(c.active).toBe(false)
     expect(document.body.innerHTML).toBe(original)
-    expect(reports.at(-1)).toEqual({ active: false, total: 0, done: 0, provisional: 0, failed: 0 })
+    await vi.waitFor(() => expect(reports.at(-1)).toEqual({ active: false, total: 0, done: 0, provisional: 0, failed: 0 }))
   })
 
   it.each<[string, string, Partial<PublicSettings>]>([

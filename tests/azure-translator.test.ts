@@ -10,7 +10,7 @@ import {
 import { describeError } from "../src/shared/errors"
 import { ENGLISH } from "../src/shared/i18n"
 import { createDefaultSettings, normalizeSettings, resolveProvider, type Settings, toPublicSettings } from "../src/shared/settings"
-import { asFetch, createService, jsonResponse } from "./helpers"
+import { asFetch, createService, jsonResponse, translateOne } from "./helpers"
 
 const AZURE_URL = "https://api.cognitive.microsofttranslator.com/translate"
 const azure = { apiKey: "KEY", region: "westeurope", endpoint: AZURE_URL }
@@ -161,12 +161,12 @@ describe("TranslationService with Azure Translator", () => {
     const f = azureFetch()
     const svc = service(keySettings(), asFetch(f))
     const req = (text: string) => ({ text, targetLang: "zh-CN", providerId: "microsoft-free" })
-    expect(await Promise.all(["One", "Two", "Three"].map((t) => svc.translate(req(t))))).toEqual(["ZH(One)", "ZH(Two)", "ZH(Three)"])
+    expect(await Promise.all(["One", "Two", "Three"].map((t) => translateOne(svc, req(t))))).toEqual(["ZH(One)", "ZH(Two)", "ZH(Three)"])
     expect(f).toHaveBeenCalledTimes(1)
     const [url, init] = f.mock.calls[0]
     expect(String(url)).toBe(`${AZURE_URL}?api-version=3.0&to=zh-Hans`)
     expect((init.headers as Record<string, string>)["Ocp-Apim-Subscription-Key"]).toBe("KEY")
-    expect(await svc.translate(req("Two"))).toBe("ZH(Two)")
+    expect(await translateOne(svc, req("Two"))).toBe("ZH(Two)")
     expect(f).toHaveBeenCalledTimes(1)
   })
 
@@ -177,7 +177,7 @@ describe("TranslationService with Azure Translator", () => {
     settings.batch.maxCharsPerBatch = 50_000
     const svc = service(settings, asFetch(f))
     const texts = Array.from({ length: 150 }, (_, i) => `p${i}`)
-    await Promise.all(texts.map((text) => svc.translate({ text, targetLang: "zh-CN", providerId: "microsoft-free" })))
+    await Promise.all(texts.map((text) => translateOne(svc, { text, targetLang: "zh-CN", providerId: "microsoft-free" })))
     expect(f.mock.calls.map(([, init]) => JSON.parse(String(init.body)).length)).toEqual([150])
   })
 
@@ -191,7 +191,7 @@ describe("TranslationService with Azure Translator", () => {
     settings.batch.maxCharsPerBatch = 50_000
     const svc = service(settings, asFetch(f))
     const texts = Array.from({ length: 150 }, (_, i) => `p${i}`)
-    await Promise.all(texts.map((text) => svc.translate({ text, targetLang: "zh-CN", providerId: "microsoft-free" })))
+    await Promise.all(texts.map((text) => translateOne(svc, { text, targetLang: "zh-CN", providerId: "microsoft-free" })))
     const sizes = f.mock.calls.filter(([url]) => String(url).startsWith(MS_EDGE_TRANSLATE_URL)).map(([, init]) => JSON.parse(String(init.body)).length)
     expect(sizes).toEqual([100, 50])
     expect(f.mock.calls.some(([url]) => String(url).startsWith(AZURE_URL))).toBe(false)
@@ -215,13 +215,13 @@ describe("TranslationService with Azure Translator", () => {
     const f = vi.fn(async () => new Response('{"error":{"code":401000,"message":"The request is not authorized because credentials are missing or invalid."}}', { status: 401 }))
     const settings = keySettings()
     const svc = service(settings, asFetch(f))
-    const failure = await svc.translate({ text: "Hello", targetLang: "zh-CN", providerId: "microsoft-free" }).catch((e: Error) => e.message)
+    const failure = await translateOne(svc, { text: "Hello", targetLang: "zh-CN", providerId: "microsoft-free" }).catch((e: Error) => e.message)
     expect(failure).toContain("HTTP 401")
     expect(failure).toContain(ENGLISH.t("hintAzureAuth"))
     expect(failure).toContain("credentials are missing or invalid")
 
     settings.providers["microsoft-free"].apiKey = ""
-    const missing = await svc.translate({ text: "Other", targetLang: "zh-CN", providerId: "microsoft-free" }).catch((e: Error) => e.message)
+    const missing = await translateOne(svc, { text: "Other", targetLang: "zh-CN", providerId: "microsoft-free" }).catch((e: Error) => e.message)
     expect(missing).toContain("API key is required")
   })
 })

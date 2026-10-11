@@ -1,9 +1,8 @@
 /**
  * Model list, installation, removal and translation, with every external
- * dependency (fetch, IndexedDB, Worker, language detector) injected.
+ * dependency (fetch, IndexedDB, Worker) injected.
  */
 
-import { type LanguageDetector, detectSourceLanguage } from "./detect"
 import { readBody } from "../../shared/download"
 import { LocalizedError } from "../../shared/errors"
 import { pairKey } from "../../shared/languages"
@@ -36,21 +35,15 @@ export interface BergamotPairInfo {
   installedVersion?: string
 }
 
-export interface TranslateOptions {
-  /** Source language used when `src` is "auto" and detection is not confident. */
-  fallbackSource?: string
-}
-
 export interface ManagerDeps {
   store: BergamotStore
   fetch: typeof fetch
   createWorker: () => WorkerLike
-  detector?: LanguageDetector
   serverUrl?: string
   /** Fixed attachments base; when absent it is read from the server root. */
   attachmentsBase?: string
   now?: () => number
-  engine?: Partial<Pick<EngineOptions, "maxModels" | "idleMs" | "setTimer" | "clearTimer">>
+  engine?: Partial<Pick<EngineOptions, "maxModels" | "idleMs" | "timeoutMs" | "setTimer" | "clearTimer">>
 }
 
 function errorText(error: unknown): string {
@@ -84,7 +77,6 @@ export class BergamotManager {
   readonly engine: BergamotEngine
   private records: CachedRecords | null = null
   private recordsLoading: Promise<CachedRecords> | null = null
-  private readonly installs = new Map<string, Promise<void>>()
   private readonly serverUrl: string
   private readonly now: () => number
 
@@ -194,15 +186,9 @@ export class BergamotManager {
 
   /* ---------- install / remove ---------- */
 
+  /** Download and store a pair. A second request for a running installation is merged by the caller (background/bergamot-admin.ts), which shares progress and cancellation. */
   install(src: string, tgt: string, onProgress?: (done: number, total: number) => void, signal?: AbortSignal): Promise<void> {
-    const s = normalizeBergamotLang(src)
-    const t = normalizeBergamotLang(tgt)
-    const key = pairKey(s, t)
-    const running = this.installs.get(key)
-    if (running) return running
-    const task = this.doInstall(s, t, onProgress, signal).finally(() => this.installs.delete(key))
-    this.installs.set(key, task)
-    return task
+    return this.doInstall(normalizeBergamotLang(src), normalizeBergamotLang(tgt), onProgress, signal)
   }
 
   /** One file; `onProgress` gets the bytes received so far. */
@@ -313,15 +299,12 @@ export class BergamotManager {
     return pairs.filter(([s, t]) => !installed.has(pairKey(s, t)))
   }
 
-  async translate(texts: string[], src: string, tgt: string, options: TranslateOptions = {}): Promise<string[]> {
+  /** Translate texts of one language; detecting it is up to the caller (background/translators/bergamot.ts). */
+  async translate(texts: string[], src: string, tgt: string): Promise<string[]> {
     const target = normalizeBergamotLang(tgt)
     if (!target || target === "auto") throw new LocalizedError("bergamotUnsupportedPair", [src, tgt])
-    let source = normalizeBergamotLang(src)
-    if (!source || source === "auto") {
-      const detected = await detectSourceLanguage(texts, this.deps.detector, options.fallbackSource)
-      if (!detected) throw new LocalizedError("bergamotDetectFailed")
-      source = detected
-    }
+    const source = normalizeBergamotLang(src)
+    if (!source || source === "auto") throw new LocalizedError("bergamotDetectFailed")
     if (source === target || texts.length === 0) return texts.slice()
 
     const pairs = requiredPairs(source, target)

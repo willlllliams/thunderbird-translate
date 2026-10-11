@@ -3,14 +3,16 @@
  *
  * The persisted copy is a single array of [key, value] pairs in LRU order
  * (oldest first). Writes are debounced so a burst of translations costs one
- * storage write.
+ * storage write. A failed read is tried again on the next access, and
+ * nothing is written before a read succeeded: a write would replace the
+ * stored entries with the few of this session.
  */
 
 import { hashText } from "../shared/hash"
 
-/** `languages`: the target language, or "<source>><target>" for translations. */
-export function cacheKey(providerId: string, model: string, languages: string, text: string, promptSig = ""): string {
-  return `${providerId}|${model}|${languages}|${promptSig}|${hashText(text)}`
+/** `languages`: the target language, or "<source>><target>" for translations; `variant`: whatever else shapes the result (endpoint, prompt, settings, data). */
+export function cacheKey(providerId: string, model: string, languages: string, text: string, variant = ""): string {
+  return `${providerId}|${model}|${languages}|${variant}|${hashText(text)}`
 }
 
 export class LruCache<V> {
@@ -74,7 +76,8 @@ export const CACHE_STORAGE_KEY = "translationCache"
 
 export class PersistentCache {
   private lru: LruCache<string>
-  private loaded: Promise<void> | null = null
+  /** The read of the stored entries; resolves to whether it succeeded. */
+  private loaded: Promise<boolean> | null = null
   private saveTimer: ReturnType<typeof setTimeout> | null = null
   private enabled = true
 
@@ -91,10 +94,9 @@ export class PersistentCache {
     this.lru.setMaxEntries(maxEntries)
   }
 
-  private ensureLoaded(): Promise<void> {
-    this.loaded ??= this.storage
-      .get(CACHE_STORAGE_KEY)
-      .then((stored) => {
+  private ensureLoaded(): Promise<boolean> {
+    this.loaded ??= this.storage.get(CACHE_STORAGE_KEY).then(
+      (stored) => {
         if (Array.isArray(stored)) {
           const valid = stored.filter(
             (e): e is [string, string] => Array.isArray(e) && typeof e[0] === "string" && typeof e[1] === "string",
@@ -103,8 +105,13 @@ export class PersistentCache {
           const fresh = this.lru.entries()
           this.lru.load([...valid, ...fresh])
         }
-      })
-      .catch(() => {})
+        return true
+      },
+      () => {
+        this.loaded = null
+        return false
+      },
+    )
     return this.loaded
   }
 
@@ -137,9 +144,9 @@ export class PersistentCache {
 
   private scheduleSave(): void {
     if (this.saveTimer) return
-    this.saveTimer = setTimeout(() => {
+    this.saveTimer = setTimeout(async () => {
       this.saveTimer = null
-      void this.storage.set(CACHE_STORAGE_KEY, this.lru.entries()).catch(() => {})
+      if (await this.ensureLoaded()) await this.storage.set(CACHE_STORAGE_KEY, this.lru.entries()).catch(() => {})
     }, this.saveDelayMs)
   }
 }

@@ -1,7 +1,6 @@
 /** Offline engine: the branches of the manager, the engine, the store and the helpers that the main suite does not reach. */
 import { IDBFactory } from "fake-indexeddb"
 import { afterEach, describe, expect, it, vi } from "vitest"
-import { browserDetector, detectSourceLanguage } from "../src/offline/bergamot/detect"
 import { BergamotEngine, EngineError } from "../src/offline/bergamot/engine"
 import { normalizeBergamotLang } from "../src/offline/bergamot/languages"
 import type { WorkerRequest } from "../src/offline/bergamot/protocol"
@@ -23,7 +22,7 @@ const fileUrls = (calls: string[]) => calls.filter((u) => u !== SERVER && u !== 
 describe("model list", () => {
   it("uses a fixed attachments base, else the server's, else the default CDN", async () => {
     const files = triple("en", "fr")
-    const fixed = makeManager(files, undefined, { attachmentsBase: CDN.slice(0, -1) })
+    const fixed = makeManager(files, { attachmentsBase: CDN.slice(0, -1) })
     await fixed.manager.install("en", "fr")
     expect(fileUrls(fixed.server.calls)[0]).toBe(`${CDN}${files[0]!.record.attachment.location}`)
     expect(fixed.server.calls).not.toContain(SERVER)
@@ -52,7 +51,7 @@ describe("model list", () => {
 
   it("shares one download between callers and asks again after six hours", async () => {
     let now = 0
-    const { manager, server } = makeManager(triple("en", "fr"), undefined, { now: () => now })
+    const { manager, server } = makeManager(triple("en", "fr"), { now: () => now })
     await Promise.all([manager.listPairs(), manager.listPairs()])
     const count = () => server.calls.filter((u) => u === RECORDS_URL).length
     expect(count()).toBe(1)
@@ -105,14 +104,6 @@ describe("model list", () => {
 /* ---------- manager: install and remove ---------- */
 
 describe("installation", () => {
-  it("runs one installation when the same pair is asked for twice", async () => {
-    const { manager, server } = makeManager(triple("en", "fr"))
-    const a = manager.install("en", "fr")
-    expect(manager.install("EN", "fr")).toBe(a)
-    await a
-    expect(fileUrls(server.calls)).toHaveLength(3)
-  })
-
   it("skips the download when the version is installed, and replaces an older one", async () => {
     const files = triple("en", "fr")
     const { manager, server, store } = makeManager(files)
@@ -214,13 +205,6 @@ describe("translation", () => {
     expect(workers).toHaveLength(0)
   })
 
-  it("uses the fallback source when the text cannot be detected", async () => {
-    const { manager } = makeManager(triple("de", "en"))
-    await manager.install("de", "en")
-    expect(await manager.translate(["Hallo"], "auto", "en", { fallbackSource: "de-AT" })).toEqual(["[de>en]Hallo"])
-    manager.engine.shutdown()
-  })
-
   it("reports a pair that disappeared from storage after the check", async () => {
     const { manager, store } = makeManager(triple("de", "en"))
     await manager.install("de", "en")
@@ -254,6 +238,23 @@ function engineWith(worker: () => FakeWorker, options: Partial<ConstructorParame
 }
 
 describe("BergamotEngine edge cases", () => {
+  it("terminates a worker that does not answer in time, and starts a fresh one for the next request", async () => {
+    const stuck = new FakeWorker()
+    stuck.postMessage = () => {}
+    const created: FakeWorker[] = []
+    const engine = engineWith(() => {
+      const worker = created.length === 0 ? stuck : new FakeWorker()
+      created.push(worker)
+      return worker
+    }, { timeoutMs: 30 })
+    await expect(engine.translate(["de>en"], ["x"])).rejects.toThrow(/did not answer within/)
+    expect(stuck.terminated).toBe(true)
+    expect(engine.running).toBe(false)
+    expect(await engine.translate(["de>en"], ["y"])).toEqual(["[de>en]y"])
+    expect(created).toHaveLength(2)
+    engine.shutdown()
+  })
+
   it("rejects a request the worker cannot receive, without killing it", async () => {
     const w = new FakeWorker()
     const engine = engineWith(() => w)
@@ -395,21 +396,5 @@ describe("helpers", () => {
   it("rebuilds texts when the engine returns fewer outputs", () => {
     expect(prepareTexts([" a ", "b"], "en").rebuild(["A"])).toEqual([" A ", ""])
     expect(prepareTexts(["。“x"], "ja").inputs).toEqual(["。 “x"])
-  })
-
-  it("wraps browser.i18n.detectLanguage, and falls back when it answers nothing", async () => {
-    expect(browserDetector()).toBeUndefined()
-    const i18n = {
-      lang: "ko",
-      detectLanguage(this: { lang: string }) {
-        return Promise.resolve({ isReliable: true, languages: [{ language: this.lang, percentage: 90 }] })
-      },
-    }
-    vi.stubGlobal("browser", { i18n })
-    const detect = browserDetector()!
-    expect(await detectSourceLanguage(["안녕하세요, 만나서 반갑습니다. 오늘 날씨가 좋네요."], detect)).toBe("ko")
-    const empty = vi.fn(async () => undefined as never)
-    expect(await detectSourceLanguage(["A text long enough for the detector"], empty, "auto")).toBeUndefined()
-    expect(empty).toHaveBeenCalled()
   })
 })

@@ -193,6 +193,31 @@ describe("welcome page", () => {
     expect($("tiersEmpty").hidden).toBe(false)
   })
 
+  it("goes on after a failed save: shows the failure, moves to the next step and saves with the next change", async () => {
+    const page = await openPage("welcome", settings())
+    await ready()
+    const local = (globalThis as unknown as { browser: { storage: { local: { set: (v: Record<string, unknown>) => Promise<void> } } } }).browser.storage.local
+    const write = local.set
+    let refuse = true
+    local.set = async (v) => {
+      if ("settings" in v && refuse) throw new Error("quota exceeded")
+      return write(v)
+    }
+    choose("targetLang", "ja")
+    await vi.waitFor(() => expect($("saved").textContent).toBe(ENGLISH.t("errSaveFailed", ["quota exceeded"])))
+    expect($("saved").classList.contains("error")).toBe(true)
+    // The failed save does not hold up the guide.
+    $("nextStep").click()
+    await vi.waitFor(() => expect(current()).toBe("display"))
+    refuse = false
+    const only = document.querySelector<HTMLInputElement>('input[name="mode"][value="translation-only"]')!
+    only.checked = true
+    only.dispatchEvent(new Event("change"))
+    await vi.waitFor(() => expect(page.stored()).toMatchObject({ targetLang: "ja", mode: "translation-only" }))
+    expect($("saved").textContent).toBe(ENGLISH.t("saved"))
+    expect($("saved").classList.contains("error")).toBe(false)
+  })
+
   it("continues at the stored step and saves it when the user leaves", async () => {
     const page = await openPage("welcome", settings(), { stored: { [WELCOME_KEY]: { step: "tiers" } } })
     await vi.waitFor(() => expect(current()).toBe("tiers"))

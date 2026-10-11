@@ -13,7 +13,9 @@ import {
   microsoftTranslateBatch,
   parseMicrosoftResponse,
 } from "../src/background/translators/microsoft"
-import { asFetch, jsonResponse } from "./helpers"
+import { BatchParseError } from "../src/background/translators/llm-prompt"
+import { createDefaultSettings } from "../src/shared/settings"
+import { asFetch, createService, jsonResponse, translateOne } from "./helpers"
 
 describe("Google (gtx)", () => {
   it("builds one POST with a q parameter per paragraph", () => {
@@ -52,14 +54,34 @@ describe("Google (gtx)", () => {
     expect(fetchFn).toHaveBeenCalledTimes(1)
   })
 
-  it("falls back to per-paragraph requests when the batch shape is unexpected", async () => {
-    const fetchFn = vi.fn(async (url: string) => {
+  it("reports an unexpected batch shape as BatchParseError, so the service can ask paragraph by paragraph", async () => {
+    const fetchFn = vi.fn(async () => jsonResponse({ unexpected: true }))
+    await expect(googleTranslateBatch(["a", "b"], "zh-CN", { fetchFn: asFetch(fetchFn) })).rejects.toBeInstanceOf(BatchParseError)
+    expect(fetchFn).toHaveBeenCalledTimes(1)
+  })
+
+  it("falls back to per-paragraph requests through the request queue: concurrency, retries, and a failure of one paragraph only", async () => {
+    let running = 0
+    let most = 0
+    let failures = 0
+    const fetchFn = vi.fn(async (url: string, init: RequestInit) => {
       if (url.includes("/translate_a/t")) return jsonResponse({ unexpected: true })
-      return jsonResponse([[["译文", "src", null, null, 1]], null, "en"])
+      const q = new URLSearchParams(String(init.body)).get("q")!
+      most = Math.max(most, ++running)
+      await new Promise((r) => setTimeout(r, 5))
+      running--
+      // "b" fails once with 503 and is retried; "c" is refused for good.
+      if (q === "b" && failures++ === 0) return new Response("busy", { status: 503 })
+      if (q === "c") return new Response("bad", { status: 400 })
+      return jsonResponse([[[`G(${q})`, q, null, null, 1]], null, "en"])
     })
-    const out = await googleTranslateBatch(["a", "b"], "zh-CN", { fetchFn: asFetch(fetchFn) })
-    expect(out).toEqual(["译文", "译文"])
-    expect(fetchFn).toHaveBeenCalledTimes(3)
+    const settings = createDefaultSettings()
+    settings.batch.concurrency = 2
+    const { service } = createService(settings, { fetchFn: asFetch(fetchFn) })
+    const out = await Promise.allSettled(["a", "b", "c", "d"].map((text) => translateOne(service, { text, providerId: "google-free" })))
+    expect(out.map((r) => (r.status === "fulfilled" ? r.value : "failed"))).toEqual(["G(a)", "G(b)", "failed", "G(d)"])
+    expect(most).toBe(2)
+    expect(fetchFn).toHaveBeenCalledTimes(1 + 5)
   })
 
   it("surfaces HTTP errors with their status", async () => {
@@ -146,7 +168,10 @@ describe("edge cases of the free translators", () => {
 
   it("Google: uses a custom endpoint and the chosen source language on the fallback route too", async () => {
     const fetchFn = vi.fn(async (url: string) => (url.includes("/translate_a/t") ? jsonResponse(null) : jsonResponse([[["你好", "Hallo"]]])))
-    expect(await googleTranslateBatch(["Hallo"], "zh-CN", { fetchFn: asFetch(fetchFn), baseURL: "https://gt.example.com/", source: "de" })).toEqual(["你好"])
+    const settings = createDefaultSettings()
+    settings.providers["google-free"].baseURL = "https://gt.example.com/"
+    const { service } = createService(settings, { fetchFn: asFetch(fetchFn) })
+    expect(await translateOne(service, { text: "Hallo", sourceLang: "de", providerId: "google-free" })).toBe("你好")
     const urls = fetchFn.mock.calls.map(([url]) => new URL(url))
     expect(urls.map((u) => u.origin + u.pathname)).toEqual(["https://gt.example.com/translate_a/t", "https://gt.example.com/translate_a/single"])
     expect(urls.map((u) => u.searchParams.get("sl"))).toEqual(["de", "de"])

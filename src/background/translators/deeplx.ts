@@ -54,6 +54,6 @@ export async function deeplxTranslate(
   token: string,
   opts: FetchOptions & { source?: string } = {},
 ): Promise<string> {
-  const resp = await fetchOk(opts.fetchFn, buildDeepLXRequest(text, targetDeepl, endpoint, token, opts.source), "DeepLX")
+  const resp = await fetchOk(opts, buildDeepLXRequest(text, targetDeepl, endpoint, token, opts.source), "DeepLX")
   return parseDeepLXResponse(await resp.json())
 }

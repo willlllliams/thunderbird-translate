@@ -3,7 +3,7 @@
  * the fetch() wrapper whose errors it classifies.
  */
 
-import { type ErrorText, NetworkError, renderErrorText } from "../../shared/errors"
+import { type ErrorText, NetworkError, renderErrorText, TimeoutError } from "../../shared/errors"
 import { ENGLISH } from "../../shared/i18n"
 
 export class HttpError extends Error {
@@ -30,8 +30,8 @@ export function isRetryableError(error: unknown): boolean {
   if (typeof e.isRetryable === "boolean") return e.isRetryable
   const status = e.status ?? e.statusCode
   if (typeof status === "number") return status === 408 || status === 429 || status >= 500
-  // fetch() network failures surface as TypeError.
-  return e.name === "TypeError"
+  // fetch() network failures surface as TypeError, an expired AbortSignal.timeout() as TimeoutError.
+  return e.name === "TypeError" || e.name === "TimeoutError"
 }
 
 export function backoffDelay(attempt: number, baseMs = 500, maxMs = 8000, random: () => number = Math.random): number {
@@ -127,17 +127,22 @@ export interface RequestSpec {
 export interface FetchOptions {
   /** Injection point for tests; the global fetch otherwise. */
   fetchFn?: typeof fetch
+  /** A request without an answer after this long fails with TimeoutError; none when absent. */
+  timeoutMs?: number
 }
 
 /**
- * fetch() that reports a failed connection as NetworkError (with the URL)
- * and a non-2xx answer as HttpError (with status, Retry-After, URL and body).
+ * fetch() that reports a failed connection as NetworkError (with the URL),
+ * no answer within `timeoutMs` as TimeoutError, and a non-2xx answer as
+ * HttpError (with status, Retry-After, URL and body).
  */
-export async function fetchOk(fetchFn: typeof fetch | undefined, { url, init }: RequestSpec, label: string): Promise<Response> {
+export async function fetchOk({ fetchFn, timeoutMs }: FetchOptions, { url, init }: RequestSpec, label: string): Promise<Response> {
+  const signal = timeoutMs ? AbortSignal.timeout(timeoutMs) : undefined
   let resp: Response
   try {
-    resp = await (fetchFn ?? fetch)(url, init)
+    resp = await (fetchFn ?? fetch)(url, signal ? { ...init, signal } : init)
   } catch (error) {
+    if (signal?.aborted) throw new TimeoutError(label, timeoutMs!)
     throw new NetworkError(url, error)
   }
   if (resp.ok) return resp

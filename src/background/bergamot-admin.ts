@@ -6,18 +6,21 @@
  */
 
 import { getBergamot, requiredPairs } from "../offline/bergamot"
+import { normalizeBergamotLang } from "../offline/bergamot/languages"
 import { describeError } from "../shared/errors"
 import { getI18n } from "../shared/i18n"
 import { pairKey } from "../shared/languages"
 import type { BergamotRequest, BergamotResult } from "../shared/messages"
 
-/** Running installations by "src>tgt"; a second request for the same pair waits for the first one. */
+/** Running installations by "src>tgt" (model tags); a second request for the same pair shares the first one's progress, cancellation and result. */
 const installs = new Map<string, { done: number; total: number; controller: AbortController; result: Promise<BergamotResult> }>()
 
 const failure = (error: unknown): BergamotResult => ({ ok: false, error: describeError(error, getI18n()) })
 
+const installKey = (src: string, tgt: string) => pairKey(normalizeBergamotLang(src), normalizeBergamotLang(tgt))
+
 function install(src: string, tgt: string): Promise<BergamotResult> {
-  const key = pairKey(src, tgt)
+  const key = installKey(src, tgt)
   const running = installs.get(key)
   if (running) return running.result
   const entry = { done: 0, total: 0, controller: new AbortController(), result: Promise.resolve<BergamotResult>({ ok: true }) }
@@ -48,7 +51,7 @@ export async function handleBergamot(req: BergamotRequest): Promise<unknown> {
     case "bergamotInstall":
       return install(req.src, req.tgt)
     case "bergamotCancel":
-      return installs.get(pairKey(req.src, req.tgt))?.controller.abort()
+      return installs.get(installKey(req.src, req.tgt))?.controller.abort()
     case "bergamotRemove":
       try {
         await getBergamot().remove(req.src, req.tgt)

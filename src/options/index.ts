@@ -4,7 +4,7 @@ import { getI18n, t } from "../shared/i18n"
 import { localizeDocument } from "../shared/i18n-dom"
 import { loadExtensionI18n } from "../shared/i18n-ext"
 import { normalizeUiLanguageSetting } from "../shared/locales"
-import { $, fillSelect, fillTierSelects, languageOptions, onTierChange, send, showSaved, sourceLanguageOptions, uiLanguageOptions } from "../shared/page"
+import { $, fillSelect, fillTierSelects, languageOptions, onTierChange, send, showSaved, showSaveError, sourceLanguageOptions, uiLanguageOptions } from "../shared/page"
 import { getPreset, PROVIDER_PRESETS, providerDisplayName, type ProviderPreset, TIER_NAME_KEYS, tierOf } from "../shared/providers"
 import { addedProviders, addProvidersInUse, type DisplayMode, enabledTiers, removalBlocker, type Settings, type StylePreset } from "../shared/settings"
 import { BergamotSection } from "./bergamot"
@@ -159,6 +159,7 @@ async function main(): Promise<void> {
   settings = session.settings
   session.onRemoteChange = remoteChanged
   session.onSaved = showSaved
+  session.onSaveError = showSaveError
   selectedProvider = settings.tiers[enabledTiers(settings.tiers).at(-1)!]!
   dictionaries = new DictionarySection({ tag: () => settings.dictionary.releaseTag, list: $("dictList"), status: $("dictStatus") })
   bergamot = new BergamotSection({
@@ -230,6 +231,7 @@ async function main(): Promise<void> {
   session.bindNumber("maxItemsPerBatch", () => b.maxItemsPerBatch, (v) => (b.maxItemsPerBatch = v))
   session.bindNumber("concurrency", () => b.concurrency, (v) => (b.concurrency = v))
   session.bindNumber("maxRetries", () => b.maxRetries, (v) => (b.maxRetries = v))
+  session.bindNumber("timeoutSeconds", () => b.timeoutSeconds, (v) => (b.timeoutSeconds = v))
   session.bindCheck("llmBatchEnabled", () => b.llmBatchEnabled, (v) => (b.llmBatchEnabled = v))
 
   // Style

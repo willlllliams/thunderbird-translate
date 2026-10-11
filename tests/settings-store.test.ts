@@ -74,6 +74,24 @@ describe("settings in storage", () => {
     expect(stored()).toMatchObject({ targetLang: "fr", autoTranslate: true })
   })
 
+  it("updateSettings keeps every change when the popup and a shortcut change settings at the same time", async () => {
+    const { updateSettings, stored } = await store(createDefaultSettings("en"))
+    await Promise.all([
+      updateSettings((x) => (x.mode = "translation-only")),
+      updateSettings((x) => (x.targetLang = "ja")),
+      updateSettings((x) => (x.autoTranslate = true)),
+    ])
+    expect(stored()).toMatchObject({ mode: "translation-only", targetLang: "ja", autoTranslate: true })
+  })
+
+  it("updateSettings goes on after a failed write", async () => {
+    const { updateSettings, stored, set } = await store(createDefaultSettings("en"))
+    set.mockRejectedValueOnce(new Error("quota"))
+    await expect(updateSettings((x) => (x.mode = "translation-only"))).rejects.toThrow("quota")
+    await updateSettings((x) => (x.targetLang = "ja"))
+    expect(stored()).toMatchObject({ mode: "bilingual", targetLang: "ja" })
+  })
+
   it("saveChanges writes only what one page changed, so a concurrent edit of another page survives", async () => {
     const base = createDefaultSettings("en")
     // The popup changed the target language and a key after the settings page loaded `base`.

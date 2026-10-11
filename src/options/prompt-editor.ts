@@ -3,7 +3,9 @@
  * buttons, and the preset library that adds rules to one of them. Shared by
  * the settings page and the welcome page. Static texts carry data-i18n, so
  * localizeDocument() translates them; refresh() fills what depends on the
- * interface or target language.
+ * interface or target language. A box shows the built-in prompt while the
+ * setting is empty, and a box left with the built-in text stores nothing,
+ * so later releases can improve the prompt.
  */
 
 import { type MessageKey, t } from "../shared/i18n"
@@ -68,19 +70,20 @@ export class PromptEditor {
     const s = this.session
     const box = h("textarea", { id: `prompt-${kind}`, rows: "9", spellcheck: "false", placeholder: DEFAULT_PROMPTS[kind] })
     this.boxes[kind] = box
-    s.track(box, () => (box.value = s.settings.prompts[kind]))
+    s.track(box, () => (box.value = promptText(s.settings.prompts, kind)))
     box.addEventListener("input", () => {
-      s.settings.prompts[kind] = box.value
+      s.settings.prompts[kind] = box.value.trim() === DEFAULT_PROMPTS[kind] ? "" : box.value
       s.save()
     })
     const reset = h("button", { type: "button", id: `reset-${kind}`, "data-i18n": "buttonResetPrompt" })
-    reset.addEventListener("click", () => this.setPrompt(kind, DEFAULT_PROMPTS[kind]))
+    reset.addEventListener("click", () => this.setPrompt(kind, ""))
     return h("div", { className: "prompt" }, h("label", { for: box.id, "data-i18n": KIND_LABELS[kind] }), box, reset)
   }
 
+  /** Store a prompt; "" stands for the built-in one. */
   private setPrompt(kind: PromptKind, text: string): void {
-    this.boxes[kind].value = text
     this.session.settings.prompts[kind] = text
+    this.boxes[kind].value = promptText(this.session.settings.prompts, kind)
     this.session.save()
   }
 

@@ -5,7 +5,7 @@ import { hashText } from "../src/shared/hash"
 import { createMailContext } from "../src/shared/mail-context"
 import { promptText } from "../src/shared/prompts"
 import { createDefaultSettings } from "../src/shared/settings"
-import { createService, memoryStorage } from "./helpers"
+import { createService, memoryStorage, translateOne } from "./helpers"
 
 afterEach(() => vi.useRealTimers())
 
@@ -106,6 +106,32 @@ describe("PersistentCache", () => {
     expect(await cache.get("c")).toBeUndefined()
   })
 
+  it("keeps the stored entries when a read fails: it reads again before the first write", async () => {
+    const storage = memoryStorage()
+    storage.data.set(CACHE_STORAGE_KEY, [["old", "1"]])
+    vi.spyOn(storage, "get").mockRejectedValueOnce(new Error("storage busy"))
+    const cache = new PersistentCache(storage, 10, 0)
+    await cache.set("new", "2")
+    await vi.waitFor(() => expect(storage.data.get(CACHE_STORAGE_KEY)).toEqual([
+      ["old", "1"],
+      ["new", "2"],
+    ]))
+    expect(await cache.get("old")).toBe("1")
+  })
+
+  it("writes nothing while the stored entries cannot be read", async () => {
+    const storage = memoryStorage()
+    storage.data.set(CACHE_STORAGE_KEY, [["old", "1"]])
+    vi.spyOn(storage, "get").mockRejectedValue(new Error("storage broken"))
+    const set = vi.spyOn(storage, "set")
+    const cache = new PersistentCache(storage, 10, 0)
+    await cache.set("new", "2")
+    expect(await cache.get("new")).toBe("2")
+    await new Promise((r) => setTimeout(r, 20))
+    expect(set).not.toHaveBeenCalled()
+    expect(storage.data.get(CACHE_STORAGE_KEY)).toEqual([["old", "1"]])
+  })
+
   it("cancels a pending write when cleared", async () => {
     vi.useFakeTimers()
     const storage = memoryStorage()
@@ -130,24 +156,63 @@ describe("cache keys of the translation service", () => {
     expect(new Set(["a", "b", "ab", "ba", "", "a ".repeat(500)].map(hashText)).size).toBe(6)
   })
 
-  it("store the machine tier under service and languages, the AI tier also under model, prompt and message", async () => {
+  it("store every tier under service, endpoint, languages and text; the AI tier also under model, prompt, thinking, temperature and message", async () => {
     const settings = createDefaultSettings()
     settings.tiers.ai = "openai"
     settings.providers.openai.apiKey = "sk"
     settings.providers.openai.model = "gpt-test"
-    settings.precise.enabled = true
     const fetchFn = vi.fn(async (_url: string, init: RequestInit) =>
       Response.json(new URLSearchParams(String(init.body)).getAll("q").map((q) => [`G(${q})`, "de"])),
     )
     const llm = { batch: vi.fn(), single: vi.fn(async () => "AI"), analyze: vi.fn(async () => null) }
-    const { service, cache } = createService(settings, { fetchFn: fetchFn as unknown as typeof fetch, llm })
-    await service.translate({ text: "Hallo", sourceLang: "de", targetLang: "en", providerId: "google-free" })
-    expect(await cache.get(cacheKey("google-free", "", "de>en", "Hallo"))).toBe("G(Hallo)")
+    const storage = memoryStorage()
+    const { service, settings: s } = createService(settings, { fetchFn: fetchFn as unknown as typeof fetch, llm, cache: new PersistentCache(storage, 100, 0) })
+    const google = () => translateOne(service, { text: "Hallo", sourceLang: "de", targetLang: "en", providerId: "google-free" })
+    await google()
+    await google()
+    expect(fetchFn).toHaveBeenCalledTimes(1)
+    s.providers["google-free"].baseURL = "https://gt.example.com"
+    await google()
+    expect(fetchFn).toHaveBeenCalledTimes(2)
 
-    const context = createMailContext(["Hallo"], [0])
-    service.setContext(context)
-    await service.translate({ text: "Hallo", targetLang: "en", providerId: "openai", context: { id: context.id, index: 0 } })
-    const sig = `precise:${hashText(promptText(settings.prompts, "precise"))}:${context.id}`
-    expect(await cache.get(cacheKey("openai", "gpt-test", "auto>en", "Hallo", sig))).toBe("AI")
+    const ai = () => translateOne(service, { text: "Hallo", targetLang: "en", providerId: "openai" })
+    const asked = async () => {
+      await ai()
+      return llm.single.mock.calls.length
+    }
+    expect(await asked()).toBe(1)
+    expect(await asked()).toBe(1)
+    const openai = s.providers.openai
+    for (const change of [() => (openai.baseURL = "https://proxy.example/v1"), () => (openai.thinking = true), () => (openai.temperature = 0.7), () => (openai.model = "gpt-other")]) {
+      const before = llm.single.mock.calls.length
+      change()
+      expect(await asked()).toBe(before + 1)
+    }
+    // Back to the first configuration: its entry is still there.
+    Object.assign(openai, { baseURL: "", thinking: false, temperature: undefined, model: "gpt-test" })
+    expect(await asked()).toBe(5)
+    // Keys stay compact: service, model, languages, one hash for everything else, one for the text.
+    await vi.waitFor(() => expect(storage.data.get(CACHE_STORAGE_KEY)).toHaveLength(7))
+    const keys = (storage.data.get(CACHE_STORAGE_KEY) as [string, string][]).map(([key]) => key.split("|"))
+    expect(keys.every((parts) => parts.length === 5 && parts[3].length <= 24)).toBe(true)
+    expect(keys.filter(([id]) => id === "openai").map(([, model, langs]) => `${model} ${langs}`).sort()).toEqual(["gpt-other auto>en", ...Array(4).fill("gpt-test auto>en")])
+  })
+
+  it("store the dictionary tier under the installed packs: another pack version translates again", async () => {
+    const settings = createDefaultSettings()
+    settings.tiers.dictionary = "dictionary"
+    let packs = "en>zh-Hans@1"
+    const dictionary = {
+      translate: vi.fn(async (texts: string[]) => texts.map((t): PromiseSettledResult<string> => ({ status: "fulfilled", value: `D(${t})` }))),
+      signature: vi.fn(async () => packs),
+    }
+    const { service } = createService(settings, { dictionary })
+    const ask = () => translateOne(service, { text: "Hello", providerId: "dictionary" })
+    await ask()
+    await ask()
+    expect(dictionary.translate).toHaveBeenCalledTimes(1)
+    packs = "en>zh-Hans@2"
+    await ask()
+    expect(dictionary.translate).toHaveBeenCalledTimes(2)
   })
 })

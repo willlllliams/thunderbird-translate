@@ -11,6 +11,7 @@
  */
 
 import { LocalizedError } from "../../shared/errors"
+import { hashText } from "../../shared/hash"
 import { detectLanguage, type LanguageDetector } from "../../shared/lang-detect"
 import { baseLang, pairKey } from "../../shared/languages"
 import { dictKey, dictLang, type DictPack, gunzip, parsePack } from "./format"
@@ -97,6 +98,7 @@ export interface DictionaryOptions {
 
 export class Dictionary {
   private packs = new Map<string, Promise<DictPack | null>>()
+  private installed: Promise<string> | null = null
   private idleTimer: ReturnType<typeof setTimeout> | null = null
 
   constructor(
@@ -107,6 +109,19 @@ export class Dictionary {
   /** Packs were installed or deleted: read them again on next use. */
   invalidate(): void {
     this.packs.clear()
+    this.installed = null
+  }
+
+  /** Hash of the installed packs and their versions: part of the cache key of every dictionary translation. */
+  signature(): Promise<string> {
+    this.installed ??= this.store.list().then(
+      (packs) => hashText(packs.map((p) => `${p.id}@${p.version}:${p.bytes}`).sort().join(",")),
+      (error) => {
+        this.installed = null
+        throw error
+      },
+    )
+    return this.installed
   }
 
   /** A pack in memory, read on first use; null when it is not installed. */
@@ -126,12 +141,12 @@ export class Dictionary {
     this.idleTimer = setTimeout(() => this.invalidate(), this.opts.idleMs ?? IDLE_MS)
   }
 
-  /** `sourceLang`: "auto" (detected per paragraph) or a language code. */
-  async translate(texts: string[], sourceLang: string, targetLang: string): Promise<string[]> {
+  /** `sourceLang`: "auto" (detected per paragraph) or a language code. A paragraph that cannot be translated fails alone. */
+  async translate(texts: string[], sourceLang: string, targetLang: string): Promise<PromiseSettledResult<string>[]> {
     this.touch()
     const tgt = dictLang(targetLang)
     if (!tgt) throw new LocalizedError("errDictionaryUnsupported", [targetLang])
-    return Promise.all(
+    return Promise.allSettled(
       texts.map(async (text) => {
         const lang = sourceLang === "auto" ? ((await detectLanguage(text, this.opts.detect)) ?? "en") : sourceLang
         const src = dictLang(lang)

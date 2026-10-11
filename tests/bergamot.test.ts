@@ -2,7 +2,6 @@ import { zstdCompressSync } from "node:zlib"
 import { IDBFactory } from "fake-indexeddb"
 import { afterEach, describe, expect, it, vi } from "vitest"
 import { LocalizedError } from "../src/shared/errors"
-import { detectSourceLanguage, mapDetectedLanguage } from "../src/offline/bergamot/detect"
 import { BergamotEngine } from "../src/offline/bergamot/engine"
 import { normalizeBergamotLang, requiredPairs } from "../src/offline/bergamot/languages"
 import { BergamotManager } from "../src/offline/bergamot/manager"
@@ -157,29 +156,6 @@ describe("prepareTexts", () => {
   it("separates full-width punctuation from an opening quote for CJK sources", () => {
     expect(prepareTexts(["这是第一句话。“这是第二句话。”"], "zh-Hans").inputs).toEqual(["这是第一句话。 “这是第二句话。”"])
     expect(prepareTexts(["A。“B"], "de").inputs).toEqual(["A。“B"])
-  })
-})
-
-describe("detectSourceLanguage", () => {
-  const detector = (language: string, isReliable = true, percentage = 99) => vi.fn(async () => ({ isReliable, languages: [{ language, percentage }] }))
-  const long = ["Guten Tag, ich schreibe Ihnen wegen der Rechnung vom letzten Monat."]
-
-  it("maps the detector's codes", async () => {
-    expect(await detectSourceLanguage(long, detector("zh"))).toBe("zh-Hans")
-    expect(await detectSourceLanguage(long, detector("zh-TW"))).toBe("zh-Hant")
-    expect(await detectSourceLanguage(long, detector("iw"))).toBe("he")
-    expect(await detectSourceLanguage(long, detector("no"))).toBe("nb")
-    expect(mapDetectedLanguage("und")).toBeUndefined()
-  })
-
-  it("falls back on short text, unreliable answers, low share and failures", async () => {
-    const d = detector("de")
-    expect(await detectSourceLanguage(["Hi!"], d, "en")).toBe("en")
-    expect(d).not.toHaveBeenCalled()
-    expect(await detectSourceLanguage(long, detector("de", false), "fr")).toBe("fr")
-    expect(await detectSourceLanguage(long, detector("de", true, 40), "zh-CN")).toBe("zh-Hans")
-    expect(await detectSourceLanguage(long, vi.fn().mockRejectedValue(new Error("x")), "ja")).toBe("ja")
-    expect(await detectSourceLanguage(long, undefined)).toBeUndefined()
   })
 })
 
@@ -451,14 +427,13 @@ describe("BergamotManager", () => {
     ])
   })
 
-  it("detects the source for auto, returns same-language texts unchanged and keeps empty texts", async () => {
-    const detector = vi.fn(async () => ({ isReliable: true, languages: [{ language: "de", percentage: 98 }] }))
-    const { manager } = makeManager([...triple("de", "en")], detector)
+  it("needs a source language, returns same-language texts unchanged and keeps empty texts", async () => {
+    const { manager } = makeManager([...triple("de", "en")])
     await manager.install("de", "en")
     const texts = ["Sehr geehrte Damen und Herren, vielen Dank für Ihre Nachricht.", "", " Gruß "]
-    expect(await manager.translate(texts, "auto", "en")).toEqual(["[de>en]Sehr geehrte Damen und Herren, vielen Dank für Ihre Nachricht.", "", " [de>en]Gruß "])
-    expect(await manager.translate(["Guten Tag, wie geht es Ihnen heute?"], "auto", "de")).toEqual(["Guten Tag, wie geht es Ihnen heute?"])
-    detector.mockResolvedValueOnce({ isReliable: false, languages: [] })
+    expect(await manager.translate(texts, "de", "en")).toEqual(["[de>en]Sehr geehrte Damen und Herren, vielen Dank für Ihre Nachricht.", "", " [de>en]Gruß "])
+    expect(await manager.translate(["Guten Tag, wie geht es Ihnen heute?"], "de-AT", "de")).toEqual(["Guten Tag, wie geht es Ihnen heute?"])
+    // Detection is up to the caller (background/translators/bergamot.ts).
     await expect(manager.translate(["Something long enough to detect"], "auto", "en")).rejects.toMatchObject({ i18nText: { key: "bergamotDetectFailed" } })
     manager.engine.shutdown()
   })

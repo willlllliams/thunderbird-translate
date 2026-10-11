@@ -2,7 +2,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest"
 
 const engine = vi.hoisted(() => ({
-  translate: vi.fn(async (texts: string[], _src: string, _tgt: string, _options?: { fallbackSource?: string }) => texts.map((t) => `B(${t})`)),
+  translate: vi.fn(async (texts: string[], _src: string, _tgt: string) => texts.map((t) => `B(${t})`)),
   listPairs: vi.fn(async (_refresh?: boolean) => [{ src: "en", tgt: "zh-Hans", version: "3.0", architecture: "base", bytes: 1, rawBytes: 2, installed: false }]),
   install: vi.fn(async (_src: string, _tgt: string, _onProgress?: (done: number, total: number) => void, _signal?: AbortSignal) => {}),
   remove: vi.fn(async (_src: string, _tgt: string) => {}),
@@ -21,19 +21,20 @@ beforeEach(() => vi.clearAllMocks())
 
 describe("Bergamot translator", () => {
   it("passes a chosen source language as it is", async () => {
-    expect(await bergamotTranslateBatch(["Hallo"], "de", "zh-CN")).toEqual(["B(Hallo)"])
+    expect(await bergamotTranslateBatch(["Hallo"], "de", "zh-CN")).toEqual([{ status: "fulfilled", value: "B(Hallo)" }])
     expect(engine.translate).toHaveBeenCalledWith(["Hallo"], "de", "zh-CN")
   })
 
-  it("passes auto with a fallback for texts the browser cannot place", async () => {
+  it("names the language of each text for auto, without the browser's detector by script and English stop words", async () => {
     await bergamotTranslateBatch(["こんにちは、元気ですか"], "auto", "en")
-    await bergamotTranslateBatch(["Thank you for the report, see you on Friday"], "auto", "de")
+    // "Danke" points nowhere and goes with the language of the batch.
+    await bergamotTranslateBatch(["Thank you for the report, see you on Friday", "Danke"], "auto", "de")
+    // Nothing points anywhere: English.
     await bergamotTranslateBatch(["Danke"], "auto", "en")
-    expect(engine.translate.mock.calls.map((c) => [c[1], c[3]?.fallbackSource])).toEqual([
-      ["auto", "ja"],
-      ["auto", "en"],
-      // Nothing points anywhere: English.
-      ["auto", "en"],
+    expect(engine.translate.mock.calls.map((c) => c.slice(0, 2))).toEqual([
+      [["こんにちは、元気ですか"], "ja"],
+      [["Thank you for the report, see you on Friday", "Danke"], "en"],
+      [["Danke"], "en"],
     ])
   })
 
@@ -88,7 +89,7 @@ describe("model management in the background script", () => {
     const first = handleBergamot({ type: "bergamotInstall", src: "en", tgt: "zh-Hans" })
     await vi.waitFor(() => expect(finish).toBeDefined())
     // A second page asks for the same pair: one download, one progress, one cancel button for both.
-    const second = handleBergamot({ type: "bergamotInstall", src: "en", tgt: "zh-Hans" })
+    const second = handleBergamot({ type: "bergamotInstall", src: "EN", tgt: "zh-CN" })
     progress(7, 10)
     expect(await handleBergamot({ type: "bergamotProgress" })).toEqual({ "en>zh-Hans": { done: 7, total: 10 } })
     finish()

@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
-import { BatchQueue, groupIntoBatches } from "../src/background/queue/batch-queue"
+import { BatchQueue, groupIntoBatches, joinParts, splitText } from "../src/background/queue/batch-queue"
 import { backoffDelay, HttpError, isRetryableError, RequestQueue } from "../src/background/queue/request-queue"
 
 describe("groupIntoBatches", () => {
@@ -168,5 +168,42 @@ describe("RequestQueue", () => {
     expect(isRetryableError({ name: "AI_APICallError", isRetryable: false, statusCode: 500 })).toBe(false)
     const fixed = () => 1
     expect([0, 1, 2, 3, 10].map((a) => backoffDelay(a, 500, 8000, fixed))).toEqual([500, 1000, 2000, 4000, 8000])
+  })
+})
+
+describe("splitText and joinParts", () => {
+  it("leave a paragraph that fits as it is", () => {
+    expect(splitText("Short.", 10)).toEqual([{ text: "Short.", gap: "" }])
+    expect(joinParts([{ text: "Short.", gap: "" }], ["短。"], "zh-CN")).toBe("短。")
+  })
+
+  it("cut at sentence boundaries, as many sentences per piece as fit", () => {
+    const parts = splitText("One two three. Four five six. Seven eight nine.", 30)
+    expect(parts).toEqual([
+      { text: "One two three. Four five six.", gap: " " },
+      { text: "Seven eight nine.", gap: "" },
+    ])
+    expect(joinParts(parts, ["A.", "B."], "de")).toBe("A. B.")
+    expect(joinParts(parts, ["甲。", "乙。"], "ja")).toBe("甲。乙。")
+  })
+
+  it("cut a sentence longer than the limit by length, at a space when there is one", () => {
+    const parts = splitText("aaaa bbbb cccc dddd eeee", 10)
+    expect(parts.every((p) => p.text.length <= 10)).toBe(true)
+    expect(parts.map((p) => p.text).join(" ")).toBe("aaaa bbbb cccc dddd eeee")
+    expect(splitText("x".repeat(25), 10).map((p) => p.text)).toEqual(["x".repeat(10), "x".repeat(10), "x".repeat(5)])
+    // A surrogate pair is never cut in half.
+    const emoji = splitText("😀".repeat(6), 5).map((p) => p.text)
+    expect(emoji.join("")).toBe("😀".repeat(6))
+    expect(emoji).toEqual(["😀😀", "😀😀", "😀😀"])
+  })
+
+  it("end a piece at a line break and keep it when joining", () => {
+    const parts = splitText("First line here.\nSecond line here.", 25)
+    expect(parts).toEqual([
+      { text: "First line here.", gap: "\n" },
+      { text: "Second line here.", gap: "" },
+    ])
+    expect(joinParts(parts, ["第一行。", "第二行。"], "zh-CN")).toBe("第一行。\n第二行。")
   })
 })

@@ -27,11 +27,11 @@ function flaky(error: unknown, failures = 1) {
 describe("fetchOk", () => {
   it("returns a successful response as it is", async () => {
     const resp = new Response("fine")
-    expect(await fetchOk(asFetch(async () => resp), spec, "X")).toBe(resp)
+    expect(await fetchOk({ fetchFn: asFetch(async () => resp) }, spec, "X")).toBe(resp)
   })
 
   it("turns a failed connection into a NetworkError with the URL and the browser's message", async () => {
-    const error = await fetchOk(asFetch(async () => Promise.reject(new TypeError("NetworkError when attempting to fetch resource."))), spec, "X").catch((e) => e)
+    const error = await fetchOk({ fetchFn: asFetch(async () => Promise.reject(new TypeError("NetworkError when attempting to fetch resource."))) }, spec, "X").catch((e) => e)
     expect(error).toBeInstanceOf(NetworkError)
     expect(error).toMatchObject({ url: spec.url, isRetryable: true })
     expect(error.message).toBe("Could not connect to api.example.com: NetworkError when attempting to fetch resource.")
@@ -39,7 +39,7 @@ describe("fetchOk", () => {
 
   it("turns an HTTP error into an HttpError with status, body, URL and an empty HTTP/2 statusText", async () => {
     const fetchFn = async () => new Response('{"error":"quota"}', { status: 429, headers: { "Retry-After": "3" } })
-    const error = (await fetchOk(asFetch(fetchFn), spec, "Google").catch((e) => e)) as HttpError
+    const error = (await fetchOk({ fetchFn: asFetch(fetchFn) }, spec, "Google").catch((e) => e)) as HttpError
     expect(error).toBeInstanceOf(HttpError)
     expect(error).toMatchObject({ status: 429, retryAfterMs: 3000, url: spec.url, responseBody: '{"error":"quota"}', statusText: "" })
     expect(error.message).toBe(`${ENGLISH.t("errHttp", ["Google", "429"])} - {"error":"quota"}`)
@@ -48,7 +48,7 @@ describe("fetchOk", () => {
 
   it("leaves the detail out when the body is empty or cannot be read", async () => {
     const broken = { ok: false, status: 502, url: "", statusText: "Bad Gateway", text: () => Promise.reject(new Error("aborted")) } as unknown as Response
-    const error = (await fetchOk(asFetch(async () => broken), spec, "X").catch((e) => e)) as HttpError
+    const error = (await fetchOk({ fetchFn: asFetch(async () => broken) }, spec, "X").catch((e) => e)) as HttpError
     expect(error).toMatchObject({ status: 502, responseBody: "", url: spec.url, statusText: "Bad Gateway", retryAfterMs: undefined })
     expect(error.message).toBe(ENGLISH.t("errHttp", ["X", "502"]))
   })
@@ -57,7 +57,7 @@ describe("fetchOk", () => {
     vi.useFakeTimers({ now: new Date("2026-10-11T12:00:00Z") })
     try {
       const fetchFn = async () => new Response("", { status: 503, headers: { "Retry-After": "Sun, 11 Oct 2026 12:00:07 GMT" } })
-      expect(await fetchOk(asFetch(fetchFn), spec, "X").catch((e) => e.retryAfterMs)).toBe(7000)
+      expect(await fetchOk({ fetchFn: asFetch(fetchFn) }, spec, "X").catch((e) => e.retryAfterMs)).toBe(7000)
     } finally {
       vi.useRealTimers()
     }

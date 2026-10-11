@@ -1,18 +1,49 @@
 /**
  * Offline translation with the Bergamot engine (src/offline/bergamot/).
  *
- * The engine takes "auto" or a language code of the extension as source.
- * With "auto" it detects the language of the batch with the browser's
- * detector; when that answer is not reliable, for example on short texts, it
- * uses the fallback given here: the language the script and the English stop
- * words point to, else English.
+ * With source language "auto", the language of every paragraph is detected
+ * on its own (shared/lang-detect.ts: the browser's detector from 12 letters
+ * on and with 60 % of the text, else the script and the English stop
+ * words). A paragraph that cannot be placed takes the language found most
+ * often in the batch, else English. The paragraphs of each language go to
+ * the engine together; a language whose models are missing fails for its
+ * paragraphs only.
  */
 
 import { getBergamot } from "../../offline/bergamot"
-import { detectLanguage } from "../../shared/lang-detect"
+import { browserDetector, detectLanguage, type LanguageDetector } from "../../shared/lang-detect"
 
-export async function bergamotTranslateBatch(texts: string[], sourceLang: string, targetLang: string): Promise<string[]> {
-  if (sourceLang !== "auto") return getBergamot().translate(texts, sourceLang, targetLang)
-  const fallbackSource = (await detectLanguage(texts.join("\n"))) ?? "en"
-  return getBergamot().translate(texts, "auto", targetLang, { fallbackSource })
+/** Thresholds for the detector: shorter texts and answers covering less of the text are guesses. */
+const MIN_LETTERS = 12
+const MIN_PERCENTAGE = 60
+
+async function sourceLanguages(texts: string[], detect: LanguageDetector | undefined): Promise<string[]> {
+  const detected = await Promise.all(texts.map((text) => detectLanguage(text, detect, { minLetters: MIN_LETTERS })))
+  const counts = new Map<string, number>()
+  for (const lang of detected) if (lang) counts.set(lang, (counts.get(lang) ?? 0) + 1)
+  const common = [...counts].sort((a, b) => b[1] - a[1])[0]?.[0] ?? "en"
+  return detected.map((lang) => lang ?? common)
+}
+
+export async function bergamotTranslateBatch(
+  texts: string[],
+  sourceLang: string,
+  targetLang: string,
+  detect = browserDetector((globalThis as { browser?: { i18n?: Parameters<typeof browserDetector>[0] } }).browser?.i18n, MIN_PERCENTAGE),
+): Promise<PromiseSettledResult<string>[]> {
+  const sources = sourceLang === "auto" ? await sourceLanguages(texts, detect) : texts.map(() => sourceLang)
+  const groups = new Map<string, number[]>()
+  sources.forEach((lang, i) => groups.set(lang, [...(groups.get(lang) ?? []), i]))
+  const out: PromiseSettledResult<string>[] = []
+  await Promise.all(
+    [...groups].map(async ([lang, indices]) => {
+      try {
+        const translated = await getBergamot().translate(indices.map((i) => texts[i]), lang, targetLang)
+        indices.forEach((i, k) => (out[i] = { status: "fulfilled", value: translated[k] }))
+      } catch (reason) {
+        for (const i of indices) out[i] = { status: "rejected", reason }
+      }
+    }),
+  )
+  return out
 }

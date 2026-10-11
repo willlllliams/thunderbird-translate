@@ -8,7 +8,7 @@ import { createMailContext } from "../src/shared/mail-context"
 import type { TranslateRequest, TranslateResponse } from "../src/shared/messages"
 import type { Tier } from "../src/shared/providers"
 import { createDefaultSettings, type ResolvedProvider, type Settings } from "../src/shared/settings"
-import { asFetch, chatCompletion, createService, jsonResponse, memoryStorage } from "./helpers"
+import { asFetch, chatCompletion, createService, jsonResponse, memoryStorage, translateOne } from "./helpers"
 
 function setup(over: (s: Settings) => void = () => {}, extra: { llm?: LlmImpl; fetchFn?: unknown; cache?: PersistentCache } = {}) {
   const settings = createDefaultSettings()
@@ -75,12 +75,12 @@ describe("TranslationService with Google", () => {
       return jsonResponse(qs.map((q) => [`ZH(${q})`, "en"]))
     })
     const { service } = setup(() => {}, { fetchFn })
-    const out = await Promise.all(["One", "Two", "Three"].map((t) => service.translate({ text: t, targetLang: "zh-CN", providerId: "google-free" })))
+    const out = await Promise.all(["One", "Two", "Three"].map((t) => translateOne(service, { text: t, targetLang: "zh-CN", providerId: "google-free" })))
     expect(out).toEqual(["ZH(One)", "ZH(Two)", "ZH(Three)"])
     expect(fetchFn).toHaveBeenCalledTimes(1)
 
     // Second time: all from cache, no request.
-    expect(await service.translate({ text: "Two", targetLang: "zh-CN", providerId: "google-free" })).toBe("ZH(Two)")
+    expect(await translateOne(service, { text: "Two", targetLang: "zh-CN", providerId: "google-free" })).toBe("ZH(Two)")
     expect(fetchFn).toHaveBeenCalledTimes(1)
   })
 
@@ -90,7 +90,7 @@ describe("TranslationService with Google", () => {
       return jsonResponse(qs.map((q) => [`ZH(${q})`, "en"]))
     })
     const { service } = setup(() => {}, { fetchFn })
-    await Promise.all([service.translate({ text: "Same", targetLang: "zh-CN", providerId: "google-free" }), service.translate({ text: "Same", targetLang: "zh-CN", providerId: "google-free" })])
+    await Promise.all([translateOne(service, { text: "Same", targetLang: "zh-CN", providerId: "google-free" }), translateOne(service, { text: "Same", targetLang: "zh-CN", providerId: "google-free" })])
     const body = new URLSearchParams(String(fetchFn.mock.calls[0][1].body))
     expect(body.getAll("q")).toEqual(["Same"])
   })
@@ -101,7 +101,7 @@ describe("TranslationService with Google", () => {
       return jsonResponse(qs.map((q) => [q, "en"]))
     })
     const { service } = setup((s) => (s.batch.maxItemsPerBatch = 2), { fetchFn })
-    await Promise.all(["a1", "a2", "a3", "a4", "a5"].map((t) => service.translate({ text: t, targetLang: "zh-CN", providerId: "google-free" })))
+    await Promise.all(["a1", "a2", "a3", "a4", "a5"].map((t) => translateOne(service, { text: t, targetLang: "zh-CN", providerId: "google-free" })))
     expect(fetchFn).toHaveBeenCalledTimes(3)
   })
 })
@@ -115,7 +115,7 @@ describe("TranslationService with an LLM", () => {
   it("loads the AI SDK module on first use and sends one request per batch", async () => {
     const fetchFn = vi.fn(async () => chatCompletion(JSON.stringify(["你好", "再见"])))
     const { service } = setup(useOpenAI, { fetchFn: asFetch(fetchFn) })
-    const out = await Promise.all(["Hello", "Goodbye"].map((t) => service.translate({ text: t, targetLang: "zh-CN", providerId: "openai" })))
+    const out = await Promise.all(["Hello", "Goodbye"].map((t) => translateOne(service, { text: t, targetLang: "zh-CN", providerId: "openai" })))
     expect(out).toEqual(["你好", "再见"])
     expect(fetchFn).toHaveBeenCalledTimes(1)
   })
@@ -127,7 +127,7 @@ describe("TranslationService with an LLM", () => {
       analyze: vi.fn(async () => null),
     }
     const { service } = setup(useOpenAI, { llm })
-    const out = await Promise.all(["a", "b", "c", "d"].map((t) => service.translate({ text: t, targetLang: "zh-CN", providerId: "openai" })))
+    const out = await Promise.all(["a", "b", "c", "d"].map((t) => translateOne(service, { text: t, targetLang: "zh-CN", providerId: "openai" })))
     expect(out).toEqual(["ZH(a)", "ZH(b)", "ZH(c)", "ZH(d)"])
     expect(llm.batch).toHaveBeenCalledTimes(1)
     expect(llm.single).not.toHaveBeenCalled()
@@ -142,7 +142,7 @@ describe("TranslationService with an LLM", () => {
       analyze: vi.fn(async () => null),
     }
     const { service } = setup(useOpenAI, { llm })
-    const out = await Promise.all(["a", "b", "c"].map((t) => service.translate({ text: t, targetLang: "zh-CN", providerId: "openai" })))
+    const out = await Promise.all(["a", "b", "c"].map((t) => translateOne(service, { text: t, targetLang: "zh-CN", providerId: "openai" })))
     expect(out).toEqual(["ZH(a)", "ZH(b)", "ZH(c)"])
     expect(llm.batch).toHaveBeenCalledTimes(1)
     expect(llm.single).toHaveBeenCalledTimes(3)
@@ -157,7 +157,7 @@ describe("TranslationService with an LLM", () => {
       analyze: vi.fn(async () => null),
     }
     const { service } = setup(useOpenAI, { llm })
-    const results = await Promise.allSettled(["a", "b"].map((t) => service.translate({ text: t, targetLang: "zh-CN", providerId: "openai" })))
+    const results = await Promise.allSettled(["a", "b"].map((t) => translateOne(service, { text: t, targetLang: "zh-CN", providerId: "openai" })))
     expect(results.every((r) => r.status === "rejected" && /Incorrect API key/.test(String(r.reason)))).toBe(true)
     expect(llm.single).not.toHaveBeenCalled()
   })
@@ -175,7 +175,7 @@ describe("TranslationService with an LLM", () => {
       },
       { llm },
     )
-    await Promise.all(["a", "b", "c"].map((t) => service.translate({ text: t, targetLang: "zh-CN", providerId: "openai" })))
+    await Promise.all(["a", "b", "c"].map((t) => translateOne(service, { text: t, targetLang: "zh-CN", providerId: "openai" })))
     expect(llm.batch).not.toHaveBeenCalled()
     expect(llm.single).toHaveBeenCalledTimes(3)
   })
@@ -192,7 +192,7 @@ describe("TranslationService with an LLM", () => {
       fetchFn,
       llm: { batch: llmTranslateBatch, single: llmTranslateSingle, analyze: llmAnalyzeMail },
     })
-    const out = await Promise.all(["Good morning", "Good night", "Thanks"].map((t) => service.translate({ text: t, targetLang: "zh-CN", providerId: "openai" })))
+    const out = await Promise.all(["Good morning", "Good night", "Thanks"].map((t) => translateOne(service, { text: t, targetLang: "zh-CN", providerId: "openai" })))
     expect(out).toEqual(["早上好", "晚安", "谢谢"])
     expect(fetchFn).toHaveBeenCalledTimes(1)
     const systemMessages = bodies[0].messages.filter((m) => m.role === "system")
@@ -216,7 +216,7 @@ describe("TranslationService with an LLM", () => {
       fetchFn,
       llm: { batch: llmTranslateBatch, single: llmTranslateSingle, analyze: llmAnalyzeMail },
     })
-    const out = await Promise.all(["Good morning", "Good night"].map((t) => service.translate({ text: t, targetLang: "zh-CN", providerId: "openai" })))
+    const out = await Promise.all(["Good morning", "Good night"].map((t) => translateOne(service, { text: t, targetLang: "zh-CN", providerId: "openai" })))
     expect(out).toEqual(["早上好", "晚安"])
     expect(fetchFn).toHaveBeenCalledTimes(3)
   })
@@ -256,14 +256,14 @@ describe("TranslationService: tiers, caps and precise mode details", () => {
       s.batch.maxCharsPerBatch = 100_000
     }, { fetchFn })
     const texts = Array.from({ length: n }, (_, i) => String(i).padStart(chars, "x"))
-    expect(await Promise.all(texts.map((text) => service.translate({ text, targetLang: "zh-CN", providerId: id })))).toEqual(texts)
+    expect(await Promise.all(texts.map((text) => translateOne(service, { text, targetLang: "zh-CN", providerId: id })))).toEqual(texts)
     expect(fetchFn).toHaveBeenCalledTimes(requests)
   })
 
   it("sends DeepLX one request per paragraph", async () => {
     const fetchFn = vi.fn(async (_url: string, init: RequestInit) => jsonResponse({ code: 200, data: `D(${JSON.parse(String(init.body)).text})` }))
     const { service } = setup((s) => (s.providers.deeplx.baseURL = "https://deeplx.example/translate"), { fetchFn })
-    const out = await Promise.all(["a", "b", "c"].map((text) => service.translate({ text, targetLang: "zh-CN", providerId: "deeplx" })))
+    const out = await Promise.all(["a", "b", "c"].map((text) => translateOne(service, { text, targetLang: "zh-CN", providerId: "deeplx" })))
     expect(out).toEqual(["D(a)", "D(b)", "D(c)"])
     expect(fetchFn).toHaveBeenCalledTimes(3)
   })
@@ -278,7 +278,7 @@ describe("TranslationService: tiers, caps and precise mode details", () => {
       s.tiers.ai = "openai"
       s.providers.openai.apiKey = "sk"
     }, { llm })
-    expect(await Promise.all(["a", "b"].map((text) => service.translate({ text, targetLang: "zh-CN", providerId: "openai" })))).toEqual(["ZH(a)", "ZH(b)"])
+    expect(await Promise.all(["a", "b"].map((text) => translateOne(service, { text, targetLang: "zh-CN", providerId: "openai" })))).toEqual(["ZH(a)", "ZH(b)"])
     expect(llm.single).toHaveBeenCalledTimes(2)
   })
 
@@ -306,7 +306,7 @@ describe("TranslationService: tiers, caps and precise mode details", () => {
     const translateMail = async (service: TranslationService, paragraphs: string[], targets = paragraphs.map((_, i) => i)) => {
       const context = createMailContext(paragraphs, targets)
       service.setContext(context)
-      return Promise.all(targets.map((i) => service.translate({ text: paragraphs[i], targetLang: "zh-CN", providerId: "openai", context: { id: context.id, index: i } })))
+      return Promise.all(targets.map((i) => translateOne(service, { text: paragraphs[i], targetLang: "zh-CN", providerId: "openai", context: { id: context.id, index: i } })))
     }
     const PARAGRAPHS = ["First paragraph of the mail.", "Second paragraph of the mail.", "Third one."]
 
@@ -344,7 +344,7 @@ describe("TranslationService: tiers, caps and precise mode details", () => {
       }, { llm })
       const context = createMailContext(["Hello"], [0, 5])
       service.setContext(context)
-      expect(await service.translate({ text: "Hello", targetLang: "zh-CN", providerId: "openai", context: { id: context.id, index: 0 } })).toBe("AI(Hello)")
+      expect(await translateOne(service, { text: "Hello", targetLang: "zh-CN", providerId: "openai", context: { id: context.id, index: 0 } })).toBe("AI(Hello)")
       expect(llm.analyze).not.toHaveBeenCalled()
     })
 

@@ -1,7 +1,7 @@
 /** The three tiers, the prompts, the source language and precise mode in the background translation service. */
 import { describe, expect, it, vi } from "vitest"
 import { cacheKey } from "../src/background/cache"
-import type { LlmImpl, ProviderRequest, TranslationService } from "../src/background/service"
+import type { LlmImpl, TranslationService } from "../src/background/service"
 import { type LlmCallOptions, llmAnalyzeMail, llmTranslateBatch, llmTranslateSingle } from "../src/background/translators/llm"
 import type { MailAnalysis, Segment } from "../src/background/translators/llm-prompt"
 import { createMailContext } from "../src/shared/mail-context"
@@ -9,7 +9,7 @@ import type { TranslateRequest, TranslateResponse } from "../src/shared/messages
 import { DEFAULT_PROMPTS } from "../src/shared/prompts"
 import type { Tier } from "../src/shared/providers"
 import { createDefaultSettings, type Settings } from "../src/shared/settings"
-import { anthropicMessage, asFetch, createService, jsonResponse } from "./helpers"
+import { anthropicMessage, asFetch, createService, jsonResponse, type OneRequest, translateOne } from "./helpers"
 
 function deferred() {
   let resolve!: () => void
@@ -50,8 +50,9 @@ function fakeDictionary(gate?: Promise<void>) {
   return {
     translate: vi.fn(async (texts: string[], _source: string, _target: string) => {
       await gate
-      return texts.map((t) => `D(${t})`)
+      return texts.map((t): PromiseSettledResult<string> => ({ status: "fulfilled", value: `D(${t})` }))
     }),
+    signature: vi.fn(async () => "packs"),
   }
 }
 
@@ -66,7 +67,7 @@ function setup(over: (s: Settings) => void, extra: Extra = {}) {
   return createService(settings, { ...extra, fetchFn: asFetch(extra.fetchFn) })
 }
 
-const ask = (text: string, extra: Partial<ProviderRequest> = {}): ProviderRequest => ({ text, targetLang: "zh-CN", providerId: "openai", ...extra })
+const ask = (text: string, extra: Partial<OneRequest> = {}): OneRequest => ({ text, targetLang: "zh-CN", providerId: "openai", ...extra })
 const page = (text: string, tiers: Tier[] = ["dictionary", "machine", "ai"], extra: Partial<TranslateRequest> = {}): TranslateRequest => ({
   text,
   sourceLang: "auto",
@@ -153,51 +154,55 @@ describe("prompts", () => {
   it("uses the prompt of the display mode, and the precise prompt in precise mode", async () => {
     const { llm, calls } = fakeLlm()
     const { service, settings } = setup(() => {}, { llm })
-    await service.translate(ask("One"))
+    await translateOne(service, ask("One"))
     expect(calls[0].opts.systemPrompt).toBe(DEFAULT_PROMPTS.bilingual)
     settings.mode = "translation-only"
-    await service.translate(ask("Two"))
+    await translateOne(service, ask("Two"))
     expect(calls[1].opts.systemPrompt).toBe(DEFAULT_PROMPTS.translationOnly)
     settings.precise.enabled = true
-    await service.translate(ask("Three"))
+    await translateOne(service, ask("Three"))
     expect(calls[2].opts.systemPrompt).toBe(DEFAULT_PROMPTS.precise)
   })
 
   it("keeps the cache of each prompt apart: a mode switch asks the AI tier again, switching back uses the cache", async () => {
     const { llm } = fakeLlm()
     const { service, settings } = setup(() => {}, { llm })
-    await service.translate(ask("Hello"))
+    await translateOne(service, ask("Hello"))
     settings.mode = "translation-only"
-    await service.translate(ask("Hello"))
+    await translateOne(service, ask("Hello"))
     expect(llm.single).toHaveBeenCalledTimes(2)
     settings.mode = "bilingual"
-    await service.translate(ask("Hello"))
+    await translateOne(service, ask("Hello"))
     expect(llm.single).toHaveBeenCalledTimes(2)
   })
 
   it("does not use a cached translation after the prompt was edited", async () => {
     const { llm, calls } = fakeLlm()
     const { service, settings } = setup(() => {}, { llm })
-    await service.translate(ask("Hello"))
+    await translateOne(service, ask("Hello"))
     settings.prompts.bilingual = "Translate into {{to}}, very formally."
-    await service.translate(ask("Hello"))
+    await translateOne(service, ask("Hello"))
     expect(llm.single).toHaveBeenCalledTimes(2)
     expect(calls[1].opts.systemPrompt).toBe("Translate into {{to}}, very formally.")
   })
 
   it("does not merge paragraphs of different prompts into one batch", async () => {
     const { llm, calls } = fakeLlm()
-    const { service } = setup(() => {}, { llm })
-    await Promise.all([service.translate(ask("a")), service.translate(ask("b", { promptKind: "translationOnly" })), service.translate(ask("c"))])
+    const { service, settings } = setup(() => {}, { llm })
+    const a = translateOne(service, ask("a"))
+    settings.mode = "translation-only"
+    const b = translateOne(service, ask("b"))
+    settings.mode = "bilingual"
+    await Promise.all([a, b, translateOne(service, ask("c"))])
     expect(calls.map((c) => c.segments.map((s) => s.text))).toEqual([["a", "c"], ["b"]])
   })
 
   it("gives the machine tier one cache entry for all display modes", async () => {
     const fetchFn = googleFetch()
     const { service, settings } = setup(() => {}, { fetchFn })
-    await service.translate(ask("Hello", { providerId: "google-free" }))
+    await translateOne(service, ask("Hello", { providerId: "google-free" }))
     settings.mode = "translation-only"
-    await service.translate(ask("Hello", { providerId: "google-free" }))
+    await translateOne(service, ask("Hello", { providerId: "google-free" }))
     expect(fetchFn).toHaveBeenCalledTimes(1)
   })
 })
@@ -210,16 +215,16 @@ describe("source language", () => {
 
   it("goes to Google as sl, auto by default", async () => {
     const { service, fetchFn } = google()
-    await service.translate(ask("Hello", { providerId: "google-free" }))
-    await service.translate(ask("Hallo", { providerId: "google-free", sourceLang: "de" }))
+    await translateOne(service, ask("Hello", { providerId: "google-free" }))
+    await translateOne(service, ask("Hallo", { providerId: "google-free", sourceLang: "de" }))
     expect(fetchFn.mock.calls.map(([url]) => new URL(url).searchParams.get("sl"))).toEqual(["auto", "de"])
   })
 
   it("goes to Microsoft as from, left out for auto", async () => {
     const fetchFn = vi.fn(async (_url: string, init: RequestInit) => jsonResponse((JSON.parse(String(init.body)) as string[]).map((t) => ({ translations: [{ text: `M(${t})` }] }))))
     const { service } = setup(() => {}, { fetchFn })
-    await service.translate(ask("Hello", { providerId: "microsoft-free" }))
-    await service.translate(ask("Hallo", { providerId: "microsoft-free", sourceLang: "zh-TW" }))
+    await translateOne(service, ask("Hello", { providerId: "microsoft-free" }))
+    await translateOne(service, ask("Hallo", { providerId: "microsoft-free", sourceLang: "zh-TW" }))
     const params = fetchFn.mock.calls.map(([url]) => new URL(url).searchParams)
     expect(params[0].has("from")).toBe(false)
     expect(params[1].get("from")).toBe("zh-Hant")
@@ -228,16 +233,16 @@ describe("source language", () => {
   it("goes to DeepLX as source_lang, without variant", async () => {
     const fetchFn = vi.fn(async (_url: string, _init: RequestInit) => jsonResponse({ code: 200, data: "X" }))
     const { service } = setup((s) => (s.providers.deeplx = { enabled: true, apiKey: "", baseURL: "https://d.example/translate", model: "" }), { fetchFn })
-    await service.translate(ask("Hello", { providerId: "deeplx" }))
-    await service.translate(ask("Hallo", { providerId: "deeplx", sourceLang: "zh-TW" }))
+    await translateOne(service, ask("Hello", { providerId: "deeplx" }))
+    await translateOne(service, ask("Hallo", { providerId: "deeplx", sourceLang: "zh-TW" }))
     expect(fetchFn.mock.calls.map(([, init]) => JSON.parse(String(init.body)).source_lang)).toEqual(["auto", "ZH"])
   })
 
   it("is named in the AI request, or left to the model to detect", async () => {
     const { llm, calls } = fakeLlm()
     const { service } = setup(() => {}, { llm })
-    await service.translate(ask("Hello"))
-    await service.translate(ask("Bonjour", { sourceLang: "fr" }))
+    await translateOne(service, ask("Hello"))
+    await translateOne(service, ask("Bonjour", { sourceLang: "fr" }))
     expect(calls[0].opts.sourceLanguageName).toBeUndefined()
     expect(calls[1].opts.sourceLanguageName).toBe("French")
   })
@@ -245,8 +250,8 @@ describe("source language", () => {
   it("goes to the dictionary as it is", async () => {
     const dictionary = fakeDictionary()
     const { service } = setup(() => {}, { dictionary })
-    await service.translate(ask("Hello", { providerId: "dictionary" }))
-    await service.translate(ask("Hallo", { providerId: "dictionary", sourceLang: "de" }))
+    await translateOne(service, ask("Hello", { providerId: "dictionary" }))
+    await translateOne(service, ask("Hallo", { providerId: "dictionary", sourceLang: "de" }))
     expect(dictionary.translate.mock.calls.map(([, source, target]) => [source, target])).toEqual([
       ["auto", "zh-CN"],
       ["de", "zh-CN"],
@@ -255,15 +260,15 @@ describe("source language", () => {
 
   it("is part of the cache key: another source language does not use the old translation", async () => {
     const { service, fetchFn } = google()
-    await service.translate(ask("Gift", { providerId: "google-free", sourceLang: "en" }))
-    await service.translate(ask("Gift", { providerId: "google-free", sourceLang: "de" }))
-    await service.translate(ask("Gift", { providerId: "google-free", sourceLang: "en" }))
+    await translateOne(service, ask("Gift", { providerId: "google-free", sourceLang: "en" }))
+    await translateOne(service, ask("Gift", { providerId: "google-free", sourceLang: "de" }))
+    await translateOne(service, ask("Gift", { providerId: "google-free", sourceLang: "en" }))
     expect(fetchFn).toHaveBeenCalledTimes(2)
   })
 
   it("keeps paragraphs of different source languages in different batches", async () => {
     const { service, fetchFn } = google()
-    await Promise.all([service.translate(ask("a", { providerId: "google-free" })), service.translate(ask("b", { providerId: "google-free", sourceLang: "de" }))])
+    await Promise.all([translateOne(service, ask("a", { providerId: "google-free" })), translateOne(service, ask("b", { providerId: "google-free", sourceLang: "de" }))])
     expect(fetchFn).toHaveBeenCalledTimes(2)
   })
 })
@@ -277,7 +282,7 @@ describe("precise mode", () => {
   async function translateMail(service: TranslationService, paragraphs = PARAGRAPHS, targets = TARGETS) {
     const context = createMailContext(paragraphs, targets)
     service.setContext(context)
-    const out = await Promise.all(targets.map((i) => service.translate(ask(paragraphs[i], { context: { id: context.id, index: i } }))))
+    const out = await Promise.all(targets.map((i) => translateOne(service, ask(paragraphs[i], { context: { id: context.id, index: i } }))))
     return { context, out }
   }
 
@@ -341,8 +346,8 @@ describe("precise mode", () => {
     service.setContext(a)
     service.setContext(b)
     await Promise.all([
-      ...[0, 1].map((i) => service.translate(ask(a.paragraphs[i], { context: { id: a.id, index: i } }))),
-      ...[0, 1].map((i) => service.translate(ask(b.paragraphs[i], { context: { id: b.id, index: i } }))),
+      ...[0, 1].map((i) => translateOne(service, ask(a.paragraphs[i], { context: { id: a.id, index: i } }))),
+      ...[0, 1].map((i) => translateOne(service, ask(b.paragraphs[i], { context: { id: b.id, index: i } }))),
     ])
     // "Hello" appears in both messages and is translated once per message.
     expect(calls).toHaveLength(2)
@@ -351,7 +356,7 @@ describe("precise mode", () => {
       ["Hello", "Thanks, Bob"],
     ])
     // Without precise mode the cache key has no context.
-    await service.translate(ask("Hello"))
+    await translateOne(service, ask("Hello"))
     expect(calls).toHaveLength(3)
   })
 
@@ -375,7 +380,7 @@ describe("precise mode", () => {
     )
     const context = createMailContext(PARAGRAPHS, TARGETS)
     service.setContext(context)
-    await Promise.all(TARGETS.map((i) => service.translate(ask(PARAGRAPHS[i], { providerId: "anthropic", context: { id: context.id, index: i } }))))
+    await Promise.all(TARGETS.map((i) => translateOne(service, ask(PARAGRAPHS[i], { providerId: "anthropic", context: { id: context.id, index: i } }))))
     const translations = bodies.filter((b) => !b.system[0].text.startsWith("You prepare the translation"))
     expect(bodies).toHaveLength(TARGETS.length + 1)
     expect(new Set(translations.map((b) => JSON.stringify(b.system))).size).toBe(1)

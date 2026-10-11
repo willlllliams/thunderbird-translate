@@ -207,42 +207,59 @@ describe("storage, download and the dictionary tier", () => {
     expect(await store.data("en>de")).toBeUndefined()
   })
 
+  /** The translations of Dictionary.translate(), or the first paragraph's error. */
+  const texts = async (dictionary: Dictionary, input: string[], source: string, target: string) =>
+    (await dictionary.translate(input, source, target)).map((r) => {
+      if (r.status === "rejected") throw r.reason
+      return r.value
+    })
+
+  it("fails only the paragraph that cannot be translated", async () => {
+    // French has no pack here.
+    const detect = async (text: string) => (text.startsWith("Bonjour") ? "fr" : "en")
+    const dictionary = new Dictionary(await installed("dict-en-zh-Hans.tsv.gz"), { detect })
+    const results = await dictionary.translate(["Hello world", "Bonjour monde", "这是中文"], "auto", "zh-CN")
+    expect(results[0]).toEqual({ status: "fulfilled", value: "你好世界" })
+    expect(results[1]).toMatchObject({ status: "rejected", reason: { i18nText: { key: "errDictionaryMissing" } } })
+    expect(results[2]).toEqual({ status: "fulfilled", value: "这是中文" })
+  })
+
   it("translates with an installed pack and detects the source language", async () => {
     const dictionary = new Dictionary(await installed("dict-en-zh-Hans.tsv.gz"))
-    expect(await dictionary.translate(["Hello world", "I went to New York"], "auto", "zh-CN")).toEqual(["你好世界", "我去到纽约"])
-    expect(await dictionary.translate(["Hello"], "en", "zh-CN")).toEqual(["你好"])
+    expect(await texts(dictionary, ["Hello world", "I went to New York"], "auto", "zh-CN")).toEqual(["你好世界", "我去到纽约"])
+    expect(await texts(dictionary, ["Hello"], "en", "zh-CN")).toEqual(["你好"])
   })
 
   it("asks the detector for the source language, and takes English when nothing is recognised", async () => {
     const detect = vi.fn(async () => "fr")
     const dictionary = new Dictionary(await installed("dict-fr-en.tsv.gz", "dict-en-zh-Hans.tsv.gz"), { detect })
-    expect(await dictionary.translate(["Bonjour monde"], "auto", "zh-CN")).toEqual(["你好世界"])
+    expect(await texts(dictionary, ["Bonjour monde"], "auto", "zh-CN")).toEqual(["你好世界"])
     expect(detect).toHaveBeenCalledWith("Bonjour monde")
     const plain = new Dictionary(await installed("dict-en-zh-Hans.tsv.gz"))
-    expect(await plain.translate(["hello qqq zzz"], "auto", "zh-CN")).toEqual(["你好qqq zzz"])
-    expect(await plain.translate(["2026"], "auto", "zh-CN")).toEqual(["2026"])
+    expect(await texts(plain, ["hello qqq zzz"], "auto", "zh-CN")).toEqual(["你好qqq zzz"])
+    expect(await texts(plain, ["2026"], "auto", "zh-CN")).toEqual(["2026"])
   })
 
   it("names an unsupported language", async () => {
     const dictionary = new Dictionary(newStore())
-    const error = await dictionary.translate(["Hallo"], "de", "it").catch((e) => e)
+    const error = await texts(dictionary, ["Hallo"], "de", "it").catch((e) => e)
     expect(describeError(error, ENGLISH)).toBe(ENGLISH.t("errDictionaryUnsupported", ["it"]))
-    await expect(dictionary.translate(["Ciao"], "it", "en")).rejects.toThrow(/language it/)
+    await expect(texts(dictionary, ["Ciao"], "it", "en")).rejects.toThrow(/language it/)
   })
 
   it("returns text in the target language unchanged", async () => {
     const dictionary = new Dictionary(newStore())
-    expect(await dictionary.translate(["这是中文"], "auto", "zh-CN")).toEqual(["这是中文"])
+    expect(await texts(dictionary, ["这是中文"], "auto", "zh-CN")).toEqual(["这是中文"])
   })
 
   it("goes through English when there is no direct pack", async () => {
     const dictionary = new Dictionary(await installed("dict-fr-en.tsv.gz", "dict-en-zh-Hans.tsv.gz"))
-    expect(await dictionary.translate(["Bonjour monde"], "fr", "zh-CN")).toEqual(["你好世界"])
+    expect(await texts(dictionary, ["Bonjour monde"], "fr", "zh-CN")).toEqual(["你好世界"])
   })
 
   it("names the missing pair and where to download it", async () => {
     const dictionary = new Dictionary(await installed("dict-fr-en.tsv.gz"))
-    const error = await dictionary.translate(["Bonjour"], "fr", "de").catch((e) => e)
+    const error = await texts(dictionary, ["Bonjour"], "fr", "de").catch((e) => e)
     const text = describeError(error, ENGLISH)
     expect(text.split("\n")).toEqual([ENGLISH.t("errDictionaryMissing", ["fr → de"]), ENGLISH.t("hintDictionaryDownload")])
   })
@@ -251,10 +268,10 @@ describe("storage, download and the dictionary tier", () => {
     const store = await installed("dict-fr-en.tsv.gz")
     const data = vi.spyOn(store, "data")
     const dictionary = new Dictionary(store)
-    await expect(dictionary.translate(["Bonjour"], "fr", "zh-CN")).rejects.toThrow(ENGLISH.t("errDictionaryMissing", ["fr → zh-Hans"]))
+    await expect(texts(dictionary, ["Bonjour"], "fr", "zh-CN")).rejects.toThrow(ENGLISH.t("errDictionaryMissing", ["fr → zh-Hans"]))
     expect(data.mock.calls.map(([id]) => id)).toEqual(["fr>zh-Hans", "fr>en", "en>zh-Hans"])
     data.mockClear()
-    await expect(dictionary.translate(["Hello"], "en", "ja")).rejects.toThrow(ENGLISH.t("errDictionaryMissing", ["en → ja"]))
+    await expect(texts(dictionary, ["Hello"], "en", "ja")).rejects.toThrow(ENGLISH.t("errDictionaryMissing", ["en → ja"]))
     expect(data.mock.calls.map(([id]) => id)).toEqual(["en>ja"])
   })
 
@@ -262,26 +279,26 @@ describe("storage, download and the dictionary tier", () => {
     const store = await installed("dict-en-de.tsv.gz")
     vi.spyOn(store, "data").mockRejectedValueOnce(new Error("read failed"))
     const dictionary = new Dictionary(store)
-    await expect(dictionary.translate(["hello"], "en", "de")).rejects.toThrow("read failed")
-    expect(await dictionary.translate(["hello"], "en", "de")).toEqual(["hallo"])
+    await expect(texts(dictionary, ["hello"], "en", "de")).rejects.toThrow("read failed")
+    expect(await texts(dictionary, ["hello"], "en", "de")).toEqual(["hallo"])
   })
 
   it("reads the packs again after a change, and releases them when idle", async () => {
     const store = await installed("dict-en-zh-Hans.tsv.gz")
     const data = vi.spyOn(store, "data")
     const dictionary = new Dictionary(store, { idleMs: 30 })
-    await dictionary.translate(["hello"], "en", "zh-CN")
-    await dictionary.translate(["world"], "en", "zh-CN")
+    await texts(dictionary, ["hello"], "en", "zh-CN")
+    await texts(dictionary, ["world"], "en", "zh-CN")
     expect(data).toHaveBeenCalledTimes(1)
     await store.remove(pairKey("en", "zh-Hans"))
     dictionary.invalidate()
-    await expect(dictionary.translate(["hello"], "en", "zh-CN")).rejects.toThrow(/not installed/)
+    await expect(texts(dictionary, ["hello"], "en", "zh-CN")).rejects.toThrow(/not installed/)
     await installPack(indexEntry("dict-en-zh-Hans.tsv.gz"), "dicts-v1", store, { fetchFn: asFetch(releases) })
     dictionary.invalidate()
-    await dictionary.translate(["hello"], "en", "zh-CN")
+    await texts(dictionary, ["hello"], "en", "zh-CN")
     const reads = data.mock.calls.length
     await new Promise((r) => setTimeout(r, 80))
-    await dictionary.translate(["hello"], "en", "zh-CN")
+    await texts(dictionary, ["hello"], "en", "zh-CN")
     expect(data.mock.calls.length).toBe(reads + 1)
   })
 })
