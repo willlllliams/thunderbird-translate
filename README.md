@@ -8,6 +8,22 @@ This document is written for readers who have not used a Thunderbird extension b
 
 ![Demo: translating a message, switching between bilingual and translation-only, changing the target language](docs/demo.gif)
 
+## Other languages
+
+Each line below introduces the extension in one language and links to the full README in that language.
+
+- 简体中文：在 Thunderbird 阅读窗格中直接翻译邮件，支持双语对照与仅译文两种显示方式，可用免费的谷歌、微软翻译和 DeepLX，也可接入 20 多个 AI 服务商。[完整说明](readmes/README.zh-CN.md)
+- 繁體中文：在 Thunderbird 閱讀窗格中直接翻譯郵件，支援雙語對照與僅譯文兩種顯示方式，可使用免費的 Google、微軟翻譯和 DeepLX，也能接入 20 多家 AI 服務商。[完整說明](readmes/README.zh-TW.md)
+- 日本語：Thunderbird のメッセージ表示欄でメールをそのまま翻訳する拡張機能です。対訳表示と訳文のみ表示を切り替えられ、無料の Google 翻訳・Microsoft 翻訳・DeepLX と 20 以上の AI サービスに対応しています。[詳しい説明](readmes/README.ja.md)
+- 한국어: Thunderbird 메시지 창에서 메일을 바로 번역하는 확장 기능으로, 이중 언어 보기와 번역만 보기를 지원하며 무료 Google·Microsoft 번역, DeepLX와 20개 이상의 AI 서비스를 사용할 수 있습니다. [자세한 설명](readmes/README.ko.md)
+- Français : extension Thunderbird qui traduit les e-mails directement dans le volet de lecture, en mode bilingue ou traduction seule, avec Google Traduction, Microsoft Translator et DeepLX gratuits ainsi que plus de 20 fournisseurs d'IA. [Documentation complète](readmes/README.fr.md)
+- Deutsch: Thunderbird-Erweiterung, die E-Mails direkt im Nachrichtenbereich übersetzt, zweisprachig oder nur als Übersetzung, mit kostenlosem Google Übersetzer, Microsoft Translator und DeepLX sowie über 20 KI-Anbietern. [Vollständige Anleitung](readmes/README.de.md)
+- Español: extensión de Thunderbird que traduce los correos directamente en el panel de lectura, en modo bilingüe o solo traducción, con Google Translate, Microsoft Translator y DeepLX gratuitos y más de 20 proveedores de IA. [Documentación completa](readmes/README.es.md)
+- Português (Brasil): extensão do Thunderbird que traduz e-mails diretamente no painel de leitura, em modo bilíngue ou somente tradução, com Google Tradutor, Microsoft Translator e DeepLX gratuitos e mais de 20 provedores de IA. [Documentação completa](readmes/README.pt-BR.md)
+- Русский: расширение Thunderbird, которое переводит письма прямо в области просмотра, в двуязычном режиме или только перевод, с бесплатными Google Переводчиком, Microsoft Translator и DeepLX, а также более чем 20 ИИ-провайдерами. [Полное описание](readmes/README.ru.md)
+- Türkçe: E-postaları doğrudan Thunderbird okuma bölmesinde çeviren bir eklenti; iki dilli veya yalnızca çeviri modunda çalışır, ücretsiz Google Çeviri, Microsoft Translator ve DeepLX ile 20'den fazla yapay zekâ sağlayıcısını destekler. [Ayrıntılı belge](readmes/README.tr.md)
+- Tiếng Việt: tiện ích Thunderbird dịch thư ngay trong khung đọc, hiển thị song ngữ hoặc chỉ bản dịch, hỗ trợ Google Dịch, Microsoft Translator, DeepLX miễn phí và hơn 20 nhà cung cấp AI. [Tài liệu đầy đủ](readmes/README.vi.md)
+
 ## Features
 
 - Body translation: the extension finds paragraph-level content in the message body: paragraphs, list items, table cells, headings, block quotes, text-only divs, and blank-line separated paragraphs in plain-text mail. Code, paragraphs already in the target language, numbers, bare links and whitespace are skipped.
