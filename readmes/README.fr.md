@@ -2,7 +2,7 @@
 
 [English](../README.md) | [简体中文](README.zh-CN.md) | [繁體中文](README.zh-TW.md) | [日本語](README.ja.md) | [한국어](README.ko.md) | Français | [Deutsch](README.de.md) | [Español](README.es.md) | [Português (Brasil)](README.pt-BR.md) | [Русский](README.ru.md) | [Türkçe](README.tr.md) | [Tiếng Việt](README.vi.md)
 
-Thunderbird Translate est une extension Thunderbird qui traduit le corps du message en cours de lecture, directement dans le panneau de lecture. La traduction peut s’afficher sous chaque paragraphe original (mode bilingue) ou le remplacer (mode traduction seule). Désactiver la traduction restaure exactement le message original. Google Translate (gratuit) est le service par défaut et fonctionne dès l’installation. Vous pouvez aussi connecter 22 fournisseurs d’IA, dont OpenAI, Claude, Gemini, DeepSeek et Qwen.
+Thunderbird Translate est une extension Thunderbird qui traduit le corps du message en cours de lecture, directement dans le panneau de lecture. La traduction peut s’afficher sous chaque paragraphe original (mode bilingue) ou le remplacer (mode traduction seule). Désactiver la traduction restaure exactement le message original. La traduction se fait sur trois niveaux en même temps : un dictionnaire hors ligne, un traducteur automatique (Google Translate, Microsoft Translator, DeepLX ou les modèles hors ligne Bergamot) et un service d’IA (22 fournisseurs, dont OpenAI, Claude, Gemini, DeepSeek et Qwen). Le résultat le plus rapide s’affiche en premier, puis le résultat du niveau le plus élevé le remplace. Google Translate (gratuit) est le service par défaut et fonctionne dès l’installation.
 
 Ce document s’adresse à des lecteurs qui n’ont encore jamais utilisé d’extension Thunderbird. Il suit l’ordre installation, utilisation, configuration, puis fonctionnement interne.
 
@@ -16,9 +16,11 @@ Ce document s’adresse à des lecteurs qui n’ont encore jamais utilisé d’e
 - Points d’accès : le bouton « Traduire le message » de la barre d’outils de l’en-tête du message, avec sa fenêtre contextuelle, et les raccourcis Alt+A (traduire / afficher l’original) et Alt+S (basculer entre bilingue et traduction seule).
 - Traduction automatique facultative : les messages qui ne sont pas dans la langue cible sont traduits dès leur ouverture.
 - Regroupement des requêtes : le script d’arrière-plan collecte les paragraphes pendant 50 ms et les fusionne en une seule requête, avec une limite de requêtes simultanées, de nouvelles tentatives à intervalle exponentiel et un cache local.
-- Services : 3 services de traduction gratuits ou auto-hébergés et 22 préréglages de fournisseurs d’IA, dont « Service personnalisé compatible OpenAI ». Seuls les services que vous avez ajoutés apparaissent dans les listes de services.
-- Traduction en course (services d’IA) : un traducteur gratuit répond en premier et son résultat s’affiche comme traduction provisoire jusqu’à ce que la traduction par l’IA la remplace.
-- Traduction précise (services d’IA) : le message entier sert de contexte à chaque requête, de sorte que les noms, les termes et les formes d’adresse restent cohérents d’un paragraphe à l’autre.
+- Trois niveaux de traduction : dictionnaire, traduction automatique et IA. Chaque niveau a son propre service ou n’est pas utilisé ; chaque paragraphe est envoyé en même temps à tous les niveaux utilisés. Un niveau inférieur s’affiche comme traduction provisoire jusqu’à ce que le niveau le plus élevé la remplace, et reste affiché lorsque le niveau le plus élevé échoue.
+- Services : un dictionnaire hors ligne, 4 traducteurs automatiques (Google Translate, Microsoft Translator, DeepLX, modèles hors ligne Bergamot) et 22 préréglages de fournisseurs d’IA, dont « Service personnalisé compatible OpenAI ». Seuls les services que vous avez ajoutés apparaissent dans les listes des niveaux.
+- Langue source : détection automatique ou langue fixée, transmise à chaque service.
+- Trois invites pour le niveau IA : une pour l’affichage bilingue, une pour l’affichage de la traduction seule et une pour la traduction précise.
+- Traduction précise (niveau IA) : le message entier sert de contexte à chaque requête, de sorte que les noms, les termes et les formes d’adresse restent cohérents d’un paragraphe à l’autre.
 - Commutateur du mode réflexion pour chaque fournisseur d’IA, désactivé par défaut.
 - Interface en 12 langues. La langue de l’interface suit celle de Thunderbird par défaut et peut être choisie sur la page de paramètres.
 
@@ -52,12 +54,12 @@ Ouvrez un message. Un bouton « Traduire le message » apparaît dans la barre
 
 - « Traduire ce message » : lance la traduction. Tant qu’une traduction est en cours ou affichée, le bouton indique « Afficher l’original » et restaure l’original lorsqu’on clique dessus.
 - Affichage : bascule entre bilingue et traduction seule ; le changement s’applique immédiatement au message courant.
-- Langue cible : après un changement, un message en cours de traduction est traduit à nouveau dans la nouvelle langue.
-- Service de traduction : sélectionne le service utilisé. La liste ne contient que les services ajoutés. « + Ajouter un service de traduction » en dessous ouvre la page de paramètres sur les services de traduction.
-- Traduction en course et Traduction précise : affichées lorsque le service actuel est un service d’IA ; elles activent ou désactivent les deux modes de traduction par IA.
+- Langue source et langue cible : « Détecter automatiquement » est la langue source par défaut. Après un changement de l’une ou de l’autre, un message en cours de traduction est traduit à nouveau. Une remarque s’affiche lorsque les deux langues sont identiques.
+- Niveaux de traduction : une liste par niveau (1 Dictionnaire, 2 Traduction automatique, 3 Traduction par l’IA), chacune avec « Non utilisé » et les services ajoutés de ce niveau. Au moins un niveau doit avoir un service ; choisir « Non utilisé » pour le dernier niveau utilisé est refusé avec une remarque. « + Ajouter un service de traduction » sous les listes ouvre la page de paramètres sur les services de traduction.
+- Traduction précise : affichée lorsque le niveau IA a un service.
 - Traduire automatiquement les messages qui ne sont pas dans la langue cible : lorsque cette case est cochée, un message dont le corps n’est pas dans la langue cible est traduit dès son ouverture.
 
-La fenêtre contextuelle affiche la progression, par exemple « 8 sur 12 traduits ». Avec la traduction en course, les paragraphes qui affichent encore la traduction provisoire rapide sont comptés à part, par exemple « 7 sur 9 traduits (2 provisoires) ». Lorsqu’un paragraphe échoue, la mention rouge « Échec de la traduction, cliquez pour réessayer » apparaît après lui ; le survol affiche l’erreur et un clic relance la traduction de ce paragraphe.
+La fenêtre contextuelle affiche la progression, par exemple « 8 sur 12 traduits ». Les paragraphes qui affichent encore la traduction provisoire d’un niveau inférieur sont comptés à part, par exemple « 7 sur 9 traduits (2 provisoires) ». Lorsque tous les niveaux échouent pour un paragraphe, la mention rouge « Échec de la traduction, cliquez pour réessayer » apparaît après lui ; le survol affiche l’erreur et un clic relance la traduction de ce paragraphe.
 
 Alt+A traduit le message courant ou restaure l’original ; Alt+S bascule entre bilingue et traduction seule. Les deux raccourcis se modifient via « Gérer les raccourcis d’extensions » dans le menu d’engrenage du gestionnaire de modules complémentaires.
 
@@ -69,10 +71,12 @@ Ouvrez la page de paramètres avec le bouton « Options » de cette extension 
 
 | Section | Contenu |
 | --- | --- |
-| Général | Langue de l’interface, langue cible, mode d’affichage par défaut, service actuel, traduction automatique |
+| Général | Langue de l’interface, langue source, langue cible, mode d’affichage par défaut, traduction automatique |
+| Niveaux de traduction | Le service de chaque niveau ou « Non utilisé » ; traduction précise |
 | Services de traduction | Services répartis en deux groupes, « Ajoutés » et « Disponibles » ; point de terminaison, clé d’API, modèle, température et mode réflexion de chaque service ; boutons « Tester la connexion », « Ajouter », « Utiliser ce service » et « Retirer » |
-| Modes de traduction par IA | Traduction en course avec le choix du service rapide ; traduction précise |
-| Invite système | Invite système personnalisée pour les services d’IA ; `{{to}}` est remplacé par le nom de la langue cible ; vide signifie l’invite intégrée |
+| Dictionnaires | Paires de langues du niveau dictionnaire, avec taille, licence et attribution ; téléchargement et suppression ; étiquette de version des packs (avancé) |
+| Modèles de traduction hors ligne (Bergamot) | Paires de directions des modèles Bergamot, avec taille et version ; filtre par langue ; téléchargement, mise à jour, annulation et suppression ; directions nécessaires aux langues actuelles |
+| Invites (niveau IA) | Les invites de l’affichage bilingue, de l’affichage de la traduction seule et de la traduction précise, chacune avec « Rétablir l’invite intégrée » |
 | Regroupement des requêtes | Fenêtre de collecte, nombre maximal de caractères et de paragraphes par requête, requêtes simultanées, nouvelles tentatives, fusion ou non des requêtes d’IA |
 | Style de traduction | Bordure gauche, bordure gauche en tirets, surlignage ou sans style ; couleur d’accentuation, opacité du texte, taille de police relative ; aperçu en direct |
 | Cache | Cache activé ou désactivé, nombre maximal de paragraphes en cache, nombre actuel d’entrées, vidage du cache |
@@ -84,10 +88,10 @@ Ouvrez la page de paramètres avec le bouton « Options » de cette extension 
 La liste latérale de la section des services de traduction comporte deux groupes. « Ajoutés » contient les services qui apparaissent dans les listes de services de la fenêtre contextuelle et de la page de paramètres ; « Disponibles » contient tous les autres. Sélectionner un service affiche sa configuration et ses boutons :
 
 - Un service qui n’est pas ajouté a un bouton « Ajouter ». Saisir une clé d’API (pour DeepLX, le point de terminaison) ajoute aussi le service.
-- Un service ajouté a « Utiliser ce service » et « Retirer ». Retirer un service le sort des listes et conserve sa configuration ; en l’ajoutant de nouveau, on retrouve la clé et le modèle.
-- Le service actuel ne peut pas être retiré, pas plus que le service rapide de la traduction en course tant que celle-ci est activée. Le bouton « Retirer » est alors désactivé et une ligne en dessous en donne la raison.
+- Un service ajouté a « Utiliser ce service », qui le place dans son niveau, et « Retirer ». Retirer un service le sort des listes et conserve sa configuration ; en l’ajoutant de nouveau, on retrouve la clé et le modèle.
+- Un service utilisé par un niveau ne peut pas être retiré. Le bouton « Retirer » est alors désactivé et une ligne en dessous nomme le niveau. Les services utilisés portent l’étiquette « Utilisé » dans la liste latérale.
 
-Une installation neuve commence avec Google Translate et Microsoft Translator ajoutés. Lorsque les paramètres de la version 1.1 ou antérieure sont chargés, un service compte comme ajouté dans les cas suivants :
+Une installation neuve commence avec Google Translate et Microsoft Translator ajoutés. Le dictionnaire et Bergamot ont besoin de données que vous téléchargez ; ils s’ajoutent donc à la main. Lorsque les paramètres de la version 1.1 ou antérieure sont chargés, un service compte comme ajouté dans les cas suivants :
 
 | Service | Compte comme ajouté lorsque |
 | --- | --- |
@@ -95,28 +99,66 @@ Une installation neuve commence avec Google Translate et Microsoft Translator aj
 | DeepLX | un point de terminaison est renseigné |
 | Services d’IA qui exigent une clé | une clé d’API est enregistrée |
 | Ollama, LM Studio, service personnalisé compatible OpenAI | le point de terminaison, le modèle ou la température a été modifié |
-| le service actuel | toujours |
+| les services des niveaux | toujours |
 
-## Modes de traduction par IA
+## Niveaux de traduction
 
-Les deux modes ne s’appliquent que lorsque le service actuel est un service d’IA. Ils s’activent dans la section « Modes de traduction par IA » de la page de paramètres ou dans la fenêtre contextuelle.
+| Niveau | Services | Ce qu’il fournit |
+| --- | --- | --- |
+| 1 Dictionnaire | Dictionnaire (hors ligne) | une traduction mot à mot tirée des packs de dictionnaires installés, disponible immédiatement et sans réseau |
+| 2 Traduction automatique | Google Translate, Microsoft Translator, DeepLX, Bergamot (hors ligne) | une traduction complète en une ou deux secondes |
+| 3 Traduction par l’IA | les 22 fournisseurs d’IA | la meilleure traduction, qui suit l’invite du mode d’affichage |
 
-### Traduction en course
+Chaque niveau a un service ou « Non utilisé », et au moins un niveau a un service. Par défaut, seul le niveau 2 a un service, Google Translate.
 
-Chaque paragraphe est envoyé au service d’IA et à un service rapide (Google Translate par défaut ; Microsoft Translator ou DeepLX peuvent être choisis parmi les services ajoutés). Les deux requêtes passent par le regroupement et le cache habituels. Le résultat dépend de la réponse qui arrive en premier :
+Chaque paragraphe est envoyé en même temps à tous les niveaux utilisés. Chaque niveau passe par le regroupement et le cache habituels. Ce que le message affiche suit une seule règle : le niveau le plus élevé qui a répondu l’emporte.
 
 | Cas | Ce que le message affiche |
 | --- | --- |
-| Le service rapide répond en premier | sa traduction, en italique avec la mention « Provisoire » ; le survol indique que la traduction par l’IA est en cours. La traduction par l’IA la remplace à son arrivée. |
-| Le service d’IA répond en premier | la traduction par l’IA ; le résultat rapide est écarté |
-| La requête d’IA échoue | la traduction rapide reste, marquée « Échec de la traduction par l’IA » ; le survol affiche la raison, un clic relance le paragraphe |
-| La traduction par l’IA est déjà en cache | la traduction par l’IA en cache ; le service rapide n’est pas sollicité |
+| Un niveau inférieur répond en premier | sa traduction, en italique avec une étiquette qui nomme son niveau (« Dictionnaire », « Traduction automatique ») ; le survol indique le niveau encore en cours. Un niveau supérieur la remplace à son arrivée. |
+| Le niveau le plus élevé utilisé répond | sa traduction, sans étiquette : c’est la traduction définitive. Les niveaux inférieurs qui répondent ensuite sont ignorés. |
+| Le niveau le plus élevé échoue | la meilleure traduction d’un niveau inférieur reste, marquée « Échec : Traduction par l’IA » (ou avec le nom du niveau le plus élevé) ; le survol affiche la raison, un clic relance uniquement les niveaux en échec |
+| Tous les niveaux échouent | la mention rouge « Échec de la traduction, cliquez pour réessayer » |
+| La traduction du niveau le plus élevé est déjà en cache | cette traduction, immédiatement ; les niveaux inférieurs ne sont pas sollicités |
 
-Changer le mode d’affichage conserve les marques de traduction provisoire et d’échec, et « Afficher l’original » les supprime avec les traductions. La traduction en course ne consomme aucun jeton d’IA supplémentaire, mais double le nombre de requêtes envoyées au service rapide.
+Changer le mode d’affichage redessine telles quelles les traductions du dictionnaire et de la traduction automatique. Le niveau IA utilise une invite par mode d’affichage : il est donc sollicité de nouveau avec l’invite du nouveau mode, et une traduction déjà en cache pour cette invite revient sans requête. La fenêtre contextuelle compte les traductions définitives comme traduites et celles des niveaux inférieurs comme provisoires.
 
-### Traduction précise
+Les paramètres enregistrés par la version 1.3 ou antérieure sont convertis une seule fois :
 
-La traduction précise envoie le message comme contexte avec chaque requête d’IA. Au début de la traduction, le script de contenu assemble les paragraphes trouvés en texte brut du message (coupé après 20 000 caractères, avec une mention que le texte se poursuit) et l’enregistre une seule fois auprès du script d’arrière-plan. Le message est identifié par une empreinte de son texte complet ; la coupure ne concerne que le texte envoyé comme contexte.
+- Un service d’IA qui était le service actuel devient le niveau 3. Si la traduction en course était activée, son service rapide devient le niveau 2.
+- Tout autre service actuel devient le niveau 2.
+- Le niveau dictionnaire commence non utilisé.
+
+## Langue source
+
+La langue source est « Détecter automatiquement » par défaut, ou l’une des 20 langues de la liste des langues cibles. Elle est transmise à chaque service :
+
+| Service | Détection automatique | Langue fixée |
+| --- | --- | --- |
+| Google Translate | `sl=auto` | `sl=<code>` |
+| Microsoft Translator, gratuit et avec clé | pas de paramètre `from` | `from=<code>` |
+| DeepLX | `source_lang: "auto"` | `source_lang: "<code>"` (variantes du chinois sous la forme `ZH`) |
+| Services d’IA | « Detect the source language of … and translate it into … » | « Translate … from <language> into … » |
+| Dictionnaire | détectée pour chaque paragraphe | la langue définie |
+| Bergamot | `"auto"`, avec en repli la langue déduite de l’écriture et des mots vides anglais | la langue définie |
+
+Les paragraphes détectés comme étant dans la langue cible sont ignorés, comme auparavant. Avec une langue source fixée, les paragraphes dont la langue ne peut pas être détectée de façon fiable sont traités comme étant dans cette langue. Les clés de cache et les lots contiennent la langue source ; un changement de langue source ne renvoie donc jamais de traductions faites pour l’ancien réglage.
+
+## Invites
+
+Le niveau IA a trois invites système. Chacune se modifie sur la page de paramètres et se rétablit avec « Rétablir l’invite intégrée » ; un champ vide signifie aussi l’invite intégrée. `{{to}}` est remplacé par le nom anglais de la langue cible. L’extension ajoute elle-même la langue source et le format de regroupement à chaque requête.
+
+| Invite | Utilisée pour | L’invite intégrée demande |
+| --- | --- | --- |
+| Affichage bilingue | le niveau IA en mode bilingue | une traduction proche de l’original, phrase par phrase et dans le même ordre, sans rien ajouter ni retrancher, puisque le lecteur la compare avec l’original |
+| Affichage de la traduction seule | le niveau IA en mode traduction seule | un texte fluide qui se lit comme un message écrit dans la langue cible ; les propositions peuvent être réordonnées et les phrases scindées ou réunies, à condition de conserver le sens complet |
+| Traduction précise | le niveau IA tant que la traduction précise est activée, dans les deux modes d’affichage | des termes, des noms et des formes d’adresse cohérents dans tout le message, à l’aide du glossaire, du résumé et des paragraphes voisins |
+
+Les clés de cache et les clés de lot contiennent le type d’invite et une empreinte de son texte. Modifier une invite ne renvoie donc jamais de traductions faites avec l’ancien texte. Une invite système personnalisée enregistrée par la version 1.3 ou antérieure devient l’invite des deux modes d’affichage ; l’invite de traduction précise commence avec son texte intégré.
+
+## Traduction précise
+
+La traduction précise s’applique au niveau IA et envoie le message comme contexte avec chaque requête d’IA. Elle s’active dans la fenêtre contextuelle ou dans la section « Niveaux de traduction » de la page de paramètres. Au début de la traduction, le script de contenu assemble les paragraphes trouvés en texte brut du message (coupé après 20 000 caractères, avec une mention que le texte se poursuit) et l’enregistre une seule fois auprès du script d’arrière-plan. Le message est identifié par une empreinte de son texte complet ; la coupure ne concerne que le texte envoyé comme contexte.
 
 Le déroulement dépend de la taille des paragraphes à traduire :
 
@@ -127,6 +169,56 @@ Le déroulement dépend de la taille des paragraphes à traduire :
 Le préfixe est identique, caractère pour caractère, pour toutes les requêtes d’un même message ; les fournisseurs qui mettent en cache les préfixes d’invite répétés peuvent donc le servir depuis leur cache. Pour Anthropic, le préfixe est marqué par `cacheControl: { type: "ephemeral" }`. L’analyse est mise en cache comme les traductions, avec pour clé le fournisseur, le modèle, la langue cible et l’empreinte du texte du message ; les lots d’un même message attendent la même requête d’analyse.
 
 Les traductions faites en mode précis sont mises en cache sous une clé qui contient l’empreinte du message, et les lots ne mélangent jamais les paragraphes de messages différents. La même phrase dans un autre message est donc traduite de nouveau, avec ce message pour contexte. La requête d’analyse et les invites plus longues rendent la traduction précise plus coûteuse que la traduction normale.
+
+## Traduction par dictionnaire
+
+Le service de dictionnaire traduit mot à mot avec des packs de dictionnaires stockés dans le profil Thunderbird. Une fois un pack installé, il n’a besoin d’aucun réseau et répond en quelques millisecondes ; il comble ainsi l’attente jusqu’à la réponse des niveaux traduction automatique et IA. Le résultat est une glose : les mots dans l’ordre de la source, sans grammaire.
+
+### Packs
+
+Les packs sont publiés comme fichiers joints d’une release GitHub de ce dépôt, par défaut la release `dicts-v1`. L’étiquette de version se change sous « Étiquette de version des packs de dictionnaires (avancé) » dans la section Dictionnaires. Chaque direction correspond à un fichier `dict-<src>-<tgt>.tsv.gz`, un fichier texte UTF-8 compressé avec gzip :
+
+```text
+#dict	<src>	<tgt>	<packVersion>	<sourceName>	<license>
+w	<key>	<translation>
+f	<key>	<lemmaKey>
+```
+
+Les lignes ont les rôles suivants :
+
+- La première ligne décrit le pack : langue source, langue cible, version, source des données et licence.
+- Les lignes qui commencent par `w` sont des entrées.
+- Les lignes qui commencent par `f` associent une forme fléchie à la clé de son lemme, par exemple `went` à `go`.
+
+Une clé est normalisée en NFC, mise en minuscules selon les règles de la langue source et débarrassée des espaces en début et en fin ; elle peut être une expression de plusieurs mots. L’index `dict-index.json` liste chaque pack avec sa taille, son nombre d’entrées et de formes, sa somme de contrôle SHA-256, sa source, sa licence et son attribution. Les packs couvrent l’anglais, le chinois simplifié et traditionnel, le japonais, le coréen, le français, l’allemand, l’espagnol, le portugais, le russe, le turc et le vietnamien. [docs/dictionary-packs.md](../docs/dictionary-packs.md) décrit leur construction.
+
+La section Dictionnaires lit l’index et liste chaque pack avec sa taille, sa licence et son attribution. « Télécharger » récupère le fichier en affichant la progression, vérifie sa somme de contrôle SHA-256 et son en-tête, puis le stocke dans la base IndexedDB `tt-dictionary` de l’extension ; « Supprimer » le retire. Si l’index ne peut pas être chargé, la section en indique la raison, et les packs installés peuvent toujours être supprimés.
+
+### Traduction
+
+1. La langue source est celle qui est définie ou, avec la détection automatique, la langue du paragraphe (écriture, détecteur du navigateur, mots vides anglais).
+2. `Intl.Segmenter` découpe le paragraphe en mots. À chaque mot, l’expression la plus longue d’au plus trois mots qui a une entrée l’emporte, sinon le mot seul. Un mot sans entrée est recherché via son lemme ; si cette recherche échoue aussi, il reste tel quel. La ponctuation et les nombres restent tels quels.
+3. Pour une langue cible chinoise ou le japonais, les mots sont joints sans espaces ; pour les autres langues cibles, avec des espaces.
+4. Entre deux langues autres que l’anglais, le texte passe par l’anglais : du français vers l’allemand, l’extension utilise les packs français → anglais et anglais → allemand.
+5. Lorsqu’un pack nécessaire manque, l’erreur nomme la paire de langues et renvoie à la section Dictionnaires.
+
+Le script d’arrière-plan lit un pack depuis IndexedDB à sa première utilisation et le garde en mémoire ; après cinq minutes sans traduction par dictionnaire, il libère cette mémoire.
+
+### Sources des données
+
+Les packs sont construits à partir de deux sources :
+
+- Wiktionary, extrait par wiktextract et publié par kaikki.org (CC BY-SA 4.0, © contributeurs de Wiktionary) ;
+- ECDICT de skywind3000 (licence MIT).
+
+Chaque pack indique sa propre source et sa licence dans l’index, et la page de paramètres les affiche à côté du pack.
+
+## Traduction hors ligne (Bergamot)
+
+Le service Bergamot traduit sur votre ordinateur avec le moteur et les modèles de Firefox Translations, publiés par Mozilla sous MPL-2.0. Le moteur est livré avec l’extension ; chaque direction de traduction est téléchargée une seule fois depuis Mozilla (24 à 48 Mo) et stockée dans la base IndexedDB de l’extension. Une direction chargée occupe environ 200 Mo de mémoire et est libérée après cinq minutes sans utilisation. Chaque modèle a l’anglais d’un côté : du japonais vers le chinois, le service utilise donc japonais → anglais et anglais → chinois.
+
+La section « Modèles de traduction hors ligne (Bergamot) » de la page de paramètres liste les 114 paires de directions entre 58 langues, avec leur taille et leur version, et se filtre par langue. Elle nomme les directions dont la langue source et la langue cible actuelles ont besoin et les place en tête de liste. Les téléchargements affichent leur progression et peuvent être annulés ; une paire installée pour laquelle Mozilla propose une version plus récente affiche « Mettre à jour ». La suppression d’une paire dont les langues actuelles ont besoin demande une confirmation. L’installation, la traduction et la suppression s’exécutent dans le script d’arrière-plan, où se trouve le moteur. [docs/bergamot.md](../docs/bergamot.md) décrit le choix des modèles, leur vérification, leur stockage et le moteur.
+
 
 ## Langue de l’interface
 
@@ -179,7 +271,9 @@ La liste des langues cibles est distincte et compte 20 langues, dont l’italien
 | Service | Configuration | Remarques |
 | --- | --- | --- |
 | Google Translate (gratuit, par défaut) | Aucune | Appelle le point de terminaison `client=gtx` de `translate.googleapis.com` ; une requête POST transporte plusieurs paramètres `q`, si bien que plusieurs paragraphes partagent une même requête |
-| Microsoft Translator (gratuit) | Aucune | Tente d’abord d’obtenir un jeton auprès de `edge.microsoft.com/translate/auth` puis d’appeler `api-edge.cognitive.microsofttranslator.com` ; lorsque Microsoft a retiré le point de terminaison du jeton, bascule sur `edge.microsoft.com/translate/translatetext`. Les deux voies acceptent nativement des tableaux. L’option « Utiliser ma clé (Azure Translator) » du panneau appelle à la place l’API officielle `api.cognitive.microsofttranslator.com` : créez une ressource Translator dans le portail Azure, puis copiez sa clé et sa région depuis « Clés et point de terminaison » dans le panneau (la région peut rester vide pour une ressource globale). |
+| Dictionnaire (hors ligne) | Télécharger des paires de langues dans la section Dictionnaires | Traduction mot à mot avec les packs installés, voir « Traduction par dictionnaire » |
+| Bergamot (hors ligne) | Télécharger des paires de directions dans la section « Modèles de traduction hors ligne » | Traduction sur votre ordinateur avec les modèles de Mozilla, voir « Traduction hors ligne (Bergamot) » |
+| Microsoft Translator (gratuit) | Aucune | Appelle `edge.microsoft.com/translate/translatetext`, le point de terminaison qu’utilise le navigateur Edge ; le corps de la requête est un tableau de paragraphes. L’option « Utiliser ma clé (Azure Translator) » du panneau appelle à la place l’API officielle `api.cognitive.microsofttranslator.com` : créez une ressource Translator dans le portail Azure, puis copiez sa clé et sa région depuis « Clés et point de terminaison » dans le panneau (la région peut rester vide pour une ressource globale). |
 | DeepLX | Point de terminaison obligatoire | Un service DeepLX auto-hébergé ou tiers ; le jeton est facultatif. Si le point de terminaison contient `{{apiKey}}`, le jeton le remplace ; sinon, il est envoyé dans l’en-tête `Authorization: Bearer` |
 
 ### Fournisseurs d’IA
@@ -267,14 +361,15 @@ Un message compte en général entre une dizaine et quelques dizaines de paragra
 
 ### Déroulement
 
-1. Le script de contenu transmet au script d’arrière-plan chaque paragraphe à traduire.
-2. Le script d’arrière-plan consulte d’abord le cache et répond directement en cas de succès. La clé de cache se compose du fournisseur, du modèle, de la langue cible, d’une signature de l’invite système, en mode précis de l’empreinte du message, et d’une empreinte du texte du paragraphe. Lorsque le même texte est déjà en cours de traduction, les requêtes suivantes partagent le même résultat.
-3. Les paragraphes absents du cache entrent dans la file de regroupement, groupés par fournisseur + modèle + point de terminaison + langue cible, pour les services d’IA aussi par invite système, pour Microsoft Translator aussi par mode gratuit ou avec clé, et en mode précis aussi par message. Les paragraphes d’un même groupe s’accumulent pendant 50 ms. Un groupe est envoyé à la fin de la fenêtre, lorsque la limite de paragraphes est atteinte ou lorsque le paragraphe suivant dépasserait la limite de caractères. Un paragraphe seul plus long que la limite de caractères forme son propre lot.
+1. Le script de contenu transmet au script d’arrière-plan chaque paragraphe à traduire, une seule fois pour tous les niveaux utilisés.
+2. Pour chaque niveau, le script d’arrière-plan consulte d’abord le cache et répond directement en cas de succès. La clé de cache se compose du fournisseur, du modèle, des langues source et cible, pour les services d’IA du type d’invite et d’une empreinte de son texte, en mode précis de l’empreinte du message, et d’une empreinte du texte du paragraphe. Lorsque le même texte est déjà en cours de traduction, les requêtes suivantes partagent le même résultat.
+3. Les paragraphes absents du cache entrent dans la file de regroupement, groupés par fournisseur + modèle + point de terminaison + langue source + langue cible, pour les services d’IA aussi par invite, pour Microsoft Translator aussi par mode gratuit ou avec clé, et en mode précis aussi par message. Les paragraphes d’un même groupe s’accumulent pendant 50 ms. Un groupe est envoyé à la fin de la fenêtre, lorsque la limite de paragraphes est atteinte ou lorsque le paragraphe suivant dépasserait la limite de caractères. Un paragraphe seul plus long que la limite de caractères forme son propre lot.
 4. La file de requêtes exécute chaque lot. Elle limite le nombre de requêtes simultanées et retente les erreurs 408, 429, 5xx et réseau avec un intervalle exponentiel ; lorsque le serveur envoie `Retry-After`, elle attend la durée indiquée, dans la limite de 30 secondes. Les erreurs comme 401 et 400 sont signalées sans nouvelle tentative.
 5. Les résultats sont placés dans le cache en mémoire et écrits dans `storage.local` en une seule écriture au bout d’une seconde. Le cache évince les entrées les moins récemment utilisées (LRU, Least Recently Used).
 
 ### Fusion des paragraphes selon le service
 
+- Dictionnaire et Bergamot : le lot entier est traduit en un seul appel local.
 - Google : une requête POST avec plusieurs paramètres `q` ; le tableau renvoyé correspond un à un aux entrées.
 - Microsoft : le corps de la requête est lui-même un tableau.
 - DeepLX : le point de terminaison accepte un paragraphe par requête ; les paragraphes d’un lot sont donc demandés en parallèle.
@@ -314,14 +409,14 @@ Les jetons en entrée baissent d’environ 63 %, et le nombre de requêtes pass
 
 - Les clés d’API sont stockées uniquement dans `storage.local` du profil Thunderbird courant et ne sont envoyées qu’avec les requêtes adressées au point de terminaison du fournisseur correspondant.
 - Le script de contenu s’exécute dans la page du message ; les paramètres qu’il reçoit du script d’arrière-plan ne contiennent jamais de clés.
-- Le texte des messages n’est envoyé qu’au service de traduction actuel et, tant que la traduction en course est activée, au service rapide choisi. L’extension ne collecte aucune statistique et ne contacte aucune adresse réseau autre que ces services.
+- Le texte des messages n’est envoyé qu’aux services des niveaux utilisés. Le dictionnaire et Bergamot traduisent sur votre ordinateur et n’envoient aucun texte. Les packs de dictionnaires sont téléchargés depuis les releases GitHub de ce dépôt et les modèles Bergamot depuis Mozilla, uniquement lorsque vous cliquez sur « Télécharger ». L’extension ne collecte aucune statistique et ne contacte aucune autre adresse réseau.
 - Le cache des traductions est stocké localement et peut être désactivé ou vidé sur la page de paramètres.
-- Le texte des messages quitte votre ordinateur pour le service de traduction sélectionné. Pour le courrier sensible, des modèles locaux comme Ollama ou LM Studio gardent toutes les requêtes sur votre propre machine.
+- Avec Google, Microsoft, DeepLX ou un service d’IA en ligne, le texte des messages quitte votre ordinateur. Pour le courrier sensible, n’utilisez que le dictionnaire, Bergamot et des modèles d’IA locaux comme Ollama ou LM Studio, qui gardent toutes les requêtes sur votre propre machine.
 
 ## Limites connues
 
 - Les traductions sont en texte brut. Les liens, le texte en gras et les autres mises en forme en ligne de l’original ne sont pas conservés dans la traduction. En mode bilingue, l’original reste entièrement utilisable ; en mode traduction seule, vous pouvez survoler la traduction pour voir l’original ou revenir au mode bilingue.
-- Les points de terminaison gratuits de Google et Microsoft ne sont pas documentés et peuvent changer ou être soumis à une limite de débit. Microsoft a retiré le point de terminaison de jeton `edge.microsoft.com/translate/auth` en juillet 2026 (il renvoie 404). L’extension essaie encore le point de terminaison de jeton lors de la première requête, se replie sur le point de terminaison direct après un échec, et ne réessaie pas le point de terminaison de jeton pendant une heure.
+- Les points de terminaison gratuits de Google et Microsoft ne sont pas documentés et peuvent changer ou être soumis à une limite de débit. Microsoft a retiré le point de terminaison de jeton `edge.microsoft.com/translate/auth` en juillet 2026 ; l’extension n’utilise que le point de terminaison direct.
 - Pour déterminer si un paragraphe est déjà dans la langue cible, le chinois, le japonais, le coréen et les écritures similaires sont jugés d’après la classe des caractères, et les langues à écriture latine ou cyrillique passent d’abord par `i18n.detectLanguage` de l’API des extensions. Lorsque cette API est indisponible ou que son résultat n’est pas fiable, seul l’anglais est détecté de façon fiable ; les paragraphes dans les autres langues à écriture latine sont envoyés à la traduction normalement.
 - Le script de contenu est enregistré via `messageDisplayScripts` et n’atteint que les messages ouverts après son enregistrement. Au démarrage, l’extension tente de l’injecter dans les messages déjà ouverts ; si cela échoue, il suffit de sélectionner à nouveau le message.
 - Les messages d’erreur produits par l’extension sont traduits. Les textes d’erreur renvoyés par un service de traduction ou par l’AI SDK (par exemple le corps d’une réponse HTTP 401) sont affichés tels quels, généralement en anglais.
@@ -329,7 +424,9 @@ Les jetons en entrée baissent d’environ 63 %, et le nombre de requêtes pass
 - La traduction précise identifie un message par une empreinte de son texte, car le script de contenu n’a pas accès à l’identifiant du message. Deux copies du même texte partagent leurs traductions et leur analyse.
 - La mise en cache des invites dépend du fournisseur. Anthropic ne met en cache que les préfixes dépassant une longueur minimale qui dépend du modèle ; les préfixes plus courts sont envoyés et facturés normalement.
 - Le commutateur de réflexion fonctionne par correspondance de noms de modèles. Un nouveau modèle dont le nom ne correspond à aucun motif ne reçoit aucun paramètre de réflexion tant que le tableau de `src/background/providers/thinking.ts` n’est pas complété.
-- La traduction en course double les requêtes vers le service rapide, ce qui compte dans les limites de débit des points de terminaison gratuits de Google et Microsoft.
+- Chaque niveau utilisé envoie ses propres requêtes. Lorsque le niveau IA et le niveau traduction automatique sont tous deux utilisés, chaque message coûte aussi des requêtes au traducteur automatique, et ces requêtes comptent dans les limites de débit des points de terminaison gratuits de Google et Microsoft.
+- La traduction par dictionnaire est une glose mot à mot : elle garde l’ordre des mots de la source et ne fléchit pas les mots. Les mots absents des packs restent non traduits.
+- Bergamot et le dictionnaire traduisent un lot avec une seule langue source. Avec la détection automatique, Bergamot détecte la langue du lot entier ; un lot qui mélange plusieurs langues est donc traduit comme s’il était entièrement dans la langue dominante.
 
 ## Tests
 
@@ -337,10 +434,10 @@ Les jetons en entrée baissent d’environ 63 %, et le nombre de requêtes pass
 npm test               # vitest unit tests
 npm run typecheck      # TypeScript type check
 npm run locales:check  # check every locales/<language>.json against locales/en.json
-npm run live-test      # call the real Google and Microsoft endpoints through the extension's own modules
+npm run live-test      # call the real Google and Microsoft endpoints through the extension's own modules, with and without a source language
 ```
 
-Les tests unitaires couvrent le groupement en lots et les files d’attente, l’analyse des réponses d’IA et le repli, la détection des paragraphes avec le rendu bilingue et traduction seule ainsi que la restauration (dans jsdom), la construction des requêtes et l’analyse des réponses pour Google, Microsoft et DeepLX (avec un fetch simulé), l’URL de requête et les en-têtes d’authentification de chaque préréglage d’IA, les paramètres de réflexion de chaque fournisseur, la migration des paramètres vers les services ajoutés, les listes de services ajoutés dans la fenêtre contextuelle et sur la page de paramètres ainsi que la protection contre le retrait, la traduction en course (résultat rapide en premier, résultat de l’IA en premier, échec de l’IA, succès du cache, changement du mode d’affichage et restauration), la traduction précise (requête unique, analyse avec lots, échec de l’analyse, clés de cache et lots par message, préfixe d’invite identique avec le contrôle de cache d’Anthropic), et la localisation : jeux de clés et paramètres de substitution identiques dans toutes les langues, chaque référence `__MSG_*__` du manifeste, correspondance des langues de Thunderbird avec les langues prises en charge, repli sur l’anglais pour les clés manquantes, et absence de texte d’interface codé en dur dans les pages HTML et les sources.
+Les tests unitaires couvrent le groupement en lots et les files d’attente, l’analyse des réponses d’IA et le repli, la détection des paragraphes avec le rendu bilingue et traduction seule ainsi que la restauration (dans jsdom), la construction des requêtes et l’analyse des réponses pour Google, Microsoft et DeepLX (avec un fetch simulé), l’URL de requête et les en-têtes d’authentification de chaque préréglage d’IA, les paramètres de réflexion de chaque fournisseur, la migration des paramètres vers les services ajoutés ainsi que vers les niveaux et les invites, les listes des niveaux dans la fenêtre contextuelle et sur la page de paramètres, le refus de niveaux tous vides et la protection contre le retrait, les niveaux (niveau inférieur en premier puis remplacé, niveau le plus élevé en premier avec les résultats inférieurs ultérieurs ignorés, échec du niveau le plus élevé avec conservation du résultat inférieur, échec de tous les niveaux, niveaux non utilisés, niveau le plus élevé en cache), le choix de l’invite et les clés de cache, un changement du mode d’affichage qui sollicite de nouveau le niveau IA et ne fait que redessiner les autres, la langue source dans les requêtes de chaque service et dans la clé de cache, les packs de dictionnaires (analyse, découpage en mots et correspondance des expressions, formes fléchies, traduction via l’anglais, packs manquants, téléchargement avec somme de contrôle, avec une base IndexedDB en mémoire), le service Bergamot et sa gestion des modèles avec un moteur simulé, la traduction précise (requête unique, analyse avec lots, échec de l’analyse, clés de cache et lots par message, préfixe d’invite identique avec le contrôle de cache d’Anthropic), et la localisation : jeux de clés et paramètres de substitution identiques dans toutes les langues, chaque référence `__MSG_*__` du manifeste, correspondance des langues de Thunderbird avec les langues prises en charge, repli sur l’anglais pour les clés manquantes, et absence de texte d’interface codé en dur dans les pages HTML et les sources.
 
 `npm run build:debug` produit un xpi de débogage qui commence à traduire dès qu’un message est ouvert et écrit la progression dans la console, pour vérifier l’ensemble du déroulement dans un vrai Thunderbird.
 
@@ -348,11 +445,12 @@ Les tests unitaires couvrent le groupement en lots et les files d’attente, l�
 
 ```
 src/
-  background/    background script: translation service, batch and request queues, cache, provider factory, translators
+  background/    background script: translation service, batch and request queues, cache, provider factory, translators, dictionary, offline model management
   content/       content script: paragraph detection, rendering, language detection, translation state
   popup/         popup
   options/       settings page
-  shared/        shared settings, provider presets, language table, message types, i18n runtime
+  offline/       Bergamot engine module: model list, download, storage, worker
+  shared/        shared settings, provider presets, prompts, language table and detection, message types, i18n runtime
 locales/         interface text, one JSON file per language; en.json is the reference
 static/          manifest.json, HTML, CSS, SVG icon
 scripts/         build, locale generation and checks, live endpoint test
@@ -372,6 +470,8 @@ Pour ajouter une langue, créez `locales/<code>.json` avec toutes les clés, ajo
 ## Remerciements
 
 La conception de la détection des paragraphes, de la file de regroupement, des invites et de la configuration des fournisseurs s’inspire de [Read Frog](https://github.com/mengxi-ream/read-frog), une extension de navigateur pour la traduction de pages web publiée sous GPL-3.0. Ce projet transpose ces idées au lecteur de messages de Thunderbird et les adapte au courrier électronique, par exemple en découpant les messages en texte brut aux lignes vides et en rejoignant les lignes coupées par un retour à la ligne forcé.
+
+Les données des dictionnaires proviennent de [Wiktionary](https://en.wiktionary.org/) (© contributeurs de Wiktionary, CC BY-SA 4.0), extraites par [wiktextract](https://github.com/tatuylonen/wiktextract) et publiées par [kaikki.org](https://kaikki.org/), ainsi que d’[ECDICT](https://github.com/skywind3000/ECDICT) de skywind3000 (licence MIT). La traduction hors ligne utilise le moteur [Bergamot](https://browser.mt/) et les modèles de traduction de Firefox Translations, publiés par Mozilla sous MPL-2.0.
 
 ## Licence
 

@@ -15,8 +15,9 @@ import {
   type PortReport,
   type TranslateResponse,
 } from "../shared/messages"
+import type { Tier } from "../shared/providers"
 import { TranslationController } from "./controller"
-import { browserDetector } from "./lang-detect"
+import { browserDetector } from "../shared/lang-detect"
 
 declare const __DEBUG__: boolean
 
@@ -44,16 +45,16 @@ function main(): void {
   const port = ext.runtime.connect({ name: CONTENT_PORT_NAME })
   const post = (msg: PortReport) => port.postMessage(msg)
 
-  /** Translation requests waiting for their final result. */
-  const pending = new Map<number, { resolve: (r: TranslateResponse) => void; onProvisional: (text: string) => void }>()
+  /** Translation requests that are not complete yet, with the tiers that have not answered. */
+  const pending = new Map<number, { resolve: () => void; onTier: (tier: Tier, result: TranslateResponse) => void; tiers: Set<Tier> }>()
   let nextId = 0
 
   const controller = new TranslationController({
     root: () => document.body,
-    translate: (request, onProvisional) =>
+    translate: (request, onTier) =>
       new Promise((resolve) => {
         const id = ++nextId
-        pending.set(id, { resolve, onProvisional })
+        pending.set(id, { resolve, onTier, tiers: new Set(request.tiers) })
         post({ type: "translate", id, request })
       }),
     setContext: (context) => post({ type: "context", context }),
@@ -92,16 +93,21 @@ function main(): void {
       })
     } else if (msg.type === "toggle") {
       void controller.toggle()
-    } else if (msg.type === "provisional") {
-      pending.get(msg.id)?.onProvisional(msg.text)
-    } else if (msg.type === "result") {
-      pending.get(msg.id)?.resolve(msg.result)
+    } else if (msg.type === "tier") {
+      const request = pending.get(msg.id)
+      request?.tiers.delete(msg.tier)
+      request?.onTier(msg.tier, msg.result)
+    } else if (msg.type === "done") {
+      pending.get(msg.id)?.resolve()
       pending.delete(msg.id)
     }
   })
   // The background went away (extension reloaded): settle what is still waiting.
   port.onDisconnect.addListener(() => {
-    for (const { resolve } of pending.values()) resolve({ ok: false, error: getI18n().t("errUnknown") })
+    for (const { resolve, onTier, tiers } of pending.values()) {
+      for (const tier of tiers) onTier(tier, { ok: false, error: getI18n().t("errUnknown") })
+      resolve()
+    }
     pending.clear()
   })
 }

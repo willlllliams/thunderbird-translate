@@ -3,9 +3,20 @@
  * The SDK wiring lives in src/background/providers/factory.ts.
  */
 
-import { getI18n, type I18n } from "./i18n"
+import { getI18n, type I18n, type MessageKey } from "./i18n"
 
-export type ProviderKind = "google" | "microsoft" | "deeplx" | "llm"
+export type ProviderKind = "dictionary" | "bergamot" | "google" | "microsoft" | "deeplx" | "llm"
+
+/**
+ * The three tiers of the translation pipeline, lowest first. Every paragraph
+ * goes to the service of each enabled tier at the same time; the highest
+ * tier that has answered is shown.
+ */
+export type Tier = "dictionary" | "machine" | "ai"
+export const TIERS: readonly Tier[] = ["dictionary", "machine", "ai"]
+
+/** Name of each tier in the interface. */
+export const TIER_NAME_KEYS: Record<Tier, MessageKey> = { dictionary: "tierDictionary", machine: "tierMachine", ai: "tierAi" }
 
 /** Which Vercel AI SDK package builds the model for an LLM preset. */
 export type SdkId =
@@ -31,7 +42,7 @@ export interface ProviderPreset {
   /** Product name, never translated. */
   name: string
   /** Message that wraps or replaces the name in the UI, e.g. "$1 (free)". */
-  nameKey?: "providerFree" | "providerLocal" | "providerCustom"
+  nameKey?: "providerFree" | "providerLocal" | "providerCustom" | "providerOffline" | "providerDictionary"
   kind: ProviderKind
   sdk?: SdkId
   /** Default endpoint. Empty means the user must fill it in. */
@@ -57,6 +68,28 @@ export interface ProviderPreset {
 const T = 0.3
 
 export const PROVIDER_PRESETS: ProviderPreset[] = [
+  {
+    id: "dictionary",
+    name: "Dictionary",
+    nameKey: "providerDictionary",
+    kind: "dictionary",
+    defaultBaseURL: "",
+    defaultModel: "",
+    models: [],
+    requiresKey: false,
+    defaultTemperature: null,
+  },
+  {
+    id: "bergamot",
+    name: "Bergamot",
+    nameKey: "providerOffline",
+    kind: "bergamot",
+    defaultBaseURL: "",
+    defaultModel: "",
+    models: [],
+    requiresKey: false,
+    defaultTemperature: null,
+  },
   {
     id: "google-free",
     name: "Google Translate",
@@ -391,6 +424,12 @@ export function getPreset(id: string): ProviderPreset | undefined {
 
 export function isAiProvider(preset: ProviderPreset | undefined): boolean {
   return preset?.kind === "llm"
+}
+
+/** The tier of a service: the dictionary, a machine translator or an AI service. */
+export function tierOf(preset: ProviderPreset): Tier {
+  if (preset.kind === "dictionary") return "dictionary"
+  return preset.kind === "llm" ? "ai" : "machine"
 }
 
 /** Name shown in the interface: brand names stay as they are, "(free)" and similar are translated. */

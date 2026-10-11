@@ -2,6 +2,7 @@
  * DeepLX: a self-hosted or third-party proxy that speaks a DeepL-like API.
  *
  * Request:  POST <endpoint> {"text": "...", "source_lang": "auto", "target_lang": "ZH"}
+ * (source_lang is "auto" or a DeepL source code such as "EN")
  * Response: {"code": 200, "data": "译文", "alternatives": [...]}
  *
  * Some deployments put the token in the URL (`{{apiKey}}` placeholder or
@@ -12,7 +13,7 @@ import { type ErrorText, LocalizedError, renderErrorText } from "../../shared/er
 import { ENGLISH } from "../../shared/i18n"
 import { type FetchOptions, fetchOk, HttpError, type RequestSpec } from "../queue/request-queue"
 
-export function buildDeepLXRequest(text: string, targetDeepl: string, endpoint: string, token = ""): RequestSpec {
+export function buildDeepLXRequest(text: string, targetDeepl: string, endpoint: string, token = "", sourceDeepl = "auto"): RequestSpec {
   if (!endpoint) throw new LocalizedError("errEndpointRequired", ["DeepLX"])
   let url = endpoint
   const headers: Record<string, string> = { "Content-Type": "application/json" }
@@ -27,7 +28,7 @@ export function buildDeepLXRequest(text: string, targetDeepl: string, endpoint: 
     init: {
       method: "POST",
       headers,
-      body: JSON.stringify({ text, source_lang: "auto", target_lang: targetDeepl }),
+      body: JSON.stringify({ text, source_lang: sourceDeepl, target_lang: targetDeepl }),
     },
   }
 }
@@ -51,8 +52,8 @@ export async function deeplxTranslate(
   targetDeepl: string,
   endpoint: string,
   token: string,
-  opts: FetchOptions = {},
+  opts: FetchOptions & { source?: string } = {},
 ): Promise<string> {
-  const resp = await fetchOk(opts.fetchFn, buildDeepLXRequest(text, targetDeepl, endpoint, token), "DeepLX")
+  const resp = await fetchOk(opts.fetchFn, buildDeepLXRequest(text, targetDeepl, endpoint, token, opts.source), "DeepLX")
   return parseDeepLXResponse(await resp.json())
 }

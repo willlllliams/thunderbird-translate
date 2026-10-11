@@ -5,11 +5,15 @@
  * the language (or a small set of candidates) directly: kana means Japanese,
  * Hangul means Korean, Han without kana means Chinese.
  * Step 2, for Latin and Cyrillic text, asks the browser's language detector
- * (i18n.detectLanguage, CLD) when available; without it, a stop-word ratio
+ * (i18n.detectLanguage, CLD) when available. Without a reliable answer, a
+ * source language chosen by the user decides; otherwise a stop-word ratio
  * recognises English.
+ *
+ * detectLanguage() uses the same steps to name the language of a text, for
+ * the services that need a source language (dictionary, offline models).
  */
 
-import { baseLang } from "../shared/languages"
+import { baseLang } from "./languages"
 
 type ScriptGroup = "han" | "kana" | "hangul" | "cyrillic" | "arabic" | "hebrew" | "thai" | "greek" | "devanagari" | "latin"
 
@@ -84,7 +88,12 @@ export function englishScore(text: string): number {
 /** Returns the detected language (primary subtag) or null when unsure. */
 export type LanguageDetector = (text: string) => Promise<string | null>
 
-export async function isInTargetLanguage(text: string, targetLang: string, detect?: LanguageDetector): Promise<boolean> {
+/**
+ * Whether a paragraph is already in the target language. `sourceLang` is the
+ * user's choice ("auto" or a code): paragraphs the detectors cannot place are
+ * taken to be in that language.
+ */
+export async function isInTargetLanguage(text: string, targetLang: string, detect?: LanguageDetector, sourceLang = "auto"): Promise<boolean> {
   const target = baseLang(targetLang)
   const candidates = candidateLanguages(text)
   if (candidates.length === 0) return false
@@ -103,9 +112,30 @@ export async function isInTargetLanguage(text: string, targetLang: string, detec
       // fall through to the heuristic
     }
   }
+  if (sourceLang !== "auto") return baseLang(sourceLang) === target
   if (target === "en") return englishScore(text) >= 0.12
   // Non-Latin candidates without a detector: the script already matched.
   return candidates[0] !== "latin"
+}
+
+/**
+ * Language of a text as the detector names it ("en", "zh", "zh-TW"…), or null
+ * when neither the script, the detector nor the English stop words tell.
+ */
+export async function detectLanguage(text: string, detect?: LanguageDetector): Promise<string | null> {
+  const candidates = candidateLanguages(text)
+  if (candidates.length === 0) return null
+  if (detect) {
+    try {
+      const detected = await detect(text)
+      // The detector also tells Chinese variants apart.
+      if (detected && (candidates[0] === "latin" || candidates.includes(baseLang(detected)))) return detected
+    } catch {
+      // fall through to the script
+    }
+  }
+  if (candidates[0] !== "latin") return candidates.length === 1 ? candidates[0] : null
+  return englishScore(text) >= 0.12 ? "en" : null
 }
 
 /** Wrap browser.i18n.detectLanguage, accepting only reliable answers. */

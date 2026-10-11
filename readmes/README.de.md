@@ -2,7 +2,7 @@
 
 [English](../README.md) | [简体中文](README.zh-CN.md) | [繁體中文](README.zh-TW.md) | [日本語](README.ja.md) | [한국어](README.ko.md) | [Français](README.fr.md) | Deutsch | [Español](README.es.md) | [Português (Brasil)](README.pt-BR.md) | [Русский](README.ru.md) | [Türkçe](README.tr.md) | [Tiếng Việt](README.vi.md)
 
-Thunderbird Translate ist eine Erweiterung für Thunderbird, die den Text der gerade gelesenen Nachricht direkt im Nachrichtenbereich übersetzt. Die Übersetzung erscheint entweder unter jedem Originalabsatz (zweisprachig) oder ersetzt ihn (nur Übersetzung). Wird die Übersetzung ausgeschaltet, stellt die Erweiterung die ursprüngliche Nachricht exakt wieder her. Standarddienst ist Google Translate (kostenlos); er funktioniert direkt nach der Installation. Zusätzlich lassen sich 22 KI-Anbieter anbinden, darunter OpenAI, Claude, Gemini, DeepSeek und Qwen.
+Thunderbird Translate ist eine Erweiterung für Thunderbird, die den Text der gerade gelesenen Nachricht direkt im Nachrichtenbereich übersetzt. Die Übersetzung erscheint entweder unter jedem Originalabsatz (zweisprachig) oder ersetzt ihn (nur Übersetzung). Wird die Übersetzung ausgeschaltet, stellt die Erweiterung die ursprüngliche Nachricht exakt wieder her. Die Übersetzung läuft gleichzeitig in drei Stufen: einem Offline-Wörterbuch, einem maschinellen Übersetzer (Google Translate, Microsoft Translator, DeepLX oder die Offline-Modelle von Bergamot) und einem KI-Dienst (22 Anbieter, darunter OpenAI, Claude, Gemini, DeepSeek und Qwen). Das schnellste Ergebnis erscheint zuerst, und das Ergebnis der höchsten Stufe ersetzt es. Standarddienst ist Google Translate (kostenlos); er funktioniert direkt nach der Installation.
 
 Dieses Dokument richtet sich an Leser, die noch keine Thunderbird-Erweiterung verwendet haben. Es folgt der Reihenfolge Installation, Verwendung, Konfiguration und Funktionsweise.
 
@@ -16,9 +16,11 @@ Dieses Dokument richtet sich an Leser, die noch keine Thunderbird-Erweiterung ve
 - Bedienung: die Schaltfläche „Nachricht übersetzen“ in der Symbolleiste des Nachrichtenkopfs mit ihrem Pop-up sowie die Tastenkombinationen Alt+A (übersetzen / Original anzeigen) und Alt+S (zweisprachig / nur Übersetzung umschalten).
 - Optionale automatische Übersetzung: Nachrichten, die nicht in der Zielsprache verfasst sind, werden beim Öffnen sofort übersetzt.
 - Bündelung von Anfragen: Das Hintergrundskript sammelt Absätze 50 ms lang und fasst sie in einer Anfrage zusammen. Dazu kommen eine Begrenzung gleichzeitiger Anfragen, Wiederholungsversuche mit exponentiellem Backoff und ein lokaler Cache.
-- Dienste: 3 kostenlose oder selbst gehostete Übersetzungsdienste und 22 Voreinstellungen für KI-Anbieter, darunter „Benutzerdefiniert (OpenAI-kompatibel)“. In den Dienstlisten erscheinen nur hinzugefügte Dienste.
-- Wettlauf-Übersetzung (KI-Dienste): Ein kostenloser Übersetzer antwortet zuerst, und sein Ergebnis wird als vorläufige Übersetzung angezeigt, bis die KI-Übersetzung es ersetzt.
-- Präzise Übersetzung (KI-Dienste): Die gesamte Nachricht dient jeder Anfrage als Kontext, sodass Namen, Fachbegriffe und Anredeformen über alle Absätze hinweg einheitlich bleiben.
+- Drei Übersetzungsstufen: Wörterbuch, maschinelle Übersetzung und KI. Jede Stufe hat einen eigenen Dienst oder wird nicht verwendet; jeder Absatz geht gleichzeitig an alle verwendeten Stufen. Eine niedrigere Stufe wird als vorläufige Übersetzung angezeigt, bis die höchste Stufe sie ersetzt, und bleibt stehen, wenn die höchste Stufe fehlschlägt.
+- Dienste: ein Offline-Wörterbuch, 4 maschinelle Übersetzer (Google Translate, Microsoft Translator, DeepLX, Offline-Modelle von Bergamot) und 22 Voreinstellungen für KI-Anbieter, darunter „Benutzerdefiniert (OpenAI-kompatibel)“. In den Listen der Stufen erscheinen nur hinzugefügte Dienste.
+- Ausgangssprache: automatische Erkennung oder eine feste Sprache, die an jeden Dienst übergeben wird.
+- Drei Prompts für die KI-Stufe: einer für die zweisprachige Anzeige, einer für die Anzeige nur der Übersetzung und einer für die präzise Übersetzung.
+- Präzise Übersetzung (KI-Stufe): Die gesamte Nachricht dient jeder Anfrage als Kontext, sodass Namen, Fachbegriffe und Anredeformen über alle Absätze hinweg einheitlich bleiben.
 - Schalter für den Denkmodus bei jedem KI-Anbieter, standardmäßig ausgeschaltet.
 - Benutzeroberfläche in 12 Sprachen. Die Sprache der Benutzeroberfläche folgt standardmäßig Thunderbird und lässt sich auf der Einstellungsseite wählen.
 
@@ -52,12 +54,12 @@ Nach dem Öffnen einer Nachricht erscheint in der Symbolleiste des Nachrichtenko
 
 - „Diese Nachricht übersetzen“: startet die Übersetzung. Solange eine Übersetzung läuft oder angezeigt wird, lautet die Schaltfläche „Original anzeigen“ und stellt bei einem Klick das Original wieder her.
 - Anzeige: schaltet zwischen „Zweisprachig“ und „Nur Übersetzung“ um; die Änderung gilt sofort für die aktuelle Nachricht.
-- Zielsprache: Nach einer Änderung wird eine gerade übersetzte Nachricht erneut in die neue Sprache übersetzt.
-- Übersetzungsdienst: wählt den verwendeten Dienst. Die Liste enthält nur hinzugefügte Dienste. „+ Übersetzungsdienst hinzufügen“ darunter öffnet die Einstellungsseite bei den Übersetzungsdiensten.
-- Wettlauf-Übersetzung und Präzise Übersetzung: werden angezeigt, solange der aktuelle Dienst ein KI-Dienst ist; sie schalten die beiden KI-Übersetzungsmodi ein oder aus.
+- Ausgangssprache und Zielsprache: Standard für die Ausgangssprache ist „Automatisch erkennen“. Nach einer Änderung einer der beiden wird eine gerade übersetzte Nachricht erneut übersetzt. Sind beide dieselbe Sprache, erscheint ein Hinweis.
+- Übersetzungsstufen: eine Liste pro Stufe („Stufe 1: Wörterbuch“, „Stufe 2: Maschinelle Übersetzung“, „Stufe 3: KI-Übersetzung“), jeweils mit „Nicht verwendet“ und den hinzugefügten Diensten dieser Stufe. Mindestens eine Stufe braucht einen Dienst; wird für die letzte Stufe mit Dienst „Nicht verwendet“ gewählt, lehnt das Pop-up dies mit einem Hinweis ab. „+ Übersetzungsdienst hinzufügen“ unter den Listen öffnet die Einstellungsseite bei den Übersetzungsdiensten.
+- Präzise Übersetzung: wird angezeigt, solange die KI-Stufe einen Dienst hat.
 - Nachrichten, die nicht in der Zielsprache verfasst sind, automatisch übersetzen: Ist diese Option aktiviert, wird eine Nachricht, deren Text nicht in der Zielsprache verfasst ist, beim Öffnen sofort übersetzt.
 
-Das Pop-up zeigt den Fortschritt an, zum Beispiel „8 von 12 übersetzt“. Bei der Wettlauf-Übersetzung werden Absätze, die noch die schnelle vorläufige Übersetzung zeigen, getrennt gezählt, zum Beispiel „7 von 9 übersetzt (2 vorläufig)“. Schlägt ein Absatz fehl, erscheint dahinter in Rot „Übersetzung fehlgeschlagen, zum Wiederholen klicken“. Beim Darüberfahren mit der Maus wird der Fehler angezeigt; ein Klick übersetzt diesen Absatz erneut.
+Das Pop-up zeigt den Fortschritt an, zum Beispiel „8 von 12 übersetzt“. Absätze, die noch eine vorläufige Übersetzung einer niedrigeren Stufe zeigen, werden getrennt gezählt, zum Beispiel „7 von 9 übersetzt (2 vorläufig)“. Schlagen für einen Absatz alle Stufen fehl, erscheint dahinter in Rot „Übersetzung fehlgeschlagen, zum Wiederholen klicken“. Beim Darüberfahren mit der Maus wird der Fehler angezeigt; ein Klick übersetzt diesen Absatz erneut.
 
 Alt+A übersetzt die aktuelle Nachricht oder stellt das Original wieder her; Alt+S schaltet zwischen „Zweisprachig“ und „Nur Übersetzung“ um. Beide Tastenkombinationen lassen sich im Zahnradmenü der Add-ons-Verwaltung unter „Tastenkombinationen für Erweiterungen verwalten“ ändern.
 
@@ -69,10 +71,12 @@ Die Einstellungsseite öffnet sich über die Schaltfläche „Einstellungen“ d
 
 | Abschnitt | Inhalt |
 | --- | --- |
-| Allgemein | Sprache der Benutzeroberfläche, Zielsprache, Standard-Anzeigemodus, aktueller Dienst, automatische Übersetzung |
+| Allgemein | Sprache der Benutzeroberfläche, Ausgangssprache, Zielsprache, Standard-Anzeigemodus, automatische Übersetzung |
+| Übersetzungsstufen | Der Dienst jeder Stufe oder „Nicht verwendet“; präzise Übersetzung |
 | Übersetzungsdienste | Dienste in zwei Gruppen, „Hinzugefügt“ und „Verfügbar“; Endpunkt, API-Schlüssel, Modell, Temperatur und Denkmodus jedes Dienstes; Schaltflächen „Verbindung testen“, „Hinzufügen“, „Diesen Dienst verwenden“ und „Entfernen“ |
-| KI-Übersetzungsmodi | Wettlauf-Übersetzung mit Auswahl des schnellen Dienstes; präzise Übersetzung |
-| System-Prompt | Eigener System-Prompt für KI-Dienste; `{{to}}` wird durch den Namen der Zielsprache ersetzt; leer bedeutet integrierter Prompt |
+| Wörterbücher | Sprachpaare der Wörterbuch-Stufe mit Größe, Lizenz und Quellenangabe; Herunterladen und Löschen; Release-Tag der Wörterbuchpakete (erweitert) |
+| Offline-Übersetzungsmodelle (Bergamot) | Richtungspaare der Bergamot-Modelle mit Größe und Version; Filter nach Sprache; Herunterladen, Aktualisieren, Abbrechen und Löschen; die Richtungen, die die aktuellen Sprachen benötigen |
+| Prompts (KI-Stufe) | Die Prompts für die zweisprachige Anzeige, die Anzeige nur der Übersetzung und die präzise Übersetzung, jeweils mit „Integrierten Prompt wiederherstellen“ |
 | Bündelung von Anfragen | Sammelzeitraum, maximale Zeichen und Absätze pro Anfrage, gleichzeitige Anfragen, Wiederholungsversuche, ob KI-Anfragen zusammengefasst werden |
 | Darstellung der Übersetzung | Linie links, gestrichelte Linie links, Hervorhebung oder schlicht; Akzentfarbe, Textdeckkraft, relative Schriftgröße; Live-Vorschau |
 | Cache | Cache ein oder aus, maximale Anzahl zwischengespeicherter Absätze, aktuelle Anzahl der Einträge, Cache leeren |
@@ -84,10 +88,10 @@ Die Einstellungsseite öffnet sich über die Schaltfläche „Einstellungen“ d
 Die Seitenliste im Abschnitt „Übersetzungsdienste“ hat zwei Gruppen. „Hinzugefügt“ enthält die Dienste, die in den Dienstlisten des Pop-ups und der Einstellungsseite erscheinen; „Verfügbar“ enthält alle übrigen. Wählt man einen Dienst aus, erscheinen seine Konfiguration und seine Schaltflächen:
 
 - Ein Dienst, der nicht hinzugefügt ist, hat die Schaltfläche „Hinzufügen“. Auch die Eingabe eines API-Schlüssels (bei DeepLX des Endpunkts) fügt den Dienst hinzu.
-- Ein hinzugefügter Dienst hat „Diesen Dienst verwenden“ und „Entfernen“. Beim Entfernen verschwindet der Dienst aus den Listen, seine Konfiguration bleibt erhalten; wird er erneut hinzugefügt, sind Schlüssel und Modell wieder da.
-- Der aktuelle Dienst lässt sich nicht entfernen, ebenso wenig der schnelle Dienst der Wettlauf-Übersetzung, solange diese eingeschaltet ist. Die Schaltfläche „Entfernen“ ist dann deaktiviert, und eine Zeile darunter nennt den Grund.
+- Ein hinzugefügter Dienst hat „Diesen Dienst verwenden“, das ihn in seine Stufe setzt, und „Entfernen“. Beim Entfernen verschwindet der Dienst aus den Listen, seine Konfiguration bleibt erhalten; wird er erneut hinzugefügt, sind Schlüssel und Modell wieder da.
+- Ein Dienst, den eine Stufe verwendet, lässt sich nicht entfernen. Die Schaltfläche „Entfernen“ ist dann deaktiviert, und eine Zeile darunter nennt die Stufe. Verwendete Dienste tragen in der Seitenliste die Markierung „In Verwendung“.
 
-Eine frische Installation beginnt mit hinzugefügtem Google Translate und Microsoft Translator. Beim Laden von Einstellungen aus Version 1.1 oder früher gilt ein Dienst in diesen Fällen als hinzugefügt:
+Eine frische Installation beginnt mit hinzugefügtem Google Translate und Microsoft Translator. Das Wörterbuch und Bergamot brauchen Daten, die erst heruntergeladen werden, deshalb werden sie von Hand hinzugefügt. Beim Laden von Einstellungen aus Version 1.1 oder früher gilt ein Dienst in diesen Fällen als hinzugefügt:
 
 | Dienst | Gilt als hinzugefügt, wenn |
 | --- | --- |
@@ -95,28 +99,62 @@ Eine frische Installation beginnt mit hinzugefügtem Google Translate und Micros
 | DeepLX | ein Endpunkt eingetragen ist |
 | KI-Dienste, die einen Schlüssel brauchen | ein API-Schlüssel gespeichert ist |
 | Ollama, LM Studio, Benutzerdefiniert (OpenAI-kompatibel) | Endpunkt, Modell oder Temperatur geändert wurde |
-| der aktuelle Dienst | immer |
+| die Dienste der Stufen | immer |
 
-## KI-Übersetzungsmodi
+## Übersetzungsstufen
 
-Beide Modi gelten nur, solange der aktuelle Dienst ein KI-Dienst ist. Sie lassen sich im Abschnitt „KI-Übersetzungsmodi“ der Einstellungsseite oder im Pop-up einschalten.
+| Stufe | Dienste | Was sie liefert |
+| --- | --- | --- |
+| 1 Wörterbuch | Wörterbuch (offline) | eine Wort-für-Wort-Glosse aus den installierten Wörterbuchpaketen, sofort und ohne Netzwerk verfügbar |
+| 2 Maschinelle Übersetzung | Google Translate, Microsoft Translator, DeepLX, Bergamot (offline) | eine vollständige Übersetzung innerhalb von ein bis zwei Sekunden |
+| 3 KI-Übersetzung | die 22 KI-Anbieter | die beste Übersetzung, nach dem Prompt des Anzeigemodus |
 
-### Wettlauf-Übersetzung
+Jede Stufe hat einen Dienst oder „Nicht verwendet“, und mindestens eine Stufe hat einen Dienst. Standardmäßig ist nur Stufe 2 mit Google Translate belegt.
 
-Jeder Absatz geht an den KI-Dienst und an einen schnellen Dienst (standardmäßig Google Translate; unter den hinzugefügten Diensten lassen sich Microsoft Translator oder DeepLX wählen). Beide Anfragen nutzen die normale Bündelung und den Cache. Das Ergebnis hängt davon ab, welche Antwort zuerst eintrifft:
+Jeder Absatz geht gleichzeitig an alle verwendeten Stufen. Jede Stufe nutzt die normale Bündelung und den Cache. Was die Nachricht zeigt, folgt einer Regel: Es gilt die höchste Stufe, die bereits geantwortet hat.
 
 | Fall | Was die Nachricht zeigt |
 | --- | --- |
-| Der schnelle Dienst antwortet zuerst | seine Übersetzung, kursiv mit der Markierung „Vorläufig“; beim Darüberfahren steht dort, dass die KI-Übersetzung läuft. Die KI-Übersetzung ersetzt sie, sobald sie eintrifft. |
-| Der KI-Dienst antwortet zuerst | die KI-Übersetzung; das schnelle Ergebnis wird verworfen |
-| Die KI-Anfrage schlägt fehl | die schnelle Übersetzung bleibt, markiert mit „KI-Übersetzung fehlgeschlagen“; beim Darüberfahren erscheint der Grund, ein Klick wiederholt den Absatz |
-| Die KI-Übersetzung liegt bereits im Cache | die zwischengespeicherte KI-Übersetzung; der schnelle Dienst wird nicht angefragt |
+| Eine niedrigere Stufe antwortet zuerst | ihre Übersetzung, kursiv mit einer Markierung, die ihre Stufe nennt („Wörterbuch“, „Maschinelle Übersetzung“); beim Darüberfahren steht dort, auf welche Stufe noch gewartet wird. Eine höhere Stufe ersetzt sie, sobald sie eintrifft. |
+| Die höchste verwendete Stufe antwortet | ihre Übersetzung ohne Markierung: die endgültige Übersetzung. Niedrigere Stufen, die später antworten, werden ignoriert. |
+| Die höchste Stufe schlägt fehl | die beste niedrigere Übersetzung bleibt, markiert mit „KI-Übersetzung fehlgeschlagen“ (oder dem Namen der höchsten Stufe); beim Darüberfahren erscheint der Grund, ein Klick wiederholt nur die fehlgeschlagenen Stufen |
+| Alle Stufen schlagen fehl | die rote Markierung „Übersetzung fehlgeschlagen, zum Wiederholen klicken“ |
+| Die Übersetzung der höchsten Stufe liegt bereits im Cache | sofort diese Übersetzung; die niedrigeren Stufen werden nicht angefragt |
 
-Beim Wechsel des Anzeigemodus bleiben die Markierungen für vorläufige und fehlgeschlagene Übersetzungen erhalten, und „Original anzeigen“ entfernt sie zusammen mit den Übersetzungen. Die Wettlauf-Übersetzung verbraucht keine zusätzlichen KI-Tokens, verdoppelt aber die Zahl der Anfragen an den schnellen Dienst.
+Beim Wechsel des Anzeigemodus werden die Übersetzungen von Wörterbuch und maschineller Übersetzung unverändert neu dargestellt. Die KI-Stufe verwendet einen Prompt pro Anzeigemodus und wird deshalb mit dem Prompt des neuen Modus erneut angefragt; eine für diesen Prompt bereits zwischengespeicherte Übersetzung kommt ohne Anfrage zurück. Das Pop-up zählt endgültige Übersetzungen als übersetzt und Übersetzungen niedrigerer Stufen als vorläufig.
 
-### Präzise Übersetzung
+Einstellungen, die Version 1.3 oder früher gespeichert hat, werden einmal umgewandelt: Ein KI-Dienst als aktueller Dienst wird Stufe 3, und war die Wettlauf-Übersetzung eingeschaltet, wird ihr schneller Dienst Stufe 2. Jeder andere aktuelle Dienst wird Stufe 2. Die Wörterbuch-Stufe beginnt unbenutzt.
 
-Die präzise Übersetzung sendet die Nachricht mit jeder KI-Anfrage als Kontext mit. Beim Start der Übersetzung fügt das Inhaltsskript die gefundenen Absätze zum reinen Text der Nachricht zusammen (nach 20.000 Zeichen abgeschnitten, mit einem Hinweis, dass der Text weitergeht) und meldet ihn einmal beim Hintergrundskript an. Die Nachricht wird über einen Hash ihres vollständigen Texts identifiziert; das Abschneiden betrifft nur den Text, der als Kontext gesendet wird.
+## Ausgangssprache
+
+Die Ausgangssprache ist standardmäßig „Automatisch erkennen“ oder eine der 20 Sprachen der Zielsprachenliste. Sie geht an jeden Dienst:
+
+| Dienst | Automatische Erkennung | Feste Sprache |
+| --- | --- | --- |
+| Google Translate | `sl=auto` | `sl=<code>` |
+| Microsoft Translator, kostenlos und mit Schlüssel | kein `from`-Parameter | `from=<code>` |
+| DeepLX | `source_lang: "auto"` | `source_lang: "<code>"` (chinesische Varianten als `ZH`) |
+| KI-Dienste | „Detect the source language of … and translate it into …“ | „Translate … from <language> into …“ |
+| Wörterbuch | pro Absatz erkannt | die eingestellte Sprache |
+| Bergamot | `"auto"`, mit der anhand von Schrift und englischen Stoppwörtern erkannten Sprache als Rückfall | die eingestellte Sprache |
+
+Absätze, die als Zielsprache erkannt werden, werden wie bisher übersprungen. Bei einer festen Ausgangssprache gelten Absätze, deren Sprache sich nicht zuverlässig erkennen lässt, als in dieser Sprache verfasst. Cache-Schlüssel und Bündel enthalten die Ausgangssprache; nach einer Änderung kommen daher nie Übersetzungen zurück, die mit der alten Einstellung entstanden sind.
+
+## Prompts
+
+Die KI-Stufe hat drei System-Prompts. Jeder lässt sich auf der Einstellungsseite bearbeiten und mit „Integrierten Prompt wiederherstellen“ zurücksetzen; ein leeres Feld bedeutet ebenfalls den integrierten Prompt. `{{to}}` wird durch den englischen Namen der Zielsprache ersetzt. Die Ausgangssprache und das Format der Bündelung fügt die Erweiterung jeder Anfrage selbst hinzu.
+
+| Prompt | Verwendet für | Der integrierte Prompt verlangt |
+| --- | --- | --- |
+| Zweisprachige Anzeige | die KI-Stufe im zweisprachigen Modus | eine Übersetzung nah am Original, Satz für Satz in derselben Reihenfolge, ohne Zusätze und Auslassungen, weil der Leser sie mit dem Original vergleicht |
+| Anzeige nur der Übersetzung | die KI-Stufe im Modus „Nur Übersetzung“ | flüssigen Text, der sich wie eine in der Zielsprache geschriebene E-Mail liest; Satzglieder dürfen umgestellt und Sätze geteilt oder zusammengeführt werden, die vollständige Bedeutung bleibt erhalten |
+| Präzise Übersetzung | die KI-Stufe, solange die präzise Übersetzung eingeschaltet ist, in beiden Anzeigemodi | einheitliche Begriffe, Namen und Anredeformen in der ganzen Nachricht, gestützt auf das Glossar, die Zusammenfassung und die benachbarten Absätze |
+
+Cache-Schlüssel und Bündelschlüssel enthalten die Art des Prompts und einen Hash seines Texts. Nach dem Bearbeiten eines Prompts kommen daher nie Übersetzungen zurück, die mit dem alten Text entstanden sind. Ein eigener System-Prompt, den Version 1.3 oder früher gespeichert hat, wird zum Prompt beider Anzeigemodi; der Prompt für die präzise Übersetzung beginnt mit seinem integrierten Text.
+
+## Präzise Übersetzung
+
+Die präzise Übersetzung gilt für die KI-Stufe und sendet die Nachricht mit jeder KI-Anfrage als Kontext mit. Sie wird im Pop-up oder im Abschnitt „Übersetzungsstufen“ der Einstellungsseite eingeschaltet. Beim Start der Übersetzung fügt das Inhaltsskript die gefundenen Absätze zum reinen Text der Nachricht zusammen (nach 20.000 Zeichen abgeschnitten, mit einem Hinweis, dass der Text weitergeht) und meldet ihn einmal beim Hintergrundskript an. Die Nachricht wird über einen Hash ihres vollständigen Texts identifiziert; das Abschneiden betrifft nur den Text, der als Kontext gesendet wird.
 
 Der Ablauf hängt von der Größe der zu übersetzenden Absätze ab:
 
@@ -127,6 +165,44 @@ Der Ablauf hängt von der Größe der zu übersetzenden Absätze ab:
 Das Präfix ist für alle Anfragen einer Nachricht Zeichen für Zeichen identisch, sodass Anbieter, die wiederholte Prompt-Präfixe zwischenspeichern, es aus ihrem Cache bedienen können. Bei Anthropic ist das Präfix mit `cacheControl: { type: "ephemeral" }` markiert. Die Analyse wird wie Übersetzungen zwischengespeichert, mit Anbieter, Modell, Zielsprache und dem Hash des Nachrichtentexts als Schlüssel; Bündel derselben Nachricht warten auf dieselbe Analyseanfrage.
 
 Übersetzungen im präzisen Modus werden unter einem Schlüssel zwischengespeichert, der den Hash der Nachricht enthält, und Bündel mischen nie Absätze verschiedener Nachrichten. Derselbe Satz in einer anderen Nachricht wird deshalb erneut übersetzt, mit jener Nachricht als Kontext. Die Analyseanfrage und die längeren Prompts machen die präzise Übersetzung teurer als die normale Übersetzung.
+
+## Wörterbuchübersetzung
+
+Der Wörterbuchdienst übersetzt Wort für Wort mit Wörterbuchpaketen, die im Thunderbird-Profil gespeichert sind. Ist ein Paket installiert, braucht er kein Netzwerk und antwortet innerhalb von Millisekunden; damit überbrückt er die Zeit, bis die Stufen für maschinelle Übersetzung und KI antworten. Das Ergebnis ist eine Glosse: Wörter in der Reihenfolge des Originals, ohne Grammatik.
+
+### Pakete
+
+Die Pakete werden als Assets eines GitHub-Release dieses Repositorys veröffentlicht, standardmäßig des Release `dicts-v1`. Das Release-Tag lässt sich im Abschnitt „Wörterbücher“ unter „Release-Tag der Wörterbuchpakete (erweitert)“ ändern. Jede Richtung ist eine Datei `dict-<src>-<tgt>.tsv.gz`, eine mit gzip komprimierte UTF-8-Textdatei:
+
+```text
+#dict	<src>	<tgt>	<packVersion>	<sourceName>	<license>
+w	<key>	<translation>
+f	<key>	<lemmaKey>
+```
+
+Die erste Zeile beschreibt das Paket. Zeilen, die mit `w` beginnen, sind Einträge; Zeilen, die mit `f` beginnen, ordnen eine flektierte Form dem Schlüssel ihres Lemmas zu, zum Beispiel `went` zu `go`. Ein Schlüssel ist NFC-normalisiert, nach den Regeln der Ausgangssprache in Kleinbuchstaben umgewandelt und um Leerraum am Anfang und Ende gekürzt; er kann eine Wendung aus mehreren Wörtern sein. Der Index `dict-index.json` führt jedes Paket mit Größe, Zahl der Einträge und Formen, SHA-256-Prüfsumme, Quelle, Lizenz und Quellenangabe auf. Die Pakete decken Englisch, vereinfachtes und traditionelles Chinesisch, Japanisch, Koreanisch, Französisch, Deutsch, Spanisch, Portugiesisch, Russisch, Türkisch und Vietnamesisch ab. Wie sie erstellt werden, beschreibt [docs/dictionary-packs.md](../docs/dictionary-packs.md).
+
+Der Abschnitt „Wörterbücher“ liest den Index und listet jedes Paket mit Größe, Lizenz und Quellenangabe auf. „Herunterladen“ lädt die Datei mit Fortschrittsanzeige, prüft ihre SHA-256-Prüfsumme und ihre Kopfzeile und speichert sie in der IndexedDB-Datenbank `tt-dictionary` der Erweiterung; „Löschen“ entfernt sie. Lässt sich der Index nicht laden, nennt der Abschnitt den Grund, und installierte Pakete lassen sich weiterhin löschen.
+
+### Übersetzung
+
+1. Die Ausgangssprache ist die eingestellte Sprache oder, bei automatischer Erkennung, die Sprache des Absatzes (Schrift, Spracherkennung des Browsers, englische Stoppwörter).
+2. `Intl.Segmenter` zerlegt den Absatz in Wörter. An jedem Wort gewinnt die längste Wendung aus bis zu drei Wörtern, die einen Eintrag hat, danach das einzelne Wort. Ein Wort ohne Eintrag wird über sein Lemma nachgeschlagen; schlägt auch das fehl, bleibt es unverändert. Satzzeichen und Zahlen bleiben unverändert.
+3. Bei Chinesisch und Japanisch als Zielsprache werden die Wörter ohne Leerzeichen verbunden, bei anderen Zielsprachen mit Leerzeichen.
+4. Zwischen zwei Sprachen, von denen keine Englisch ist, läuft der Text über Englisch: Französisch nach Deutsch nutzt die Pakete Französisch → Englisch und Englisch → Deutsch.
+5. Fehlt ein benötigtes Paket, nennt die Fehlermeldung das Sprachpaar und verweist auf den Abschnitt „Wörterbücher“.
+
+Das Hintergrundskript liest ein Paket bei der ersten Verwendung aus IndexedDB und hält es im Arbeitsspeicher; nach fünf Minuten ohne Wörterbuchübersetzung gibt es den Speicher frei.
+
+### Datenquellen
+
+Die Pakete werden aus Wiktionary erstellt, extrahiert mit wiktextract und veröffentlicht von kaikki.org (CC BY-SA 4.0, © Mitwirkende von Wiktionary), sowie aus ECDICT von skywind3000 (MIT-Lizenz). Jedes Paket nennt im Index seine eigene Quelle und Lizenz, und die Einstellungsseite zeigt sie neben dem Paket an.
+
+## Offline-Übersetzung (Bergamot)
+
+Der Dienst Bergamot übersetzt auf dem eigenen Rechner mit der Engine und den Modellen von Firefox Translations, die Mozilla unter MPL-2.0 veröffentlicht. Die Engine wird mit der Erweiterung ausgeliefert; jede Übersetzungsrichtung wird einmal von Mozilla heruntergeladen, 24 bis 48 MB, und in der IndexedDB der Erweiterung gespeichert. Eine geladene Richtung belegt etwa 200 MB Arbeitsspeicher und wird nach fünf Minuten ohne Verwendung freigegeben. Jedes Modell hat Englisch auf einer Seite, deshalb nutzt Japanisch nach Chinesisch die Richtungen Japanisch → Englisch und Englisch → Chinesisch.
+
+Der Abschnitt „Offline-Übersetzungsmodelle (Bergamot)“ der Einstellungsseite listet die 114 Richtungspaare zwischen 58 Sprachen mit Größe und Version auf, filterbar nach Sprache. Er nennt die Richtungen, die die aktuelle Ausgangs- und Zielsprache benötigen, und listet sie zuerst auf. Downloads zeigen ihren Fortschritt und lassen sich abbrechen; bietet Mozilla für ein installiertes Paar eine neuere Version an, erscheint „Aktualisieren“. Das Löschen eines Paars, das die aktuellen Sprachen benötigen, verlangt eine Bestätigung. Installation, Übersetzung und Entfernen laufen im Hintergrundskript, in dem die Engine arbeitet. [docs/bergamot.md](../docs/bergamot.md) beschreibt Modellauswahl, Prüfung, Speicherung und die Engine.
 
 ## Sprache der Benutzeroberfläche
 
@@ -179,7 +255,9 @@ Die Liste der Zielsprachen ist davon unabhängig und umfasst 20 Sprachen, darunt
 | Dienst | Einrichtung | Hinweise |
 | --- | --- | --- |
 | Google Translate (kostenlos, Standard) | Keine | Ruft den Endpunkt `client=gtx` von `translate.googleapis.com` auf; ein POST trägt mehrere `q`-Parameter, sodass sich mehrere Absätze eine Anfrage teilen |
-| Microsoft Translator (kostenlos) | Keine | Versucht zuerst, ein Token von `edge.microsoft.com/translate/auth` zu holen und `api-edge.cognitive.microsofttranslator.com` aufzurufen; hat Microsoft den Token-Endpunkt abgeschaltet, wechselt die Erweiterung zu `edge.microsoft.com/translate/translatetext`. Beide Wege akzeptieren Arrays direkt. Mit „Eigenen Schlüssel verwenden (Azure Translator)“ im Einstellungsfeld ruft die Erweiterung stattdessen das offizielle `api.cognitive.microsofttranslator.com` auf: Im Azure-Portal eine Translator-Ressource anlegen und Schlüssel und Region unter „Schlüssel und Endpunkt“ in das Feld eintragen (bei einer globalen Ressource darf die Region leer bleiben). |
+| Wörterbuch (offline) | Sprachpaare im Abschnitt „Wörterbücher“ herunterladen | Wort-für-Wort-Übersetzung mit den installierten Paketen, siehe „Wörterbuchübersetzung“ |
+| Bergamot (offline) | Richtungspaare im Abschnitt „Offline-Übersetzungsmodelle“ herunterladen | Übersetzung auf dem eigenen Rechner mit den Modellen von Mozilla, siehe „Offline-Übersetzung (Bergamot)“ |
+| Microsoft Translator (kostenlos) | Keine | Ruft `edge.microsoft.com/translate/translatetext` auf, den Endpunkt, den der Browser Edge verwendet; der Anfragetext ist ein Array von Absätzen. Mit „Eigenen Schlüssel verwenden (Azure Translator)“ im Einstellungsfeld ruft die Erweiterung stattdessen das offizielle `api.cognitive.microsofttranslator.com` auf: Im Azure-Portal eine Translator-Ressource anlegen und Schlüssel und Region unter „Schlüssel und Endpunkt“ in das Feld eintragen (bei einer globalen Ressource darf die Region leer bleiben). |
 | DeepLX | Endpunkt erforderlich | Ein selbst gehosteter oder fremder DeepLX-Dienst; das Token ist optional. Enthält der Endpunkt `{{apiKey}}`, wird dieser Platzhalter durch das Token ersetzt; andernfalls wird das Token als `Authorization: Bearer` gesendet |
 
 ### KI-Anbieter
@@ -267,14 +345,15 @@ Eine Nachricht hat meist zwischen zehn und einigen Dutzend Absätzen. Bei einer 
 
 ### Ablauf
 
-1. Das Inhaltsskript übergibt jeden zu übersetzenden Absatz an das Hintergrundskript.
-2. Das Hintergrundskript sucht zuerst im Cache und antwortet bei einem Treffer direkt. Der Cache-Schlüssel besteht aus dem Anbieter, dem Modell, der Zielsprache, einer Signatur des System-Prompts, im präzisen Modus dem Hash der Nachricht und einem Hash des Absatztexts. Wird derselbe Text bereits übersetzt, teilen sich spätere Anfragen dasselbe Ergebnis.
-3. Absätze, die nicht im Cache liegen, kommen in die Bündelungswarteschlange, gruppiert nach Anbieter + Modell + Endpunkt + Zielsprache, bei KI-Diensten zusätzlich nach System-Prompt, bei Microsoft Translator zusätzlich nach kostenlosem oder Schlüssel-Modus und im präzisen Modus zusätzlich nach Nachricht. Die Absätze einer Gruppe sammeln sich 50 ms lang. Eine Gruppe wird gesendet, wenn der Sammelzeitraum endet, wenn die Absatzgrenze erreicht ist oder wenn der nächste Absatz die Zeichengrenze überschreiten würde. Ein einzelner Absatz, der länger als die Zeichengrenze ist, bildet ein eigenes Bündel.
+1. Das Inhaltsskript übergibt jeden zu übersetzenden Absatz an das Hintergrundskript, einmal für alle verwendeten Stufen.
+2. Für jede Stufe sucht das Hintergrundskript zuerst im Cache und antwortet bei einem Treffer direkt. Der Cache-Schlüssel besteht aus dem Anbieter, dem Modell, der Ausgangs- und der Zielsprache, bei KI-Diensten der Art des Prompts und einem Hash seines Texts, im präzisen Modus dem Hash der Nachricht und einem Hash des Absatztexts. Wird derselbe Text bereits übersetzt, teilen sich spätere Anfragen dasselbe Ergebnis.
+3. Absätze, die nicht im Cache liegen, kommen in die Bündelungswarteschlange, gruppiert nach Anbieter + Modell + Endpunkt + Ausgangssprache + Zielsprache, bei KI-Diensten zusätzlich nach Prompt, bei Microsoft Translator zusätzlich nach kostenlosem oder Schlüssel-Modus und im präzisen Modus zusätzlich nach Nachricht. Die Absätze einer Gruppe sammeln sich 50 ms lang. Eine Gruppe wird gesendet, wenn der Sammelzeitraum endet, wenn die Absatzgrenze erreicht ist oder wenn der nächste Absatz die Zeichengrenze überschreiten würde. Ein einzelner Absatz, der länger als die Zeichengrenze ist, bildet ein eigenes Bündel.
 4. Die Anfragewarteschlange führt jedes Bündel aus. Sie begrenzt die gleichzeitigen Anfragen und wiederholt Anfragen bei 408, 429, 5xx und Netzwerkfehlern mit exponentiellem Backoff; sendet der Server `Retry-After`, wartet sie die angegebene Zeit, höchstens 30 Sekunden. Fehler wie 401 und 400 werden ohne Wiederholung gemeldet.
 5. Die Ergebnisse gehen in den Cache im Arbeitsspeicher und werden nach 1 Sekunde in einem einzigen Schreibvorgang in `storage.local` geschrieben. Der Cache verdrängt die am längsten nicht verwendeten Einträge (Least Recently Used, LRU).
 
 ### Wie jeder Dienst Absätze zusammenfasst
 
+- Wörterbuch und Bergamot: Das ganze Bündel wird in einem lokalen Aufruf übersetzt.
 - Google: ein POST mit mehreren `q`-Parametern; das zurückgegebene Array entspricht der Eingabe eins zu eins.
 - Microsoft: Der Anfragetext selbst ist ein Array.
 - DeepLX: Der Endpunkt nimmt einen Absatz pro Anfrage an, daher werden die Absätze eines Bündels gleichzeitig angefragt.
@@ -314,14 +393,14 @@ Die Eingabe-Tokens sinken um etwa 63 %, und die Zahl der Anfragen sinkt von 20 a
 
 - API-Schlüssel werden nur in `storage.local` des aktuellen Thunderbird-Profils gespeichert und nur mit Anfragen an den Endpunkt des zugehörigen Anbieters gesendet.
 - Das Inhaltsskript läuft innerhalb der Nachrichtenseite; die Einstellungen, die es vom Hintergrundskript erhält, enthalten nie Schlüssel.
-- Nachrichtentext wird nur an den aktuellen Übersetzungsdienst gesendet und, solange die Wettlauf-Übersetzung eingeschaltet ist, an den gewählten schnellen Dienst. Die Erweiterung erhebt keine Statistiken und kontaktiert keine andere Netzwerkadresse als diese Dienste.
+- Nachrichtentext wird nur an die Dienste der verwendeten Stufen gesendet. Das Wörterbuch und Bergamot übersetzen auf dem eigenen Rechner und senden keinen Text. Wörterbuchpakete werden aus den GitHub-Releases dieses Repositorys und Bergamot-Modelle von Mozilla heruntergeladen, und zwar nur nach einem Klick auf „Herunterladen“. Die Erweiterung erhebt keine Statistiken und kontaktiert keine andere Netzwerkadresse.
 - Der Übersetzungs-Cache wird lokal gespeichert und lässt sich auf der Einstellungsseite ausschalten oder leeren.
-- Der Nachrichtentext verlässt den eigenen Rechner und geht an den gewählten Übersetzungsdienst. Bei vertraulichen Nachrichten halten lokale Modelle wie Ollama oder LM Studio jede Anfrage auf dem eigenen Rechner.
+- Mit Google, Microsoft, DeepLX oder einem Online-KI-Dienst verlässt der Nachrichtentext den eigenen Rechner. Für vertrauliche Nachrichten nur das Wörterbuch, Bergamot und lokale KI-Modelle wie Ollama oder LM Studio verwenden; sie halten jede Anfrage auf dem eigenen Rechner.
 
 ## Bekannte Einschränkungen
 
 - Übersetzungen sind reiner Text. Links, Fettschrift und andere Inline-Formatierungen des Originals bleiben in der Übersetzung nicht erhalten. Im zweisprachigen Modus bleibt das Original vollständig nutzbar; im Modus „Nur Übersetzung“ lässt sich das Original per Mauszeiger anzeigen, oder die Anzeige wird auf „Zweisprachig“ zurückgeschaltet.
-- Die kostenlosen Endpunkte von Google und Microsoft sind nicht dokumentiert und können sich ändern oder in der Rate begrenzt werden. Microsoft hat den Token-Endpunkt `edge.microsoft.com/translate/auth` im Juli 2026 abgeschaltet (er liefert 404). Die Erweiterung versucht den Token-Endpunkt weiterhin bei der ersten Anfrage, weicht nach einem Fehler auf den direkten Endpunkt aus und versucht den Token-Endpunkt eine Stunde lang nicht erneut.
+- Die kostenlosen Endpunkte von Google und Microsoft sind nicht dokumentiert und können sich ändern oder in der Rate begrenzt werden. Microsoft hat den Token-Endpunkt `edge.microsoft.com/translate/auth` im Juli 2026 abgeschaltet; die Erweiterung verwendet nur den direkten Endpunkt.
 - Ob ein Absatz bereits in der Zielsprache verfasst ist, beurteilt die Erweiterung bei Chinesisch, Japanisch, Koreanisch und ähnlichen Schriften anhand der Zeichenklasse; bei Sprachen in lateinischer oder kyrillischer Schrift verwendet sie zuerst `i18n.detectLanguage` der Erweiterungs-API. Ist diese API nicht verfügbar oder ihr Ergebnis unzuverlässig, wird nur Englisch zuverlässig erkannt; Absätze in anderen Sprachen mit lateinischer Schrift werden wie üblich zur Übersetzung gesendet.
 - Das Inhaltsskript wird über `messageDisplayScripts` registriert und erreicht nur Nachrichten, die nach der Registrierung geöffnet werden. Beim Start versucht die Erweiterung, es in bereits geöffnete Nachrichten einzufügen; schlägt das fehl, genügt es, die Nachricht erneut auszuwählen.
 - Fehlermeldungen der Erweiterung selbst sind übersetzt. Fehlertexte, die ein Übersetzungsdienst oder das AI SDK zurückgibt (zum Beispiel der Text einer HTTP-401-Antwort), werden unverändert angezeigt, meist auf Englisch.
@@ -329,7 +408,9 @@ Die Eingabe-Tokens sinken um etwa 63 %, und die Zahl der Anfragen sinkt von 20 a
 - Die präzise Übersetzung identifiziert eine Nachricht über einen Hash ihres Texts, weil das Inhaltsskript keinen Zugriff auf die Nachrichten-ID hat. Zwei Kopien desselben Texts teilen sich ihre Übersetzungen und ihre Analyse.
 - Das Zwischenspeichern von Prompts liegt beim Anbieter. Anthropic speichert nur Präfixe oberhalb einer vom Modell abhängigen Mindestlänge zwischen; kürzere Präfixe werden normal gesendet und abgerechnet.
 - Der Denkmodus-Schalter arbeitet mit dem Abgleich von Modellnamen. Ein neues Modell, dessen Name keinem Muster entspricht, erhält keinen Denk-Parameter, bis die Tabelle in `src/background/providers/thinking.ts` erweitert wird.
-- Die Wettlauf-Übersetzung verdoppelt die Anfragen an den schnellen Dienst; das zählt gegen die Ratenlimits der kostenlosen Endpunkte von Google und Microsoft.
+- Jede verwendete Stufe sendet eigene Anfragen. Sind die KI-Stufe und die Stufe für maschinelle Übersetzung beide belegt, kostet jede Nachricht zusätzlich Anfragen an den maschinellen Übersetzer; diese zählen gegen die Ratenlimits der kostenlosen Endpunkte von Google und Microsoft.
+- Die Wörterbuchübersetzung ist eine Wort-für-Wort-Glosse: Sie behält die Wortstellung des Originals bei und flektiert nicht. Wörter, die in den Paketen fehlen, bleiben unübersetzt.
+- Bergamot und das Wörterbuch übersetzen ein Bündel mit einer einzigen Ausgangssprache. Bei automatischer Erkennung bestimmt Bergamot die Sprache des ganzen Bündels; ein Bündel mit gemischten Sprachen wird deshalb als die vorherrschende Sprache übersetzt.
 
 ## Tests
 
@@ -337,10 +418,10 @@ Die Eingabe-Tokens sinken um etwa 63 %, und die Zahl der Anfragen sinkt von 20 a
 npm test               # vitest unit tests
 npm run typecheck      # TypeScript type check
 npm run locales:check  # check every locales/<language>.json against locales/en.json
-npm run live-test      # call the real Google and Microsoft endpoints through the extension's own modules
+npm run live-test      # call the real Google and Microsoft endpoints through the extension's own modules, with and without a source language
 ```
 
-Die Unit-Tests decken ab: Bündelgruppierung und Warteschlangen, Auswertung der KI-Ausgabe und Rückfall, Absatzerkennung mit zweisprachiger Darstellung, Darstellung als reine Übersetzung und Wiederherstellung (in jsdom), Aufbau der Anfragen und Auswertung der Antworten für Google, Microsoft und DeepLX (mit einem Mock von fetch), die Anfrage-URL und die Authentifizierungs-Header jeder KI-Voreinstellung, die Denk-Parameter jedes Anbieters, die Migration der Einstellungen zu hinzugefügten Diensten, die Listen hinzugefügter Dienste in Pop-up und Einstellungsseite samt Schutz vor dem Entfernen, die Wettlauf-Übersetzung (schnelles Ergebnis zuerst, KI-Ergebnis zuerst, KI-Fehler, Cache-Treffer, Wechsel des Anzeigemodus und Wiederherstellung), die präzise Übersetzung (einzelne Anfrage, Analyse mit Bündeln, fehlgeschlagene Analyse, Cache-Schlüssel und Bündel pro Nachricht, identisches Prompt-Präfix mit der Cache-Control von Anthropic) sowie die Lokalisierung. Bei der Lokalisierung prüfen sie identische Schlüsselmengen und Platzhalter in allen Sprachen, jede `__MSG_*__`-Referenz im Manifest, die Zuordnung von Thunderbird-Sprachen zu unterstützten Sprachen, den Rückfall auf Englisch bei fehlenden Schlüsseln und das Fehlen fest kodierter Oberflächentexte in den HTML-Seiten und Quelltexten.
+Die Unit-Tests decken ab: Bündelgruppierung und Warteschlangen, Auswertung der KI-Ausgabe und Rückfall, Absatzerkennung mit zweisprachiger Darstellung, Darstellung als reine Übersetzung und Wiederherstellung (in jsdom), Aufbau der Anfragen und Auswertung der Antworten für Google, Microsoft und DeepLX (mit einem Mock von fetch), die Anfrage-URL und die Authentifizierungs-Header jeder KI-Voreinstellung, die Denk-Parameter jedes Anbieters, die Migration der Einstellungen zu hinzugefügten Diensten sowie zu Stufen und Prompts, die Stufenlisten in Pop-up und Einstellungsseite, die Ablehnung, alle Stufen leer zu lassen, und den Schutz vor dem Entfernen, die Stufen (niedrigere Stufe zuerst und danach ersetzt, höchste Stufe zuerst mit ignorierten späteren Ergebnissen niedrigerer Stufen, Fehler der höchsten Stufe mit erhaltenem niedrigerem Ergebnis, Fehler aller Stufen, unbenutzte Stufen, höchste Stufe im Cache), die Auswahl der Prompts und ihre Cache-Schlüssel, einen Wechsel des Anzeigemodus, der die KI-Stufe erneut anfragt und die übrigen Stufen nur neu darstellt, die Ausgangssprache in den Anfragen jedes Dienstes und im Cache-Schlüssel, die Wörterbuchpakete (Auswertung, Zerlegung in Wörter und Abgleich von Wendungen, flektierte Formen, Übersetzung über Englisch, fehlende Pakete, Download mit Prüfsumme, mit einer IndexedDB im Arbeitsspeicher), den Dienst Bergamot und seine Modellverwaltung mit einer simulierten Engine, die präzise Übersetzung (einzelne Anfrage, Analyse mit Bündeln, fehlgeschlagene Analyse, Cache-Schlüssel und Bündel pro Nachricht, identisches Prompt-Präfix mit der Cache-Control von Anthropic) sowie die Lokalisierung. Bei der Lokalisierung prüfen sie identische Schlüsselmengen und Platzhalter in allen Sprachen, jede `__MSG_*__`-Referenz im Manifest, die Zuordnung von Thunderbird-Sprachen zu unterstützten Sprachen, den Rückfall auf Englisch bei fehlenden Schlüsseln und das Fehlen fest kodierter Oberflächentexte in den HTML-Seiten und Quelltexten.
 
 `npm run build:debug` erzeugt eine Debug-xpi, die beim Öffnen einer Nachricht sofort mit der Übersetzung beginnt und den Fortschritt in die Konsole schreibt. Damit lässt sich der gesamte Ablauf in einem echten Thunderbird prüfen.
 
@@ -348,11 +429,12 @@ Die Unit-Tests decken ab: Bündelgruppierung und Warteschlangen, Auswertung der 
 
 ```
 src/
-  background/    background script: translation service, batch and request queues, cache, provider factory, translators
+  background/    background script: translation service, batch and request queues, cache, provider factory, translators, dictionary, offline model management
   content/       content script: paragraph detection, rendering, language detection, translation state
   popup/         popup
   options/       settings page
-  shared/        shared settings, provider presets, language table, message types, i18n runtime
+  offline/       Bergamot engine module: model list, download, storage, worker
+  shared/        shared settings, provider presets, prompts, language table and detection, message types, i18n runtime
 locales/         interface text, one JSON file per language; en.json is the reference
 static/          manifest.json, HTML, CSS, SVG icon
 scripts/         build, locale generation and checks, live endpoint test
@@ -372,6 +454,8 @@ Um eine Sprache hinzuzufügen, `locales/<code>.json` mit allen Schlüsseln anleg
 ## Danksagung
 
 Der Entwurf der Absatzerkennung, der Bündelungswarteschlange, der Prompts und der Anbieterkonfiguration folgt [Read Frog](https://github.com/mengxi-ream/read-frog), einer Browsererweiterung zum Übersetzen von Webseiten, die unter GPL-3.0 veröffentlicht ist. Dieses Projekt überträgt diese Ideen auf die Nachrichtenansicht von Thunderbird und passt sie an E-Mails an, zum Beispiel durch das Aufteilen von Nur-Text-Nachrichten an Leerzeilen und das Zusammenführen hart umbrochener Zeilen.
+
+Die Wörterbuchdaten stammen aus [Wiktionary](https://en.wiktionary.org/) (© Mitwirkende von Wiktionary, CC BY-SA 4.0), extrahiert mit [wiktextract](https://github.com/tatuylonen/wiktextract) und veröffentlicht von [kaikki.org](https://kaikki.org/), sowie aus [ECDICT](https://github.com/skywind3000/ECDICT) von skywind3000 (MIT-Lizenz). Die Offline-Übersetzung verwendet die Engine [Bergamot](https://browser.mt/) und die Übersetzungsmodelle von Firefox Translations, die Mozilla unter MPL-2.0 veröffentlicht.
 
 ## Lizenz
 

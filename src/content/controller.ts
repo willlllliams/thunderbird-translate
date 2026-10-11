@@ -3,41 +3,54 @@
  *
  * start(): find paragraphs, drop those already in the target language, ask
  * the background for each translation (the background merges them into
- * batches) and render results as they arrive. In race mode a provisional
- * result may arrive first and is replaced by the final one. In precise mode
- * the message text is registered with the background as context first.
+ * batches) and render results as they arrive. Every paragraph is requested
+ * from all enabled tiers at once (dictionary, machine translation, AI); each
+ * tier answers on its own. The highest tier that has answered is shown: a
+ * lower tier as a provisional translation, the highest enabled tier as the
+ * final one. When the highest tier fails, the best lower result stays with
+ * the reason; only when every tier fails is the paragraph marked as failed.
+ * In precise mode the message text is registered with the background as
+ * context first.
  * stop(): remove every inserted node and restore the original DOM.
- * Settings changes while active: a new display mode re-renders from the
- * translations already held; a new target language or provider stops and
- * starts again (the background cache answers what it already knows).
+ * Settings changes while active: a new language or precise switch starts
+ * again (the background cache answers what it already knows); a tier whose
+ * service or prompt changed, for example the AI tier after a new display
+ * mode, is requested again while the other tiers keep their results.
  */
 
 import { describeError } from "../shared/errors"
 import { getI18n, t } from "../shared/i18n"
+import { isInTargetLanguage, type LanguageDetector } from "../shared/lang-detect"
 import { createMailContext, type MailContext } from "../shared/mail-context"
 import type { TabState, TranslateRequest, TranslateResponse } from "../shared/messages"
+import { type Tier, TIER_NAME_KEYS, TIERS } from "../shared/providers"
 import type { PublicSettings } from "../shared/settings"
-import { isInTargetLanguage, type LanguageDetector } from "./lang-detect"
 import { type Collected, collectParagraphs, extractText, type Unit } from "./paragraphs"
 import { Renderer, type TranslationMark } from "./render"
 import { hasTranslatableText } from "./text"
 
 export interface ControllerDeps {
   root: () => HTMLElement | null
-  /** Final result as promise; a provisional one (race mode) through the callback. */
-  translate: (request: TranslateRequest, onProvisional: (text: string) => void) => Promise<TranslateResponse>
+  /** Ask the given tiers; each result comes through onTier, the promise settles when the request is complete. */
+  translate: (request: TranslateRequest, onTier: (tier: Tier, result: TranslateResponse) => void) => Promise<void>
   /** Precise mode: register the message with the background before its paragraphs are requested. */
   setContext?: (context: MailContext) => void
   detect?: LanguageDetector
   report?: (state: Omit<TabState, "connected">) => void
 }
 
-type UnitResult =
-  | { status: "loading" }
-  | { status: "provisional"; text: string }
-  | { status: "done"; text: string }
-  /** `fallback`: the fast service's translation, kept when the AI request failed. */
-  | { status: "error"; error: string; fallback?: string }
+/** What one tier has for one paragraph. */
+type TierState = { status: "pending" } | { status: "ok"; text: string } | { status: "error"; error: string }
+
+/** What a paragraph shows. */
+type View =
+  | { kind: "loading" }
+  | { kind: "done"; text: string }
+  /** A lower tier while the highest one runs. */
+  | { kind: "provisional"; text: string; tier: Tier }
+  /** A lower tier after the highest one failed. */
+  | { kind: "fallback"; text: string; error: string }
+  | { kind: "error"; error: string }
 
 const STYLE_ID = "tt-style-vars"
 
@@ -48,9 +61,9 @@ export class TranslationController {
   private collected: Collected | null = null
   private units: Unit[] = []
   private context: MailContext | null = null
-  private results = new Map<Unit, UnitResult>()
+  private results = new Map<Unit, Partial<Record<Tier, TierState>>>()
   private renderer: Renderer | null = null
-  /** Final translations already received, keyed by provider + language + text. */
+  /** Results already received, keyed by tier signature + languages + text. */
   private memo = new Map<string, string>()
   private lastError = ""
 
@@ -58,10 +71,11 @@ export class TranslationController {
 
   private report(): void {
     const count = { done: 0, provisional: 0, failed: 0 }
-    for (const r of this.results.values()) {
-      if (r.status === "done") count.done++
-      else if (r.status === "provisional") count.provisional++
-      else if (r.status === "error") count.failed++
+    for (const unit of this.results.keys()) {
+      const view = this.view(unit)
+      if (view.kind === "done") count.done++
+      else if (view.kind === "provisional") count.provisional++
+      else if (view.kind !== "loading") count.failed++
     }
     this.deps.report?.({
       active: this.active,
@@ -77,12 +91,18 @@ export class TranslationController {
     this.settings = next
     this.applyStyleVars()
     if (!this.active || !prev) return
-    if (prev.targetLang !== next.targetLang || prev.providerSignature !== next.providerSignature) {
+    if (prev.targetLang !== next.targetLang || prev.sourceLang !== next.sourceLang || prev.precise !== next.precise) {
       this.stop()
       await this.start()
       return
     }
-    if (prev.mode !== next.mode || prev.style.preset !== next.style.preset) this.rerender()
+    const changed = TIERS.filter((tier) => prev.signatures[tier] !== next.signatures[tier])
+    for (const state of this.results.values()) for (const tier of changed) delete state[tier]
+    if (changed.length > 0 || prev.mode !== next.mode || prev.style.preset !== next.style.preset) this.rerender()
+    if (changed.length > 0) {
+      this.report()
+      await Promise.all(this.units.map((unit) => this.translateUnit(unit, this.session)))
+    }
   }
 
   /** Decide on auto-translation for a freshly displayed message. */
@@ -92,7 +112,7 @@ export class TranslationController {
     if (!s?.autoTranslate || this.active || !root) return false
     const sample = extractText(root).slice(0, 4000)
     if (!hasTranslatableText(sample)) return false
-    if (await isInTargetLanguage(sample, s.targetLang, this.deps.detect)) return false
+    if (await isInTargetLanguage(sample, s.targetLang, this.deps.detect, s.sourceLang)) return false
     await this.start()
     return true
   }
@@ -116,7 +136,7 @@ export class TranslationController {
     const all = this.collected.units
     const candidates: Unit[] = []
     for (const unit of all) {
-      const inTarget = await isInTargetLanguage(unit.text, s.targetLang, this.deps.detect)
+      const inTarget = await isInTargetLanguage(unit.text, s.targetLang, this.deps.detect, s.sourceLang)
       // Stopped or restarted while the language was detected.
       if (session !== this.session) return
       if (!inTarget) candidates.push(unit)
@@ -152,86 +172,122 @@ export class TranslationController {
     return this.deps.root()
   }
 
-  private memoKey(text: string): string {
+  private memoKey(tier: Tier, text: string): string {
     const s = this.settings!
-    return `${s.providerSignature}|${s.targetLang}|${text}`
+    return `${s.signatures[tier]}|${s.sourceLang}>${s.targetLang}|${text}`
   }
 
-  private request(unit: Unit): TranslateRequest {
+  private request(unit: Unit, tiers: Tier[]): TranslateRequest {
     const s = this.settings!
     const index = this.collected?.units.indexOf(unit) ?? -1
     return {
       text: unit.text,
+      sourceLang: s.sourceLang,
       targetLang: s.targetLang,
-      providerId: s.activeProviderId,
+      tiers,
       ...(this.context && index >= 0 ? { context: { id: this.context.id, index } } : {}),
     }
   }
 
+  /** Request the enabled tiers that have no result yet; none when the highest tier has its translation. */
   private async translateUnit(unit: Unit, session: number): Promise<void> {
-    const known = this.memo.get(this.memoKey(unit.text))
-    if (known !== undefined) {
-      this.finish(unit, { ok: true, text: known }, session)
-      return
+    const s = this.settings!
+    let state = this.results.get(unit)
+    if (!state) this.results.set(unit, (state = {}))
+    const missing = s.tiers.filter((tier) => !state[tier])
+    for (const tier of missing) {
+      const known = this.memo.get(this.memoKey(tier, unit.text))
+      if (known !== undefined) state[tier] = { status: "ok", text: known }
     }
-    this.results.set(unit, { status: "loading" })
-    this.renderer?.showLoading(unit, t("statusTranslating"))
-    let res: TranslateResponse
+    const wanted = state[s.tiers.at(-1)!]?.status === "ok" ? [] : missing.filter((tier) => !state[tier])
+    for (const tier of wanted) state[tier] = { status: "pending" }
+    this.renderResult(unit)
+    this.report()
+    if (wanted.length === 0) return
+
+    const signatures = Object.fromEntries(wanted.map((tier) => [tier, s.signatures[tier]]))
+    /** Whether a result for `tier` still belongs to what is on screen. */
+    const current = (tier: Tier) => session === this.session && this.settings?.signatures[tier] === signatures[tier] && this.results.get(unit) === state
+    const receive = (tier: Tier, res: TranslateResponse) => {
+      if (!current(tier)) return
+      // Never show an empty reason, whatever the background sent.
+      if (!res || (!res.ok && !res.error?.trim())) res = { ok: false, error: describeError(undefined, getI18n()) }
+      if (res.ok) {
+        state[tier] = { status: "ok", text: res.text }
+        this.memo.set(this.memoKey(tier, unit.text), res.text)
+      } else {
+        state[tier] = { status: "error", error: res.error }
+        if (tier === this.settings!.tiers.at(-1)) this.lastError = res.error
+      }
+      this.renderResult(unit)
+      this.report()
+    }
     try {
-      res = await this.deps.translate(this.request(unit), (text) => this.provisional(unit, text, session))
+      await this.deps.translate(this.request(unit, wanted), receive)
     } catch (error) {
-      res = { ok: false, error: describeError(error, getI18n()) }
+      for (const tier of wanted) if (state[tier]?.status === "pending") receive(tier, { ok: false, error: describeError(error, getI18n()) })
     }
-    // Never show an empty reason, whatever the background sent.
-    if (!res || (!res.ok && !res.error?.trim())) res = { ...res, ok: false, error: describeError(undefined, getI18n()) }
-    if (res.ok) this.memo.set(this.memoKey(unit.text), res.text)
-    this.finish(unit, res, session)
+    // Tiers without an answer were not asked, because the highest tier came from the cache.
+    for (const tier of wanted) if (current(tier) && state[tier]?.status === "pending") delete state[tier]
+    if (session === this.session) {
+      this.renderResult(unit)
+      this.report()
+    }
   }
 
-  /** Race mode: the fast service answered first. Ignored once the final result is in. */
-  private provisional(unit: Unit, text: string, session: number): void {
-    if (session !== this.session || this.results.get(unit)?.status !== "loading") return
-    this.results.set(unit, { status: "provisional", text })
-    this.renderResult(unit)
-    this.report()
+  /** The highest tier with a translation wins; the highest enabled tier makes it final. */
+  private view(unit: Unit): View {
+    const tiers = this.settings?.tiers ?? []
+    const state = this.results.get(unit) ?? {}
+    const top = state[tiers.at(-1)!]
+    const best = [...tiers].reverse().find((tier) => state[tier]?.status === "ok")
+    if (best) {
+      const text = (state[best] as { text: string }).text
+      if (best === tiers.at(-1)) return { kind: "done", text }
+      return top?.status === "error" ? { kind: "fallback", text, error: top.error } : { kind: "provisional", text, tier: best }
+    }
+    if (tiers.some((tier) => state[tier]?.status === "pending")) return { kind: "loading" }
+    const failed = [...tiers].reverse().find((tier) => state[tier]?.status === "error")
+    return failed ? { kind: "error", error: (state[failed] as { error: string }).error } : { kind: "loading" }
   }
 
-  private finish(unit: Unit, res: TranslateResponse, session: number): void {
-    if (session !== this.session || !this.renderer) return
-    if (res.ok) {
-      this.results.set(unit, { status: "done", text: res.text })
-    } else {
-      this.results.set(unit, { status: "error", error: res.error, ...(res.fallback ? { fallback: res.fallback } : {}) })
-      this.lastError = res.error
-    }
-    this.renderResult(unit)
-    this.report()
+  /** Retry the tiers that failed; the others keep their results. */
+  private retry(unit: Unit): void {
+    const state = this.results.get(unit)
+    if (!state) return
+    for (const tier of TIERS) if (state[tier]?.status === "error") delete state[tier]
+    void this.translateUnit(unit, this.session)
   }
 
   private renderResult(unit: Unit): void {
-    const r = this.results.get(unit)
-    if (!this.renderer || !this.settings || !r || r.status === "loading") return
-    const retry = () => void this.translateUnit(unit, this.session)
-    let text: string
+    const s = this.settings
+    if (!this.renderer || !s) return
+    const view = this.view(unit)
+    const retry = () => this.retry(unit)
+    const topName = t(TIER_NAME_KEYS[s.tiers.at(-1)!])
     let mark: TranslationMark | undefined
-    if (r.status === "error") {
-      if (!r.fallback?.trim()) {
-        this.renderer.showError(unit, r.error, t("statusFailed"), retry)
+    switch (view.kind) {
+      case "loading":
+        this.renderer.showLoading(unit, t("statusTranslating"))
         return
-      }
-      text = r.fallback
-      mark = { kind: "fallback", label: t("statusAiFailed"), title: r.error, onRetry: retry }
-    } else {
-      text = r.text
-      if (r.status === "provisional") mark = { kind: "provisional", label: t("statusProvisional"), title: t("statusProvisionalHint") }
+      case "error":
+        this.renderer.showError(unit, view.error, t("statusFailed"), retry)
+        return
+      case "provisional":
+        mark = { kind: "provisional", label: t(TIER_NAME_KEYS[view.tier]), title: t("statusProvisionalHint", [topName]) }
+        break
+      case "fallback":
+        mark = { kind: "fallback", label: t("statusTierFailed", [topName]), title: view.error, onRetry: retry }
+        break
     }
     // Identical output adds nothing in bilingual mode.
-    if (text.trim() === unit.text.trim() || !text.trim()) {
-      if (r.status === "done") this.renderer.clear(unit)
-      else if (r.status === "error") this.renderer.showError(unit, r.error, t("statusFailed"), retry)
+    if (view.text.trim() === unit.text.trim() || !view.text.trim()) {
+      if (view.kind === "fallback") this.renderer.showError(unit, view.error, t("statusFailed"), retry)
+      else if (view.kind === "provisional") this.renderer.showLoading(unit, t("statusTranslating"))
+      else this.renderer.clear(unit)
       return
     }
-    this.renderer.showTranslation(unit, text, this.settings.mode, this.settings.targetLang, mark)
+    this.renderer.showTranslation(unit, view.text, s.mode, s.targetLang, mark)
   }
 
   private rerender(): void {

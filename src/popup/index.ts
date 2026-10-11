@@ -1,13 +1,12 @@
 import { firstLine, truncate } from "../shared/errors"
 import { ext } from "../shared/ext"
-import { getI18n, t } from "../shared/i18n"
+import { t } from "../shared/i18n"
 import { localizeDocument } from "../shared/i18n-dom"
 import { loadExtensionI18n } from "../shared/i18n-ext"
-import { LANGUAGES } from "../shared/languages"
 import { IDLE_TAB_STATE, type TabState } from "../shared/messages"
-import { $, fillSelect, send } from "../shared/page"
-import { getPreset, isAiProvider, providerDisplayName } from "../shared/providers"
-import { addedProviders, type DisplayMode, SETTINGS_KEY } from "../shared/settings"
+import { $, fillSelect, languageOptions, send, sourceLanguageOptions, tierChoice, tierOptions } from "../shared/page"
+import { type Tier, TIER_NAME_KEYS, TIERS } from "../shared/providers"
+import { type DisplayMode, SETTINGS_KEY } from "../shared/settings"
 import { loadSettings, readSettings, updateSettings } from "../shared/settings-store"
 
 async function main(): Promise<void> {
@@ -21,31 +20,30 @@ async function main(): Promise<void> {
   const toggle = $<HTMLButtonElement>("toggle")
   const status = $<HTMLParagraphElement>("status")
   const lastError = $<HTMLParagraphElement>("lastError")
+  const sourceLang = $<HTMLSelectElement>("sourceLang")
   const targetLang = $<HTMLSelectElement>("targetLang")
-  const provider = $<HTMLSelectElement>("provider")
+  const tierSelect = (tier: Tier) => $<HTMLSelectElement>(`tier-${tier}`)
   const autoTranslate = $<HTMLInputElement>("autoTranslate")
-  const raceEnabled = $<HTMLInputElement>("raceEnabled")
   const preciseEnabled = $<HTMLInputElement>("preciseEnabled")
 
   const fillSelects = () => {
-    const i18n = getI18n()
-    fillSelect(targetLang, LANGUAGES.map((l) => new Option(i18n.languageName(l.code, l.native), l.code)), settings.targetLang)
-    fillSelect(provider, addedProviders(settings).map((p) => new Option(providerDisplayName(p, i18n), p.id)), settings.activeProviderId)
-  }
-  // Race and precise mode apply to AI services only.
-  const showAiModes = () => {
-    $("aiModes").hidden = !isAiProvider(getPreset(settings.activeProviderId))
-    raceEnabled.checked = settings.race.enabled
-    preciseEnabled.checked = settings.precise.enabled
+    fillSelect(sourceLang, sourceLanguageOptions(), settings.sourceLang)
+    fillSelect(targetLang, languageOptions(), settings.targetLang)
+    TIERS.forEach((tier, i) => {
+      $(`tierLabel-${tier}`).textContent = t("tierLabel", [i + 1, t(TIER_NAME_KEYS[tier])])
+      fillSelect(tierSelect(tier), tierOptions(settings, tier), settings.tiers[tier] ?? "")
+    })
   }
   const modeRadios = Array.from(document.querySelectorAll<HTMLInputElement>('input[name="mode"]'))
-  // The switches and the display mode follow settings changed elsewhere, e.g. on the settings page.
+  // The switches follow settings changed elsewhere, e.g. on the settings page. Precise translation applies to the AI tier only.
   const showSwitches = () => {
     autoTranslate.checked = settings.autoTranslate
     for (const radio of modeRadios) radio.checked = radio.value === settings.mode
+    $("preciseRow").hidden = !settings.tiers.ai
+    preciseEnabled.checked = settings.precise.enabled
+    $("sameLanguage").hidden = settings.sourceLang !== settings.targetLang
   }
   fillSelects()
-  showAiModes()
   showSwitches()
   for (const radio of modeRadios) {
     radio.addEventListener("change", () => {
@@ -53,10 +51,17 @@ async function main(): Promise<void> {
     })
   }
 
+  sourceLang.addEventListener("change", () => void updateSettings((s) => (s.sourceLang = sourceLang.value)))
   targetLang.addEventListener("change", () => void updateSettings((s) => (s.targetLang = targetLang.value)))
-  provider.addEventListener("change", () => void updateSettings((s) => (s.activeProviderId = provider.value)))
+  for (const tier of TIERS) {
+    const select = tierSelect(tier)
+    select.addEventListener("change", () => {
+      const value = tierChoice(select, settings.tiers, tier)
+      $("tiersEmpty").hidden = value !== undefined
+      if (value !== undefined) void updateSettings((s) => (s.tiers[tier] = value))
+    })
+  }
   autoTranslate.addEventListener("change", () => void updateSettings((s) => (s.autoTranslate = autoTranslate.checked)))
-  raceEnabled.addEventListener("change", () => void updateSettings((s) => (s.race.enabled = raceEnabled.checked)))
   preciseEnabled.addEventListener("change", () => void updateSettings((s) => (s.precise.enabled = preciseEnabled.checked)))
   $("openOptions").addEventListener("click", (e) => {
     e.preventDefault()
@@ -98,7 +103,6 @@ async function main(): Promise<void> {
   ext.storage.onChanged.addListener((changes, area) => {
     if (area !== "local" || !changes[SETTINGS_KEY]) return
     settings = readSettings(changes[SETTINGS_KEY].newValue)
-    showAiModes()
     showSwitches()
     if (settings.uiLanguage === uiLanguage) {
       fillSelects()

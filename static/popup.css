@@ -91,6 +91,33 @@ select {
   padding: 4px;
 }
 
+.languages {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+.tier {
+  display: grid;
+  grid-template-columns: 9em 1fr;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 4px;
+  font-size: 12px;
+}
+
+.warning {
+  margin: -4px 0 10px;
+  color: #b06000;
+  font-size: 12px;
+}
+
+@media (prefers-color-scheme: dark) {
+  .warning {
+    color: #fdd663;
+  }
+}
+
 button.link {
   margin-top: 4px;
   padding: 0;

@@ -229,7 +229,7 @@ describe("settings page", () => {
   async function openOptions(testResponse: unknown) {
     const settings = createDefaultSettings("zh-CN")
     settings.uiLanguage = "zh_CN"
-    settings.activeProviderId = "deepseek"
+    settings.tiers.ai = "deepseek"
     settings.providers.deepseek = { enabled: true, apiKey: "sk-test", baseURL: "https://platform.deepseek.com", model: "" }
     const page = await openPage("options", settings, { uiLanguage: "zh-CN", respond: (req) => (req.type === "testProvider" ? testResponse : undefined) })
     await vi.waitFor(() => expect(document.querySelector("#providerPanel button")).not.toBeNull())
@@ -260,7 +260,7 @@ describe("settings page", () => {
 
   it("warns about a console URL under the endpoint field and restores the default", async () => {
     await openOptions({ ok: true, text: "你好" })
-    const warning = document.querySelector<HTMLElement>(".field-warning")!
+    const warning = document.querySelector<HTMLElement>("#providerPanel .field-warning")!
     expect(warning.hidden).toBe(false)
     expect(warning.textContent).toContain("platform.deepseek.com")
     expect(warning.textContent).toContain(getPreset("deepseek")!.defaultBaseURL)

@@ -18,6 +18,8 @@ export interface ErrorText {
   args?: string[]
   /** Untranslated detail appended after the message, e.g. a server response. */
   detail?: string
+  /** Suggestion shown on its own line by describeError(). */
+  hint?: MessageKey
 }
 
 export function renderErrorText(text: ErrorText, i18n: I18n): string {
@@ -28,8 +30,8 @@ export function renderErrorText(text: ErrorText, i18n: I18n): string {
 export class LocalizedError extends Error {
   readonly i18nText: ErrorText
 
-  constructor(key: MessageKey, args: string[] = [], detail?: string) {
-    const text: ErrorText = { key, args, detail }
+  constructor(key: MessageKey, args: string[] = [], detail?: string, hint?: MessageKey) {
+    const text: ErrorText = { key, args, detail, hint }
     super(renderErrorText(text, ENGLISH))
     this.name = "LocalizedError"
     this.i18nText = text
@@ -352,7 +354,7 @@ function analyze(error: unknown, ctx: ErrorContext, i18n: I18n, depth: number): 
   const hints = statusHints(typeof e.status === "number" ? e.status : undefined, i18n)
 
   const text = e.i18nText as ErrorText | undefined
-  if (text && typeof text.key === "string") return { reason: renderErrorText(text, i18n), hints }
+  if (text && typeof text.key === "string") return { reason: renderErrorText(text, i18n), hints: text.hint ? [i18n.t(text.hint)] : hints }
 
   const message = str(e.message).trim()
   if (!message && e.cause !== undefined && e.cause !== error && depth < 5) return analyze(e.cause, ctx, i18n, depth + 1)

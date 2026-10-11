@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from "vitest"
+import { describe, expect, it, vi } from "vitest"
 import { buildDeepLXRequest, deeplxTranslate, parseDeepLXResponse } from "../src/background/translators/deeplx"
 import {
   buildGoogleBatchRequest,
@@ -7,16 +7,11 @@ import {
   parseGoogleSingleResponse,
 } from "../src/background/translators/google"
 import {
-  buildMicrosoftApiRequest,
   buildMicrosoftEdgeRequest,
   decodeHtml,
-  MS_API_URL,
-  MS_AUTH_URL,
   MS_EDGE_TRANSLATE_URL,
   microsoftTranslateBatch,
   parseMicrosoftResponse,
-  resetMicrosoftState,
-  tokenExpiry,
 } from "../src/background/translators/microsoft"
 import { asFetch, jsonResponse } from "./helpers"
 
@@ -31,6 +26,10 @@ describe("Google (gtx)", () => {
     expect(init.method).toBe("POST")
     const body = new URLSearchParams(init.body)
     expect(body.getAll("q")).toEqual(["Hello world", "a & b = c?"])
+  })
+
+  it("sends a chosen source language as sl", () => {
+    expect(new URL(buildGoogleBatchRequest(["Hallo"], "zh-CN", { source: "de" }).url).searchParams.get("sl")).toBe("de")
   })
 
   it("parses both response shapes and validates the count", () => {
@@ -70,23 +69,16 @@ describe("Google (gtx)", () => {
 })
 
 describe("Microsoft", () => {
-  beforeEach(() => resetMicrosoftState())
-
-  it("builds the Translator v3 request with a bearer token", () => {
-    const { url, init } = buildMicrosoftApiRequest(["Hello", "World"], "zh-Hans", "TOKEN")
-    const u = new URL(url)
-    expect(u.origin + u.pathname).toBe(MS_API_URL)
-    expect(u.searchParams.get("api-version")).toBe("3.0")
-    expect(u.searchParams.get("to")).toBe("zh-Hans")
-    expect(init.headers.Authorization).toBe("Bearer TOKEN")
-    expect(JSON.parse(init.body!)).toEqual([{ Text: "Hello" }, { Text: "World" }])
-  })
-
   it("builds the direct Edge request with escaped text", () => {
     const { url, init } = buildMicrosoftEdgeRequest(["a < b & c"], "zh-Hans")
     expect(url.startsWith(`${MS_EDGE_TRANSLATE_URL}?`)).toBe(true)
     expect(new URL(url).searchParams.get("to")).toBe("zh-Hans")
     expect(JSON.parse(init.body!)).toEqual(["a &lt; b &amp; c"])
+  })
+
+  it("leaves out from for automatic detection and sends a chosen source language", () => {
+    expect(new URL(buildMicrosoftEdgeRequest(["x"], "zh-Hans").url).searchParams.has("from")).toBe(false)
+    expect(new URL(buildMicrosoftEdgeRequest(["x"], "zh-Hans", "de").url).searchParams.get("from")).toBe("de")
   })
 
   it("parses array responses and decodes entities on the direct route", () => {
@@ -97,37 +89,12 @@ describe("Microsoft", () => {
     expect(decodeHtml("&amp;lt; &#39;x&#39; &#x4F60;")).toBe("&lt; 'x' 你")
   })
 
-  it("reads the expiry from a JWT", () => {
-    const payload = btoa(JSON.stringify({ exp: 2_000_000_000 }))
-    expect(tokenExpiry(`h.${payload}.s`)).toBe(2_000_000_000_000 - 60_000)
-    expect(tokenExpiry("not-a-jwt", 1000)).toBe(1000 + 8 * 60_000)
-  })
-
-  it("uses the token route when the auth endpoint works, reusing the token", async () => {
-    const calls: string[] = []
-    const fetchFn = vi.fn(async (url: string) => {
-      calls.push(url.split("?")[0])
-      if (url === MS_AUTH_URL) return new Response("tok.eyJleHAiOjk5OTk5OTk5OTl9.sig")
-      return jsonResponse([{ translations: [{ text: "你好" }] }])
-    })
-    const f = asFetch(fetchFn)
-    expect(await microsoftTranslateBatch(["Hello"], "zh-Hans", { fetchFn: f })).toEqual(["你好"])
-    expect(await microsoftTranslateBatch(["Hello"], "zh-Hans", { fetchFn: f })).toEqual(["你好"])
-    expect(calls).toEqual([MS_AUTH_URL, MS_API_URL, MS_API_URL])
-  })
-
-  it("switches to the direct route when the auth endpoint is gone", async () => {
-    const calls: string[] = []
-    const fetchFn = vi.fn(async (url: string) => {
-      calls.push(url.split("?")[0])
-      if (url === MS_AUTH_URL) return new Response("", { status: 404 })
-      return jsonResponse([{ translations: [{ text: "你好" }] }, { translations: [{ text: "世界" }] }])
-    })
+  it("sends every request to the direct route only", async () => {
+    const fetchFn = vi.fn(async (_url: string) => jsonResponse([{ translations: [{ text: "你好" }] }, { translations: [{ text: "世界" }] }]))
     const f = asFetch(fetchFn)
     expect(await microsoftTranslateBatch(["Hello", "World"], "zh-Hans", { fetchFn: f })).toEqual(["你好", "世界"])
     expect(await microsoftTranslateBatch(["Hello", "World"], "zh-Hans", { fetchFn: f })).toEqual(["你好", "世界"])
-    // The dead auth endpoint is tried once, then skipped.
-    expect(calls).toEqual([MS_AUTH_URL, MS_EDGE_TRANSLATE_URL, MS_EDGE_TRANSLATE_URL])
+    expect(fetchFn.mock.calls.map(([url]) => String(url).split("?")[0])).toEqual([MS_EDGE_TRANSLATE_URL, MS_EDGE_TRANSLATE_URL])
   })
 })
 
@@ -142,6 +109,7 @@ describe("DeepLX", () => {
     expect(b.url).toBe("https://api.deeplx.org/k%2F1/translate")
     expect(b.init.headers.Authorization).toBeUndefined()
 
+    expect(JSON.parse(buildDeepLXRequest("Hallo", "ZH", "https://d.example/translate", "", "DE").init.body!).source_lang).toBe("DE")
     expect(() => buildDeepLXRequest("x", "ZH", "", "")).toThrow(/endpoint/)
     expect(() => buildDeepLXRequest("x", "ZH", "https://x/{{apiKey}}", "")).toThrow(/token/)
   })

@@ -1,14 +1,11 @@
-import { beforeEach, describe, expect, it, vi } from "vitest"
+import { describe, expect, it, vi } from "vitest"
 import { errorContext } from "../src/background/service"
 import {
   AZURE_LIMITS,
   azureTranslateBatch,
   buildAzureRequest,
-  MS_API_URL,
-  MS_AUTH_URL,
   MS_EDGE_TRANSLATE_URL,
   microsoftTranslateBatch,
-  resetMicrosoftState,
 } from "../src/background/translators/microsoft"
 import { describeError } from "../src/shared/errors"
 import { ENGLISH } from "../src/shared/i18n"
@@ -101,20 +98,16 @@ describe("Azure Translator limits", () => {
   })
 })
 
-describe("Microsoft free mode stays as it was", () => {
-  beforeEach(() => resetMicrosoftState())
-
-  it("without Azure options it still tries the token route and then the direct route", async () => {
-    const calls: string[] = []
-    const f = vi.fn(async (url: string) => {
-      calls.push(url.split("?")[0])
-      if (url === MS_AUTH_URL) return new Response("", { status: 404 })
-      return jsonResponse([{ translations: [{ text: "你好" }] }])
-    })
+describe("Microsoft free mode", () => {
+  it("without Azure options it uses the direct route only", async () => {
+    const f = vi.fn(async (_url: string) => jsonResponse([{ translations: [{ text: "你好" }] }]))
     expect(await microsoftTranslateBatch(["Hello"], "zh-Hans", { fetchFn: asFetch(f) })).toEqual(["你好"])
-    expect(calls).toEqual([MS_AUTH_URL, MS_EDGE_TRANSLATE_URL])
-    expect(calls).not.toContain(AZURE_URL)
-    expect(MS_API_URL).not.toBe(AZURE_URL)
+    expect(f.mock.calls.map(([url]) => url.split("?")[0])).toEqual([MS_EDGE_TRANSLATE_URL])
+  })
+
+  it("sends a chosen source language as from, in both modes", () => {
+    expect(new URL(buildAzureRequest(["x"], "de", azure).url).searchParams.has("from")).toBe(false)
+    expect(new URL(buildAzureRequest(["x"], "de", azure, "fr").url).searchParams.get("from")).toBe("fr")
   })
 
   it("with Azure options it does not touch the Edge endpoints", async () => {
@@ -150,7 +143,7 @@ describe("Microsoft settings", () => {
 
   it("does not tell content scripts about the key", () => {
     const key = keyed()
-    key.activeProviderId = "microsoft-free"
+    key.tiers.machine = "microsoft-free"
     expect(JSON.stringify(toPublicSettings(key))).not.toContain("KEY")
   })
 })
@@ -163,8 +156,6 @@ describe("TranslationService with Azure Translator", () => {
     s.providers["microsoft-free"] = { ...s.providers["microsoft-free"], mode: "key", apiKey: "KEY", region: "westeurope" }
     return s
   }
-
-  beforeEach(() => resetMicrosoftState())
 
   it("sends one Azure request per window and caches the results", async () => {
     const f = azureFetch()
@@ -215,7 +206,7 @@ describe("TranslationService with Azure Translator", () => {
     expect(init.headers).toMatchObject({ "Ocp-Apim-Subscription-Key": "K2" })
     expect(init.headers).not.toHaveProperty("Ocp-Apim-Subscription-Region")
 
-    const free = vi.fn(async (url: string) => (url === MS_AUTH_URL ? new Response("", { status: 404 }) : jsonResponse([{ translations: [{ text: "你好" }] }])))
+    const free = vi.fn(async () => jsonResponse([{ translations: [{ text: "你好" }] }]))
     const svc2 = service(createDefaultSettings("en"), asFetch(free))
     expect(await svc2.testProvider("microsoft-free", { apiKey: "", baseURL: "", model: "" }, "zh-CN")).toBe("你好")
   })

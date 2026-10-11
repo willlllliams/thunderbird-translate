@@ -1,24 +1,40 @@
 import { describe, expect, it } from "vitest"
 import {
   buildBatchPrompt,
+  buildSinglePrompt,
   buildSystemPrompt,
   cleanSingleOutput,
   parseBatchOutput,
   repairJsonStrings,
 } from "../src/background/translators/llm-prompt"
 import { modelRejectsTemperature } from "../src/background/providers/thinking"
+import { DEFAULT_PROMPTS, PROMPT_KINDS } from "../src/shared/prompts"
 
 describe("batch prompt", () => {
   it("numbers every segment and states the expected count", () => {
-    const p = buildBatchPrompt([{ text: "Hello" }, { text: "Line one\nLine two" }], "Simplified Chinese")
+    const p = buildBatchPrompt([{ text: "Hello" }, { text: "Line one\nLine two" }], { target: "Simplified Chinese" })
     expect(p).toContain("exactly 2 strings")
+    expect(p).toContain("Detect the source language of each of the following 2 segments and translate it into Simplified Chinese.")
     expect(p).toContain('<seg id="1">\nHello\n</seg>')
     expect(p).toContain('<seg id="2">\nLine one\nLine two\n</seg>')
   })
 
+  it("names the source language when it is set", () => {
+    expect(buildSinglePrompt({ text: "Hallo" }, { source: "German", target: "Japanese" })).toBe(
+      "Translate the following text from German into Japanese. Output only the translation.\n\nHallo",
+    )
+    expect(buildBatchPrompt([{ text: "a" }, { text: "b" }], { source: "French", target: "English" })).toContain(
+      "Translate each of the following 2 segments from French into English.",
+    )
+  })
+
   it("substitutes {{to}} in custom and default system prompts", () => {
     expect(buildSystemPrompt("Translate into {{to}}, formal tone.", "German")).toBe("Translate into German, formal tone.")
-    expect(buildSystemPrompt("", "Japanese")).toContain("into Japanese")
+    for (const kind of PROMPT_KINDS) {
+      const prompt = buildSystemPrompt(DEFAULT_PROMPTS[kind], "Japanese")
+      expect(prompt).toContain("into Japanese")
+      expect(prompt).not.toContain("{{to}}")
+    }
   })
 })
 

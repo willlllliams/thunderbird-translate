@@ -2,7 +2,7 @@
 
 [English](../README.md) | [简体中文](README.zh-CN.md) | [繁體中文](README.zh-TW.md) | [日本語](README.ja.md) | [한국어](README.ko.md) | [Français](README.fr.md) | [Deutsch](README.de.md) | [Español](README.es.md) | [Português (Brasil)](README.pt-BR.md) | [Русский](README.ru.md) | Türkçe | [Tiếng Việt](README.vi.md)
 
-Thunderbird Translate, okuduğunuz iletinin gövdesini doğrudan ileti bölmesinde çeviren bir Thunderbird eklentisidir. Çeviri her özgün paragrafın altında gösterilebilir (iki dilli) ya da paragrafın yerini alabilir (yalnızca çeviri). Çeviri kapatıldığında özgün ileti olduğu gibi geri gelir. Varsayılan hizmet ücretsiz Google Translate'tir ve kurulumdan hemen sonra çalışır. Bunun yanında OpenAI, Claude, Gemini, DeepSeek ve Qwen dahil 22 yapay zekâ sağlayıcısı bağlanabilir.
+Thunderbird Translate, okuduğunuz iletinin gövdesini doğrudan ileti bölmesinde çeviren bir Thunderbird eklentisidir. Çeviri her özgün paragrafın altında gösterilebilir (iki dilli) ya da paragrafın yerini alabilir (yalnızca çeviri). Çeviri kapatıldığında özgün ileti olduğu gibi geri gelir. Çeviri aynı anda üç kademede yürür: çevrimdışı bir sözlük, bir makine çevirmeni (Google Translate, Microsoft Translator, DeepLX veya çevrimdışı Bergamot modelleri) ve bir yapay zekâ hizmeti (OpenAI, Claude, Gemini, DeepSeek ve Qwen dahil 22 sağlayıcı). İlk gelen sonuç önce gösterilir; en yüksek kademenin sonucu gelince onun yerini alır. Varsayılan hizmet ücretsiz Google Translate'tir ve kurulumdan hemen sonra çalışır.
 
 Bu belge daha önce Thunderbird eklentisi kullanmamış okurlar için yazılmıştır. Sırasıyla kurulum, kullanım, yapılandırma ve çalışma ilkesini anlatır.
 
@@ -16,9 +16,11 @@ Bu belge daha önce Thunderbird eklentisi kullanmamış okurlar için yazılmı�
 - Giriş noktaları: ileti başlığı araç çubuğundaki "İletiyi çevir" düğmesi ve açılır penceresi, ayrıca Alt+A (çevir / özgün metni göster) ve Alt+S (iki dilli / yalnızca çeviri arasında geç) kısayolları.
 - İsteğe bağlı otomatik çeviri: hedef dilde olmayan iletiler açıldıkları anda çevrilir.
 - İstek gruplama: arka plan betiği paragrafları 50 ms boyunca toplar ve tek bir istekte birleştirir. Eşzamanlı istek sınırı, üstel geri çekilmeli yeniden deneme ve yerel önbellek de bu sürecin parçasıdır.
-- Hizmetler: 3 ücretsiz veya kendi sunucunuzda barındırılan çeviri hizmeti ve 22 yapay zekâ sağlayıcısı ön ayarı; bu ön ayarlardan biri "Özel OpenAI uyumlu" seçeneğidir. Hizmet listelerinde yalnızca eklediğiniz hizmetler görünür.
-- Yarışlı çeviri (yapay zekâ hizmetleri): ücretsiz bir çevirmen önce yanıt verir; yapay zekâ çevirisi onun yerini alana kadar sonucu geçici çeviri olarak gösterilir.
-- Hassas çeviri (yapay zekâ hizmetleri): her isteğin bağlamı iletinin tamamıdır; bu sayede adlar, terimler ve hitap biçimleri paragraflar arasında tutarlı kalır.
+- Üç çeviri kademesi: sözlük, makine çevirisi ve yapay zekâ. Her kademenin kendi hizmeti vardır ya da kademe kullanılmaz; her paragraf kullanılan tüm kademelere aynı anda gider. Alt kademenin sonucu, en yüksek kademe onun yerini alana kadar geçici çeviri olarak gösterilir ve en yüksek kademe başarısız olursa yerinde kalır.
+- Hizmetler: çevrimdışı bir sözlük, 4 makine çevirmeni (Google Translate, Microsoft Translator, DeepLX, çevrimdışı Bergamot modelleri) ve 22 yapay zekâ sağlayıcısı ön ayarı; bu ön ayarlardan biri "Özel OpenAI uyumlu" seçeneğidir. Kademe listelerinde yalnızca eklediğiniz hizmetler görünür.
+- Kaynak dil: otomatik algılama veya sabit bir dil; seçilen değer her hizmete iletilir.
+- Yapay zekâ kademesi için üç istem: biri iki dilli görünüm, biri yalnızca çeviri görünümü, biri de hassas çeviri için.
+- Hassas çeviri (yapay zekâ kademesi): her isteğin bağlamı iletinin tamamıdır; bu sayede adlar, terimler ve hitap biçimleri paragraflar arasında tutarlı kalır.
 - Her yapay zekâ sağlayıcısı için varsayılan olarak kapalı bir düşünme modu anahtarı.
 - 12 dilde arayüz. Arayüz dili varsayılan olarak Thunderbird'ün dilini izler ve ayarlar sayfasından seçilebilir.
 
@@ -52,12 +54,12 @@ Bir ileti açın. İleti başlığı araç çubuğunda "İletiyi çevir" düğme
 
 - "Bu iletiyi çevir": çeviriyi başlatır. Bir çeviri sürerken veya gösterilirken düğmenin adı "Özgün metni göster" olur ve tıklandığında özgün metni geri getirir.
 - Görünüm: iki dilli ile yalnızca çeviri arasında geçiş yapar; değişiklik geçerli iletiye hemen uygulanır.
-- Hedef dil: değiştirildiğinde, çevrilmekte olan ileti yeni dile yeniden çevrilir.
-- Çeviri hizmeti: kullanılacak hizmeti seçer. Liste yalnızca eklenen hizmetleri içerir. Listenin altındaki "+ Çeviri hizmeti ekle" ayarlar sayfasını çeviri hizmetleri bölümünde açar.
-- Yarışlı çeviri ve Hassas çeviri: geçerli hizmet bir yapay zekâ hizmeti olduğunda görünür; iki yapay zekâ çeviri modunu açıp kapatır.
+- Kaynak dil ve hedef dil: varsayılan kaynak dil "Otomatik algıla"dır. İkisinden biri değiştirildiğinde, çevrilmekte olan ileti yeniden çevrilir. İkisi aynı dil olduğunda bir uyarı görünür.
+- Çeviri kademeleri: her kademe için bir liste vardır (Kademe 1: Sözlük, Kademe 2: Makine çevirisi, Kademe 3: Yapay zekâ çevirisi). Her liste "Kullanılmıyor" seçeneğini ve o kademeye eklenmiş hizmetleri içerir. En az bir kademenin bir hizmeti olmalıdır; kullanılan son kademe için "Kullanılmıyor" seçilirse seçim reddedilir ve bir uyarı gösterilir. Listelerin altındaki "+ Çeviri hizmeti ekle" ayarlar sayfasını çeviri hizmetleri bölümünde açar.
+- Hassas çeviri: yapay zekâ kademesinin bir hizmeti olduğunda görünür.
 - Hedef dilde olmayan iletileri otomatik olarak çevir: işaretliyse, gövdesi hedef dilde olmayan bir ileti açıldığı anda çevrilir.
 
-Açılır pencere ilerlemeyi gösterir, örneğin "Çevrildi: 8 / 12". Yarışlı çeviride hâlâ hızlı geçici çeviriyi gösteren paragraflar ayrı sayılır, örneğin "Çevrildi: 7 / 9 (2 geçici)". Bir paragrafın çevirisi başarısız olursa paragrafın arkasında kırmızı renkte "Çeviri başarısız oldu, yeniden denemek için tıklayın" yazısı belirir. Fare imleci üzerine getirildiğinde hata gösterilir; tıklandığında o paragraf yeniden denenir.
+Açılır pencere ilerlemeyi gösterir, örneğin "Çevrildi: 8 / 12". Hâlâ bir alt kademenin geçici çevirisini gösteren paragraflar ayrı sayılır, örneğin "Çevrildi: 7 / 9 (2 geçici)". Bir paragraf için tüm kademeler başarısız olursa paragrafın arkasında kırmızı renkte "Çeviri başarısız oldu, yeniden denemek için tıklayın" yazısı belirir. Fare imleci üzerine getirildiğinde hata gösterilir; tıklandığında o paragraf yeniden denenir.
 
 Alt+A geçerli iletiyi çevirir veya özgün metni geri getirir; Alt+S iki dilli ile yalnızca çeviri arasında geçiş yapar. İki kısayol da Eklenti yöneticisinin dişli menüsündeki "Eklenti kısayollarını yönet" bölümünden değiştirilebilir.
 
@@ -69,10 +71,12 @@ Ayarlar sayfası, Eklenti yöneticisinde bu eklentinin "Seçenekler" düğmesiyl
 
 | Bölüm | İçerik |
 | --- | --- |
-| Genel | Arayüz dili, hedef dil, varsayılan görünüm modu, geçerli hizmet, otomatik çeviri |
+| Genel | Arayüz dili, kaynak dil, hedef dil, varsayılan görünüm modu, otomatik çeviri |
+| Çeviri kademeleri | Her kademenin hizmeti veya "Kullanılmıyor"; hassas çeviri |
 | Çeviri hizmetleri | İki grupta hizmetler, "Eklenenler" ve "Eklenebilenler"; her hizmetin uç noktası, API anahtarı, modeli, sıcaklığı ve düşünme modu; "Bağlantıyı test et", "Ekle", "Bu hizmeti kullan" ve "Kaldır" düğmeleri |
-| Yapay zekâ çeviri modları | Hızlı hizmet seçimiyle yarışlı çeviri; hassas çeviri |
-| Sistem istemi | Yapay zekâ hizmetleri için özel sistem istemi; `{{to}}` yerine hedef dilin adı yazılır; boş bırakılırsa yerleşik istem kullanılır |
+| Sözlükler | Sözlük kademesinin dil çiftleri, boyut, lisans ve kaynak belirtimiyle; indirme ve silme; paketlerin sürüm etiketi (gelişmiş) |
+| Çevrimdışı çeviri modelleri (Bergamot) | Bergamot modellerinin yön çiftleri, boyut ve sürümle; dile göre süzme; indirme, güncelleme, iptal ve silme; geçerli dillerin gerektirdiği yönler |
+| İstemler (yapay zekâ kademesi) | İki dilli görüntüleme, yalnızca çeviri görüntüleme ve hassas çeviri istemleri; her birinde "Yerleşik istemi geri yükle" düğmesi |
 | İstek gruplama | Toplama aralığı, istek başına en fazla karakter ve paragraf sayısı, eşzamanlı istek sayısı, yeniden deneme sayısı, yapay zekâ isteklerinin birleştirilip birleştirilmeyeceği |
 | Çeviri stili | Sol kenarlık, kesikli sol kenarlık, vurgulama veya sade; vurgu rengi, metin opaklığı, yazı tipi boyutu oranı; anlık önizleme |
 | Önbellek | Önbelleği açma veya kapatma, önbellekteki en fazla paragraf sayısı, geçerli kayıt sayısı, önbelleği temizleme |
@@ -84,10 +88,10 @@ Ayarlar sayfası, Eklenti yöneticisinde bu eklentinin "Seçenekler" düğmesiyl
 Çeviri hizmetleri bölümündeki yan liste iki gruptan oluşur. "Eklenenler", açılır pencerenin ve ayarlar sayfasının hizmet listelerinde görünen hizmetleri; "Eklenebilenler" geri kalan tüm hizmetleri içerir. Bir hizmet seçildiğinde yapılandırması ve düğmeleri gösterilir:
 
 - Eklenmemiş bir hizmetin "Ekle" düğmesi vardır. Bir API anahtarı yazmak (DeepLX için uç nokta yazmak) da hizmeti ekler.
-- Eklenmiş bir hizmetin "Bu hizmeti kullan" ve "Kaldır" düğmeleri vardır. Kaldırma, hizmeti listelerden çıkarır ama yapılandırmasını korur; hizmet yeniden eklendiğinde anahtar ve model geri gelir.
-- Geçerli hizmet kaldırılamaz; yarışlı çeviri açıkken yarışlı çevirinin hızlı hizmeti de kaldırılamaz. Bu durumda "Kaldır" düğmesi devre dışı kalır ve altındaki bir satır nedenini belirtir.
+- Eklenmiş bir hizmetin "Bu hizmeti kullan" ve "Kaldır" düğmeleri vardır. "Bu hizmeti kullan", hizmeti ait olduğu kademeye yerleştirir. Kaldırma, hizmeti listelerden çıkarır ama yapılandırmasını korur; hizmet yeniden eklendiğinde anahtar ve model geri gelir.
+- Bir kademenin kullandığı hizmet kaldırılamaz. Bu durumda "Kaldır" düğmesi devre dışı kalır ve altındaki bir satır hizmeti kullanan kademeyi belirtir. Kullanımdaki hizmetler yan listede "Kullanımda" etiketi taşır.
 
-Yeni bir kurulum Google Translate ve Microsoft Translator eklenmiş olarak başlar. 1.1 veya daha eski bir sürümün ayarları yüklendiğinde bir hizmet şu durumlarda eklenmiş sayılır:
+Yeni bir kurulum Google Translate ve Microsoft Translator eklenmiş olarak başlar. Sözlük ve Bergamot, indirilmesi gereken verilere ihtiyaç duyduğu için elle eklenir. 1.1 veya daha eski bir sürümün ayarları yüklendiğinde bir hizmet şu durumlarda eklenmiş sayılır:
 
 | Hizmet | Şu durumda eklenmiş sayılır |
 | --- | --- |
@@ -95,28 +99,62 @@ Yeni bir kurulum Google Translate ve Microsoft Translator eklenmiş olarak başl
 | DeepLX | bir uç nokta girilmişse |
 | Anahtar gerektiren yapay zekâ hizmetleri | bir API anahtarı kaydedilmişse |
 | Ollama, LM Studio, özel OpenAI uyumlu | uç nokta, model veya sıcaklık değiştirilmişse |
-| geçerli hizmet | her zaman |
+| kademelerin hizmetleri | her zaman |
 
-## Yapay zekâ çeviri modları
+## Çeviri kademeleri
 
-İki mod da yalnızca geçerli hizmet bir yapay zekâ hizmeti olduğunda geçerlidir. Ayarlar sayfasındaki "Yapay zekâ çeviri modları" bölümünden veya açılır pencereden açılabilirler.
+| Kademe | Hizmetler | Sağladığı sonuç |
+| --- | --- | --- |
+| 1 Sözlük | Sözlük (çevrimdışı) | kurulu sözlük paketlerinden sözcük sözcük bir karşılık; hemen ve ağ bağlantısı olmadan kullanılabilir |
+| 2 Makine çevirisi | Google Translate, Microsoft Translator, DeepLX, Bergamot (çevrimdışı) | bir iki saniye içinde tam bir çeviri |
+| 3 Yapay zekâ çevirisi | 22 yapay zekâ sağlayıcısı | görünüm modunun istemine uyan en iyi çeviri |
 
-### Yarışlı çeviri
+Her kademede bir hizmet ya da "Kullanılmıyor" seçilidir ve en az bir kademenin bir hizmeti vardır. Varsayılan ayarda yalnızca 2. kademe kullanılır ve hizmeti Google Translate'tir.
 
-Her paragraf hem yapay zekâ hizmetine hem de hızlı bir hizmete gider (varsayılan Google Translate'tir; eklenen hizmetler arasından Microsoft Translator veya DeepLX seçilebilir). İki istek de normal gruplamayı ve önbelleği kullanır. Sonuç, hangi yanıtın önce geldiğine bağlıdır:
+Her paragraf kullanılan tüm kademelere aynı anda gider. Her kademe normal gruplamayı ve önbelleği kullanır. İletide gösterilen içerik tek bir kurala uyar: yanıt vermiş en yüksek kademe kazanır.
 
 | Durum | İletide görünen |
 | --- | --- |
-| Hızlı hizmet önce yanıt verir | onun çevirisi, italik ve "Geçici" etiketiyle; fare imleci üzerine getirildiğinde bir ipucu yapay zekâ çevirisinin hazırlanmakta olduğunu söyler. Yapay zekâ çevirisi gelince onun yerini alır. |
-| Yapay zekâ hizmeti önce yanıt verir | yapay zekâ çevirisi; hızlı hizmetin sonucu atılır |
-| Yapay zekâ isteği başarısız olur | hızlı çeviri kalır ve "Yapay zekâ çevirisi başarısız oldu" ile işaretlenir; fare imleci üzerine getirildiğinde neden gösterilir, tıklandığında paragraf yeniden denenir |
-| Yapay zekâ çevirisi zaten önbellekte | önbellekteki yapay zekâ çevirisi; hızlı hizmete sorulmaz |
+| Bir alt kademe önce yanıt verir | onun çevirisi, italik ve kademesini belirten bir etiketle ("Sözlük", "Makine çevirisi"); fare imleci üzerine getirildiğinde hangi kademenin hâlâ çalıştığı gösterilir. Daha yüksek bir kademenin çevirisi gelince onun yerini alır. |
+| Kullanılan en yüksek kademe yanıt verir | onun çevirisi, etiketsiz: bu nihai çeviridir. Daha sonra yanıt veren alt kademeler yok sayılır. |
+| En yüksek kademe başarısız olur | en iyi alt kademe çevirisi kalır ve "Yapay zekâ çevirisi başarısız oldu" (en yüksek kademe başka bir kademeyse "<kademe adı> başarısız oldu") ile işaretlenir; fare imleci üzerine getirildiğinde neden gösterilir, tıklandığında yalnızca başarısız kademeler yeniden denenir |
+| Tüm kademeler başarısız olur | kırmızı "Çeviri başarısız oldu, yeniden denemek için tıklayın" işareti |
+| En yüksek kademenin çevirisi zaten önbellekte | o çeviri hemen gösterilir; alt kademelere sorulmaz |
 
-Görünüm modunu değiştirmek geçici ve başarısız işaretlerini korur; "Özgün metni göster" bu işaretleri çevirilerle birlikte kaldırır. Yarışlı çeviri ek yapay zekâ belirteci harcamaz, ancak hızlı hizmete giden istek sayısını iki katına çıkarır.
+Görünüm modu değiştirildiğinde sözlük ve makine çevirileri olduğu gibi yeniden çizilir. Yapay zekâ kademesi her görünüm modu için ayrı bir istem kullanır; bu yüzden yeni modun istemiyle yeniden sorgulanır. O istem için önbellekte zaten bulunan bir çeviri istek gönderilmeden gelir. Açılır pencere nihai çevirileri çevrilmiş, alt kademe çevirilerini geçici olarak sayar.
 
-### Hassas çeviri
+1.3 veya daha eski bir sürümün kaydettiği ayarlar bir kez dönüştürülür. Geçerli hizmet bir yapay zekâ hizmetiyse 3. kademe olur; o sürümdeki yarışlı çeviri açıksa yarışlı çevirinin hızlı hizmeti de 2. kademe olur. Başka bir geçerli hizmet 2. kademe olur. Sözlük kademesi kullanılmadan başlar.
 
-Hassas çeviri, iletiyi her yapay zekâ isteğine bağlam olarak ekler. Çeviri başladığında içerik betiği bulduğu paragrafları iletinin düz metninde birleştirir (20000 karakterden sonra kesilir ve metnin devam ettiği belirtilir) ve bunu arka plan betiğine bir kez kaydeder. İleti, tam metninin özet değeriyle (hash) tanımlanır; kesme yalnızca bağlam olarak gönderilen metne uygulanır.
+## Kaynak dil
+
+Kaynak dil varsayılan olarak "Otomatik algıla"dır; hedef dil listesindeki 20 dilden biri de seçilebilir. Kaynak dil her hizmete iletilir:
+
+| Hizmet | Otomatik algılama | Sabit dil |
+| --- | --- | --- |
+| Google Translate | `sl=auto` | `sl=<code>` |
+| Microsoft Translator, ücretsiz ve anahtarlı | `from` parametresi gönderilmez | `from=<code>` |
+| DeepLX | `source_lang: "auto"` | `source_lang: "<code>"` (Çince varyantları `ZH` olarak) |
+| Yapay zekâ hizmetleri | "Detect the source language of … and translate it into …" | "Translate … from <language> into …" |
+| Sözlük | her paragraf için ayrı algılanır | ayarlandığı gibi |
+| Bergamot | `"auto"`; yedek olarak yazı sistemine ve İngilizce sık kullanılan sözcüklere (stop words) göre bulunan dil | ayarlandığı gibi |
+
+Hedef dilde olduğu algılanan paragraflar eskisi gibi atlanır. Kaynak dil sabitlendiğinde, dili güvenilir biçimde algılanamayan paragraflar o dilde sayılır. Önbellek anahtarları ve gruplar kaynak dili içerir; bu yüzden kaynak dil değiştirildiğinde eski ayarla yapılmış çeviriler hiçbir zaman döndürülmez.
+
+## İstemler
+
+Yapay zekâ kademesinin üç sistem istemi vardır. Her biri ayarlar sayfasında düzenlenebilir ve "Yerleşik istemi geri yükle" ile ilk hâline döndürülebilir; boş bir alan da yerleşik istem anlamına gelir. `{{to}}` yerine hedef dilin İngilizce adı yazılır. Eklenti kaynak dili ve grup biçimini her isteğe kendisi ekler.
+
+| İstem | Kullanıldığı yer | Yerleşik istemin istediği |
+| --- | --- | --- |
+| İki dilli görüntüleme | iki dilli modda yapay zekâ kademesi | özgün metne yakın, cümle cümle aynı sırayla ilerleyen, hiçbir şey eklemeyen ve çıkarmayan bir çeviri; okur çeviriyi özgün metinle karşılaştırır |
+| Yalnızca çeviri görüntüleme | yalnızca çeviri modunda yapay zekâ kademesi | hedef dilde yazılmış bir e-posta gibi okunan akıcı metin; anlamın tamamı korunduğu sürece cümle öğelerinin sırası değiştirilebilir, cümleler bölünebilir veya birleştirilebilir |
+| Hassas çeviri | hassas çeviri açıkken yapay zekâ kademesi, iki görünüm modunda da | terim listesi, özet ve komşu paragraflar kullanılarak ileti boyunca tutarlı terimler, adlar ve hitap biçimleri |
+
+Önbellek anahtarları ve grup anahtarları istemin türünü ve metninin özet değerini içerir. Bu nedenle bir istem düzenlendiğinde eski metinle yapılmış çeviriler hiçbir zaman döndürülmez. 1.3 veya daha eski bir sürümün kaydettiği özel sistem istemi iki görünüm modunun da istemi olur; hassas çeviri istemi yerleşik metniyle başlar.
+
+## Hassas çeviri
+
+Hassas çeviri yapay zekâ kademesine uygulanır ve iletiyi her yapay zekâ isteğine bağlam olarak ekler. Açılır pencereden veya ayarlar sayfasının "Çeviri kademeleri" bölümünden açılır. Çeviri başladığında içerik betiği bulduğu paragrafları iletinin düz metninde birleştirir (20000 karakterden sonra kesilir ve metnin devam ettiği belirtilir) ve bunu arka plan betiğine bir kez kaydeder. İleti, tam metninin özet değeriyle (hash) tanımlanır; kesme yalnızca bağlam olarak gönderilen metne uygulanır.
 
 Akış, çevrilecek paragrafların boyutuna bağlıdır:
 
@@ -127,6 +165,44 @@ Akış, çevrilecek paragrafların boyutuna bağlıdır:
 Önek, bir iletinin tüm isteklerinde karakter karakter aynıdır; tekrar eden istem öneklerini önbelleğe alan sağlayıcılar bu nedenle onu kendi önbelleklerinden sunabilir. Anthropic için önek `cacheControl: { type: "ephemeral" }` ile işaretlenir. Analiz de çeviriler gibi önbelleğe alınır; anahtarı sağlayıcıdan, modelden, hedef dilden ve ileti metninin özet değerinden oluşur ve bir iletinin grupları aynı analiz isteğini bekler.
 
 Hassas modda yapılan çeviriler, ileti özet değerini içeren bir anahtarla önbelleğe alınır ve gruplar farklı iletilerin paragraflarını hiçbir zaman karıştırmaz. Bu yüzden aynı cümle başka bir iletide, o ileti bağlam olarak kullanılarak yeniden çevrilir. Analiz isteği ve daha uzun istemler hassas çeviriyi normal çeviriden daha pahalı yapar.
+
+## Sözlük çevirisi
+
+Sözlük hizmeti, Thunderbird profilinde saklanan sözlük paketleriyle sözcük sözcük çeviri yapar. Bir paket kurulduktan sonra ağa ihtiyaç duymaz ve milisaniyeler içinde yanıt verir; böylece makine çevirisi ve yapay zekâ kademeleri yanıt verene kadar geçen süreyi doldurur. Sonuç sözcük sözcük bir karşılıktır: sözcükler kaynak metindeki sırayla, dil bilgisi uygulanmadan dizilir.
+
+### Paketler
+
+Paketler bu deponun bir GitHub sürümünün (release) dosyaları olarak yayımlanır; varsayılan sürüm `dicts-v1`'dir. Sürüm etiketi, Sözlükler bölümündeki "Sözlük paketlerinin sürüm etiketi (gelişmiş)" alanından değiştirilebilir. Her yön tek bir `dict-<src>-<tgt>.tsv.gz` dosyasıdır; bu dosya gzip ile sıkıştırılmış UTF-8 bir metin dosyasıdır:
+
+```text
+#dict	<src>	<tgt>	<packVersion>	<sourceName>	<license>
+w	<key>	<translation>
+f	<key>	<lemmaKey>
+```
+
+İlk satır paketi tanımlar. `w` ile başlayan satırlar girdilerdir. `f` ile başlayan satırlar çekimli bir biçimi sözlük biçiminin (lemma) anahtarına eşler, örneğin `went` biçimini `go` anahtarına. Bir anahtar NFC ile normalleştirilir, kaynak dilin kurallarıyla küçük harfe çevrilir ve baştaki ve sondaki boşluklardan arındırılır; anahtar birkaç sözcükten oluşan bir ifade de olabilir. `dict-index.json` dizini her paketi boyutu, girdi ve biçim sayısı, SHA-256 sağlama toplamı, kaynağı, lisansı ve kaynak belirtimiyle listeler. Paketler İngilizce, Basitleştirilmiş ve Geleneksel Çince, Japonca, Korece, Fransızca, Almanca, İspanyolca, Portekizce, Rusça, Türkçe ve Vietnamcayı kapsar. Paketlerin nasıl oluşturulduğu [docs/dictionary-packs.md](../docs/dictionary-packs.md) belgesinde anlatılır.
+
+Sözlükler bölümü dizini okur ve her paketi boyutu, lisansı ve kaynak belirtimiyle listeler. "İndir" dosyayı ilerleme göstererek indirir, SHA-256 sağlama toplamını ve başlığını denetler ve eklentinin `tt-dictionary` IndexedDB veritabanında saklar; "Sil" paketi kaldırır. Dizin yüklenemezse bölüm nedenini belirtir; kurulu paketler yine de silinebilir.
+
+### Çeviri
+
+1. Kaynak dil, ayarlanmış olan dildir; otomatik algılamada paragrafın dilidir (yazı sistemi, tarayıcının dil algılayıcısı, İngilizce sık kullanılan sözcükler).
+2. `Intl.Segmenter` paragrafı sözcüklere ayırır. Her sözcükte önce, girdisi olan ve en fazla üç sözcükten oluşan en uzun ifade aranır, ardından tek sözcük. Girdisi olmayan bir sözcük sözlük biçimi üzerinden aranır; bu da başarısız olursa sözcük olduğu gibi kalır. Noktalama işaretleri ve sayılar olduğu gibi kalır.
+3. Hedef dil Çince veya Japonca ise sözcükler boşluksuz, diğer hedef dillerde boşlukla birleştirilir.
+4. İngilizce dışındaki iki dil arasında metin İngilizce üzerinden geçer: Fransızcadan Almancaya çeviri Fransızca → İngilizce ve İngilizce → Almanca paketlerini kullanır.
+5. Gereken bir paket eksik olduğunda hata iletisi dil çiftini belirtir ve Sözlükler bölümüne yönlendirir.
+
+Arka plan betiği bir paketi ilk kullanımda IndexedDB'den okur ve bellekte tutar; beş dakika boyunca sözlük çevirisi yapılmazsa belleği serbest bırakır.
+
+### Veri kaynakları
+
+Paketler iki kaynaktan oluşturulur: wiktextract ile çıkarılıp kaikki.org tarafından yayımlanan Wiktionary verileri (CC BY-SA 4.0, © Wiktionary katkıda bulunanları) ve skywind3000'in ECDICT projesi (MIT Lisansı). Her paket dizinde kendi kaynağını ve lisansını belirtir; ayarlar sayfası bunları paketin yanında gösterir.
+
+## Çevrimdışı çeviri (Bergamot)
+
+Bergamot hizmeti, Mozilla'nın MPL-2.0 lisansıyla yayımladığı Firefox Translations motoru ve modelleriyle bilgisayarınızda çeviri yapar. Motor eklentiyle birlikte gelir. Her çeviri yönü Mozilla'dan bir kez indirilir (24 ile 48 MB arası) ve eklentinin IndexedDB alanında saklanır. Yüklenmiş bir yön yaklaşık 200 MB bellek kullanır ve beş dakika kullanılmadığında serbest bırakılır. Her modelin bir tarafı İngilizcedir; bu yüzden Japoncadan Çinceye çeviri Japonca → İngilizce ve İngilizce → Çince yönlerini kullanır.
+
+Ayarlar sayfasının "Çevrimdışı çeviri modelleri (Bergamot)" bölümü 58 dil arasındaki 114 yön çiftini boyut ve sürümleriyle listeler; liste dile göre süzülebilir. Bölüm, geçerli kaynak ve hedef dilin gerektirdiği yönleri belirtir ve bunları listenin başına koyar. İndirmeler ilerlemelerini gösterir ve iptal edilebilir. Mozilla'nın daha yeni bir sürümünü sunduğu kurulu bir çiftte "Güncelle" düğmesi görünür. Geçerli dillerin gerektirdiği bir çifti silmek onay ister. Kurulum, çeviri ve kaldırma, motorun çalıştığı arka plan betiğinde yürütülür. Model seçimi, doğrulama, depolama ve motor [docs/bergamot.md](../docs/bergamot.md) belgesinde anlatılır.
 
 ## Arayüz dili
 
@@ -179,7 +255,9 @@ Hedef dil listesi bundan ayrıdır ve İtalyanca, Ukraynaca, Lehçe, Felemenkçe
 | Hizmet | Kurulum | Notlar |
 | --- | --- | --- |
 | Google Translate (ücretsiz, varsayılan) | Yok | `translate.googleapis.com` adresinin `client=gtx` uç noktasını çağırır; tek bir POST isteği birden fazla `q` parametresi taşır, bu nedenle birden fazla paragraf aynı isteği paylaşır |
-| Microsoft Translator (ücretsiz) | Yok | Önce `edge.microsoft.com/translate/auth` adresinden bir belirteç almayı ve `api-edge.cognitive.microsofttranslator.com` adresini çağırmayı dener; Microsoft belirteç uç noktasını kullanımdan kaldırdığında `edge.microsoft.com/translate/translatetext` adresine geçer. İki yol da dizileri doğrudan kabul eder. Panelde “Kendi anahtarımı kullan (Azure Translator)” seçilirse bunun yerine resmî `api.cognitive.microsofttranslator.com` çağrılır: Azure portalında bir Translator kaynağı oluşturun, “Anahtarlar ve Uç Nokta” altındaki anahtarı ve bölgeyi panele girin (genel kaynakta bölge boş kalabilir). |
+| Sözlük (çevrimdışı) | Sözlükler bölümünden dil çiftlerini indirin | Kurulu paketlerle sözcük sözcük çeviri; bkz. "Sözlük çevirisi" |
+| Bergamot (çevrimdışı) | "Çevrimdışı çeviri modelleri" bölümünden yön çiftlerini indirin | Mozilla'nın modelleriyle bilgisayarınızda çeviri; bkz. "Çevrimdışı çeviri (Bergamot)" |
+| Microsoft Translator (ücretsiz) | Yok | Edge tarayıcısının kullandığı `edge.microsoft.com/translate/translatetext` uç noktasını çağırır; istek gövdesi paragraflardan oluşan bir dizidir. Panelde “Kendi anahtarımı kullan (Azure Translator)” seçilirse bunun yerine resmî `api.cognitive.microsofttranslator.com` çağrılır: Azure portalında bir Translator kaynağı oluşturun, “Anahtarlar ve Uç Nokta” altındaki anahtarı ve bölgeyi panele girin (genel kaynakta bölge boş kalabilir). |
 | DeepLX | Uç nokta gerekli | Kendi sunucunuzda veya üçüncü tarafça barındırılan bir DeepLX hizmeti; belirteç isteğe bağlıdır. Uç nokta `{{apiKey}}` içeriyorsa belirteç onun yerine yazılır; içermiyorsa `Authorization: Bearer` olarak gönderilir |
 
 ### Yapay zekâ sağlayıcıları
@@ -267,14 +345,15 @@ Bir ileti genellikle on ile birkaç düzine arasında paragraf içerir. Her para
 
 ### Akış
 
-1. İçerik betiği çevrilecek her paragrafı arka plan betiğine iletir.
-2. Arka plan betiği önce önbelleğe bakar ve isabet olursa doğrudan yanıt verir. Önbellek anahtarı sağlayıcıdan, modelden, hedef dilden, sistem isteminin bir imzasından, hassas modda iletinin özet değerinden ve paragraf metninin bir özet değerinden (hash) oluşur. Aynı metin zaten çevriliyorsa sonraki istekler aynı sonucu paylaşır.
-3. Önbellekte bulunmayan paragraflar grup kuyruğuna girer ve sağlayıcı + model + uç nokta + hedef dil bileşimine göre, yapay zekâ hizmetlerinde ayrıca sistem istemine, Microsoft Translator’da ayrıca ücretsiz veya anahtarlı moda, hassas modda ayrıca iletiye göre gruplanır. Bir grubun paragrafları 50 ms boyunca birikir. Grup şu durumlarda gönderilir: aralık sona erdiğinde, paragraf sınırına ulaşıldığında veya bir sonraki paragraf karakter sınırını aşacaksa. Karakter sınırından uzun tek bir paragraf kendi başına bir grup oluşturur.
+1. İçerik betiği çevrilecek her paragrafı, kullanılan tüm kademeler için bir kez, arka plan betiğine iletir.
+2. Arka plan betiği her kademe için önce önbelleğe bakar ve isabet olursa doğrudan yanıt verir. Önbellek anahtarı sağlayıcıdan, modelden, kaynak ve hedef dilden, yapay zekâ hizmetlerinde istemin türünden ve metninin özet değerinden, hassas modda iletinin özet değerinden ve paragraf metninin bir özet değerinden (hash) oluşur. Aynı metin zaten çevriliyorsa sonraki istekler aynı sonucu paylaşır.
+3. Önbellekte bulunmayan paragraflar grup kuyruğuna girer ve sağlayıcı + model + uç nokta + kaynak dil + hedef dil bileşimine göre, yapay zekâ hizmetlerinde ayrıca isteme, Microsoft Translator’da ayrıca ücretsiz veya anahtarlı moda, hassas modda ayrıca iletiye göre gruplanır. Bir grubun paragrafları 50 ms boyunca birikir. Grup şu durumlarda gönderilir: aralık sona erdiğinde, paragraf sınırına ulaşıldığında veya bir sonraki paragraf karakter sınırını aşacaksa. Karakter sınırından uzun tek bir paragraf kendi başına bir grup oluşturur.
 4. İstek kuyruğu her grubu yürütür. Eşzamanlı istek sayısını sınırlar ve 408, 429, 5xx ve ağ hatalarını üstel geri çekilmeyle yeniden dener; sunucu `Retry-After` gönderirse belirtilen süre kadar, en fazla 30 saniye bekler. 401 ve 400 gibi hatalar yeniden denenmeden bildirilir.
 5. Sonuçlar bellekteki önbelleğe alınır ve 1 saniye sonra tek bir yazma işlemiyle `storage.local` içine yazılır. Önbellek en uzun süredir kullanılmayan (LRU, Least Recently Used) kayıtları çıkarır.
 
 ### Her hizmetin paragrafları birleştirme biçimi
 
+- Sözlük ve Bergamot: grubun tamamı tek bir yerel çağrıyla çevrilir.
 - Google: birden fazla `q` parametresi içeren tek bir POST isteği; dönen dizi girdiyle bire bir eşleşir.
 - Microsoft: istek gövdesinin kendisi bir dizidir.
 - DeepLX: uç nokta istek başına bir paragraf kabul eder, bu nedenle bir grubun paragrafları eşzamanlı olarak istenir.
@@ -314,14 +393,14 @@ Girdi token sayısı yaklaşık %63 azalır ve istek sayısı 20'den 1'e düşer
 
 - API anahtarları yalnızca geçerli Thunderbird profilinin `storage.local` alanında saklanır ve yalnızca ilgili sağlayıcının uç noktasına giden isteklerle gönderilir.
 - İçerik betiği ileti sayfasının içinde çalışır; arka plan betiğinden aldığı ayarlar hiçbir zaman anahtar içermez.
-- İleti metni yalnızca geçerli çeviri hizmetine ve yarışlı çeviri açıkken seçilen hızlı hizmete gönderilir. Eklenti istatistik toplamaz ve bu hizmetler dışında hiçbir ağ adresiyle bağlantı kurmaz.
+- İleti metni yalnızca kullanılan kademelerin hizmetlerine gönderilir. Sözlük ve Bergamot bilgisayarınızda çeviri yapar ve hiçbir yere metin göndermez. Sözlük paketleri bu deponun GitHub sürümlerinden, Bergamot modelleri ise Mozilla'dan indirilir; indirme yalnızca "İndir" düğmesine tıkladığınızda yapılır. Eklenti istatistik toplamaz ve başka hiçbir ağ adresiyle bağlantı kurmaz.
 - Çeviri önbelleği yerel olarak saklanır ve ayarlar sayfasından kapatılabilir veya temizlenebilir.
-- İleti metni bilgisayarınızdan çıkar ve seçili çeviri hizmetine gider. Hassas iletiler için Ollama veya LM Studio gibi yerel modeller her isteği kendi makinenizde tutar.
+- Google, Microsoft, DeepLX veya çevrimiçi bir yapay zekâ hizmeti kullanıldığında ileti metni bilgisayarınızdan çıkar. Hassas iletiler için yalnızca sözlüğü, Bergamot'u ve Ollama veya LM Studio gibi yerel yapay zekâ modellerini kullanın; bunlar her isteği kendi makinenizde tutar.
 
 ## Bilinen sınırlamalar
 
 - Çeviriler düz metindir. Özgün metindeki bağlantılar, kalın yazı ve diğer satır içi biçimlendirmeler çeviride korunmaz. İki dilli modda özgün metin tümüyle kullanılabilir kalır; yalnızca çeviri modunda özgün metni görmek için fare imlecini üzerine getirebilir veya iki dilli moda geri dönebilirsiniz.
-- Ücretsiz Google ve Microsoft uç noktaları belgelenmemiştir; değişebilir veya hız sınırlamasına uğrayabilir. Microsoft, `edge.microsoft.com/translate/auth` belirteç uç noktasını Temmuz 2026'da kullanımdan kaldırmıştır (404 döndürür). Eklenti ilk istekte belirteç uç noktasını yine de dener, başarısızlıktan sonra doğrudan uç noktaya geçer ve bir saat boyunca belirteç uç noktasını yeniden denemez.
+- Ücretsiz Google ve Microsoft uç noktaları belgelenmemiştir; değişebilir veya hız sınırlamasına uğrayabilir. Microsoft, `edge.microsoft.com/translate/auth` belirteç uç noktasını Temmuz 2026'da kullanımdan kaldırmıştır; eklenti yalnızca doğrudan uç noktayı kullanır.
 - Bir paragrafın zaten hedef dilde olup olmadığına karar verirken Çince, Japonca, Korece ve benzeri yazı sistemleri karakter sınıfına göre değerlendirilir; Latin ve Kiril alfabesi kullanan diller için önce eklenti API'sinin `i18n.detectLanguage` işlevi kullanılır. Bu API kullanılamadığında veya sonucu güvenilir olmadığında yalnızca İngilizce güvenilir biçimde algılanır; Latin alfabesi kullanan diğer dillerdeki paragraflar her zamanki gibi çeviriye gönderilir.
 - İçerik betiği `messageDisplayScripts` aracılığıyla kaydedilir ve yalnızca kayıttan sonra açılan iletilere ulaşır. Eklenti başlangıçta betiği zaten açık olan iletilere eklemeyi dener; bu başarısız olursa iletiyi yeniden seçmek yeterlidir.
 - Eklentinin ürettiği hata iletileri çevrilir. Bir çeviri hizmetinin veya AI SDK'nın döndürdüğü hata metinleri (örneğin bir HTTP 401 yanıtının gövdesi) alındığı gibi, genellikle İngilizce olarak gösterilir.
@@ -329,7 +408,9 @@ Girdi token sayısı yaklaşık %63 azalır ve istek sayısı 20'den 1'e düşer
 - Hassas çeviri bir iletiyi gövde metninin özet değeriyle tanımlar, çünkü içerik betiğinin ileti kimliğine erişimi yoktur. Aynı metnin iki kopyası çevirilerini ve analizini paylaşır.
 - İstem önbelleği sağlayıcıya bağlıdır. Anthropic yalnızca modele göre değişen bir en küçük uzunluğun üzerindeki önekleri önbelleğe alır; daha kısa önekler normal şekilde gönderilir ve ücretlendirilir.
 - Düşünme anahtarı model adlarının eşleştirilmesiyle çalışır. Adı hiçbir kalıba uymayan yeni bir model, `src/background/providers/thinking.ts` içindeki tablo genişletilene kadar düşünme parametresi almaz.
-- Yarışlı çeviri hızlı hizmete giden istekleri iki katına çıkarır; bu istekler ücretsiz Google ve Microsoft uç noktalarının hız sınırlarına sayılır.
+- Kullanılan her kademe kendi isteklerini gönderir. Yapay zekâ kademesi ve makine çevirisi kademesi birlikte kullanıldığında her ileti makine çevirmenine de istek gönderir; bu istekler ücretsiz Google ve Microsoft uç noktalarının hız sınırlarına sayılır.
+- Sözlük çevirisi sözcük sözcük bir karşılıktır: kaynak metnin sözcük sırasını korur ve sözcükleri çekimlemez. Paketlerde bulunmayan sözcükler çevrilmeden kalır.
+- Bergamot ve sözlük bir grubu tek bir kaynak dille çevirir. Otomatik algılamada Bergamot tüm grubun dilini algılar; bu yüzden dilleri karışık bir grup, baskın dildeymiş gibi çevrilir.
 
 ## Testler
 
@@ -337,10 +418,10 @@ Girdi token sayısı yaklaşık %63 azalır ve istek sayısı 20'den 1'e düşer
 npm test               # vitest unit tests
 npm run typecheck      # TypeScript type check
 npm run locales:check  # check every locales/<language>.json against locales/en.json
-npm run live-test      # call the real Google and Microsoft endpoints through the extension's own modules
+npm run live-test      # call the real Google and Microsoft endpoints through the extension's own modules, with and without a source language
 ```
 
-Birim testleri şunları kapsar: grup oluşturma ve kuyruklar; yapay zekâ çıktısının ayrıştırılması ve geri dönüş; paragraf algılama ile iki dilli ve yalnızca çeviri görüntüleme ve geri yükleme (jsdom içinde); Google, Microsoft ve DeepLX için istek oluşturma ve yanıt ayrıştırma (taklit edilmiş fetch ile); her yapay zekâ ön ayarının istek URL'si ve kimlik doğrulama başlıkları; her sağlayıcının düşünme parametreleri; ayarların eklenen hizmetlere taşınması; açılır pencere ve ayarlar sayfasındaki eklenen hizmet listeleri ile kaldırma koruması; yarışlı çeviri (önce hızlı sonuç, önce yapay zekâ sonucu, yapay zekâ hatası, önbellek isabeti, görünüm modu değişikliği ve geri yükleme); hassas çeviri (tek istek, gruplarla analiz, başarısız analiz, önbellek anahtarları ve iletiye göre gruplar, Anthropic önbellek denetimiyle aynı istem öneki); yerelleştirme. Yerelleştirme testleri tüm dillerde anahtar kümelerinin ve yer tutucuların aynı olduğunu, bildirimdeki her `__MSG_*__` başvurusunu, Thunderbird dillerinin desteklenen dillere eşlenmesini, eksik anahtarlar için İngilizceye geri dönüşü ve HTML sayfalarında ve kaynak kodda sabit kodlanmış arayüz metni bulunmadığını denetler.
+Birim testleri şunları kapsar: grup oluşturma ve kuyruklar; yapay zekâ çıktısının ayrıştırılması ve geri dönüş; paragraf algılama ile iki dilli ve yalnızca çeviri görüntüleme ve geri yükleme (jsdom içinde); Google, Microsoft ve DeepLX için istek oluşturma ve yanıt ayrıştırma (taklit edilmiş fetch ile); her yapay zekâ ön ayarının istek URL'si ve kimlik doğrulama başlıkları; her sağlayıcının düşünme parametreleri; ayarların eklenen hizmetlere, kademelere ve istemlere taşınması; açılır pencere ve ayarlar sayfasındaki kademe listeleri, tüm kademelerin boş bırakılmasının reddedilmesi ve kaldırma koruması; kademeler (önce yanıt veren ve sonra yerini bırakan alt kademe, önce yanıt veren en yüksek kademe ve ardından yok sayılan alt kademe sonuçları, başarısız olan en yüksek kademe ve korunan alt kademe sonucu, tüm kademelerin başarısız olması, kullanılmayan kademeler, önbellekteki en yüksek kademe); istem seçimi ve önbellek anahtarları; yapay zekâ kademesini yeniden sorgulayan ve diğer kademeleri yalnızca yeniden çizen görünüm modu değişikliği; her hizmetin isteklerinde ve önbellek anahtarında kaynak dil; sözlük paketleri (ayrıştırma, sözcüklere ayırma ve ifade eşleştirme, çekimli biçimler, İngilizce üzerinden çeviri, eksik paketler, sağlama toplamıyla indirme; bellek içi bir IndexedDB ile); taklit edilmiş bir motorla Bergamot hizmeti ve model yönetimi; hassas çeviri (tek istek, gruplarla analiz, başarısız analiz, önbellek anahtarları ve iletiye göre gruplar, Anthropic önbellek denetimiyle aynı istem öneki); yerelleştirme. Yerelleştirme testleri tüm dillerde anahtar kümelerinin ve yer tutucuların aynı olduğunu, bildirimdeki her `__MSG_*__` başvurusunu, Thunderbird dillerinin desteklenen dillere eşlenmesini, eksik anahtarlar için İngilizceye geri dönüşü ve HTML sayfalarında ve kaynak kodda sabit kodlanmış arayüz metni bulunmadığını denetler.
 
 `npm run build:debug`, bir ileti açılır açılmaz çeviriye başlayan ve ilerlemeyi konsola yazan bir hata ayıklama xpi'si üretir; bu sürüm tüm akışı gerçek bir Thunderbird'de denetlemek içindir.
 
@@ -348,11 +429,12 @@ Birim testleri şunları kapsar: grup oluşturma ve kuyruklar; yapay zekâ çık
 
 ```
 src/
-  background/    background script: translation service, batch and request queues, cache, provider factory, translators
+  background/    background script: translation service, batch and request queues, cache, provider factory, translators, dictionary, offline model management
   content/       content script: paragraph detection, rendering, language detection, translation state
   popup/         popup
   options/       settings page
-  shared/        shared settings, provider presets, language table, message types, i18n runtime
+  offline/       Bergamot engine module: model list, download, storage, worker
+  shared/        shared settings, provider presets, prompts, language table and detection, message types, i18n runtime
 locales/         interface text, one JSON file per language; en.json is the reference
 static/          manifest.json, HTML, CSS, SVG icon
 scripts/         build, locale generation and checks, live endpoint test
@@ -372,6 +454,8 @@ Yeni bir dil eklemek için tüm anahtarları içeren `locales/<code>.json` dosya
 ## Teşekkürler
 
 Paragraf algılamanın, grup kuyruğunun, istemlerin ve sağlayıcı yapılandırmasının tasarımı, GPL-3.0 lisansıyla yayımlanan ve web sayfalarını çeviren bir tarayıcı eklentisi olan [Read Frog](https://github.com/mengxi-ream/read-frog) projesini temel alır. Bu proje söz konusu fikirleri Thunderbird'ün ileti okuyucusuna taşır ve e-postaya uyarlar; örneğin düz metin iletileri boş satırlardan böler ve sabit satır sonlarıyla bölünmüş satırları birleştirir.
+
+Sözlük verileri iki kaynaktan gelir. Birincisi [Wiktionary](https://en.wiktionary.org/) verileridir (© Wiktionary katkıda bulunanları, CC BY-SA 4.0); bu veriler [wiktextract](https://github.com/tatuylonen/wiktextract) ile çıkarılır ve [kaikki.org](https://kaikki.org/) tarafından yayımlanır. İkincisi skywind3000'in [ECDICT](https://github.com/skywind3000/ECDICT) projesidir (MIT Lisansı). Çevrimdışı çeviri, [Bergamot](https://browser.mt/) motorunu ve Mozilla'nın MPL-2.0 lisansıyla yayımladığı Firefox Translations çeviri modellerini kullanır.
 
 ## Lisans
 

@@ -4,20 +4,24 @@
  * Batching: N paragraphs go into one request as numbered <seg> blocks and the
  * model is asked for a JSON array of N strings. The system prompt and the
  * instructions are sent once per batch instead of once per paragraph.
+ *
+ * The system prompt comes from the settings (src/shared/prompts.ts). The user
+ * message names the source language, or asks the model to detect it.
  */
 
-export const DEFAULT_SYSTEM_PROMPT = `You are a professional translator working on email messages.
-Translate the user's text into {{to}}.
-Rules:
-- Preserve the meaning, tone and level of politeness of the original email.
-- Keep names, email addresses, URLs, numbers, dates, code and product names unchanged unless they have an established translation.
-- Keep line breaks and list markers.
-- If a passage is already in {{to}}, return it unchanged.
-- Output only the translation. Do not add explanations, notes, quotes or labels.`
-
-export function buildSystemPrompt(custom: string, targetLanguageName: string): string {
-  const template = custom.trim() ? custom : DEFAULT_SYSTEM_PROMPT
+export function buildSystemPrompt(template: string, targetLanguageName: string): string {
   return template.replaceAll("{{to}}", targetLanguageName)
+}
+
+/** Languages of a request: English names; `source` is absent when the model has to detect it. */
+export interface PromptLanguages {
+  source?: string
+  target: string
+}
+
+/** "Translate X from French into German." or "Detect the source language of X and translate it into German." */
+function task(what: string, { source, target }: PromptLanguages): string {
+  return source ? `Translate ${what} from ${source} into ${target}.` : `Detect the source language of ${what} and translate it into ${target}.`
 }
 
 /** A paragraph to translate. In precise mode it carries its neighbours as reference. */
@@ -46,14 +50,14 @@ function segmentBlocks(segments: Segment[]): string {
     .join("\n")
 }
 
-export function buildSinglePrompt(segment: Segment, targetLanguageName: string): string {
-  if (!hasRefs([segment])) return `Translate the following text into ${targetLanguageName}. Output only the translation.\n\n${segment.text}`
-  return `Translate the text of the <seg> block into ${targetLanguageName}. ${REF_RULE} Output only the translation, without the <seg> tags.\n\n${segmentBlocks([segment])}`
+export function buildSinglePrompt(segment: Segment, langs: PromptLanguages): string {
+  if (!hasRefs([segment])) return `${task("the following text", langs)} Output only the translation.\n\n${segment.text}`
+  return `${task("the text of the <seg> block", langs)} ${REF_RULE} Output only the translation, without the <seg> tags.\n\n${segmentBlocks([segment])}`
 }
 
-export function buildBatchPrompt(segments: Segment[], targetLanguageName: string): string {
+export function buildBatchPrompt(segments: Segment[], langs: PromptLanguages): string {
   const n = segments.length
-  return `Translate each of the following ${n} segments into ${targetLanguageName}.
+  return `${task(`each of the following ${n} segments`, langs)}
 Return ONLY a JSON array of exactly ${n} strings, where the i-th string is the translation of segment i.
 Do not merge, split, skip or reorder segments. Encode line breaks inside a string as \\n. Do not wrap the array in Markdown and do not add any other text.${hasRefs(segments) ? `\n${REF_RULE}` : ""}
 

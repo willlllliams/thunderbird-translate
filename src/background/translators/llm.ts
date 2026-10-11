@@ -19,8 +19,11 @@ import {
 
 export interface LlmCallOptions {
   provider: ResolvedProvider
+  /** System prompt template; {{to}} is replaced by the target language. */
   systemPrompt: string
   targetLanguageName: string
+  /** English name of the source language; absent = the model detects it. */
+  sourceLanguageName?: string
   /** Precise mode: message context appended to the system prompt, identical for every request of one message. */
   contextPrefix?: string
   fetchFn?: typeof fetch
@@ -61,8 +64,10 @@ function translationInstructions(opts: LlmCallOptions): SystemModelMessage {
     : { role: "system", content }
 }
 
+const languages = (opts: LlmCallOptions) => ({ source: opts.sourceLanguageName, target: opts.targetLanguageName })
+
 export async function llmTranslateSingle(segment: Segment, opts: LlmCallOptions): Promise<string> {
-  const raw = await callModel(translationInstructions(opts), buildSinglePrompt(segment, opts.targetLanguageName), opts)
+  const raw = await callModel(translationInstructions(opts), buildSinglePrompt(segment, languages(opts)), opts)
   const out = cleanSingleOutput(raw)
   if (!out) throw new LocalizedError("errEmptyAnswer")
   return out
@@ -71,7 +76,7 @@ export async function llmTranslateSingle(segment: Segment, opts: LlmCallOptions)
 /** One request for many paragraphs. Throws BatchParseError when the answer does not line up. */
 export async function llmTranslateBatch(segments: Segment[], opts: LlmCallOptions): Promise<string[]> {
   if (segments.length === 1) return [await llmTranslateSingle(segments[0], opts)]
-  const raw = await callModel(translationInstructions(opts), buildBatchPrompt(segments, opts.targetLanguageName), opts)
+  const raw = await callModel(translationInstructions(opts), buildBatchPrompt(segments, languages(opts)), opts)
   const parsed = parseBatchOutput(raw, segments.length)
   if (!parsed) throw new BatchParseError(`Could not parse ${segments.length} translations from the model output`)
   return parsed

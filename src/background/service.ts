@@ -4,11 +4,13 @@
  *   translate(request) → cache → in-flight dedupe → BatchQueue (50 ms window)
  *     → executor per provider kind → RequestQueue (concurrency + retry)
  *
- * Race mode runs this pipeline twice per paragraph, once for the AI service
- * and once for a fast service, and reports the fast result while the AI
- * result is pending. Precise mode adds the message as context to AI requests:
- * neighbouring paragraphs always, plus an analysis of the whole message
- * (summary, glossary, tone) when the message does not fit into one request.
+ * A paragraph on screen runs this pipeline once per enabled tier (dictionary,
+ * machine translation, AI), all at the same time, and every tier reports its
+ * own result. A cached result of the highest tier answers at once, without
+ * asking the lower tiers. Precise mode adds the message as context to AI
+ * requests: neighbouring paragraphs always, plus an analysis of the whole
+ * message (summary, glossary, tone) when the message does not fit into one
+ * request.
  */
 
 import { describeError, type ErrorContext } from "../shared/errors"
@@ -17,11 +19,14 @@ import { ENGLISH, type I18n } from "../shared/i18n"
 import { getLanguage } from "../shared/languages"
 import type { MailContext } from "../shared/mail-context"
 import type { TranslateRequest, TranslateResponse } from "../shared/messages"
-import { getPreset, isAiProvider } from "../shared/providers"
-import { type ProviderConfig, type ResolvedProvider, resolveProvider, resolveProviderConfig, type Settings } from "../shared/settings"
+import { type PromptKind, promptText } from "../shared/prompts"
+import { getPreset, isAiProvider, type Tier, TIERS } from "../shared/providers"
+import { type ProviderConfig, promptKindFor, type ResolvedProvider, resolveProvider, resolveProviderConfig, type Settings } from "../shared/settings"
 import { cacheKey, LruCache, type PersistentCache } from "./cache"
+import { Dictionary } from "./dictionary"
 import { type BatchLimits, BatchQueue } from "./queue/batch-queue"
 import { RequestQueue } from "./queue/request-queue"
+import { bergamotTranslateBatch } from "./translators/bergamot"
 import { deeplxTranslate } from "./translators/deeplx"
 import { googleTranslateBatch } from "./translators/google"
 import { BatchParseError, llmAnalyzeMail, llmTranslateBatch, llmTranslateSingle, type LlmCallOptions } from "./translators/llm"
@@ -30,10 +35,26 @@ import { AZURE_LIMITS, microsoftTranslateBatch } from "./translators/microsoft"
 
 type ItemResult = { ok: true; text: string } | { ok: false; error: string }
 
+/** One paragraph for one service. */
+export interface ProviderRequest {
+  text: string
+  /** "auto" (default) or a language code. */
+  sourceLang?: string
+  targetLang: string
+  providerId: string
+  /** AI services: which prompt; by default the one the settings call for. */
+  promptKind?: PromptKind
+  /** Precise mode: the message registered with setContext() and the paragraph's position in it. */
+  context?: { id: string; index: number }
+}
+
 interface Job {
   text: string
+  sourceLang: string
   targetLang: string
   provider: ResolvedProvider
+  /** AI services: the system prompt template. */
+  prompt?: string
   batchKey: string
   /** Cache key of the result. */
   key: string
@@ -41,8 +62,10 @@ interface Job {
   mail?: { context: MailContext; index: number }
 }
 
-/** Hard caps for the free endpoints, applied on top of the user's batch settings. Microsoft with a key has its own caps. */
+/** Hard caps for the free and local services, applied on top of the user's batch settings. Microsoft with a key has its own caps. */
 const FREE_LIMITS: Record<string, BatchLimits> = {
+  dictionary: { maxItems: 100, maxChars: 50000 },
+  bergamot: { maxItems: 100, maxChars: 5000 },
   google: { maxItems: 100, maxChars: 5000 },
   microsoft: { maxItems: 100, maxChars: 5000 },
   deeplx: { maxItems: 50, maxChars: 5000 },
@@ -61,8 +84,9 @@ export interface ServiceDeps {
   getSettings: () => Settings
   cache: PersistentCache
   fetchFn?: typeof fetch
-  /** Injection point for tests. */
+  /** Injection points for tests. */
   llm?: LlmImpl
+  dictionary?: Pick<Dictionary, "translate">
   sleep?: (ms: number) => Promise<void>
   /** Language of error messages; English when absent. */
   i18n?: () => I18n
@@ -95,9 +119,11 @@ export class TranslationService {
   /** Analyses by cache key, finished or running, so the batches of one message share one request. */
   private readonly analyses = new LruCache<Promise<MailAnalysis | null>>(MAX_CONTEXTS)
   private readonly llm: LlmImpl
+  private readonly dictionary: Pick<Dictionary, "translate">
 
   constructor(private readonly deps: ServiceDeps) {
     this.llm = deps.llm ?? { batch: llmTranslateBatch, single: llmTranslateSingle, analyze: llmAnalyzeMail }
+    this.dictionary = deps.dictionary ?? new Dictionary()
     this.requestQueue = new RequestQueue({
       concurrency: () => deps.getSettings().batch.concurrency,
       maxRetries: () => deps.getSettings().batch.maxRetries,
@@ -134,24 +160,28 @@ export class TranslationService {
     this.contexts.set(context.id, context)
   }
 
-  private job(req: TranslateRequest): Job {
+  private job(req: ProviderRequest): Job {
     const settings = this.deps.getSettings()
     const provider = resolveProvider(settings, req.providerId)
-    const ai = isAiProvider(getPreset(req.providerId))
-    const context = ai && settings.precise.enabled && req.context ? this.contexts.get(req.context.id) : undefined
-    // A precise translation depends on its message: the message hash keeps cache entries and batches apart.
-    const promptSig = ai ? hashText(settings.systemPrompt) + (context ? `:precise:${context.id}` : "") : ""
+    const sourceLang = req.sourceLang ?? "auto"
+    const kind = isAiProvider(getPreset(req.providerId)) ? (req.promptKind ?? promptKindFor(settings)) : undefined
+    const prompt = kind ? promptText(settings.prompts, kind) : undefined
+    const context = kind === "precise" && req.context ? this.contexts.get(req.context.id) : undefined
+    // The prompt, and in precise mode the message, keep cache entries and batches apart.
+    const promptSig = kind ? `${kind}:${hashText(prompt!)}${context ? `:${context.id}` : ""}` : ""
     return {
       text: req.text,
+      sourceLang,
       targetLang: req.targetLang,
       provider,
-      key: cacheKey(req.providerId, provider.model, req.targetLang, req.text, promptSig),
-      batchKey: [req.providerId, provider.model, provider.baseURL, req.targetLang, promptSig, provider.mode].join("|"),
+      prompt,
+      key: cacheKey(req.providerId, provider.model, `${sourceLang}>${req.targetLang}`, req.text, promptSig),
+      batchKey: [req.providerId, provider.model, provider.baseURL, sourceLang, req.targetLang, promptSig, provider.mode].join("|"),
       ...(context && req.context ? { mail: { context, index: req.context.index } } : {}),
     }
   }
 
-  async translate(req: TranslateRequest): Promise<string> {
+  async translate(req: ProviderRequest): Promise<string> {
     const job = this.job(req)
     return (await this.deps.cache.get(job.key)) ?? this.enqueue(job)
   }
@@ -171,50 +201,45 @@ export class TranslationService {
     return promise
   }
 
-  /**
-   * Translation of a paragraph on screen. In race mode with an AI service the
-   * fast service runs alongside: its result goes to onProvisional while the AI
-   * result is pending, and comes back as fallback when the AI request fails.
-   * A cached AI result answers at once, without asking the fast service.
-   */
-  async translateForPage(req: TranslateRequest, onProvisional: (text: string) => void): Promise<TranslateResponse> {
-    let settled = false
-    let fast: Promise<string | undefined> = Promise.resolve(undefined)
+  private async settle(job: Job): Promise<TranslateResponse> {
     try {
-      const job = this.job(req)
-      const cached = await this.deps.cache.get(job.key)
-      if (cached !== undefined) return { ok: true, text: cached }
-      const fastId = this.raceFastProvider(req.providerId)
-      if (fastId) {
-        fast = this.translate({ text: req.text, targetLang: req.targetLang, providerId: fastId }).then(
-          (text) => {
-            if (!settled) onProvisional(text)
-            return text
-          },
-          () => undefined,
-        )
-      }
-      const text = await this.enqueue(job)
-      settled = true
-      return { ok: true, text }
+      return { ok: true, text: (await this.deps.cache.get(job.key)) ?? (await this.enqueue(job)) }
     } catch (error) {
-      settled = true
-      const fallback = await fast
-      return { ok: false, error: this.errorMessage(error), ...(fallback ? { fallback } : {}) }
+      return { ok: false, error: this.errorMessage(error) }
     }
   }
 
-  private raceFastProvider(providerId: string): string | undefined {
-    const { race } = this.deps.getSettings()
-    if (!race.enabled || race.fastProviderId === providerId || !isAiProvider(getPreset(providerId))) return undefined
-    return race.fastProviderId
+  /**
+   * Translation of a paragraph on screen: every requested tier that has a
+   * service runs at once and reports its result through onTier as soon as it
+   * is there. When the highest of these tiers has its result in the cache,
+   * only that result is reported.
+   */
+  async translateForPage(req: TranslateRequest, onTier: (tier: Tier, result: TranslateResponse) => void): Promise<void> {
+    const settings = this.deps.getSettings()
+    const jobs: [Tier, Job][] = []
+    for (const tier of TIERS) {
+      const providerId = settings.tiers[tier]
+      if (!providerId || !req.tiers.includes(tier)) continue
+      try {
+        jobs.push([tier, this.job({ ...req, providerId })])
+      } catch (error) {
+        onTier(tier, { ok: false, error: this.errorMessage(error) })
+      }
+    }
+    const top = jobs.at(-1)
+    if (!top) return
+    const cached = await this.deps.cache.get(top[1].key)
+    if (cached !== undefined) return onTier(top[0], { ok: true, text: cached })
+    await Promise.all(jobs.map(async ([tier, job]) => onTier(tier, await this.settle(job))))
   }
 
   /** Translate with an unsaved configuration, bypassing cache and batching. */
   async testProvider(providerId: string, config: Omit<ProviderConfig, "enabled">, targetLang: string): Promise<string> {
     const provider = resolveProviderConfig(providerId, config)
     const sample = "Hello! This is a connection test from Thunderbird Translate."
-    const results = await this.executeBatch([{ text: sample, targetLang, provider, batchKey: "test", key: "" }])
+    const prompt = promptText(this.deps.getSettings().prompts, "bilingual")
+    const results = await this.executeBatch([{ text: sample, sourceLang: "auto", targetLang, provider, prompt, batchKey: "test", key: "" }])
     const r = results[0]
     if (!r.ok) throw new Error(r.error)
     return r.text
@@ -223,8 +248,9 @@ export class TranslationService {
   private llmOptions(job: Job): LlmCallOptions {
     return {
       provider: job.provider,
-      systemPrompt: this.deps.getSettings().systemPrompt,
+      systemPrompt: job.prompt ?? "",
       targetLanguageName: getLanguage(job.targetLang).english,
+      ...(job.sourceLang !== "auto" ? { sourceLanguageName: getLanguage(job.sourceLang).english } : {}),
       fetchFn: this.deps.fetchFn,
     }
   }
@@ -287,6 +313,7 @@ export class TranslationService {
     // Jobs carry a resolved provider, and resolving fails for unknown presets.
     const preset = getPreset(first.provider.id)!
     const lang = getLanguage(first.targetLang)
+    const source = first.sourceLang === "auto" ? undefined : getLanguage(first.sourceLang)
     const texts = jobs.map((j) => j.text)
     const fetchFn = this.deps.fetchFn
 
@@ -306,12 +333,19 @@ export class TranslationService {
       )
 
     switch (preset.kind) {
+      case "dictionary":
+        return all(() => this.dictionary.translate(texts, first.sourceLang, first.targetLang))
+      case "bergamot":
+        return all(() => bergamotTranslateBatch(texts, first.sourceLang, first.targetLang))
       case "google":
-        return all(() => googleTranslateBatch(texts, lang.google, { fetchFn, baseURL: first.provider.baseURL }))
+        return all(() => googleTranslateBatch(texts, lang.google, { fetchFn, baseURL: first.provider.baseURL, source: source?.google }))
       case "microsoft":
-        return all(() => microsoftTranslateBatch(texts, lang.microsoft, { fetchFn, azure: azureConfig(first.provider) }))
-      case "deeplx":
-        return each((job) => deeplxTranslate(job.text, lang.deepl, job.provider.baseURL, job.provider.apiKey, { fetchFn }))
+        return all(() => microsoftTranslateBatch(texts, lang.microsoft, { fetchFn, azure: azureConfig(first.provider), from: source?.microsoft }))
+      case "deeplx": {
+        // DeepL source codes have no variants: "ZH", not "ZH-HANT".
+        const deeplSource = source?.deepl.split("-")[0]
+        return each((job) => deeplxTranslate(job.text, lang.deepl, job.provider.baseURL, job.provider.apiKey, { fetchFn, source: deeplSource }))
+      }
       case "llm": {
         const opts = this.llmOptions(first)
         if (first.mail) opts.contextPrefix = await this.contextPrefix(first)

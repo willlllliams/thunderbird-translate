@@ -1,11 +1,13 @@
-/** Race mode and precise mode in the background translation service. */
+/** The three tiers, the prompts, the source language and precise mode in the background translation service. */
 import { describe, expect, it, vi } from "vitest"
 import { cacheKey } from "../src/background/cache"
-import type { LlmImpl, TranslationService } from "../src/background/service"
+import type { LlmImpl, ProviderRequest, TranslationService } from "../src/background/service"
 import { type LlmCallOptions, llmAnalyzeMail, llmTranslateBatch, llmTranslateSingle } from "../src/background/translators/llm"
 import type { MailAnalysis, Segment } from "../src/background/translators/llm-prompt"
 import { createMailContext } from "../src/shared/mail-context"
-import type { TranslateRequest } from "../src/shared/messages"
+import type { TranslateRequest, TranslateResponse } from "../src/shared/messages"
+import { DEFAULT_PROMPTS } from "../src/shared/prompts"
+import type { Tier } from "../src/shared/providers"
 import { createDefaultSettings, type Settings } from "../src/shared/settings"
 import { anthropicMessage, asFetch, createService, jsonResponse } from "./helpers"
 
@@ -43,80 +45,226 @@ function fakeLlm(gate?: Promise<void>, analysis: MailAnalysis | null = null) {
   return { llm, calls }
 }
 
-function setup(over: (s: Settings) => void, extra: { llm?: LlmImpl; fetchFn?: unknown } = {}) {
+/** Dictionary stand-in that answers D(<text>). */
+function fakeDictionary(gate?: Promise<void>) {
+  return {
+    translate: vi.fn(async (texts: string[], _source: string, _target: string) => {
+      await gate
+      return texts.map((t) => `D(${t})`)
+    }),
+  }
+}
+
+type Extra = { llm?: LlmImpl; fetchFn?: unknown; dictionary?: ReturnType<typeof fakeDictionary> }
+
+/** OpenAI as AI tier, Google as machine tier, no dictionary. */
+function setup(over: (s: Settings) => void, extra: Extra = {}) {
   const settings = createDefaultSettings()
-  settings.activeProviderId = "openai"
+  settings.tiers.ai = "openai"
   settings.providers.openai.apiKey = "sk-test"
   over(settings)
   return createService(settings, { ...extra, fetchFn: asFetch(extra.fetchFn) })
 }
 
-const ask = (text: string, extra: Partial<TranslateRequest> = {}): TranslateRequest => ({ text, targetLang: "zh-CN", providerId: "openai", ...extra })
-const raceOn = (s: Settings) => (s.race.enabled = true)
+const ask = (text: string, extra: Partial<ProviderRequest> = {}): ProviderRequest => ({ text, targetLang: "zh-CN", providerId: "openai", ...extra })
+const page = (text: string, tiers: Tier[] = ["dictionary", "machine", "ai"], extra: Partial<TranslateRequest> = {}): TranslateRequest => ({
+  text,
+  sourceLang: "auto",
+  targetLang: "zh-CN",
+  tiers,
+  ...extra,
+})
 
-describe("race mode", () => {
-  it("shows the fast result first, then the AI result", async () => {
+/** translateForPage, recording what each tier reported, in order. */
+async function run(service: TranslationService, req: TranslateRequest) {
+  const reports: [Tier, TranslateResponse][] = []
+  await service.translateForPage(req, (tier, result) => reports.push([tier, result]))
+  return reports
+}
+
+describe("tiers", () => {
+  it("asks every tier in use at once and reports each result as it comes", async () => {
     const ai = deferred()
-    const { llm } = fakeLlm(ai.promise)
-    const { service } = setup(raceOn, { llm, fetchFn: googleFetch() })
-    const provisional: string[] = []
-    const result = service.translateForPage(ask("Hello"), (t) => provisional.push(t))
-    await vi.waitFor(() => expect(provisional).toEqual(["G(Hello)"]))
+    const { service } = setup((s) => (s.tiers.dictionary = "dictionary"), { llm: fakeLlm(ai.promise).llm, fetchFn: googleFetch(), dictionary: fakeDictionary() })
+    const reports: [Tier, TranslateResponse][] = []
+    const done = service.translateForPage(page("Hello"), (tier, result) => reports.push([tier, result]))
+    await vi.waitFor(() => expect(reports.map(([tier]) => tier).sort()).toEqual(["dictionary", "machine"]))
     ai.resolve()
-    expect(await result).toEqual({ ok: true, text: "AI(Hello)" })
+    await done
+    expect(reports.at(-1)).toEqual(["ai", { ok: true, text: "AI(Hello)" }])
+    expect(Object.fromEntries(reports)).toEqual({
+      dictionary: { ok: true, text: "D(Hello)" },
+      machine: { ok: true, text: "G(Hello)" },
+      ai: { ok: true, text: "AI(Hello)" },
+    })
   })
 
-  it("drops the fast result when the AI result comes first", async () => {
+  it("reports a lower tier that answers after the highest one too; the page decides what to show", async () => {
     const google = deferred()
-    const fetchFn = googleFetch(google.promise)
-    const { service } = setup(raceOn, { llm: fakeLlm().llm, fetchFn })
-    const provisional: string[] = []
-    expect(await service.translateForPage(ask("Hello"), (t) => provisional.push(t))).toEqual({ ok: true, text: "AI(Hello)" })
+    const { service } = setup(() => {}, { llm: fakeLlm().llm, fetchFn: googleFetch(google.promise) })
+    const reports: [Tier, TranslateResponse][] = []
+    const done = service.translateForPage(page("Hello"), (tier, result) => reports.push([tier, result]))
+    await vi.waitFor(() => expect(reports).toEqual([["ai", { ok: true, text: "AI(Hello)" }]]))
     google.resolve()
-    await vi.waitFor(() => expect(fetchFn).toHaveBeenCalledTimes(1))
-    await new Promise((r) => setTimeout(r, 10))
-    expect(provisional).toEqual([])
+    await done
+    expect(reports.map(([tier]) => tier)).toEqual(["ai", "machine"])
   })
 
-  it("keeps the fast result when the AI request fails, with the reason", async () => {
-    const google = deferred()
+  it("reports the failure of the highest tier next to the result of a lower one", async () => {
     const llm: LlmImpl = {
       ...fakeLlm().llm,
       single: vi.fn(async () => {
         throw Object.assign(new Error("Incorrect API key"), { statusCode: 401, isRetryable: false })
       }),
     }
-    const { service } = setup(raceOn, { llm, fetchFn: googleFetch(google.promise) })
-    const provisional: string[] = []
-    const result = service.translateForPage(ask("Hello"), (t) => provisional.push(t))
-    // The AI request has failed before the fast service answers: the fast result becomes the fallback.
-    setTimeout(() => google.resolve(), 20)
-    const r = await result
-    expect(r).toMatchObject({ ok: false, fallback: "G(Hello)" })
-    expect(!r.ok && r.error).toMatch(/Incorrect API key/)
-    expect(provisional).toEqual([])
+    const { service } = setup(() => {}, { llm, fetchFn: googleFetch() })
+    const reports = Object.fromEntries(await run(service, page("Hello")))
+    expect(reports.machine).toEqual({ ok: true, text: "G(Hello)" })
+    expect(reports.ai).toMatchObject({ ok: false, error: expect.stringMatching(/Incorrect API key/) })
   })
 
-  it("does not ask the fast service when the AI result is cached", async () => {
+  it("does not ask the lower tiers when the highest tier's result is cached", async () => {
     const fetchFn = googleFetch()
-    const { service } = setup(raceOn, { llm: fakeLlm().llm, fetchFn })
-    await service.translateForPage(ask("Hello"), () => {})
-    const calls = fetchFn.mock.calls.length
-    const provisional: string[] = []
-    expect(await service.translateForPage(ask("Hello"), (t) => provisional.push(t))).toEqual({ ok: true, text: "AI(Hello)" })
-    expect(fetchFn.mock.calls.length).toBe(calls)
-    expect(provisional).toEqual([])
-  })
-
-  it("applies only to AI services and only when turned on", async () => {
-    const fetchFn = googleFetch()
-    const { service, settings } = setup(() => {}, { llm: fakeLlm().llm, fetchFn })
-    await service.translateForPage(ask("One"), () => {})
-    expect(fetchFn).not.toHaveBeenCalled()
-    settings.race.enabled = true
-    settings.activeProviderId = "google-free"
-    expect(await service.translateForPage(ask("Two", { providerId: "google-free" }), () => {})).toEqual({ ok: true, text: "G(Two)" })
+    const dictionary = fakeDictionary()
+    const { service } = setup((s) => (s.tiers.dictionary = "dictionary"), { llm: fakeLlm().llm, fetchFn, dictionary })
+    await run(service, page("Hello"))
     expect(fetchFn).toHaveBeenCalledTimes(1)
+    expect(await run(service, page("Hello"))).toEqual([["ai", { ok: true, text: "AI(Hello)" }]])
+    expect(fetchFn).toHaveBeenCalledTimes(1)
+    expect(dictionary.translate).toHaveBeenCalledTimes(1)
+  })
+
+  it("leaves out tiers that are not used, and tiers that are not asked", async () => {
+    const fetchFn = googleFetch()
+    const { service, settings } = setup((s) => (s.tiers.machine = null), { llm: fakeLlm().llm, fetchFn })
+    expect((await run(service, page("One"))).map(([tier]) => tier)).toEqual(["ai"])
+    expect(fetchFn).not.toHaveBeenCalled()
+    settings.tiers.machine = "google-free"
+    expect(await run(service, page("Two", ["machine"]))).toEqual([["machine", { ok: true, text: "G(Two)" }]])
+  })
+
+  it("translates with the machine tier alone", async () => {
+    const { service } = setup((s) => (s.tiers.ai = null), { fetchFn: googleFetch() })
+    expect(await run(service, page("Hello"))).toEqual([["machine", { ok: true, text: "G(Hello)" }]])
+  })
+})
+
+describe("prompts", () => {
+  it("uses the prompt of the display mode, and the precise prompt in precise mode", async () => {
+    const { llm, calls } = fakeLlm()
+    const { service, settings } = setup(() => {}, { llm })
+    await service.translate(ask("One"))
+    expect(calls[0].opts.systemPrompt).toBe(DEFAULT_PROMPTS.bilingual)
+    settings.mode = "translation-only"
+    await service.translate(ask("Two"))
+    expect(calls[1].opts.systemPrompt).toBe(DEFAULT_PROMPTS.translationOnly)
+    settings.precise.enabled = true
+    await service.translate(ask("Three"))
+    expect(calls[2].opts.systemPrompt).toBe(DEFAULT_PROMPTS.precise)
+  })
+
+  it("keeps the cache of each prompt apart: a mode switch asks the AI tier again, switching back uses the cache", async () => {
+    const { llm } = fakeLlm()
+    const { service, settings } = setup(() => {}, { llm })
+    await service.translate(ask("Hello"))
+    settings.mode = "translation-only"
+    await service.translate(ask("Hello"))
+    expect(llm.single).toHaveBeenCalledTimes(2)
+    settings.mode = "bilingual"
+    await service.translate(ask("Hello"))
+    expect(llm.single).toHaveBeenCalledTimes(2)
+  })
+
+  it("does not use a cached translation after the prompt was edited", async () => {
+    const { llm, calls } = fakeLlm()
+    const { service, settings } = setup(() => {}, { llm })
+    await service.translate(ask("Hello"))
+    settings.prompts.bilingual = "Translate into {{to}}, very formally."
+    await service.translate(ask("Hello"))
+    expect(llm.single).toHaveBeenCalledTimes(2)
+    expect(calls[1].opts.systemPrompt).toBe("Translate into {{to}}, very formally.")
+  })
+
+  it("does not merge paragraphs of different prompts into one batch", async () => {
+    const { llm, calls } = fakeLlm()
+    const { service } = setup(() => {}, { llm })
+    await Promise.all([service.translate(ask("a")), service.translate(ask("b", { promptKind: "translationOnly" })), service.translate(ask("c"))])
+    expect(calls.map((c) => c.segments.map((s) => s.text))).toEqual([["a", "c"], ["b"]])
+  })
+
+  it("gives the machine tier one cache entry for all display modes", async () => {
+    const fetchFn = googleFetch()
+    const { service, settings } = setup(() => {}, { fetchFn })
+    await service.translate(ask("Hello", { providerId: "google-free" }))
+    settings.mode = "translation-only"
+    await service.translate(ask("Hello", { providerId: "google-free" }))
+    expect(fetchFn).toHaveBeenCalledTimes(1)
+  })
+})
+
+describe("source language", () => {
+  const google = (source?: string) => {
+    const fetchFn = googleFetch()
+    return { fetchFn, ...setup(() => {}, { fetchFn }), source }
+  }
+
+  it("goes to Google as sl, auto by default", async () => {
+    const { service, fetchFn } = google()
+    await service.translate(ask("Hello", { providerId: "google-free" }))
+    await service.translate(ask("Hallo", { providerId: "google-free", sourceLang: "de" }))
+    expect(fetchFn.mock.calls.map(([url]) => new URL(url).searchParams.get("sl"))).toEqual(["auto", "de"])
+  })
+
+  it("goes to Microsoft as from, left out for auto", async () => {
+    const fetchFn = vi.fn(async (_url: string, init: RequestInit) => jsonResponse((JSON.parse(String(init.body)) as string[]).map((t) => ({ translations: [{ text: `M(${t})` }] }))))
+    const { service } = setup(() => {}, { fetchFn })
+    await service.translate(ask("Hello", { providerId: "microsoft-free" }))
+    await service.translate(ask("Hallo", { providerId: "microsoft-free", sourceLang: "zh-TW" }))
+    const params = fetchFn.mock.calls.map(([url]) => new URL(url).searchParams)
+    expect(params[0].has("from")).toBe(false)
+    expect(params[1].get("from")).toBe("zh-Hant")
+  })
+
+  it("goes to DeepLX as source_lang, without variant", async () => {
+    const fetchFn = vi.fn(async (_url: string, _init: RequestInit) => jsonResponse({ code: 200, data: "X" }))
+    const { service } = setup((s) => (s.providers.deeplx = { enabled: true, apiKey: "", baseURL: "https://d.example/translate", model: "" }), { fetchFn })
+    await service.translate(ask("Hello", { providerId: "deeplx" }))
+    await service.translate(ask("Hallo", { providerId: "deeplx", sourceLang: "zh-TW" }))
+    expect(fetchFn.mock.calls.map(([, init]) => JSON.parse(String(init.body)).source_lang)).toEqual(["auto", "ZH"])
+  })
+
+  it("is named in the AI request, or left to the model to detect", async () => {
+    const { llm, calls } = fakeLlm()
+    const { service } = setup(() => {}, { llm })
+    await service.translate(ask("Hello"))
+    await service.translate(ask("Bonjour", { sourceLang: "fr" }))
+    expect(calls[0].opts.sourceLanguageName).toBeUndefined()
+    expect(calls[1].opts.sourceLanguageName).toBe("French")
+  })
+
+  it("goes to the dictionary as it is", async () => {
+    const dictionary = fakeDictionary()
+    const { service } = setup(() => {}, { dictionary })
+    await service.translate(ask("Hello", { providerId: "dictionary" }))
+    await service.translate(ask("Hallo", { providerId: "dictionary", sourceLang: "de" }))
+    expect(dictionary.translate.mock.calls.map(([, source, target]) => [source, target])).toEqual([
+      ["auto", "zh-CN"],
+      ["de", "zh-CN"],
+    ])
+  })
+
+  it("is part of the cache key: another source language does not use the old translation", async () => {
+    const { service, fetchFn } = google()
+    await service.translate(ask("Gift", { providerId: "google-free", sourceLang: "en" }))
+    await service.translate(ask("Gift", { providerId: "google-free", sourceLang: "de" }))
+    await service.translate(ask("Gift", { providerId: "google-free", sourceLang: "en" }))
+    expect(fetchFn).toHaveBeenCalledTimes(2)
+  })
+
+  it("keeps paragraphs of different source languages in different batches", async () => {
+    const { service, fetchFn } = google()
+    await Promise.all([service.translate(ask("a", { providerId: "google-free" })), service.translate(ask("b", { providerId: "google-free", sourceLang: "de" }))])
+    expect(fetchFn).toHaveBeenCalledTimes(2)
   })
 })
 
@@ -219,7 +367,7 @@ describe("precise mode", () => {
     const { service } = setup(
       (s) => {
         preciseOn(s)
-        s.activeProviderId = "anthropic"
+        s.tiers.ai = "anthropic"
         s.providers.anthropic.apiKey = "sk-ant"
         s.batch.maxCharsPerBatch = 40
       },

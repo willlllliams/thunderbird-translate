@@ -13,7 +13,10 @@ import {
 } from "../shared/messages"
 import { SETTINGS_KEY, type Settings, toPublicSettings } from "../shared/settings"
 import { readSettings, updateSettings } from "../shared/settings-store"
+import { browserDetector } from "../shared/lang-detect"
+import { handleBergamot } from "./bergamot-admin"
 import { type KeyValueStorage, PersistentCache } from "./cache"
+import { Dictionary } from "./dictionary"
 import { TranslationService } from "./service"
 
 declare const __DEBUG__: boolean
@@ -28,8 +31,9 @@ const storage: KeyValueStorage = {
 }
 
 const cache = new PersistentCache(storage, settings.cache.maxEntries)
+const dictionary = new Dictionary(undefined, { detect: browserDetector(ext.i18n) })
 // Badge, button title and error messages use the current i18n instance, set by applyUiLanguage().
-const service = new TranslationService({ getSettings: () => settings, cache, i18n: getI18n })
+const service = new TranslationService({ getSettings: () => settings, cache, dictionary, i18n: getI18n })
 
 function adoptSettings(stored: unknown): void {
   settings = readSettings(stored)
@@ -39,7 +43,8 @@ function adoptSettings(stored: unknown): void {
 const settingsReady = (async () => {
   const stored = await storage.get(SETTINGS_KEY)
   adoptSettings(stored)
-  if (!stored) await storage.set(SETTINGS_KEY, settings)
+  // A fresh installation, or settings of 1.3 and earlier: store them in the current form.
+  if (!(stored as Partial<Settings> | undefined)?.tiers) await storage.set(SETTINGS_KEY, settings)
   await applyUiLanguage()
 })()
 
@@ -115,8 +120,8 @@ ext.runtime.onConnect.addListener((port) => {
         break
       case "translate":
         void settingsReady
-          .then(() => service.translateForPage(msg.request, (text) => safePost(port, { type: "provisional", id: msg.id, text })))
-          .then((result) => safePost(port, { type: "result", id: msg.id, result }))
+          .then(() => service.translateForPage(msg.request, (tier, result) => safePost(port, { type: "tier", id: msg.id, tier, result })))
+          .finally(() => safePost(port, { type: "done", id: msg.id }))
         break
     }
   })
@@ -152,6 +157,15 @@ async function handle(req: BackgroundRequest): Promise<unknown> {
       const loaded = await loadI18n(req.uiLanguage, uiLang, fetchPackagedMessages)
       return { locale: loaded.locale, messages: loaded.messages } satisfies LocaleMessages
     }
+    case "dictionaryChanged":
+      return dictionary.invalidate()
+    case "bergamotList":
+    case "bergamotProgress":
+    case "bergamotInstall":
+    case "bergamotCancel":
+    case "bergamotRemove":
+    case "bergamotRequired":
+      return handleBergamot(req)
     case "clearCache":
       return cache.clear()
     case "cacheStats":

@@ -213,6 +213,11 @@ button.primary {
   min-width: 200px;
 }
 
+#bergamotList {
+  max-height: 420px;
+  overflow-y: auto;
+}
+
 .field-group {
   display: flex;
   flex-direction: column;
@@ -329,4 +334,63 @@ button.primary {
 .azure-fields[hidden],
 .provider-panel .hint[hidden] {
   display: none;
+}
+
+.prompt {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+  margin-bottom: 14px;
+}
+
+.prompt textarea {
+  width: 100%;
+}
+
+.dict-list {
+  list-style: none;
+  margin: 8px 0;
+  padding: 0;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+}
+
+.dict-list:empty {
+  display: none;
+}
+
+.dict-list li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 12px;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--border);
+}
+
+.dict-list li:last-child {
+  border-bottom: 0;
+}
+
+.dict-name {
+  font-weight: 600;
+  min-width: 14em;
+}
+
+.dict-meta {
+  flex: 1;
+}
+
+.dict-list .attribution {
+  flex-basis: 100%;
+}
+
+.dict-list .test-result {
+  flex-basis: 100%;
+}
+
+details summary {
+  cursor: pointer;
+  margin: 8px 0;
 }

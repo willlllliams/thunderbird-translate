@@ -15,7 +15,7 @@ await esbuild.build({
   stdin: {
     contents: `
       export { googleTranslateBatch } from "./src/background/translators/google.ts"
-      export { microsoftTranslateBatch, microsoftTranslateViaToken, microsoftTranslateViaEdge } from "./src/background/translators/microsoft.ts"
+      export { microsoftTranslateBatch } from "./src/background/translators/microsoft.ts"
     `,
     resolveDir: root,
     loader: "ts",
@@ -49,11 +49,8 @@ async function check(label, fn) {
 }
 
 await check("Google translate_a/t, 3 paragraphs in 1 request", () => t.googleTranslateBatch(samples, "zh-CN"))
-const tokenError = await check("Microsoft token route (edge.microsoft.com/translate/auth + api-edge)", () =>
-  t.microsoftTranslateViaToken(samples, "zh-Hans"),
-)
-await check("Microsoft direct route (edge.microsoft.com/translate/translatetext)", () => t.microsoftTranslateViaEdge(samples, "zh-Hans"))
-await check("Microsoft as used by the extension (token route, then direct route)", () => t.microsoftTranslateBatch(samples, "zh-Hans"))
+await check("Google translate_a/t with source language en", () => t.googleTranslateBatch(samples, "zh-CN", { source: "en" }))
+await check("Microsoft direct route (edge.microsoft.com/translate/translatetext)", () => t.microsoftTranslateBatch(samples, "zh-Hans"))
+await check("Microsoft direct route with source language en", () => t.microsoftTranslateBatch(samples, "zh-Hans", { from: "en" }))
 
-if (tokenError) console.log("\nNote: the token route failed; the extension falls back to the direct route automatically.")
 process.exit(failures > 0 ? 1 : 0)

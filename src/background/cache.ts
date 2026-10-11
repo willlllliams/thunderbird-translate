@@ -8,8 +8,9 @@
 
 import { hashText } from "../shared/hash"
 
-export function cacheKey(providerId: string, model: string, targetLang: string, text: string, promptSig = ""): string {
-  return `${providerId}|${model}|${targetLang}|${promptSig}|${hashText(text)}`
+/** `languages`: the target language, or "<source>><target>" for translations. */
+export function cacheKey(providerId: string, model: string, languages: string, text: string, promptSig = ""): string {
+  return `${providerId}|${model}|${languages}|${promptSig}|${hashText(text)}`
 }
 
 export class LruCache<V> {

@@ -104,7 +104,7 @@ describe("TranslationService with Google", () => {
 
 describe("TranslationService with an LLM", () => {
   const useOpenAI = (s: Settings) => {
-    s.activeProviderId = "openai"
+    s.tiers.ai = "openai"
     s.providers.openai.apiKey = "sk-test"
   }
 

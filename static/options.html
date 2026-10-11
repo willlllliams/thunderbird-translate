@@ -22,6 +22,10 @@
             <select id="uiLanguage" aria-describedby="uiLanguageHint"></select>
           </label>
           <label>
+            <span data-i18n="labelSourceLang"></span>
+            <select id="sourceLang"></select>
+          </label>
+          <label>
             <span data-i18n="labelTargetLang"></span>
             <select id="targetLang"></select>
           </label>
@@ -32,16 +36,29 @@
               <option value="translation-only" data-i18n="modeTranslationOnly"></option>
             </select>
           </label>
-          <label>
-            <span data-i18n="labelActiveProvider"></span>
-            <select id="activeProvider"></select>
-          </label>
         </div>
+        <p id="sameLanguage" class="field-warning" data-i18n="hintSameLanguage" hidden></p>
         <p class="hint" id="uiLanguageHint" data-i18n="uiLanguageHint"></p>
         <label class="check">
           <input type="checkbox" id="autoTranslate" />
           <span data-i18n="labelAutoTranslate"></span>
         </label>
+      </section>
+
+      <section id="tiers">
+        <h2 data-i18n="labelTiers"></h2>
+        <p class="hint" data-i18n="tiersHint"></p>
+        <div class="grid">
+          <label><span id="tierLabel-dictionary"></span><select id="tier-dictionary"></select></label>
+          <label><span id="tierLabel-machine"></span><select id="tier-machine"></select></label>
+          <label><span id="tierLabel-ai"></span><select id="tier-ai"></select></label>
+        </div>
+        <p id="tiersEmpty" class="field-warning" data-i18n="tiersEmpty" hidden></p>
+        <label class="check">
+          <input type="checkbox" id="preciseEnabled" />
+          <span data-i18n="labelPrecise"></span>
+        </label>
+        <p class="hint" data-i18n="hintPrecise"></p>
       </section>
 
       <section id="providers">
@@ -52,32 +69,51 @@
         </div>
       </section>
 
-      <section id="aiModes">
-        <h2 data-i18n="sectionAiModes"></h2>
-        <p class="hint" data-i18n="aiModesHint"></p>
-        <label class="check">
-          <input type="checkbox" id="raceEnabled" />
-          <span data-i18n="labelRace"></span>
-        </label>
-        <div class="grid">
-          <label>
-            <span data-i18n="labelFastProvider"></span>
-            <select id="fastProvider"></select>
-          </label>
-        </div>
-        <p class="hint" data-i18n="hintRace"></p>
-        <label class="check">
-          <input type="checkbox" id="preciseEnabled" />
-          <span data-i18n="labelPrecise"></span>
-        </label>
-        <p class="hint" data-i18n="hintPrecise"></p>
+      <section id="dictionaries">
+        <h2 data-i18n="sectionDictionaries"></h2>
+        <p class="hint" data-i18n="dictionaryHint"></p>
+        <p class="hint" data-i18n="dictionaryAttribution"></p>
+        <p id="dictStatus" class="hint" role="status"></p>
+        <ul id="dictList" class="dict-list"></ul>
+        <details>
+          <summary data-i18n="labelDictTag"></summary>
+          <div class="row">
+            <input type="text" id="dictReleaseTag" spellcheck="false" />
+            <button type="button" id="dictReload" data-i18n="buttonReloadList"></button>
+          </div>
+        </details>
       </section>
 
-      <section>
-        <h2 data-i18n="sectionPrompt"></h2>
-        <p class="hint" data-i18n="promptHint"></p>
-        <textarea id="systemPrompt" rows="9" spellcheck="false"></textarea>
-        <button type="button" id="resetPrompt" data-i18n="buttonResetPrompt"></button>
+      <section id="bergamot">
+        <h2 data-i18n="sectionBergamot"></h2>
+        <p class="hint" data-i18n="bergamotHint"></p>
+        <p id="bergamotNeeded" class="hint"></p>
+        <div class="row">
+          <input type="search" id="bergamotFilter" data-i18n-placeholder="bergamotFilter" spellcheck="false" />
+          <button type="button" id="bergamotReload" data-i18n="buttonReloadList"></button>
+        </div>
+        <p id="bergamotStatus" class="hint" role="status"></p>
+        <ul id="bergamotList" class="dict-list"></ul>
+      </section>
+
+      <section id="prompts">
+        <h2 data-i18n="sectionPrompts"></h2>
+        <p class="hint" data-i18n="promptsHint"></p>
+        <div class="prompt">
+          <label for="prompt-bilingual" data-i18n="labelPromptBilingual"></label>
+          <textarea id="prompt-bilingual" rows="9" spellcheck="false"></textarea>
+          <button type="button" id="reset-bilingual" data-i18n="buttonResetPrompt"></button>
+        </div>
+        <div class="prompt">
+          <label for="prompt-translationOnly" data-i18n="labelPromptTranslationOnly"></label>
+          <textarea id="prompt-translationOnly" rows="9" spellcheck="false"></textarea>
+          <button type="button" id="reset-translationOnly" data-i18n="buttonResetPrompt"></button>
+        </div>
+        <div class="prompt">
+          <label for="prompt-precise" data-i18n="labelPromptPrecise"></label>
+          <textarea id="prompt-precise" rows="9" spellcheck="false"></textarea>
+          <button type="button" id="reset-precise" data-i18n="buttonResetPrompt"></button>
+        </div>
       </section>
 
       <section>

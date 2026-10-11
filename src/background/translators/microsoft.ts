@@ -1,39 +1,22 @@
 /**
- * Microsoft Translator, the free endpoints used by the Edge browser.
+ * Microsoft Translator.
  *
- * Two routes, both accept an array of texts in one request:
+ * Free mode: POST edge.microsoft.com/translate/translatetext with a bare JSON
+ * string array, the route the Edge browser uses. Microsoft retired the token
+ * endpoint of the older route in 2026-07.
  *
- * 1. Token route: GET edge.microsoft.com/translate/auth returns a short-lived
- *    JWT, then POST api-edge.cognitive.microsofttranslator.com/translate
- *    (Translator v3 API) with `[{ Text }]`.
- * 2. Direct route: POST edge.microsoft.com/translate/translatetext with a bare
- *    JSON string array. No token. Microsoft retired the auth endpoint in
- *    2026-07 (it answers 404), and this is the route Edge uses since then.
+ * Key mode: the official Azure Translator v3 translate method (subscription
+ * key header, `[{ Text }]` body, same response format).
  *
- * The token route is tried first; once it fails, it is skipped for an hour.
- *
- * With "use my key" mode the official Azure Translator v3 translate method is
- * called instead (subscription key header, same body and response format).
+ * Both take the source language as `from` and detect it when `from` is absent.
  */
 
 import { LocalizedError } from "../../shared/errors"
 import { type BatchLimits, groupIntoBatches } from "../queue/batch-queue"
 import { type FetchOptions, fetchOk, type RequestSpec } from "../queue/request-queue"
 
-export const MS_AUTH_URL = "https://edge.microsoft.com/translate/auth"
-export const MS_API_URL = "https://api-edge.cognitive.microsofttranslator.com/translate"
 export const MS_EDGE_TRANSLATE_URL = "https://edge.microsoft.com/translate/translatetext"
 
-/** Body of the Translator v3 translate method, used by the token route and by Azure. */
-const v3Body = (texts: string[]) => JSON.stringify(texts.map((Text) => ({ Text })))
-
-export function buildMicrosoftApiRequest(texts: string[], targetLang: string, token: string): RequestSpec {
-  const params = new URLSearchParams({ "api-version": "3.0", to: targetLang, textType: "plain" })
-  return {
-    url: `${MS_API_URL}?${params.toString()}`,
-    init: { method: "POST", headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` }, body: v3Body(texts) },
-  }
-}
 
 /** Azure Translator, key mode. An empty region is valid for a global resource. */
 export interface AzureConfig {
@@ -46,25 +29,28 @@ export interface AzureConfig {
 export interface MicrosoftOptions extends FetchOptions {
   /** Present in key mode. */
   azure?: AzureConfig
+  /** Source language code; absent = detect. */
+  from?: string
 }
 
 /** Request limits of the translate method (service-limits): 1000 array elements and 50,000 characters per request. */
 export const AZURE_LIMITS: BatchLimits = { maxItems: 1000, maxChars: 50_000 }
 
-export function buildAzureRequest(texts: string[], targetLang: string, azure: AzureConfig): RequestSpec {
+export function buildAzureRequest(texts: string[], targetLang: string, azure: AzureConfig, from?: string): RequestSpec {
   const url = new URL(azure.endpoint)
   url.searchParams.set("api-version", "3.0")
+  if (from) url.searchParams.set("from", from)
   url.searchParams.set("to", targetLang)
   const headers: Record<string, string> = {
     "Content-Type": "application/json; charset=UTF-8",
     "Ocp-Apim-Subscription-Key": azure.apiKey,
   }
   if (azure.region) headers["Ocp-Apim-Subscription-Region"] = azure.region
-  return { url: url.toString(), init: { method: "POST", headers, body: v3Body(texts) } }
+  return { url: url.toString(), init: { method: "POST", headers, body: JSON.stringify(texts.map((Text) => ({ Text }))) } }
 }
 
-export function buildMicrosoftEdgeRequest(texts: string[], targetLang: string): RequestSpec {
-  const params = new URLSearchParams({ from: "", to: targetLang, isEnterpriseClient: "false" })
+export function buildMicrosoftEdgeRequest(texts: string[], targetLang: string, from?: string): RequestSpec {
+  const params = new URLSearchParams({ ...(from ? { from } : {}), to: targetLang, isEnterpriseClient: "false" })
   return {
     url: `${MS_EDGE_TRANSLATE_URL}?${params.toString()}`,
     init: {
@@ -77,7 +63,7 @@ export function buildMicrosoftEdgeRequest(texts: string[], targetLang: string): 
   }
 }
 
-/** Both routes answer `[{ translations: [{ text, to }] }, ...]`. */
+/** Both modes answer `[{ translations: [{ text, to }] }, ...]`. */
 export function parseMicrosoftResponse(json: unknown, expected: number, decode = false): string[] {
   if (!Array.isArray(json)) throw new LocalizedError("errUnexpectedResponse", ["Microsoft"])
   if (json.length !== expected) throw new LocalizedError("errResultCount", ["Microsoft", String(expected), String(json.length)])
@@ -103,62 +89,18 @@ export function decodeHtml(s: string): string {
     .replace(/&amp;/g, "&")
 }
 
-/** Expiry (ms since epoch) from a JWT, or a conservative default. */
-export function tokenExpiry(token: string, now = Date.now()): number {
-  try {
-    const payload = JSON.parse(atob(token.split(".")[1].replace(/-/g, "+").replace(/_/g, "/")))
-    if (typeof payload.exp === "number") return payload.exp * 1000 - 60_000
-  } catch {
-    // not a JWT
-  }
-  return now + 8 * 60_000
-}
-
-interface TokenState {
-  token: string | null
-  expiresAt: number
-  authDisabledUntil: number
-}
-
-const state: TokenState = { token: null, expiresAt: 0, authDisabledUntil: 0 }
-
-export function resetMicrosoftState(): void {
-  state.token = null
-  state.expiresAt = 0
-  state.authDisabledUntil = 0
-}
-
-async function getToken(fetchFn: typeof fetch | undefined): Promise<string> {
-  if (state.token && Date.now() < state.expiresAt) return state.token
-  const resp = await fetchOk(fetchFn, { url: MS_AUTH_URL, init: { method: "GET", headers: {} } }, "Microsoft auth")
-  const token = (await resp.text()).trim()
-  if (!token) throw new LocalizedError("errEmptyToken", ["Microsoft"])
-  state.token = token
-  state.expiresAt = tokenExpiry(token)
-  return token
-}
-
 /** Send one translate request and read its `expected` translations. */
 async function translate(spec: RequestSpec, expected: number, opts: FetchOptions, decode = false): Promise<string[]> {
   const resp = await fetchOk(opts.fetchFn, spec, "Microsoft")
   return parseMicrosoftResponse(await resp.json(), expected, decode)
 }
 
-export async function microsoftTranslateViaToken(texts: string[], targetLang: string, opts: FetchOptions = {}): Promise<string[]> {
-  const token = await getToken(opts.fetchFn)
-  return translate(buildMicrosoftApiRequest(texts, targetLang, token), texts.length, opts)
-}
-
-export function microsoftTranslateViaEdge(texts: string[], targetLang: string, opts: FetchOptions = {}): Promise<string[]> {
-  return translate(buildMicrosoftEdgeRequest(texts, targetLang), texts.length, opts, true)
-}
-
 /** One request per group within the Azure limits, in order. */
-export async function azureTranslateBatch(texts: string[], targetLang: string, azure: AzureConfig, opts: FetchOptions = {}): Promise<string[]> {
+export async function azureTranslateBatch(texts: string[], targetLang: string, azure: AzureConfig, opts: MicrosoftOptions): Promise<string[]> {
   if (!azure.apiKey) throw new LocalizedError("errApiKeyRequired", ["Microsoft Translator"])
   const out: string[] = []
   for (const group of groupIntoBatches(texts, (text) => text.length, AZURE_LIMITS)) {
-    out.push(...(await translate(buildAzureRequest(group, targetLang, azure), group.length, opts)))
+    out.push(...(await translate(buildAzureRequest(group, targetLang, azure, opts.from), group.length, opts)))
   }
   return out
 }
@@ -166,13 +108,5 @@ export async function azureTranslateBatch(texts: string[], targetLang: string, a
 export async function microsoftTranslateBatch(texts: string[], targetLang: string, opts: MicrosoftOptions = {}): Promise<string[]> {
   if (texts.length === 0) return []
   if (opts.azure) return azureTranslateBatch(texts, targetLang, opts.azure, opts)
-  if (Date.now() >= state.authDisabledUntil) {
-    try {
-      return await microsoftTranslateViaToken(texts, targetLang, opts)
-    } catch {
-      state.authDisabledUntil = Date.now() + 60 * 60_000
-      state.token = null
-    }
-  }
-  return microsoftTranslateViaEdge(texts, targetLang, opts)
+  return translate(buildMicrosoftEdgeRequest(texts, targetLang, opts.from), texts.length, opts, true)
 }

@@ -2,7 +2,7 @@
 
 English | [简体中文](readmes/README.zh-CN.md) | [繁體中文](readmes/README.zh-TW.md) | [日本語](readmes/README.ja.md) | [한국어](readmes/README.ko.md) | [Français](readmes/README.fr.md) | [Deutsch](readmes/README.de.md) | [Español](readmes/README.es.md) | [Português (Brasil)](readmes/README.pt-BR.md) | [Русский](readmes/README.ru.md) | [Türkçe](readmes/README.tr.md) | [Tiếng Việt](readmes/README.vi.md)
 
-Thunderbird Translate is a Thunderbird extension that translates the body of the message you are reading, directly in the message pane. A translation can appear under each original paragraph (bilingual) or replace it (translation only). Turning translation off restores the original message exactly. Google Translate (free) is the default and works right after installation. You can also connect 22 AI providers, including OpenAI, Claude, Gemini, DeepSeek and Qwen.
+Thunderbird Translate is a Thunderbird extension that translates the body of the message you are reading, directly in the message pane. A translation can appear under each original paragraph (bilingual) or replace it (translation only). Turning translation off restores the original message exactly. Translation runs in three tiers at the same time: an offline dictionary, a machine translator (Google Translate, Microsoft Translator, DeepLX or the offline Bergamot models) and an AI service (22 providers, including OpenAI, Claude, Gemini, DeepSeek and Qwen). The fastest result appears first and the result of the highest tier replaces it. Google Translate (free) is the default and works right after installation.
 
 This document is written for readers who have not used a Thunderbird extension before. It follows the order install, use, configure, and how it works.
 
@@ -32,9 +32,11 @@ Each line below introduces the extension in one language and links to the full R
 - Entry points: the "Translate message" button in the message header toolbar with its popup, and the shortcuts Alt+A (translate / show original) and Alt+S (switch bilingual / translation-only).
 - Optional automatic translation: messages not in the target language are translated as soon as they are opened.
 - Request batching: the background script collects paragraphs for 50 ms and merges them into one request, with a concurrency limit, retries with exponential backoff, and a local cache.
-- Services: 3 free or self-hosted translation services and 22 AI provider presets, one of which is "Custom OpenAI-compatible". Only the services you have added appear in the service lists.
-- Race translation (AI services): a free translator answers first and its result is shown as a provisional translation until the AI translation replaces it.
-- Precise translation (AI services): the whole message is the context of every request, so names, terms and forms of address stay consistent across paragraphs.
+- Three translation tiers: dictionary, machine translation and AI. Each tier has its own service or is not used; every paragraph goes to all tiers in use at once. A lower tier is shown as a provisional translation until the highest tier replaces it, and stays when the highest tier fails.
+- Services: an offline dictionary, 4 machine translators (Google Translate, Microsoft Translator, DeepLX, offline Bergamot models) and 22 AI provider presets, one of which is "Custom OpenAI-compatible". Only the services you have added appear in the tier lists.
+- Source language: automatic detection or a fixed language, passed to every service.
+- Three prompts for the AI tier: one for bilingual display, one for translation-only display and one for precise translation.
+- Precise translation (AI tier): the whole message is the context of every request, so names, terms and forms of address stay consistent across paragraphs.
 - Thinking mode switch for each AI provider, off by default.
 - Interface in 12 languages. The interface language follows Thunderbird by default and can be chosen on the settings page.
 
@@ -68,12 +70,12 @@ Open a message. A "Translate message" button appears in the message header toolb
 
 - "Translate this message": starts translating. While a translation is running or shown, the button reads "Show original" and restores the original when clicked.
 - Display: switches between bilingual and translation-only; the change applies to the current message immediately.
-- Target language: after a change, a message being translated is translated again into the new language.
-- Translation service: selects the service in use. The list contains the added services only. "+ Add translation service" below it opens the settings page at the translation services.
-- Race translation and Precise translation: shown while the current service is an AI service; they turn the two AI translation modes on or off.
+- Source language and target language: "Detect automatically" is the default source language. After a change of either, a message being translated is translated again. A note appears when both are the same language.
+- Translation tiers: one list per tier (1 dictionary, 2 machine translation, 3 AI translation), each with "Not used" and the added services of that tier. At least one tier needs a service; choosing "Not used" for the last one is refused with a note. "+ Add translation service" below the lists opens the settings page at the translation services.
+- Precise translation: shown while the AI tier has a service.
 - Automatically translate messages not in the target language: when checked, a message whose body is not in the target language is translated as soon as it is opened.
 
-The popup shows the progress, for example "Translated 8 of 12". With race translation, paragraphs that still show the fast provisional translation are counted separately, for example "Translated 7 of 9 (2 provisional)". When a paragraph fails, a red "Translation failed, click to retry" appears after it; hovering shows the error and clicking retries that paragraph.
+The popup shows the progress, for example "Translated 8 of 12". Paragraphs that still show a provisional translation of a lower tier are counted separately, for example "Translated 7 of 9 (2 provisional)". When every tier fails for a paragraph, a red "Translation failed, click to retry" appears after it; hovering shows the error and clicking retries that paragraph.
 
 Alt+A translates the current message or restores the original; Alt+S switches between bilingual and translation-only. Both shortcuts can be changed under "Manage Extension Shortcuts" in the gear menu of the Add-ons Manager.
 
@@ -85,10 +87,12 @@ Open the settings page with the "Options" button of this extension in the Add-on
 
 | Section | Contents |
 | --- | --- |
-| General | Interface language, target language, default display mode, current service, automatic translation |
+| General | Interface language, source language, target language, default display mode, automatic translation |
+| Translation tiers | The service of each tier or "Not used"; precise translation |
 | Translation services | Services in two groups, "Added" and "Available to add"; endpoint, API key, model, temperature and thinking mode of each service; "Test connection", "Add", "Use this service" and "Remove" buttons |
-| AI translation modes | Race translation with the choice of fast service; precise translation |
-| System prompt | Custom system prompt for AI services; `{{to}}` is replaced by the target language name; empty means the built-in prompt |
+| Dictionaries | Language pairs of the dictionary tier with size, license and attribution; download and delete; release tag of the packs (advanced) |
+| Offline translation models (Bergamot) | Direction pairs of the Bergamot models with size and version; filter by language; download, update, cancel and delete; the directions the current languages need |
+| Prompts (AI tier) | The prompts for bilingual display, translation-only display and precise translation, each with "Restore built-in prompt" |
 | Request batching | Collection window, maximum characters and paragraphs per request, concurrency, retries, whether to merge AI requests |
 | Translation style | Left border, dashed left border, highlight or plain; accent color, text opacity, font size ratio; live preview |
 | Cache | Cache on or off, maximum cached paragraphs, current number of entries, clear cache |
@@ -100,10 +104,10 @@ Open the settings page with the "Options" button of this extension in the Add-on
 The side list of the translation services section has two groups. "Added" holds the services that appear in the service lists of the popup and of the settings page; "Available to add" holds all others. Selecting a service shows its configuration and buttons:
 
 - A service that is not added has an "Add" button. Typing an API key (for DeepLX, the endpoint) adds the service as well.
-- An added service has "Use this service" and "Remove". Removing takes the service out of the lists and keeps its configuration, so adding it again restores the key and the model.
-- The current service cannot be removed, and neither can the fast service of race translation while race translation is on. The "Remove" button is then disabled and a line below it gives the reason.
+- An added service has "Use this service", which puts it into its tier, and "Remove". Removing takes the service out of the lists and keeps its configuration, so adding it again restores the key and the model.
+- A service that a tier uses cannot be removed. The "Remove" button is then disabled and a line below it names the tier. Services in use carry an "In use" tag in the side list.
 
-A fresh installation starts with Google Translate and Microsoft Translator added. When settings from version 1.1 or earlier are loaded, a service counts as added in these cases:
+A fresh installation starts with Google Translate and Microsoft Translator added. The dictionary and Bergamot need data that you download, so they are added by hand. When settings from version 1.1 or earlier are loaded, a service counts as added in these cases:
 
 | Service | Counts as added when |
 | --- | --- |
@@ -111,28 +115,62 @@ A fresh installation starts with Google Translate and Microsoft Translator added
 | DeepLX | an endpoint is filled in |
 | AI services that need a key | an API key is saved |
 | Ollama, LM Studio, custom OpenAI-compatible | the endpoint, model or temperature was changed |
-| the current service | always |
+| the services of the tiers | always |
 
-## AI translation modes
+## Translation tiers
 
-Both modes apply only while the current service is an AI service. They can be turned on in the "AI translation modes" section of the settings page or in the popup.
+| Tier | Services | What it gives |
+| --- | --- | --- |
+| 1 Dictionary | Dictionary (offline) | a word-by-word gloss from the installed dictionary packs, available at once and without network |
+| 2 Machine translation | Google Translate, Microsoft Translator, DeepLX, Bergamot (offline) | a full translation within a second or two |
+| 3 AI translation | the 22 AI providers | the best translation, following the prompt of the display mode |
 
-### Race translation
+Each tier has one service or "Not used", and at least one tier has a service. The default is Google Translate in tier 2 and nothing else.
 
-Every paragraph goes to the AI service and to a fast service (Google Translate by default; Microsoft Translator or DeepLX can be chosen among the added services). Both requests use the normal batching and cache. The outcome depends on which answer arrives first:
+Every paragraph goes to all tiers in use at the same time. Each tier uses the normal batching and cache. What the message shows follows one rule: the highest tier that has answered wins.
 
 | Case | What the message shows |
 | --- | --- |
-| The fast service answers first | its translation, in italics with a "Provisional" tag; hovering explains that the AI translation is in progress. The AI translation replaces it when it arrives. |
-| The AI service answers first | the AI translation; the fast result is discarded |
-| The AI request fails | the fast translation stays, marked "AI translation failed"; hovering shows the reason, clicking retries the paragraph |
-| The AI translation is already cached | the cached AI translation; the fast service is not asked |
+| A lower tier answers first | its translation, in italics with a tag naming its tier ("Dictionary", "Machine translation"); hovering says which tier is still running. A higher tier replaces it when it arrives. |
+| The highest tier in use answers | its translation, without a tag: the final translation. Lower tiers that answer later are ignored. |
+| The highest tier fails | the best lower translation stays, marked "AI translation failed" (or the name of the highest tier); hovering shows the reason, clicking retries only the failed tiers |
+| Every tier fails | the red "Translation failed, click to retry" marker |
+| The highest tier's translation is already cached | that translation at once; the lower tiers are not asked |
 
-Switching the display mode keeps provisional and failed marks, and "Show original" removes them together with the translations. Race translation costs no extra AI tokens, but it doubles the number of requests to the fast service.
+Switching the display mode re-renders the dictionary and machine translations as they are. The AI tier uses one prompt per display mode, so it is asked again with the prompt of the new mode; a translation already cached for that prompt comes back without a request. The popup counts final translations as translated and lower-tier translations as provisional.
 
-### Precise translation
+Settings saved by version 1.3 and earlier are converted once: an AI service as current service becomes tier 3, together with the fast service of race translation as tier 2 when race translation was on; any other current service becomes tier 2. The dictionary tier starts unused.
 
-Precise translation sends the message as context with every AI request. When translation starts, the content script joins the paragraphs it found into the plain text of the message (cut after 20,000 characters, with a note that the text continues) and registers it with the background script once. The message is identified by a hash of its full text; the cut applies only to the text sent as context.
+## Source language
+
+The source language is "Detect automatically" by default, or one of the 20 languages of the target language list. It goes to every service:
+
+| Service | Automatic detection | Fixed language |
+| --- | --- | --- |
+| Google Translate | `sl=auto` | `sl=<code>` |
+| Microsoft Translator, free and with key | no `from` parameter | `from=<code>` |
+| DeepLX | `source_lang: "auto"` | `source_lang: "<code>"` (Chinese variants as `ZH`) |
+| AI services | "Detect the source language of … and translate it into …" | "Translate … from <language> into …" |
+| Dictionary | detected per paragraph | the language as set |
+| Bergamot | `"auto"`, with the language found by script and English stop words as fallback | the language as set |
+
+Paragraphs detected as the target language are skipped as before. With a fixed source language, paragraphs whose language cannot be detected reliably count as that language. Cache keys and batches contain the source language, so changing it never returns translations made for the old setting.
+
+## Prompts
+
+The AI tier has three system prompts. Each can be edited on the settings page and restored with "Restore built-in prompt"; an empty field also means the built-in prompt. `{{to}}` is replaced by the English name of the target language. The extension adds the source language and the batch format to every request itself.
+
+| Prompt | Used for | Built-in prompt asks for |
+| --- | --- | --- |
+| Bilingual display | the AI tier in bilingual mode | a translation close to the original, sentence by sentence in the same order, adding and dropping nothing, since the reader compares it with the original |
+| Translation-only display | the AI tier in translation-only mode | fluent text that reads as an email written in the target language; clauses may be reordered and sentences split or joined, with the complete meaning kept |
+| Precise translation | the AI tier while precise translation is on, in both display modes | consistent terms, names and forms of address across the message, using the glossary, the summary and the neighbouring paragraphs |
+
+Cache keys and batch keys contain the kind of prompt and a hash of its text. Editing a prompt therefore never returns translations made with the old text. A custom system prompt saved by version 1.3 or earlier becomes the prompt of both display modes; the precise prompt starts with its built-in text.
+
+## Precise translation
+
+Precise translation applies to the AI tier and sends the message as context with every AI request. It is turned on in the popup or in the "Translation tiers" section of the settings page. When translation starts, the content script joins the paragraphs it found into the plain text of the message (cut after 20,000 characters, with a note that the text continues) and registers it with the background script once. The message is identified by a hash of its full text; the cut applies only to the text sent as context.
 
 The flow depends on the size of the paragraphs to translate:
 
@@ -143,6 +181,44 @@ The flow depends on the size of the paragraphs to translate:
 The prefix is identical, character for character, for every request of one message, so providers that cache repeated prompt prefixes can serve it from their cache. For Anthropic the prefix is marked with `cacheControl: { type: "ephemeral" }`. The analysis is cached like translations, keyed by provider, model, target language and the hash of the message text; batches of one message wait for the same analysis request.
 
 Translations made in precise mode are cached under a key that contains the message hash, and batches never mix paragraphs of different messages. The same sentence in another message is therefore translated again, with that message as context. The analysis request and the longer prompts make precise translation more expensive than normal translation.
+
+## Dictionary translation
+
+The dictionary service translates word by word with dictionary packs stored in the Thunderbird profile. It needs no network once a pack is installed, and it answers within milliseconds, so it fills the time until the machine and AI tiers answer. The result is a gloss: words in the source order, without grammar.
+
+### Packs
+
+The packs are published as assets of a GitHub release of this repository, by default the release `dicts-v1`. The release tag can be changed under "Release tag of the dictionary packs (advanced)" in the Dictionaries section. Each direction is one file `dict-<src>-<tgt>.tsv.gz`, a gzip-compressed UTF-8 text file:
+
+```text
+#dict	<src>	<tgt>	<packVersion>	<sourceName>	<license>
+w	<key>	<translation>
+f	<key>	<lemmaKey>
+```
+
+The first line describes the pack. Lines starting with `w` are entries, lines starting with `f` map an inflected form to the key of its lemma, for example `went` to `go`. A key is NFC-normalized, lower-cased with the rules of the source language and trimmed; it may be a phrase of several words. The index `dict-index.json` lists every pack with size, number of entries and forms, SHA-256 checksum, source, license and attribution. The packs cover English, Simplified and Traditional Chinese, Japanese, Korean, French, German, Spanish, Portuguese, Russian, Turkish and Vietnamese. [docs/dictionary-packs.md](docs/dictionary-packs.md) describes how they are built.
+
+The Dictionaries section reads the index and lists every pack with its size, license and attribution. "Download" fetches the file with a progress display, checks its SHA-256 checksum and its header, and stores it in the IndexedDB database `tt-dictionary` of the extension; "Delete" removes it. If the index cannot be loaded, the section says why, and installed packs can still be deleted.
+
+### Translation
+
+1. The source language is the one set, or with automatic detection the language of the paragraph (script, browser detector, English stop words).
+2. `Intl.Segmenter` splits the paragraph into words. At each word, the longest phrase of up to three words with an entry wins, then the single word. A word without an entry is looked up through its lemma; if that fails too, it stays as it is. Punctuation and numbers stay as they are.
+3. For Chinese and Japanese targets the words are joined without spaces, for other targets with spaces.
+4. Between two languages other than English, the text goes through English: French to German uses the packs French → English and English → German.
+5. When a needed pack is missing, the error names the language pair and points to the Dictionaries section.
+
+The background script reads a pack from IndexedDB on first use and keeps it in memory; after five minutes without dictionary translations it releases the memory.
+
+### Data sources
+
+The packs are built from Wiktionary, extracted by wiktextract and published by kaikki.org (CC BY-SA 4.0, © Wiktionary contributors), and from ECDICT by skywind3000 (MIT License). Each pack names its own source and license in the index, and the settings page shows them next to the pack.
+
+## Offline translation (Bergamot)
+
+The Bergamot service translates on your computer with the engine and the models of Firefox Translations, published by Mozilla under MPL-2.0. The engine ships with the extension; each translation direction is downloaded once from Mozilla, 24 to 48 MB, and stored in the extension's IndexedDB. A loaded direction takes about 200 MB of memory and is released after five minutes without use. Every model has English on one side, so Japanese to Chinese uses Japanese → English and English → Chinese.
+
+The section "Offline translation models (Bergamot)" of the settings page lists the 114 direction pairs among 58 languages with size and version, filtered by language. It names the directions the current source and target language need and lists them first. Downloads show their progress and can be canceled; an installed pair with a newer version offered by Mozilla shows "Update". Deleting a pair that the current languages need asks for confirmation. Installation, translation and removal run in the background script, where the engine lives. [docs/bergamot.md](docs/bergamot.md) describes model selection, verification, storage and the engine.
 
 ## Interface language
 
@@ -195,7 +271,9 @@ The target language list is separate and contains 20 languages, including Italia
 | Service | Setup | Notes |
 | --- | --- | --- |
 | Google Translate (free, default) | None | Calls the `client=gtx` endpoint of `translate.googleapis.com`; one POST carries several `q` parameters, so several paragraphs share one request |
-| Microsoft Translator (free) | None | First tries to get a token from `edge.microsoft.com/translate/auth` and call `api-edge.cognitive.microsofttranslator.com`; when Microsoft has retired the token endpoint, it switches to `edge.microsoft.com/translate/translatetext`. Both routes accept arrays natively. The panel option “Use my key (Azure Translator)” calls the official `api.cognitive.microsofttranslator.com` instead: create a Translator resource in the Azure portal, then copy its key and region from Keys and Endpoint into the panel (the region can stay empty for a global resource). |
+| Dictionary (offline) | Download language pairs in the Dictionaries section | Word-by-word translation with the installed packs, see "Dictionary translation" |
+| Bergamot (offline) | Download direction pairs in the "Offline translation models" section | Translation on your computer with Mozilla's models, see "Offline translation (Bergamot)" |
+| Microsoft Translator (free) | None | Calls `edge.microsoft.com/translate/translatetext`, the endpoint the Edge browser uses; the request body is an array of paragraphs. The panel option “Use my key (Azure Translator)” calls the official `api.cognitive.microsofttranslator.com` instead: create a Translator resource in the Azure portal, then copy its key and region from Keys and Endpoint into the panel (the region can stay empty for a global resource). |
 | DeepLX | Endpoint required | A self-hosted or third-party DeepLX service; the token is optional. If the endpoint contains `{{apiKey}}`, the token replaces it; otherwise it is sent as `Authorization: Bearer` |
 
 ### AI providers
@@ -283,14 +361,15 @@ A message usually has between ten and a few dozen paragraphs. With one request p
 
 ### Flow
 
-1. The content script hands every paragraph to be translated to the background script.
-2. The background script looks up the cache first and answers directly on a hit. The cache key consists of the provider, the model, the target language, a signature of the system prompt, in precise mode the hash of the message, and a hash of the paragraph text. When the same text is already being translated, later requests share the same result.
-3. Paragraphs not in the cache enter the batch queue, grouped by provider + model + endpoint + target language; AI services are also grouped by system prompt, Microsoft Translator by free or key mode, and in precise mode by message. Paragraphs of one group accumulate for 50 ms. A group is sent when the window ends, when the paragraph limit is reached, or when the next paragraph would exceed the character limit. A single paragraph longer than the character limit forms its own batch.
+1. The content script hands every paragraph to be translated to the background script, once for all tiers in use.
+2. For each tier the background script looks up the cache first and answers directly on a hit. The cache key consists of the provider, the model, the source and target language, for AI services the kind of prompt and a hash of its text, in precise mode the hash of the message, and a hash of the paragraph text. When the same text is already being translated, later requests share the same result.
+3. Paragraphs not in the cache enter the batch queue, grouped by provider + model + endpoint + source language + target language; AI services are also grouped by prompt, Microsoft Translator by free or key mode, and in precise mode by message. Paragraphs of one group accumulate for 50 ms. A group is sent when the window ends, when the paragraph limit is reached, or when the next paragraph would exceed the character limit. A single paragraph longer than the character limit forms its own batch.
 4. The request queue executes each batch. It limits concurrency and retries 408, 429, 5xx and network errors with exponential backoff; when the server sends `Retry-After`, it waits for that time, up to 30 seconds. Errors such as 401 and 400 are reported without retrying.
 5. Results go to the in-memory cache and are written to `storage.local` in one write after 1 second. The cache evicts the least recently used (LRU) entries.
 
 ### How each service merges paragraphs
 
+- Dictionary and Bergamot: the whole batch is translated in one local call.
 - Google: one POST with several `q` parameters; the returned array matches the input one to one.
 - Microsoft: the request body itself is an array.
 - DeepLX: the endpoint accepts one paragraph per request, so the paragraphs of a batch are requested concurrently.
@@ -330,14 +409,14 @@ Input tokens drop by about 63%, and the number of requests drops from 20 to 1. O
 
 - API keys are stored only in `storage.local` of the current Thunderbird profile and are sent only with requests to the endpoint of the matching provider.
 - The content script runs inside the message page; the settings it receives from the background script never contain keys.
-- Message text is sent only to the current translation service and, while race translation is on, to the chosen fast service. The extension collects no statistics and contacts no network address other than these services.
+- Message text is sent only to the services of the tiers in use. The dictionary and Bergamot translate on your computer and send no text anywhere. Dictionary packs are downloaded from this repository's GitHub releases and Bergamot models from Mozilla, only when you click "Download". The extension collects no statistics and contacts no other network address.
 - The translation cache is stored locally and can be turned off or cleared on the settings page.
-- Message text leaves your computer and goes to the selected translation service. For sensitive mail, local models such as Ollama or LM Studio keep every request on your own machine.
+- With Google, Microsoft, DeepLX or an online AI service, message text leaves your computer. For sensitive mail, use only the dictionary, Bergamot and local AI models such as Ollama or LM Studio, which keep every request on your own machine.
 
 ## Known limitations
 
 - Translations are plain text. Links, bold text and other inline formatting of the original are not kept in the translation. In bilingual mode the original stays fully usable; in translation-only mode you can hover to see the original or switch back to bilingual.
-- The free Google and Microsoft endpoints are undocumented and may change or be rate-limited. Microsoft retired the token endpoint `edge.microsoft.com/translate/auth` in July 2026 (it returns 404). The extension still tries the token endpoint on the first request, falls back to the direct endpoint after a failure, and does not try the token endpoint again for one hour.
+- The free Google and Microsoft endpoints are undocumented and may change or be rate-limited. Microsoft retired the token endpoint `edge.microsoft.com/translate/auth` in July 2026; the extension uses only the direct endpoint.
 - To decide whether a paragraph is already in the target language, Chinese, Japanese, Korean and similar scripts are judged by character class, and Latin- and Cyrillic-script languages first use `i18n.detectLanguage` of the extension API. When that API is unavailable or its result is unreliable, only English is detected reliably; paragraphs in other Latin-script languages are sent for translation as usual.
 - The content script is registered through `messageDisplayScripts` and reaches only messages opened after registration. On startup the extension tries to inject it into messages already open; if that fails, selecting the message again is enough.
 - Error messages produced by the extension are translated. Error texts returned by a translation service or by the AI SDK (for example the body of an HTTP 401 response) are shown as received, usually in English.
@@ -345,7 +424,9 @@ Input tokens drop by about 63%, and the number of requests drops from 20 to 1. O
 - Precise translation identifies a message by a hash of its body text, because the content script has no access to the message ID. Two copies of the same text share their translations and their analysis.
 - Prompt caching is up to the provider. Anthropic caches only prefixes above a minimum length that depends on the model; shorter prefixes are sent and billed normally.
 - The thinking switch works by matching model names. A new model whose name matches none of the patterns gets no thinking parameter until the table in `src/background/providers/thinking.ts` is extended.
-- Race translation doubles the requests to the fast service, which counts against the rate limits of the free Google and Microsoft endpoints.
+- Every tier in use sends its own requests. With the AI tier and the machine tier both in use, each message also costs requests to the machine translator, which count against the rate limits of the free Google and Microsoft endpoints.
+- Dictionary translation is a word-by-word gloss: it keeps the word order of the source and does not inflect. Words outside the packs stay untranslated.
+- Bergamot and the dictionary translate a batch with one source language. With automatic detection, Bergamot detects the language of the whole batch, so a batch that mixes languages is translated as the dominant one.
 
 ## Tests
 
@@ -353,10 +434,10 @@ Input tokens drop by about 63%, and the number of requests drops from 20 to 1. O
 npm test               # vitest unit tests
 npm run typecheck      # TypeScript type check
 npm run locales:check  # check every locales/<language>.json against locales/en.json
-npm run live-test      # call the real Google and Microsoft endpoints through the extension's own modules
+npm run live-test      # call the real Google and Microsoft endpoints through the extension's own modules, with and without a source language
 ```
 
-The unit tests cover batch grouping and queues, AI output parsing and fallback, paragraph detection with bilingual and translation-only rendering and restoring (in jsdom), request building and response parsing for Google, Microsoft and DeepLX (with a mocked fetch), the request URL and authentication headers of every AI preset, the thinking parameters of every provider, the migration of settings to added services, the popup and settings page lists of added services and the removal protection, race translation (fast result first, AI result first, AI failure, cache hit, display mode switch and restore), precise translation (single request, analysis with batches, failed analysis, cache keys and batches per message, identical prompt prefix with Anthropic cache control), and localization: identical key sets and placeholders in all languages, every `__MSG_*__` reference in the manifest, mapping of Thunderbird languages to supported languages, fallback to English for missing keys, and the absence of hard-coded interface text in the HTML pages and sources.
+The unit tests cover batch grouping and queues, AI output parsing and fallback, paragraph detection with bilingual and translation-only rendering and restoring (in jsdom), request building and response parsing for Google, Microsoft and DeepLX (with a mocked fetch), the request URL and authentication headers of every AI preset, the thinking parameters of every provider, the migration of settings to added services and to tiers and prompts, the popup and settings page tier lists, the refusal of all-empty tiers and the removal protection, the tiers (lower tier first and replaced, highest tier first with later lower results ignored, highest tier failing with the lower result kept, all tiers failing, unused tiers, cached highest tier), prompt selection and cache keys, a display mode switch that asks the AI tier again and only re-renders the others, the source language in the requests of every service and in the cache key, dictionary packs (parsing, word splitting and phrase matching, inflected forms, translation through English, missing packs, download with checksum, with an in-memory IndexedDB), the Bergamot service and its model management with a mocked engine, precise translation (single request, analysis with batches, failed analysis, cache keys and batches per message, identical prompt prefix with Anthropic cache control), and localization: identical key sets and placeholders in all languages, every `__MSG_*__` reference in the manifest, mapping of Thunderbird languages to supported languages, fallback to English for missing keys, and the absence of hard-coded interface text in the HTML pages and sources.
 
 `npm run build:debug` produces a debug xpi that starts translating as soon as a message is opened and writes progress to the console, for checking the whole flow in a real Thunderbird.
 
@@ -364,11 +445,12 @@ The unit tests cover batch grouping and queues, AI output parsing and fallback, 
 
 ```
 src/
-  background/    background script: translation service, batch and request queues, cache, provider factory, translators
+  background/    background script: translation service, batch and request queues, cache, provider factory, translators, dictionary, offline model management
   content/       content script: paragraph detection, rendering, language detection, translation state
   popup/         popup
   options/       settings page
-  shared/        shared settings, provider presets, language table, message types, i18n runtime
+  offline/       Bergamot engine module: model list, download, storage, worker
+  shared/        shared settings, provider presets, prompts, language table and detection, message types, i18n runtime
 locales/         interface text, one JSON file per language; en.json is the reference
 static/          manifest.json, HTML, CSS, SVG icon
 scripts/         build, locale generation and checks, live endpoint test
@@ -388,6 +470,8 @@ To add a language, create `locales/<code>.json` with all keys, add the code to `
 ## Acknowledgements
 
 The design of paragraph detection, the batch queue, the prompts and the provider configuration follows [Read Frog](https://github.com/mengxi-ream/read-frog), a browser extension for translating web pages released under GPL-3.0. This project carries these ideas over to Thunderbird's message reader and adapts them to email, for example splitting plain-text mail at blank lines and joining hard-wrapped lines.
+
+Dictionary data comes from [Wiktionary](https://en.wiktionary.org/) (© Wiktionary contributors, CC BY-SA 4.0), extracted by [wiktextract](https://github.com/tatuylonen/wiktextract) and published by [kaikki.org](https://kaikki.org/), and from [ECDICT](https://github.com/skywind3000/ECDICT) by skywind3000 (MIT License). Offline translation uses the [Bergamot](https://browser.mt/) engine and the translation models of Firefox Translations, published by Mozilla under MPL-2.0.
 
 ## License
 

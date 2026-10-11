@@ -56,8 +56,8 @@ describe("provider presets", () => {
     expect(new Set(PROVIDER_PRESETS.map((p) => p.id)).size).toBe(PROVIDER_PRESETS.length)
   })
 
-  it("defaults to the free Google service", () => {
-    expect(createDefaultSettings().activeProviderId).toBe("google-free")
+  it("defaults to the free Google service as machine translation tier", () => {
+    expect(createDefaultSettings().tiers).toEqual({ dictionary: null, machine: "google-free", ai: null })
   })
 
   it("uses the user's endpoint, model and temperature over preset defaults", () => {

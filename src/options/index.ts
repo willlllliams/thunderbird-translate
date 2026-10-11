@@ -3,15 +3,16 @@ import { ext } from "../shared/ext"
 import { getI18n, t } from "../shared/i18n"
 import { localizeDocument } from "../shared/i18n-dom"
 import { loadExtensionI18n, thunderbirdUiLanguage } from "../shared/i18n-ext"
-import { LANGUAGES } from "../shared/languages"
 import { LOCALE_NATIVE_NAMES, localeToLanguageTag, matchUiLocale, normalizeUiLanguageSetting, SUPPORTED_LOCALES } from "../shared/locales"
 import type { TranslateResponse } from "../shared/messages"
-import { $, fillSelect, send } from "../shared/page"
-import { checkBaseURL, getPreset, isAiProvider, PROVIDER_PRESETS, providerDisplayName, type ProviderPreset } from "../shared/providers"
+import { $, fillSelect, languageOptions, send, sourceLanguageOptions, tierChoice, tierOptions } from "../shared/page"
+import { DEFAULT_PROMPTS, PROMPT_KINDS } from "../shared/prompts"
+import { checkBaseURL, getPreset, PROVIDER_PRESETS, providerDisplayName, type ProviderPreset, TIER_NAME_KEYS, TIERS, tierOf } from "../shared/providers"
 import {
   addedProviders,
   addProvidersInUse,
   type DisplayMode,
+  enabledTiers,
   emptyProviderConfig,
   type ProviderConfig,
   removalBlocker,
@@ -21,24 +22,9 @@ import {
 } from "../shared/settings"
 import { loadSettings, mergeChanges, readSettings, saveChanges } from "../shared/settings-store"
 import { supportsThinkingControl } from "../background/providers/thinking"
-import { DEFAULT_SYSTEM_PROMPT } from "../background/translators/llm-prompt"
-
-/** Small DOM builder; avoids innerHTML. */
-function h<K extends keyof HTMLElementTagNameMap>(
-  tag: K,
-  props: Partial<Record<string, string | boolean>> = {},
-  ...children: (Node | string | null)[]
-): HTMLElementTagNameMap[K] {
-  const el = document.createElement(tag)
-  for (const [k, v] of Object.entries(props)) {
-    if (v === undefined || v === false) continue
-    if (k === "className") el.className = String(v)
-    else if (k === "text") el.textContent = String(v)
-    else el.setAttribute(k, v === true ? "" : String(v))
-  }
-  for (const c of children) if (c !== null) el.append(c)
-  return el
-}
+import { BergamotSection } from "./bergamot"
+import { DictionarySection } from "./dictionaries"
+import { h } from "./dom"
 
 /** Settings as edited on this page. */
 let settings: Settings
@@ -48,6 +34,8 @@ let selectedProvider = ""
 let saveTimer: ReturnType<typeof setTimeout> | null = null
 /** Redraw the control of one setting; run again when the settings change elsewhere. */
 const controls: (() => void)[] = []
+const dictionaries = new DictionarySection({ tag: () => settings.dictionary.releaseTag })
+const bergamot = new BergamotSection({ languages: () => ({ source: settings.sourceLang, target: settings.targetLang }) })
 
 /** A control that shows a setting. The one being edited is left alone when the settings change elsewhere. */
 function track(input: HTMLElement, show: () => void): void {
@@ -60,7 +48,7 @@ function track(input: HTMLElement, show: () => void): void {
 
 /** The popup, another settings tab or the background script wrote settings: take over what changed, keep what is being edited. */
 function absorb(remote: Settings): void {
-  const providerState = () => JSON.stringify([settings.providers, settings.activeProviderId, settings.race])
+  const providerState = () => JSON.stringify([settings.providers, settings.tiers])
   const [language, before] = [settings.uiLanguage, providerState()]
   mergeChanges(settings, baseline, remote, true)
   baseline = structuredClone(remote)
@@ -68,7 +56,7 @@ function absorb(remote: Settings): void {
   applyPreview()
   if (settings.uiLanguage !== language) return void changeUiLanguage(settings.uiLanguage)
   if (providerState() === before) return
-  fillProviderSelects()
+  fillTierSelects()
   renderProviderList()
   if (!$("providerPanel").contains(document.activeElement)) renderProviderPanel()
 }
@@ -92,7 +80,7 @@ function providerConfig(id: string): ProviderConfig {
 /** Side list in two groups: added services, then the ones that can be added. */
 function renderProviderList(): void {
   const item = (p: ProviderPreset) => {
-    const tag = p.id === settings.activeProviderId ? h("span", { className: "tag active", text: t("providerActive") }) : null
+    const tag = removalBlocker(settings, p.id) ? h("span", { className: "tag active", text: t("providerInUse") }) : null
     const li = h("li", { className: p.id === selectedProvider ? "selected" : "" }, h("span", { text: providerDisplayName(p) }), tag)
     li.addEventListener("click", () => {
       selectedProvider = p.id
@@ -110,21 +98,12 @@ function renderProviderList(): void {
   )
 }
 
-/** The selectors that list added services: current service and fast service of race mode. */
-function fillProviderSelects(): void {
-  const i18n = getI18n()
-  fillSelect(
-    $<HTMLSelectElement>("activeProvider"),
-    addedProviders(settings).map((p) => new Option(providerDisplayName(p, i18n), p.id)),
-    settings.activeProviderId,
-  )
-  fillSelect(
-    $<HTMLSelectElement>("fastProvider"),
-    PROVIDER_PRESETS.filter((p) => !isAiProvider(p) && (providerConfig(p.id).enabled || p.id === settings.race.fastProviderId)).map(
-      (p) => new Option(providerDisplayName(p, i18n), p.id),
-    ),
-    settings.race.fastProviderId,
-  )
+/** The tier selectors, which list the added services of each tier. */
+function fillTierSelects(): void {
+  TIERS.forEach((tier, i) => {
+    $(`tierLabel-${tier}`).textContent = t("tierLabel", [i + 1, t(TIER_NAME_KEYS[tier])])
+    fillSelect($<HTMLSelectElement>(`tier-${tier}`), tierOptions(settings, tier), settings.tiers[tier] ?? "")
+  })
 }
 
 /** A service was added or removed, or a service came into use: redraw everything that lists services. */
@@ -132,8 +111,15 @@ function providersChanged(): void {
   addProvidersInUse(settings)
   renderProviderList()
   renderProviderPanel()
-  fillProviderSelects()
+  fillTierSelects()
+  showTierControls()
   scheduleSave()
+}
+
+/** Precise translation needs the AI tier; a warning when the source and the target language are the same. */
+function showTierControls(): void {
+  $<HTMLInputElement>("preciseEnabled").disabled = !settings.tiers.ai
+  $("sameLanguage").hidden = settings.sourceLang !== settings.targetLang
 }
 
 function field(label: string, input: HTMLElement, hint?: string): HTMLElement {
@@ -320,7 +306,7 @@ function renderProviderPanel(): void {
 
   const result = h("div", { className: "test-result", "aria-live": "polite" })
   const test = testButton(p, cfg, result)
-  // Not added: "Add". Added: "Use this service" and "Remove"; the services in use cannot be removed.
+  // Not added: "Add". Added: "Use this service" (in its tier) and "Remove"; the services of the tiers cannot be removed.
   const actions = h("div", { className: "row" })
   const blockedHint = h("p", { className: "hint remove-hint" })
   const button = (text: string, onClick: () => void, primary = false) => {
@@ -339,10 +325,10 @@ function renderProviderPanel(): void {
       return
     }
     const use = button(t("buttonUse"), () => {
-      settings.activeProviderId = p.id
+      settings.tiers[tierOf(p)] = p.id
       providersChanged()
     }, true)
-    use.disabled = p.id === settings.activeProviderId
+    use.disabled = settings.tiers[tierOf(p)] === p.id
     const remove = button(t("buttonRemoveProvider"), () => {
       cfg.enabled = false
       providersChanged()
@@ -350,7 +336,7 @@ function renderProviderPanel(): void {
     const blocker = removalBlocker(settings, p.id)
     if (blocker) {
       remove.disabled = true
-      blockedHint.textContent = blocker === "active" ? t("removeBlockedActive") : t("removeBlockedRace")
+      blockedHint.textContent = t("removeBlockedTier", [t(TIER_NAME_KEYS[blocker])])
       remove.title = blockedHint.textContent
     }
     actions.replaceChildren(test, use, remove)
@@ -363,13 +349,17 @@ function renderProviderPanel(): void {
       if (!value || cfg.enabled) return
       cfg.enabled = true
       renderProviderList()
-      fillProviderSelects()
+      fillTierSelects()
       renderActions()
     },
   }
   let fields: HTMLElement[]
   if (p.kind === "google") {
     fields = [h("p", { className: "hint", text: t("hintFree") })]
+  } else if (p.kind === "dictionary") {
+    fields = [h("p", { className: "hint", text: t("hintDictionaryProvider") })]
+  } else if (p.kind === "bergamot") {
+    fields = [h("p", { className: "hint", text: t("hintBergamot") })]
   } else if (p.kind === "microsoft") {
     fields = microsoftFields(state)
   } else {
@@ -441,14 +431,13 @@ function applyLanguage(): void {
     return o
   })
   fillSelect($<HTMLSelectElement>("uiLanguage"), [follow, ...locales], settings.uiLanguage)
-  fillSelect(
-    $<HTMLSelectElement>("targetLang"),
-    LANGUAGES.map((l) => new Option(i18n.languageName(l.code, l.native), l.code)),
-    settings.targetLang,
-  )
-  fillProviderSelects()
+  fillSelect($<HTMLSelectElement>("sourceLang"), sourceLanguageOptions(i18n), settings.sourceLang)
+  fillSelect($<HTMLSelectElement>("targetLang"), languageOptions(i18n), settings.targetLang)
+  fillTierSelects()
   renderProviderList()
   renderProviderPanel()
+  dictionaries.render()
+  bergamot.render()
   void refreshCacheCount()
 }
 
@@ -461,7 +450,7 @@ async function changeUiLanguage(value: unknown): Promise<void> {
 async function main(): Promise<void> {
   settings = await loadSettings()
   baseline = structuredClone(settings)
-  selectedProvider = settings.activeProviderId
+  selectedProvider = settings.tiers[enabledTiers(settings.tiers).at(-1)!]!
   await loadExtensionI18n(settings.uiLanguage)
   applyLanguage()
   // The popup links to options.html#providers; the section is filled only now.
@@ -477,35 +466,60 @@ async function main(): Promise<void> {
   ext.storage.onChanged.addListener((changes, area) => {
     if (area === "local" && changes[SETTINGS_KEY]) absorb(readSettings(changes[SETTINGS_KEY].newValue))
   })
-  bind("targetLang", "change", (el) => (el.value = settings.targetLang), (el) => (settings.targetLang = el.value))
-  bind("mode", "change", (el) => (el.value = settings.mode), (el) => (settings.mode = el.value as DisplayMode))
-  const active = $<HTMLSelectElement>("activeProvider")
-  active.addEventListener("change", () => {
-    settings.activeProviderId = active.value
-    providersChanged()
+  bind("sourceLang", "change", (el) => (el.value = settings.sourceLang), (el) => {
+    settings.sourceLang = el.value
+    showTierControls()
   })
+  bind("targetLang", "change", (el) => (el.value = settings.targetLang), (el) => {
+    settings.targetLang = el.value
+    showTierControls()
+  })
+  bind("mode", "change", (el) => (el.value = settings.mode), (el) => (settings.mode = el.value as DisplayMode))
   bindCheck("autoTranslate", () => settings.autoTranslate, (v) => (settings.autoTranslate = v))
 
-  // AI translation modes
-  bindCheck("raceEnabled", () => settings.race.enabled, (v) => {
-    settings.race.enabled = v
-    providersChanged()
-  })
-  const fast = $<HTMLSelectElement>("fastProvider")
-  fast.addEventListener("change", () => {
-    settings.race.fastProviderId = fast.value
-    providersChanged()
-  })
+  // Tiers
+  for (const tier of TIERS) {
+    const select = $<HTMLSelectElement>(`tier-${tier}`)
+    select.addEventListener("change", () => {
+      const value = tierChoice(select, settings.tiers, tier)
+      $("tiersEmpty").hidden = value !== undefined
+      if (value === undefined) return
+      settings.tiers[tier] = value
+      providersChanged()
+    })
+  }
   bindCheck("preciseEnabled", () => settings.precise.enabled, (v) => (settings.precise.enabled = v))
+  track($("sameLanguage"), showTierControls)
 
-  // Prompt
-  const prompt = bind("systemPrompt", "input", (el) => (el.value = settings.systemPrompt), (el) => (settings.systemPrompt = el.value))
-  prompt.placeholder = DEFAULT_SYSTEM_PROMPT
-  $("resetPrompt").addEventListener("click", () => {
-    prompt.value = ""
-    settings.systemPrompt = ""
-    scheduleSave()
+  // Dictionaries
+  bind("dictReleaseTag", "change", (el) => (el.value = settings.dictionary.releaseTag), (el) => {
+    settings.dictionary.releaseTag = el.value.trim() || settings.dictionary.releaseTag
+    el.value = settings.dictionary.releaseTag
+    void dictionaries.load()
   })
+  $("dictReload").addEventListener("click", () => void dictionaries.load())
+  void dictionaries.load()
+
+  // Offline models: the directions needed follow the languages, also when they change elsewhere.
+  $("bergamotFilter").addEventListener("input", () => bergamot.render())
+  $("bergamotReload").addEventListener("click", () => void bergamot.load(true))
+  let languages = ""
+  track($("bergamotNeeded"), () => {
+    if (languages === (languages = `${settings.sourceLang}>${settings.targetLang}`)) return
+    void bergamot.refreshNeeded()
+  })
+  void bergamot.load()
+
+  // Prompts: an empty box means the default.
+  for (const kind of PROMPT_KINDS) {
+    const prompt = bind(`prompt-${kind}`, "input", (el) => (el.value = settings.prompts[kind]), (el) => (settings.prompts[kind] = el.value))
+    prompt.placeholder = DEFAULT_PROMPTS[kind]
+    $(`reset-${kind}`).addEventListener("click", () => {
+      prompt.value = DEFAULT_PROMPTS[kind]
+      settings.prompts[kind] = DEFAULT_PROMPTS[kind]
+      scheduleSave()
+    })
+  }
 
   // Batching
   const b = settings.batch

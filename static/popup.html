@@ -23,27 +23,31 @@
       </div>
     </div>
 
-    <label class="field">
-      <span class="label" data-i18n="labelTargetLang"></span>
-      <select id="targetLang"></select>
-    </label>
+    <div class="languages">
+      <label class="field">
+        <span class="label" data-i18n="labelSourceLang"></span>
+        <select id="sourceLang"></select>
+      </label>
+      <label class="field">
+        <span class="label" data-i18n="labelTargetLang"></span>
+        <select id="targetLang"></select>
+      </label>
+    </div>
+    <p id="sameLanguage" class="warning" data-i18n="hintSameLanguage" hidden></p>
 
     <div class="field">
-      <label class="label" for="provider" data-i18n="labelProvider"></label>
-      <select id="provider"></select>
+      <span class="label" data-i18n="labelTiers"></span>
+      <label class="tier"><span id="tierLabel-dictionary"></span><select id="tier-dictionary"></select></label>
+      <label class="tier"><span id="tierLabel-machine"></span><select id="tier-machine"></select></label>
+      <label class="tier"><span id="tierLabel-ai"></span><select id="tier-ai"></select></label>
+      <p id="tiersEmpty" class="warning" data-i18n="tiersEmpty" hidden></p>
       <button type="button" id="addProvider" class="link" data-i18n="popupAddProvider"></button>
     </div>
 
-    <div id="aiModes" hidden>
-      <label class="check">
-        <input type="checkbox" id="raceEnabled" />
-        <span data-i18n="labelRace"></span>
-      </label>
-      <label class="check">
-        <input type="checkbox" id="preciseEnabled" />
-        <span data-i18n="labelPrecise"></span>
-      </label>
-    </div>
+    <label class="check" id="preciseRow" hidden>
+      <input type="checkbox" id="preciseEnabled" />
+      <span data-i18n="labelPrecise"></span>
+    </label>
 
     <label class="check">
       <input type="checkbox" id="autoTranslate" />

@@ -60,7 +60,16 @@ const localeSources = readLocaleSources()
 export async function openPage(
   page: "popup" | "options",
   settings: Settings,
-  { uiLanguage = "en-US", respond }: { uiLanguage?: string; respond?: (req: BackgroundRequest) => unknown } = {},
+  {
+    uiLanguage = "en-US",
+    respond,
+    fetchUrl,
+  }: {
+    uiLanguage?: string
+    respond?: (req: BackgroundRequest) => unknown
+    /** Answers fetch() for URLs other than the packaged messages, e.g. the dictionary index; a failed request otherwise. */
+    fetchUrl?: (url: string) => Promise<Response>
+  } = {},
 ) {
   const html = readFileSync(join(__dirname, "..", "static", `${page}.html`), "utf8")
   document.documentElement.innerHTML = new DOMParser().parseFromString(html, "text/html").documentElement.innerHTML
@@ -86,7 +95,12 @@ export async function openPage(
   })
   vi.stubGlobal("close", () => {})
   // _locales/<locale>/messages.json packaged with the extension.
-  vi.stubGlobal("fetch", async (url: string) => new Response(JSON.stringify(toMessagesJson(localeSources[url.split("/").at(-2)!]))))
+  vi.stubGlobal("fetch", async (url: string) => {
+    const locale = localeSources[url.split("/").at(-2)!]
+    if (locale) return new Response(JSON.stringify(toMessagesJson(locale)))
+    if (fetchUrl) return fetchUrl(url)
+    throw new TypeError("NetworkError when attempting to fetch resource.")
+  })
   await (page === "popup" ? import("../src/popup/index") : import("../src/options/index"))
   return {
     created,
