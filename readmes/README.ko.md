@@ -289,7 +289,7 @@ Bergamot 서비스는 Firefox Translations의 엔진과 모델로 사용자의 �
 2. 원본 언어(고정된 경우)
 3. 확장 기능의 인터페이스 언어("Thunderbird 따르기"이면 Thunderbird의 언어)
 4. Thunderbird의 인터페이스 언어
-5. 시스템 언어(`i18n.getPreferredSystemLanguages()`. 이 메서드가 없는 Thunderbird 버전에서는 `Intl` 형식의 로케일을 사용합니다)
+5. 시스템 언어(`i18n.getPreferredSystemLanguages()`. 이 메서드가 없거나 실패하거나 아무것도 돌려주지 않으면 `Intl` 형식의 로케일을 사용합니다)
 
 영어가 아닌 추천 언어 X마다 X → 영어와 영어 → X 방향이 추천되고, 사전에서는 릴리스에 있으면 X와 대상 언어 사이의 직접 팩도 추천됩니다. 추천 행마다 출처를 나타내는 라벨("대상 언어", "원본 언어", "애드온 언어", "Thunderbird 언어", "시스템 언어")이 붙습니다. 대상 언어로 가는 방향에는 "직접", 영어를 경유하는 경로에 쓰이는 영어로 가는 방향에는 "영어 경유"도 붙습니다. 나머지 방향은 이름순으로 이어집니다.
 
@@ -313,6 +313,8 @@ Bergamot 서비스는 Firefox Translations의 엔진과 모델로 사용자의 �
 - "닫기"는 알림을 없앱니다.
 
 언어가 추측에 불과한 단락, 네트워크 오류, 지원되지 않는 쌍은 해당하지 않습니다. 이 단락에는 다른 단계의 번역이 계속 표시됩니다. 오프라인 단계만 사용 중이면 이 단락은 실패한 채로 남습니다.
+
+팩이나 모델을 내려받을 수 있는지는 해당 서비스의 목록을 읽어야 알 수 있습니다("개인정보 보호" 참고). 그 목록을 아직 읽지 못한 동안에는 빠진 것으로 보지 않습니다. 알림이 나타나지 않고, 빨간색 표시도 없으며, 단락 아래의 오류도 내려받을 방향을 알려 주지 않습니다.
 
 팝업과 설정 페이지에서는 선택한 사전이나 Bergamot에 현재 언어에 필요한 것이 없으면 "사전 (로컬 모델 내려받지 않음)" 또는 "Bergamot (로컬 모델 내려받지 않음)"이 빨간색으로 표시됩니다. 단계 목록 아래의 한 줄에 누락된 방향이 나오고, 필터링된 목록으로 가는 "내려받기" 링크가 붙습니다. 자동 감지에서는 영어에서 대상 언어로 가는 방향이 기준이 되며, 대상 언어가 영어이면 영어로 가는 방향이 하나 이상 필요합니다. 지원되지 않는 쌍도 이 줄에 나오지만 빨간색으로 표시되지 않습니다. 이 표시는 다른 페이지에서 한 설치와 삭제에 맞춰 갱신됩니다.
 
@@ -517,7 +519,9 @@ $$
   - 토큰처럼 보이는 URL 경로 구간(문자와 숫자가 섞인 20자 이상)
   - URL 안의 사용자 이름과 비밀번호
   - 이름에 key, token, auth, secret, sig, pass, credential, session 중 하나가 들어 있는 URL 매개변수
-- 메시지 텍스트는 사용 중인 단계의 서비스로만 전송됩니다. 사전과 Bergamot은 사용자의 컴퓨터에서 번역하며 텍스트를 어디에도 보내지 않습니다. 설정 페이지와 설정 안내는 사전 팩 목록을 이 저장소의 GitHub 릴리스에서, Bergamot 모델 목록을 Mozilla에서 읽어 옵니다. 팩과 모델 자체는 "내려받기"를 클릭할 때만 내려받습니다. 이 요청들에는 메시지 텍스트가 담기지 않습니다. 확장 기능은 통계를 수집하지 않으며 그 밖의 네트워크 주소에 접속하지 않습니다.
+- 메시지 텍스트는 사용 중인 단계의 서비스로만 전송됩니다. 사전과 Bergamot은 사용자의 컴퓨터에서 번역하며 텍스트를 어디에도 보내지 않습니다.
+- 네트워크에서 읽어 오는 목록은 두 가지이며, 어느 요청에도 메시지 텍스트는 담기지 않습니다. 사전 팩 목록은 이 저장소의 GitHub 릴리스에서, Bergamot 모델 목록은 Mozilla에서 읽어 옵니다. 설정 페이지와 설정 안내는 오프라인 목록을 표시하려고 이 목록들을 읽습니다. 사전이나 Bergamot이 어느 단계의 서비스로 선택되어 있는 동안에는 백그라운드 스크립트도 그 목록을 읽습니다. 읽는 시점은 Thunderbird가 시작될 때, 설정이 바뀔 때, 팝업이나 설정 페이지가 빠진 데이터를 물을 때입니다. 사전 목록은 릴리스 태그마다 한 번 읽고, 읽기에 실패하면 빨라도 10분 뒤에 다시 읽습니다. Bergamot 목록은 메모리의 사본이 6시간보다 오래되면 다시 읽습니다. 메시지를 번역할 때는 팩이나 모델이 없더라도 두 목록 모두 읽지 않습니다.
+- 팩과 모델 자체는 "내려받기"를 클릭할 때만 내려받습니다. 확장 기능은 통계를 수집하지 않으며 그 밖의 네트워크 주소에 접속하지 않습니다.
 - 번역 캐시는 로컬에 저장되며, 설정 페이지에서 끄거나 지울 수 있습니다.
 - Google, Microsoft, DeepLX 또는 온라인 AI 서비스를 사용하면 메시지 텍스트가 컴퓨터를 떠납니다. 민감한 메일에는 사전, Bergamot, 그리고 Ollama나 LM Studio 같은 로컬 AI 모델만 사용하세요. 이 서비스들은 모든 요청을 자신의 컴퓨터 안에서 처리합니다.
 
@@ -582,7 +586,7 @@ scripts/         build, Bergamot engine download, locale generation and checks, 
 vendor/          Bergamot engine glue script (bergamot-translator.js)
 tools/           dict-build: the pipeline that builds the dictionary packs
 readmes/         translated versions of this README
-docs/            developer notes on Bergamot and the dictionary packs, demo GIF used in this README
+docs/            developer notes on Bergamot and the dictionary packs
 tests/           vitest tests
 e2e/             end-to-end test in a real Thunderbird: runner, mock server, fixture messages
 .github/         workflows: build and release, dictionary packs

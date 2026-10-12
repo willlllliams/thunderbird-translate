@@ -6,7 +6,6 @@ const engine = vi.hoisted(() => ({
   listPairs: vi.fn(async (_refresh?: boolean) => [{ src: "en", tgt: "zh-Hans", version: "3.0", architecture: "base", bytes: 1, rawBytes: 2, installed: false }]),
   install: vi.fn(async (_src: string, _tgt: string, _onProgress?: (done: number, total: number) => void, _signal?: AbortSignal) => {}),
   remove: vi.fn(async (_src: string, _tgt: string) => {}),
-  missingPairs: vi.fn(async (_pairs: [string, string][]): Promise<[string, string][]> => [["ja", "en"]]),
   signature: vi.fn(async () => "en>zh-Hans@3.0"),
 }))
 vi.mock("../src/offline/bergamot", async (importOriginal) => ({ ...(await importOriginal<object>()), getBergamot: () => engine }))
@@ -118,20 +117,6 @@ describe("model management in the background script", () => {
     expect(await handleBergamot({ type: "bergamotInstall", src: "ja", tgt: "en" })).toEqual({ ok: false, error: "disk full" })
   })
 
-  it("names the directions a language pair needs", async () => {
-    expect(await handleBergamot({ type: "bergamotRequired", src: "ja", tgt: "zh-CN" })).toEqual({
-      required: [
-        ["ja", "en"],
-        ["en", "zh-Hans"],
-      ],
-      missing: [["ja", "en"]],
-    })
-    expect(engine.missingPairs).toHaveBeenCalledWith([
-      ["ja", "en"],
-      ["en", "zh-Hans"],
-    ])
-  })
-
   it("removes a pair", async () => {
     expect(await handleBergamot({ type: "bergamotRemove", src: "ja", tgt: "en" })).toEqual({ ok: true })
     expect(engine.remove).toHaveBeenCalledWith("ja", "en")
@@ -145,13 +130,6 @@ describe("model management failures", () => {
     expect(engine.listPairs).toHaveBeenCalledWith(false)
     engine.remove.mockRejectedValueOnce(new Error("locked"))
     expect(await handleBergamot({ type: "bergamotRemove", src: "ja", tgt: "en" })).toEqual({ ok: false, error: "locked" })
-  })
-
-  it.each([
-    ["auto", "en"],
-    ["", "de"],
-  ])("needs nothing for the languages %j → %j", async (src, tgt) => {
-    expect(await handleBergamot({ type: "bergamotRequired", src, tgt })).toEqual({ required: [], missing: [] })
   })
 
   it("ignores cancelling a pair that is not being installed", async () => {

@@ -47,16 +47,20 @@ const cache = new PersistentCache(storage, settings.cache.maxEntries)
 // The dictionary and the offline models name the source language of a paragraph the same way.
 const detect = sourceDetector(ext.i18n)
 
-/** Pair keys of the dictionary packs of the release in the settings, read once per tag; null while the index cannot be read. */
+/** An index that could not be read is asked for again after this long. */
+const CATALOG_RETRY_MS = 10 * 60_000
+/** Pair keys of the dictionary packs of each release tag, read once; null when the index could not be read. */
 const dictionaryCatalogs = new Map<string, Promise<Catalog>>()
+/** The indexes read so far, for translations: they never wait for the network. */
+const dictionaryCatalogsRead = new Map<string, Catalog>()
 function dictionaryCatalog(): Promise<Catalog> {
   const tag = settings.dictionary.releaseTag
   let catalog = dictionaryCatalogs.get(tag)
   if (!catalog) {
     catalog = fetchDictionaryIndex(tag, __E2E__ ? releaseFetch : undefined).then(
-      (packs) => new Set(packs.map((p) => pairKey(p.src, p.tgt))),
+      (packs) => dictionaryCatalogsRead.set(tag, new Set(packs.map((p) => pairKey(p.src, p.tgt)))).get(tag)!,
       () => {
-        dictionaryCatalogs.delete(tag)
+        setTimeout(() => dictionaryCatalogs.delete(tag), CATALOG_RETRY_MS)
         return null
       },
     )
@@ -65,12 +69,15 @@ function dictionaryCatalog(): Promise<Catalog> {
   return catalog
 }
 
-const dictionary = new Dictionary(undefined, { detect, catalog: dictionaryCatalog })
+const dictionary = new Dictionary(undefined, { detect, catalog: () => dictionaryCatalogsRead.get(settings.dictionary.releaseTag) ?? null })
+
+/** Kinds of the services of the dictionary and machine tiers, where the offline services can be. */
+const offlineKinds = (tiers: TierSettings) => [tiers.dictionary, tiers.machine].map((id) => (id ? getPreset(id)?.kind : undefined))
 
 /** What the offline services among `tiers` lack for the languages; a store that cannot be read says nothing. */
 async function offlineStatus(sourceLang: string, targetLang: string, tiers: TierSettings): Promise<OfflineStatus> {
   const status: OfflineStatus = {}
-  const kinds = [tiers.dictionary, tiers.machine].map((id) => (id ? getPreset(id)?.kind : undefined))
+  const kinds = offlineKinds(tiers)
   await Promise.all([
     kinds.includes("dictionary") &&
       Promise.all([dictionaryCatalog(), dictionary.installedIds()]).then(
@@ -93,6 +100,10 @@ function adoptSettings(stored: unknown): void {
   cache.configure(settings.cache.enabled, settings.cache.maxEntries)
   // The AI SDK is a chunk of its own (scripts/build.mjs), loaded once the AI tier is in use; a failure shows with the first AI request.
   if (settings.tiers.ai) import("./translators/llm").catch(() => {})
+  // Translations name missing packs and models only from catalogs already read: read those of the offline services in use ahead.
+  const kinds = offlineKinds(settings.tiers)
+  if (kinds.includes("dictionary")) void dictionaryCatalog()
+  if (kinds.includes("bergamot")) void getBergamot().catalog()
 }
 
 // Test build (npm run e2e): settings and dictionary pack of the local mock server, before anything is translated.
@@ -273,7 +284,6 @@ async function handle(req: BackgroundRequest): Promise<unknown> {
     case "bergamotList":
     case "bergamotProgress":
     case "bergamotCancel":
-    case "bergamotRequired":
       return handleBergamot(req)
     case "clearCache":
       return cache.clear()

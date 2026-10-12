@@ -447,7 +447,6 @@ flowchart LR
 | `bergamotCancel` | `options/bergamot.ts` | 对应安装的 `AbortController.abort()` | 无 |
 | `bergamotProgress` | `options/bergamot.ts`（页面轮询） | 进度表 `installs` | `BergamotProgress` |
 | `bergamotRemove` | `options/bergamot.ts` | `getBergamot().remove()` | `BergamotResult` |
-| `bergamotRequired` | `options/bergamot.ts` | `requiredPairs()` 与 `missingPairs()` | `BergamotRequired` |
 
 `options/bergamot.ts` 和 `options/dictionaries.ts` 同时被设置页和欢迎页使用，所以这两个页面发出相同的消息。
 

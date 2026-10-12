@@ -2,12 +2,15 @@
 import { IDBFactory } from "fake-indexeddb"
 import { afterEach, describe, expect, it, vi } from "vitest"
 import { CACHE_STORAGE_KEY } from "../src/background/cache"
+import { installPack } from "../src/background/dictionary/download"
+import { DictionaryStore } from "../src/background/dictionary/store"
 import { createMailContext } from "../src/shared/mail-context"
 import { IDLE_TAB_STATE, type PortPush, type TranslateRequest } from "../src/shared/messages"
 import { DEFAULT_PROMPTS } from "../src/shared/prompts"
 import { createDefaultSettings, SETTINGS_KEY, type Settings, toPublicSettings } from "../src/shared/settings"
 import { localeText, stubBackgroundApi } from "./fixtures/background-api"
-import { jsonResponse } from "./helpers"
+import { packEntry, releaseServer, tsv } from "./fixtures/dictionary"
+import { asFetch, jsonResponse } from "./helpers"
 
 afterEach(() => {
   vi.unstubAllGlobals()
@@ -358,27 +361,68 @@ describe("requests from pages", () => {
 
   it("says what the offline services of the tiers lack for the languages, reading the dictionary index once", async () => {
     const bergamot = { catalog: vi.fn(async () => new Set(["en>zh-Hans", "ja>en"])), installedKeys: vi.fn(async () => new Set(["en>zh-Hans"])), signature: async () => "" }
-    vi.doMock("../src/offline/bergamot", () => ({ getBergamot: () => bergamot, requiredPairs: () => [] }))
+    vi.doMock("../src/offline/bergamot", () => ({ getBergamot: () => bergamot }))
     vi.stubGlobal("indexedDB", new IDBFactory())
     let indexAnswer = (): Promise<Response> => Promise.reject(new TypeError("NetworkError"))
     const fetchUrl = vi.fn(async (url: string) => (url.endsWith("dict-index.json") ? indexAnswer() : google(url)))
     const bg = await start({ stored: stored(createDefaultSettings()), fetchUrl })
     const tiers: Settings["tiers"] = { dictionary: "dictionary", machine: "bergamot", ai: null }
     const ask = (sourceLang: string, targetLang: string, t = tiers) => bg.send({ type: "offlineStatus", sourceLang, targetLang, tiers: t })
-    // Without the index every pack counts as offered.
+    const timers = vi.spyOn(globalThis, "setTimeout")
+    // Without the index nothing is known to be downloadable.
     expect(await ask("auto", "zh-CN")).toEqual({
-      dictionary: { required: ["en>zh-Hans"], missing: ["en>zh-Hans"], unsupported: false },
+      dictionary: { required: ["en>zh-Hans"], missing: [], unsupported: false },
       bergamot: { required: ["en>zh-Hans"], missing: [], unsupported: false },
     })
+    const indexReads = () => fetchUrl.mock.calls.filter(([url]) => url.endsWith("dict-index.json")).length
+    expect(indexReads()).toBe(1)
+    // A failed index is read again after ten minutes, not before.
     indexAnswer = async () => jsonResponse({ version: 1, packs: [] })
+    expect(await ask("ja", "zh-CN")).toMatchObject({ dictionary: { required: ["ja>en", "en>zh-Hans"], missing: [], unsupported: false } })
+    expect(indexReads()).toBe(1)
+    const retry = timers.mock.calls.find(([, ms]) => ms === 10 * 60_000)![0] as () => void
+    retry()
     expect(await ask("ja", "zh-CN")).toEqual({
       dictionary: { required: [], missing: [], unsupported: true },
       bergamot: { required: ["ja>en", "en>zh-Hans"], missing: ["ja>en"], unsupported: false },
     })
     await ask("de", "en")
-    expect(fetchUrl.mock.calls.filter(([url]) => url.endsWith("dict-index.json"))).toHaveLength(2)
+    expect(indexReads()).toBe(2)
     expect(await ask("auto", "zh-CN", { dictionary: null, machine: "google-free", ai: null })).toEqual({})
     vi.doUnmock("../src/offline/bergamot")
+  })
+
+  it("M1: reads the catalogs of the offline services in use when it starts and when the settings change", async () => {
+    const bergamot = { catalog: vi.fn(async () => new Set(["en>de"])), signature: async () => "" }
+    vi.doMock("../src/offline/bergamot", () => ({ getBergamot: () => bergamot }))
+    const fetchUrl = vi.fn(async (url: string) => (url.endsWith("dict-index.json") ? jsonResponse({ version: 1, packs: [] }) : google(url)))
+    const s = createDefaultSettings()
+    s.tiers.dictionary = "dictionary"
+    const bg = await start({ stored: stored(s), fetchUrl })
+    expect(fetchUrl.mock.calls.filter(([url]) => url.endsWith("dict-index.json"))).toHaveLength(1)
+    expect(bergamot.catalog).not.toHaveBeenCalled()
+    s.tiers.machine = "bergamot"
+    bg.storageChanged({ [SETTINGS_KEY]: { newValue: structuredClone(s) } }, "local")
+    expect(bergamot.catalog).toHaveBeenCalledTimes(1)
+    vi.doUnmock("../src/offline/bergamot")
+  })
+
+  it("M1: translates with the installed dictionary packs at once while the index of the release does not answer", async () => {
+    vi.stubGlobal("indexedDB", new IDBFactory())
+    const EN_ZH = tsv("en", "zh-Hans", { hello: "你好", world: "世界" })
+    await installPack(packEntry(EN_ZH), "dicts-v1", new DictionaryStore(), { fetchFn: asFetch(releaseServer([EN_ZH])) })
+    const fetchUrl = vi.fn((url: string) => (url.endsWith("dict-index.json") ? new Promise<Response>(() => {}) : google(url)))
+    const s = createDefaultSettings()
+    s.tiers.dictionary = "dictionary"
+    const bg = await start({ stored: stored(s), fetchUrl })
+    const port = bg.connect(5)
+    const dictionaryOnly = (text: string, sourceLang: string): TranslateRequest => ({ text, sourceLang, targetLang: "zh-CN", tiers: ["dictionary"] })
+    port.send({ type: "translate", id: 1, request: dictionaryOnly("hello world", "en") })
+    port.send({ type: "translate", id: 2, request: dictionaryOnly("Bonjour", "fr") })
+    await vi.waitFor(() => expect(port.posted.filter((m) => m.type === "done")).toHaveLength(2))
+    expect(port.posted).toContainEqual({ type: "tier", id: 1, tier: "dictionary", result: { ok: true, text: "你好世界" } })
+    expect(port.posted).toContainEqual({ type: "tier", id: 2, tier: "dictionary", result: { ok: false, error: expect.stringContaining("fr → zh-Hans") } })
+    expect(port.posted.find((m) => m.type === "tier" && m.id === 2)).not.toHaveProperty("result.missing")
   })
 
   it("L4: names the source language for the dictionary with the thresholds of the offline translator", async () => {
@@ -404,7 +448,7 @@ describe("requests from pages", () => {
     expect(await bg.send({ type: "cacheStats" })).toEqual({ size: 0 })
   })
 
-  it.each(["bergamotList", "bergamotProgress", "bergamotInstall", "bergamotCancel", "bergamotRemove", "bergamotRequired"])("hands %s to the offline model manager", async (type) => {
+  it.each(["bergamotList", "bergamotProgress", "bergamotInstall", "bergamotCancel", "bergamotRemove"])("hands %s to the offline model manager", async (type) => {
     const handleBergamot = vi.fn(async (req: { type: string }) => ({ handled: req.type }))
     vi.doMock("../src/background/bergamot-admin", () => ({ handleBergamot }))
     const bg = await start({ stored: stored(createDefaultSettings()) })

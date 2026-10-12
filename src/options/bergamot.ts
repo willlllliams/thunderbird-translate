@@ -97,8 +97,8 @@ export class BergamotSection extends OfflineList<PairItem> {
         }),
       )
     } else if (!this.deps.pick) {
-      if (!p.installed) out.push(button(t("buttonDownload"), () => void this.install(p), true))
-      if (p.installedVersion) out.push(button(t("buttonUpdate"), () => void this.install(p), true))
+      if (!p.installed) out.push(button(t("buttonDownload"), () => void this.installAll([p]), true))
+      if (p.installedVersion) out.push(button(t("buttonUpdate"), () => void this.installAll([p]), true))
       if (p.installed) {
         out.push(
           button(t("buttonDelete"), () => {
@@ -123,6 +123,10 @@ export class BergamotSection extends OfflineList<PairItem> {
     }, this.deps.pollMs ?? 400)
   }
 
+  protected reload(): Promise<void> {
+    return this.load()
+  }
+
   protected async install(p: PairItem): Promise<void> {
     this.rowErrors.delete(p.id)
     this.running.add(p.id)
@@ -131,7 +135,6 @@ export class BergamotSection extends OfflineList<PairItem> {
     const r = await send<BergamotResult | undefined>({ type: "bergamotInstall", src: p.src, tgt: p.tgt }).catch((error): BergamotResult => ({ ok: false, error: describeError(error, getI18n()) }))
     this.running.delete(p.id)
     if (!r?.ok && !r?.cancelled) this.rowErrors.set(p.id, r?.error || describeError(undefined, getI18n()))
-    await this.load()
   }
 
   private async remove(p: PairItem): Promise<void> {

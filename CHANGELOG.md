@@ -2,6 +2,27 @@
 
 All notable changes to this project are documented in this file. Versions follow [Semantic Versioning](https://semver.org/).
 
+## 1.8.1
+
+### Fixed
+
+- A paragraph whose dictionary pack or Bergamot model was missing waited for the network. Before naming what to download, the translation read the index of the dictionary release from GitHub, or Mozilla's model list once the copy in memory was older than 6 hours. A list that did not answer held back the whole batch, including the paragraphs whose packs or models were installed, and a failed read of the dictionary index was repeated for every following batch. Translations now decide what is missing from the lists already read and never wait for the network. The background script reads the list of each offline service in use when it starts and when the settings change; a dictionary index that could not be read is asked for again after 10 minutes at the earliest.
+- Without the list of a service, for example with no network since Thunderbird started, every direction counted as downloadable: the notice above the message, the red marks and the "Download" link named directions that the service might not offer. Until the list has been read, nothing counts as missing.
+- "Download common languages" and "Download selected" in the setup guide started every download at once and read the list again after each one. They now download two directions at a time and read the list once at the end; the dictionary list tells the background script once.
+- The line under the tier selectors turned red as a whole when one service lacked data, including the statement that another service does not support the languages. Each statement is now an element of its own, and only the statements about missing data are red.
+- With automatic detection, the offline lists labelled and the setup guide ticked a direct dictionary pack between two recommended languages even when neither of them was the target language, which contradicted the rule in the README. A direct pack between two languages other than English is now recommended only when one of them is the target language.
+- When `i18n.getPreferredSystemLanguages()` failed or answered nothing, the offline lists had no system language. The locale of the `Intl` formats now stands in, as in Thunderbird versions without the function. A POSIX locale such as `en-US-posix` counts as English.
+- A Bergamot translation with missing models read the installed models twice, and the dictionary read the installed packs once per paragraph. Both now read them once per language pair and batch.
+
+### Changed
+
+- README, all 12 languages: the privacy section names when the background script reads the dictionary index and the Bergamot model list (never while translating a message), the section on missing offline data says that nothing counts as missing before the list of the service has been read, and the project structure no longer mentions the demo GIF removed in 1.7.0.
+- `docs/bergamot.md` lists `installedKeys()`, `signature()`, `catalog()`, `knownCatalog()` and the `MissingDataError` of a missing model, and describes the detection of short texts as it works since 1.6.0.
+
+### Removed
+
+- The message `bergamotRequired` and the functions `requiredPairs` and `missingPairs`, which no page used any more; `pairNeeds` in `src/shared/offline-needs.ts` answers the same question for the dictionary and Bergamot.
+
 ## 1.8.0
 
 ### Added

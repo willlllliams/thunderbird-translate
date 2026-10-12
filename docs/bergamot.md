@@ -4,7 +4,7 @@ The module in `src/offline/bergamot/` translates plain text on the user's comput
 
 ## Interface
 
-`src/offline/bergamot/index.ts` exports `getBergamot()`, the `BergamotManager` of the background page (created on first use with the browser's IndexedDB, `fetch` and `Worker`), and `requiredPairs`. Translation runs in a Worker started by the page that owns the manager, so the extension keeps the manager in the background page. The settings page and the setup guide reach it through the messages handled in `src/background/bergamot-admin.ts`, so one engine sees every installation and removal.
+`src/offline/bergamot/index.ts` exports `getBergamot()`, the `BergamotManager` of the background page (created on first use with the browser's IndexedDB, `fetch` and `Worker`). Translation runs in a Worker started by the page that owns the manager, so the extension keeps the manager in the background page. The settings page and the setup guide reach it through the messages handled in `src/background/bergamot-admin.ts`, so one engine sees every installation and removal.
 
 | Method or function | Result |
 | --- | --- |
@@ -12,8 +12,10 @@ The module in `src/offline/bergamot/` translates plain text on the user's comput
 | `listPairs(forceRefresh?)` | `Promise<BergamotPairInfo[]>`, sorted by source, then target |
 | `install(src, tgt, onProgress?, signal?)` | `Promise<void>`; `onProgress(doneBytes, totalBytes)`. Requests of the pages go through `bergamot-admin.ts`, which runs one installation per pair: a second request shares the running one's progress, cancellation and result |
 | `remove(src, tgt)` | `Promise<void>` |
-| `missingPairs(pairs)` | the entries of `pairs` that are not installed |
-| `requiredPairs(src, tgt)` | `Array<[string, string]>`, the direction pairs a translation needs |
+| `installedKeys()` | `Promise<Set<string>>`, the keys of the installed pairs, e.g. `"en>zh-Hans"` |
+| `signature()` | `Promise<string>`, a hash of the installed pairs and their versions; part of the cache key of every Bergamot translation, so installing, updating or removing a pair never returns an older translation |
+| `catalog()` | `Promise<Set<string> | null>`, the keys of the pairs Mozilla offers; reads the model list when the copy in memory is older than 6 hours; `null` when the list cannot be read |
+| `knownCatalog()` | `Set<string> | null`, the same keys from the list already in memory, without any request; `null` before the list is read |
 | `normalizeBergamotLang(code)` (`languages.ts`) | the model tag for an application or detector code |
 
 `translate` behaves as follows:
@@ -22,7 +24,8 @@ The module in `src/offline/bergamot/` translates plain text on the user's comput
 - When source and target are the same language, the texts come back unchanged.
 - Empty and whitespace-only texts come back unchanged without reaching the engine. Leading and trailing whitespace of every text is kept, and line breaks inside a text survive translation.
 - Input is plain text. The engine also has an HTML mode, but it misplaces tags in Chinese, Japanese and Korean output, so the module does not use it.
-- When a needed pair is not installed, the call throws `bergamotModelMissing` and names the missing pairs.
+- Simplified ↔ Traditional Chinese throws `errChineseVariants`: through English their words would come back as glosses.
+- When a needed pair is not installed, the call throws `bergamotModelMissing` and names the missing pairs. It reads the installed pairs once and sends no request to Mozilla. With the model list in memory and the pairs offered by Mozilla, the error is a `MissingDataError` (`src/shared/errors.ts`): its field `missing` names the service, the language pair and the pairs to download, and the content script builds its notice about missing offline data from it. Before the list is read, the error carries no `missing` field. A pair that Mozilla does not offer throws `bergamotUnsupportedPair`.
 - A worker that does not answer a request within 2 minutes is terminated, the call fails with `bergamotEngineFailed`, and the next call starts a fresh worker.
 
 `BergamotPairInfo` has these fields:
@@ -54,12 +57,12 @@ Mozilla's models use BCP 47 tags with scripts for Chinese. `normalizeBergamotLan
 | `ji` | `yi` |
 | any other tag | its primary subtag, e.g. `pt-BR` → `pt` |
 
-Every model has English on one side. A pair without English runs through two models in one engine call (`translateViaPivoting`): Japanese to Simplified Chinese uses `ja → en`, then `en → zh-Hans`. `requiredPairs` returns the pairs for a translation:
+Every model has English on one side. A pair without English runs through two models in one engine call (`translateViaPivoting`): Japanese to Simplified Chinese uses `ja → en`, then `en → zh-Hans`. `pairNeeds` in `src/shared/offline-needs.ts` returns the pairs for a translation, those not installed, and whether Mozilla offers them; the dictionary uses the same function:
 
 ```ts
-requiredPairs("en", "zh-CN") // [["en", "zh-Hans"]]
-requiredPairs("ja", "zh-TW") // [["ja", "en"], ["en", "zh-Hant"]]
-requiredPairs("de", "de")    // []
+pairNeeds("bergamot", "en", "zh-CN", catalog, installed) // required ["en>zh-Hans"]
+pairNeeds("bergamot", "ja", "zh-TW", catalog, installed) // required ["ja>en", "en>zh-Hant"]
+pairNeeds("bergamot", "de", "de", catalog, installed)    // required []
 ```
 
 Storage works per direction pair. Removing `ja → en` leaves `en → zh-Hans` intact, and both stay usable for other combinations. The settings page should therefore present a combination such as Japanese → Chinese as the two pairs it needs, and warn before removing a pair that another chosen combination still uses.
@@ -82,6 +85,8 @@ Rule 5 matters for pairs such as `en → ko`: the Android set (3.1) has separate
 On 2026-10-11 the collection held 404 records, and the rules leave 114 direction pairs among 58 languages. A model file is 12 to 45 MB compressed; `en → zh-Hans` downloads 34.5 MiB in total.
 
 The list is kept in memory for 6 hours and saved in IndexedDB. When Mozilla cannot be reached, the saved copy is used. When there is no saved copy, or when the caller forces a refresh (the reload button of the settings page), the call throws `bergamotRecordsFailed`.
+
+While Bergamot is the service of the machine tier, the background script reads the list when it starts and when the settings change, and the popup and the settings page read it through `catalog()` to mark missing models. Translations use only the list already in memory (`knownCatalog()`), so a missing model never makes a translation wait for Mozilla.
 
 ## Installation and storage
 
@@ -192,6 +197,6 @@ Sample output (`en → zh-Hans`):
 
 - Translation quality is below the online services, especially for idioms and informal greetings. The model writes ASCII commas in some Chinese sentences (`嗨,安娜`).
 - One engine call blocks the worker until it finishes. A long email is translated in one batch, and other translations wait for it.
-- Detection on short texts falls back to the caller's source language. When the caller passes none, short texts with `src = "auto"` fail with `bergamotDetectFailed`.
+- Since 1.6.0, a text shorter than 12 letters, or one that the browser's detector does not place reliably with at least 60 % of the text, is named by its script and the English stop words; when these do not place it either, it takes the language found most often among the texts of the call, else English. Its language is then a guess, and its error names no models to download. `translate` itself does not detect and refuses `src = "auto"` with `bergamotDetectFailed`.
 - The engine build is single-threaded (`cpu-threads: 0`, no wasm threads in the glue), as in Firefox. A long email uses one CPU core.
 - Two loaded pairs take about 400 MiB in the worker until the idle timeout.

@@ -272,7 +272,7 @@ Các chiều dịch của những ngôn ngữ được đề xuất xếp trư�
 2. ngôn ngữ nguồn, khi đã cố định;
 3. ngôn ngữ giao diện của tiện ích ("Theo Thunderbird" được tính là ngôn ngữ của Thunderbird);
 4. ngôn ngữ giao diện của Thunderbird;
-5. ngôn ngữ hệ thống (`i18n.getPreferredSystemLanguages()`; các phiên bản Thunderbird không có hàm này dùng ngôn ngữ vùng của các định dạng `Intl`).
+5. ngôn ngữ hệ thống (`i18n.getPreferredSystemLanguages()`; khi không có hàm này, hàm thất bại hoặc không trả về gì, ngôn ngữ vùng của các định dạng `Intl` được dùng thay).
 
 Với mỗi ngôn ngữ được đề xuất X khác tiếng Anh, các chiều X → tiếng Anh và tiếng Anh → X được đề xuất, và với từ điển còn có thêm các gói trực tiếp giữa X và ngôn ngữ đích nếu bản phát hành có. Mỗi dòng được đề xuất mang các nguồn của nó dưới dạng nhãn ("Ngôn ngữ đích", "Ngôn ngữ nguồn", "Ngôn ngữ của tiện ích", "Ngôn ngữ của Thunderbird", "Ngôn ngữ hệ thống"), cộng thêm nhãn "Trực tiếp" cho chiều dịch sang ngôn ngữ đích và "Qua tiếng Anh" cho chiều dịch sang tiếng Anh phục vụ tuyến dịch qua tiếng Anh. Các chiều còn lại xếp sau, theo tên.
 
@@ -296,6 +296,8 @@ Khi tầng từ điển, hoặc Bergamot trong tầng dịch máy, không dịch
 - "Đóng" gỡ thông báo.
 
 Các đoạn mà ngôn ngữ chỉ được đoán, lỗi mạng và các cặp không hỗ trợ không được tính. Các đoạn vẫn nhận bản dịch của các tầng khác; nếu chỉ dùng các tầng ngoại tuyến, chúng vẫn ở trạng thái lỗi.
+
+Một gói hoặc mô hình có tải được hay không chỉ biết được từ danh sách của dịch vụ đó (xem "Quyền riêng tư"). Khi danh sách đó chưa được đọc, không có gì được tính là còn thiếu: thông báo không xuất hiện, không có gì được đánh dấu màu đỏ và lỗi dưới đoạn văn không nêu chiều dịch nào cần tải.
 
 Trong cửa sổ bật lên và trên trang cài đặt, một từ điển hoặc Bergamot đã chọn mà thiếu những gì các ngôn ngữ hiện tại cần sẽ hiện màu đỏ là "Từ điển (chưa tải mô hình cục bộ)" hoặc "Bergamot (chưa tải mô hình cục bộ)", và một dòng bên dưới các danh sách tầng nêu tên các chiều dịch còn thiếu kèm liên kết "Tải xuống" tới các danh sách đã lọc. Với tự động phát hiện, chiều từ tiếng Anh sang ngôn ngữ đích được tính; với tiếng Anh làm ngôn ngữ đích, tính ít nhất một chiều sang tiếng Anh. Cặp không hỗ trợ được nêu tên trên dòng đó, không tô đỏ. Các dấu đánh dấu cập nhật theo việc cài đặt và xóa thực hiện ở các trang khác.
 
@@ -496,7 +498,9 @@ Số token đầu vào giảm khoảng 63%, và số yêu cầu giảm từ 20 x
 - Khóa API chỉ được lưu trong `storage.local` của hồ sơ Thunderbird hiện tại và chỉ được gửi kèm các yêu cầu đến điểm cuối của nhà cung cấp tương ứng.
 - Tập lệnh nội dung chạy bên trong trang thư; các cài đặt mà tập lệnh này nhận từ tập lệnh nền không chứa khóa lẫn điểm cuối, vì điểm cuối có thể chứa token.
 - Thông báo lỗi che những gì có thể là bí mật: khóa API hoặc token của dịch vụ ở bất cứ chỗ nào xuất hiện, các đoạn đường dẫn URL trông giống token (từ 20 ký tự trở lên gồm chữ cái và chữ số), tên người dùng và mật khẩu trong URL, và các tham số URL có tên chứa key, token, auth, secret, sig, pass, credential hoặc session. Các phần bị che hiển thị là `***`.
-- Văn bản thư chỉ được gửi đến dịch vụ của các tầng đang dùng. Từ điển và Bergamot dịch trên máy tính của bạn và không gửi văn bản đi đâu cả. Trang cài đặt và trang hướng dẫn thiết lập đọc danh sách gói từ điển từ các bản phát hành GitHub của kho mã này và danh sách mô hình Bergamot từ Mozilla; bản thân các gói và mô hình chỉ được tải khi bạn nhấn "Tải xuống". Không yêu cầu nào trong số này mang văn bản thư. Tiện ích không thu thập số liệu thống kê và không liên hệ với địa chỉ mạng nào khác.
+- Văn bản thư chỉ được gửi đến dịch vụ của các tầng đang dùng. Từ điển và Bergamot dịch trên máy tính của bạn và không gửi văn bản đi đâu cả.
+- Có hai danh sách được đọc từ mạng, và không yêu cầu nào trong số này mang văn bản thư: danh sách gói từ điển từ các bản phát hành GitHub của kho mã này và danh sách mô hình Bergamot từ Mozilla. Trang cài đặt và trang hướng dẫn thiết lập đọc chúng để hiển thị các danh sách ngoại tuyến. Khi từ điển hoặc Bergamot là dịch vụ của một tầng, tập lệnh nền cũng đọc danh sách của dịch vụ đó: khi Thunderbird khởi động, khi cài đặt thay đổi và khi cửa sổ bật lên hoặc trang cài đặt hỏi còn thiếu gì. Tập lệnh nền đọc danh sách từ điển một lần cho mỗi thẻ bản phát hành, sau một lần đọc thất bại thì đọc lại sớm nhất sau 10 phút; nó đọc lại danh sách Bergamot khi bản sao trong bộ nhớ đã cũ hơn 6 giờ. Việc dịch một thư không đọc danh sách nào, kể cả khi thiếu một gói hoặc một mô hình.
+- Bản thân các gói và mô hình chỉ được tải khi bạn nhấn "Tải xuống". Tiện ích không thu thập số liệu thống kê và không liên hệ với địa chỉ mạng nào khác.
 - Bộ nhớ đệm bản dịch được lưu cục bộ và có thể tắt hoặc xóa trên trang cài đặt.
 - Khi dùng Google, Microsoft, DeepLX hoặc một dịch vụ AI trực tuyến, văn bản thư rời khỏi máy tính của bạn. Với thư nhạy cảm, chỉ dùng từ điển, Bergamot và các mô hình AI cục bộ như Ollama hoặc LM Studio; chúng giữ mọi yêu cầu trên chính máy của bạn.
 
@@ -561,7 +565,7 @@ scripts/         build, Bergamot engine download, locale generation and checks, 
 vendor/          Bergamot engine glue script (bergamot-translator.js)
 tools/           dict-build: the pipeline that builds the dictionary packs
 readmes/         translated versions of this README
-docs/            developer notes on Bergamot and the dictionary packs, demo GIF used in this README
+docs/            developer notes on Bergamot and the dictionary packs
 tests/           vitest tests
 e2e/             end-to-end test in a real Thunderbird: runner, mock server, fixture messages
 .github/         workflows: build and release, dictionary packs

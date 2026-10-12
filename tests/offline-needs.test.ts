@@ -32,13 +32,22 @@ describe("pairNeeds", () => {
     ["Bergamot with English", "bergamot", "en", "fr", RELEASE, set(), { required: ["en>fr"], missing: ["en>fr"], unsupported: false }],
     ["direction missing from the catalog", "dictionary", "de", "en", catalog(["fr"]), set(), { required: [], missing: [], unsupported: true }],
     ["Bergamot: a language Mozilla does not offer", "bergamot", "is", "zh-CN", RELEASE, set(), { required: [], missing: [], unsupported: true }],
-    ["unknown catalog: everything counts as offered", "bergamot", "is", "en", null, set(), { required: ["is>en"], missing: ["is>en"], unsupported: false }],
+    ["unknown catalog: the route, nothing to download", "bergamot", "is", "en", null, set(), { required: ["is>en"], missing: [], unsupported: false }],
     ["Simplified and Traditional Chinese", "dictionary", "zh-TW", "zh-CN", RELEASE, set(), { required: [], missing: [], unsupported: true }],
     ["Chinese variants for Bergamot too", "bergamot", "zh-CN", "zh-TW", null, set(), { required: [], missing: [], unsupported: true }],
     ["a language the dictionary does not have", "dictionary", "it", "en", RELEASE, set(), { required: [], missing: [], unsupported: true }],
     ["the same language", "dictionary", "en", "en-GB", RELEASE, set(), { required: [], missing: [], unsupported: false }],
   ])("%s", (_name, service, source, target, offered, installed, expected) => {
     expect(pairNeeds(service, source, target, offered, installed)).toEqual(expected)
+  })
+
+  it("M2: with an unknown catalog nothing counts as missing, so nothing is offered for download or marked in red", () => {
+    expect(pairNeeds("dictionary", "ja", "zh-CN", null, set("ja>en"))).toEqual({ required: ["ja>en", "en>zh-Hans"], missing: [], unsupported: false })
+    for (const [source, target] of [["ja", "zh-CN"], ["auto", "de"], ["auto", "en"]]) {
+      const state = offlineState("bergamot", source, target, null, set())
+      expect(state).toMatchObject({ missing: [], unsupported: false })
+      expect(lacksData(state)).toBe(false)
+    }
   })
 
   it("maps codes to the languages of each service", () => {
@@ -68,7 +77,6 @@ describe("offlineState", () => {
     expect(lacksData(none)).toBe(true)
     expect(lacksData(offlineState("dictionary", "auto", "en", RELEASE, set("de>en")))).toBe(false)
     expect(offlineState("dictionary", "auto", "en", set("en>de"), set())).toEqual({ missing: [], unsupported: true })
-    expect(lacksData(offlineState("dictionary", "auto", "en", null, set()))).toBe(true)
   })
 
   it("asks for nothing when the pair is unsupported", () => {
@@ -96,7 +104,16 @@ describe("recommended languages", () => {
     ])
   })
 
-  it("labels a direction with the sources of its language other than English, also for a direct pack", () => {
+  it("L2: recommends a direct pack between two other languages only between a recommended language and the target", () => {
+    const recommended = recommendedLanguages({ target: ["zh-CN"], source: ["ja"], system: ["ko"] })
+    expect(itemSources("dictionary", "ja>zh-Hans", recommended)).toEqual(["target", "source"])
+    expect(itemSources("dictionary", "zh-Hans>ko", recommended)).toEqual(["target", "system"])
+    expect(itemSources("dictionary", "ja>ko", recommended)).toEqual([])
+    expect(itemSources("dictionary", "ja>fr", recommended)).toEqual([])
+    expect(itemSources("dictionary", "fr>en", recommended)).toEqual([])
+  })
+
+  it("labels a direction with the sources of its language other than English, also for a direct pack into the target", () => {
     const recommended = recommendedLanguages({ target: ["de"], source: ["ja"], system: ["ja-JP", "en"] })
     expect(itemSources("dictionary", "ja>en", recommended)).toEqual(["source", "system"])
     expect(itemSources("dictionary", "ja>de", recommended)).toEqual(["target", "source", "system"])

@@ -272,7 +272,7 @@ Ayarlar sayfasındaki ve kurulum rehberinin 4. adımındaki sözlük listesi ile
 2. sabitse kaynak dil;
 3. eklentinin arayüz dili ("Thunderbird ile aynı" Thunderbird'ün dili sayılır);
 4. Thunderbird'ün arayüz dili;
-5. sistem dilleri (`i18n.getPreferredSystemLanguages()`; bu yöntemi olmayan Thunderbird sürümleri `Intl` biçimlerinin yerel ayarını kullanır).
+5. sistem dilleri (`i18n.getPreferredSystemLanguages()`; bu yöntem yoksa, başarısız olursa veya hiçbir şey döndürmezse `Intl` biçimlerinin yerel ayarı kullanılır).
 
 İngilizce dışındaki her önerilen X dili için X → İngilizce ve İngilizce → X yönleri önerilir; sözlük için ayrıca sürümde varsa X ile hedef dil arasındaki doğrudan paketler de önerilir. Önerilen her satır kaynaklarını etiket olarak taşır ("Hedef dil", "Kaynak dil", "Eklenti dili", "Thunderbird dili", "Sistem dili"); ayrıca hedef dile giden yön "Doğrudan", İngilizce üzerinden izlenen yola hizmet eden İngilizceye giden yön "İngilizce üzerinden" etiketini taşır. Diğer yönler adlarına göre arkadan gelir.
 
@@ -296,6 +296,8 @@ Sözlük kademesi veya makine kademesindeki Bergamot, bir paket ya da model eksi
 - "Kapat" bildirimi kaldırır.
 
 Dili yalnızca tahmin edilen paragraflar, ağ hataları ve desteklenmeyen çiftler sayılmaz. Paragraflar yine diğer kademelerin çevirilerini alır; yalnızca çevrimdışı kademeler kullanılıyorsa başarısız kalırlar.
+
+Bir paketin veya modelin indirilebilir olup olmadığı yalnızca hizmetinin listesinden anlaşılır ("Gizlilik" bölümüne bakın). Bu liste okunmadığı sürece hiçbir şey eksik sayılmaz: bildirim çıkmaz, hiçbir şey kırmızıyla işaretlenmez ve paragrafın altındaki hata indirilecek yön adı vermez.
 
 Açılır pencerede ve ayarlar sayfasında, geçerli dillerin gerektirdiği veriden yoksun seçili bir sözlük veya Bergamot kırmızıyla "Sözlük (yerel model indirilmedi)" veya "Bergamot (yerel model indirilmedi)" olarak görünür; kademe listelerinin altındaki bir satır eksik yönleri adlandırır ve süzülmüş listelere giden bir "İndir" bağlantısı içerir. Otomatik algılamada İngilizceden hedef dile giden yön sayılır; hedef dil İngilizce ise İngilizceye giden en az bir yön sayılır. Desteklenmeyen bir çift bu satırda kırmızı olmadan adlandırılır. İşaretler, başka sayfalarda yapılan kurulumları ve silmeleri izler.
 
@@ -496,7 +498,9 @@ Girdi token sayısı yaklaşık %63 azalır ve istek sayısı 20'den 1'e düşer
 - API anahtarları yalnızca geçerli Thunderbird profilinin `storage.local` alanında saklanır ve yalnızca ilgili sağlayıcının uç noktasına giden isteklerle gönderilir.
 - İçerik betiği ileti sayfasının içinde çalışır; arka plan betiğinden aldığı ayarlar ne anahtar ne de uç nokta içerir, çünkü bir uç nokta token taşıyabilir.
 - Hata iletileri gizli olabilecek her şeyi maskeler: hizmetin API anahtarı veya token'ı göründüğü her yerde, bir URL'nin token'a benzeyen yol parçaları (harf ve rakam içeren 20 veya daha fazla karakter), URL'lerdeki kullanıcı adları ve parolalar ile adı key, token, auth, secret, sig, pass, credential veya session içeren URL parametreleri. Maskelenen kısımlar `***` olarak görünür.
-- İleti metni yalnızca kullanılan kademelerin hizmetlerine gönderilir. Sözlük ve Bergamot bilgisayarınızda çeviri yapar ve hiçbir yere metin göndermez. Ayarlar sayfası ve kurulum rehberi, sözlük paketlerinin listesini bu deponun GitHub sürümlerinden, Bergamot modellerinin listesini ise Mozilla'dan okur; paketlerin ve modellerin kendisi yalnızca "İndir" düğmesine tıkladığınızda indirilir. Bu isteklerin hiçbiri ileti metni taşımaz. Eklenti istatistik toplamaz ve başka hiçbir ağ adresiyle bağlantı kurmaz.
+- İleti metni yalnızca kullanılan kademelerin hizmetlerine gönderilir. Sözlük ve Bergamot bilgisayarınızda çeviri yapar ve hiçbir yere metin göndermez.
+- Ağdan iki liste okunur ve bu isteklerin hiçbiri ileti metni taşımaz: sözlük paketlerinin listesi bu deponun GitHub sürümlerinden, Bergamot modellerinin listesi Mozilla'dan gelir. Ayarlar sayfası ve kurulum rehberi, çevrimdışı listeleri göstermek için bunları okur. Sözlük veya Bergamot bir kademenin hizmeti olduğu sürece arka plan betiği de onun listesini okur: Thunderbird başladığında, ayarlar değiştiğinde ve açılır pencere ya da ayarlar sayfası eksik verileri sorduğunda. Sözlük listesini her sürüm etiketi için bir kez okur, okuma başarısız olursa en erken 10 dakika sonra yeniden okur; Bergamot listesini bellekteki kopya 6 saatten eski olduğunda yeniden okur. Bir iletinin çevrilmesi, bir paket veya model eksik olsa bile iki listeden hiçbirini okumaz.
+- Paketlerin ve modellerin kendisi yalnızca "İndir" düğmesine tıkladığınızda indirilir. Eklenti istatistik toplamaz ve başka hiçbir ağ adresiyle bağlantı kurmaz.
 - Çeviri önbelleği yerel olarak saklanır ve ayarlar sayfasından kapatılabilir veya temizlenebilir.
 - Google, Microsoft, DeepLX veya çevrimiçi bir yapay zekâ hizmeti kullanıldığında ileti metni bilgisayarınızdan çıkar. Hassas iletiler için yalnızca sözlüğü, Bergamot'u ve Ollama veya LM Studio gibi yerel yapay zekâ modellerini kullanın; bunlar her isteği kendi makinenizde tutar.
 
@@ -561,7 +565,7 @@ scripts/         build, Bergamot engine download, locale generation and checks, 
 vendor/          Bergamot engine glue script (bergamot-translator.js)
 tools/           dict-build: the pipeline that builds the dictionary packs
 readmes/         translated versions of this README
-docs/            developer notes on Bergamot and the dictionary packs, demo GIF used in this README
+docs/            developer notes on Bergamot and the dictionary packs
 tests/           vitest tests
 e2e/             end-to-end test in a real Thunderbird: runner, mock server, fixture messages
 .github/         workflows: build and release, dictionary packs

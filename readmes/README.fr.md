@@ -293,7 +293,7 @@ Les directions des langues recommandées viennent en premier. Une langue recomma
 2. la langue source, lorsqu’elle est fixe ;
 3. la langue de l’interface de l’extension (« Suivre Thunderbird » compte comme la langue de Thunderbird) ;
 4. la langue de l’interface de Thunderbird ;
-5. les langues du système (`i18n.getPreferredSystemLanguages()` ; les versions de Thunderbird qui n’ont pas cette fonction utilisent la locale des formats `Intl`).
+5. les langues du système (`i18n.getPreferredSystemLanguages()` ; si cette fonction manque, échoue ou ne renvoie rien, la locale des formats `Intl` la remplace).
 
 Pour chaque langue recommandée X autre que l’anglais, les directions X → anglais et anglais → X sont recommandées, et pour le dictionnaire aussi les packs directs entre X et la langue cible lorsque la publication les contient. Chaque ligne recommandée porte ses sources comme étiquettes (« Langue cible », « Langue source », « Langue de l’extension », « Langue de Thunderbird », « Langue du système »), plus « Direct » pour une direction vers la langue cible et « Via l’anglais » pour une direction vers l’anglais qui sert le chemin par l’anglais. Les autres directions suivent par nom.
 
@@ -317,6 +317,8 @@ Lorsque le niveau dictionnaire ou Bergamot dans le niveau traduction automatique
 - « Fermer » supprime la remarque.
 
 Les paragraphes dont la langue n’a été que devinée, les erreurs réseau et les paires non prises en charge ne comptent pas. Les paragraphes reçoivent toujours les traductions des autres niveaux ; lorsque seuls des niveaux hors ligne sont utilisés, ils restent en échec.
+
+Seule la liste de son service indique si un pack ou un modèle peut être téléchargé (voir « Confidentialité »). Tant que cette liste n’a pas été lue, rien ne compte comme manquant : aucune notice n’apparaît, rien n’est marqué en rouge et l’erreur sous le paragraphe ne nomme aucune direction à télécharger.
 
 Dans la fenêtre contextuelle et sur la page de paramètres, un dictionnaire ou un Bergamot sélectionné auquel manque ce dont les langues actuelles ont besoin s’affiche « Dictionnaire (modèle local non téléchargé) » ou « Bergamot (modèle local non téléchargé) » en rouge, et une ligne sous les listes de niveaux nomme les directions manquantes avec un lien « Télécharger » vers les listes filtrées. Avec la détection automatique, la direction de l’anglais vers la langue cible compte ; pour l’anglais comme langue cible, au moins une direction vers l’anglais. Une paire non prise en charge est nommée sur cette ligne sans rouge. Les signalements suivent les installations et les suppressions faites sur d’autres pages.
 
@@ -522,7 +524,9 @@ Les jetons en entrée baissent d’environ 63 %, et le nombre de requêtes pass
   - les segments de chemin d’URL qui ressemblent à un jeton (20 caractères ou plus, avec des lettres et des chiffres) ;
   - les noms d’utilisateur et mots de passe dans les URL ;
   - les paramètres d’URL dont le nom contient key, token, auth, secret, sig, pass, credential ou session.
-- Le texte des messages n’est envoyé qu’aux services des niveaux utilisés. Le dictionnaire et Bergamot traduisent sur votre ordinateur et n’envoient aucun texte. La page de paramètres et le guide de configuration lisent la liste des packs de dictionnaires dans les releases GitHub de ce dépôt et la liste des modèles Bergamot chez Mozilla ; les packs et les modèles eux-mêmes ne sont téléchargés que lorsque vous cliquez sur « Télécharger ». Aucune de ces requêtes ne transporte de texte de message. L’extension ne collecte aucune statistique et ne contacte aucune autre adresse réseau.
+- Le texte des messages n’est envoyé qu’aux services des niveaux utilisés. Le dictionnaire et Bergamot traduisent sur votre ordinateur et n’envoient aucun texte.
+- Deux listes viennent du réseau, sans aucun texte de message : la liste des packs de dictionnaires, dans les releases GitHub de ce dépôt, et la liste des modèles Bergamot, chez Mozilla. La page de paramètres et le guide de configuration les lisent pour afficher les listes hors ligne. Tant que le dictionnaire ou Bergamot est le service d’un niveau, le script d’arrière-plan lit aussi sa liste : au démarrage de Thunderbird, à chaque changement des paramètres et quand la fenêtre contextuelle ou la page de paramètres demande ce qui manque. Il lit la liste des dictionnaires une fois par étiquette de version, et après un échec de nouveau 10 minutes plus tard au plus tôt ; il relit la liste Bergamot dès que la copie en mémoire a plus de 6 heures. La traduction d’un message ne lit aucune des deux listes, même quand un pack ou un modèle manque.
+- Les packs et les modèles eux-mêmes ne sont téléchargés que lorsque vous cliquez sur « Télécharger ». L’extension ne collecte aucune statistique et ne contacte aucune autre adresse réseau.
 - Le cache des traductions est stocké localement et peut être désactivé ou vidé sur la page de paramètres.
 - Avec Google, Microsoft, DeepLX ou un service d’IA en ligne, le texte des messages quitte votre ordinateur. Pour le courrier sensible, n’utilisez que le dictionnaire, Bergamot et des modèles d’IA locaux comme Ollama ou LM Studio, qui gardent toutes les requêtes sur votre propre machine.
 
@@ -587,7 +591,7 @@ scripts/         build, Bergamot engine download, locale generation and checks, 
 vendor/          Bergamot engine glue script (bergamot-translator.js)
 tools/           dict-build: the pipeline that builds the dictionary packs
 readmes/         translated versions of this README
-docs/            developer notes on Bergamot and the dictionary packs, demo GIF used in this README
+docs/            developer notes on Bergamot and the dictionary packs
 tests/           vitest tests
 e2e/             end-to-end test in a real Thunderbird: runner, mock server, fixture messages
 .github/         workflows: build and release, dictionary packs

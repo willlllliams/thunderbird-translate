@@ -11,14 +11,15 @@
  * the pair. Packs are read from IndexedDB on first use and released after a
  * while without translations. A paragraph without its packs fails with the
  * packs to download (see shared/offline-needs.ts), unless the release offers
- * none for the pair or the language of the paragraph was a guess.
+ * none for the pair, its index has not been read yet, or the language of
+ * the paragraph was a guess.
  */
 
 import { LocalizedError, MissingDataError } from "../../shared/errors"
 import { hashText } from "../../shared/hash"
 import { detectSourceLanguage, type LanguageDetector } from "../../shared/lang-detect"
 import { baseLang, isChinesePair, pairKey } from "../../shared/languages"
-import { type Catalog, pairNeeds } from "../../shared/offline-needs"
+import { type Catalog, type PairNeeds, pairNeeds } from "../../shared/offline-needs"
 import { dictKey, dictLang, type DictPack, gunzip, parsePack } from "./format"
 import { DictionaryStore } from "./store"
 
@@ -99,8 +100,8 @@ export interface DictionaryOptions {
   detect?: LanguageDetector
   /** Time without translations after which the packs are released. */
   idleMs?: number
-  /** Pair keys of the packs the release offers; null when the index cannot be read. */
-  catalog?: () => Promise<Catalog>
+  /** Pair keys of the packs the release offers, as far as already read: a translation does not wait for the network. */
+  catalog?: () => Catalog
 }
 
 export class Dictionary {
@@ -158,6 +159,8 @@ export class Dictionary {
     this.touch()
     const tgt = dictLang(targetLang)
     if (!tgt) throw new LocalizedError("errDictionaryUnsupported", [targetLang])
+    /** What each language pair of the batch needs, worked out once. */
+    const needs = new Map<string, Promise<PairNeeds>>()
     return Promise.allSettled(
       texts.map(async (text) => {
         const detected = sourceLang === "auto" ? await detectSourceLanguage(text, this.opts.detect) : sourceLang
@@ -166,13 +169,13 @@ export class Dictionary {
         if (!src) throw new LocalizedError("errDictionaryUnsupported", [lang])
         if (src === tgt) return text
         if (isChinesePair(src, tgt)) throw new LocalizedError("errChineseVariants")
-        return this.translateWith(text, src, tgt, detected !== null)
+        return this.translateWith(text, src, tgt, detected !== null, needs)
       }),
     )
   }
 
   /** `detected`: the source language was detected or set, not guessed; only then the error names the packs to download. */
-  private async translateWith(text: string, src: string, tgt: string, detected: boolean): Promise<string> {
+  private async translateWith(text: string, src: string, tgt: string, detected: boolean, needs: Map<string, Promise<PairNeeds>>): Promise<string> {
     const direct = await this.pack(src, tgt)
     if (direct) return translateText(text, direct)
     if (src !== "en" && tgt !== "en") {
@@ -180,9 +183,11 @@ export class Dictionary {
       if (toEnglish && fromEnglish) return translateText(translateText(text, toEnglish), fromEnglish)
     }
     const pair = `${src} → ${tgt}`
-    const needs = pairNeeds("dictionary", src, tgt, (await this.opts.catalog?.()) ?? null, await this.installedIds())
-    if (needs.unsupported) throw new LocalizedError("errDictionaryNoPack", [pair])
-    if (!detected || needs.missing.length === 0) throw new LocalizedError("errDictionaryMissing", [pair], undefined, "hintDictionaryDownload")
-    throw new MissingDataError("errDictionaryMissing", [pair], { service: "dictionary", pair: pairKey(src, tgt), models: needs.missing }, "hintDictionaryDownload")
+    const id = pairKey(src, tgt)
+    if (!needs.has(id)) needs.set(id, this.installedIds().then((installed) => pairNeeds("dictionary", src, tgt, this.opts.catalog?.() ?? null, installed)))
+    const { unsupported, missing } = await needs.get(id)!
+    if (unsupported) throw new LocalizedError("errDictionaryNoPack", [pair])
+    if (!detected || missing.length === 0) throw new LocalizedError("errDictionaryMissing", [pair], undefined, "hintDictionaryDownload")
+    throw new MissingDataError("errDictionaryMissing", [pair], { service: "dictionary", pair: id, models: missing }, "hintDictionaryDownload")
   }
 }

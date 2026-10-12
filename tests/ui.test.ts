@@ -66,8 +66,7 @@ describe("popup", () => {
       expect(select("tier-machine").classList.contains("missing")).toBe(false)
       const hint = document.querySelector<HTMLElement>("#offlineMissing")!
       expect(hint.hidden).toBe(false)
-      expect(hint.classList.contains("missing")).toBe(true)
-      expect(hint.firstChild!.textContent).toBe(ENGLISH.t("offlineMissing", [ENGLISH.t("tierDictionary"), ZH]))
+      expect(hint.querySelector(".missing")!.textContent).toBe(ENGLISH.t("offlineMissing", [ENGLISH.t("tierDictionary"), ZH]))
 
       status = { dictionary: { missing: [], unsupported: false }, bergamot: { missing: ["en>zh-Hans"], unsupported: false } }
       page.notify({ type: "offlineDataChanged" })
@@ -102,6 +101,20 @@ describe("popup", () => {
       await vi.waitFor(() => expect(optionTexts(select("tier-machine"))).toContain("google-free"))
       expect(page.sendMessage.mock.calls.some(([req]) => req.type === "offlineStatus")).toBe(false)
       expect(document.querySelector<HTMLElement>("#offlineMissing")!.hidden).toBe(true)
+    })
+
+    it("L3: marks in red only what a service lacks, not that another one does not support the languages", async () => {
+      const status: OfflineStatus = { dictionary: { missing: [], unsupported: true }, bergamot: { missing: ["en>zh-Hans"], unsupported: false } }
+      await openPage("popup", offlineSettings(), { respond: (req) => (req.type === "offlineStatus" ? status : undefined) })
+      const hint = document.querySelector<HTMLElement>("#offlineMissing")!
+      await vi.waitFor(() => expect(hint.hidden).toBe(false))
+      const statements = Array.from(hint.querySelectorAll("span"), (el) => [el.textContent, el.classList.contains("missing")])
+      expect(statements).toEqual([
+        [ENGLISH.t("offlineUnsupported", [ENGLISH.t("tierDictionary")]), false],
+        [ENGLISH.t("offlineMissing", ["Bergamot", ZH]), true],
+      ])
+      expect(hint.classList.contains("missing")).toBe(false)
+      expect(hint.textContent).toBe(`${statements[0][0]} ${statements[1][0]} ${ENGLISH.t("offlineDownload")}`)
     })
 
     it("asks again when the languages or the tiers change", async () => {
@@ -461,8 +474,6 @@ describe("offline models on the settings page", () => {
       switch (req.type) {
         case "bergamotList":
           return { ok: true, pairs: PAIRS }
-        case "bergamotRequired":
-          return req.src === "ja" ? { required: [["ja", "en"], ["en", "zh-Hans"]], missing: [["ja", "en"]] } : { required: [["en", "zh-Hans"]], missing: [] }
         case "bergamotInstall":
           return new Promise((r) => (finishInstall = r))
         case "bergamotProgress":

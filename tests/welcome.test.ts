@@ -330,8 +330,11 @@ describe("welcome page", () => {
     expect($("downloadStatus").textContent).toBe(ENGLISH.t("downloadRunning", [7]))
     // The packs fail (the server has no files), the models are installed once the background script answers.
     await vi.waitFor(() => expect(services.urls.filter((u) => u.endsWith(".tsv.gz"))).toHaveLength(3))
-    services.finish()
-    await vi.waitFor(() => expect($("downloadStatus").textContent).toBe(ENGLISH.t("downloadFailed", [3])))
+    // The models are downloaded two at a time.
+    await vi.waitFor(() => {
+      services.finish()
+      expect($("downloadStatus").textContent).toBe(ENGLISH.t("downloadFailed", [3]))
+    })
     expect(services.requests.filter((r) => r.type === "bergamotInstall")).toHaveLength(4)
   })
 
@@ -384,8 +387,6 @@ describe("welcome page", () => {
               { src: "fr", tgt: "en", version: "1", architecture: "base", bytes: 30e6, rawBytes: 1, installed: false },
             ],
           }
-        case "bergamotRequired":
-          return { required: [["ja", "en"], ["en", "zh-Hans"]], missing: [["ja", "en"]] }
         case "bergamotInstall":
           return { ok: true }
         case "bergamotProgress":
@@ -603,7 +604,7 @@ describe("welcome page", () => {
     const requests: BackgroundRequest[] = []
     const respond = (req: BackgroundRequest) => {
       requests.push(req)
-      return req.type === "bergamotList" ? { ok: true, pairs: [] } : req.type === "bergamotRequired" ? { required: [], missing: [] } : undefined
+      return req.type === "bergamotList" ? { ok: true, pairs: [] } : undefined
     }
     await openPage("welcome", settings((s) => (s.tiers.dictionary = "dictionary")), { stored: { [WELCOME_KEY]: { step: "offline" } }, respond })
     await vi.waitFor(() => expect(current()).toBe("offline"))

@@ -278,7 +278,7 @@ As direções dos idiomas recomendados vêm primeiro. Um idioma recomendado vem 
 2. o idioma de origem, quando é fixo;
 3. o idioma da interface da extensão ("Seguir o Thunderbird" conta como o idioma do Thunderbird);
 4. o idioma da interface do Thunderbird;
-5. os idiomas do sistema (`i18n.getPreferredSystemLanguages()`; versões do Thunderbird sem essa função usam a localidade dos formatos `Intl`).
+5. os idiomas do sistema (`i18n.getPreferredSystemLanguages()`; se essa função não existe, falha ou não retorna nada, vale a localidade dos formatos `Intl`).
 
 Para cada idioma recomendado X diferente do inglês, as direções X → inglês e inglês → X são recomendadas e, para o dicionário, também os pacotes diretos entre X e o idioma de destino quando a release os inclui. Cada linha recomendada traz suas fontes como rótulos ("Idioma de destino", "Idioma de origem", "Idioma do complemento", "Idioma do Thunderbird", "Idioma do sistema"), além de "Direta" para uma direção para o idioma de destino e "Via inglês" para uma direção para o inglês que atende o caminho pelo inglês. As demais direções vêm em seguida, por nome.
 
@@ -302,6 +302,8 @@ Quando o nível de dicionário ou o Bergamot no nível de tradução automática
 - "Fechar" remove o aviso.
 
 Parágrafos cujo idioma foi apenas presumido, erros de rede e pares não suportados não contam. Os parágrafos continuam recebendo as traduções dos outros níveis; se só há níveis offline em uso, eles continuam com falha.
+
+Só a lista do serviço diz se um pacote ou modelo pode ser baixado (veja "Privacidade"). Enquanto essa lista não tiver sido lida, nada conta como faltando: nenhum aviso aparece, nada é marcado em vermelho e o erro sob o parágrafo não cita direções para baixar.
 
 No pop-up e na página de configurações, um dicionário ou um Bergamot selecionado ao qual falta o que os idiomas atuais precisam aparece como "Dicionário (modelo local não baixado)" ou "Bergamot (modelo local não baixado)" em vermelho, e uma linha abaixo das listas de níveis indica as direções que faltam, com um link "Baixar" para as listas filtradas. Com detecção automática, conta a direção do inglês para o idioma de destino; para inglês como idioma de destino, pelo menos uma direção para o inglês. Um par não suportado é indicado nessa linha sem vermelho. As marcas acompanham as instalações e exclusões feitas em outras páginas.
 
@@ -502,7 +504,9 @@ Os tokens de entrada caem cerca de 63%, e o número de requisições cai de 20 p
 - As chaves de API ficam armazenadas apenas em `storage.local` do perfil atual do Thunderbird e são enviadas apenas nas requisições ao endpoint do provedor correspondente.
 - O script de conteúdo roda dentro da página da mensagem; as configurações que ele recebe do script em segundo plano não contêm nem chaves nem endpoints, pois um endpoint pode conter um token.
 - As mensagens de erro mascaram o que pode ser um segredo: a chave de API ou o token do serviço onde quer que apareça, os segmentos do caminho de uma URL que parecem um token (20 ou mais caracteres com letras e dígitos), nomes de usuário e senhas em URLs, e parâmetros de URL cujos nomes contêm key, token, auth, secret, sig, pass, credential ou session. As partes mascaradas aparecem como `***`.
-- O texto da mensagem é enviado apenas aos serviços dos níveis em uso. O dicionário e o Bergamot traduzem no seu computador e não enviam texto a lugar nenhum. A página de configurações e o guia de configuração leem a lista de pacotes de dicionário nas releases deste repositório no GitHub e a lista de modelos do Bergamot na Mozilla; os pacotes e os modelos em si são baixados apenas quando você clica em "Baixar". Nenhuma dessas requisições leva texto de mensagem. A extensão não coleta estatísticas e não acessa nenhum outro endereço de rede.
+- O texto da mensagem é enviado apenas aos serviços dos níveis em uso. O dicionário e o Bergamot traduzem no seu computador e não enviam texto a lugar nenhum.
+- Duas listas vêm da rede, sem nenhum texto de mensagem: a lista de pacotes de dicionário, nas releases deste repositório no GitHub, e a lista de modelos do Bergamot, na Mozilla. A página de configurações e o guia de configuração as leem para mostrar as listas offline. Enquanto o dicionário ou o Bergamot for o serviço de um nível, o script em segundo plano também lê a lista dele: quando o Thunderbird inicia, quando as configurações mudam e quando o pop-up ou a página de configurações pergunta o que falta. Ele lê a lista de dicionários uma vez por tag de versão e, após uma leitura com falha, de novo no mínimo 10 minutos depois; lê de novo a lista do Bergamot quando a cópia em memória tem mais de 6 horas. Traduzir uma mensagem não lê nenhuma das duas listas, nem quando falta um pacote ou modelo.
+- Os pacotes e os modelos em si são baixados apenas quando você clica em "Baixar". A extensão não coleta estatísticas e não acessa nenhum outro endereço de rede.
 - O cache de traduções é armazenado localmente e pode ser desativado ou limpo na página de configurações.
 - Com o Google, a Microsoft, o DeepLX ou um serviço de IA online, o texto da mensagem sai do seu computador. Para mensagens sensíveis, use apenas o dicionário, o Bergamot e modelos de IA locais como o Ollama ou o LM Studio, que mantêm todas as requisições na sua própria máquina.
 
@@ -567,7 +571,7 @@ scripts/         build, download do motor Bergamot, geração e verificação da
 vendor/          script de ligação do motor Bergamot (bergamot-translator.js)
 tools/           dict-build: o pipeline que gera os pacotes de dicionário
 readmes/         versões traduzidas deste README
-docs/            notas para desenvolvedores sobre o Bergamot e os pacotes de dicionário, GIF de demonstração usado neste README
+docs/            notas para desenvolvedores sobre o Bergamot e os pacotes de dicionário
 tests/           testes do vitest
 e2e/             teste de ponta a ponta num Thunderbird real: executor, servidor simulado, mensagens de exemplo
 .github/         workflows: build e release, pacotes de dicionário

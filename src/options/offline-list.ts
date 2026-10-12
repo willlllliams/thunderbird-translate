@@ -8,8 +8,9 @@
  * labelled with where the language comes from, then the others by name; a
  * filter narrows the list down. "Download common languages" shows the
  * directions of COMMON_LANGUAGES that are not installed and their size, and
- * downloads them once confirmed. On the welcome page every direction that is
- * not installed has a check box for the page's "Download selected": with
+ * downloads them once confirmed. Downloads run two at a time, and the list
+ * is read again once they have ended. On the welcome page every direction
+ * that is not installed has a check box for the page's "Download selected": with
  * automatic detection the directions of the recommended languages are
  * ticked, with a fixed source language the ones the language pair needs.
  */
@@ -62,8 +63,9 @@ let systemLanguages: string[] = []
 /** Read the system's preferred languages, once per page. */
 export async function loadSystemLanguages(): Promise<void> {
   const i18n = ext.i18n as typeof ext.i18n & { getPreferredSystemLanguages?: () => Promise<string[]> }
-  // Older Thunderbird versions lack getPreferredSystemLanguages(); there the locale of the Intl formats, which follows the system, stands in for it.
-  systemLanguages = i18n.getPreferredSystemLanguages ? await i18n.getPreferredSystemLanguages().catch(() => []) : [Intl.DateTimeFormat().resolvedOptions().locale]
+  // Older Thunderbird versions lack getPreferredSystemLanguages(), and it can fail or answer nothing; then the locale of the Intl formats, which follows the system, stands in for it.
+  const preferred = (await i18n.getPreferredSystemLanguages?.().catch(() => undefined)) ?? []
+  systemLanguages = preferred.length > 0 ? preferred : [Intl.DateTimeFormat().resolvedOptions().locale]
 }
 
 /** The recommended languages: target and fixed source language, the extension's interface language ("follow Thunderbird": Thunderbird's), Thunderbird's and the system's. */
@@ -92,8 +94,10 @@ export abstract class OfflineList<T extends ListItem> {
 
   /** The catalog and the installed directions. */
   protected abstract items(): T[]
-  /** Download (or update) a direction; a failure goes to rowErrors. */
+  /** Download (or update) a direction; a failure goes to rowErrors. Through installAll(), which reads the list again. */
   protected abstract install(item: T): Promise<void>
+  /** Read the list again after downloads. */
+  protected abstract reload(): Promise<void>
   protected abstract installing(item: T): boolean
   /** Size, state and buttons of a row, after its name and labels. */
   protected abstract details(item: T): (Node | null)[]
@@ -128,8 +132,18 @@ export abstract class OfflineList<T extends ListItem> {
   /** Welcome page: download the ticked directions; resolves with the number of failures. */
   async downloadPicked(): Promise<number> {
     const picked = this.picked()
-    await Promise.all(picked.map((i) => this.install(i)))
+    await this.installAll(picked)
     return picked.filter((i) => this.rowErrors.has(i.id)).length
+  }
+
+  /** Download directions, two at a time, then read the list once. */
+  protected async installAll(items: readonly T[]): Promise<void> {
+    const queue = [...items]
+    const worker = async () => {
+      for (let item = queue.shift(); item; item = queue.shift()) await this.install(item)
+    }
+    await Promise.all([worker(), worker()])
+    await this.reload()
   }
 
   /** The languages changed: the check boxes start from the new recommendation. */
@@ -205,7 +219,7 @@ export abstract class OfflineList<T extends ListItem> {
       const total = downloads.reduce((sum, i) => sum + i.bytes, 0)
       const confirm = button(t("buttonConfirmDownload"), () => {
         this.confirmingCommon = false
-        void Promise.all(downloads.map((i) => this.install(i)))
+        void this.installAll(downloads)
       }, true)
       const cancel = button(t("buttonCancel"), () => {
         this.confirmingCommon = false

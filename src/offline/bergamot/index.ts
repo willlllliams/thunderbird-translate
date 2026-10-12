@@ -5,7 +5,7 @@
  * The engine (wasm) ships with the extension; models are downloaded per
  * direction pair from Mozilla Remote Settings and kept in IndexedDB
  * ("tt-bergamot"). Every model has English on one side, so other pairs need
- * two models (see requiredPairs). Details: docs/bergamot.md.
+ * two models (see shared/offline-needs.ts). Details: docs/bergamot.md.
  */
 
 import type { WorkerLike } from "./engine"
@@ -13,7 +13,6 @@ import { BergamotManager } from "./manager"
 import { WORKER_FILE } from "./protocol"
 import { BergamotStore } from "./store"
 
-export { requiredPairs } from "./languages"
 export type { BergamotPairInfo } from "./manager"
 
 declare const __E2E__: boolean

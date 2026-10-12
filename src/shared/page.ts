@@ -87,21 +87,22 @@ export function fillTierSelects(settings: Settings, all = false, offline: Offlin
 
 /**
  * The line under the tier selectors about the selected offline services:
- * what they lack for the languages, with a link to the downloads, or that
- * they do not support the language pair. Hidden when there is nothing to say.
+ * what they lack for the languages, in red with a link to the downloads, or
+ * that they do not support the language pair. Hidden when nothing is to say.
  */
 export function showOfflineHint(el: HTMLElement, settings: Settings, offline: OfflineStatus, download: (place: OptionsPlace) => void): void {
   const services = TIERS.map((tier) => offlineServiceOf(settings.tiers[tier])).filter((s): s is OfflineService => s !== undefined && offline[s] !== undefined)
   const lacking = services.filter((s) => lacksData(offline[s]!))
   const lines = services.flatMap((s) => {
     const state = offline[s]!
-    if (state.unsupported) return [t("offlineUnsupported", [offlineName(s)])]
-    if (state.anyInto) return [t("offlineMissingAnyInto", [offlineName(s), getI18n().tagName(state.anyInto)])]
-    return state.missing.length > 0 ? [t("offlineMissing", [offlineName(s), state.missing.map((m) => getI18n().pairName(m)).join(", ")])] : []
+    let text = state.unsupported ? t("offlineUnsupported", [offlineName(s)]) : ""
+    if (state.anyInto) text = t("offlineMissingAnyInto", [offlineName(s), getI18n().tagName(state.anyInto)])
+    else if (state.missing.length > 0) text = t("offlineMissing", [offlineName(s), state.missing.map((m) => getI18n().pairName(m)).join(", ")])
+    // One element per statement: only what a service lacks is red.
+    return text ? [Object.assign(document.createElement("span"), { textContent: text, className: lacksData(state) ? "missing" : "" })] : []
   })
   el.hidden = lines.length === 0
-  el.classList.toggle("missing", lacking.length > 0)
-  el.replaceChildren(lines.join(" "))
+  el.replaceChildren(...lines.flatMap((line, i) => (i ? [" ", line] : [line])))
   if (lacking.length === 0) return
   /** Filter terms of a list: the missing items, or every direction into the language. */
   const terms = (s: OfflineService) => (offline[s] && lacksData(offline[s]) ? (offline[s].anyInto ? [`>${offline[s].anyInto}`] : offline[s].missing) : undefined)

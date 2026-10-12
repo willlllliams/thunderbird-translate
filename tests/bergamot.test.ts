@@ -4,7 +4,7 @@ import { afterEach, describe, expect, it, vi } from "vitest"
 import { LocalizedError } from "../src/shared/errors"
 import { ENGLISH } from "../src/shared/i18n"
 import { BergamotEngine } from "../src/offline/bergamot/engine"
-import { normalizeBergamotLang, requiredPairs } from "../src/offline/bergamot/languages"
+import { normalizeBergamotLang } from "../src/offline/bergamot/languages"
 import { BergamotManager } from "../src/offline/bergamot/manager"
 import { compareVersions, type ModelRecord, modelConfig, selectPairs } from "../src/offline/bergamot/records"
 import { BergamotStore, type StoredPair } from "../src/offline/bergamot/store"
@@ -131,23 +131,6 @@ describe("languages", () => {
     expect(["zh", "zh-CN", "zh_CN", "zh-SG", "zh-Hans"].map(normalizeBergamotLang)).toEqual(Array(5).fill("zh-Hans"))
     expect(["zh-TW", "zh-HK", "zh-Hant", "zh-Hant-TW"].map(normalizeBergamotLang)).toEqual(Array(4).fill("zh-Hant"))
     expect(["iw", "no", "pt-BR", "EN", "auto", "in", "fil"].map(normalizeBergamotLang)).toEqual(["he", "nb", "pt", "en", "auto", "id", "tl"])
-  })
-
-  it("routes non-English pairs through English", () => {
-    expect(requiredPairs("en", "zh-CN")).toEqual([["en", "zh-Hans"]])
-    expect(requiredPairs("de", "en")).toEqual([["de", "en"]])
-    expect(requiredPairs("ja", "zh-TW")).toEqual([
-      ["ja", "en"],
-      ["en", "zh-Hant"],
-    ])
-    expect(requiredPairs("zh-CN", "zh-Hans")).toEqual([])
-    expect(() => requiredPairs("auto", "en")).toThrow()
-  })
-
-  it("M2: needs no models between Simplified and Traditional Chinese: it does not translate them through English", () => {
-    for (const [src, tgt] of [["zh-TW", "zh-CN"], ["zh", "zh-Hant"]]) {
-      expect(() => requiredPairs(src, tgt)).toThrow(ENGLISH.t("errChineseVariants"))
-    }
   })
 })
 
@@ -428,10 +411,7 @@ describe("BergamotManager", () => {
     const error = await manager.translate(["今日は"], "ja", "zh-CN").catch((e) => e)
     expect(error).toBeInstanceOf(LocalizedError)
     expect(error.i18nText).toMatchObject({ key: "bergamotModelMissing", args: ["ja", "zh-Hans", "ja → en"] })
-    expect(await manager.missingPairs(requiredPairs("ja", "zh-TW"))).toEqual([
-      ["ja", "en"],
-      ["en", "zh-Hant"],
-    ])
+    expect(error.missing).toEqual({ service: "bergamot", pair: "ja>zh-Hans", models: ["ja>en"] })
   })
 
   it("needs a source language, returns same-language texts unchanged and keeps empty texts", async () => {

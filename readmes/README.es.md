@@ -278,7 +278,7 @@ Las direcciones de los idiomas recomendados van primero. Un idioma recomendado p
 2. el idioma de origen, cuando es fijo;
 3. el idioma de la interfaz de la extensión ("Seguir a Thunderbird" cuenta como el idioma de Thunderbird);
 4. el idioma de la interfaz de Thunderbird;
-5. los idiomas del sistema (`i18n.getPreferredSystemLanguages()`; las versiones de Thunderbird que no tienen esa función usan la configuración regional de los formatos `Intl`).
+5. los idiomas del sistema (`i18n.getPreferredSystemLanguages()`; si esa función no existe, falla o no devuelve nada, se usa la configuración regional de los formatos `Intl`).
 
 Para cada idioma recomendado X distinto del inglés se recomiendan las direcciones X → inglés e inglés → X y, para el diccionario, también los paquetes directos entre X y el idioma de destino cuando la versión publicada los incluye. Cada fila recomendada lleva sus fuentes como etiquetas ("Idioma de destino", "Idioma de origen", "Idioma del complemento", "Idioma de Thunderbird", "Idioma del sistema"), además de "Directa" para una dirección hacia el idioma de destino y "Vía inglés" para una dirección hacia el inglés que sirve a la ruta por el inglés. Las demás direcciones siguen por nombre.
 
@@ -302,6 +302,8 @@ Cuando el nivel de diccionario o Bergamot en el nivel de traducción automática
 - "Cerrar" quita el aviso.
 
 No cuentan los párrafos cuyo idioma solo se ha supuesto, los errores de red ni los pares no admitidos. Los párrafos siguen recibiendo las traducciones de los demás niveles; si solo hay niveles sin conexión en uso, siguen fallidos.
+
+Si un paquete o un modelo se puede descargar solo se sabe por la lista de su servicio (véase "Privacidad"). Mientras esa lista no se haya leído, nada cuenta como faltante: no aparece ningún aviso, nada se marca en rojo y el error bajo el párrafo no nombra direcciones para descargar.
 
 En la ventana emergente y en la página de configuración, un diccionario o un Bergamot seleccionado al que le falta lo que necesitan los idiomas actuales aparece como "Diccionario (modelo local sin descargar)" o "Bergamot (modelo local sin descargar)" en rojo, y una línea bajo las listas de niveles nombra las direcciones que faltan con un enlace "Descargar" a las listas filtradas. Con detección automática cuenta la dirección del inglés al idioma de destino; si el inglés es el idioma de destino, al menos una dirección hacia el inglés. Un par no admitido se nombra en esa línea sin rojo. Las marcas siguen las instalaciones y eliminaciones hechas en otras páginas.
 
@@ -502,7 +504,9 @@ Los tokens de entrada se reducen en torno a un 63 %, y el número de solicitudes
 - Las claves de API se guardan solo en `storage.local` del perfil actual de Thunderbird y solo se envían en las solicitudes al endpoint del proveedor correspondiente.
 - El script de contenido se ejecuta dentro de la página del mensaje; la configuración que recibe del script de segundo plano no contiene ni claves ni endpoints, porque un endpoint puede contener un token.
 - Los mensajes de error enmascaran lo que puede ser un secreto: la clave de API o el token del servicio dondequiera que aparezca, los segmentos de la ruta de una URL que parecen un token (20 o más caracteres con letras y dígitos), los nombres de usuario y las contraseñas en las URL, y los parámetros de URL cuyos nombres contienen key, token, auth, secret, sig, pass, credential o session. Las partes enmascaradas se muestran como `***`.
-- El texto del mensaje se envía solo a los servicios de los niveles en uso. El diccionario y Bergamot traducen en su ordenador y no envían texto a ningún sitio. La página de configuración y la guía de configuración leen la lista de paquetes de diccionario de las versiones (releases) de GitHub de este repositorio y la lista de modelos de Bergamot de Mozilla; los paquetes y los modelos en sí solo se descargan cuando hace clic en "Descargar". Ninguna de estas solicitudes lleva texto de mensajes. La extensión no recopila estadísticas ni contacta con ninguna otra dirección de red.
+- El texto del mensaje se envía solo a los servicios de los niveles en uso. El diccionario y Bergamot traducen en su ordenador y no envían texto a ningún sitio.
+- Dos listas llegan de la red, sin ningún texto de mensajes: la lista de paquetes de diccionario de las versiones (releases) de GitHub de este repositorio y la lista de modelos de Bergamot de Mozilla. La página de configuración y la guía de configuración las leen para mostrar las listas sin conexión. Mientras el diccionario o Bergamot sea el servicio de un nivel, el script de segundo plano también lee su lista: al iniciarse Thunderbird, al cambiar la configuración y cuando la ventana emergente o la página de configuración preguntan qué falta. Lee la lista de diccionarios una vez por etiqueta de versión y, tras una lectura fallida, de nuevo como pronto 10 minutos después; vuelve a leer la lista de Bergamot cuando la copia en memoria tiene más de 6 horas. Traducir un mensaje no lee ninguna de las dos listas, tampoco cuando falta un paquete o un modelo.
+- Los paquetes y los modelos en sí solo se descargan cuando hace clic en "Descargar". La extensión no recopila estadísticas ni contacta con ninguna otra dirección de red.
 - La caché de traducciones se guarda localmente y se puede desactivar o vaciar en la página de configuración.
 - Con Google, Microsoft, DeepLX o un servicio de IA en línea, el texto del mensaje sale de su ordenador. Para el correo confidencial, use solo el diccionario, Bergamot y modelos de IA locales como Ollama o LM Studio, que mantienen todas las solicitudes en su propio equipo.
 
@@ -567,7 +571,7 @@ scripts/         build, Bergamot engine download, locale generation and checks, 
 vendor/          Bergamot engine glue script (bergamot-translator.js)
 tools/           dict-build: the pipeline that builds the dictionary packs
 readmes/         translated versions of this README
-docs/            developer notes on Bergamot and the dictionary packs, demo GIF used in this README
+docs/            developer notes on Bergamot and the dictionary packs
 tests/           vitest tests
 e2e/             end-to-end test in a real Thunderbird: runner, mock server, fixture messages
 .github/         workflows: build and release, dictionary packs

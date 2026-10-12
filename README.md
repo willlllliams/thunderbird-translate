@@ -282,7 +282,7 @@ The directions of the recommended languages come first. A recommended language c
 2. the source language, when it is fixed;
 3. the interface language of the extension ("Follow Thunderbird" counts as Thunderbird's language);
 4. Thunderbird's interface language;
-5. the system languages (`i18n.getPreferredSystemLanguages()`; Thunderbird versions without it use the locale of the `Intl` formats).
+5. the system languages (`i18n.getPreferredSystemLanguages()`; when it is missing, fails or answers nothing, the locale of the `Intl` formats stands in).
 
 For every recommended language X other than English, the directions X → English and English → X are recommended, and for the dictionary also the direct packs between X and the target language when the release has them. Each recommended row carries its sources as labels, plus "Direct" for a direction into the target language and "Via English" for one into English that serves the route through English. The other directions follow by name.
 
@@ -306,6 +306,8 @@ When the dictionary tier or Bergamot in the machine tier fails for paragraphs of
 - "Close" removes the notice.
 
 Paragraphs whose language was only guessed, network errors and unsupported pairs do not count. The paragraphs still get the translations of the other tiers; with only offline tiers in use they stay failed.
+
+Whether a pack or model can be downloaded is known only from the list of its service (see "Privacy"). Until that list has been read, nothing counts as missing: no notice appears, nothing is marked in red, and the error under the paragraph names no directions to download.
 
 In the popup and on the settings page, a selected dictionary or Bergamot that lacks what the current languages need reads "Dictionary (local model not downloaded)" or "Bergamot (local model not downloaded)" in red, and a line under the tier lists names the missing directions with a "Download" link to the filtered lists. With automatic detection the direction from English into the target language counts; for English as target, at least one direction into English. An unsupported pair is named on that line without red. The marks follow installations and deletions made on other pages.
 
@@ -506,7 +508,9 @@ Input tokens drop by about 63%, and the number of requests drops from 20 to 1. O
 - API keys are stored only in `storage.local` of the current Thunderbird profile and are sent only with requests to the endpoint of the matching provider.
 - The content script runs inside the message page; the settings it receives from the background script contain neither keys nor endpoints, since an endpoint can hold a token.
 - Error messages mask what may be a secret: the API key or token of the service wherever it appears, URL path segments that look like a token (20 or more characters with letters and digits), user names and passwords in URLs, and URL parameters whose names contain key, token, auth, secret, sig, pass, credential or session. The masked parts read `***`.
-- Message text is sent only to the services of the tiers in use. The dictionary and Bergamot translate on your computer and send no text anywhere. The settings page and the setup guide read the list of dictionary packs from this repository's GitHub releases and the list of Bergamot models from Mozilla; the packs and models themselves are downloaded only when you click "Download". None of these requests carries message text. The extension collects no statistics and contacts no other network address.
+- Message text is sent only to the services of the tiers in use. The dictionary and Bergamot translate on your computer and send no text anywhere.
+- Two lists come from the network, without any message text: the list of dictionary packs from this repository's GitHub releases and the list of Bergamot models from Mozilla. The settings page and the setup guide read them to show the offline lists. While the dictionary or Bergamot is the service of a tier, the background script also reads its list: when Thunderbird starts, when the settings change, and when the popup or the settings page asks what is missing. It reads the dictionary list once per release tag, and after a failed read again 10 minutes later at the earliest; it reads the Bergamot list again once the copy in memory is older than 6 hours. Translating a message reads neither list, also when a pack or model is missing.
+- The packs and models themselves are downloaded only when you click "Download". The extension collects no statistics and contacts no other network address.
 - The translation cache is stored locally and can be turned off or cleared on the settings page.
 - With Google, Microsoft, DeepLX or an online AI service, message text leaves your computer. For sensitive mail, use only the dictionary, Bergamot and local AI models such as Ollama or LM Studio, which keep every request on your own machine.
 
@@ -571,7 +575,7 @@ scripts/         build, Bergamot engine download, locale generation and checks, 
 vendor/          Bergamot engine glue script (bergamot-translator.js)
 tools/           dict-build: the pipeline that builds the dictionary packs
 readmes/         translated versions of this README
-docs/            developer notes on Bergamot and the dictionary packs, demo GIF used in this README
+docs/            developer notes on Bergamot and the dictionary packs
 tests/           vitest tests
 e2e/             end-to-end test in a real Thunderbird: runner, mock server, fixture messages
 .github/         workflows: build and release, dictionary packs

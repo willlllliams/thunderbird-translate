@@ -50,7 +50,7 @@ describe("offline engine of the background page", () => {
     const progress: number[] = []
     await bergamot.install("de", "en", (done) => progress.push(done))
     expect(progress[0]).toBe(0)
-    expect(await bergamot.missingPairs([["de", "en"], ["en", "zh-Hans"]])).toEqual([["en", "zh-Hans"]])
+    expect([...(await bergamot.installedKeys())]).toEqual(["de>en"])
 
     const text = "Sehr geehrte Damen und Herren, anbei die Rechnung."
     expect(await translate([text], "auto", "en")).toEqual([`[de>en]${text}`])
@@ -58,7 +58,7 @@ describe("offline engine of the background page", () => {
     expect(workers.map((w) => w.url)).toEqual(["moz-extension://id/bergamot-worker.js"])
 
     await bergamot.remove("de", "en")
-    expect(await bergamot.missingPairs([["de", "en"]])).toEqual([["de", "en"]])
+    expect(await bergamot.installedKeys()).toEqual(new Set())
     expect((await bergamot.listPairs(true)).every((p) => !p.installed)).toBe(true)
   })
 
@@ -108,6 +108,21 @@ describe("offline engine of the background page", () => {
     // "Merci !" is too short for the detector: its language is the batch's French, a guess.
     expect(results[1]).toMatchObject({ status: "rejected", reason: { i18nText: { key: "bergamotModelMissing" } } })
     expect((results[1] as PromiseRejectedResult).reason.missing).toBeUndefined()
+  })
+
+  it("M1: translates the paragraphs of an installed language at once while Mozilla's model list does not answer", async () => {
+    const detect = detectByStart({ Sehr: "de", Bonjour: "fr" })
+    const { bergamot } = await browserApis(triple("de", "en"), detect)
+    await bergamot.install("de", "en")
+    // A new background page: the models stay installed, the model list is not read yet, and Mozilla does not answer.
+    vi.stubGlobal("fetch", () => new Promise<Response>(() => {}))
+    vi.resetModules()
+    const { bergamotTranslateBatch } = await import("../src/background/translators/bergamot")
+    const texts = ["Sehr geehrte Frau Weber, vielen Dank für Ihre Nachricht.", "Bonjour Madame, merci beaucoup pour votre message."]
+    const [german, french] = await bergamotTranslateBatch(texts, "auto", "en", sourceDetector({ detectLanguage: detect as never }))
+    expect(german).toEqual({ status: "fulfilled", value: `[de>en]${texts[0]}` })
+    expect(french).toMatchObject({ status: "rejected", reason: { i18nText: { key: "bergamotModelMissing", args: ["fr", "en", "fr → en"] } } })
+    expect((french as PromiseRejectedResult).reason.missing).toBeUndefined()
   })
 
   it("translates between two languages through English", async () => {

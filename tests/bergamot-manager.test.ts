@@ -225,6 +225,23 @@ describe("translation", () => {
     expect(workers).toHaveLength(0)
   })
 
+  it("M1: without the model list in memory, names no models to download and does not wait for Mozilla", async () => {
+    const { manager, server } = makeManager([...triple("ja", "en"), ...triple("en", "zh-Hans")])
+    server.mock.mockImplementation(() => new Promise<Response>(() => {}))
+    const error = await manager.translate(["今日は"], "ja", "zh-CN").catch((e) => e)
+    expect(error.i18nText).toMatchObject({ key: "bergamotModelMissing", args: ["ja", "zh-Hans", "ja → en, en → zh-Hans"] })
+    expect(error.missing).toBeUndefined()
+    expect(manager.knownCatalog()).toBeNull()
+  })
+
+  it("L6: reads the installed pairs once for a translation with missing models", async () => {
+    const { manager, store } = makeManager([...triple("ja", "en"), ...triple("en", "zh-Hans")])
+    await manager.install("en", "zh-Hans")
+    const listPairs = vi.spyOn(store, "listPairs")
+    await expect(manager.translate(["今日は"], "ja", "zh-CN")).rejects.toMatchObject({ missing: { models: ["ja>en"] } })
+    expect(listPairs).toHaveBeenCalledTimes(1)
+  })
+
   it("returns empty and blank texts without starting the engine", async () => {
     const { manager, workers } = makeManager(triple("de", "en"))
     await manager.install("de", "en")

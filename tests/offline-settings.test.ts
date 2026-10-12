@@ -259,7 +259,61 @@ describe("dictionary list", () => {
     await vi.waitFor(() => expect(d.common.textContent).toContain(ENGLISH.t("commonAllInstalled")))
     expect(d.commonButton().disabled).toBe(true)
     expect((await d.store.list()).map((p) => p.id).sort()).toEqual(["de>en", "en>de", "en>ja", "fr>en"])
-    expect(requests.filter((r) => r.type === "dictionaryChanged")).toHaveLength(4)
+    expect(requests.filter((r) => r.type === "dictionaryChanged")).toHaveLength(2)
+  })
+
+  it("M3: downloads the common languages two at a time and tells the background script once at the end", async () => {
+    const requests = background({})
+    const server = releaseServer([EN_DE, DE_EN, FR_EN, EN_JA])
+    const waiting: (() => void)[] = []
+    const fetchFn = asFetch(async (url: string) => {
+      if (!url.endsWith("dict-index.json")) await new Promise<void>((resolve) => waiting.push(resolve))
+      return server(url)
+    })
+    const d = dictionaries([], { fetchFn })
+    await d.section.load()
+    d.commonButton().click()
+    button(d.common.querySelector(".common-confirm")!, ENGLISH.t("buttonConfirmDownload"))!.click()
+    await vi.waitFor(() => expect(waiting).toHaveLength(2))
+    await new Promise((r) => setTimeout(r, 20))
+    expect(waiting).toHaveLength(2)
+    waiting.shift()!()
+    // A finished pack shows as installed while the others are still running, without a word to the background script yet.
+    await vi.waitFor(() => expect(waiting).toHaveLength(2))
+    expect(d.rows().filter((li) => li.textContent!.includes(ENGLISH.t("dictInstalled")))).toHaveLength(1)
+    expect(requests).toEqual([])
+    await vi.waitFor(() => {
+      waiting.splice(0).forEach((resolve) => resolve())
+      expect(d.common.textContent).toContain(ENGLISH.t("commonAllInstalled"))
+    })
+    expect(requests).toEqual([{ type: "dictionaryChanged" }])
+  })
+
+  it("keeps the downloaded packs of the welcome page when the background script cannot be told", async () => {
+    background({
+      dictionaryChanged: () => {
+        throw new Error("no background page")
+      },
+    })
+    const d = dictionaries([EN_DE, FR_EN], { languages: { source: "fr", target: "de" }, pick: true })
+    await d.section.load()
+    expect(await d.section.downloadPicked()).toBe(0)
+    expect(d.rows().every((li) => li.textContent!.includes(ENGLISH.t("dictInstalled")))).toBe(true)
+  })
+
+  it("L2: with automatic detection ticks a direct pack only between a recommended language and the target", async () => {
+    background({})
+    const FR_DE = tsv("fr", "de", { bonjour: "hallo" })
+    const FR_JA = tsv("fr", "ja", { bonjour: "こんにちは" })
+    const recommended: SourcedLanguage[] = [
+      { tag: "de", sources: ["target"] },
+      { tag: "fr", sources: ["system"] },
+      { tag: "ja", sources: ["system"] },
+    ]
+    const d = dictionaries([FR_DE, FR_JA, EN_DE], { languages: { source: "auto", target: "de" }, recommended, pick: true })
+    await d.section.load()
+    expect(d.ticked()).toEqual(["English → German (Deutsch)", "French (Français) → German (Deutsch)"])
+    expect(d.labels("French (Français) → Japanese")).toEqual([])
   })
 })
 
@@ -441,6 +495,35 @@ describe("offline model list", () => {
     await vi.waitFor(() => expect(m.common.textContent).toContain(ENGLISH.t("commonAllInstalled")))
     expect(requests.filter((r) => r.type === "bergamotInstall").map((r) => r.type === "bergamotInstall" && `${r.src}>${r.tgt}`).sort()).toEqual(["de>en", "en>fr"])
   })
+
+  it("M3: downloads the common languages two at a time and reads the list once at the end", async () => {
+    const installed = new Set<string>()
+    const waiting: (() => void)[] = []
+    const requests = background({
+      bergamotList: () => ({ ok: true, pairs: [pair("en", "de"), pair("de", "en"), pair("en", "fr"), pair("fr", "en")].map((p) => ({ ...p, installed: installed.has(`${p.src}>${p.tgt}`) })) }),
+      bergamotInstall: (r) =>
+        new Promise((resolve) =>
+          waiting.push(() => {
+            installed.add(`${(r as { src: string }).src}>${(r as { tgt: string }).tgt}`)
+            resolve({ ok: true })
+          }),
+        ),
+      bergamotProgress: () => ({}),
+    })
+    const m = models()
+    await m.section.load()
+    m.commonButton().click()
+    button(m.common.querySelector(".common-confirm")!, ENGLISH.t("buttonConfirmDownload"))!.click()
+    await vi.waitFor(() => expect(waiting).toHaveLength(2))
+    await new Promise((r) => setTimeout(r, 20))
+    expect(waiting).toHaveLength(2)
+    await vi.waitFor(() => {
+      waiting.splice(0).forEach((resolve) => resolve())
+      expect(m.common.textContent).toContain(ENGLISH.t("commonAllInstalled"))
+    })
+    expect(requests.filter((r) => r.type === "bergamotInstall")).toHaveLength(4)
+    expect(requests.filter((r) => r.type === "bergamotList")).toHaveLength(2)
+  })
 })
 
 /* ---------- recommended languages of a page ---------- */
@@ -461,8 +544,20 @@ describe("recommended languages of a page", () => {
     await loadSystemLanguages()
     const system = languageTag(Intl.DateTimeFormat().resolvedOptions().locale)
     expect(recommendedFor({ sourceLang: "auto", targetLang: "ja", uiLanguage: "auto" }).find((l) => l.sources.includes("system"))?.tag).toBe(system)
-    api.i18n = { getUILanguage: () => "de-DE", getPreferredSystemLanguages: async () => Promise.reject(new Error("unavailable")) }
+  })
+
+  it("take the locale of the Intl formats when getPreferredSystemLanguages fails or answers nothing", async () => {
+    const system = languageTag(Intl.DateTimeFormat().resolvedOptions().locale)
+    for (const answer of [() => Promise.reject(new Error("unavailable")), async () => []]) {
+      api.i18n = { getUILanguage: () => "de-DE", getPreferredSystemLanguages: answer }
+      await loadSystemLanguages()
+      expect(recommendedFor({ sourceLang: "auto", targetLang: "ja", uiLanguage: "auto" }).find((l) => l.sources.includes("system"))?.tag).toBe(system)
+    }
+  })
+
+  it("read a POSIX locale such as en-US-posix (Thunderbird 153 on Linux) as English", async () => {
+    api.i18n = { getUILanguage: () => "de-DE", getPreferredSystemLanguages: async () => ["en-US-posix"] }
     await loadSystemLanguages()
-    expect(tags({ sourceLang: "auto", targetLang: "ja", uiLanguage: "auto" })).toEqual(["ja:target", "de:addon+thunderbird"])
+    expect(tags({ sourceLang: "auto", targetLang: "ja", uiLanguage: "auto" })).toEqual(["ja:target", "de:addon+thunderbird", "en:system"])
   })
 })

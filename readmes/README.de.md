@@ -278,7 +278,7 @@ Die Richtungen der empfohlenen Sprachen stehen zuerst. Eine empfohlene Sprache s
 2. die Ausgangssprache, wenn sie fest eingestellt ist;
 3. die Sprache der Benutzeroberfläche der Erweiterung („Wie Thunderbird“ zählt als Sprache von Thunderbird);
 4. die Sprache der Benutzeroberfläche von Thunderbird;
-5. die Systemsprachen (`i18n.getPreferredSystemLanguages()`; Thunderbird-Versionen ohne diese Funktion verwenden die Locale der `Intl`-Formate).
+5. die Systemsprachen (`i18n.getPreferredSystemLanguages()`; fehlt die Funktion, schlägt sie fehl oder liefert sie nichts, gilt die Locale der `Intl`-Formate).
 
 Für jede empfohlene Sprache X außer Englisch sind die Richtungen X → Englisch und Englisch → X empfohlen, beim Wörterbuch außerdem die direkten Pakete zwischen X und der Zielsprache, wenn das Release sie enthält. Jede empfohlene Zeile trägt ihre Quellen als Kennzeichnungen („Zielsprache“, „Ausgangssprache“, „Sprache der Erweiterung“, „Thunderbird-Sprache“, „Systemsprache“), dazu „Direkt“ für eine Richtung in die Zielsprache und „Über Englisch“ für eine Richtung nach Englisch, die den Weg über Englisch bedient. Die übrigen Richtungen folgen nach Namen.
 
@@ -302,6 +302,8 @@ Schlägt die Wörterbuch-Stufe oder Bergamot in der Stufe für maschinelle Über
 - „Schließen“ entfernt den Hinweis.
 
 Absätze, deren Sprache nur geraten wurde, Netzwerkfehler und nicht unterstützte Paare zählen nicht. Die Absätze erhalten weiterhin die Übersetzungen der anderen Stufen; wenn nur Offline-Stufen verwendet werden, bleiben sie fehlgeschlagen.
+
+Ob sich ein Paket oder Modell herunterladen lässt, zeigt erst die Liste seines Dienstes (siehe „Datenschutz“). Solange diese Liste nicht gelesen ist, gilt nichts als fehlend: Es erscheint kein Hinweis, nichts wird rot markiert, und der Fehler unter dem Absatz nennt keine Richtungen zum Herunterladen.
 
 Im Pop-up und auf der Einstellungsseite lautet ein gewähltes Wörterbuch oder Bergamot, dem das fehlt, was die aktuellen Sprachen benötigen, „Wörterbuch (lokales Modell nicht heruntergeladen)“ oder „Bergamot (lokales Modell nicht heruntergeladen)“ in Rot, und eine Zeile unter den Stufenlisten nennt die fehlenden Richtungen mit einem Link „Herunterladen“ zu den gefilterten Listen. Bei automatischer Erkennung zählt die Richtung von Englisch in die Zielsprache; bei Englisch als Zielsprache mindestens eine Richtung nach Englisch. Ein nicht unterstütztes Paar steht ohne Rot auf dieser Zeile. Die Kennzeichnungen folgen Installationen und Löschungen, die auf anderen Seiten vorgenommen werden.
 
@@ -506,7 +508,9 @@ Die Eingabe-Tokens sinken um etwa 63 %, und die Zahl der Anfragen sinkt von 20 a
   - URL-Pfadsegmente, die wie ein Token aussehen (20 oder mehr Zeichen mit Buchstaben und Ziffern);
   - Benutzernamen und Passwörter in URLs;
   - URL-Parameter, deren Name key, token, auth, secret, sig, pass, credential oder session enthält.
-- Nachrichtentext wird nur an die Dienste der verwendeten Stufen gesendet. Das Wörterbuch und Bergamot übersetzen auf dem eigenen Rechner und senden keinen Text. Die Einstellungsseite und der Einrichtungsassistent lesen die Liste der Wörterbuchpakete aus den GitHub-Releases dieses Repositorys und die Liste der Bergamot-Modelle von Mozilla; die Pakete und Modelle selbst werden nur nach einem Klick auf „Herunterladen“ heruntergeladen. Keine dieser Anfragen enthält Nachrichtentext. Die Erweiterung erhebt keine Statistiken und kontaktiert keine andere Netzwerkadresse.
+- Nachrichtentext wird nur an die Dienste der verwendeten Stufen gesendet. Das Wörterbuch und Bergamot übersetzen auf dem eigenen Rechner und senden keinen Text.
+- Zwei Listen kommen aus dem Netz, ohne jeden Nachrichtentext: die Liste der Wörterbuchpakete aus den GitHub-Releases dieses Repositorys und die Liste der Bergamot-Modelle von Mozilla. Die Einstellungsseite und der Einrichtungsassistent lesen sie, um die Offline-Listen anzuzeigen. Solange das Wörterbuch oder Bergamot der Dienst einer Stufe ist, liest auch das Hintergrundskript dessen Liste: beim Start von Thunderbird, bei einer Änderung der Einstellungen und wenn das Pop-up oder die Einstellungsseite nach fehlenden Daten fragt. Die Wörterbuchliste liest es einmal je Release-Tag, nach einem Fehlschlag frühestens 10 Minuten später erneut; die Bergamot-Liste liest es erneut, sobald die Kopie im Speicher älter als 6 Stunden ist. Das Übersetzen einer Nachricht liest keine der beiden Listen, auch nicht, wenn ein Paket oder Modell fehlt.
+- Die Pakete und Modelle selbst werden nur nach einem Klick auf „Herunterladen“ heruntergeladen. Die Erweiterung erhebt keine Statistiken und kontaktiert keine andere Netzwerkadresse.
 - Der Übersetzungs-Cache wird lokal gespeichert und lässt sich auf der Einstellungsseite ausschalten oder leeren.
 - Mit Google, Microsoft, DeepLX oder einem Online-KI-Dienst verlässt der Nachrichtentext den eigenen Rechner. Für vertrauliche Nachrichten nur das Wörterbuch, Bergamot und lokale KI-Modelle wie Ollama oder LM Studio verwenden; sie halten jede Anfrage auf dem eigenen Rechner.
 
@@ -571,7 +575,7 @@ scripts/         build, Bergamot engine download, locale generation and checks, 
 vendor/          Bergamot engine glue script (bergamot-translator.js)
 tools/           dict-build: the pipeline that builds the dictionary packs
 readmes/         translated versions of this README
-docs/            developer notes on Bergamot and the dictionary packs, demo GIF used in this README
+docs/            developer notes on Bergamot and the dictionary packs
 tests/           vitest tests
 e2e/             end-to-end test in a real Thunderbird: runner, mock server, fixture messages
 .github/         workflows: build and release, dictionary packs

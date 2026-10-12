@@ -36,6 +36,8 @@ export class DictionarySection extends OfflineList<PackItem> {
   private progress = new Map<string, number>()
   /** Cancellation of the running downloads, by pack id. */
   private downloads = new Map<string, AbortController>()
+  /** A download stored a pack that the background script has not heard of yet. */
+  private stored = false
   private readonly store: DictionaryStore
 
   constructor(private readonly deps: DictionarySectionDeps) {
@@ -82,7 +84,7 @@ export class DictionarySection extends OfflineList<PackItem> {
     const progress = this.progress.get(id)
     if (progress !== undefined) out.push(h("span", { text: t("dictDownloading", [progress]) }), button(t("buttonCancel"), () => this.downloads.get(id)?.abort()))
     else if (stored && !this.deps.pick) out.push(button(t("buttonDelete"), () => void this.remove(id)))
-    else if (available && !stored && !this.deps.pick) out.push(button(t("buttonDownload"), () => void this.install(item), true))
+    else if (available && !stored && !this.deps.pick) out.push(button(t("buttonDownload"), () => void this.installAll([item]), true))
     out.push(h("span", { className: "attribution hint", text: pack.attribution }))
     return out
   }
@@ -90,6 +92,12 @@ export class DictionarySection extends OfflineList<PackItem> {
   private async changed(): Promise<void> {
     await send({ type: "dictionaryChanged" })
     this.installed = await this.store.list()
+  }
+
+  protected async reload(): Promise<void> {
+    // The packs are stored and shown either way; only the notice to the background script can fail.
+    if (this.stored) await this.changed().catch(() => {})
+    this.stored = false
   }
 
   protected async install({ id, available }: PackItem): Promise<void> {
@@ -110,7 +118,8 @@ export class DictionarySection extends OfflineList<PackItem> {
           this.render()
         },
       })
-      await this.changed()
+      this.installed = await this.store.list()
+      this.stored = true
     } catch (error) {
       if (!controller.signal.aborted) this.rowErrors.set(id, describeError(error, getI18n()))
     } finally {

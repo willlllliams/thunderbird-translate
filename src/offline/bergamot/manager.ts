@@ -6,10 +6,10 @@
 import { downloadBody, IDLE_TIMEOUT_MS, LIST_TIMEOUT_MS } from "../../shared/download"
 import { LocalizedError, MissingDataError, TimeoutError } from "../../shared/errors"
 import { hashText } from "../../shared/hash"
-import { pairKey } from "../../shared/languages"
+import { isChinesePair, pairKey } from "../../shared/languages"
 import { type Catalog, pairNeeds } from "../../shared/offline-needs"
 import { BergamotEngine, type EngineOptions, type WorkerLike } from "./engine"
-import { normalizeBergamotLang, requiredPairs } from "./languages"
+import { normalizeBergamotLang } from "./languages"
 import { type ModelFileType, type ModelRecord, type PairFiles, selectPairs } from "./records"
 import type { BergamotStore, StoredFile, StoredPair } from "./store"
 import { prepareTexts } from "./text"
@@ -330,7 +330,7 @@ export class BergamotManager {
     return new Set((await this.listInstalled()).map((p) => p.key))
   }
 
-  /** Keys of the pairs Mozilla offers; null when the list cannot be read. */
+  /** Keys of the pairs Mozilla offers, read again when the list is older than six hours; null when the list cannot be read. */
   catalog(): Promise<Catalog> {
     return this.availablePairs().then(
       (pairs) => new Set(pairs.keys()),
@@ -338,10 +338,9 @@ export class BergamotManager {
     )
   }
 
-  /** Language pairs among `pairs` that are not installed. */
-  async missingPairs(pairs: Array<[string, string]>): Promise<Array<[string, string]>> {
-    const installed = new Set((await this.listInstalled()).map((p) => p.key))
-    return pairs.filter(([s, t]) => !installed.has(pairKey(s, t)))
+  /** Keys of the pairs Mozilla offers in the list already read; null before it is read. Translations use it and never wait for the network. */
+  knownCatalog(): Catalog {
+    return this.records && new Set(selectPairs(this.records.records).keys())
   }
 
   /** Translate texts of one language; detecting it is up to the caller (background/translators/bergamot.ts). */
@@ -351,23 +350,22 @@ export class BergamotManager {
     const source = normalizeBergamotLang(src)
     if (!source || source === "auto") throw new LocalizedError("bergamotDetectFailed")
     if (source === target || texts.length === 0) return texts.slice()
+    if (isChinesePair(source, target)) throw new LocalizedError("errChineseVariants")
 
-    const pairs = requiredPairs(source, target)
-    const missing = await this.missingPairs(pairs)
-    if (missing.length) {
-      const needs = pairNeeds("bergamot", source, target, await this.catalog(), await this.installedKeys())
-      if (needs.unsupported) throw new LocalizedError("bergamotUnsupportedPair", [source, target])
-      const list = missing.map(([s, t]) => `${s} → ${t}`).join(", ")
-      throw new MissingDataError("bergamotModelMissing", [source, target, list], { service: "bergamot", pair: pairKey(source, target), models: needs.missing })
+    const installed = await this.installedKeys()
+    const { required, missing, unsupported } = pairNeeds("bergamot", source, target, this.knownCatalog(), installed)
+    if (unsupported) throw new LocalizedError("bergamotUnsupportedPair", [source, target])
+    const absent = required.filter((id) => !installed.has(id))
+    if (absent.length) {
+      const args = [source, target, absent.map((id) => id.replace(">", " → ")).join(", ")]
+      // Without the model list, nothing is known to be downloadable: the error names no models.
+      throw missing.length ? new MissingDataError("bergamotModelMissing", args, { service: "bergamot", pair: pairKey(source, target), models: missing }) : new LocalizedError("bergamotModelMissing", args)
     }
 
     const prepared = prepareTexts(texts, source)
     if (prepared.inputs.length === 0) return texts.slice()
     try {
-      const out = await this.engine.translate(
-        pairs.map(([s, t]) => pairKey(s, t)),
-        prepared.inputs,
-      )
+      const out = await this.engine.translate(required, prepared.inputs)
       return prepared.rebuild(out)
     } catch (e) {
       if (e instanceof LocalizedError) throw e

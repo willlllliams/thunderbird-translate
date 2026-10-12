@@ -65,19 +65,11 @@ export type BergamotRequest =
   /** Answer: BergamotProgress. */
   | { type: "bergamotProgress" }
   | { type: "bergamotRemove"; src: string; tgt: string }
-  /** Answer: BergamotRequired. */
-  | { type: "bergamotRequired"; src: string; tgt: string }
 
 export type BergamotResult = { ok: true; pairs?: BergamotPairInfo[] } | { ok: false; error?: string; cancelled?: true }
 
 /** Running installations by "src>tgt": bytes done and total. */
 export type BergamotProgress = Record<string, { done: number; total: number }>
-
-/** Directions needed for a language pair, and those not installed. */
-export interface BergamotRequired {
-  required: [string, string][]
-  missing: [string, string][]
-}
 
 /** Answer to getLocaleMessages: the resolved locale and its messages (key → template). */
 export interface LocaleMessages {

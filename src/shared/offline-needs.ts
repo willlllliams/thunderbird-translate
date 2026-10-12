@@ -27,13 +27,13 @@ export type OfflineService = "dictionary" | "bergamot"
 export interface PairNeeds {
   /** Packs or models the translation uses; empty when source and target are the same language. */
   required: string[]
-  /** Required items that are not installed; empty when unsupported. */
+  /** Required items that are not installed; empty when unsupported or when the catalog is unknown. */
   missing: string[]
   /** No route in the catalog: nothing to download. */
   unsupported: boolean
 }
 
-/** Pair keys the service offers; null when the catalog could not be read, so that every item counts as offered. */
+/** Pair keys the service offers; null while the catalog is unknown (not read yet, or unreadable). */
 export type Catalog = ReadonlySet<string> | null
 
 /** Language of the service for a language code ("zh-CN" → "zh-Hans"); null when the service does not have it. */
@@ -62,7 +62,7 @@ export function pairNeeds(service: OfflineService, source: string, target: strin
     required = useDirect ? [direct] : pivot
   }
   if (!required.every(offered)) return UNSUPPORTED
-  return { required, missing: required.filter((id) => !installed.has(id)), unsupported: false }
+  return { required, missing: catalog ? required.filter((id) => !installed.has(id)) : [], unsupported: false }
 }
 
 /** State of the selected offline service for the languages of the settings, for the marks in the tier selectors. */
@@ -84,8 +84,8 @@ export function offlineState(service: OfflineService, source: string, target: st
   const tgt = serviceLang(service, target)
   if (tgt !== "en") return pairNeeds(service, "en", target, catalog, installed)
   const into = (id: string) => id.endsWith(">en")
-  if ([...installed].some(into)) return { missing: [], unsupported: false }
-  if (catalog && ![...catalog].some(into)) return { missing: [], unsupported: true }
+  if (!catalog || [...installed].some(into)) return { missing: [], unsupported: false }
+  if (![...catalog].some(into)) return { missing: [], unsupported: true }
   return { missing: [], unsupported: false, anyInto: "en" }
 }
 
@@ -117,10 +117,12 @@ export function recommendedLanguages(codes: Partial<Record<LanguageSource, reado
   return [...found].map(([tag, sources]) => ({ tag, sources }))
 }
 
-/** Sources of a direction: those of its languages other than English, most important first; empty when none is recommended. */
+/** Sources of a direction, most important first. A direction with English is recommended with its other language; a direct pack between two other languages when both are recommended and one is the target language. */
 export function itemSources(service: OfflineService, id: string, recommended: readonly SourcedLanguage[]): LanguageSource[] {
   const sides = id.split(">").filter((tag) => tag !== "en")
-  const sources = new Set(recommended.filter((l) => sides.includes(serviceLang(service, l.tag) ?? "")).flatMap((l) => l.sources))
+  const per = sides.map((tag) => recommended.find((l) => serviceLang(service, l.tag) === tag)?.sources ?? [])
+  if (per.some((s) => s.length === 0) || (per.length === 2 && !per.some((s) => s.includes("target")))) return []
+  const sources = new Set(per.flat())
   return LANGUAGE_SOURCES.filter((s) => sources.has(s))
 }
 
