@@ -1,4 +1,5 @@
-// Checks every relative link and anchor in the Markdown files of the repository.
+// Checks every relative link and anchor in the Markdown files of the repository, and that the files and directories
+// named in code spans exist (checkCodePaths()).
 // Anchors follow GitHub's rules: lower case, punctuation removed, spaces turned into "-",
 // letters, marks and decimal digits of every script kept, images left out, and "-1", "-2"…
 // appended to a heading whose anchor is already taken, until the anchor is free.
@@ -110,12 +111,79 @@ export function checkLinks(dir = root) {
   return { problems, checked }
 }
 
+/** Paths the documents name that are not part of the repository: build output, caches and installed packages. */
+const NOT_IN_REPOSITORY = /(^|\/)(dist|web-ext-artifacts|\.cache|node_modules|coverage)(\/|$)/
+
+/** Documents that name the paths of their time: the changelog and the archive. */
+const historical = (rel) => rel === "CHANGELOG.md" || rel.startsWith("docs/archive/")
+
+/** Files written by hand in this repository; a bare name with another extension (a bundle, a release asset, a report) is a generated file. */
+const SOURCE_EXTENSION = /\.(ts|mjs|md|html|css)$/
+
+/**
+ * The path a code span names, or null: a path with "/" whose first part is a directory of the repository
+ * (`docs/settings.md`, `background/router.ts`), or a bare name of a source file (`offline-admin.ts`). Left out: text
+ * with spaces, placeholders such as <code> or wildcards, model names and other paths outside the repository
+ * (`openai/gpt-4.1-mini`, `main/translations-models-v2`), and generated files. An anchor or query after the path and
+ * a trailing "/" are dropped.
+ */
+export function pathOfSpan(span, directories) {
+  const path = span.replace(/[#?].*$/, "").replace(/^\.\//, "").replace(/\/$/, "")
+  if (!/^[\w./-]+$/.test(path)) return null
+  if (path.includes("/")) return directories.has(path.split("/")[0]) ? path : null
+  return SOURCE_EXTENSION.test(path) ? path : null
+}
+
+/** Every file and directory under `dir`, as paths relative to it with "/". */
+function repositoryPaths(dir) {
+  const paths = []
+  const walk = (current) => {
+    for (const name of readdirSync(current)) {
+      if (skipDirs.has(name)) continue
+      const path = join(current, name)
+      paths.push(relative(dir, path).split("\\").join("/"))
+      if (statSync(path).isDirectory()) walk(path)
+    }
+  }
+  walk(dir)
+  return paths
+}
+
+/**
+ * Every file or directory named in a code span of the Markdown files under `dir` that does not exist, and the number
+ * of names checked. A name is looked for from the repository root, from the document's directory and from src/; a
+ * name or partial path also counts when a path of the repository ends with it (`dictionary/manager.ts`). The
+ * changelog and docs/archive/ are left out: they name the files of their time.
+ */
+export function checkCodePaths(dir = root) {
+  const problems = []
+  let checked = 0
+  const paths = repositoryPaths(dir)
+  const directories = new Set(paths.filter((p) => statSync(join(dir, p)).isDirectory()).map((p) => p.split("/").at(-1)))
+  for (const file of markdownFiles(dir)) {
+    const rel = relative(dir, file).split("\\").join("/")
+    if (historical(rel)) continue
+    proseLines(readFileSync(file, "utf8")).forEach((line, i) => {
+      for (const m of line.matchAll(/`([^`]+)`/g)) {
+        const path = pathOfSpan(m[1], directories)
+        if (!path || NOT_IN_REPOSITORY.test(path)) continue
+        checked++
+        const found = [dir, dirname(file), join(dir, "src")].some((base) => existsSync(resolve(base, path))) || paths.some((p) => p === path || p.endsWith(`/${path}`))
+        if (!found) problems.push(`${rel}:${i + 1}: no file or directory ${m[1]}`)
+      }
+    })
+  }
+  return { problems, checked }
+}
+
 if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
-  const { problems, checked } = checkLinks()
+  const links = checkLinks()
+  const paths = checkCodePaths()
+  const problems = [...links.problems, ...paths.problems]
   if (problems.length) {
     console.error(problems.join("\n"))
-    console.error(`${problems.length} broken of ${checked} relative links`)
+    console.error(`${links.problems.length} broken of ${links.checked} relative links, ${paths.problems.length} missing of ${paths.checked} paths in code spans`)
     process.exit(1)
   }
-  console.log(`${checked} relative links OK`)
+  console.log(`${links.checked} relative links OK, ${paths.checked} paths in code spans OK`)
 }

@@ -3,7 +3,7 @@ import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
 import { describe, expect, it } from "vitest"
-import { anchorsOfText, checkLinks, slug } from "../scripts/check-doc-links.mjs"
+import { anchorsOfText, checkCodePaths, checkLinks, slug } from "../scripts/check-doc-links.mjs"
 
 describe("heading anchors", () => {
   it("number a repeated heading until the anchor is free", () => {
@@ -53,5 +53,38 @@ describe("link check", () => {
     } finally {
       rmSync(dir, { recursive: true, force: true })
     }
+  })
+})
+
+describe("paths in code spans", () => {
+  it("reports files and directories that do not exist, also short names of source files, and leaves out the changelog and the archive", () => {
+    const dir = mkdtempSync(join(tmpdir(), "doc-paths-"))
+    try {
+      mkdirSync(join(dir, "src", "offline", "dictionary"), { recursive: true })
+      mkdirSync(join(dir, "docs", "archive"), { recursive: true })
+      writeFileSync(join(dir, "src", "offline", "dictionary", "manager.ts"), "")
+      writeFileSync(
+        join(dir, "docs", "guide.md"),
+        [
+          "`src/offline/dictionary/manager.ts`, `offline/dictionary/manager.ts`, `dictionary/manager.ts`, `manager.ts`, `src/offline/` and `guide.md#top` exist.",
+          "`bergamot-admin.ts` and `src/offline/gone.ts` do not.",
+          "Not paths of the repository: `openai/gpt-4.1-mini`, `dist/background.js`, `src/<layer>/x.ts`, `dict-index.json`, `npm run docs:check`.",
+          "```",
+          "`src/in/a/code/block.ts`",
+          "```",
+        ].join("\n"),
+      )
+      writeFileSync(join(dir, "CHANGELOG.md"), "- `src/background/bergamot-admin.ts` was removed.\n")
+      writeFileSync(join(dir, "docs", "archive", "old.md"), "`size-and-structure.md`\n")
+      const { problems, checked } = checkCodePaths(dir)
+      expect(problems).toEqual(["docs/guide.md:2: no file or directory bergamot-admin.ts", "docs/guide.md:2: no file or directory src/offline/gone.ts"])
+      expect(checked).toBe(8)
+    } finally {
+      rmSync(dir, { recursive: true, force: true })
+    }
+  })
+
+  it("pass on the repository", () => {
+    expect(checkCodePaths().problems).toEqual([])
   })
 })
