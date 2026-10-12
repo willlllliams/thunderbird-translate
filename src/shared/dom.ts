@@ -21,3 +21,15 @@ export function button(text: string, onClick: () => void, primary = false): HTML
   b.addEventListener("click", onClick)
   return b
 }
+
+/**
+ * Hover text of an element. On a <label> it goes to the control the label
+ * holds as well: the text then shows over the label's words and over the
+ * control, and the control takes it as its accessible description while its
+ * name still comes from the label.
+ */
+export function setTitle(el: HTMLElement, text: string): void {
+  el.title = text
+  const control = el.tagName === "LABEL" ? (el as HTMLLabelElement).control : null
+  if (control) control.title = text
+}

@@ -454,6 +454,18 @@ describe("localizeDocument", () => {
     localizeDocument(new I18n("en", { saved: "Saved" }), doc)
     expect(doc.documentElement.lang).toBe("en")
   })
+
+  it("gives the title of a <label> to its control as well, and a later control title wins", () => {
+    const doc = new DOMParser().parseFromString(
+      '<label id="a" data-i18n-title="saved"><span></span><select></select></label><label id="b" data-i18n-title="saved"><input type="checkbox" data-i18n-title="buttonTest"></label><label id="c" data-i18n-title="saved"><span></span></label>',
+      "text/html",
+    )
+    localizeDocument(i18nFor("ja"), doc)
+    expect(doc.querySelector<HTMLElement>("#a")!.title).toBe(sources.ja.saved)
+    expect(doc.querySelector("select")!.title).toBe(sources.ja.saved)
+    expect(doc.querySelector("input")!.title).toBe(sources.ja.buttonTest)
+    expect(doc.querySelector<HTMLElement>("#c")!.title).toBe(sources.ja.saved)
+  })
 })
 
 describe("extension glue", () => {
