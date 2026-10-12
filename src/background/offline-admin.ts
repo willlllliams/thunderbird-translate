@@ -1,0 +1,91 @@
+/**
+ * Dictionary packs and offline models for the extension pages: list,
+ * install with progress and cancel, remove. The work runs in the background
+ * script, which translates with the data, so it goes on after the page that
+ * asked for it is closed, and a direction two pages ask for is installed
+ * once. Requests name their service; each service has its manager
+ * (offline/manager.ts) and its installations (offline/install-registry.ts).
+ * Progress is polled by the page.
+ */
+
+import { InstallRegistry, type InstallOutcome } from "../offline/install-registry"
+import type { OfflineManager } from "../offline/manager"
+import { describeError } from "../shared/errors"
+import { getI18n } from "../shared/i18n"
+import { pairKey } from "../shared/languages"
+import type { BackgroundHandlers, BergamotPairInfo, OfflineItem, OfflineProgress, OfflineRequest, OfflineResult } from "../shared/messages"
+import { type OfflineService, serviceLang } from "../shared/offline-needs"
+
+export interface OfflineAdminDeps {
+  /** The manager of an offline service. */
+  manager: (service: OfflineService) => OfflineManager<OfflineItem>
+  /** Data of `service` was installed or removed: content scripts and pages hear of it. Runs after every installation, whatever its result, and every removal. */
+  changed: (service: OfflineService) => void
+}
+
+const describe = (error: unknown) => describeError(error, getI18n())
+
+const resultOf = (outcome: InstallOutcome): OfflineResult => (outcome.ok ? { ok: true } : "cancelled" in outcome ? { ok: false, cancelled: true } : { ok: false, error: describe(outcome.error) })
+
+/** The pair key of a direction in the language tags of the service ("zh-CN" → "zh-Hans"). */
+const keyOf = (service: OfflineService) => (src: string, tgt: string) => pairKey(serviceLang(service, src) ?? src, serviceLang(service, tgt) ?? tgt)
+
+export function offlineHandlers({ manager, changed }: OfflineAdminDeps): Pick<BackgroundHandlers, OfflineRequest["type"]> {
+  const registries = new Map<OfflineService, InstallRegistry>()
+  const registry = (service: OfflineService): InstallRegistry => {
+    let found = registries.get(service)
+    if (!found) {
+      found = new InstallRegistry({
+        key: keyOf(service),
+        run: (src, tgt, onProgress, signal, tag) => manager(service).install(src, tgt, onProgress, signal, { tag }),
+        onEnd: () => changed(service),
+      })
+      registries.set(service, found)
+    }
+    return found
+  }
+  const progress = (): OfflineProgress =>
+    Object.fromEntries(
+      [...registries].map(([service, installs]) => [service, Object.fromEntries(Object.entries(installs.snapshot()).map(([key, state]) => [key, { state: "running", ...state }]))]),
+    )
+  const remove = async (service: OfflineService, src: string, tgt: string): Promise<OfflineResult> => {
+    try {
+      await manager(service).remove(src, tgt)
+      return { ok: true }
+    } catch (error) {
+      return { ok: false, error: describe(error) }
+    } finally {
+      changed(service)
+    }
+  }
+
+  return {
+    offlineList: async ({ service, refresh, tag }) => {
+      try {
+        const { items, error } = await manager(service).list({ refresh: refresh === true, tag })
+        return { ok: true, items, ...(error === undefined ? {} : { error: describe(error) }) }
+      } catch (error) {
+        return { ok: false, error: describe(error) }
+      }
+    },
+    offlineInstall: async ({ service, pairs, tag }) => {
+      const installs = registry(service)
+      return (await Promise.all(pairs.map(({ src, tgt }) => installs.install(src, tgt, tag)))).map(resultOf)
+    },
+    offlineCancel: ({ service, src, tgt }) => registry(service).cancel(src, tgt),
+    offlineProgress: () => progress(),
+    offlineRemove: ({ service, src, tgt }) => remove(service, src, tgt),
+    // The requests of the offline model list, until it takes the ones above.
+    bergamotList: async ({ refresh }) => {
+      try {
+        return { ok: true, pairs: (await manager("bergamot").list({ refresh: refresh === true })).items as BergamotPairInfo[] }
+      } catch (error) {
+        return { ok: false, error: describe(error) }
+      }
+    },
+    bergamotProgress: () => Object.fromEntries(Object.entries(progress().bergamot ?? {}).map(([key, { done, total }]) => [key, { done, total }])),
+    bergamotInstall: async ({ src, tgt }) => resultOf(await registry("bergamot").install(src, tgt)),
+    bergamotCancel: ({ src, tgt }) => registry("bergamot").cancel(src, tgt),
+    bergamotRemove: ({ src, tgt }) => remove("bergamot", src, tgt),
+  }
+}

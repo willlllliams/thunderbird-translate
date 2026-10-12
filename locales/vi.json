@@ -136,6 +136,7 @@
   "dictionaryAttribution": "Dữ liệu từ điển: những người đóng góp cho Wiktionary, được wiktextract trích xuất và kaikki.org phát hành (CC BY-SA 4.0); ECDICT của skywind3000 (Giấy phép MIT). Mỗi gói ghi nguồn riêng của mình bên dưới.",
   "dictLoading": "Đang tải danh sách từ điển…",
   "dictIndexFailed": "Không thể tải danh sách từ điển. $1",
+  "dictionaryStorageFailed": "Không thể lưu hoặc đọc các từ điển trong bộ nhớ của tiện ích mở rộng.",
   "dictNone": "Bản phát hành này không có từ điển.",
   "dictPackMeta": "$1 MB · $2 mục · $3",
   "dictInstalled": "Đã cài đặt",

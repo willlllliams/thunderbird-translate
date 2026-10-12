@@ -138,6 +138,7 @@
   "dictionaryAttribution": "Sözlük verileri: Wiktionary katkıda bulunanları, wiktextract ile çıkarıldı ve kaikki.org tarafından yayımlandı (CC BY-SA 4.0); skywind3000'in ECDICT'i (MIT Lisansı). Her paket kendi kaynağını aşağıda belirtir.",
   "dictLoading": "Sözlük listesi yükleniyor…",
   "dictIndexFailed": "Sözlük listesi yüklenemedi. $1",
+  "dictionaryStorageFailed": "Sözlükler eklenti depolama alanına kaydedilemedi veya oradan okunamadı.",
   "dictNone": "Bu sürümde sözlük yok.",
   "dictPackMeta": "$1 MB · $2 girdi · $3",
   "dictInstalled": "Kurulu",

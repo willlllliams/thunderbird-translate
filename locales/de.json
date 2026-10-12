@@ -136,6 +136,7 @@
   "dictionaryAttribution": "Wörterbuchdaten: Mitwirkende von Wiktionary, extrahiert mit wiktextract und veröffentlicht von kaikki.org (CC BY-SA 4.0); ECDICT von skywind3000 (MIT-Lizenz). Jedes Paket nennt unten seine eigene Quelle.",
   "dictLoading": "Liste der Wörterbücher wird geladen…",
   "dictIndexFailed": "Die Liste der Wörterbücher konnte nicht geladen werden. $1",
+  "dictionaryStorageFailed": "Die Wörterbücher konnten im Speicher der Erweiterung nicht gespeichert oder gelesen werden.",
   "dictNone": "Diese Version enthält keine Wörterbücher.",
   "dictPackMeta": "$1 MB · $2 Einträge · $3",
   "dictInstalled": "Installiert",

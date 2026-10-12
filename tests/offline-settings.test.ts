@@ -1,9 +1,7 @@
 // @vitest-environment jsdom
 /** The "Dictionaries" and "Offline models" lists of the settings and welcome pages, driven directly with a fake background script. */
 import { Blob as NodeBlob } from "node:buffer"
-import { IDBFactory } from "fake-indexeddb"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
-import { DictionaryStore } from "../src/offline/dictionary/store"
 import { BergamotSection } from "../src/options/bergamot"
 import { DictionarySection } from "../src/options/dictionaries"
 import { loadSystemLanguages, recommendedFor } from "../src/options/offline-list"
@@ -13,7 +11,8 @@ import type { BackgroundRequest, BergamotPairInfo } from "../src/shared/messages
 import { languageTag } from "../src/shared/languages"
 import type { SourcedLanguage } from "../src/shared/offline-needs"
 import { gz, packEntry, releaseServer, tsv } from "./fixtures/dictionary"
-import { asFetch, jsonResponse, nextTask, useFakeTimers } from "./helpers"
+import { offlineBackground, type OfflineBackground } from "./fixtures/offline"
+import { jsonResponse, nextTask, useFakeTimers } from "./helpers"
 
 const sendMessage = vi.fn<(req: unknown) => Promise<unknown>>()
 /** The extension API of the lists: runtime.sendMessage, and i18n for the recommended languages. */
@@ -66,30 +65,29 @@ afterEach(() => vi.useRealTimers())
 
 /* ---------- dictionaries ---------- */
 
-/* ---------- dictionaries ---------- */
-
 const EN_DE = tsv("en", "de", { hello: "hallo" })
 const FR_EN = tsv("fr", "en", { bonjour: "hello" })
 const EN_FR = tsv("en", "fr", { hello: "bonjour" })
 const EN_JA = tsv("en", "ja", { hello: "こんにちは" })
 const DE_EN = tsv("de", "en", { hallo: "hello" })
 
-function dictionaries(texts: string[], options: ListOptions & { fetchFn?: typeof fetch } = {}) {
+/** The dictionary list over the offline handlers of the background script, whose dictionary manager reads the release from `fetchUrl` (`texts` by default). */
+function dictionaries(texts: string[], options: ListOptions & { fetchUrl?: (url: string) => Promise<Response>; tag?: string; bg?: OfflineBackground } = {}) {
   const p = panel()
-  const store = new DictionaryStore(() => new IDBFactory())
+  const bg = options.bg ?? offlineBackground({ fetchUrl: options.fetchUrl ?? (async (url) => releaseServer(texts)(url)) })
+  sendMessage.mockImplementation(async (req) => bg.respond(req as BackgroundRequest))
   const section = new DictionarySection({
-    tag: () => "dicts-v1",
+    tag: () => options.tag ?? "dicts-v1",
     list: p.list,
     status: p.status,
     common: p.common,
     filter: p.filter,
-    store,
-    fetchFn: options.fetchFn ?? asFetch(releaseServer(texts)),
     languages: () => options.languages ?? { source: "de", target: "en" },
     recommended: () => options.recommended ?? [],
     pick: options.pick,
+    pollMs: 5,
   })
-  return { ...p, store, section }
+  return { ...p, bg, store: bg.store, section }
 }
 
 describe("dictionary list", () => {
@@ -104,15 +102,39 @@ describe("dictionary list", () => {
     expect(d.status.textContent).toBe(ENGLISH.t("dictNone"))
   })
 
-  it("downloads a pack with progress, then tells the background script and offers Delete", async () => {
+  it("asks the background script for the list of the page's release tag, and again from the network when reloaded", async () => {
+    const d = dictionaries([EN_DE], { tag: "dicts-v2" })
+    await d.section.load()
+    await d.section.load()
+    expect(d.bg.requests).toEqual([
+      { type: "offlineList", service: "dictionary", refresh: false, tag: "dicts-v2" },
+      { type: "offlineList", service: "dictionary", refresh: false, tag: "dicts-v2" },
+    ])
+    expect(d.bg.fetch.mock.calls.map(([url]) => url)).toEqual([expect.stringContaining("/dicts-v2/dict-index.json")])
+    await d.section.load(true)
+    expect(d.bg.fetch).toHaveBeenCalledTimes(2)
+  })
+
+  it("shows why the list could not be loaded, and the installed packs", async () => {
+    const d = dictionaries([], { fetchUrl: async () => new Response("Not Found", { status: 404 }) })
+    await d.section.load()
+    expect(d.status.textContent!.startsWith(ENGLISH.t("dictIndexFailed", [""]).trim())).toBe(true)
+    expect(d.status.textContent).toContain("HTTP 404")
+    sendMessage.mockRejectedValueOnce(new Error("Could not establish connection"))
+    await d.section.load()
+    expect(d.status.textContent).toBe(describeError(new Error("Could not establish connection"), ENGLISH))
+    sendMessage.mockResolvedValueOnce(undefined)
+    await d.section.load()
+    expect(d.status.textContent).toBe(ENGLISH.t("dictNone"))
+  })
+
+  it("downloads a pack in the background script with progress, then offers Delete", async () => {
     const data = gz(EN_DE)
     let push!: ReadableStreamDefaultController<Uint8Array>
     const stream = new ReadableStream<Uint8Array>({ start: (c) => void (push = c) })
-    const fetchFn = asFetch(async (url: string) =>
-      url.endsWith("dict-index.json") ? jsonResponse({ version: 1, packs: [packEntry(EN_DE)] }) : new Response(stream, { headers: { "content-length": String(data.byteLength) } }),
-    )
-    const requests = background({})
-    const d = dictionaries([], { fetchFn })
+    const d = dictionaries([], {
+      fetchUrl: async (url) => (url.endsWith("dict-index.json") ? jsonResponse({ version: 1, packs: [packEntry(EN_DE)] }) : new Response(stream, { headers: { "content-length": String(data.byteLength) } })),
+    })
     await d.section.load()
     button(d.rows()[0]!, ENGLISH.t("buttonDownload"))!.click()
     await until(() => expect(d.rows()[0]!.textContent).toContain(ENGLISH.t("dictDownloading", [0])))
@@ -124,59 +146,68 @@ describe("dictionary list", () => {
     push.close()
     await until(() => expect(button(d.rows()[0]!, ENGLISH.t("buttonDelete"))).toBeDefined())
     expect(d.rows()[0]!.textContent).toContain(ENGLISH.t("dictInstalled"))
-    expect(requests).toEqual([{ type: "dictionaryChanged" }])
+    expect(d.bg.changed.mock.calls).toEqual([["dictionary"]])
     expect((await d.store.list()).map((p) => p.id)).toEqual(["en>de"])
   })
 
   it("L1: cancels a running download from its row", async () => {
     const stream = new ReadableStream<Uint8Array>({ start: (c) => c.enqueue(gz(EN_DE).slice(0, 10)) })
-    const fetchFn = asFetch(async (url: string) => (url.endsWith("dict-index.json") ? jsonResponse({ version: 1, packs: [packEntry(EN_DE)] }) : new Response(stream)))
-    const requests = background({})
-    const d = dictionaries([], { fetchFn })
+    const d = dictionaries([], { fetchUrl: async (url) => (url.endsWith("dict-index.json") ? jsonResponse({ version: 1, packs: [packEntry(EN_DE)] }) : new Response(stream)) })
     await d.section.load()
     button(d.rows()[0]!, ENGLISH.t("buttonDownload"))!.click()
     await until(() => expect(button(d.rows()[0]!, ENGLISH.t("buttonCancel"))).toBeDefined())
     button(d.rows()[0]!, ENGLISH.t("buttonCancel"))!.click()
     await until(() => expect(button(d.rows()[0]!, ENGLISH.t("buttonDownload"))).toBeDefined())
     expect(d.rows()[0]!.querySelector(".test-result")).toBeNull()
-    expect(requests).toEqual([])
+    expect(d.bg.requests).toContainEqual({ type: "offlineCancel", service: "dictionary", src: "en", tgt: "de" })
     expect(await d.store.list()).toEqual([])
   })
 
   it("shows a failed download in its row and offers the download again", async () => {
-    const d = dictionaries([EN_DE], { fetchFn: asFetch(async (url: string) => (url.endsWith("dict-index.json") ? jsonResponse({ version: 1, packs: [packEntry(EN_DE, { sha256: "0".repeat(64) })] }) : new Response(gz(EN_DE)))) })
-    background({})
+    const d = dictionaries([], { fetchUrl: async (url) => (url.endsWith("dict-index.json") ? jsonResponse({ version: 1, packs: [packEntry(EN_DE, { sha256: "0".repeat(64) })] }) : new Response(gz(EN_DE))) })
     await d.section.load()
     button(d.rows()[0]!, ENGLISH.t("buttonDownload"))!.click()
     await until(() => expect(d.rows()[0]!.querySelector(".test-result.fail")?.textContent).toBe(ENGLISH.t("errDictionaryChecksum", ["dict-en-de.tsv.gz"])))
     expect(button(d.rows()[0]!, ENGLISH.t("buttonDownload"))).toBeDefined()
-    expect(sendMessage).not.toHaveBeenCalled()
   })
 
-  it("deletes a pack, also one the release no longer has, and shows a failed deletion", async () => {
-    const requests = background({})
+  it.each([
+    ["no answer", () => sendMessage.mockResolvedValueOnce(undefined), unknownError],
+    ["a lost connection", () => sendMessage.mockRejectedValueOnce(new Error("port closed")), describeError(new Error("port closed"), ENGLISH)],
+  ])("describes an installation that ends with %s", async (_, answer, text) => {
     const d = dictionaries([EN_DE])
+    await d.section.load()
+    answer()
+    button(d.rows()[0]!, ENGLISH.t("buttonDownload"))!.click()
+    await until(() => expect(d.rows()[0]?.querySelector(".test-result")?.textContent).toBe(text))
+  })
+
+  it("deletes a pack, also one the release no longer has, and shows a failed deletion in the words of the interface", async () => {
+    const bg = offlineBackground({ fetchUrl: async (url) => releaseServer(url.includes("/other/") ? [FR_EN] : [EN_DE])(url) })
+    const d = dictionaries([], { bg })
     await d.section.load()
     button(d.rows()[0]!, ENGLISH.t("buttonDownload"))!.click()
     await until(() => expect(button(d.rows()[0]!, ENGLISH.t("buttonDelete"))).toBeDefined())
 
     // Another release tag without the pack: the installed pack is still listed.
-    const other = dictionaries([FR_EN])
-    await other.store.put({ ...(await d.store.list())[0]! }, gz(EN_DE).buffer)
+    const other = dictionaries([], { bg, tag: "other" })
     await other.section.load()
     expect(other.names()).toEqual(["English → German (Deutsch)", "French (Français) → English"])
-    const remove = vi.spyOn(other.store, "remove").mockRejectedValueOnce(new Error("database locked"))
+    // The database refuses the deletion once.
+    const store = bg.store as unknown as { open: () => Promise<IDBDatabase> }
+    const open = store.open
+    store.open = () => {
+      store.open = open
+      return Promise.reject(new Error("database locked"))
+    }
     button(other.row("English"), ENGLISH.t("buttonDelete"))!.click()
-    await until(() => expect(other.row("English").querySelector(".test-result")?.textContent).toBe("database locked"))
-    requests.length = 0
+    await until(() => expect(other.row("English").querySelector(".test-result")?.textContent).toBe(`${ENGLISH.t("dictionaryStorageFailed")} - database locked`))
     button(other.row("English"), ENGLISH.t("buttonDelete"))!.click()
     await until(() => expect(other.rows()).toHaveLength(1))
-    expect(remove).toHaveBeenCalledTimes(2)
-    expect(requests).toEqual([{ type: "dictionaryChanged" }])
+    expect(bg.changed).toHaveBeenCalledTimes(3)
   })
 
   it("on the welcome page lists every pack with a check box, ticks those the language pair needs and downloads the ticked ones", async () => {
-    background({})
     const d = dictionaries([EN_DE, FR_EN, EN_JA], { languages: { source: "fr", target: "de" }, pick: true })
     await d.section.load()
     expect(d.names()).toEqual(["English → German (Deutsch)", "English → Japanese (日本語)", "French (Français) → English"])
@@ -198,16 +229,17 @@ describe("dictionary list", () => {
   })
 
   it("counts the ticked packs that fail to download", async () => {
-    background({})
-    const fetchFn = asFetch(async (url: string) => (url.endsWith("dict-index.json") ? jsonResponse({ version: 1, packs: [packEntry(EN_DE, { sha256: "0".repeat(64) })] }) : new Response(gz(EN_DE))))
-    const d = dictionaries([], { languages: { source: "en", target: "de" }, pick: true, fetchFn })
+    const d = dictionaries([], {
+      languages: { source: "en", target: "de" },
+      pick: true,
+      fetchUrl: async (url) => (url.endsWith("dict-index.json") ? jsonResponse({ version: 1, packs: [packEntry(EN_DE, { sha256: "0".repeat(64) })] }) : new Response(gz(EN_DE))),
+    })
     await d.section.load()
     expect(await d.section.downloadPicked()).toBe(1)
     expect(d.row("English").querySelector(".test-result.fail")).not.toBeNull()
   })
 
   it("with automatic detection puts the packs of the recommended languages first, labelled, and ticks them", async () => {
-    background({})
     const recommended: SourcedLanguage[] = [
       { tag: "de", sources: ["target"] },
       { tag: "fr", sources: ["thunderbird", "system"] },
@@ -223,7 +255,6 @@ describe("dictionary list", () => {
   })
 
   it("filters by language name or direction, several terms separated by commas", async () => {
-    background({})
     const d = dictionaries([EN_JA, FR_EN, EN_DE])
     await d.section.load()
     d.filter.value = "japanese"
@@ -239,7 +270,6 @@ describe("dictionary list", () => {
   })
 
   it("downloads the common languages after showing what and how much, leaving out the installed packs", async () => {
-    const requests = background({})
     const d = dictionaries([EN_DE, DE_EN, FR_EN, EN_JA, tsv("en", "vi", { hello: "xin chào" })])
     await d.section.load()
     button(d.row("German"), ENGLISH.t("buttonDownload"))!.click()
@@ -257,34 +287,6 @@ describe("dictionary list", () => {
     await until(() => expect(d.common.textContent).toContain(ENGLISH.t("commonAllInstalled")))
     expect(d.commonButton().disabled).toBe(true)
     expect((await d.store.list()).map((p) => p.id).sort()).toEqual(["de>en", "en>de", "en>ja", "fr>en"])
-    expect(requests.filter((r) => r.type === "dictionaryChanged")).toHaveLength(2)
-  })
-
-  it("M3: downloads the common languages two at a time and tells the background script once at the end", async () => {
-    const requests = background({})
-    const server = releaseServer([EN_DE, DE_EN, FR_EN, EN_JA])
-    const waiting: (() => void)[] = []
-    const fetchFn = asFetch(async (url: string) => {
-      if (!url.endsWith("dict-index.json")) await new Promise<void>((resolve) => waiting.push(resolve))
-      return server(url)
-    })
-    const d = dictionaries([], { fetchFn })
-    await d.section.load()
-    d.commonButton().click()
-    button(d.common.querySelector(".common-confirm")!, ENGLISH.t("buttonConfirmDownload"))!.click()
-    await until(() => expect(waiting).toHaveLength(2))
-    await nextTask()
-    expect(waiting).toHaveLength(2)
-    waiting.shift()!()
-    // A finished pack shows as installed while the others are still running, without a word to the background script yet.
-    await until(() => expect(waiting).toHaveLength(2))
-    expect(d.rows().filter((li) => li.textContent!.includes(ENGLISH.t("dictInstalled")))).toHaveLength(1)
-    expect(requests).toEqual([])
-    await until(() => {
-      waiting.splice(0).forEach((resolve) => resolve())
-      expect(d.common.textContent).toContain(ENGLISH.t("commonAllInstalled"))
-    })
-    expect(requests).toEqual([{ type: "dictionaryChanged" }])
   })
 
   /** A release whose pack downloads wait until released; `files` names every pack requested. */
@@ -292,20 +294,38 @@ describe("dictionary list", () => {
     const server = releaseServer(texts)
     const waiting: (() => void)[] = []
     const files: string[] = []
-    const fetchFn = asFetch(async (url: string) => {
+    const fetchUrl = async (url: string) => {
       if (!url.endsWith("dict-index.json")) {
         files.push(url.split("/").pop()!)
         await new Promise<void>((resolve) => waiting.push(resolve))
       }
       return server(url)
-    })
-    return { fetchFn, waiting, files }
+    }
+    return { fetchUrl, waiting, files }
   }
 
-  it("M1: shows a queued pack as waiting with Cancel, downloads it once and leaves it out of a second download", async () => {
-    background({})
+  it("M3: downloads the common languages two at a time and reads the list once at the end", async () => {
     const release = heldRelease([EN_DE, DE_EN, FR_EN, EN_JA])
-    const d = dictionaries([], { fetchFn: release.fetchFn })
+    const d = dictionaries([], { fetchUrl: release.fetchUrl })
+    await d.section.load()
+    d.commonButton().click()
+    button(d.common.querySelector(".common-confirm")!, ENGLISH.t("buttonConfirmDownload"))!.click()
+    await until(() => expect(release.waiting).toHaveLength(2))
+    await nextTask()
+    expect(release.waiting).toHaveLength(2)
+    release.waiting.shift()!()
+    await until(() => expect(release.waiting).toHaveLength(2))
+    await until(() => {
+      release.waiting.splice(0).forEach((resolve) => resolve())
+      expect(d.common.textContent).toContain(ENGLISH.t("commonAllInstalled"))
+    })
+    expect(d.bg.requests.filter((r) => r.type === "offlineList")).toHaveLength(2)
+    expect(d.bg.changed).toHaveBeenCalledTimes(4)
+  })
+
+  it("M1: shows a queued pack as waiting with Cancel, downloads it once and leaves it out of a second download", async () => {
+    const release = heldRelease([EN_DE, DE_EN, FR_EN, EN_JA])
+    const d = dictionaries([], { fetchUrl: release.fetchUrl })
     await d.section.load()
     d.commonButton().click()
     button(d.common.querySelector(".common-confirm")!, ENGLISH.t("buttonConfirmDownload"))!.click()
@@ -331,9 +351,8 @@ describe("dictionary list", () => {
   })
 
   it("M1: on the welcome page disables the check box of a queued pack", async () => {
-    background({})
     const release = heldRelease([EN_DE, FR_EN, EN_JA])
-    const d = dictionaries([], { fetchFn: release.fetchFn, languages: { source: "auto", target: "de" }, recommended: [{ tag: "de", sources: ["target"] }, { tag: "fr", sources: ["system"] }, { tag: "ja", sources: ["system"] }], pick: true })
+    const d = dictionaries([], { fetchUrl: release.fetchUrl, languages: { source: "auto", target: "de" }, recommended: [{ tag: "de", sources: ["target"] }, { tag: "fr", sources: ["system"] }, { tag: "ja", sources: ["system"] }], pick: true })
     await d.section.load()
     expect(d.ticked()).toHaveLength(3)
     const done = d.section.downloadPicked()
@@ -350,20 +369,7 @@ describe("dictionary list", () => {
     expect(await done).toBe(0)
   })
 
-  it("keeps the downloaded packs of the welcome page when the background script cannot be told", async () => {
-    background({
-      dictionaryChanged: () => {
-        throw new Error("no background page")
-      },
-    })
-    const d = dictionaries([EN_DE, FR_EN], { languages: { source: "fr", target: "de" }, pick: true })
-    await d.section.load()
-    expect(await d.section.downloadPicked()).toBe(0)
-    expect(d.rows().every((li) => li.textContent!.includes(ENGLISH.t("dictInstalled")))).toBe(true)
-  })
-
   it("L2: with automatic detection ticks a direct pack only between a recommended language and the target", async () => {
-    background({})
     const FR_DE = tsv("fr", "de", { bonjour: "hallo" })
     const FR_JA = tsv("fr", "ja", { bonjour: "こんにちは" })
     const recommended: SourcedLanguage[] = [

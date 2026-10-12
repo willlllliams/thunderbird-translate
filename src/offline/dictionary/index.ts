@@ -9,7 +9,8 @@
  * when both packs are installed. Between Simplified and Traditional Chinese
  * that would replace words by English glosses, so the dictionary refuses
  * the pair. Packs are read from IndexedDB on first use and released after a
- * while without translations. A paragraph without its packs fails with the
+ * while without translations; a pack that is not installed is looked for
+ * again by the next batch, since it may be installed meanwhile. A paragraph without its packs fails with the
  * packs to download (see shared/offline-needs.ts), unless the release offers
  * none for the pair, its index has not been read yet, or the language of
  * the paragraph was a guess.
@@ -137,15 +138,22 @@ export class Dictionary {
     return this.installed
   }
 
-  /** A pack in memory, read on first use; null when it is not installed. */
-  private pack(src: string, tgt: string): Promise<DictPack | null> {
+  /**
+   * A pack in memory, read on first use; null when it is not installed.
+   * `batch` holds what the batch looked up: a missing pack is read once per
+   * batch, and the next batch reads it again.
+   */
+  private pack(src: string, tgt: string, batch: Map<string, Promise<DictPack | null>>): Promise<DictPack | null> {
     const id = pairKey(src, tgt)
-    let pack = this.packs.get(id)
+    let pack = batch.get(id) ?? this.packs.get(id)
     if (!pack) {
-      pack = this.store.data(id).then(async (data) => (data ? parsePack(await gunzip(data)) : null))
-      pack.catch(() => this.packs.delete(id))
-      this.packs.set(id, pack)
+      const read = this.store.data(id).then(async (data) => (data ? parsePack(await gunzip(data)) : null))
+      const forget = () => void (this.packs.get(id) === read && this.packs.delete(id))
+      read.then((found) => found || forget(), forget)
+      this.packs.set(id, read)
+      pack = read
     }
+    batch.set(id, pack)
     return pack
   }
 
@@ -161,6 +169,8 @@ export class Dictionary {
     if (!tgt) throw new LocalizedError("errDictionaryUnsupported", [targetLang])
     /** What each language pair of the batch needs, worked out once. */
     const needs = new Map<string, Promise<PairNeeds>>()
+    /** The packs the batch looked up. */
+    const packs = new Map<string, Promise<DictPack | null>>()
     return Promise.allSettled(
       texts.map(async (text) => {
         const detected = sourceLang === "auto" ? await detectSourceLanguage(text, this.opts.detect) : sourceLang
@@ -169,17 +179,23 @@ export class Dictionary {
         if (!src) throw new LocalizedError("errDictionaryUnsupported", [lang])
         if (src === tgt) return text
         if (isChinesePair(src, tgt)) throw new LocalizedError("errChineseVariants")
-        return this.translateWith(text, src, tgt, detected !== null, needs)
+        return this.translateWith(text, src, tgt, detected !== null, { needs, packs })
       }),
     )
   }
 
   /** `detected`: the source language was detected or set, not guessed; only then the error names the packs to download. */
-  private async translateWith(text: string, src: string, tgt: string, detected: boolean, needs: Map<string, Promise<PairNeeds>>): Promise<string> {
-    const direct = await this.pack(src, tgt)
+  private async translateWith(
+    text: string,
+    src: string,
+    tgt: string,
+    detected: boolean,
+    { needs, packs }: { needs: Map<string, Promise<PairNeeds>>; packs: Map<string, Promise<DictPack | null>> },
+  ): Promise<string> {
+    const direct = await this.pack(src, tgt, packs)
     if (direct) return translateText(text, direct)
     if (src !== "en" && tgt !== "en") {
-      const [toEnglish, fromEnglish] = await Promise.all([this.pack(src, "en"), this.pack("en", tgt)])
+      const [toEnglish, fromEnglish] = await Promise.all([this.pack(src, "en", packs), this.pack("en", tgt, packs)])
       if (toEnglish && fromEnglish) return translateText(translateText(text, toEnglish), fromEnglish)
     }
     const pair = `${src} → ${tgt}`

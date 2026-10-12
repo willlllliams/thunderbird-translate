@@ -11,8 +11,11 @@ import { getI18n } from "../shared/i18n"
 import { type BackgroundHandlers, type LocaleMessages, type OfflineStatus, optionsPath, type PageNotice } from "../shared/messages"
 import type { TierSettings } from "../shared/settings"
 import { updateSettings } from "../shared/settings-store"
-import { bergamotHandlers } from "./bergamot-admin"
+import type { OfflineManager } from "../offline/manager"
+import type { OfflineItem } from "../shared/messages"
+import type { OfflineService } from "../shared/offline-needs"
 import type { PersistentCache } from "./cache"
+import { offlineHandlers } from "./offline-admin"
 import type { TranslationService } from "./service"
 import type { TabRegistry } from "./tabs"
 
@@ -23,12 +26,14 @@ export interface RouterDeps {
   localeMessages: (setting: unknown) => Promise<LocaleMessages>
   /** The dictionary of the translations, which reads the packs again after invalidate(). */
   dictionary: { invalidate(): void }
+  /** The manager of an offline service. */
+  offlineManager: (service: OfflineService) => OfflineManager<OfflineItem>
   /** What the offline services among `tiers` lack for the languages. */
   offlineStatus: (sourceLang: string, targetLang: string, tiers: TierSettings) => Promise<OfflineStatus>
   cache: Pick<PersistentCache, "clear" | "size">
 }
 
-export function createHandlers({ tabs, service, localeMessages, dictionary, offlineStatus, cache }: RouterDeps): BackgroundHandlers {
+export function createHandlers({ tabs, service, localeMessages, dictionary, offlineManager, offlineStatus, cache }: RouterDeps): BackgroundHandlers {
   /** Dictionary packs or offline models changed: content scripts forget their results, pages show the new state. */
   const offlineDataChanged = () => {
     tabs.broadcast({ type: "offlineDataChanged" })
@@ -64,7 +69,7 @@ export function createHandlers({ tabs, service, localeMessages, dictionary, offl
         }
         s.offlineMutedPairs = [...muted]
       })),
-    ...bergamotHandlers(offlineDataChanged),
+    ...offlineHandlers({ manager: offlineManager, changed: offlineDataChanged }),
     clearCache: () => cache.clear(),
     cacheStats: async () => ({ size: await cache.size() }),
   }

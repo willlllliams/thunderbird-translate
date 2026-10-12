@@ -136,6 +136,7 @@
   "dictionaryAttribution": "辞書データ: Wiktionary の貢献者。wiktextract で抽出され、kaikki.org が公開しています（CC BY-SA 4.0）。ECDICT は skywind3000 によるものです（MIT ライセンス）。各パックの出典は下に記載しています。",
   "dictLoading": "辞書の一覧を読み込んでいます…",
   "dictIndexFailed": "辞書の一覧を読み込めませんでした。$1",
+  "dictionaryStorageFailed": "拡張機能のストレージに辞書を保存または読み込めませんでした。",
   "dictNone": "このリリースには辞書がありません。",
   "dictPackMeta": "$1 MB · $2 件 · $3",
   "dictInstalled": "インストール済み",

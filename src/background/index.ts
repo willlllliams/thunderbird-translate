@@ -22,6 +22,7 @@ import { createTabRegistry } from "./tabs"
 import { getBergamot } from "../offline/bergamot"
 import { DictionaryManager } from "../offline/dictionary/manager"
 import type { OfflineManager } from "../offline/manager"
+import type { OfflineItem } from "../shared/messages"
 import type { OfflineService } from "../shared/offline-needs"
 import { TranslationService } from "./service"
 import { openWelcomeOnInstall } from "./welcome"
@@ -45,7 +46,7 @@ const detect = sourceDetector(ext.i18n)
 // Test build (npm run e2e): the dictionary packs of the local mock server instead of GitHub's.
 const dictionary = new DictionaryManager({ releaseTag: () => settings.current().dictionary.releaseTag, fetch: releaseFetch, detect })
 /** The manager of each offline service; the Bergamot one is created on first use. */
-const offlineManager = (service: OfflineService): OfflineManager => (service === "dictionary" ? dictionary : getBergamot())
+const offlineManager = (service: OfflineService): OfflineManager<OfflineItem> => (service === "dictionary" ? dictionary : getBergamot())
 const offline = createOfflineStatus({ manager: offlineManager })
 
 /** The keyboard commands, created below once the settings and the tabs exist; the hook of the e2e build gets them first. */
@@ -91,7 +92,7 @@ async function applyUiLanguage(uiLanguage: string): Promise<void> {
 
 const commandRunner = createCommandRunner({ ready: settings.ready, postToTab: tabs.postToTab })
 
-const handlers = createHandlers({ tabs, service, localeMessages: createLocaleTables(uiLang), dictionary, offlineStatus: offline.status, cache })
+const handlers = createHandlers({ tabs, service, localeMessages: createLocaleTables(uiLang), dictionary, offlineManager, offlineStatus: offline.status, cache })
 
 /* ---------- listeners: all of them in this first run ---------- */
 

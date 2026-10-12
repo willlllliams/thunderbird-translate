@@ -3,25 +3,18 @@ import { beforeEach, describe, expect, it, vi } from "vitest"
 import { createDispatch, createHandlers } from "../src/background/router"
 import { LocalizedError } from "../src/shared/errors"
 import { ENGLISH } from "../src/shared/i18n"
-import { type BackgroundRequest, type BergamotPairInfo, IDLE_TAB_STATE, type PortPush, type RequestType } from "../src/shared/messages"
+import { type BackgroundRequest, IDLE_TAB_STATE, type PortPush, type RequestType } from "../src/shared/messages"
 import { createDefaultSettings, type Settings, SETTINGS_KEY } from "../src/shared/settings"
 import { stubBrowser } from "./fixtures/browser"
+import { bergamotStandIn } from "./fixtures/offline"
 
-/** The offline engine of the background page, as the model requests use it. */
-const engine = vi.hoisted(() => ({
-  listPairs: async (_refresh?: boolean): Promise<unknown[]> => [],
-  install: async (_src: string, _tgt: string, _onProgress?: unknown, _signal?: AbortSignal) => {},
-  remove: async (_src: string, _tgt: string) => {},
-}))
-vi.mock("../src/offline/bergamot", () => ({ getBergamot: () => engine }))
-
+/** The managers of the offline services. */
+let bergamot = bergamotStandIn()
 beforeEach(() => {
-  engine.listPairs = vi.fn(async (_refresh?: boolean) => [] as BergamotPairInfo[])
-  engine.install = vi.fn(async () => {})
-  engine.remove = vi.fn(async () => {})
+  bergamot = bergamotStandIn([], { install: vi.fn(async () => {}), remove: vi.fn(async () => {}), list: vi.fn(async () => ({ items: [] })) })
 })
 
-/** The handlers over fakes of the tab registry, the service, the dictionary, the cache and the extension API. */
+/** The handlers over fakes of the tab registry, the service, the dictionary, the offline managers, the cache and the extension API. */
 function router(settings: Settings = createDefaultSettings()) {
   const browser = stubBrowser({ stored: { [SETTINGS_KEY]: settings } })
   const pushed: [number | "all", PortPush][] = []
@@ -34,6 +27,7 @@ function router(settings: Settings = createDefaultSettings()) {
     service: { testProvider: vi.fn(async () => "Hallo") },
     localeMessages: vi.fn(async () => ({ locale: "de" as const, messages: {} })),
     dictionary: { invalidate: vi.fn() },
+    offlineManager: () => bergamot,
     offlineStatus: vi.fn(async () => ({})),
     cache: { clear: vi.fn(async () => {}), size: vi.fn(async () => 2) },
   }
@@ -87,11 +81,12 @@ describe("requests from pages", () => {
     await send({ type: "dictionaryChanged" })
     expect(changes()).toBe(1)
     // Also after a failed installation: part of the files may have been stored.
-    vi.mocked(engine.install).mockRejectedValueOnce(new Error("disk full"))
-    expect(await send({ type: "bergamotInstall", src: "de", tgt: "en" })).toEqual({ ok: false, error: "disk full" })
-    expect(await send({ type: "bergamotRemove", src: "de", tgt: "en" })).toEqual({ ok: true })
+    vi.mocked(bergamot.install).mockRejectedValueOnce(new Error("disk full"))
+    expect(await send({ type: "offlineInstall", service: "bergamot", pairs: [{ src: "de", tgt: "en" }] })).toEqual([{ ok: false, error: "disk full" }])
+    expect(await send({ type: "offlineRemove", service: "bergamot", src: "de", tgt: "en" })).toEqual({ ok: true })
     expect(changes()).toBe(3)
-    await send({ type: "bergamotList" })
+    expect(await send({ type: "offlineList", service: "bergamot", refresh: true })).toEqual({ ok: true, items: [] })
+    expect(bergamot.list).toHaveBeenCalledWith({ refresh: true, tag: undefined })
     expect(changes()).toBe(3)
     // The extension pages hear of it too; without an open page the message goes nowhere.
     expect(browser.api.runtime.sendMessage.mock.calls).toEqual([[{ type: "offlineDataChanged" }], [{ type: "offlineDataChanged" }], [{ type: "offlineDataChanged" }]])
@@ -133,18 +128,6 @@ describe("requests from pages", () => {
     expect(deps.cache.clear).toHaveBeenCalledTimes(1)
   })
 
-  it.each<[string, Record<string, unknown>, unknown, () => void]>([
-    ["bergamotList", { refresh: true }, { ok: true, pairs: [] }, () => expect(engine.listPairs).toHaveBeenCalledWith(true)],
-    ["bergamotProgress", {}, {}, () => {}],
-    ["bergamotInstall", { src: "en", tgt: "de" }, { ok: true }, () => expect(engine.install).toHaveBeenCalledWith("en", "de", expect.any(Function), expect.any(AbortSignal))],
-    ["bergamotCancel", { src: "en", tgt: "de" }, undefined, () => expect(engine.install).not.toHaveBeenCalled()],
-    ["bergamotRemove", { src: "en", tgt: "de" }, { ok: true }, () => expect(engine.remove).toHaveBeenCalledWith("en", "de")],
-  ])("hands %s to the offline engine of the background page", async (type, fields, answer, check) => {
-    const { send } = router()
-    expect(await send({ type, ...fields } as BackgroundRequest)).toEqual(answer)
-    check()
-  })
-
   it("has one handler for each request of BackgroundApi, and no other", () => {
     // The compiler checks that this list names every request type and nothing else.
     const types = Object.keys({
@@ -159,6 +142,11 @@ describe("requests from pages", () => {
       openOptions: true,
       muteOfflinePairs: true,
       offlineStatus: true,
+      offlineList: true,
+      offlineInstall: true,
+      offlineCancel: true,
+      offlineProgress: true,
+      offlineRemove: true,
       bergamotList: true,
       bergamotInstall: true,
       bergamotCancel: true,

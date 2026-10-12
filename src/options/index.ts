@@ -296,7 +296,7 @@ async function main(): Promise<void> {
     el.value = settings.dictionary.releaseTag
     void dictionaries.load()
   })
-  $("dictReload").addEventListener("click", () => void dictionaries.load())
+  $("dictReload").addEventListener("click", () => void dictionaries.load(true))
   $("dictFilter").addEventListener("input", () => dictionaries.render())
   void dictionaries.load()
 

@@ -236,7 +236,7 @@ describe("storage, download and the dictionary tier", () => {
     expect(await store.data("en>de")).toBeUndefined()
   })
 
-  it("reports a refused database and tries again next time", async () => {
+  it("reports a refused database in the words of the interface and tries again next time", async () => {
     const idb = new IDBFactory()
     const refused = {
       open: () => {
@@ -246,7 +246,8 @@ describe("storage, download and the dictionary tier", () => {
       },
     } as unknown as IDBFactory
     const store = new DictionaryStore(vi.fn(() => idb).mockReturnValueOnce(refused))
-    await expect(store.data("en>de")).rejects.toThrow("refused")
+    const error = await store.data("en>de").catch((e) => e)
+    expect(describeError(error, ENGLISH)).toMatch(new RegExp(`^${ENGLISH.t("dictionaryStorageFailed")} - .*refused`))
     expect(await store.data("en>de")).toBeUndefined()
   })
 
@@ -380,6 +381,21 @@ describe("storage, download and the dictionary tier", () => {
     const dictionary = new Dictionary(store)
     await expect(texts(dictionary, ["hello"], "en", "de")).rejects.toThrow("read failed")
     expect(await texts(dictionary, ["hello"], "en", "de")).toEqual(["hallo"])
+  })
+
+  it("looks for a missing pack once per batch, and again in the next batch", async () => {
+    const store = newStore()
+    const data = vi.spyOn(store, "data")
+    const dictionary = new Dictionary(store)
+    const missing = await dictionary.translate(["hello", "world"], "en", "zh-CN")
+    expect(missing.map((r) => r.status)).toEqual(["rejected", "rejected"])
+    expect(data).toHaveBeenCalledTimes(1)
+    // Stored without a word to the dictionary, as by an older settings page.
+    await installPack(indexEntry("dict-en-zh-Hans.tsv.gz"), "dicts-v1", store, { fetchFn: asFetch(releases) })
+    expect(await texts(dictionary, ["hello", "world"], "en", "zh-CN")).toEqual(["你好", "世界"])
+    expect(data).toHaveBeenCalledTimes(2)
+    await texts(dictionary, ["hello"], "en", "zh-CN")
+    expect(data).toHaveBeenCalledTimes(2)
   })
 
   it("reads the packs again after a change, and releases them when idle", async () => {

@@ -31,6 +31,15 @@ export interface BackgroundApi {
   muteOfflinePairs: { req: { pairs: string[]; muted: boolean }; res: void }
   /** The offline services among the tiers, for these languages. */
   offlineStatus: { req: { sourceLang: string; targetLang: string; tiers: TierSettings }; res: OfflineStatus }
+  /** The directions of an offline service; `refresh` reads its catalog again, `tag` names the release of the dictionary packs (the page's, which may not be saved yet). */
+  offlineList: { req: { service: OfflineService; refresh?: boolean; tag?: string }; res: OfflineListResult }
+  /** Installs directions in the background script, also after the page is closed; answers when every one of them has ended, with the result of each in the order of `pairs`. */
+  offlineInstall: { req: { service: OfflineService; pairs: OfflinePair[]; tag?: string }; res: OfflineResult[] }
+  /** Cancels the installation of a direction. */
+  offlineCancel: { req: { service: OfflineService } & OfflinePair; res: void }
+  /** The installations of every service that have not ended. */
+  offlineProgress: { req: NoFields; res: OfflineProgress }
+  offlineRemove: { req: { service: OfflineService } & OfflinePair; res: OfflineResult }
   /** Offline models; `refresh` reads Mozilla's model list again. */
   bergamotList: { req: { refresh?: boolean }; res: BergamotResult }
   /** Answers when the installation ends. */
@@ -87,8 +96,33 @@ export function optionsPath({ section, dictionaries, bergamot, tier }: OptionsPl
   return `options.html${search}#${section}`
 }
 
-/** Offline models, handled by the background script where the engine runs (background/bergamot-admin.ts). */
-export type BergamotRequest = RequestOf<"bergamotList" | "bergamotInstall" | "bergamotCancel" | "bergamotProgress" | "bergamotRemove">
+/** Dictionary packs and offline models, handled by the background script (background/offline-admin.ts). */
+export type OfflineRequest = RequestOf<"offlineList" | "offlineInstall" | "offlineCancel" | "offlineProgress" | "offlineRemove" | "bergamotList" | "bergamotInstall" | "bergamotCancel" | "bergamotProgress" | "bergamotRemove">
+
+/** A direction of an offline service. */
+export interface OfflinePair {
+  src: string
+  tgt: string
+}
+
+/** A direction as the lists of the pages show it. */
+export type OfflineItem = DictionaryPackInfo | BergamotPairInfo
+
+/** The directions of a service; `error` with ok: why its catalog is missing and only the installed directions are listed. */
+export type OfflineListResult = { ok: true; items: OfflineItem[]; error?: string } | { ok: false; error: string }
+
+/** How an installation or a removal ended. */
+export type OfflineResult = { ok: true } | { ok: false; error?: string; cancelled?: true }
+
+/** An installation that has not ended: waiting for its turn or running, bytes received and expected. */
+export interface InstallProgress {
+  state: "queued" | "running"
+  done: number
+  total: number
+}
+
+/** The installations that have not ended, by service and pair key. */
+export type OfflineProgress = Partial<Record<OfflineService, Record<string, InstallProgress>>>
 
 /** An offline model pair as the settings page lists it. */
 export interface BergamotPairInfo {

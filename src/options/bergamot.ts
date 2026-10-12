@@ -3,7 +3,7 @@
  * the installed ones, with download, update, cancel and delete: the
  * "Offline models" list of the settings page and of the welcome page (see
  * offline-list.ts). The background script does the work (see
- * src/background/bergamot-admin.ts); the page polls the download progress.
+ * src/background/offline-admin.ts); the page polls the download progress.
  * On the settings page a line names the directions the current languages
  * need, and deleting one of them asks for confirmation.
  */

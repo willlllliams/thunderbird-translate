@@ -185,7 +185,7 @@ export class BergamotManager implements OfflineManager<BergamotPairInfo> {
 
   /* ---------- install / remove ---------- */
 
-  /** Download and store a pair. A second request for a running installation is merged by the caller (background/bergamot-admin.ts), which shares progress and cancellation. */
+  /** Download and store a pair. A second request for a running installation is merged by the caller (offline/install-registry.ts), which shares progress and cancellation. */
   install(src: string, tgt: string, onProgress?: (done: number, total: number) => void, signal?: AbortSignal): Promise<void> {
     return this.doInstall(normalizeBergamotLang(src), normalizeBergamotLang(tgt), onProgress, signal)
   }

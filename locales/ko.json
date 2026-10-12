@@ -136,6 +136,7 @@
   "dictionaryAttribution": "사전 데이터: Wiktionary 기여자, wiktextract로 추출하고 kaikki.org에서 공개 (CC BY-SA 4.0); ECDICT는 skywind3000 제작 (MIT 라이선스). 각 팩의 출처는 아래에 표시됩니다.",
   "dictLoading": "사전 목록을 불러오는 중…",
   "dictIndexFailed": "사전 목록을 불러오지 못했습니다. $1",
+  "dictionaryStorageFailed": "확장 프로그램 저장소에 사전을 저장하거나 읽지 못했습니다.",
   "dictNone": "이 릴리스에는 사전이 없습니다.",
   "dictPackMeta": "$1 MB · 항목 $2개 · $3",
   "dictInstalled": "설치됨",

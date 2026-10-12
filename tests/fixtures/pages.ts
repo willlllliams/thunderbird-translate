@@ -2,11 +2,13 @@
 import { readFileSync } from "node:fs"
 import { join } from "node:path"
 import { onTestFinished, vi } from "vitest"
-import type { BackgroundRequest } from "../../src/shared/messages"
+import type { OfflineManager } from "../../src/offline/manager"
+import type { BackgroundRequest, OfflineItem } from "../../src/shared/messages"
 import { SAVE_DELAY_MS } from "../../src/options/session"
 import { type Settings, SETTINGS_KEY } from "../../src/shared/settings"
 import { settle, stubBrowser } from "./browser"
 import { packagedFetch } from "./locales"
+import { offlineBackground } from "./offline"
 import type { StorageChanges } from "./storage"
 
 /** With fake timers: let the delay of the settings page and the setup guide pass, after which their edits are written. */
@@ -33,8 +35,11 @@ function endPageWithTest(): void {
 /**
  * Load the popup, the settings page or the welcome page and run its script
  * with a fake extension API holding `settings` (and `stored`, other
- * storage.local keys). `respond` answers background requests; cacheStats
- * reports an empty cache.
+ * storage.local keys). `respond` answers background requests; what it
+ * leaves unanswered (undefined) goes to the offline handlers of the
+ * background script over a dictionary manager that reads the release from
+ * `fetchUrl` and the Bergamot manager `bergamot`; cacheStats reports an
+ * empty cache.
  */
 export async function openPage(
   page: "popup" | "options" | "welcome",
@@ -48,6 +53,7 @@ export async function openPage(
     activeTab,
     currentTab = { id: 7 },
     systemLanguages = [],
+    bergamot,
   }: {
     uiLanguage?: string
     /** i18n.getPreferredSystemLanguages(); null: a Thunderbird without it. */
@@ -62,6 +68,8 @@ export async function openPage(
     activeTab?: { id?: number }
     /** What tabs.getCurrent() reports, e.g. {} for a page without a tab id. */
     currentTab?: { id?: number }
+    /** The Bergamot manager of the background script; one without models by default. */
+    bergamot?: OfflineManager<OfflineItem>
   } = {},
 ) {
   // The timers of the page must be fake so that they end with the test, see endPageWithTest().
@@ -70,6 +78,7 @@ export async function openPage(
   const html = readFileSync(join(__dirname, "..", "..", "static", `${page}.html`), "utf8")
   document.documentElement.innerHTML = new DOMParser().parseFromString(html, "text/html").documentElement.innerHTML
   const tabs = activeTab ? [activeTab] : []
+  const offline = offlineBackground({ fetchUrl, bergamot })
   const browser = stubBrowser({
     stored: { ...other, [SETTINGS_KEY]: settings },
     uiLanguage,
@@ -78,7 +87,7 @@ export async function openPage(
     currentTab,
     tabs,
     activeTabs: tabs,
-    respond: (req) => respond?.(req) ?? (req.type === "cacheStats" ? { size: 0 } : undefined),
+    respond: (req) => respond?.(req) ?? offline.respond(req) ?? (req.type === "cacheStats" ? { size: 0 } : undefined),
   })
   const close = vi.fn()
   vi.stubGlobal("close", close)
@@ -92,6 +101,8 @@ export async function openPage(
   return {
     /** The fake extension API of the page. */
     browser,
+    /** The offline handlers of the background script, its dictionary manager and store. */
+    offline,
     /** URLs of the tabs the page opened and ids of those it closed. */
     created: browser.created,
     removed: browser.removed,

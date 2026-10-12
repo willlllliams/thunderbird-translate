@@ -138,6 +138,7 @@
   "dictionaryAttribution": "Dictionary data: Wiktionary contributors, extracted by wiktextract and published by kaikki.org (CC BY-SA 4.0); ECDICT by skywind3000 (MIT License). Each pack names its own source below.",
   "dictLoading": "Loading the list of dictionaries…",
   "dictIndexFailed": "The list of dictionaries could not be loaded. $1",
+  "dictionaryStorageFailed": "Could not save or read the dictionaries in the extension storage.",
   "dictNone": "This release has no dictionaries.",
   "dictPackMeta": "$1 MB · $2 entries · $3",
   "dictInstalled": "Installed",

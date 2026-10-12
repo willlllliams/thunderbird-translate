@@ -136,6 +136,7 @@
   "dictionaryAttribution": "Dados dos dicionários: colaboradores do Wiktionary, extraídos pelo wiktextract e publicados pelo kaikki.org (CC BY-SA 4.0); ECDICT de skywind3000 (Licença MIT). Cada pacote indica abaixo a sua própria fonte.",
   "dictLoading": "Carregando a lista de dicionários…",
   "dictIndexFailed": "Não foi possível carregar a lista de dicionários. $1",
+  "dictionaryStorageFailed": "Não foi possível salvar ou ler os dicionários no armazenamento da extensão.",
   "dictNone": "Esta versão não tem dicionários.",
   "dictPackMeta": "$1 MB · $2 entradas · $3",
   "dictInstalled": "Instalado",

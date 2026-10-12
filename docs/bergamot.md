@@ -4,13 +4,13 @@ The module in `src/offline/bergamot/` translates plain text on the user's comput
 
 ## Interface
 
-`src/offline/bergamot/index.ts` exports `getBergamot()`, the `BergamotManager` of the background page (created on first use with the browser's IndexedDB, `fetch` and `Worker`). Translation runs in a Worker started by the page that owns the manager, so the extension keeps the manager in the background page. The settings page and the setup guide reach it through the messages handled in `src/background/bergamot-admin.ts`, so one engine sees every installation and removal.
+`src/offline/bergamot/index.ts` exports `getBergamot()`, the `BergamotManager` of the background page (created on first use with the browser's IndexedDB, `fetch` and `Worker`). Translation runs in a Worker started by the page that owns the manager, so the extension keeps the manager in the background page. The settings page and the setup guide reach it through the messages handled in `src/background/offline-admin.ts`, so one engine sees every installation and removal.
 
 | Method or function | Result |
 | --- | --- |
 | `translate(texts, src, tgt)` | `Promise<string[]>`, one output per input, same order |
 | `listPairs(forceRefresh?)` | `Promise<BergamotPairInfo[]>`, sorted by source, then target |
-| `install(src, tgt, onProgress?, signal?)` | `Promise<void>`; `onProgress(doneBytes, totalBytes)`. Requests of the pages go through `bergamot-admin.ts`, which runs one installation per pair: a second request shares the running one's progress, cancellation and result |
+| `install(src, tgt, onProgress?, signal?)` | `Promise<void>`; `onProgress(doneBytes, totalBytes)`. Requests of the pages go through `offline-admin.ts` and `src/offline/install-registry.ts`, which run one installation per pair: a second request shares the running one's progress, cancellation and result |
 | `remove(src, tgt)` | `Promise<void>` |
 | `installedKeys()` | `Promise<Set<string>>`, the keys of the installed pairs, e.g. `"en>zh-Hans"` |
 | `signature()` | `Promise<string>`, a hash of the installed pairs and their versions; part of the cache key of every Bergamot translation, so installing, updating or removing a pair never returns an older translation |

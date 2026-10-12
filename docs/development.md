@@ -98,7 +98,7 @@ The production code reaches the test build through the hooks of `src/hooks/`, wh
 | Hook | Called by | In the test build |
 | --- | --- | --- |
 | `beforeSettingsRead` (`hooks/background.ts`) | the background script, before it reads its settings | stores the settings of the scenario (the three tiers dictionary / Google / AI on the mock server, or the offline services) and installs the dictionary pack |
-| `releaseFetch`, `bergamotServerUrl` (`hooks/servers.ts`) | the dictionary catalog, the dictionary list of the setup guide, the Bergamot model list | the mock server instead of GitHub and Mozilla Remote Settings |
+| `releaseFetch`, `bergamotServerUrl` (`hooks/servers.ts`) | the dictionary manager and the Bergamot model list of the background script | the mock server instead of GitHub and Mozilla Remote Settings |
 | `contentProbe` (`hooks/content.ts`) | the content client of a displayed message: its parts, every progress report, every message of the background script | runs the scenario of the run and reports what it saw |
 | `welcomeProbe` (`hooks/welcome.ts`) | the setup guide, once its first step is shown | walks through the tiers and offline steps |
 

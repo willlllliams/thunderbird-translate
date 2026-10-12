@@ -242,6 +242,66 @@ describe("requests from pages", () => {
   })
 })
 
+describe("offline data in the background script", () => {
+  const EN_ZH = tsv("en", "zh-Hans", { hello: "你好", world: "世界" })
+  const JA_EN = tsv("ja", "en", { こんにちは: "hello" })
+  const dictionaryOnly = (text: string): TranslateRequest => ({ text, sourceLang: "en", targetLang: "zh-CN", tiers: ["dictionary"] })
+
+  /** The background script with the dictionary tier; the release serves EN_ZH at once and JA_EN never (a download that is still running). */
+  async function withRelease() {
+    vi.stubGlobal("indexedDB", new IDBFactory())
+    const server = releaseServer([EN_ZH, JA_EN])
+    const fetchUrl = vi.fn((url: string, init?: RequestInit) => (url.includes("/releases/download/") ? (url.endsWith("dict-ja-en.tsv.gz") ? new Promise<Response>(() => {}) : server(url)) : google(url, init)))
+    const s = createDefaultSettings()
+    s.tiers.dictionary = "dictionary"
+    const bg = await start({ stored: stored(s), fetchUrl })
+    const port = bg.connect(5)
+    let id = 0
+    /** The dictionary result of a paragraph. */
+    const translate = async (text: string) => {
+      const request = ++id
+      port.send({ type: "translate", id: request, request: dictionaryOnly(text) })
+      await vi.waitFor(() => expect(port.posted).toContainEqual({ type: "done", id: request }))
+      return (port.posted.find((m) => m.type === "tier" && m.id === request) as Extract<PortPush, { type: "tier" }>).result
+    }
+    const notices = () => ({
+      contentScripts: port.posted.filter((m) => m.type === "offlineDataChanged").length,
+      pages: bg.api.runtime.sendMessage.mock.calls.filter(([m]) => (m as { type?: string }).type === "offlineDataChanged").length,
+    })
+    return { bg, port, translate, notices }
+  }
+
+  it("translates with a pack installed while the page that asked for it is gone, also after a translation found the pack missing", async () => {
+    const { bg, translate } = await withRelease()
+    expect(await translate("hello world")).toMatchObject({ ok: false, error: expect.stringContaining("en → zh-Hans") })
+    // The page asks for two packs and is closed: nothing more comes from it, and the second pack is still downloading.
+    void bg.send({ type: "offlineInstall", service: "dictionary", pairs: [{ src: "en", tgt: "zh-Hans" }, { src: "ja", tgt: "en" }], tag: "dicts-v1" })
+    await vi.waitFor(async () => expect((await new DictionaryStore().list()).map((p) => p.id)).toEqual(["en>zh-Hans"]))
+    expect(await translate("hello world")).toEqual({ ok: true, text: "你好世界" })
+  })
+
+  it("completes an installation that no page waits for, reads the packs again and tells the content scripts and the pages once", async () => {
+    const { bg, translate, notices } = await withRelease()
+    const { Dictionary } = await import("../src/offline/dictionary")
+    const invalidate = vi.spyOn(Dictionary.prototype, "invalidate")
+    void bg.send({ type: "offlineInstall", service: "dictionary", pairs: [{ src: "en", tgt: "zh-Hans" }], tag: "dicts-v1" })
+    await vi.waitFor(() => expect(notices()).toEqual({ contentScripts: 1, pages: 1 }))
+    expect(invalidate).toHaveBeenCalledTimes(1)
+    expect(await translate("hello")).toEqual({ ok: true, text: "你好" })
+    expect(notices()).toEqual({ contentScripts: 1, pages: 1 })
+  })
+
+  it("lists the packs of the release tag the page names, and removes a pack", async () => {
+    const { bg, translate, notices } = await withRelease()
+    expect(await bg.send({ type: "offlineList", service: "dictionary", tag: "dicts-v1" })).toMatchObject({ ok: true, items: [{ src: "en", tgt: "zh-Hans", installed: false }, { src: "ja", tgt: "en" }] })
+    expect(await bg.send({ type: "offlineInstall", service: "dictionary", pairs: [{ src: "en", tgt: "zh-Hans" }] })).toEqual([{ ok: true }])
+    expect(await translate("hello")).toEqual({ ok: true, text: "你好" })
+    expect(await bg.send({ type: "offlineRemove", service: "dictionary", src: "en", tgt: "zh-Hans" })).toEqual({ ok: true })
+    expect(notices()).toEqual({ contentScripts: 2, pages: 2 })
+    expect(await translate("hello")).toMatchObject({ ok: false })
+  })
+})
+
 describe("keyboard shortcuts", () => {
   it("switches the display mode back and forth and tells the content scripts", async () => {
     const bg = await start({ stored: stored(createDefaultSettings()) })

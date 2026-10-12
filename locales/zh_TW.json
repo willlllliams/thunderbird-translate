@@ -136,6 +136,7 @@
   "dictionaryAttribution": "辭典資料：Wiktionary 貢獻者，由 wiktextract 擷取並由 kaikki.org 發布（CC BY-SA 4.0）；ECDICT 來自 skywind3000（MIT 授權）。各辭典包的來源見下方。",
   "dictLoading": "正在載入辭典清單…",
   "dictIndexFailed": "無法載入辭典清單。$1",
+  "dictionaryStorageFailed": "無法在擴充功能儲存空間中儲存或讀取辭典。",
   "dictNone": "此版本沒有辭典。",
   "dictPackMeta": "$1 MB · $2 個詞條 · $3",
   "dictInstalled": "已安裝",

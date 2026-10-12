@@ -136,6 +136,7 @@
   "dictionaryAttribution": "Данные словарей: авторы Wiktionary, извлечены wiktextract и опубликованы kaikki.org (CC BY-SA 4.0); ECDICT от skywind3000 (лицензия MIT). Источник каждого пакета указан ниже.",
   "dictLoading": "Загрузка списка словарей…",
   "dictIndexFailed": "Не удалось загрузить список словарей. $1",
+  "dictionaryStorageFailed": "Не удалось сохранить или прочитать словари в хранилище расширения.",
   "dictNone": "В этом выпуске нет словарей.",
   "dictPackMeta": "$1 МБ · $2 статей · $3",
   "dictInstalled": "Установлен",

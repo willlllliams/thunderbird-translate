@@ -26,7 +26,6 @@ import { PromptEditor } from "../options/prompt-editor"
 import { type PanelState, providerConfig, providerFields, providerTitle, testButton, testResult } from "../options/provider-panel"
 import { SettingsSession } from "../options/session"
 import { mountStyleControls } from "../options/style-controls"
-import { releaseFetch } from "../hooks/servers"
 import { welcomeProbe } from "../hooks/welcome"
 import { TierDemo, TierTour } from "./demo"
 import { neighbourStep, resumeStep, STEP_IDS, STEP_TITLE_KEYS, type StepId, stepNeeded, TRY_MAIL, trialLanguage, WELCOME_KEY, type WelcomeState } from "./steps"
@@ -332,7 +331,6 @@ async function main(): Promise<void> {
     status: $("dictStatus"),
     common: $("dictCommon"),
     filter: $<HTMLInputElement>("dictFilter"),
-    fetchFn: releaseFetch,
   })
   bergamot = new BergamotSection({
     ...lists,
