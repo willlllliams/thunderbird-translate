@@ -17,6 +17,7 @@
     "live-test": "node scripts/live-test.mjs",
     "locales:check": "node scripts/locales.mjs",
     "docs:check": "node scripts/check-doc-links.mjs",
+    "imports:check": "node scripts/check-imports.mjs",
     "fetch:bergamot": "node scripts/fetch-bergamot.mjs",
     "test:coverage": "vitest run --coverage",
     "e2e": "node e2e/run.mjs"

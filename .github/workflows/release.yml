@@ -27,6 +27,7 @@ jobs:
       - run: npm run typecheck
       - run: npm run locales:check
       - run: npm run docs:check
+      - run: npm run imports:check
       # Unit tests with the coverage thresholds of vitest.config.ts.
       - run: npm run test:coverage
       - run: npm run build

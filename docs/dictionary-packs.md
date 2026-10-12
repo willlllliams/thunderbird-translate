@@ -62,7 +62,7 @@ lookup(key):
   否则                      -> 未命中
 ```
 
-分词后按最长匹配查多词短语效果更好：从当前词起依次拼接多个词查表，取最长的命中。扩展运行时最多拼接 3 个词（`src/background/dictionary/index.ts` 的 `MAX_PHRASE_WORDS`）。`tools/dict-build/demo.mjs` 演示同一过程，上限为 4 个词。
+分词后按最长匹配查多词短语效果更好：从当前词起依次拼接多个词查表，取最长的命中。扩展运行时最多拼接 3 个词（`src/offline/dictionary/index.ts` 的 `MAX_PHRASE_WORDS`）。`tools/dict-build/demo.mjs` 演示同一过程，上限为 4 个词。
 
 ## 索引文件
 
@@ -113,7 +113,7 @@ lookup(key):
 
 1. 下载包文件，显示进度，可以点“取消”中止。
 2. 校验 SHA-256 与包头。
-3. 存入扩展的 IndexedDB 数据库 `tt-dictionary`（`src/background/dictionary/store.ts`）。
+3. 存入扩展的 IndexedDB 数据库 `tt-dictionary`（`src/offline/dictionary/store.ts`）。
 
 “删除”从数据库中移除该包。索引读取失败时，该部分显示原因，已安装的包仍可删除。超时规则有两条：
 

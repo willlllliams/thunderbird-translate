@@ -1,6 +1,6 @@
 # Translation services
 
-This page lists every translation service of Thunderbird Translate with its endpoint, default model, where to get a key, and the parameters the extension sends. The presets live in `src/shared/providers.ts`; the thinking parameters live in `src/background/providers/thinking.ts`.
+This page lists every translation service of Thunderbird Translate with its endpoint, default model, where to get a key, and the parameters the extension sends. The presets live in `src/shared/providers.ts`; the thinking parameters live in `src/shared/thinking.ts`.
 
 ## Contents
 
@@ -134,7 +134,7 @@ Perplexity, LM Studio and custom OpenAI-compatible services have no documented t
 
 For OpenAI-compatible presets (Ollama, OpenRouter, Zhipu, SiliconFlow, Doubao) the options are written under the preset ID. `@ai-sdk/openai-compatible` copies them into the request body as they are. `reasoningEffort` is the one key it renames, to `reasoning_effort`.
 
-The switch works by matching model names. A new model whose name matches none of the patterns gets no thinking parameter until the table in `src/background/providers/thinking.ts` is extended.
+The switch works by matching model names. A new model whose name matches none of the patterns gets no thinking parameter until the table in `src/shared/thinking.ts` is extended.
 
 ## Source language in requests
 

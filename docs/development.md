@@ -47,6 +47,7 @@ During development you can load the extension without packing it. In Thunderbird
 | `npm run typecheck` | TypeScript type check (`tsc --noEmit`) |
 | `npm run locales:check` | checks every `locales/<language>.json` against `locales/en.json` |
 | `npm run docs:check` | checks every relative link and heading anchor in the Markdown files |
+| `npm run imports:check` | checks the imports of `src/` against the layers in [Project structure](#project-structure) |
 | `npm run e2e` | end-to-end test in a headless Thunderbird against a local mock server |
 | `npm run live-test` | calls the real Google and Microsoft endpoints through the extension's own modules, with and without a source language |
 | `npm run fetch:bergamot` | downloads the pinned Bergamot engine into `.cache/` |
@@ -115,18 +116,21 @@ In CI the job `e2e` of `.github/workflows/release.yml` runs the same command on 
 
 ```
 src/
-  background/    background script: translation service, batch and request queues, cache, provider factory, translators, dictionary, offline model management
-  content/       content script: paragraph detection, rendering, language detection, translation state
+  shared/        modules every part uses: settings, provider presets and thinking parameters, prompts, language table and codes, language detection, fetch with classified errors, message types, i18n runtime, DOM helpers
+  offline/       offline data of the background page
+    dictionary/  dictionary packs: format, download, storage, lookup
+    bergamot/    Bergamot engine: model list, download, storage, worker
+  background/    background script: translation service, batch and request queues, cache, provider factory, translators, offline model administration
+  content/       content script: paragraph detection, rendering, translation state, notice about missing offline data
   popup/         popup
   options/       settings page and the parts the setup guide shares: translation style controls, service fields, dictionary and Bergamot lists, prompt editor, settings session
   welcome/       setup guide: steps and navigation, demo and tour of the tiers step
-  offline/       Bergamot engine module: model list, download, storage, worker
-  shared/        shared settings, provider presets, prompts, language table and detection, message types, i18n runtime
   e2e/           hooks of the e2e test build (left out of every other build)
 locales/         interface text, one JSON file per language; en.json is the reference
 static/          manifest.json, HTML, CSS, SVG icon
-scripts/         build, Bergamot engine download, locale generation and checks, Markdown link check, live endpoint test
-vendor/          Bergamot engine glue script (bergamot-translator.js)
+scripts/         build, Bergamot engine download, locale generation and checks, Markdown link check, layer check of src/, live endpoint test
+vendor/
+  bergamot/      Bergamot engine glue script (bergamot-translator.js)
 tools/           dict-build: the pipeline that builds the dictionary packs
 readmes/         translated versions of the README
 docs/            reference and developer documentation
@@ -134,6 +138,20 @@ tests/           vitest tests
 e2e/             end-to-end test in a real Thunderbird: runner, mock server, fixture messages
 .github/         workflows: build and release, dictionary packs
 ```
+
+The directories under `src/` are layers. A file may import from its own directory and from the directories listed for it:
+
+| Directory | May import from |
+| --- | --- |
+| `shared/` | npm packages and `locales/*.json` only |
+| `offline/` | `shared/` |
+| `background/` | `shared/`, `offline/` |
+| `content/`, `popup/` | `shared/` |
+| `options/` | `shared/`, `offline/`, `content/` (the style preview sets the same CSS variables as the translations in a message) |
+| `welcome/` | `shared/`, `offline/`, `content/`, `options/` |
+| `e2e/` | every directory |
+
+No production file imports from `e2e/`, except the three that start the hooks of the test build: `background/index.ts`, `content/client.ts` and `welcome/index.ts`. `npm run imports:check` (`scripts/check-imports.mjs`) reads every `import`, `import type`, `export … from`, side-effect and dynamic import of `src/` and fails on an import across these boundaries; CI runs it after the link check.
 
 The design of paragraph detection, the batch queue, the prompts and the provider configuration follows [Read Frog](https://github.com/mengxi-ream/read-frog), a browser extension for translating web pages released under GPL-3.0. This project carries these ideas over to Thunderbird's message reader and adapts them to email, for example splitting plain-text mail at blank lines and joining hard-wrapped lines.
 
@@ -178,7 +196,7 @@ The version lives in three places, which must agree: `static/manifest.json`, `pa
 
 The workflow `.github/workflows/release.yml` (named "Build") runs on every push to `main`, on pull requests and on manual dispatch.
 
-1. Job `build`: `npm ci`, `npm run typecheck`, `npm run locales:check`, `npm run docs:check`, `npm run test:coverage` and `npm run build`. The xpi is uploaded as a build artifact named after the version and the short commit hash, kept for 30 days.
+1. Job `build`: `npm ci`, `npm run typecheck`, `npm run locales:check`, `npm run docs:check`, `npm run imports:check`, `npm run test:coverage` and `npm run build`. The xpi is uploaded as a build artifact named after the version and the short commit hash, kept for 30 days.
 2. Job `e2e`: the end-to-end test against the four Thunderbird versions listed above.
 3. Job `release`, after both succeed and not for pull requests:
    - On a push, it replaces the `nightly` pre-release with the xpi of this commit, named `thunderbird-translate-<version>-<sha>.xpi`. The nightly build is for testing.
