@@ -6,6 +6,7 @@ import { ENGLISH } from "../src/shared/i18n"
 import type { BackgroundRequest, PortReport } from "../src/shared/messages"
 import { getPromptPreset, NO_PRESET, presetBlock, removePresets } from "../src/shared/prompt-presets"
 import { DEFAULT_PROMPTS } from "../src/shared/prompts"
+import { openWelcomeOnInstall } from "../src/background/welcome"
 import { createDefaultSettings, type Settings, toPublicSettings } from "../src/shared/settings"
 import { neighbourStep, resumeStep, stepNeeded, trialLanguage, WELCOME_KEY } from "../src/welcome/steps"
 import { readLocaleSources } from "../scripts/locales.mjs"
@@ -16,23 +17,18 @@ import { jsonResponse, nextTask, openPage, useFakeTimers } from "./helpers"
 // Fake timers in every test: a page left open by a test cannot fire its timers into the next one.
 beforeEach(() => useFakeTimers())
 
-afterEach(() => {
-  vi.useRealTimers()
-  vi.resetModules()
-})
+afterEach(() => vi.useRealTimers())
 
 const tiers = (t: Partial<Settings["tiers"]>) => ({ tiers: { dictionary: null, machine: null, ai: null, ...t } })
 
 describe("installation", () => {
-  async function stubTabs() {
+  function stubTabs() {
     const { api } = stubBrowser()
-    vi.resetModules()
-    const { openWelcomeOnInstall } = await import("../src/background/welcome")
-    return { create: api.tabs.create, openWelcomeOnInstall }
+    return { create: api.tabs.create }
   }
 
   it("opens the welcome page after a new installation", async () => {
-    const { create, openWelcomeOnInstall } = await stubTabs()
+    const { create } = stubTabs()
     await openWelcomeOnInstall({ reason: "install" })
     expect(create).toHaveBeenCalledWith({ url: "moz-extension://test/welcome.html" })
   })
@@ -50,7 +46,7 @@ describe("installation", () => {
   })
 
   it("does not open it after an update of the extension or of Thunderbird", async () => {
-    const { create, openWelcomeOnInstall } = await stubTabs()
+    const { create } = stubTabs()
     for (const reason of ["update", "browser_update", "shared_module_update"]) await openWelcomeOnInstall({ reason })
     expect(create).not.toHaveBeenCalled()
   })

@@ -11,10 +11,7 @@ import { nextTask, openPage, useFakeTimers } from "./helpers"
 // Fake timers in every test: a page left open by a test cannot fire its timers into the next one.
 beforeEach(() => useFakeTimers())
 
-afterEach(() => {
-  vi.useRealTimers()
-  vi.resetModules()
-})
+afterEach(() => vi.useRealTimers())
 
 const $ = <T extends HTMLElement>(id: string) => document.getElementById(id) as T
 const tabState = (over: Partial<TabState>): TabState => ({ ...IDLE_TAB_STATE, connected: true, ...over })

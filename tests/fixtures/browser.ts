@@ -117,7 +117,7 @@ export function fakeBrowser({
 
 export type FakeBrowser = ReturnType<typeof fakeBrowser>
 
-/** fakeBrowser() as the global `browser`, which shared/ext.ts reads when it is imported. */
+/** fakeBrowser() as the global `browser`, which shared/ext.ts reads at every call. */
 export function stubBrowser(options: FakeBrowserOptions = {}): FakeBrowser {
   const browser = fakeBrowser(options)
   vi.stubGlobal("browser", browser.api)

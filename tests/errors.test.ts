@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { APICallError, JSONParseError, NoContentGeneratedError, RetryError } from "ai"
-import { afterEach, describe, expect, it, vi } from "vitest"
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 import { compileMessagesJson, ENGLISH, I18n } from "../src/shared/i18n"
 import { readLocaleSources, toMessagesJson } from "../scripts/locales.mjs"
 import { analyzeError, describeError, type ErrorContext, firstLine, httpStatusLine, LocalizedError, NetworkError, redactUrl, renderErrorText, summarizeResponseBody } from "../src/shared/errors"
@@ -9,7 +9,7 @@ import { errorContext } from "../src/background/service"
 import { HttpError } from "../src/shared/http"
 import { googleTranslateBatch } from "../src/background/translators/google"
 import { createDefaultSettings, resolveProviderConfig } from "../src/shared/settings"
-import { asFetch, createService, openPage, translateOne } from "./helpers"
+import { asFetch, createService, openPage, translateOne, useFakeTimers } from "./helpers"
 
 const sources = readLocaleSources()
 const zh = new I18n("zh_CN", compileMessagesJson(toMessagesJson(sources.zh_CN)))
@@ -254,9 +254,8 @@ describe("checkBaseURL", () => {
 /* ---------- settings page ---------- */
 
 describe("settings page", () => {
-  afterEach(() => {
-    vi.resetModules()
-  })
+  beforeEach(() => useFakeTimers())
+  afterEach(() => vi.useRealTimers())
 
   async function openOptions(testResponse: unknown) {
     const settings = createDefaultSettings("zh-CN")

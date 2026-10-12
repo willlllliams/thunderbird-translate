@@ -9,15 +9,11 @@ import { pagePort } from "./fixtures/browser"
 import { publicSettings, tieredSettings } from "./fixtures/content"
 import { nextTask } from "./helpers"
 
-// ext.ts reads the global namespace when it is first imported.
-const stub = vi.hoisted(() => {
-  const s = {
-    runtime: { connect: (_info: { name: string }): unknown => undefined, sendMessage: async (_req: BackgroundRequest): Promise<unknown> => undefined },
-    i18n: { detectLanguage: async (_text: string) => ({ isReliable: false, languages: [] as { language: string; percentage: number }[] }) },
-  }
-  ;(globalThis as { browser?: unknown }).browser = s
-  return s
-})
+/** The extension API of the content script. */
+const stub = {
+  runtime: { connect: (_info: { name: string }): unknown => undefined, sendMessage: async (_req: BackgroundRequest): Promise<unknown> => undefined },
+  i18n: { detectLanguage: async (_text: string) => ({ isReliable: false, languages: [] as { language: string; percentage: number }[] }) },
+}
 
 let port: ReturnType<typeof pagePort>
 const connect = vi.fn((_info: { name: string }) => port)
@@ -30,6 +26,7 @@ beforeEach(() => {
   stub.runtime.connect = connect
   stub.runtime.sendMessage = sendMessage
   stub.i18n.detectLanguage = async () => ({ isReliable: false, languages: [] })
+  vi.stubGlobal("browser", stub)
   setI18n(ENGLISH)
   document.body.innerHTML = "<p>Good morning everyone</p>"
 })

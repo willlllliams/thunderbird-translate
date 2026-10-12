@@ -8,6 +8,7 @@
  * two models (see shared/offline-needs.ts). Details: docs/bergamot.md.
  */
 
+import { ext } from "../../shared/ext"
 import type { WorkerLike } from "./engine"
 import { BergamotManager } from "./manager"
 import { WORKER_FILE } from "./protocol"
@@ -25,7 +26,7 @@ export function getBergamot(): BergamotManager {
     // Test build (npm run e2e): the model list of the local mock server instead of Mozilla's.
     serverUrl: __E2E__ ? `${__E2E_SERVER__}/bergamot/v1/` : undefined,
     fetch: (input, init) => fetch(input, init),
-    createWorker: () => new Worker(browser.runtime.getURL(WORKER_FILE)) as unknown as WorkerLike,
+    createWorker: () => new Worker(ext.runtime.getURL(WORKER_FILE)) as unknown as WorkerLike,
   })
   return manager
 }

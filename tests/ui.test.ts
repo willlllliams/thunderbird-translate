@@ -14,10 +14,7 @@ import { jsonResponse, nextTask, openPage, useFakeTimers } from "./helpers"
 // Fake timers in every test: a page left open by a test cannot fire its timers into the next one.
 beforeEach(() => useFakeTimers())
 
-afterEach(() => {
-  vi.useRealTimers()
-  vi.resetModules()
-})
+afterEach(() => vi.useRealTimers())
 
 const optionTexts = (select: HTMLSelectElement) => Array.from(select.options).map((o) => o.value)
 const button = (text: string) => Array.from(document.querySelectorAll<HTMLButtonElement>("#providerPanel button")).find((b) => b.textContent === text)!

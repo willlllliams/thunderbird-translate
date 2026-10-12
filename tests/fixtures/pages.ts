@@ -1,7 +1,7 @@
 /** The extension pages (popup, settings page, setup guide) loaded into jsdom over a fake extension API. */
 import { readFileSync } from "node:fs"
 import { join } from "node:path"
-import { vi } from "vitest"
+import { onTestFinished, vi } from "vitest"
 import type { BackgroundRequest } from "../../src/shared/messages"
 import { SAVE_DELAY_MS } from "../../src/options/session"
 import { type Settings, SETTINGS_KEY } from "../../src/shared/settings"
@@ -11,6 +11,21 @@ import type { StorageChanges } from "./storage"
 
 /** With fake timers: let the delay of the settings page and the setup guide pass, after which their edits are written. */
 export const flushSave = () => vi.advanceTimersByTimeAsync(SAVE_DELAY_MS)
+
+/**
+ * End the pages of a test when it finishes, as closing their window would:
+ * the page hears pagehide (the setup guide stops its demo and tour and drops
+ * its key listener) and its timers are cleared. shared/ext.ts reads the
+ * extension API at every call, so a page left running would reach the fake
+ * API of a later test: the popup polling its tab, a pending save of the
+ * settings page, the tour closing on a key press.
+ */
+function endPageWithTest(): void {
+  onTestFinished(() => {
+    dispatchEvent(new Event("pagehide"))
+    vi.clearAllTimers()
+  })
+}
 
 /**
  * Load the popup, the settings page or the welcome page and run its script
@@ -46,6 +61,9 @@ export async function openPage(
     currentTab?: { id?: number }
   } = {},
 ) {
+  // The timers of the page must be fake so that they end with the test, see endPageWithTest().
+  if (!vi.isFakeTimers()) throw new Error("openPage() needs fake timers: call useFakeTimers() first")
+  endPageWithTest()
   const html = readFileSync(join(__dirname, "..", "..", "static", `${page}.html`), "utf8")
   document.documentElement.innerHTML = new DOMParser().parseFromString(html, "text/html").documentElement.innerHTML
   const tabs = activeTab ? [activeTab] : []
@@ -63,7 +81,7 @@ export async function openPage(
   vi.stubGlobal("close", close)
   vi.stubGlobal("fetch", packagedFetch(fetchUrl))
   const modules = { popup: () => import("../../src/popup/index"), options: () => import("../../src/options/index"), welcome: () => import("../../src/welcome/index") }
-  // Modules that the test file imported before the stub (shared/ext.ts reads the global once) are loaded again over it.
+  // The script of a page runs when it is imported: a new module registry runs it again, with new module state (settings store, interface language).
   vi.resetModules()
   await modules[page]()
   const { api, local } = browser

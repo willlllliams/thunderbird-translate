@@ -23,4 +23,11 @@ type Ext = typeof browser & ThunderbirdExtras
 
 const g = globalThis as unknown as { messenger?: Ext; browser?: Ext }
 
-export const ext: Ext = (g.messenger ?? g.browser) as Ext
+/**
+ * Read at every access (`ext.tabs` looks up the namespace of that moment).
+ * In Thunderbird the namespace exists before any script runs and never
+ * changes; the unit tests install a fake one per test.
+ */
+export const ext: Ext = new Proxy({} as Ext, {
+  get: (_target, key) => Reflect.get((g.messenger ?? g.browser) as Ext, key),
+})

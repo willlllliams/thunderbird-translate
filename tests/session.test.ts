@@ -1,12 +1,12 @@
 // @vitest-environment jsdom
 /** SettingsSession: saving the edits of a page, failed saves, and changes made elsewhere while the page edits or saves. */
 import { afterEach, describe, expect, it, vi } from "vitest"
+import { SettingsSession } from "../src/options/session"
 import { createDefaultSettings, type Settings, SETTINGS_KEY } from "../src/shared/settings"
 import { stubBrowser } from "./fixtures/browser"
 import { useFakeTimers } from "./helpers"
 
 afterEach(() => {
-  vi.resetModules()
   vi.useRealTimers()
 })
 
@@ -14,8 +14,6 @@ afterEach(() => {
 async function open(settings: Settings = createDefaultSettings("en")) {
   // The change event of a write goes out before the write reports back.
   const { local } = stubBrowser({ stored: { [SETTINGS_KEY]: settings }, uiLanguage: "en", storage: { changeBeforeWriteEnds: true } })
-  vi.resetModules()
-  const { SettingsSession } = await import("../src/options/session")
   const session = await SettingsSession.open()
   const stored = () => local.data[SETTINGS_KEY] as Settings
   return {

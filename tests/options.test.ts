@@ -12,10 +12,7 @@ import { openPage, useFakeTimers } from "./helpers"
 // Fake timers in every test: a page left open by a test cannot fire its timers into the next one.
 beforeEach(() => useFakeTimers())
 
-afterEach(() => {
-  vi.useRealTimers()
-  vi.resetModules()
-})
+afterEach(() => vi.useRealTimers())
 
 const $ = <T extends HTMLElement>(id: string) => document.getElementById(id) as T
 const set = (id: string, value: string, type: "change" | "input" = "change") => {
@@ -397,7 +394,6 @@ describe("service panel", () => {
     it("describes a failure without a description and a failed request", async () => {
       const empty = await run((req) => (req.type === "testProvider" ? { ok: false, error: " " } : undefined))
       expect(empty.querySelector(".test-reason")!.textContent).toBe(describeError(undefined, ENGLISH))
-      vi.resetModules()
       const thrown = await run((req) => {
         if (req.type === "testProvider") throw new Error("Could not establish connection. Receiving end does not exist.")
         return undefined

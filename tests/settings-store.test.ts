@@ -1,19 +1,14 @@
 /** Settings in storage.local: reading, writing and the three-way merge of edits made on several pages at once. */
-import { afterEach, describe, expect, it, vi } from "vitest"
+import { describe, expect, it, vi } from "vitest"
 import { createDefaultSettings, type Settings, SETTINGS_KEY } from "../src/shared/settings"
+import * as settingsStore from "../src/shared/settings-store"
 import { mergeChanges } from "../src/shared/settings-store"
 import { stubBrowser } from "./fixtures/browser"
 
-afterEach(() => {
-  vi.resetModules()
-})
-
 /** The store module over a fake storage.local holding `stored`. */
-async function store(stored: unknown, uiLanguage = "en-US") {
+function store(stored: unknown, uiLanguage = "en-US") {
   const { local } = stubBrowser({ stored: { [SETTINGS_KEY]: stored }, uiLanguage })
-  vi.resetModules()
-  const mod = await import("../src/shared/settings-store")
-  return { ...mod, set: local.set, stored: () => local.data[SETTINGS_KEY] as Settings }
+  return { ...settingsStore, set: local.set, stored: () => local.data[SETTINGS_KEY] as Settings }
 }
 
 describe("mergeChanges", () => {
@@ -62,12 +57,12 @@ describe("mergeChanges", () => {
 
 describe("settings in storage", () => {
   it("are read with defaults for a fresh installation in Thunderbird's language", async () => {
-    const { loadSettings } = await store(undefined, "ko")
+    const { loadSettings } = store(undefined, "ko")
     expect(await loadSettings()).toEqual(createDefaultSettings("ko"))
   })
 
   it("are migrated when read", async () => {
-    const { loadSettings, readSettings } = await store({ activeProviderId: "openai", providers: { openai: { apiKey: "sk", baseURL: "", model: "" } } })
+    const { loadSettings, readSettings } = store({ activeProviderId: "openai", providers: { openai: { apiKey: "sk", baseURL: "", model: "" } } })
     expect((await loadSettings()).tiers).toEqual({ dictionary: null, machine: null, ai: "openai" })
     expect(readSettings(null).tiers.machine).toBe("google-free")
   })
@@ -75,7 +70,7 @@ describe("settings in storage", () => {
   it("updateSettings writes one change on top of what is stored", async () => {
     const s = createDefaultSettings("en")
     s.targetLang = "fr"
-    const { updateSettings, stored, set } = await store(s)
+    const { updateSettings, stored, set } = store(s)
     const result = await updateSettings((x) => (x.autoTranslate = true))
     expect(set).toHaveBeenCalledTimes(1)
     expect(stored()).toEqual(result)
@@ -83,14 +78,14 @@ describe("settings in storage", () => {
   })
 
   it("L9: updateSettings reads the stored settings once per change", async () => {
-    const { updateSettings } = await store(createDefaultSettings("en"))
+    const { updateSettings } = store(createDefaultSettings("en"))
     const get = vi.spyOn((globalThis as unknown as { browser: { storage: { local: { get: () => Promise<unknown> } } } }).browser.storage.local, "get")
     await updateSettings((x) => (x.autoTranslate = true))
     expect(get).toHaveBeenCalledTimes(1)
   })
 
   it("updateSettings keeps every change when the popup and a shortcut change settings at the same time", async () => {
-    const { updateSettings, stored } = await store(createDefaultSettings("en"))
+    const { updateSettings, stored } = store(createDefaultSettings("en"))
     await Promise.all([
       updateSettings((x) => (x.mode = "translation-only")),
       updateSettings((x) => (x.targetLang = "ja")),
@@ -100,7 +95,7 @@ describe("settings in storage", () => {
   })
 
   it("updateSettings goes on after a failed write", async () => {
-    const { updateSettings, stored, set } = await store(createDefaultSettings("en"))
+    const { updateSettings, stored, set } = store(createDefaultSettings("en"))
     set.mockRejectedValueOnce(new Error("quota"))
     await expect(updateSettings((x) => (x.mode = "translation-only"))).rejects.toThrow("quota")
     await updateSettings((x) => (x.targetLang = "ja"))
@@ -113,7 +108,7 @@ describe("settings in storage", () => {
     const latest = structuredClone(base)
     latest.targetLang = "de"
     latest.providers.openai.apiKey = "sk-popup"
-    const { saveChanges, stored } = await store(latest)
+    const { saveChanges, stored } = store(latest)
     // The settings page changed the display mode and the model of the same service.
     const edited = structuredClone(base)
     edited.mode = "translation-only"
@@ -126,7 +121,7 @@ describe("settings in storage", () => {
 
   it("saveChanges lets the saving page win when both pages changed the same value", async () => {
     const base = createDefaultSettings("en")
-    const { saveChanges, stored } = await store({ ...structuredClone(base), targetLang: "de" })
+    const { saveChanges, stored } = store({ ...structuredClone(base), targetLang: "de" })
     await saveChanges(base, { ...structuredClone(base), targetLang: "ja" })
     expect(stored().targetLang).toBe("ja")
   })

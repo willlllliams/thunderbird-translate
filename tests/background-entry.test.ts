@@ -1,6 +1,6 @@
 /** Background script entry: settings, content script ports, requests from pages, shortcuts, installation and script registration. */
 import { IDBFactory } from "fake-indexeddb"
-import { afterEach, describe, expect, it, vi } from "vitest"
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 import { CACHE_STORAGE_KEY } from "../src/background/cache"
 import { installPack } from "../src/offline/dictionary/download"
 import { DictionaryStore } from "../src/offline/dictionary/store"
@@ -10,9 +10,11 @@ import { DEFAULT_PROMPTS } from "../src/shared/prompts"
 import { createDefaultSettings, SETTINGS_KEY, type Settings, toPublicSettings } from "../src/shared/settings"
 import { localeText, stubBackgroundApi } from "./fixtures/background-api"
 import { packEntry, releaseServer, tsv } from "./fixtures/dictionary"
-import { asFetch, jsonResponse, nextTask } from "./helpers"
+import { asFetch, jsonResponse, nextTask, useFakeTimers } from "./helpers"
 
+beforeEach(() => useFakeTimers())
 afterEach(() => {
+  vi.useRealTimers()
   vi.doUnmock("../src/offline/bergamot")
   vi.resetModules()
 })

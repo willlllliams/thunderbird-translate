@@ -4,6 +4,9 @@ import { Blob as NodeBlob } from "node:buffer"
 import { IDBFactory } from "fake-indexeddb"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 import { DictionaryStore } from "../src/offline/dictionary/store"
+import { BergamotSection } from "../src/options/bergamot"
+import { DictionarySection } from "../src/options/dictionaries"
+import { loadSystemLanguages, recommendedFor } from "../src/options/offline-list"
 import { describeError } from "../src/shared/errors"
 import { ENGLISH } from "../src/shared/i18n"
 import type { BackgroundRequest, BergamotPairInfo } from "../src/shared/messages"
@@ -12,16 +15,9 @@ import type { SourcedLanguage } from "../src/shared/offline-needs"
 import { gz, packEntry, releaseServer, tsv } from "./fixtures/dictionary"
 import { asFetch, jsonResponse, nextTask, useFakeTimers } from "./helpers"
 
-// shared/ext reads the extension namespace when it is imported.
-const sendMessage = vi.hoisted(() => {
-  const fn = vi.fn<(req: unknown) => Promise<unknown>>()
-  ;(globalThis as { browser?: unknown }).browser = { runtime: { sendMessage: fn } }
-  return fn
-})
-
-const { BergamotSection } = await import("../src/options/bergamot")
-const { DictionarySection } = await import("../src/options/dictionaries")
-const { loadSystemLanguages, recommendedFor } = await import("../src/options/offline-list")
+const sendMessage = vi.fn<(req: unknown) => Promise<unknown>>()
+/** The extension API of the lists: runtime.sendMessage, and i18n for the recommended languages. */
+const api: Record<string, unknown> = { runtime: { sendMessage } }
 
 /** Background script stand-in: `answers` by request type; records every request. */
 function background(answers: Partial<Record<BackgroundRequest["type"], (req: BackgroundRequest) => unknown>>) {
@@ -62,6 +58,7 @@ const unknownError = describeError(undefined, ENGLISH)
 
 beforeEach(() => {
   sendMessage.mockReset()
+  vi.stubGlobal("browser", api)
   // jsdom's Blob has no stream(), which gunzip() uses; Thunderbird's has. Stubs are undone before every test (vitest.config.ts).
   vi.stubGlobal("Blob", NodeBlob)
 })
@@ -627,7 +624,6 @@ describe("offline model list", () => {
 /* ---------- recommended languages of a page ---------- */
 
 describe("recommended languages of a page", () => {
-  const api = (globalThis as unknown as { browser: Record<string, unknown> }).browser
   const tags = (s: Parameters<typeof recommendedFor>[0]) => recommendedFor(s).map((l) => `${l.tag}:${l.sources.join("+")}`)
 
   it("come from the settings, the interface languages and the system", async () => {
