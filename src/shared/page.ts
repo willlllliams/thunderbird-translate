@@ -6,16 +6,12 @@ import { getI18n, type I18n, t } from "./i18n"
 import { thunderbirdUiLanguage } from "./i18n-ext"
 import { LANGUAGES } from "./languages"
 import { LOCALE_NATIVE_NAMES, localeToLanguageTag, matchUiLocale, SUPPORTED_LOCALES } from "./locales"
-import type { BackgroundRequest, OfflineStatus, OptionsPlace } from "./messages"
+import { type OfflineStatus, type OptionsPlace, send } from "./messages"
 import { lacksData, type OfflineService, offlineServiceOf } from "./offline-needs"
 import { PROVIDER_PRESETS, providerDisplayName, type Tier, TIER_NAME_KEYS, TIERS, tierOf } from "./providers"
 import { addedProviders, type Settings, type TierSettings, tiersValid } from "./settings"
 
 export const $ = <T extends HTMLElement>(id: string) => document.getElementById(id) as T
-
-export function send<T>(req: BackgroundRequest): Promise<T> {
-  return ext.runtime.sendMessage(req) as Promise<T>
-}
 
 /** Replace a select's options, keeping the selected value. */
 export function fillSelect(select: HTMLSelectElement, options: HTMLOptionElement[], value: string): void {
@@ -113,7 +109,7 @@ export function showOfflineHint(el: HTMLElement, settings: Settings, offline: Of
 /** Ask the background script what the selected offline services lack for the languages of the settings; nothing when it cannot tell. */
 export async function offlineStatus(settings: Settings): Promise<OfflineStatus> {
   if (!TIERS.some((tier) => offlineServiceOf(settings.tiers[tier]))) return {}
-  const status = await send<OfflineStatus | undefined>({ type: "offlineStatus", sourceLang: settings.sourceLang, targetLang: settings.targetLang, tiers: settings.tiers }).catch(() => undefined)
+  const status = await send({ type: "offlineStatus", sourceLang: settings.sourceLang, targetLang: settings.targetLang, tiers: settings.tiers }).catch(() => undefined)
   return status ?? {}
 }
 

@@ -3,15 +3,15 @@ import { ext } from "../shared/ext"
 import { getI18n, loadI18n, t } from "../shared/i18n"
 import { fetchPackagedMessages, loadExtensionI18n, thunderbirdUiLanguage } from "../shared/i18n-ext"
 import {
-  type BackgroundRequest,
+  type BackgroundHandlers,
   CONTENT_PORT_NAME,
   IDLE_TAB_STATE,
+  isPortReport,
   type LocaleMessages,
   type OfflineStatus,
   optionsPath,
   type PageNotice,
   type PortPush,
-  type PortReport,
   type TabState,
 } from "../shared/messages"
 import { pairKey } from "../shared/languages"
@@ -22,7 +22,7 @@ import { SETTINGS_KEY, type Settings, type TierSettings, toPublicSettings } from
 import { readSettings, updateSettings } from "../shared/settings-store"
 import { sourceDetector } from "../shared/lang-detect"
 import { getBergamot } from "../offline/bergamot"
-import { handleBergamot } from "./bergamot-admin"
+import { bergamotHandlers } from "./bergamot-admin"
 import { type KeyValueStorage, PersistentCache } from "./cache"
 import { Dictionary } from "../offline/dictionary"
 import { fetchDictionaryIndex } from "../offline/dictionary/download"
@@ -159,7 +159,7 @@ function safePost(port: browser.runtime.Port, msg: PortPush): void {
 
 /** Dictionary packs or offline models changed: content scripts forget their results, pages show the new state. */
 function offlineDataChanged(): void {
-  broadcast({ type: "dataChanged" })
+  broadcast({ type: "offlineDataChanged" })
   ext.runtime.sendMessage({ type: "offlineDataChanged" } satisfies PageNotice).catch(() => {
     // No page open.
   })
@@ -189,9 +189,9 @@ ext.runtime.onConnect.addListener((port) => {
   tabStates.set(tabId, { ...IDLE_TAB_STATE, connected: true })
   void updateBadge(tabId)
 
-  port.onMessage.addListener((raw) => {
-    const msg = raw as PortReport
-    switch (msg?.type) {
+  port.onMessage.addListener((msg) => {
+    if (!isPortReport(msg)) return
+    switch (msg.type) {
       case "state": {
         const wasActive = tabStates.get(tabId)?.active
         tabStates.set(tabId, { connected: true, ...msg.state })
@@ -241,61 +241,46 @@ function localeMessages(setting: unknown): Promise<LocaleMessages> {
   return table
 }
 
-async function handle(req: BackgroundRequest): Promise<unknown> {
-  await settingsReady
-  switch (req.type) {
-    case "toggleTab":
-      return postToTab(req.tabId, { type: "toggle" })
-    case "retranslateTab":
-      return postToTab(req.tabId, { type: "retranslate" })
-    case "getTabState":
-      return tabStates.get(req.tabId) ?? IDLE_TAB_STATE
-    case "testProvider":
-      try {
-        return { ok: true, text: await service.testProvider(req.providerId, req.config, req.targetLang) }
-      } catch (error) {
-        return { ok: false, error: describeError(error, getI18n()) }
-      }
-    case "getLocaleMessages":
-      return localeMessages(req.uiLanguage)
-    case "dictionaryChanged":
-      dictionary.invalidate()
-      return offlineDataChanged()
-    case "bergamotInstall":
-    case "bergamotRemove": {
-      const result = await handleBergamot(req)
-      offlineDataChanged()
-      return result
+/** The answers to the requests of the content scripts, the popup and the extension pages (exported for the tests). */
+export const handlers: BackgroundHandlers = {
+  toggleTab: (req) => postToTab(req.tabId, { type: "toggle" }),
+  retranslateTab: (req) => postToTab(req.tabId, { type: "retranslate" }),
+  getTabState: (req) => tabStates.get(req.tabId) ?? IDLE_TAB_STATE,
+  testProvider: async (req) => {
+    try {
+      return { ok: true, text: await service.testProvider(req.providerId, req.config, req.targetLang) }
+    } catch (error) {
+      return { ok: false, error: describeError(error, getI18n()) }
     }
-    case "offlineStatus":
-      return offlineStatus(req.sourceLang, req.targetLang, req.tiers)
-    case "openOptions":
-      return void (await ext.tabs.create({ url: ext.runtime.getURL(optionsPath(req.place)) }))
-    case "muteOfflinePairs":
-      // Nothing goes back: the settings hold API keys, and the request comes from a content script.
-      return void (await updateSettings((s) => {
-        const muted = new Set(s.offlineMutedPairs)
-        for (const pair of req.pairs) {
-          if (req.muted) muted.add(pair)
-          else muted.delete(pair)
-        }
-        s.offlineMutedPairs = [...muted]
-      }))
-    case "bergamotList":
-    case "bergamotProgress":
-    case "bergamotCancel":
-      return handleBergamot(req)
-    case "clearCache":
-      return cache.clear()
-    case "cacheStats":
-      return { size: await cache.size() }
-  }
+  },
+  getLocaleMessages: (req) => localeMessages(req.uiLanguage),
+  dictionaryChanged: () => {
+    dictionary.invalidate()
+    offlineDataChanged()
+  },
+  offlineStatus: (req) => offlineStatus(req.sourceLang, req.targetLang, req.tiers),
+  openOptions: async (req) => void (await ext.tabs.create({ url: ext.runtime.getURL(optionsPath(req.place)) })),
+  // Nothing goes back: the settings hold API keys, and the request comes from a content script.
+  muteOfflinePairs: async (req) =>
+    void (await updateSettings((s) => {
+      const muted = new Set(s.offlineMutedPairs)
+      for (const pair of req.pairs) {
+        if (req.muted) muted.add(pair)
+        else muted.delete(pair)
+      }
+      s.offlineMutedPairs = [...muted]
+    })),
+  ...bergamotHandlers(offlineDataChanged),
+  clearCache: () => cache.clear(),
+  cacheStats: async () => ({ size: await cache.size() }),
 }
 
 ext.runtime.onMessage.addListener((message: unknown) => {
-  const req = message as BackgroundRequest
-  if (!req || typeof req !== "object" || typeof req.type !== "string") return undefined
-  return handle(req)
+  const type = (message as { type?: unknown } | null | undefined)?.type
+  // Only own properties: a request named after a property of Object.prototype ("toString") is unknown too.
+  if (typeof type !== "string" || !Object.hasOwn(handlers, type)) return undefined
+  const handler = handlers[type as keyof BackgroundHandlers] as (req: unknown) => unknown
+  return settingsReady.then(() => handler(message))
 })
 
 /* ---------- keyboard shortcuts ---------- */

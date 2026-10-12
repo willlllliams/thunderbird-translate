@@ -9,7 +9,7 @@ import { getBergamot } from "../offline/bergamot"
 import { describeError } from "../shared/errors"
 import { getI18n } from "../shared/i18n"
 import { normalizeBergamotLang, pairKey } from "../shared/languages"
-import type { BergamotRequest, BergamotResult } from "../shared/messages"
+import type { BackgroundHandlers, BergamotRequest, BergamotResult } from "../shared/messages"
 
 /** Running installations by "src>tgt" (model tags); a second request for the same pair shares the first one's progress, cancellation and result. */
 const installs = new Map<string, { done: number; total: number; controller: AbortController; result: Promise<BergamotResult> }>()
@@ -37,26 +37,36 @@ function install(src: string, tgt: string): Promise<BergamotResult> {
   return entry.result
 }
 
-export async function handleBergamot(req: BergamotRequest): Promise<unknown> {
-  switch (req.type) {
-    case "bergamotList":
+async function remove(src: string, tgt: string): Promise<BergamotResult> {
+  try {
+    await getBergamot().remove(src, tgt)
+    return { ok: true }
+  } catch (error) {
+    return failure(error)
+  }
+}
+
+/** The handlers of the offline model requests; `changed` runs after every installation and removal, whatever its result. */
+export function bergamotHandlers(changed: () => void): Pick<BackgroundHandlers, BergamotRequest["type"]> {
+  return {
+    bergamotList: async (req) => {
       try {
-        return { ok: true, pairs: await getBergamot().listPairs(req.refresh === true) } satisfies BergamotResult
+        return { ok: true, pairs: await getBergamot().listPairs(req.refresh === true) }
       } catch (error) {
         return failure(error)
       }
-    case "bergamotProgress":
-      return Object.fromEntries([...installs].map(([key, { done, total }]) => [key, { done, total }]))
-    case "bergamotInstall":
-      return install(req.src, req.tgt)
-    case "bergamotCancel":
-      return installs.get(installKey(req.src, req.tgt))?.controller.abort()
-    case "bergamotRemove":
-      try {
-        await getBergamot().remove(req.src, req.tgt)
-        return { ok: true } satisfies BergamotResult
-      } catch (error) {
-        return failure(error)
-      }
+    },
+    bergamotProgress: () => Object.fromEntries([...installs].map(([key, { done, total }]) => [key, { done, total }])),
+    bergamotInstall: async (req) => {
+      const result = await install(req.src, req.tgt)
+      changed()
+      return result
+    },
+    bergamotCancel: (req) => installs.get(installKey(req.src, req.tgt))?.controller.abort(),
+    bergamotRemove: async (req) => {
+      const result = await remove(req.src, req.tgt)
+      changed()
+      return result
+    },
   }
 }

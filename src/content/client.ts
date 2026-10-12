@@ -9,14 +9,7 @@ import { ext } from "../shared/ext"
 import { ENGLISH, getI18n, I18n, setI18n } from "../shared/i18n"
 import { browserDetector } from "../shared/lang-detect"
 import type { UiLanguageSetting } from "../shared/locales"
-import {
-  type BackgroundRequest,
-  CONTENT_PORT_NAME,
-  type LocaleMessages,
-  type PortPush,
-  type PortReport,
-  type TranslateResponse,
-} from "../shared/messages"
+import { CONTENT_PORT_NAME, isPortPush, type LocaleMessages, type PortReport, send, type TranslateResponse } from "../shared/messages"
 import type { Tier } from "../shared/providers"
 import { TranslationController } from "./controller"
 import { MissingNotice } from "./notice"
@@ -40,7 +33,7 @@ export interface ContentClient {
 /** Messages for the interface language; the background reads the packaged files for us. */
 async function loadLabels(uiLanguage: UiLanguageSetting): Promise<void> {
   try {
-    const r = (await ext.runtime.sendMessage({ type: "getLocaleMessages", uiLanguage } satisfies BackgroundRequest)) as LocaleMessages | undefined
+    const r: LocaleMessages | undefined = await send({ type: "getLocaleMessages", uiLanguage })
     setI18n(r?.messages ? new I18n(r.locale, r.messages) : ENGLISH)
   } catch {
     setI18n(ENGLISH)
@@ -59,7 +52,7 @@ export function connectContent({ root, contentScript = false }: ClientOptions): 
     ? new MissingNotice({
         root,
         muted: () => mutedPairs,
-        send: (req) => void ext.runtime.sendMessage(req).catch(() => {}),
+        send: (req) => void send(req).catch(() => {}),
       })
     : undefined
 
@@ -97,8 +90,8 @@ export function connectContent({ root, contentScript = false }: ClientOptions): 
   let uiLanguage: UiLanguageSetting | null = null
   // Settings are applied in the order they arrive, each once its labels are loaded.
   let settingsApplied = Promise.resolve()
-  port.onMessage.addListener((raw) => {
-    const msg = raw as PortPush
+  port.onMessage.addListener((msg) => {
+    if (!isPortPush(msg)) return
     if (msg.type === "settings") {
       const next = msg.settings
       mutedPairs = next.offlineMutedPairs
@@ -119,7 +112,7 @@ export function connectContent({ root, contentScript = false }: ClientOptions): 
       void controller.toggle()
     } else if (msg.type === "retranslate") {
       void controller.retranslate()
-    } else if (msg.type === "dataChanged") {
+    } else if (msg.type === "offlineDataChanged") {
       controller.forgetResults()
     } else if (msg.type === "tier") {
       const request = pending.get(msg.id)

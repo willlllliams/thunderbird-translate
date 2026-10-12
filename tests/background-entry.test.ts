@@ -5,7 +5,7 @@ import { CACHE_STORAGE_KEY } from "../src/background/cache"
 import { installPack } from "../src/offline/dictionary/download"
 import { DictionaryStore } from "../src/offline/dictionary/store"
 import { createMailContext } from "../src/shared/mail-context"
-import { IDLE_TAB_STATE, type PortPush, type TranslateRequest } from "../src/shared/messages"
+import { type BergamotPairInfo, IDLE_TAB_STATE, type PortPush, type RequestType, type TranslateRequest } from "../src/shared/messages"
 import { DEFAULT_PROMPTS } from "../src/shared/prompts"
 import { createDefaultSettings, SETTINGS_KEY, type Settings, toPublicSettings } from "../src/shared/settings"
 import { localeText, stubBackgroundApi } from "./fixtures/background-api"
@@ -13,9 +13,21 @@ import { packEntry, releaseServer, tsv } from "./fixtures/dictionary"
 import { asFetch, jsonResponse, nextTask } from "./helpers"
 
 afterEach(() => {
-  vi.doUnmock("../src/background/bergamot-admin")
+  vi.doUnmock("../src/offline/bergamot")
   vi.resetModules()
 })
+
+/** The offline engine of the background page, as the model requests use it. */
+function fakeEngine() {
+  const engine = {
+    listPairs: vi.fn(async (_refresh?: boolean) => [] as BergamotPairInfo[]),
+    install: vi.fn(async (_src: string, _tgt: string, _onProgress?: unknown, _signal?: AbortSignal) => {}),
+    remove: vi.fn(async (_src: string, _tgt: string) => {}),
+    signature: async () => "",
+  }
+  vi.doMock("../src/offline/bergamot", () => ({ getBergamot: () => engine }))
+  return engine
+}
 
 /** Google endpoint answering G(<text>). */
 const google = vi.fn(async (_url: string, init?: RequestInit) => jsonResponse(new URLSearchParams(String(init?.body)).getAll("q").map((q) => [`G(${q})`, "en"])))
@@ -156,6 +168,16 @@ describe("content script ports", () => {
     expect([other.posted, noTab.posted]).toEqual([[], []])
     expect(other.onMessage.listeners).toHaveLength(0)
     expect(await bg.send({ type: "getTabState", tabId: 4 })).toEqual(IDLE_TAB_STATE)
+  })
+
+  it("ignores port messages that are not reports of a content script", async () => {
+    const bg = await start({ stored: stored(createDefaultSettings()) })
+    const port = bg.connect(4)
+    await vi.waitFor(() => expect(port.posted).toHaveLength(1))
+    for (const message of [undefined, null, "state", {}, { type: "toggle" }, { type: 3 }]) expect(() => port.send(message as never)).not.toThrow()
+    await nextTask()
+    expect(port.posted).toHaveLength(1)
+    expect(await bg.send({ type: "getTabState", tabId: 4 })).toEqual({ ...IDLE_TAB_STATE, connected: true })
   })
 
   it("keeps the state reported by the tab and shows ON on its badge while active", async () => {
@@ -321,15 +343,16 @@ describe("requests from pages", () => {
   })
 
   it("L3: tells the content scripts that dictionary packs or offline models changed, so they forget their results", async () => {
-    const handleBergamot = vi.fn(async (req: { type: string }) => ({ ok: true, handled: req.type }))
-    vi.doMock("../src/background/bergamot-admin", () => ({ handleBergamot }))
+    const engine = fakeEngine()
     const bg = await start({ stored: stored(createDefaultSettings()) })
     const port = bg.connect(4)
-    const changes = () => port.posted.filter((m) => m.type === "dataChanged").length
+    const changes = () => port.posted.filter((m) => m.type === "offlineDataChanged").length
     await bg.send({ type: "dictionaryChanged" })
     expect(changes()).toBe(1)
-    await bg.send({ type: "bergamotInstall", src: "de", tgt: "en" })
-    await bg.send({ type: "bergamotRemove", src: "de", tgt: "en" })
+    // Also after a failed installation: part of the files may have been stored.
+    engine.install.mockRejectedValueOnce(new Error("disk full"))
+    expect(await bg.send({ type: "bergamotInstall", src: "de", tgt: "en" })).toEqual({ ok: false, error: "disk full" })
+    expect(await bg.send({ type: "bergamotRemove", src: "de", tgt: "en" })).toEqual({ ok: true })
     expect(changes()).toBe(3)
     await bg.send({ type: "bergamotList" })
     expect(changes()).toBe(3)
@@ -448,19 +471,53 @@ describe("requests from pages", () => {
     expect(await bg.send({ type: "cacheStats" })).toEqual({ size: 0 })
   })
 
-  it.each(["bergamotList", "bergamotProgress", "bergamotInstall", "bergamotCancel", "bergamotRemove"])("hands %s to the offline model manager", async (type) => {
-    const handleBergamot = vi.fn(async (req: { type: string }) => ({ handled: req.type }))
-    vi.doMock("../src/background/bergamot-admin", () => ({ handleBergamot }))
+  it.each<[string, Record<string, unknown>, unknown, (engine: ReturnType<typeof fakeEngine>) => void]>([
+    ["bergamotList", { refresh: true }, { ok: true, pairs: [] }, (engine) => expect(engine.listPairs).toHaveBeenCalledWith(true)],
+    ["bergamotProgress", {}, {}, () => {}],
+    ["bergamotInstall", { src: "en", tgt: "de" }, { ok: true }, (engine) => expect(engine.install).toHaveBeenCalledWith("en", "de", expect.any(Function), expect.any(AbortSignal))],
+    ["bergamotCancel", { src: "en", tgt: "de" }, undefined, (engine) => expect(engine.install).not.toHaveBeenCalled()],
+    ["bergamotRemove", { src: "en", tgt: "de" }, { ok: true }, (engine) => expect(engine.remove).toHaveBeenCalledWith("en", "de")],
+  ])("hands %s to the offline engine of the background page", async (type, fields, answer, check) => {
+    const engine = fakeEngine()
     const bg = await start({ stored: stored(createDefaultSettings()) })
-    const req = { type, src: "en", tgt: "de" }
-    expect(await bg.send(req)).toEqual({ handled: type })
-    expect(handleBergamot).toHaveBeenCalledWith(req)
+    expect(await bg.send({ type, ...fields })).toEqual(answer)
+    check(engine)
   })
 
   it("ignores messages that are not requests and unknown requests", async () => {
     const bg = await start({ stored: stored(createDefaultSettings()) })
     for (const message of [undefined, null, "toggleTab", { type: 1 }]) expect(bg.send(message)).toBeUndefined()
     expect(await bg.send({ type: "somethingElse" })).toBeUndefined()
+  })
+
+  it("answers nothing to an unknown type, also one named after a property of every object", async () => {
+    const bg = await start({ stored: stored(createDefaultSettings()) })
+    for (const type of ["somethingElse", "toString", "constructor", "hasOwnProperty", "valueOf", "__proto__"]) expect(bg.send({ type })).toBeUndefined()
+  })
+
+  it("has one handler for each request of BackgroundApi, and no other", async () => {
+    // The compiler checks that this list names every request type and nothing else.
+    const types = Object.keys({
+      toggleTab: true,
+      retranslateTab: true,
+      getTabState: true,
+      testProvider: true,
+      clearCache: true,
+      cacheStats: true,
+      getLocaleMessages: true,
+      dictionaryChanged: true,
+      openOptions: true,
+      muteOfflinePairs: true,
+      offlineStatus: true,
+      bergamotList: true,
+      bergamotInstall: true,
+      bergamotCancel: true,
+      bergamotProgress: true,
+      bergamotRemove: true,
+    } satisfies Record<RequestType, true>)
+    await start({ stored: stored(createDefaultSettings()) })
+    const { handlers } = await import("../src/background/index")
+    expect(Object.keys(handlers).sort()).toEqual(types.sort())
   })
 })
 

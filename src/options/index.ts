@@ -4,8 +4,8 @@ import { getI18n, t } from "../shared/i18n"
 import { localizeDocument } from "../shared/i18n-dom"
 import { loadExtensionI18n } from "../shared/i18n-ext"
 import { normalizeUiLanguageSetting } from "../shared/locales"
-import type { OfflineStatus, OptionsPlace, PageNotice } from "../shared/messages"
-import { $, fillSelect, fillTierSelects, languageOptions, offlineStatus, onTierChange, send, showOfflineHint, showSaved, showSaveError, sourceLanguageOptions, uiLanguageOptions } from "../shared/page"
+import { type OfflineStatus, type OptionsPlace, type PageNotice, send } from "../shared/messages"
+import { $, fillSelect, fillTierSelects, languageOptions, offlineStatus, onTierChange, showOfflineHint, showSaved, showSaveError, sourceLanguageOptions, uiLanguageOptions } from "../shared/page"
 import { getPreset, PROVIDER_PRESETS, providerDisplayName, type ProviderPreset, type Tier, TIER_NAME_KEYS, TIERS, tierOf } from "../shared/providers"
 import { addedProviders, addProvidersInUse, type DisplayMode, enabledTiers, removalBlocker, type Settings } from "../shared/settings"
 import { BergamotSection } from "./bergamot"
@@ -181,7 +181,7 @@ function applyPreview(): void {
 }
 
 async function refreshCacheCount(): Promise<void> {
-  const r = await send<{ size: number }>({ type: "cacheStats" })
+  const r = await send({ type: "cacheStats" })
   $("cacheCount").textContent = t("cacheCount", [r?.size ?? 0])
 }
 

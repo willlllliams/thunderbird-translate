@@ -38,6 +38,14 @@ const settingsPush = (settings: PublicSettings) => port.push({ type: "settings",
 const lastState = () => port.posted("state").at(-1)?.state
 
 describe("connectContent", () => {
+  it("ignores port messages that are not pushes of the background script", async () => {
+    const client = connectContent({ root: () => document.body })
+    for (const message of [undefined, null, "toggle", {}, { type: "state" }, { type: 3 }]) expect(() => port.push(message as never)).not.toThrow()
+    settingsPush(publicSettings())
+    await client.ready
+    expect(port.posted("translate")).toEqual([])
+  })
+
   it("settles ready with the first settings, toggles on a push and routes tier results by request id", async () => {
     const client = connectContent({ root: () => document.body })
     expect(connect).toHaveBeenCalledWith({ name: "tt-content" })
@@ -86,7 +94,7 @@ describe("connectContent", () => {
     expect(port.posted("translate")).toHaveLength(1)
     port.push({ type: "toggle" })
     await vi.waitFor(() => expect(lastState()).toMatchObject({ active: false }))
-    port.push({ type: "dataChanged" })
+    port.push({ type: "offlineDataChanged" })
     port.push({ type: "toggle" })
     await vi.waitFor(() => expect(port.posted("translate")).toHaveLength(2))
   })

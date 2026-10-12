@@ -6,8 +6,7 @@
 import { supportsThinkingControl } from "../shared/thinking"
 import { describeError } from "../shared/errors"
 import { getI18n, t } from "../shared/i18n"
-import type { TranslateResponse } from "../shared/messages"
-import { send } from "../shared/page"
+import { send } from "../shared/messages"
 import { checkBaseURL, type ProviderPreset, providerDisplayName } from "../shared/providers"
 import { emptyProviderConfig, type ProviderConfig } from "../shared/settings"
 import { button, h } from "../shared/dom"
@@ -210,7 +209,7 @@ export function testButton({ p, cfg, session }: PanelState, result: HTMLElement)
     result.textContent = t("testRunning")
     test.disabled = true
     try {
-      const r = await send<TranslateResponse | undefined>({ type: "testProvider", providerId: p.id, config: { ...cfg }, targetLang: session.settings.targetLang })
+      const r = await send({ type: "testProvider", providerId: p.id, config: { ...cfg }, targetLang: session.settings.targetLang })
       if (r?.ok) {
         result.className = "test-result ok"
         result.textContent = t("testOk", [r.text])

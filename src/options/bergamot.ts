@@ -11,8 +11,7 @@
 import { describeError } from "../shared/errors"
 import { getI18n, t } from "../shared/i18n"
 import { pairKey } from "../shared/languages"
-import type { BergamotPairInfo, BergamotProgress, BergamotResult } from "../shared/messages"
-import { send } from "../shared/page"
+import { type BergamotPairInfo, type BergamotProgress, type BergamotResult, send } from "../shared/messages"
 import { button, h } from "../shared/dom"
 import { type ListItem, megabytes, OfflineList, type OfflineListDeps } from "./offline-list"
 
@@ -41,7 +40,7 @@ export class BergamotSection extends OfflineList<PairItem> {
     this.loading = true
     this.render()
     try {
-      const r = await send<BergamotResult | undefined>({ type: "bergamotList", refresh })
+      const r = await send({ type: "bergamotList", refresh })
       this.pairs = r?.ok ? (r.pairs ?? []) : []
       this.listError = r && !r.ok ? (r.error ?? "") : ""
     } catch (error) {
@@ -115,7 +114,7 @@ export class BergamotSection extends OfflineList<PairItem> {
 
   private poll(): void {
     this.timer ??= setInterval(async () => {
-      this.progress = (await send<BergamotProgress | undefined>({ type: "bergamotProgress" }).catch(() => undefined)) ?? {}
+      this.progress = (await send({ type: "bergamotProgress" }).catch(() => undefined)) ?? {}
       if (this.running.size === 0 && this.timer) {
         clearInterval(this.timer)
         this.timer = null
@@ -133,7 +132,7 @@ export class BergamotSection extends OfflineList<PairItem> {
     this.running.add(p.id)
     this.poll()
     this.render()
-    const r = await send<BergamotResult | undefined>({ type: "bergamotInstall", src: p.src, tgt: p.tgt }).catch((error): BergamotResult => ({ ok: false, error: describeError(error, getI18n()) }))
+    const r = await send({ type: "bergamotInstall", src: p.src, tgt: p.tgt }).catch((error): BergamotResult => ({ ok: false, error: describeError(error, getI18n()) }))
     this.running.delete(p.id)
     if (!r?.ok && !r?.cancelled) this.rowErrors.set(p.id, r?.error || describeError(undefined, getI18n()))
   }
@@ -141,7 +140,7 @@ export class BergamotSection extends OfflineList<PairItem> {
   private async remove(p: PairItem): Promise<void> {
     this.deleting.delete(p.id)
     this.rowErrors.delete(p.id)
-    const r = await send<BergamotResult | undefined>({ type: "bergamotRemove", src: p.src, tgt: p.tgt }).catch((error): BergamotResult => ({ ok: false, error: describeError(error, getI18n()) }))
+    const r = await send({ type: "bergamotRemove", src: p.src, tgt: p.tgt }).catch((error): BergamotResult => ({ ok: false, error: describeError(error, getI18n()) }))
     if (!r?.ok) this.rowErrors.set(p.id, r?.error || describeError(undefined, getI18n()))
     await this.load()
   }

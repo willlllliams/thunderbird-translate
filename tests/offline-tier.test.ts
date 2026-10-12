@@ -10,12 +10,16 @@ const engine = vi.hoisted(() => ({
 }))
 vi.mock("../src/offline/bergamot", async (importOriginal) => ({ ...(await importOriginal<object>()), getBergamot: () => engine }))
 
-import { handleBergamot } from "../src/background/bergamot-admin"
+import { bergamotHandlers } from "../src/background/bergamot-admin"
 import { bergamotTranslateBatch } from "../src/background/translators/bergamot"
 import type { TranslateResponse } from "../src/shared/messages"
 import type { Tier } from "../src/shared/providers"
 import { createDefaultSettings } from "../src/shared/settings"
 import { createService } from "./helpers"
+
+/** Told after every installation and removal (offlineDataChanged of the background script). */
+const changed = vi.fn()
+const bergamot = bergamotHandlers(changed)
 
 beforeEach(() => vi.clearAllMocks())
 
@@ -51,8 +55,9 @@ describe("Bergamot translator", () => {
 
 describe("model management in the background script", () => {
   it("lists the pairs", async () => {
-    expect(await handleBergamot({ type: "bergamotList", refresh: true })).toMatchObject({ ok: true, pairs: [{ src: "en", tgt: "zh-Hans" }] })
+    expect(await bergamot.bergamotList({ type: "bergamotList", refresh: true })).toMatchObject({ ok: true, pairs: [{ src: "en", tgt: "zh-Hans" }] })
     expect(engine.listPairs).toHaveBeenCalledWith(true)
+    expect(changed).not.toHaveBeenCalled()
   })
 
   it("reports the progress of an installation, and its end", async () => {
@@ -61,21 +66,21 @@ describe("model management in the background script", () => {
       onProgress?.(5, 10)
       await new Promise<void>((r) => (finish = r))
     })
-    const result = handleBergamot({ type: "bergamotInstall", src: "en", tgt: "zh-Hans" })
+    const result = bergamot.bergamotInstall({ type: "bergamotInstall", src: "en", tgt: "zh-Hans" })
     await vi.waitFor(() => expect(finish).toBeDefined())
-    expect(await handleBergamot({ type: "bergamotProgress" })).toEqual({ "en>zh-Hans": { done: 5, total: 10 } })
+    expect(await bergamot.bergamotProgress({ type: "bergamotProgress" })).toEqual({ "en>zh-Hans": { done: 5, total: 10 } })
     finish()
     expect(await result).toEqual({ ok: true })
-    expect(await handleBergamot({ type: "bergamotProgress" })).toEqual({})
+    expect(await bergamot.bergamotProgress({ type: "bergamotProgress" })).toEqual({})
   })
 
   it("cancels an installation", async () => {
     engine.install.mockImplementationOnce(
       (_s, _t, _p, signal) => new Promise((_, reject) => signal!.addEventListener("abort", () => reject(new DOMException("Aborted", "AbortError")))),
     )
-    const result = handleBergamot({ type: "bergamotInstall", src: "ja", tgt: "en" })
+    const result = bergamot.bergamotInstall({ type: "bergamotInstall", src: "ja", tgt: "en" })
     await vi.waitFor(() => expect(engine.install).toHaveBeenCalled())
-    await handleBergamot({ type: "bergamotCancel", src: "ja", tgt: "en" })
+    await bergamot.bergamotCancel({ type: "bergamotCancel", src: "ja", tgt: "en" })
     expect(await result).toEqual({ ok: false, cancelled: true })
   })
 
@@ -86,26 +91,27 @@ describe("model management in the background script", () => {
       progress = onProgress!
       await new Promise<void>((r) => (finish = r))
     })
-    const first = handleBergamot({ type: "bergamotInstall", src: "en", tgt: "zh-Hans" })
+    const first = bergamot.bergamotInstall({ type: "bergamotInstall", src: "en", tgt: "zh-Hans" })
     await vi.waitFor(() => expect(finish).toBeDefined())
     // A second page asks for the same pair: one download, one progress, one cancel button for both.
-    const second = handleBergamot({ type: "bergamotInstall", src: "EN", tgt: "zh-CN" })
+    const second = bergamot.bergamotInstall({ type: "bergamotInstall", src: "EN", tgt: "zh-CN" })
     progress(7, 10)
-    expect(await handleBergamot({ type: "bergamotProgress" })).toEqual({ "en>zh-Hans": { done: 7, total: 10 } })
+    expect(await bergamot.bergamotProgress({ type: "bergamotProgress" })).toEqual({ "en>zh-Hans": { done: 7, total: 10 } })
     finish()
     expect(await Promise.all([first, second])).toEqual([{ ok: true }, { ok: true }])
     expect(engine.install).toHaveBeenCalledTimes(1)
-    expect(await handleBergamot({ type: "bergamotProgress" })).toEqual({})
+    expect(changed).toHaveBeenCalledTimes(2)
+    expect(await bergamot.bergamotProgress({ type: "bergamotProgress" })).toEqual({})
   })
 
   it("cancels an installation that two pages asked for", async () => {
     engine.install.mockImplementationOnce(
       (_s, _t, _p, signal) => new Promise((_, reject) => signal!.addEventListener("abort", () => reject(new DOMException("Aborted", "AbortError")))),
     )
-    const first = handleBergamot({ type: "bergamotInstall", src: "ja", tgt: "en" })
-    const second = handleBergamot({ type: "bergamotInstall", src: "ja", tgt: "en" })
+    const first = bergamot.bergamotInstall({ type: "bergamotInstall", src: "ja", tgt: "en" })
+    const second = bergamot.bergamotInstall({ type: "bergamotInstall", src: "ja", tgt: "en" })
     await vi.waitFor(() => expect(engine.install).toHaveBeenCalled())
-    await handleBergamot({ type: "bergamotCancel", src: "ja", tgt: "en" })
+    await bergamot.bergamotCancel({ type: "bergamotCancel", src: "ja", tgt: "en" })
     expect(await Promise.all([first, second])).toEqual([
       { ok: false, cancelled: true },
       { ok: false, cancelled: true },
@@ -114,25 +120,28 @@ describe("model management in the background script", () => {
 
   it("describes a failed installation", async () => {
     engine.install.mockRejectedValueOnce(new Error("disk full"))
-    expect(await handleBergamot({ type: "bergamotInstall", src: "ja", tgt: "en" })).toEqual({ ok: false, error: "disk full" })
+    expect(await bergamot.bergamotInstall({ type: "bergamotInstall", src: "ja", tgt: "en" })).toEqual({ ok: false, error: "disk full" })
+    expect(changed).toHaveBeenCalledTimes(1)
   })
 
   it("removes a pair", async () => {
-    expect(await handleBergamot({ type: "bergamotRemove", src: "ja", tgt: "en" })).toEqual({ ok: true })
+    expect(await bergamot.bergamotRemove({ type: "bergamotRemove", src: "ja", tgt: "en" })).toEqual({ ok: true })
     expect(engine.remove).toHaveBeenCalledWith("ja", "en")
+    expect(changed).toHaveBeenCalledTimes(1)
   })
 })
 
 describe("model management failures", () => {
   it("describes a list or removal that fails", async () => {
     engine.listPairs.mockRejectedValueOnce(new Error("offline"))
-    expect(await handleBergamot({ type: "bergamotList" })).toEqual({ ok: false, error: "offline" })
+    expect(await bergamot.bergamotList({ type: "bergamotList" })).toEqual({ ok: false, error: "offline" })
     expect(engine.listPairs).toHaveBeenCalledWith(false)
     engine.remove.mockRejectedValueOnce(new Error("locked"))
-    expect(await handleBergamot({ type: "bergamotRemove", src: "ja", tgt: "en" })).toEqual({ ok: false, error: "locked" })
+    expect(await bergamot.bergamotRemove({ type: "bergamotRemove", src: "ja", tgt: "en" })).toEqual({ ok: false, error: "locked" })
+    expect(changed).toHaveBeenCalledTimes(1)
   })
 
   it("ignores cancelling a pair that is not being installed", async () => {
-    expect(await handleBergamot({ type: "bergamotCancel", src: "xx", tgt: "en" })).toBeUndefined()
+    expect(await bergamot.bergamotCancel({ type: "bergamotCancel", src: "xx", tgt: "en" })).toBeUndefined()
   })
 })

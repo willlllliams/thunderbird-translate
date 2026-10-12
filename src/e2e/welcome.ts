@@ -26,8 +26,8 @@
 import { DictionaryStore } from "../offline/dictionary/store"
 import { ext } from "../shared/ext"
 import { t } from "../shared/i18n"
-import type { BergamotResult } from "../shared/messages"
-import { $, send } from "../shared/page"
+import { send } from "../shared/messages"
+import { $ } from "../shared/page"
 import { STEP_IDS } from "../welcome/steps"
 import type { E2eMessage } from "./background"
 import { E2E_MARKER } from "./marker"
@@ -116,7 +116,7 @@ function countRecords(database: string, stores: string[]): Promise<Record<string
 
 /** What the extension holds: the answers of the background script and the object stores themselves. */
 async function stored() {
-  const list = await send<BergamotResult>({ type: "bergamotList" })
+  const list = await send({ type: "bergamotList" })
   return {
     bergamotInstalled: list.ok ? (list.pairs ?? []).filter((p) => p.installed).map((p) => `${p.src}>${p.tgt}`) : list.error,
     dictionaryInstalled: (await new DictionaryStore().list()).map((p) => p.id).sort(),

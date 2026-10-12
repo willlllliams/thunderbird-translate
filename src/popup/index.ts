@@ -3,8 +3,8 @@ import { ext } from "../shared/ext"
 import { t } from "../shared/i18n"
 import { localizeDocument } from "../shared/i18n-dom"
 import { loadExtensionI18n } from "../shared/i18n-ext"
-import { IDLE_TAB_STATE, type OfflineStatus, type OptionsPlace, optionsPath, type PageNotice, type TabState } from "../shared/messages"
-import { $, fillSelect, fillTierSelects, languageOptions, offlineStatus, onTierChange, send, showOfflineHint, sourceLanguageOptions } from "../shared/page"
+import { IDLE_TAB_STATE, type OfflineStatus, type OptionsPlace, optionsPath, type PageNotice, send, type TabState } from "../shared/messages"
+import { $, fillSelect, fillTierSelects, languageOptions, offlineStatus, onTierChange, showOfflineHint, sourceLanguageOptions } from "../shared/page"
 import { type DisplayMode, SETTINGS_KEY } from "../shared/settings"
 import { loadSettings, readSettings, updateSettings } from "../shared/settings-store"
 import { REFRESH_AFTER_ACTION_MS, REFRESH_INTERVAL_MS } from "./timing"
@@ -105,7 +105,7 @@ async function main(): Promise<void> {
 
   const refresh = async () => {
     if (tabId === undefined) return render(IDLE_TAB_STATE)
-    render(await send<TabState>({ type: "getTabState", tabId }))
+    render(await send({ type: "getTabState", tabId }))
   }
 
   // The popup and the settings page change the settings; the interface language may change too.

@@ -1,4 +1,5 @@
 import type { MissingData } from "./errors"
+import { ext } from "./ext"
 import type { OfflineService, OfflineState } from "./offline-needs"
 import type { MessageTable } from "./i18n"
 import type { UiLanguageSetting, UiLocale } from "./locales"
@@ -6,25 +7,57 @@ import type { MailContext } from "./mail-context"
 import type { Tier } from "./providers"
 import type { ProviderConfig, PublicSettings, TierSettings } from "./settings"
 
-/** Requests sent with runtime.sendMessage to the background script. */
-export type BackgroundRequest =
-  | { type: "toggleTab"; tabId: number }
+/** Fields of a request that carries nothing besides its type. */
+type NoFields = Record<never, never>
+
+/**
+ * The requests that runtime.sendMessage carries to the background script:
+ * the fields of each request (besides `type`) and the answer.
+ */
+export interface BackgroundApi {
+  toggleTab: { req: { tabId: number }; res: void }
   /** Translate the message of the tab again, past every cache; nothing happens while it is not translated. */
-  | { type: "retranslateTab"; tabId: number }
-  | { type: "getTabState"; tabId: number }
-  | { type: "testProvider"; providerId: string; config: ProviderConfig; targetLang: string }
-  | { type: "clearCache" }
-  | { type: "cacheStats" }
-  | { type: "getLocaleMessages"; uiLanguage: UiLanguageSetting }
+  retranslateTab: { req: { tabId: number }; res: void }
+  getTabState: { req: { tabId: number }; res: TabState }
+  testProvider: { req: { providerId: string; config: ProviderConfig; targetLang: string }; res: TranslateResponse }
+  clearCache: { req: NoFields; res: void }
+  cacheStats: { req: NoFields; res: { size: number } }
+  getLocaleMessages: { req: { uiLanguage: UiLanguageSetting }; res: LocaleMessages }
   /** The settings page installed or deleted dictionary packs. */
-  | { type: "dictionaryChanged" }
+  dictionaryChanged: { req: NoFields; res: void }
   /** A content script opens the settings page (content scripts cannot), e.g. at the offline downloads filtered to what a message needs. */
-  | { type: "openOptions"; place: OptionsPlace }
+  openOptions: { req: { place: OptionsPlace }; res: void }
   /** The notice about missing offline data stays away (or comes back) for these services and language pairs ("dictionary:ja>zh-Hans"). */
-  | { type: "muteOfflinePairs"; pairs: string[]; muted: boolean }
-  /** Answer: OfflineStatus of the offline services among the tiers, for these languages. */
-  | { type: "offlineStatus"; sourceLang: string; targetLang: string; tiers: TierSettings }
-  | BergamotRequest
+  muteOfflinePairs: { req: { pairs: string[]; muted: boolean }; res: void }
+  /** The offline services among the tiers, for these languages. */
+  offlineStatus: { req: { sourceLang: string; targetLang: string; tiers: TierSettings }; res: OfflineStatus }
+  /** Offline models; `refresh` reads Mozilla's model list again. */
+  bergamotList: { req: { refresh?: boolean }; res: BergamotResult }
+  /** Answers when the installation ends. */
+  bergamotInstall: { req: { src: string; tgt: string }; res: BergamotResult }
+  bergamotCancel: { req: { src: string; tgt: string }; res: void }
+  bergamotProgress: { req: NoFields; res: BergamotProgress }
+  bergamotRemove: { req: { src: string; tgt: string }; res: BergamotResult }
+}
+
+export type RequestType = keyof BackgroundApi
+
+/** The request of type K. Distributes over a union of types, so RequestOf<"a" | "b"> is the union of both requests. */
+export type RequestOf<K extends RequestType> = K extends RequestType ? { type: K } & BackgroundApi[K]["req"] : never
+
+/** Any request to the background script. */
+export type BackgroundRequest = RequestOf<RequestType>
+
+/** The answer of the background script to a request of type K. */
+export type ResponseOf<K extends RequestType> = BackgroundApi[K]["res"]
+
+/** One handler per request type, as the background script implements them. */
+export type BackgroundHandlers = { [K in RequestType]: (req: RequestOf<K>) => ResponseOf<K> | Promise<ResponseOf<K>> }
+
+/** Send a request to the background script; resolves with its answer. */
+export function send<R extends BackgroundRequest>(req: R): Promise<ResponseOf<R["type"]>> {
+  return ext.runtime.sendMessage(req) as Promise<ResponseOf<R["type"]>>
+}
 
 /** Sent by the background script to the extension pages (popup, settings page, welcome page). */
 export type PageNotice =
@@ -54,16 +87,8 @@ export function optionsPath({ section, dictionaries, bergamot, tier }: OptionsPl
   return `options.html${search}#${section}`
 }
 
-/** Offline models, handled by the background script where the engine runs. */
-export type BergamotRequest =
-  /** Answer: BergamotResult with the pairs. */
-  | { type: "bergamotList"; refresh?: boolean }
-  /** Answer when the installation ends: BergamotResult. */
-  | { type: "bergamotInstall"; src: string; tgt: string }
-  | { type: "bergamotCancel"; src: string; tgt: string }
-  /** Answer: BergamotProgress. */
-  | { type: "bergamotProgress" }
-  | { type: "bergamotRemove"; src: string; tgt: string }
+/** Offline models, handled by the background script where the engine runs (background/bergamot-admin.ts). */
+export type BergamotRequest = RequestOf<"bergamotList" | "bergamotInstall" | "bergamotCancel" | "bergamotProgress" | "bergamotRemove">
 
 /** An offline model pair as the settings page lists it. */
 export interface BergamotPairInfo {
@@ -136,8 +161,8 @@ export type PortPush =
   | { type: "tier"; id: number; tier: Tier; result: TranslateResponse }
   /** Request `id` is complete; tiers that did not report were not asked. */
   | { type: "done"; id: number }
-  /** Dictionary packs or offline models were installed or removed: results received before may be outdated. */
-  | { type: "dataChanged" }
+  /** Dictionary packs or offline models were installed or removed: results received before may be outdated. Pages get the same notice (PageNotice). */
+  | { type: "offlineDataChanged" }
 
 /** Messages sent from content scripts to background over the Port. */
 export type PortReport =
@@ -147,3 +172,15 @@ export type PortReport =
   | { type: "translate"; id: number; request: TranslateRequest }
 
 export const CONTENT_PORT_NAME = "tt-content"
+
+/** A test for messages of the given types, told apart by their type field; the other fields come from the extension itself and are not checked. */
+function ofTypes<T extends { type: string }>(types: Record<T["type"], true>) {
+  const known = new Set<unknown>(Object.keys(types))
+  return (msg: unknown): msg is T => typeof msg === "object" && msg !== null && known.has((msg as { type?: unknown }).type)
+}
+
+/** A push of the background script, as the content script receives it over the Port. */
+export const isPortPush = /* @__PURE__ */ ofTypes<PortPush>({ settings: true, toggle: true, retranslate: true, tier: true, done: true, offlineDataChanged: true })
+
+/** A report of a content script, as the background script receives it over the Port. */
+export const isPortReport = /* @__PURE__ */ ofTypes<PortReport>({ state: true, context: true, translate: true })

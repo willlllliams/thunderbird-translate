@@ -11,7 +11,7 @@ import { DictionaryStore, type InstalledPack } from "../offline/dictionary/store
 import { describeError } from "../shared/errors"
 import { getI18n, t } from "../shared/i18n"
 import { pairKey } from "../shared/languages"
-import { send } from "../shared/page"
+import { send } from "../shared/messages"
 import { button, h } from "../shared/dom"
 import { type ListItem, megabytes, OfflineList, type OfflineListDeps } from "./offline-list"
 
