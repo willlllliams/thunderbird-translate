@@ -56,9 +56,7 @@ interface ListOptions {
 const button = (li: Element, text: string) => Array.from(li.querySelectorAll("button")).find((b) => b.textContent === text)
 const unknownError = describeError(undefined, ENGLISH)
 
-// Fake timers in every test: the progress polling of a model list left running by a test cannot reach the next one.
 beforeEach(() => {
-  useFakeTimers()
   sendMessage.mockReset()
   vi.stubGlobal("browser", api)
   // jsdom's Blob has no stream(), which gunzip() uses; Thunderbird's has. Stubs are undone before every test (vitest.config.ts).
@@ -406,6 +404,10 @@ function models(options: ListOptions = {}) {
   return { ...p, section }
 }
 describe("offline model list", () => {
+  // Fake timers: the progress polling of a model list left running by a test goes with the clock instead of reaching the next test.
+  // The dictionary list stays on real time: its downloads give up after 30 s without data, which vi.waitFor() would pass on fake timers.
+  beforeEach(() => useFakeTimers())
+
   it("shows why the list could not be loaded", async () => {
     background({ bergamotList: () => ({ ok: false, error: "Mozilla is unreachable" }) })
     const m = models()
