@@ -544,6 +544,21 @@ describe("offline models on the settings page", () => {
     expect(row("Japanese").querySelector(".test-result")).toBeNull()
   })
 
+  it("shows the progress of a download another page started, and reads the list again when it has ended", async () => {
+    const bg = background()
+    const page = await openPage("options", createDefaultSettings("en"), bg.page)
+    await vi.waitFor(() => expect(rows()).toHaveLength(3))
+    page.notify({ type: "offlineProgress", progress: { bergamot: { "ja>en": { state: "running", done: 6_000_000, total: 30_000_000 } } } })
+    expect(row("Japanese").textContent).toContain(ENGLISH.t("dictDownloading", ["20"]))
+    expect(rowButton(row("Japanese"), ENGLISH.t("buttonCancel")).title).toBe(ENGLISH.t("tipCancelDownload"))
+    const lists = () => bg.requests.filter((r) => r.type === "offlineList" && r.service === "bergamot").length
+    const before = lists()
+    page.notify({ type: "offlineProgress", progress: { bergamot: {} } })
+    page.notify({ type: "offlineDataChanged" })
+    await vi.waitFor(() => expect(lists()).toBe(before + 1))
+    expect(rowButton(row("Japanese"), ENGLISH.t("buttonDownload"))).toBeDefined()
+  })
+
   it("asks before deleting a pair the current languages need", async () => {
     const bg = background()
     const s = createDefaultSettings("en")

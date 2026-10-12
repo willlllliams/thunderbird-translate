@@ -582,6 +582,26 @@ describe("welcome page", () => {
     expect(page.stored().providers.deeplx).toMatchObject({ enabled: true, baseURL: "https://deeplx.example.com/translate" })
   })
 
+  it("reads the offline lists again when another page installed or deleted something, once they are shown", async () => {
+    const requests: BackgroundRequest[] = []
+    const s = settings((s) => (s.tiers = { dictionary: "dictionary", machine: "bergamot", ai: null }))
+    const page = await openPage("welcome", s, { respond: (req) => void requests.push(req) })
+    await ready()
+    expect(current()).toBe("language")
+    const lists = () => requests.filter((r) => r.type === "offlineList").map((r) => r.type === "offlineList" && r.service)
+    // The lists are loaded on the offline step only.
+    page.notify({ type: "offlineDataChanged" })
+    await nextTask()
+    expect(lists()).toEqual([])
+    stepButtons()[3]!.click()
+    await vi.waitFor(() => expect(current()).toBe("offline"))
+    await vi.waitFor(() => expect(lists().sort()).toEqual(["bergamot", "dictionary"]))
+    await vi.waitFor(() => expect([$("dictStatus").textContent, $("bergamotStatus").textContent]).not.toContain(ENGLISH.t("dictLoading")))
+    await vi.waitFor(() => expect($("bergamotStatus").textContent).not.toBe(ENGLISH.t("bergamotLoading")))
+    page.notify({ type: "offlineDataChanged" })
+    await vi.waitFor(() => expect(lists()).toHaveLength(4))
+  })
+
   it("shows only the offline lists of the offline services in use", async () => {
     vi.stubGlobal("indexedDB", new IDBFactory())
     const requests: BackgroundRequest[] = []
