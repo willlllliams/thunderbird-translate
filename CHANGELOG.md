@@ -2,6 +2,21 @@
 
 All notable changes to this project are documented in this file, with the date of each version. It lists what users of the extension notice. The record up to 1.12.0 with the internal changes is kept in [docs/archive/CHANGELOG-full.md](docs/archive/CHANGELOG-full.md). Versions follow [Semantic Versioning](https://semver.org/).
 
+## 1.13.0 - 2026-10-12
+
+### Fixed
+
+- A dictionary pack downloaded on the settings page or in the setup guide stayed unused when the page was closed before all of its downloads had ended and a translation had already found the pack missing: the background script heard of new packs only at the end of the downloads, and the translation kept its answer. The background script now downloads and stores the packs itself, and translations use a pack as soon as it is stored.
+- A failure of the dictionary storage reads "Could not save or read the dictionaries in the extension storage." in the interface language, like a failure of the offline model storage.
+
+### Changed
+
+- Closing the settings page or the setup guide no longer stops the downloads of dictionary packs and offline models, also those still waiting for their turn. The background script keeps them in its queue and downloads two directions of each service at a time.
+- Every open page shows the same progress of every download, also of a download another page started. A page opened later shows the downloads still running or waiting, and any of these pages can cancel a download.
+- The dictionary list comes from the background script, which keeps the index of each release tag for 6 hours, like the Bergamot list. "Reload list" in the Dictionaries section reads it again at once, and a release tag typed on the page is listed before it is saved.
+- A displayed message forgets the results it keeps once a set of downloads has ended, instead of after every pack.
+- Internally, the dictionary packs have a manager in the background script like the Bergamot models, and both offline lists use one set of requests.
+
 ## 1.12.0 - 2026-10-12
 
 ### Added
