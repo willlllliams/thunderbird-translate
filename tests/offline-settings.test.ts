@@ -56,7 +56,9 @@ interface ListOptions {
 const button = (li: Element, text: string) => Array.from(li.querySelectorAll("button")).find((b) => b.textContent === text)
 const unknownError = describeError(undefined, ENGLISH)
 
+// Fake timers in every test: the progress polling of a model list left running by a test cannot reach the next one.
 beforeEach(() => {
+  useFakeTimers()
   sendMessage.mockReset()
   vi.stubGlobal("browser", api)
   // jsdom's Blob has no stream(), which gunzip() uses; Thunderbird's has. Stubs are undone before every test (vitest.config.ts).
@@ -449,7 +451,6 @@ describe("offline model list", () => {
       bergamotInstall: () => new Promise((r) => (finish = r)),
       bergamotProgress: () => progress(),
     })
-    useFakeTimers()
     const m = models()
     await m.section.load()
     button(m.rows()[0]!, ENGLISH.t("buttonDownload"))!.click()
