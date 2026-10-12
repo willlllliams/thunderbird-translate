@@ -45,7 +45,6 @@ describe("tier demo", () => {
   }
 
   it("shows the dictionary at once, machine translation after 0.3 s and AI translation 1.5 s later, the lower results marked with their tier", () => {
-    vi.useFakeTimers()
     const { demo, s, status } = setup(all)
     demo.play(s)
     expect($("tierDemo").querySelector("p")!.firstChild!.textContent).toBe(ENGLISH.t("demoSource"))
@@ -76,7 +75,6 @@ describe("tier demo", () => {
     ["one tier", { machine: "microsoft-free" }, [["machine", null, false]], "Tier 2: Machine translation · Microsoft Translator (free)"],
     ["AI only", { ai: "deepseek" }, [["ai", null, false]], "Tier 3: AI translation · DeepSeek"],
   ] as const)("plays only the tiers in use: %s", (_, tiers, steps, last) => {
-    vi.useFakeTimers()
     const { demo: d, s, status } = setup(tiers)
     d.play(s)
     const texts = { dictionary: "demoDictionary", machine: "demoMachine", ai: "demoAi" } as const
@@ -102,7 +100,6 @@ describe("tier demo", () => {
   })
 
   it("shows the final state at once when the system asks for less motion", () => {
-    vi.useFakeTimers()
     lessMotion()
     const { demo: d, s, status } = setup(all)
     d.play(s)
@@ -112,7 +109,6 @@ describe("tier demo", () => {
   })
 
   it("draws translation-only and the chosen style, and stops without leaving timers", () => {
-    vi.useFakeTimers()
     const { demo: d, s } = setup(all)
     s.mode = "translation-only"
     s.style = { preset: "highlight", color: "#ff0000", textColor: "#202124", opacity: 0.6, fontScale: 1.2 }

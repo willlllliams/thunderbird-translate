@@ -35,7 +35,7 @@ describe("LruCache", () => {
 
 describe("PersistentCache", () => {
   it("writes a burst of entries with one storage write after the delay", async () => {
-    vi.useFakeTimers()
+    useFakeTimers()
     const storage = memoryStorage()
     const set = vi.spyOn(storage, "set")
     const cache = new PersistentCache(storage, 10, 1000)
@@ -66,7 +66,7 @@ describe("PersistentCache", () => {
   })
 
   it("survives a storage write that fails", async () => {
-    vi.useFakeTimers()
+    useFakeTimers()
     const storage = memoryStorage()
     storage.set = () => Promise.reject(new Error("quota exceeded"))
     const cache = new PersistentCache(storage, 5, 10)
@@ -132,7 +132,7 @@ describe("PersistentCache", () => {
   })
 
   it("cancels a pending write when cleared", async () => {
-    vi.useFakeTimers()
+    useFakeTimers()
     const storage = memoryStorage()
     const set = vi.spyOn(storage, "set")
     const cache = new PersistentCache(storage, 5, 100)

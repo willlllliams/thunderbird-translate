@@ -77,7 +77,7 @@ describe("fetchOk", () => {
   })
 
   it("reads Retry-After as an HTTP date", async () => {
-    vi.useFakeTimers({ now: new Date("2026-10-11T12:00:00Z") })
+    useFakeTimers(new Date("2026-10-11T12:00:00Z"))
     try {
       const fetchFn = async () => new Response("", { status: 503, headers: { "Retry-After": "Sun, 11 Oct 2026 12:00:07 GMT" } })
       expect(await fetchOk({ fetchFn: asFetch(fetchFn) }, spec, "X").catch((e) => e.retryAfterMs)).toBe(7000)
@@ -89,7 +89,7 @@ describe("fetchOk", () => {
 
 describe("timeoutSignal", () => {
   it("aborts with a TimeoutError after the given time of the global timers", async () => {
-    vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] })
+    useFakeTimers()
     try {
       const signal = timeoutSignal(1000)
       await vi.advanceTimersByTimeAsync(999)
@@ -241,7 +241,7 @@ describe("RequestQueue concurrency", () => {
 })
 
 it("waits with a real timer when no sleep function is given", async () => {
-  vi.useFakeTimers()
+  useFakeTimers()
   try {
     const queue = new RequestQueue({ concurrency: () => 1, maxRetries: () => 1 })
     const result = queue.run(flaky(new HttpError("busy", 429, 1000)))

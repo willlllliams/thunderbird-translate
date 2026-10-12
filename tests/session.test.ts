@@ -3,6 +3,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest"
 import { createDefaultSettings, type Settings, SETTINGS_KEY } from "../src/shared/settings"
 import { stubBrowser } from "./fixtures/browser"
+import { useFakeTimers } from "./helpers"
 
 afterEach(() => {
   vi.resetModules()
@@ -55,7 +56,7 @@ describe("SettingsSession", () => {
   })
 
   it("saves the edits of 300 ms with one write", async () => {
-    vi.useFakeTimers()
+    useFakeTimers()
     const page = await open()
     page.session.settings.mode = "translation-only"
     page.session.save()

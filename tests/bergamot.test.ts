@@ -11,7 +11,7 @@ import { BergamotStore, type StoredPair } from "../src/offline/bergamot/store"
 import { prepareTexts } from "../src/offline/bergamot/text"
 import { verifyModelFile } from "../src/offline/bergamot/verify"
 import { FakeWorker, makeManager, triple } from "./fixtures/bergamot"
-import { sha256Hex } from "./helpers"
+import { sha256Hex, useFakeTimers } from "./helpers"
 
 let recordId = 0
 function rec(src: string, tgt: string, fileType: string, version = "3.0", extra: Partial<ModelRecord> = {}): ModelRecord {
@@ -278,7 +278,7 @@ describe("BergamotEngine", () => {
   })
 
   it("terminates the worker after the idle time and starts a new one on demand", async () => {
-    vi.useFakeTimers()
+    useFakeTimers()
     const { engine, workers } = fakeEngine({ idleMs: 1000 })
     await engine.translate(["de>en"], ["x"])
     vi.advanceTimersByTime(999)

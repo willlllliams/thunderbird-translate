@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 import { BatchQueue, groupIntoBatches, joinParts, splitText } from "../src/background/queue/batch-queue"
 import { backoffDelay, isRetryableError, RequestQueue } from "../src/background/queue/request-queue"
 import { HttpError } from "../src/shared/http"
+import { useFakeTimers } from "./helpers"
 
 describe("groupIntoBatches", () => {
   const size = (s: string) => s.length
@@ -27,7 +28,7 @@ describe("groupIntoBatches", () => {
 })
 
 describe("BatchQueue", () => {
-  beforeEach(() => vi.useFakeTimers())
+  beforeEach(() => useFakeTimers())
   afterEach(() => vi.useRealTimers())
 
   function makeQueue(limits = { maxItems: 3, maxChars: 100 }) {

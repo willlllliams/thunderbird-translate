@@ -10,7 +10,7 @@ import { appLang, dictLang, pairKey } from "../src/shared/languages"
 import { describeError } from "../src/shared/errors"
 import { ENGLISH } from "../src/shared/i18n"
 import { gz, packEntry, releaseServer, tsv } from "./fixtures/dictionary"
-import { asFetch, jsonResponse } from "./helpers"
+import { asFetch, jsonResponse, useFakeTimers } from "./helpers"
 
 const EN_ZH = tsv(
   "en",
@@ -155,7 +155,7 @@ describe("storage, download and the dictionary tier", () => {
         )
       })
     // Simulated time: the gaps between pieces do not depend on the load of the machine. IndexedDB runs on setImmediate.
-    vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] })
+    useFakeTimers()
     const stalling = installPack(entry, "dicts-v1", newStore(), { fetchFn: trickle(5, 4, 2), idleMs: 60 }).catch((e) => e)
     await vi.advanceTimersByTimeAsync(10 + 60)
     expect((await stalling).i18nText).toMatchObject({ key: "errDownloadStalled", args: ["GitHub", "0"] })
@@ -386,7 +386,7 @@ describe("storage, download and the dictionary tier", () => {
     const store = await installed("dict-en-zh-Hans.tsv.gz")
     const data = vi.spyOn(store, "data")
     // Simulated time, so that no idle time passes between two translations however slow the machine is.
-    vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] })
+    useFakeTimers()
     const dictionary = new Dictionary(store, { idleMs: 30 })
     await texts(dictionary, ["hello"], "en", "zh-CN")
     await texts(dictionary, ["world"], "en", "zh-CN")
