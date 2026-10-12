@@ -140,6 +140,7 @@
   "dictPackMeta": "$1 MB · $2 個詞條 · $3",
   "dictInstalled": "已安裝",
   "dictDownloading": "正在下載… $1%",
+  "dictQueued": "等待中…",
   "buttonDownload": "下載",
   "buttonDelete": "刪除",
   "labelDictTag": "辭典包的發布標籤（進階）",

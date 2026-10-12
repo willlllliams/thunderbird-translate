@@ -16,7 +16,9 @@
  * when the message does not fit into one request. A retranslation
  * (bypassCache) asks every tier again: neither the cache nor a running
  * request answers, the new results replace the cached ones, and in precise
- * mode the message is analysed again.
+ * mode the message is analysed again. Only the request that started last for
+ * a paragraph or an analysis writes the cache, so an older answer arriving
+ * late does not replace a retranslation.
  */
 
 import { getBergamot } from "../offline/bergamot"
@@ -131,6 +133,8 @@ export class TranslationService {
   private readonly queues = new Map<string, RequestQueue>()
   private readonly batchQueue: BatchQueue<Job, ItemResult>
   private readonly inflight = new Map<string, Promise<string>>()
+  /** The request that started last for each cache key of a running request: only its result is cached. */
+  private readonly writers = new Map<string, symbol>()
   private readonly contexts = new LruCache<MailContext>(MAX_CONTEXTS)
   /** Analyses by cache key, finished or running, so the batches of one message share one request. */
   private readonly analyses = new LruCache<Promise<MailAnalysis | null>>(MAX_CONTEXTS)
@@ -218,20 +222,34 @@ export class TranslationService {
     }
   }
 
-  /** The cached result, or the result of the running request for the same paragraph, or a new one. */
+  /** The cached result, or the result of the running request for the same paragraph, or a new one. A retranslation always makes a new one, which later requests share. */
   private async run(job: Job): Promise<string> {
-    if (job.fresh) return this.translateParts(job)
-    const cached = await this.deps.cache.get(job.key)
+    const cached = job.fresh ? undefined : await this.deps.cache.get(job.key)
     if (cached !== undefined) return cached
-    let running = this.inflight.get(job.key)
+    let running = job.fresh ? undefined : this.inflight.get(job.key)
     if (!running) {
-      running = this.translateParts(job).finally(() => this.inflight.delete(job.key))
-      this.inflight.set(job.key, running)
+      const started: Promise<string> = this.latest(job.key, () => this.translateParts(job), (text) => this.deps.cache.set(job.key, text)).finally(() => {
+        if (this.inflight.get(job.key) === started) this.inflight.delete(job.key)
+      })
+      this.inflight.set(job.key, (running = started))
     }
     return running
   }
 
-  /** The paragraph in pieces within the batch limit, translated and put together again, then cached as a whole. */
+  /** Run a request for a cache key and cache its result, unless a request for the same key started after it: an older answer that arrives late does not replace a retranslation. */
+  private async latest<T>(key: string, request: () => Promise<T>, store: (value: T) => Promise<void> | undefined): Promise<T> {
+    const self = Symbol(key)
+    this.writers.set(key, self)
+    try {
+      const value = await request()
+      if (this.writers.get(key) === self) await store(value)
+      return value
+    } finally {
+      if (this.writers.get(key) === self) this.writers.delete(key)
+    }
+  }
+
+  /** The paragraph in pieces within the batch limit, translated and put together again. */
   private async translateParts(job: Job): Promise<string> {
     const parts = splitText(job.text, this.limitsFor(job.provider).maxChars)
     // A part without text holds the whitespace at the start of the paragraph; joinParts() puts it back.
@@ -240,9 +258,7 @@ export class TranslationService {
       if (!result.ok) throw Object.assign(new Error(result.error), { missing: result.missing })
       return result.text
     })
-    const text = joinParts(parts, texts, job.targetLang)
-    await this.deps.cache.set(job.key, text)
-    return text
+    return joinParts(parts, texts, job.targetLang)
   }
 
   private async settle(job: Job): Promise<TranslateResponse> {
@@ -359,9 +375,11 @@ export class TranslationService {
     const cached = fresh ? undefined : await this.deps.cache.get(key)
     if (cached !== undefined) return parseAnalysis(cached)
     try {
-      const analysis = await this.queue(job.provider).run(() => this.llm.analyze(job.mail!.context.text, this.llmOptions(job)))
-      if (analysis) await this.deps.cache.set(key, JSON.stringify(analysis))
-      return analysis
+      return await this.latest(
+        key,
+        () => this.queue(job.provider).run(() => this.llm.analyze(job.mail!.context.text, this.llmOptions(job))),
+        (analysis) => (analysis ? this.deps.cache.set(key, JSON.stringify(analysis)) : undefined),
+      )
     } catch {
       // Translation goes on without the analysis; the requests still carry the neighbouring paragraphs.
       // The next batch asks again: a failed request is not an answer. An unusable answer (null above) is kept.

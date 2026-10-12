@@ -41,7 +41,7 @@ describe("tier demo", () => {
     return { demo: new TierDemo($("tierDemo"), $("demoStatus")), s, status: () => $("demoStatus").textContent }
   }
 
-  it("shows the dictionary at once, machine translation after 0.3 s and AI translation 1.5 s later, the lower results marked with their service", () => {
+  it("shows the dictionary at once, machine translation after 0.3 s and AI translation 1.5 s later, the lower results marked with their tier", () => {
     vi.useFakeTimers()
     const { demo, s, status } = setup(all)
     demo.play(s)
@@ -49,12 +49,12 @@ describe("tier demo", () => {
     expect(shown()).toBe("loading")
     expect(status()).toBe(ENGLISH.t("statusTranslating"))
     vi.advanceTimersByTime(0)
-    expect(shown()).toEqual({ text: ENGLISH.t("demoDictionary"), tag: "Dictionary (offline)", provisional: true })
+    expect(shown()).toEqual({ text: ENGLISH.t("demoDictionary"), tag: "Dictionary", provisional: true })
     expect(status()).toBe("Tier 1: Dictionary · Dictionary (offline)")
     vi.advanceTimersByTime(299)
     expect(shown()).toMatchObject({ text: ENGLISH.t("demoDictionary") })
     vi.advanceTimersByTime(1)
-    expect(shown()).toEqual({ text: ENGLISH.t("demoMachine"), tag: "Bergamot (offline)", provisional: true })
+    expect(shown()).toEqual({ text: ENGLISH.t("demoMachine"), tag: "Machine translation", provisional: true })
     expect(status()).toBe("Tier 2: Machine translation · Bergamot (offline)")
     vi.advanceTimersByTime(1499)
     expect(shown()).toMatchObject({ text: ENGLISH.t("demoMachine") })
@@ -68,8 +68,8 @@ describe("tier demo", () => {
   })
 
   it.each([
-    ["two tiers", { machine: "google-free", ai: "openai" }, [["machine", "Google Translate (free)", true], ["ai", null, false]], "Tier 3: AI translation · OpenAI"],
-    ["dictionary and machine translation", { dictionary: "dictionary", machine: "bergamot" }, [["dictionary", "Dictionary (offline)", true], ["machine", null, false]], "Tier 2: Machine translation · Bergamot (offline)"],
+    ["two tiers", { machine: "google-free", ai: "openai" }, [["machine", "Machine translation", true], ["ai", null, false]], "Tier 3: AI translation · OpenAI"],
+    ["dictionary and machine translation", { dictionary: "dictionary", machine: "bergamot" }, [["dictionary", "Dictionary", true], ["machine", null, false]], "Tier 2: Machine translation · Bergamot (offline)"],
     ["one tier", { machine: "microsoft-free" }, [["machine", null, false]], "Tier 2: Machine translation · Microsoft Translator (free)"],
     ["AI only", { ai: "deepseek" }, [["ai", null, false]], "Tier 3: AI translation · DeepSeek"],
   ] as const)("plays only the tiers in use: %s", (_, tiers, steps, last) => {

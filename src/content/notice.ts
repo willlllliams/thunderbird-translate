@@ -12,8 +12,9 @@
  * one line per service and language pair, a button to the settings page
  * with both offline lists filtered to the missing items, a check box that
  * mutes the listed entries, and a close button. It appears at most once per
- * message; the paragraphs themselves still get the other tiers'
- * translations.
+ * message; a retranslation brings a notice still on screen back after its
+ * round, and a closed one stays away. The paragraphs themselves still get
+ * the other tiers' translations.
  */
 
 import { h } from "../options/dom"
@@ -71,9 +72,10 @@ export class MissingNotice {
     root.prepend(this.el)
   }
 
-  /** The translation stopped: the notice goes away. */
-  clear(): void {
+  /** The translation stopped: the notice goes away. `again`: for a retranslation, after whose round a notice on screen appears again. */
+  clear(again = false): void {
     this.open = false
+    if (again && this.el) this.decided = false
     this.el?.remove()
     this.el = null
   }

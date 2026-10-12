@@ -99,7 +99,7 @@ The content script's renderer draws the demo in the current display mode and tra
 3. After 0.3 s, the machine translation replaces it.
 4. 1.5 s later, the AI translation replaces it.
 
-Only the tiers in use take part, at the same times. Every result below the highest tier in use is provisional: it is in italics, slightly fainter, and carries a label with the name of its service, such as "Bergamot (offline)". The result of the highest tier is drawn as final. The line under the paragraph names the tier and service of the result shown, for example "Tier 3: AI translation · DeepSeek", and is announced by screen readers. When no tier has a service, the line says "At least one tier needs a service.".
+Only the tiers in use take part, at the same times. Every result below the highest tier in use is provisional: it is in italics, slightly fainter, and carries a label with the name of its tier, such as "Machine translation", as in a translated message. The result of the highest tier is drawn as final. The line under the paragraph names the tier and service of the result shown, for example "Tier 3: AI translation · DeepSeek", and is announced by screen readers. When no tier has a service, the line says "At least one tier needs a service.".
 
 The demo plays again from the start after every change of a tier selector and with "Replay". When the system asks for reduced motion (`prefers-reduced-motion: reduce`), the demo shows the final result at once, without the loading mark and the lower tiers. Leaving the step or closing the page stops the demo.
 
@@ -303,7 +303,9 @@ For every recommended language X other than English, the directions X → Englis
 
 ## Download common languages
 
-"Download common languages" in both lists downloads the directions to and from English of eight fixed languages: Simplified Chinese, Spanish, French, German, Japanese, Portuguese, Russian and Korean, as far as the catalog has them. Before downloading it lists the directions and their total size; installed directions are left out. When all are installed, the button is disabled and says "The common languages are all installed.".
+"Download common languages" in both lists downloads the directions to and from English of eight fixed languages: Simplified Chinese, Spanish, French, German, Japanese, Portuguese, Russian and Korean, as far as the catalog has them. Before downloading it lists the directions and their total size; installed directions and directions already queued or downloading are left out. When all are installed, the button is disabled and says "The common languages are all installed.".
+
+Downloads run two at a time. A direction waiting for its turn reads "Waiting…" and has a "Cancel" that takes it off the queue; it offers no second "Download", and in the setup guide its check box is disabled. A running download shows its progress and also has "Cancel".
 
 ## Missing offline data
 
@@ -336,7 +338,7 @@ In the popup and on the settings page, a selected dictionary or Bergamot that la
 - The new results replace the cached ones.
 - Precise translation analyses the message again, and the new analysis replaces the cached one.
 - Lower tiers show provisional translations as usual.
-- The notice about missing offline data keeps its once-per-message rule.
+- The notice about missing offline data keeps its once-per-message rule: a notice still on screen appears again once the new round has finished, if data is still missing, and a closed notice stays away.
 - Translations of other messages stay in the cache.
 
 "Show original" followed by "Translate this message" translates from what the page remembers and sends no request.
@@ -384,7 +386,7 @@ Settings saved before version 1.9.0 have no text color; translations keep the co
   - URL parameters whose names contain key, token, auth, secret, sig, pass, credential or session.
 - Message text is sent only to the services of the tiers in use. The dictionary and Bergamot translate on your computer and send no text anywhere.
 - Two lists come from the network, without any message text: the list of dictionary packs from this repository's GitHub releases and the list of Bergamot models from Mozilla. The settings page and the setup guide read them to show the offline lists.
-- While the dictionary or Bergamot is the service of a tier, the background script also reads its list: when Thunderbird starts, when the settings change, and when the popup or the settings page asks what is missing. It reads the dictionary list once per release tag, and after a failed read again 10 minutes later at the earliest. It reads the Bergamot list again once the copy in memory is older than 6 hours. Translating a message reads neither list, also when a pack or model is missing.
+- While the dictionary or Bergamot is the service of a tier, the background script also reads its list: when Thunderbird starts, when the settings change, and when the popup or the settings page asks what is missing. It reads the dictionary list once per release tag and the Bergamot list again once the copy in memory is older than 6 hours. After a failed read, either list is read again 10 minutes later at the earliest; until then the Bergamot list answers with the copy saved by an earlier read, if there is one. "Reload list" in the section "Offline translation models (Bergamot)" of the settings page reads the Bergamot list at once. Translating a message reads neither list, also when a pack or model is missing.
 - The packs and models themselves are downloaded only when you click "Download" or one of the download buttons. The extension collects no statistics and contacts no other network address.
 - The translation cache is stored locally and can be turned off or cleared on the settings page.
 

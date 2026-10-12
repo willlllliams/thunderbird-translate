@@ -5,8 +5,8 @@
  *   together: the content script's renderer shows the dictionary result at
  *   once, the machine translation after 0.3 s and the AI translation 1.5 s
  *   later; the lower results carry the provisional mark with the name of
- *   their service, the highest one is drawn as final. The texts come from the
- *   locale; nothing is requested.
+ *   their tier, as in a message, and the highest one is drawn as final.
+ *   The texts come from the locale; nothing is requested.
  * - The tour points at the three tier selectors one after the other: a ring
  *   and a shade around the selector, a tip under it with "Next" and "Skip".
  */
@@ -56,7 +56,7 @@ export class TierDemo {
     const unit: Unit = { id: 0, el: p, text: t("demoSource"), pre: false }
     const show = (tier: Tier) => {
       const service = providerDisplayName(getPreset(settings.tiers[tier]!)!)
-      const mark = tier === top ? undefined : { kind: "provisional" as const, label: service, title: t("statusProvisionalHint", [t(TIER_NAME_KEYS[top])]) }
+      const mark = tier === top ? undefined : { kind: "provisional" as const, label: t(TIER_NAME_KEYS[tier]), title: t("statusProvisionalHint", [t(TIER_NAME_KEYS[top])]) }
       renderer.showTranslation(unit, t(DEMO_TEXT[tier]), settings.mode, undefined, mark)
       this.status.textContent = `${t("tierLabel", [TIERS.indexOf(tier) + 1, t(TIER_NAME_KEYS[tier])])} · ${service}`
     }

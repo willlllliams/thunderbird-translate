@@ -79,7 +79,7 @@ Mỗi tầng dùng một dịch vụ hoặc "Không dùng"; ít nhất một t�
 
 Mỗi đoạn được gửi cùng lúc đến mọi tầng đang dùng. Kết quả của tầng thấp hơn hiện trước làm bản dịch tạm, in nghiêng và ghi tên tầng. Tầng cao nhất đang dùng thay thế nó bằng bản dịch cuối cùng; nếu tầng cao nhất thất bại, bản dịch tạm được giữ lại.
 
-Khi từ điển hoặc Bergamot đã chọn thiếu dữ liệu cho các ngôn ngữ của thư, một thông báo phía trên thư nêu rõ cần tải gì, kèm liên kết đến trang cài đặt và nút "Không nhắc lại với các ngôn ngữ này".
+Khi từ điển hoặc Bergamot đã chọn thiếu dữ liệu cho các ngôn ngữ của thư, một thông báo phía trên thư nêu rõ cần tải gì, kèm liên kết đến trang cài đặt và hộp kiểm "Không nhắc lại với các ngôn ngữ này".
 
 ## Dịch vụ dịch
 

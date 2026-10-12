@@ -140,6 +140,7 @@
   "dictPackMeta": "$1 MB · $2 件 · $3",
   "dictInstalled": "インストール済み",
   "dictDownloading": "ダウンロード中… $1%",
+  "dictQueued": "待機中…",
   "buttonDownload": "ダウンロード",
   "buttonDelete": "削除",
   "labelDictTag": "辞書パックのリリースタグ（詳細設定）",

@@ -79,7 +79,7 @@ Chaque niveau utilise un service ou « Non utilisé » ; au moins un niveau a be
 
 Chaque paragraphe part vers tous les niveaux utilisés en même temps. Le résultat d’un niveau inférieur s’affiche d’abord comme traduction provisoire, en italique et accompagnée du nom de son niveau. Le niveau le plus élevé utilisé la remplace par la traduction définitive ; si ce niveau échoue, la traduction provisoire reste affichée.
 
-Lorsque le dictionnaire ou le modèle Bergamot sélectionné n’a pas les données des langues d’un message, un avis au-dessus du message indique ce qu’il faut télécharger, avec un lien vers les paramètres et un bouton « Ne plus me le rappeler pour ces langues ».
+Lorsque le dictionnaire ou le modèle Bergamot sélectionné n’a pas les données des langues d’un message, un avis au-dessus du message indique ce qu’il faut télécharger, avec un lien vers les paramètres et une case à cocher « Ne plus me le rappeler pour ces langues ».
 
 ## Services de traduction
 

@@ -87,6 +87,36 @@ describe("notice", () => {
     expect(m.notice.lastRound).toEqual([DICT])
   })
 
+  it("L4: comes back after a retranslation while it is on screen, and stays away once closed", async () => {
+    const m = mount()
+    m.answers.dictionary = missing(DICT)
+    await m.controller.updateSettings(tieredSettings(["dictionary", "machine"]))
+    await m.controller.start()
+    expect(lines()).toEqual([DICT_LINE])
+    await m.controller.retranslate()
+    expect(lines()).toEqual([DICT_LINE])
+    expect(document.body.firstElementChild).toBe(panel())
+    expect(document.querySelectorAll(".tt-notice")).toHaveLength(1)
+    click(ENGLISH.t("noticeClose"))
+    await m.controller.retranslate()
+    expect(panel()).toBeNull()
+    // Show original and translate again: the once-per-message rule holds.
+    await m.controller.toggle()
+    await m.controller.toggle()
+    expect(panel()).toBeNull()
+  })
+
+  it("L4: stays away after a retranslation once the data is there", async () => {
+    const m = mount()
+    m.answers.dictionary = missing(DICT)
+    await m.controller.updateSettings(tieredSettings(["dictionary", "machine"]))
+    await m.controller.start()
+    delete m.answers.dictionary
+    await m.controller.retranslate()
+    expect(panel()).toBeNull()
+    expect(m.notice.lastRound).toEqual([])
+  })
+
   it("merges the reports of a service and pair, and leaves out muted entries", async () => {
     const m = mount(["bergamot:ja>zh-Hans"])
     m.notice.begin()

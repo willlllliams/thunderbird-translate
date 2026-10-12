@@ -35,7 +35,8 @@ const stored = (s: Settings) => ({ [SETTINGS_KEY]: structuredClone(s) })
 const settingsWrites = (bg: Awaited<ReturnType<typeof start>>) => bg.api.storage.local.set.mock.calls.filter(([v]) => SETTINGS_KEY in v)
 const request = (text: string): TranslateRequest => ({ text, sourceLang: "auto", targetLang: "zh-CN", tiers: ["machine"] })
 
-describe("settings", () => {
+// The first test loads the background script with all its imports, which can take more than the default 5 s on a busy machine.
+describe("settings", { timeout: 20_000 }, () => {
   it("stores the settings of a fresh installation", async () => {
     const bg = await start()
     expect(settingsWrites(bg)).toHaveLength(1)

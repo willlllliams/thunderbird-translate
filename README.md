@@ -79,7 +79,7 @@ Each tier uses one service or "Not used"; at least one tier needs a service. The
 
 Every paragraph goes to all tiers in use at once. A lower tier's result appears first as a provisional translation, in italics and labelled with its tier. The highest tier in use replaces it with the final translation; if the highest tier fails, the provisional translation stays.
 
-When a selected dictionary or Bergamot lacks the data for a message's languages, a notice above the message names what to download, with a link to the settings and a "Don't remind me for these languages" button.
+When a selected dictionary or Bergamot lacks the data for a message's languages, a notice above the message names what to download, with a link to the settings and a "Don't remind me for these languages" check box.
 
 ## Translation services
 

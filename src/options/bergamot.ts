@@ -61,7 +61,7 @@ export class BergamotSection extends OfflineList<PairItem> {
   }
 
   protected installing(item: PairItem): boolean {
-    return this.running.has(item.id)
+    return this.queued.has(item.id) || this.running.has(item.id)
   }
 
   /** The directions the current languages need; with automatic detection, those into the target language. */
@@ -87,6 +87,8 @@ export class BergamotSection extends OfflineList<PairItem> {
     if (this.running.has(p.id)) {
       const percent = progress?.total ? Math.min(100, Math.round((progress.done / progress.total) * 100)) : 0
       out.push(h("span", { text: t("dictDownloading", [percent]) }), button(t("buttonCancel"), () => void send({ type: "bergamotCancel", src: p.src, tgt: p.tgt })))
+    } else if (this.queued.has(p.id)) {
+      out.push(...this.waiting(p.id))
     } else if (this.deleting.has(p.id)) {
       out.push(
         h("span", { className: "field-warning", text: t("bergamotDeleteNeeded") }),

@@ -9,8 +9,10 @@
  * filter narrows the list down. "Download common languages" shows the
  * directions of COMMON_LANGUAGES that are not installed and their size, and
  * downloads them once confirmed. Downloads run two at a time, and the list
- * is read again once they have ended. On the welcome page every direction
- * that is not installed has a check box for the page's "Download selected": with
+ * is read again once they have ended. A direction waiting for its turn
+ * reads "Waiting" with a Cancel that takes it off the queue; a queued or
+ * running direction is not downloaded a second time. On the welcome page
+ * every direction that is not installed has a check box for the page's "Download selected": with
  * automatic detection the directions of the recommended languages are
  * ticked, with a fixed source language the ones the language pair needs.
  */
@@ -89,6 +91,8 @@ export abstract class OfflineList<T extends ListItem> {
   private choice = new Map<string, boolean>()
   /** "Download common languages" shows its confirmation. */
   private confirmingCommon = false
+  /** Directions waiting for their turn to download, by id. */
+  protected readonly queued = new Set<string>()
 
   constructor(private readonly base: OfflineListDeps) {}
 
@@ -98,6 +102,7 @@ export abstract class OfflineList<T extends ListItem> {
   protected abstract install(item: T): Promise<void>
   /** Read the list again after downloads. */
   protected abstract reload(): Promise<void>
+  /** Queued or downloading. */
   protected abstract installing(item: T): boolean
   /** Size, state and buttons of a row, after its name and labels. */
   protected abstract details(item: T): (Node | null)[]
@@ -136,11 +141,17 @@ export abstract class OfflineList<T extends ListItem> {
     return picked.filter((i) => this.rowErrors.has(i.id)).length
   }
 
-  /** Download directions, two at a time, then read the list once. */
+  /** Download the directions that are neither queued nor running, two at a time, then read the list once. */
   protected async installAll(items: readonly T[]): Promise<void> {
-    const queue = [...items]
+    const queue = items.filter((i) => !this.installing(i))
+    for (const item of queue) this.queued.add(item.id)
+    this.render()
     const worker = async () => {
-      for (let item = queue.shift(); item; item = queue.shift()) await this.install(item)
+      for (let item = queue.shift(); item; item = queue.shift()) {
+        // Skipped when taken off the queue, or installed since it was queued.
+        if (!this.queued.delete(item.id) || (!item.installed && this.items().some((i) => i.id === item.id && i.installed))) continue
+        await this.install(item)
+      }
     }
     await Promise.all([worker(), worker()])
     await this.reload()
@@ -188,6 +199,17 @@ export abstract class OfflineList<T extends ListItem> {
     const error = this.rowErrors.get(item.id)
     if (error) li.append(h("div", { className: "test-result fail", text: error }))
     return li
+  }
+
+  /** A queued row: "Waiting" and a Cancel that takes it off the queue. */
+  protected waiting(id: string): Node[] {
+    return [
+      h("span", { text: t("dictQueued") }),
+      button(t("buttonCancel"), () => {
+        this.queued.delete(id)
+        this.render()
+      }),
+    ]
   }
 
   /** Where the languages of a recommended direction come from, and its part in translating into the target language. */

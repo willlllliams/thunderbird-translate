@@ -71,6 +71,45 @@ describe("model list", () => {
     expect((await manager.listPairs()).map((p) => p.tgt)).toEqual(["fr"])
   })
 
+  it("L5: after a failed read asks Mozilla again only 10 minutes later, answering with the saved copy or nothing meanwhile", async () => {
+    let now = 0
+    const { manager, server } = makeManager(triple("en", "fr"), { now: () => now })
+    const count = () => server.calls.filter((u) => u === RECORDS_URL).length
+    server.setOffline(true)
+    for (let i = 0; i < 5; i++) expect(await manager.catalog()).toBeNull()
+    expect(count()).toBe(1)
+    now = 10 * 60 * 1000 - 1
+    expect(await manager.catalog()).toBeNull()
+    expect(count()).toBe(1)
+    now += 1
+    server.setOffline(false)
+    expect(await manager.catalog()).toEqual(new Set(["en>fr"]))
+    expect(count()).toBe(2)
+
+    // The copy in memory is out of date: the failed read answers with it, and so does every call of the next 10 minutes.
+    server.setOffline(true)
+    now += 6 * 60 * 60 * 1000
+    for (let i = 0; i < 5; i++) expect(await manager.catalog()).toEqual(new Set(["en>fr"]))
+    expect(count()).toBe(3)
+    // The user's refresh asks at once.
+    await expect(manager.listPairs(true)).rejects.toMatchObject({ i18nText: { key: "bergamotRecordsFailed" } })
+    expect(count()).toBe(4)
+    now += 10 * 60 * 1000
+    server.setOffline(false)
+    await manager.catalog()
+    expect(count()).toBe(5)
+  })
+
+  it("L5: answers with the copy of an earlier session after a failed refresh", async () => {
+    const first = makeManager(triple("en", "fr"))
+    await first.manager.listPairs()
+    const { manager, server } = makeManager(triple("en", "fr"), { store: first.store })
+    server.setOffline(true)
+    await expect(manager.listPairs(true)).rejects.toMatchObject({ i18nText: { key: "bergamotRecordsFailed" } })
+    expect(await manager.catalog()).toEqual(new Set(["en>fr"]))
+    expect(server.calls.filter((u) => u === RECORDS_URL)).toHaveLength(1)
+  })
+
   it("fails offline when the saved list cannot be read either", async () => {
     const { manager, server, store } = makeManager(triple("en", "fr"))
     server.setOffline(true)

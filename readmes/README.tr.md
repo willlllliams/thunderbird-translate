@@ -79,7 +79,7 @@ Her kademe bir hizmet kullanır veya "Kullanılmıyor" olarak kalır; en az bir 
 
 Her paragraf, kullanılan tüm kademelere aynı anda gider. Alt kademenin sonucu önce geçici çeviri olarak, italik ve kademesi etiketlenmiş biçimde görünür. Kullanılan en yüksek kademe, geçici çevirinin yerine son çeviriyi koyar; en yüksek kademe başarısız olursa geçici çeviri kalır.
 
-Seçilen bir sözlükte veya Bergamot'ta iletinin dilleri için veri yoksa iletinin üstünde, nelerin indirileceğini söyleyen bir bildirim görünür; bildirimde ayarlara giden bir bağlantı ve "Bu diller için bana tekrar hatırlatma" düğmesi bulunur.
+Seçilen bir sözlükte veya Bergamot'ta iletinin dilleri için veri yoksa iletinin üstünde, nelerin indirileceğini söyleyen bir bildirim görünür; bildirimde ayarlara giden bir bağlantı ve "Bu diller için bana tekrar hatırlatma" onay kutusu bulunur.
 
 ## Çeviri hizmetleri
 

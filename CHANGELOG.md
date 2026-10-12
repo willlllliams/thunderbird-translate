@@ -2,6 +2,22 @@
 
 All notable changes to this project are documented in this file. Versions follow [Semantic Versioning](https://semver.org/).
 
+## 1.9.1
+
+### Fixed
+
+- Offline lists of the settings page and the setup guide: a dictionary pack or offline model waiting for its turn in a download of several still offered "Download". Clicking it downloaded the direction a second time, and the queue could not be cancelled. A queued direction now reads "Waiting…" with a "Cancel" that takes it off the queue. "Download common languages" and its confirmation leave out queued and running directions, and in the setup guide their check boxes are disabled. A direction taken off the queue or installed in the meantime is skipped when its turn comes.
+- Retranslation: when a request for the same paragraph started before "Retranslate" answered after it, its older result replaced the new one in the cache, and the next display of the message showed the old translation. Only the request that started last for a paragraph now writes the cache, and the same holds for the analysis of precise translation. A request that starts during a retranslation shares its result instead of asking again.
+- "Retranslate" removed a notice about missing offline data that was on screen, and the notice did not come back. A notice on screen now appears again once the new round has finished, if data is still missing; a closed notice stays away as before.
+- Bergamot: after a failed read of Mozilla's model list, every settings change and every check of the popup or the settings page asked Mozilla again. A failed read is now repeated 10 minutes later at the earliest, as for the dictionary index; until then the copy saved by an earlier read answers, if there is one. "Reload list" still asks at once.
+
+### Changed
+
+- The tier demo in step 3 of the setup guide labels a provisional result with the name of its tier, such as "Machine translation", as a translated message does. The line under the paragraph still names the tier and the service.
+- README, all 12 languages: "Don't remind me for these languages" in the notice about missing offline data is a check box, not a button. The Simplified Chinese and Korean READMEs quote the interface text of the locale files, "这些语言不再提醒我" and "이 언어들은 다시 알리지 않기".
+- `npm run docs:check` follows GitHub's anchor rules more closely: a repeated heading gets the next free number (headings "A", "A", "A-1" give `a`, `a-1`, `a-1-1`), only decimal digits count as digits, and images in a heading add no text. Unit tests cover these rules. `docs/development.md` lists the check among the CI steps.
+- Tests that depended on real time (download idle timeout, dictionary release after idle time) use simulated timers, and the background script tests allow 20 s for the first load of the script.
+
 ## 1.9.0
 
 ### Added

@@ -289,6 +289,69 @@ describe("dictionary list", () => {
     expect(requests).toEqual([{ type: "dictionaryChanged" }])
   })
 
+  /** A release whose pack downloads wait until released; `files` names every pack requested. */
+  function heldRelease(texts: string[]) {
+    const server = releaseServer(texts)
+    const waiting: (() => void)[] = []
+    const files: string[] = []
+    const fetchFn = asFetch(async (url: string) => {
+      if (!url.endsWith("dict-index.json")) {
+        files.push(url.split("/").pop()!)
+        await new Promise<void>((resolve) => waiting.push(resolve))
+      }
+      return server(url)
+    })
+    return { fetchFn, waiting, files }
+  }
+
+  it("M1: shows a queued pack as waiting with Cancel, downloads it once and leaves it out of a second download", async () => {
+    background({})
+    const release = heldRelease([EN_DE, DE_EN, FR_EN, EN_JA])
+    const d = dictionaries([], { fetchFn: release.fetchFn })
+    await d.section.load()
+    d.commonButton().click()
+    button(d.common.querySelector(".common-confirm")!, ENGLISH.t("buttonConfirmDownload"))!.click()
+    await vi.waitFor(() => expect(release.waiting).toHaveLength(2))
+    expect(release.files).toEqual(["dict-en-de.tsv.gz", "dict-de-en.tsv.gz"])
+    const [japanese, french] = [d.row("English → Japanese"), d.row("French")]
+    // Before the fix the queued row offered "Download", and clicking it requested the pack a second time.
+    button(japanese, ENGLISH.t("buttonDownload"))?.click()
+    expect(japanese.textContent).toContain(ENGLISH.t("dictQueued"))
+    expect(button(japanese, ENGLISH.t("buttonDownload"))).toBeUndefined()
+    // Cancel takes French off the queue: it offers "Download" again and is the only common pack left to confirm.
+    button(french, ENGLISH.t("buttonCancel"))!.click()
+    expect(button(d.row("French"), ENGLISH.t("buttonDownload"))).toBeDefined()
+    d.commonButton().click()
+    expect(Array.from(d.common.querySelectorAll(".common-confirm li"), (li) => li.textContent!.split(" · ")[0])).toEqual(["French (Français) → English"])
+    button(d.common.querySelector(".common-confirm")!, ENGLISH.t("buttonCancel"))!.click()
+    await vi.waitFor(() => {
+      release.waiting.splice(0).forEach((resolve) => resolve())
+      expect(d.rows().filter((li) => li.textContent!.includes(ENGLISH.t("dictInstalled")))).toHaveLength(3)
+    })
+    expect(release.files.sort()).toEqual(["dict-de-en.tsv.gz", "dict-en-de.tsv.gz", "dict-en-ja.tsv.gz"])
+    expect((await d.store.list()).map((p) => p.id).sort()).toEqual(["de>en", "en>de", "en>ja"])
+  })
+
+  it("M1: on the welcome page disables the check box of a queued pack", async () => {
+    background({})
+    const release = heldRelease([EN_DE, FR_EN, EN_JA])
+    const d = dictionaries([], { fetchFn: release.fetchFn, languages: { source: "auto", target: "de" }, recommended: [{ tag: "de", sources: ["target"] }, { tag: "fr", sources: ["system"] }, { tag: "ja", sources: ["system"] }], pick: true })
+    await d.section.load()
+    expect(d.ticked()).toHaveLength(3)
+    const done = d.section.downloadPicked()
+    await vi.waitFor(() => expect(release.waiting).toHaveLength(2))
+    const queued = d.rows().filter((li) => li.textContent!.includes(ENGLISH.t("dictQueued")))
+    expect(queued).toHaveLength(1)
+    expect(queued[0]!.querySelector<HTMLInputElement>("input[type=checkbox]")!.disabled).toBe(true)
+    expect(d.section.picked()).toEqual([])
+    await vi.waitFor(() => {
+      release.waiting.splice(0).forEach((resolve) => resolve())
+      expect(release.files).toHaveLength(3)
+    })
+    release.waiting.splice(0).forEach((resolve) => resolve())
+    expect(await done).toBe(0)
+  })
+
   it("keeps the downloaded packs of the welcome page when the background script cannot be told", async () => {
     background({
       dictionaryChanged: () => {
@@ -523,6 +586,41 @@ describe("offline model list", () => {
     })
     expect(requests.filter((r) => r.type === "bergamotInstall")).toHaveLength(4)
     expect(requests.filter((r) => r.type === "bergamotList")).toHaveLength(2)
+  })
+
+  it("M1: shows a queued pair as waiting with Cancel and installs it once", async () => {
+    const installed = new Set<string>()
+    const waiting: (() => void)[] = []
+    const requests = background({
+      bergamotList: () => ({ ok: true, pairs: [pair("en", "de"), pair("de", "en"), pair("en", "fr"), pair("fr", "en")].map((p) => ({ ...p, installed: installed.has(`${p.src}>${p.tgt}`) })) }),
+      bergamotInstall: (r) =>
+        new Promise((resolve) =>
+          waiting.push(() => {
+            installed.add(`${(r as { src: string }).src}>${(r as { tgt: string }).tgt}`)
+            resolve({ ok: true })
+          }),
+        ),
+      bergamotProgress: () => ({}),
+    })
+    const installs = () => requests.flatMap((r) => (r.type === "bergamotInstall" ? [`${r.src}>${r.tgt}`] : []))
+    const m = models()
+    await m.section.load()
+    m.commonButton().click()
+    button(m.common.querySelector(".common-confirm")!, ENGLISH.t("buttonConfirmDownload"))!.click()
+    await vi.waitFor(() => expect(waiting).toHaveLength(2))
+    expect(installs().sort()).toEqual(["de>en", "en>de"])
+    const [toFrench, fromFrench] = [m.row("English → French"), m.row("French")]
+    button(toFrench, ENGLISH.t("buttonDownload"))?.click()
+    expect(toFrench.textContent).toContain(ENGLISH.t("dictQueued"))
+    expect(button(toFrench, ENGLISH.t("buttonDownload"))).toBeUndefined()
+    button(fromFrench, ENGLISH.t("buttonCancel"))!.click()
+    expect(button(m.row("French"), ENGLISH.t("buttonDownload"))).toBeDefined()
+    await vi.waitFor(() => {
+      waiting.splice(0).forEach((resolve) => resolve())
+      expect(installed.size).toBe(3)
+    })
+    await vi.waitFor(() => expect(requests.filter((r) => r.type === "bergamotList")).toHaveLength(2))
+    expect(installs().sort()).toEqual(["de>en", "en>de", "en>fr"])
   })
 })
 

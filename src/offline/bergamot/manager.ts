@@ -20,6 +20,8 @@ const DEFAULT_ATTACHMENTS_BASE = "https://firefox-settings-attachments.cdn.mozil
 const MODELS_PATH = "buckets/main/collections/translations-models-v2/records"
 /** The model list is fetched again after this long. */
 const RECORDS_TTL_MS = 6 * 60 * 60 * 1000
+/** A model list that could not be read is asked for again after this long at the earliest, as the dictionary index. */
+const RECORDS_RETRY_MS = 10 * 60 * 1000
 const RECORDS_META_KEY = "records"
 
 export interface BergamotPairInfo {
@@ -83,6 +85,8 @@ export class BergamotManager {
   readonly engine: BergamotEngine
   private records: CachedRecords | null = null
   private recordsLoading: Promise<CachedRecords> | null = null
+  /** The last failed read of the model list, while no read has succeeded since. */
+  private failure: { at: number; error: LocalizedError } | null = null
   private installed: Promise<string> | null = null
   private readonly serverUrl: string
   private readonly now: () => number
@@ -141,18 +145,21 @@ export class BergamotManager {
    * saved by an earlier session when Mozilla cannot be reached.
    */
   async getRecords(forceRefresh = false): Promise<CachedRecords> {
-    if (!forceRefresh && this.records && this.now() - this.records.fetchedAt < RECORDS_TTL_MS) return this.records
+    // After a failure Mozilla is asked again only after RECORDS_RETRY_MS, unless the user asks for it.
+    const failure = this.failure && this.now() - this.failure.at < RECORDS_RETRY_MS ? this.failure.error : null
+    if (!forceRefresh && this.records && (failure || this.now() - this.records.fetchedAt < RECORDS_TTL_MS)) return this.records
+    if (!forceRefresh && failure) throw failure
     this.recordsLoading ??= (async () => {
       try {
         this.records = await this.downloadRecords()
+        this.failure = null
         return this.records
       } catch (e) {
-        const saved = this.records ?? (await this.deps.store.getMeta<CachedRecords>(RECORDS_META_KEY).catch(() => undefined))
-        if (saved && !forceRefresh) {
-          this.records = saved
-          return saved
-        }
-        throw new LocalizedError("bergamotRecordsFailed", [], errorText(e))
+        const error = new LocalizedError("bergamotRecordsFailed", [], errorText(e))
+        this.failure = { at: this.now(), error }
+        this.records ??= (await this.deps.store.getMeta<CachedRecords>(RECORDS_META_KEY).catch(() => undefined)) ?? null
+        if (this.records && !forceRefresh) return this.records
+        throw error
       } finally {
         this.recordsLoading = null
       }

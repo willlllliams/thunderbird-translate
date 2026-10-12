@@ -140,6 +140,7 @@
   "dictPackMeta": "$1 MB · 항목 $2개 · $3",
   "dictInstalled": "설치됨",
   "dictDownloading": "내려받는 중… $1%",
+  "dictQueued": "대기 중…",
   "buttonDownload": "내려받기",
   "buttonDelete": "삭제",
   "labelDictTag": "사전 팩의 릴리스 태그 (고급)",

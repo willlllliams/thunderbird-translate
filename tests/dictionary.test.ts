@@ -1,6 +1,6 @@
 /** Dictionary packs: format, word-by-word translation, storage, download and the dictionary tier. */
 import { IDBFactory } from "fake-indexeddb"
-import { describe, expect, it, vi } from "vitest"
+import { afterEach, describe, expect, it, vi } from "vitest"
 import { type IndexedPack, fetchDictionaryIndex, installPack, releaseUrl } from "../src/background/dictionary/download"
 import { TimeoutError } from "../src/shared/errors"
 import { dictKey, dictLang, parsePack } from "../src/background/dictionary/format"
@@ -25,6 +25,8 @@ const ZH_HANT_EN = tsv("zh-Hant", "en", { 我們: "we", 明天: "tomorrow", 開�
 const EN_ZH_MEETING = tsv("en", "zh-Hans", { we: "我们", tomorrow: "明天", "hold a meeting": "持有一个会议" })
 
 const pack = (text: string) => parsePack(text)
+
+afterEach(() => vi.useRealTimers())
 
 describe("pack format", () => {
   it("reads the header, entries and forms", () => {
@@ -152,11 +154,16 @@ describe("storage, download and the dictionary tier", () => {
           }),
         )
       })
-    const stalled = await installPack(entry, "dicts-v1", newStore(), { fetchFn: trickle(5, 4, 2), idleMs: 60 }).catch((e) => e)
-    expect(stalled.i18nText).toMatchObject({ key: "errDownloadStalled", args: ["GitHub", "0"] })
+    // Simulated time: the gaps between pieces do not depend on the load of the machine. IndexedDB runs on setImmediate.
+    vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] })
+    const stalling = installPack(entry, "dicts-v1", newStore(), { fetchFn: trickle(5, 4, 2), idleMs: 60 }).catch((e) => e)
+    await vi.advanceTimersByTimeAsync(10 + 60)
+    expect((await stalling).i18nText).toMatchObject({ key: "errDownloadStalled", args: ["GitHub", "0"] })
     // Six pieces, 40 ms apart: longer than the idle time in total, never between two pieces.
     const store = newStore()
-    await installPack(entry, "dicts-v1", store, { fetchFn: trickle(40, 6), idleMs: 60 })
+    const slow = installPack(entry, "dicts-v1", store, { fetchFn: trickle(40, 6), idleMs: 60 })
+    await vi.advanceTimersByTimeAsync(6 * 40)
+    await slow
     expect((await store.list()).map((p) => p.id)).toEqual(["en>de"])
   })
 
@@ -378,6 +385,8 @@ describe("storage, download and the dictionary tier", () => {
   it("reads the packs again after a change, and releases them when idle", async () => {
     const store = await installed("dict-en-zh-Hans.tsv.gz")
     const data = vi.spyOn(store, "data")
+    // Simulated time, so that no idle time passes between two translations however slow the machine is.
+    vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] })
     const dictionary = new Dictionary(store, { idleMs: 30 })
     await texts(dictionary, ["hello"], "en", "zh-CN")
     await texts(dictionary, ["world"], "en", "zh-CN")
@@ -389,7 +398,10 @@ describe("storage, download and the dictionary tier", () => {
     dictionary.invalidate()
     await texts(dictionary, ["hello"], "en", "zh-CN")
     const reads = data.mock.calls.length
-    await new Promise((r) => setTimeout(r, 80))
+    await vi.advanceTimersByTimeAsync(29)
+    await texts(dictionary, ["hello"], "en", "zh-CN")
+    expect(data.mock.calls.length).toBe(reads)
+    await vi.advanceTimersByTimeAsync(30)
     await texts(dictionary, ["hello"], "en", "zh-CN")
     expect(data.mock.calls.length).toBe(reads + 1)
   })

@@ -383,6 +383,30 @@ describe("TranslationService: tiers, caps and precise mode details", () => {
       expect(second.llm.analyze).not.toHaveBeenCalled()
     })
 
+    it("M2: keeps the analysis of a retranslation in the cache when the older analysis answers later", async () => {
+      const { llm, prefixes } = fakeLlm(ANALYSIS)
+      let release!: () => void
+      const gate = new Promise<void>((resolve) => (release = resolve))
+      let round = 0
+      llm.analyze.mockImplementation(async () => {
+        const n = ++round
+        if (n === 1) await gate
+        return { summary: `Round ${n}.`, glossary: [], tone: "" }
+      })
+      const { service, cache } = setup(precise, { llm })
+      const set = vi.spyOn(cache, "set")
+      const first = translateMail(service, PARAGRAPHS)
+      await vi.waitFor(() => expect(llm.analyze).toHaveBeenCalledTimes(1))
+      const context = createMailContext(PARAGRAPHS, [0, 1, 2])
+      service.setContext(context, true)
+      await Promise.all(PARAGRAPHS.map((text, index) => translateOne(service, { text, targetLang: "zh-CN", providerId: "openai", context: { id: context.id, index }, bypassCache: true })))
+      release()
+      await first
+      expect(prefixes.some((prefix) => prefix?.includes("Summary: Round 1."))).toBe(true)
+      const stored = set.mock.calls.filter(([key]) => key.includes(":analysis|")).map(([, value]) => JSON.parse(value).summary)
+      expect(stored).toEqual(["Round 2."])
+    })
+
     it("sends the message context in the system message, without Anthropic's cache mark to other services", async () => {
       const bodies: { messages: { role: string; content: unknown }[] }[] = []
       const isAnalysis = (system: unknown) => String(system).startsWith("You prepare the translation")
@@ -439,6 +463,31 @@ describe("retranslation (bypassCache)", () => {
     expect(await translateOne(service, google("Same", true))).toBe("R2(Same)")
     release()
     expect(await running).toBe("R1(Same)")
+  })
+
+  it("M2: keeps the retranslation in the cache when the older request answers later", async () => {
+    let release!: () => void
+    const fetchFn = rounds(new Promise<void>((resolve) => (release = resolve)))
+    const { service } = setup(() => {}, { fetchFn })
+    const running = translateOne(service, google("Same"))
+    await vi.waitFor(() => expect(fetchFn).toHaveBeenCalledTimes(1))
+    expect(await translateOne(service, google("Same", true))).toBe("R2(Same)")
+    release()
+    expect(await running).toBe("R1(Same)")
+    expect(await translateOne(service, google("Same"))).toBe("R2(Same)")
+    expect(fetchFn).toHaveBeenCalledTimes(2)
+  })
+
+  it("M2: lets a request during a retranslation share its result", async () => {
+    let release!: () => void
+    const fetchFn = rounds(new Promise<void>((resolve) => (release = resolve)))
+    const { service } = setup(() => {}, { fetchFn })
+    const fresh = translateOne(service, google("Same", true))
+    await vi.waitFor(() => expect(fetchFn).toHaveBeenCalledTimes(1))
+    const plain = translateOne(service, google("Same"))
+    release()
+    expect(await Promise.all([fresh, plain])).toEqual(["R1(Same)", "R1(Same)"])
+    expect(fetchFn).toHaveBeenCalledTimes(1)
   })
 
   it("asks every tier again when the highest tier's result is cached", async () => {

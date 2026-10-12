@@ -140,6 +140,7 @@
   "dictPackMeta": "$1 MB · $2 mục · $3",
   "dictInstalled": "Đã cài đặt",
   "dictDownloading": "Đang tải xuống… $1%",
+  "dictQueued": "Đang chờ…",
   "buttonDownload": "Tải xuống",
   "buttonDelete": "Xóa",
   "labelDictTag": "Thẻ bản phát hành của các gói từ điển (nâng cao)",

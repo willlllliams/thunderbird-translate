@@ -140,6 +140,7 @@
   "dictPackMeta": "$1 MB · $2 Einträge · $3",
   "dictInstalled": "Installiert",
   "dictDownloading": "Wird heruntergeladen… $1 %",
+  "dictQueued": "Wartet…",
   "buttonDownload": "Herunterladen",
   "buttonDelete": "Löschen",
   "labelDictTag": "Release-Tag der Wörterbuchpakete (erweitert)",

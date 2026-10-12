@@ -142,6 +142,7 @@
   "dictPackMeta": "$1 MB · $2 entries · $3",
   "dictInstalled": "Installed",
   "dictDownloading": "Downloading… $1%",
+  "dictQueued": "Waiting…",
   "buttonDownload": "Download",
   "buttonDelete": "Delete",
   "labelDictTag": "Release tag of the dictionary packs (advanced)",

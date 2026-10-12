@@ -45,7 +45,7 @@ export interface ControllerDeps {
   detect?: LanguageDetector
   report?: (state: Omit<TabState, "connected">) => void
   /** Told when a translation starts and when every paragraph has its answers, of each paragraph without a dictionary pack or offline model, and when the translation stops. */
-  notice?: { begin(): void; add(missing: MissingData): void; end(): void; clear(): void }
+  notice?: { begin(): void; add(missing: MissingData): void; end(): void; clear(again?: boolean): void }
 }
 
 /** What one tier has for one paragraph. */
@@ -157,7 +157,7 @@ export class TranslationController {
   async retranslate(): Promise<void> {
     if (!this.active) return
     this.memo.clear()
-    this.stop()
+    this.stop(true)
     await this.start(true)
   }
 
@@ -197,7 +197,8 @@ export class TranslationController {
     if (session === this.session) this.deps.notice?.end()
   }
 
-  stop(): void {
+  /** `again`: a retranslation follows. */
+  stop(again = false): void {
     this.session++
     this.active = false
     this.renderer?.clearAll()
@@ -208,7 +209,7 @@ export class TranslationController {
     this.context = null
     this.results.clear()
     this.lastError = ""
-    this.deps.notice?.clear()
+    this.deps.notice?.clear(again)
     this.root()?.ownerDocument.getElementById(STYLE_ID)?.remove()
     this.report()
   }

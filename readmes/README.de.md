@@ -79,7 +79,7 @@ Jede Stufe verwendet einen Dienst oder „Nicht verwendet“; mindestens eine St
 
 Jeder Absatz geht gleichzeitig an alle verwendeten Stufen. Das Ergebnis einer niedrigeren Stufe erscheint zuerst als vorläufige Übersetzung, kursiv und mit dem Namen ihrer Stufe gekennzeichnet. Die höchste verwendete Stufe ersetzt sie durch die endgültige Übersetzung; schlägt die höchste Stufe fehl, bleibt die vorläufige Übersetzung stehen.
 
-Fehlen dem gewählten Wörterbuch oder Bergamot die Daten für die Sprachen einer Nachricht, nennt ein Hinweis über der Nachricht, was heruntergeladen werden muss. Er enthält einen Link zu den Einstellungen und die Schaltfläche „Für diese Sprachen nicht mehr erinnern“.
+Fehlen dem gewählten Wörterbuch oder Bergamot die Daten für die Sprachen einer Nachricht, nennt ein Hinweis über der Nachricht, was heruntergeladen werden muss. Er enthält einen Link zu den Einstellungen und das Kontrollkästchen „Für diese Sprachen nicht mehr erinnern“.
 
 ## Übersetzungsdienste
 

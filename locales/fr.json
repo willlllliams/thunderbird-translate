@@ -140,6 +140,7 @@
   "dictPackMeta": "$1 Mo · $2 entrées · $3",
   "dictInstalled": "Installé",
   "dictDownloading": "Téléchargement… $1 %",
+  "dictQueued": "En attente…",
   "buttonDownload": "Télécharger",
   "buttonDelete": "Supprimer",
   "labelDictTag": "Étiquette de version des packs de dictionnaires (avancé)",

@@ -79,7 +79,7 @@ Cada nível usa um serviço ou "Não usado"; pelo menos um nível precisa de um 
 
 Cada parágrafo vai a todos os níveis em uso ao mesmo tempo. O resultado de um nível inferior aparece primeiro como tradução provisória, em itálico e com o nome do nível. O nível mais alto em uso a substitui pela tradução final; se o nível mais alto falha, a tradução provisória permanece.
 
-Quando o dicionário ou o Bergamot selecionado não tem os dados para os idiomas de uma mensagem, um aviso acima da mensagem informa o que baixar, com um link para as configurações e o botão "Não me lembrar novamente para estes idiomas".
+Quando o dicionário ou o Bergamot selecionado não tem os dados para os idiomas de uma mensagem, um aviso acima da mensagem informa o que baixar, com um link para as configurações e a caixa de seleção "Não me lembrar novamente para estes idiomas".
 
 ## Serviços de tradução
 

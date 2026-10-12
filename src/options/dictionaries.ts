@@ -71,7 +71,7 @@ export class DictionarySection extends OfflineList<PackItem> {
   }
 
   protected installing(item: PackItem): boolean {
-    return this.progress.has(item.id)
+    return this.queued.has(item.id) || this.progress.has(item.id)
   }
 
   protected details(item: PackItem): (Node | null)[] {
@@ -83,6 +83,7 @@ export class DictionarySection extends OfflineList<PackItem> {
     ]
     const progress = this.progress.get(id)
     if (progress !== undefined) out.push(h("span", { text: t("dictDownloading", [progress]) }), button(t("buttonCancel"), () => this.downloads.get(id)?.abort()))
+    else if (this.queued.has(id)) out.push(...this.waiting(id))
     else if (stored && !this.deps.pick) out.push(button(t("buttonDelete"), () => void this.remove(id)))
     else if (available && !stored && !this.deps.pick) out.push(button(t("buttonDownload"), () => void this.installAll([item]), true))
     out.push(h("span", { className: "attribution hint", text: pack.attribution }))

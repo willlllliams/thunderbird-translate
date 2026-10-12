@@ -170,7 +170,7 @@ To add a language:
 2. Add the code to `SUPPORTED_LOCALES` in `src/shared/locales.ts` together with its native name.
 3. Run `npm run locales:check` and `npm test`.
 
-The README exists in the same 12 languages: `README.md` in English and `readmes/README.<code>.md` for the others. All 12 have the same sections in the same order, and their interface terms match the locale files. The documents in `docs/` are in English, except `dictionary-packs.md`, `size-and-structure.md` and `promo-video-prompt.md`, which are in Chinese. After editing any Markdown file, run `npm run docs:check`: it resolves every relative link and checks every anchor with GitHub's rules (lower case, punctuation removed, spaces turned into `-`, letters of every script kept).
+The README exists in the same 12 languages: `README.md` in English and `readmes/README.<code>.md` for the others. All 12 have the same sections in the same order, and their interface terms match the locale files. The documents in `docs/` are in English, except `dictionary-packs.md`, `size-and-structure.md` and `promo-video-prompt.md`, which are in Chinese. After editing any Markdown file, run `npm run docs:check`: it resolves every relative link and checks every anchor with GitHub's rules (lower case, punctuation removed, spaces turned into `-`, letters, marks and decimal digits of every script kept, images left out, a repeated heading numbered `-1`, `-2`… until its anchor is free).
 
 ## Release process
 
@@ -178,7 +178,7 @@ The version lives in three places, which must agree: `static/manifest.json`, `pa
 
 The workflow `.github/workflows/release.yml` (named "Build") runs on every push to `main`, on pull requests and on manual dispatch.
 
-1. Job `build`: `npm ci`, `npm run typecheck`, `npm run locales:check`, `npm run test:coverage` and `npm run build`. The xpi is uploaded as a build artifact named after the version and the short commit hash, kept for 30 days.
+1. Job `build`: `npm ci`, `npm run typecheck`, `npm run locales:check`, `npm run docs:check`, `npm run test:coverage` and `npm run build`. The xpi is uploaded as a build artifact named after the version and the short commit hash, kept for 30 days.
 2. Job `e2e`: the end-to-end test against the four Thunderbird versions listed above.
 3. Job `release`, after both succeed and not for pull requests:
    - On a push, it replaces the `nightly` pre-release with the xpi of this commit, named `thunderbird-translate-<version>-<sha>.xpi`. The nightly build is for testing.

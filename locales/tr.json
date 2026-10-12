@@ -142,6 +142,7 @@
   "dictPackMeta": "$1 MB · $2 girdi · $3",
   "dictInstalled": "Kurulu",
   "dictDownloading": "İndiriliyor… %$1",
+  "dictQueued": "Bekliyor…",
   "buttonDownload": "İndir",
   "buttonDelete": "Sil",
   "labelDictTag": "Sözlük paketlerinin sürüm etiketi (gelişmiş)",
