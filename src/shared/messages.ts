@@ -106,6 +106,20 @@ export interface BergamotPairInfo {
   installedVersion?: string
 }
 
+/** A dictionary pack as the settings page lists it: the entry of the release index, or the stored description when it is installed. */
+export interface DictionaryPackInfo {
+  src: string
+  tgt: string
+  /** Size of the compressed file. */
+  bytes: number
+  entries: number
+  license: string
+  attribution: string
+  installed: boolean
+  /** Version of an installed pack; the index names none. */
+  version?: string
+}
+
 export type BergamotResult = { ok: true; pairs?: BergamotPairInfo[] } | { ok: false; error?: string; cancelled?: true }
 
 /** Running installations by "src>tgt": bytes done and total. */

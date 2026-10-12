@@ -130,6 +130,8 @@ describe("model list", () => {
     files.length = 0
     await manager.getRecords(true)
     expect(await manager.listPairs()).toEqual([expect.objectContaining({ src: "en", tgt: "fr", version: "3.0", installed: true })])
+    // As an offline manager (offline/manager.ts): the same pairs; a list that fails rejects instead of naming an error.
+    expect(await manager.list()).toEqual({ items: await manager.listPairs() })
   })
 
   it("reports a storage failure while listing", async () => {

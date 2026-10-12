@@ -11,6 +11,7 @@ import { isChinesePair, normalizeBergamotLang, pairKey } from "../../shared/lang
 import type { BergamotPairInfo } from "../../shared/messages"
 import { type Catalog, pairNeeds } from "../../shared/offline-needs"
 import { CatalogCache } from "../catalog-cache"
+import type { ListOptions, OfflineListing, OfflineManager } from "../manager"
 import { BergamotEngine, type EngineOptions, type WorkerLike } from "./engine"
 import { type ModelFileType, type ModelRecord, type PairFiles, selectPairs } from "./records"
 import type { BergamotStore, StoredFile, StoredPair } from "./store"
@@ -65,7 +66,8 @@ function slim(r: ModelRecord): ModelRecord {
   }
 }
 
-export class BergamotManager {
+export class BergamotManager implements OfflineManager<BergamotPairInfo> {
+  readonly service = "bergamot"
   readonly engine: BergamotEngine
   /** The model list: read again after six hours, after a failed read not before ten minutes, the copy of an earlier session when Mozilla cannot be reached. */
   private readonly records: CatalogCache<CachedRecords>
@@ -166,6 +168,11 @@ export class BergamotManager {
       out.push({ src: p.src, tgt: p.tgt, version: p.version, architecture: p.architecture, bytes: p.bytes, rawBytes: p.rawBytes, installed: true })
     }
     return out.sort((a, b) => a.src.localeCompare(b.src) || a.tgt.localeCompare(b.tgt))
+  }
+
+  /** The pairs of listPairs(); fails when the model list cannot be read. */
+  async list({ refresh = false }: ListOptions = {}): Promise<OfflineListing<BergamotPairInfo>> {
+    return { items: await this.listPairs(refresh) }
   }
 
   private async listInstalled(): Promise<StoredPair[]> {

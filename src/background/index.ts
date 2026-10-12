@@ -19,10 +19,14 @@ import { createOfflineStatus } from "./offline-status"
 import { createDispatch, createHandlers } from "./router"
 import { createSettingsState } from "./settings-state"
 import { createTabRegistry } from "./tabs"
-import { Dictionary } from "../offline/dictionary"
+import { getBergamot } from "../offline/bergamot"
+import { DictionaryManager } from "../offline/dictionary/manager"
+import type { OfflineManager } from "../offline/manager"
+import type { OfflineService } from "../shared/offline-needs"
 import { TranslationService } from "./service"
 import { openWelcomeOnInstall } from "./welcome"
 import { beforeSettingsRead } from "../hooks/background"
+import { releaseFetch } from "../hooks/servers"
 
 declare const __DEBUG__: boolean
 
@@ -38,12 +42,11 @@ const cache = new PersistentCache(storage, createDefaultSettings().cache.maxEntr
 // The dictionary and the offline models name the source language of a paragraph the same way.
 const detect = sourceDetector(ext.i18n)
 
-const offline = createOfflineStatus({
-  releaseTag: () => settings.current().dictionary.releaseTag,
-  installedPacks: () => dictionary.installedIds(),
-})
-// Translations take the dictionary index read so far: they never wait for the network.
-const dictionary = new Dictionary(undefined, { detect, catalog: () => offline.knownDictionaryCatalog() })
+// Test build (npm run e2e): the dictionary packs of the local mock server instead of GitHub's.
+const dictionary = new DictionaryManager({ releaseTag: () => settings.current().dictionary.releaseTag, fetch: releaseFetch, detect })
+/** The manager of each offline service; the Bergamot one is created on first use. */
+const offlineManager = (service: OfflineService): OfflineManager => (service === "dictionary" ? dictionary : getBergamot())
+const offline = createOfflineStatus({ manager: offlineManager })
 
 /** The keyboard commands, created below once the settings and the tabs exist; the hook of the e2e build gets them first. */
 const runCommand = (command: string, tab?: browser.tabs.Tab) => commandRunner(command, tab)
