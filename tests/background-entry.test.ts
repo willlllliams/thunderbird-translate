@@ -10,7 +10,7 @@ import { DEFAULT_PROMPTS } from "../src/shared/prompts"
 import { createDefaultSettings, SETTINGS_KEY, type Settings, toPublicSettings } from "../src/shared/settings"
 import { localeText, stubBackgroundApi } from "./fixtures/background-api"
 import { packEntry, releaseServer, tsv } from "./fixtures/dictionary"
-import { asFetch, jsonResponse, nextTask, useFakeTimers } from "./helpers"
+import { asFetch, jsonResponse, useFakeTimers } from "./helpers"
 
 beforeEach(() => useFakeTimers())
 afterEach(() => {
@@ -162,55 +162,6 @@ describe("content script ports", () => {
     expect(await bg.send({ type: "getTabState", tabId: 4 })).toEqual({ ...IDLE_TAB_STATE, connected: true })
   })
 
-  it("ignores other ports and ports without a tab", async () => {
-    const bg = await start({ stored: stored(createDefaultSettings()) })
-    const other = bg.connect(4, "something-else")
-    const noTab = bg.connect(undefined)
-    await nextTask()
-    expect([other.posted, noTab.posted]).toEqual([[], []])
-    expect(other.onMessage.listeners).toHaveLength(0)
-    expect(await bg.send({ type: "getTabState", tabId: 4 })).toEqual(IDLE_TAB_STATE)
-  })
-
-  it("ignores port messages that are not reports of a content script", async () => {
-    const bg = await start({ stored: stored(createDefaultSettings()) })
-    const port = bg.connect(4)
-    await vi.waitFor(() => expect(port.posted).toHaveLength(1))
-    for (const message of [undefined, null, "state", {}, { type: "toggle" }, { type: 3 }]) expect(() => port.send(message as never)).not.toThrow()
-    await nextTask()
-    expect(port.posted).toHaveLength(1)
-    expect(await bg.send({ type: "getTabState", tabId: 4 })).toEqual({ ...IDLE_TAB_STATE, connected: true })
-  })
-
-  it("keeps the state reported by the tab and shows ON on its badge while active", async () => {
-    const bg = await start({ stored: stored(createDefaultSettings()) })
-    const port = bg.connect(4)
-    const state = { active: true, total: 3, done: 1, provisional: 1, failed: 0 }
-    port.send({ type: "state", state })
-    expect(await bg.send({ type: "getTabState", tabId: 4 })).toEqual({ connected: true, ...state })
-    await vi.waitFor(() => expect(bg.api.messageDisplayAction.setBadgeText).toHaveBeenLastCalledWith({ tabId: 4, text: localeText("en", "badgeOn") }))
-    expect(bg.api.messageDisplayAction.setBadgeBackgroundColor).toHaveBeenCalledWith({ tabId: 4, color: "#4c8bf5" })
-  })
-
-  it("redraws the badge only when the tab is switched on or off, not for every progress report", async () => {
-    const bg = await start({ stored: stored(createDefaultSettings()) })
-    const port = bg.connect(4)
-    await vi.waitFor(() => expect(bg.api.messageDisplayAction.setBadgeText).toHaveBeenCalledTimes(1))
-    for (let done = 0; done <= 5; done++) port.send({ type: "state", state: { active: true, total: 5, done, provisional: 0, failed: 0 } })
-    port.send({ type: "state", state: { active: false, total: 0, done: 0, provisional: 0, failed: 0 } })
-    await vi.waitFor(() => expect(bg.api.messageDisplayAction.setBadgeText).toHaveBeenCalledTimes(3))
-    expect(bg.api.messageDisplayAction.setBadgeText.mock.calls.map(([d]) => d.text)).toEqual(["", localeText("en", "badgeOn"), ""])
-  })
-
-  it("survives a badge of a tab that is already closed", async () => {
-    const bg = await start({ stored: stored(createDefaultSettings()) })
-    bg.api.messageDisplayAction.setBadgeText.mockRejectedValue(new Error("Invalid tab ID"))
-    const port = bg.connect(4)
-    port.send({ type: "state", state: { active: true, total: 1, done: 0, provisional: 0, failed: 0 } })
-    await vi.waitFor(() => expect(bg.api.messageDisplayAction.setBadgeText).toHaveBeenCalledTimes(2))
-    expect(bg.api.messageDisplayAction.setBadgeBackgroundColor).not.toHaveBeenCalled()
-  })
-
   it("translates a paragraph: one report per tier, then done", async () => {
     const bg = await start({ stored: stored(createDefaultSettings()) })
     const port = bg.connect(4)
@@ -220,20 +171,6 @@ describe("content script ports", () => {
       { type: "tier", id: 7, tier: "machine", result: { ok: true, text: "G(Hello)" } },
       { type: "done", id: 7 },
     ])
-  })
-
-  it("reports done after a failed translation, and survives a port that went away", async () => {
-    const bg = await start({ stored: stored(createDefaultSettings()) })
-    google.mockResolvedValueOnce(new Response("{}", { status: 400 }))
-    const port = bg.connect(4)
-    port.send({ type: "translate", id: 1, request: request("Hello") })
-    await vi.waitFor(() => expect(port.posted.at(-1)).toEqual({ type: "done", id: 1 }))
-    expect(port.posted[1]).toMatchObject({ type: "tier", tier: "machine", result: { ok: false, error: expect.stringContaining("HTTP 400") } })
-    port.postMessage = () => {
-      throw new Error("Attempt to postMessage on disconnected port")
-    }
-    port.send({ type: "translate", id: 2, request: request("World") })
-    await vi.waitFor(() => expect(google).toHaveBeenCalledTimes(2))
   })
 
   it("registers the message for precise mode, for a retranslation with a new analysis", async () => {
@@ -248,18 +185,6 @@ describe("content script ports", () => {
     bg.connect(4).send({ type: "context", context, bypassCache: true })
     expect(setContext).toHaveBeenLastCalledWith(context, true)
     setContext.mockRestore()
-  })
-
-  it("forgets a tab when its last content script disconnects", async () => {
-    const bg = await start({ stored: stored(createDefaultSettings()) })
-    const [a, b] = [bg.connect(4), bg.connect(4)]
-    b.send({ type: "state", state: { active: true, total: 1, done: 1, provisional: 0, failed: 0 } })
-    a.disconnect()
-    expect(await bg.send({ type: "getTabState", tabId: 4 })).toMatchObject({ connected: true, active: true })
-    bg.api.messageDisplayAction.setBadgeText.mockClear()
-    b.disconnect()
-    expect(await bg.send({ type: "getTabState", tabId: 4 })).toEqual(IDLE_TAB_STATE)
-    expect(bg.api.messageDisplayAction.setBadgeText).toHaveBeenCalledWith({ tabId: 4, text: "" })
   })
 })
 

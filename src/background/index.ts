@@ -1,17 +1,12 @@
 import { describeError } from "../shared/errors"
 import { ext } from "../shared/ext"
-import { getI18n, t } from "../shared/i18n"
+import { getI18n } from "../shared/i18n"
 import { loadExtensionI18n, thunderbirdUiLanguage } from "../shared/i18n-ext"
 import {
   type BackgroundHandlers,
-  CONTENT_PORT_NAME,
-  IDLE_TAB_STATE,
-  isPortReport,
   type OfflineStatus,
   optionsPath,
   type PageNotice,
-  type PortPush,
-  type TabState,
 } from "../shared/messages"
 import { pairKey } from "../shared/languages"
 import { type Catalog, offlineServiceOf, offlineState } from "../shared/offline-needs"
@@ -26,6 +21,7 @@ import { type KeyValueStorage, PersistentCache } from "./cache"
 import { createCommandRunner } from "./commands"
 import { registerContentScripts } from "./content-scripts"
 import { createLocaleTables } from "./locale-tables"
+import { createTabRegistry } from "./tabs"
 import { Dictionary } from "../offline/dictionary"
 import { fetchDictionaryIndex } from "../offline/dictionary/download"
 import { TranslationService } from "./service"
@@ -125,7 +121,7 @@ async function applyUiLanguage(): Promise<void> {
   } catch {
     // Not available in this Thunderbird version.
   }
-  for (const tabId of tabStates.keys()) void updateBadge(tabId)
+  tabs.redrawBadges()
 }
 
 ext.storage.onChanged.addListener((changes, area) => {
@@ -133,91 +129,29 @@ ext.storage.onChanged.addListener((changes, area) => {
   const previousUiLanguage = settings.uiLanguage
   adoptSettings(changes[SETTINGS_KEY].newValue)
   if (settings.uiLanguage !== previousUiLanguage) void applyUiLanguage()
-  broadcast({ type: "settings", settings: toPublicSettings(settings) })
+  tabs.broadcast({ type: "settings", settings: toPublicSettings(settings) })
 })
 
 /* ---------- content script connections ---------- */
 
-const ports = new Map<number, Set<browser.runtime.Port>>()
-const tabStates = new Map<number, TabState>()
-
-function broadcast(msg: PortPush): void {
-  for (const set of ports.values()) for (const port of set) safePost(port, msg)
-}
-
-function safePost(port: browser.runtime.Port, msg: PortPush): void {
-  try {
-    port.postMessage(msg)
-  } catch {
-    // The content script went away.
-  }
-}
+const tabs = createTabRegistry({
+  ready: settingsReady,
+  publicSettings: () => toPublicSettings(settings),
+  setContext: (context, bypassCache) => service.setContext(context, bypassCache),
+  translate: (request, onTier) => service.translateForPage(request, onTier),
+})
 
 /** Dictionary packs or offline models changed: content scripts forget their results, pages show the new state. */
 function offlineDataChanged(): void {
-  broadcast({ type: "offlineDataChanged" })
+  tabs.broadcast({ type: "offlineDataChanged" })
   ext.runtime.sendMessage({ type: "offlineDataChanged" } satisfies PageNotice).catch(() => {
     // No page open.
   })
 }
 
-/** A command for the content scripts of one tab: toggle or retranslate. */
-function postToTab(tabId: number, msg: PortPush): void {
-  for (const port of ports.get(tabId) ?? []) safePost(port, msg)
-}
+ext.runtime.onConnect.addListener((port) => tabs.connect(port))
 
-async function updateBadge(tabId: number): Promise<void> {
-  const active = tabStates.get(tabId)?.active
-  try {
-    await ext.messageDisplayAction.setBadgeText({ tabId, text: active ? t("badgeOn") : "" })
-    if (active) await ext.messageDisplayAction.setBadgeBackgroundColor({ tabId, color: "#4c8bf5" })
-  } catch {
-    // Tab already closed.
-  }
-}
-
-ext.runtime.onConnect.addListener((port) => {
-  if (port.name !== CONTENT_PORT_NAME) return
-  const tabId = port.sender?.tab?.id
-  if (tabId === undefined) return
-  if (!ports.has(tabId)) ports.set(tabId, new Set())
-  ports.get(tabId)!.add(port)
-  tabStates.set(tabId, { ...IDLE_TAB_STATE, connected: true })
-  void updateBadge(tabId)
-
-  port.onMessage.addListener((msg) => {
-    if (!isPortReport(msg)) return
-    switch (msg.type) {
-      case "state": {
-        const wasActive = tabStates.get(tabId)?.active
-        tabStates.set(tabId, { connected: true, ...msg.state })
-        // Progress reports come many times a second; the badge only shows whether the tab is translated.
-        if (msg.state.active !== wasActive) void updateBadge(tabId)
-        break
-      }
-      case "context":
-        service.setContext(msg.context, msg.bypassCache === true)
-        break
-      case "translate":
-        void settingsReady
-          .then(() => service.translateForPage(msg.request, (tier, result) => safePost(port, { type: "tier", id: msg.id, tier, result })))
-          .finally(() => safePost(port, { type: "done", id: msg.id }))
-        break
-    }
-  })
-  port.onDisconnect.addListener(() => {
-    const set = ports.get(tabId)
-    set?.delete(port)
-    if (!set || set.size === 0) {
-      ports.delete(tabId)
-      tabStates.delete(tabId)
-      void updateBadge(tabId)
-    }
-  })
-  void settingsReady.then(() => safePost(port, { type: "settings", settings: toPublicSettings(settings) }))
-})
-
-const commandRunner = createCommandRunner({ ready: settingsReady, postToTab })
+const commandRunner = createCommandRunner({ ready: settingsReady, postToTab: tabs.postToTab })
 
 /* ---------- requests from content scripts, popup and options ---------- */
 
@@ -225,9 +159,9 @@ const localeMessages = createLocaleTables(uiLang)
 
 /** The answers to the requests of the content scripts, the popup and the extension pages (exported for the tests). */
 export const handlers: BackgroundHandlers = {
-  toggleTab: (req) => postToTab(req.tabId, { type: "toggle" }),
-  retranslateTab: (req) => postToTab(req.tabId, { type: "retranslate" }),
-  getTabState: (req) => tabStates.get(req.tabId) ?? IDLE_TAB_STATE,
+  toggleTab: (req) => tabs.postToTab(req.tabId, { type: "toggle" }),
+  retranslateTab: (req) => tabs.postToTab(req.tabId, { type: "retranslate" }),
+  getTabState: (req) => tabs.stateOf(req.tabId),
   testProvider: async (req) => {
     try {
       return { ok: true, text: await service.testProvider(req.providerId, req.config, req.targetLang) }
