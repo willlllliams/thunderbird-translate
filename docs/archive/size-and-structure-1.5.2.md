@@ -1,5 +1,7 @@
 # Thunderbird Translate 体积与结构分析
 
+> 本文是 1.5.2 版本的快照，写于 2026-10-11。此后的版本拆分了后台脚本，划定了 `src/` 的分层，并把词典包的下载和存储移到后台脚本，文中的体积数字、模块依赖和数据流都已过时。现行结构见 [development.md](../development.md#project-structure)。
+
 对象是 v1.5.2（提交 `4455516`，测量开始时工作区无未提交改动）的构建产物 `dist/` 与 `web-ext-artifacts/thunderbird-translate-1.5.2.xpi`，以及 `src/`、`tests/`、`e2e/`、`tools/dict-build/`、`scripts/` 的源码。所有数字于 2026-10-11 用脚本实测，运行环境为 Windows 11、Node 24.21.0、esbuild 0.28.2。运行时下载数据（词典索引、Mozilla Remote Settings）同日在线读取。
 
 本文的约定如下。

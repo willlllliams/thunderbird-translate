@@ -209,7 +209,7 @@ To add a language:
 2. Add the code to `SUPPORTED_LOCALES` in `src/shared/locales.ts` together with its native name.
 3. Run `npm run locales:check` and `npm test`.
 
-The README exists in the same 12 languages: `README.md` in English and `readmes/README.<code>.md` for the others. All 12 have the same sections in the same order, and their interface terms match the locale files. The documents in `docs/` are in English, except `dictionary-packs.md`, `size-and-structure.md` and `promo-video-prompt.md`, which are in Chinese. After editing any Markdown file, run `npm run docs:check`: it resolves every relative link and checks every anchor with GitHub's rules (lower case, punctuation removed, spaces turned into `-`, letters, marks and decimal digits of every script kept, images left out, a repeated heading numbered `-1`, `-2`… until its anchor is free).
+The README exists in the same 12 languages: `README.md` in English and `readmes/README.<code>.md` for the others. All 12 have the same sections in the same order, and their interface terms match the locale files. The documents in `docs/` are in English, except `dictionary-packs.md` and the archived `archive/size-and-structure-1.5.2.md`, which are in Chinese; the prompt for the promotional video, `promo/promo-video-prompt.md`, is in Chinese too. After editing any Markdown file, run `npm run docs:check`: it resolves every relative link and checks every anchor with GitHub's rules (lower case, punctuation removed, spaces turned into `-`, letters, marks and decimal digits of every script kept, images left out, a repeated heading numbered `-1`, `-2`… until its anchor is free).
 
 ## Release process
 
@@ -234,5 +234,5 @@ The dictionary packs have their own manually triggered workflow, `.github/workfl
 - [settings.md](settings.md): every setting and the detailed behavior.
 - [bergamot.md](bergamot.md): the Bergamot engine module, model selection, storage and build.
 - [dictionary-packs.md](dictionary-packs.md): data sources, pack format, extraction rules and build of the dictionary packs (in Chinese).
-- [size-and-structure.md](size-and-structure.md): size of the xpi and the bundles, module dependencies and data flow (in Chinese).
-- [promo-video-prompt.md](promo-video-prompt.md): the prompt for a promotional video (in Chinese).
+- [archive/size-and-structure-1.5.2.md](archive/size-and-structure-1.5.2.md): size of the xpi and the bundles, module dependencies and data flow of version 1.5.2, kept as a record; the numbers are outdated (in Chinese).
+- [promo/promo-video-prompt.md](../promo/promo-video-prompt.md): the prompt for the promotional video (in Chinese).
