@@ -19,8 +19,15 @@
  */
 
 import { dictLang, isChinesePair, languageTag, normalizeBergamotLang, pairKey } from "./languages"
+import { getPreset } from "./providers"
 
 export type OfflineService = "dictionary" | "bergamot"
+
+/** The offline service a tier uses, if any: the service id of the tier in the settings, or null. */
+export function offlineServiceOf(id: string | null): OfflineService | undefined {
+  const kind = id ? getPreset(id)?.kind : undefined
+  return kind === "dictionary" || kind === "bergamot" ? kind : undefined
+}
 
 export interface PairNeeds {
   /** Packs or models the translation uses; empty when source and target are the same language. */

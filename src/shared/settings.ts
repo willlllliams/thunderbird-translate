@@ -3,7 +3,7 @@ import { hashText } from "./hash"
 import { appLang, LANGUAGES, languageTag } from "./languages"
 import { normalizeUiLanguageSetting, type UiLanguageSetting } from "./locales"
 import { DEFAULT_PROMPTS, PROMPT_KINDS, type PromptKind, promptText } from "./prompts"
-import { DEFAULT_PROVIDER_ID, getPreset, PROVIDER_PRESETS, type ProviderPreset, type Tier, TIERS, tierOf } from "./providers"
+import { DEFAULT_PROVIDER_ID, getPreset, isAiProvider, PROVIDER_PRESETS, type ProviderPreset, type Tier, TIERS, tierOf } from "./providers"
 
 export type DisplayMode = "bilingual" | "translation-only"
 const STYLE_PRESETS = ["border", "dashed", "highlight", "plain"] as const
@@ -359,6 +359,32 @@ export function resolveProviderConfig(providerId: string, cfg: Omit<ProviderConf
   }
 }
 
+/** What decides the result of a service, besides the text, the languages and the installed offline data. */
+export interface ResultInputs {
+  provider: ResolvedProvider
+  /** AI services: the prompt in use. */
+  kind?: PromptKind
+  /** AI services: the system prompt template of `kind`. */
+  prompt?: string
+  /**
+   * Endpoint and Microsoft mode; for AI services also prompt kind, prompt,
+   * thinking and temperature. Joined with line breaks, they are part of the cache
+   * key of every translation (TranslationService) and of the signature of
+   * the tier the content script compares (toPublicSettings), so both change
+   * together. The order is fixed: stored cache keys depend on it.
+   */
+  parts: readonly unknown[]
+}
+
+/** The inputs that decide the result of `providerId` under `settings`; throws errUnknownProvider for an unknown service. */
+export function resultInputs(settings: Settings, providerId: string): ResultInputs {
+  const provider = resolveProvider(settings, providerId)
+  const kind = isAiProvider(getPreset(providerId)) ? promptKindFor(settings) : undefined
+  const prompt = kind ? promptText(settings.prompts, kind) : undefined
+  const parts = [provider.baseURL, provider.mode, ...(kind ? [kind, prompt, provider.thinking, provider.temperature] : [])]
+  return { provider, kind, prompt, parts }
+}
+
 /** Settings that content scripts may see. Never contains API keys, nor endpoints, which may hold a token. */
 export interface PublicSettings {
   uiLanguage: UiLanguageSetting
@@ -369,9 +395,10 @@ export interface PublicSettings {
   /** Tiers in use, lowest first. */
   tiers: Tier[]
   /**
-   * Service, model and, for the AI tier, prompt of each tier in use. When the
-   * signature of a tier changes, the content script requests that tier again
-   * and keeps the results of the others.
+   * Service, model and a hash of the other inputs of the result
+   * (ResultInputs.parts) of each tier in use. When the signature of a tier
+   * changes, the content script requests that tier again and keeps the
+   * results of the others.
    */
   signatures: Partial<Record<Tier, string>>
   /** Precise mode applies: the content script sends the message text as context. */
@@ -383,13 +410,8 @@ export interface PublicSettings {
 export function toPublicSettings(settings: Settings): PublicSettings {
   const signatures: Partial<Record<Tier, string>> = {}
   for (const tier of enabledTiers(settings.tiers)) {
-    const r = resolveProvider(settings, settings.tiers[tier]!)
-    let signature = `${r.id}|${r.model}|${hashText(r.baseURL)}|${r.mode}`
-    if (tier === "ai") {
-      const kind = promptKindFor(settings)
-      signature += `|${r.thinking}|${r.temperature}|${kind}:${hashText(promptText(settings.prompts, kind))}`
-    }
-    signatures[tier] = signature
+    const { provider, parts } = resultInputs(settings, settings.tiers[tier]!)
+    signatures[tier] = `${provider.id}|${provider.model}|${hashText(parts.join("\n"))}`
   }
   return {
     uiLanguage: settings.uiLanguage,

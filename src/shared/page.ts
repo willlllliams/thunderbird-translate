@@ -7,8 +7,8 @@ import { thunderbirdUiLanguage } from "./i18n-ext"
 import { LANGUAGES } from "./languages"
 import { LOCALE_NATIVE_NAMES, localeToLanguageTag, matchUiLocale, SUPPORTED_LOCALES } from "./locales"
 import type { BackgroundRequest, OfflineStatus, OptionsPlace } from "./messages"
-import { lacksData, type OfflineService } from "./offline-needs"
-import { getPreset, PROVIDER_PRESETS, providerDisplayName, type Tier, TIER_NAME_KEYS, TIERS, tierOf } from "./providers"
+import { lacksData, type OfflineService, offlineServiceOf } from "./offline-needs"
+import { PROVIDER_PRESETS, providerDisplayName, type Tier, TIER_NAME_KEYS, TIERS, tierOf } from "./providers"
 import { addedProviders, type Settings, type TierSettings, tiersValid } from "./settings"
 
 export const $ = <T extends HTMLElement>(id: string) => document.getElementById(id) as T
@@ -52,12 +52,6 @@ export function tierOptions(settings: Settings, tier: Tier, i18n: I18n = getI18n
   const services = (all ? PROVIDER_PRESETS : addedProviders(settings)).filter((p) => tierOf(p) === tier)
   const options = [new Option(i18n.t("tierNotUsed"), ""), ...services.map((p) => new Option(providerDisplayName(p, i18n), p.id))]
   return all ? options : [...options, new Option(i18n.t("tierAddService"), ADD_SERVICE)]
-}
-
-/** The offline service a tier uses, if any. */
-export function offlineServiceOf(id: string | null): OfflineService | undefined {
-  const kind = id ? getPreset(id)?.kind : undefined
-  return kind === "dictionary" || kind === "bergamot" ? kind : undefined
 }
 
 /** Short name of an offline service: "Dictionary", "Bergamot". */

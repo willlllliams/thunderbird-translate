@@ -30,8 +30,8 @@ import { getLanguage } from "../shared/languages"
 import type { MailContext } from "../shared/mail-context"
 import type { TranslateRequest, TranslateResponse } from "../shared/messages"
 import { promptText } from "../shared/prompts"
-import { getPreset, isAiProvider, type Tier, TIERS } from "../shared/providers"
-import { type ProviderConfig, promptKindFor, type ResolvedProvider, resolveProvider, resolveProviderConfig, type Settings } from "../shared/settings"
+import { getPreset, type Tier, TIERS } from "../shared/providers"
+import { type ProviderConfig, type ResolvedProvider, resolveProviderConfig, resultInputs, type Settings } from "../shared/settings"
 import { cacheKey, LruCache, type PersistentCache } from "./cache"
 import { Dictionary } from "../offline/dictionary"
 import { type BatchLimits, BatchQueue, joinParts, splitText } from "./queue/batch-queue"
@@ -200,13 +200,10 @@ export class TranslationService {
 
   /** The work of one tier for one paragraph. `data`: signature of the dictionary packs or offline models the service translates with. */
   private job(req: TranslateRequest, providerId: string, settings: Settings, data: string): Job {
-    const provider = resolveProvider(settings, providerId)
-    const kind = isAiProvider(getPreset(providerId)) ? promptKindFor(settings) : undefined
-    const prompt = kind ? promptText(settings.prompts, kind) : undefined
+    const { provider, kind, prompt, parts } = resultInputs(settings, providerId)
     const context = kind === "precise" && req.context ? this.contexts.get(req.context.id) : undefined
     // Everything besides the text that shapes the result keeps cache entries and batches apart.
-    const ai = kind ? [kind, prompt, provider.thinking, provider.temperature] : []
-    const variant = hashText([provider.baseURL, provider.mode, ...ai, data].join("\n"))
+    const variant = hashText([...parts, data].join("\n"))
     const sig = context ? `${variant}:${context.id}` : variant
     return {
       text: req.text,

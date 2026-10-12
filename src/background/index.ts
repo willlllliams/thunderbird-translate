@@ -16,8 +16,8 @@ import {
 } from "../shared/messages"
 import { pairKey } from "../shared/languages"
 import { resolveUiLocale } from "../shared/locales"
-import { type Catalog, offlineState } from "../shared/offline-needs"
-import { getPreset } from "../shared/providers"
+import { type Catalog, offlineServiceOf, offlineState } from "../shared/offline-needs"
+import { TIERS } from "../shared/providers"
 import { SETTINGS_KEY, type Settings, type TierSettings, toPublicSettings } from "../shared/settings"
 import { readSettings, updateSettings } from "../shared/settings-store"
 import { sourceDetector } from "../shared/lang-detect"
@@ -71,8 +71,8 @@ function dictionaryCatalog(): Promise<Catalog> {
 
 const dictionary = new Dictionary(undefined, { detect, catalog: () => dictionaryCatalogsRead.get(settings.dictionary.releaseTag) ?? null })
 
-/** Kinds of the services of the dictionary and machine tiers, where the offline services can be. */
-const offlineKinds = (tiers: TierSettings) => [tiers.dictionary, tiers.machine].map((id) => (id ? getPreset(id)?.kind : undefined))
+/** The offline services among the services of `tiers`. */
+const offlineKinds = (tiers: TierSettings) => TIERS.map((tier) => offlineServiceOf(tiers[tier]))
 
 /** What the offline services among `tiers` lack for the languages; a store that cannot be read says nothing. */
 async function offlineStatus(sourceLang: string, targetLang: string, tiers: TierSettings): Promise<OfflineStatus> {

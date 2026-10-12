@@ -9,7 +9,7 @@ import { describe, expect, it } from "vitest"
 import { createMailContext } from "../src/shared/mail-context"
 import type { TranslateRequest } from "../src/shared/messages"
 import { TIERS } from "../src/shared/providers"
-import { createDefaultSettings, type Settings } from "../src/shared/settings"
+import { createDefaultSettings, type Settings, toPublicSettings } from "../src/shared/settings"
 import golden from "./fixtures/result-keys.json"
 import { createService } from "./helpers"
 
@@ -52,12 +52,18 @@ const VARIATIONS: [string, (s: Settings, req: TranslateRequest) => void][] = [
 /** Signature of the installed dictionary packs or offline models, as Dictionary.signature() and BergamotManager.signature() return it; "" without data. */
 const DATA = ["", "1a2b3c"]
 
-function keysOf(name: string, data: string): Record<string, [string, string]> {
+/** The settings and the request of a variation. */
+function variation(name: string): { settings: Settings; req: TranslateRequest } {
   const settings = createDefaultSettings()
   settings.tiers = { dictionary: "dictionary", machine: "microsoft-free", ai: "openai" }
   settings.providers.openai.apiKey = "sk-test"
   const req = request()
   VARIATIONS.find(([n]) => n === name)![1](settings, req)
+  return { settings, req }
+}
+
+function keysOf(name: string, data: string): Record<string, [string, string]> {
+  const { settings, req } = variation(name)
   const { service } = createService(settings)
   service.setContext(MAIL)
   const jobs = service as unknown as JobOf
@@ -76,4 +82,13 @@ describe("cache keys and batch keys", () => {
   it.each(VARIATIONS.flatMap(([name]) => DATA.map((data) => [name, data] as const)))("stay as they were: %s, data %j", (name, data) => {
     expect(keysOf(name, data)).toEqual((golden as Record<string, Record<string, unknown>>)[name][data || "none"])
   })
+
+  it.each(VARIATIONS.filter(([name]) => JSON.stringify(variation(name).req) === JSON.stringify(request())).map(([name]) => name))(
+    "change together with the signature of the tier the content script compares: %s",
+    (name) => {
+      const before = { keys: keysOf("base", ""), signatures: toPublicSettings(variation("base").settings).signatures }
+      const after = { keys: keysOf(name, ""), signatures: toPublicSettings(variation(name).settings).signatures }
+      for (const tier of TIERS) expect([tier, after.signatures[tier] !== before.signatures[tier]]).toEqual([tier, after.keys[tier][0] !== before.keys[tier][0]])
+    },
+  )
 })
