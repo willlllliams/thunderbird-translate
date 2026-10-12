@@ -5,7 +5,7 @@ import { CACHE_STORAGE_KEY } from "../src/background/cache"
 import { installPack } from "../src/offline/dictionary/download"
 import { DictionaryStore } from "../src/offline/dictionary/store"
 import { createMailContext } from "../src/shared/mail-context"
-import { type BergamotPairInfo, IDLE_TAB_STATE, type PortPush, type RequestType, type TranslateRequest } from "../src/shared/messages"
+import { IDLE_TAB_STATE, type PortPush, type TranslateRequest } from "../src/shared/messages"
 import { DEFAULT_PROMPTS } from "../src/shared/prompts"
 import { createDefaultSettings, SETTINGS_KEY, type Settings, toPublicSettings } from "../src/shared/settings"
 import { localeText, stubBackgroundApi } from "./fixtures/background-api"
@@ -18,18 +18,6 @@ afterEach(() => {
   vi.doUnmock("../src/offline/bergamot")
   vi.resetModules()
 })
-
-/** The offline engine of the background page, as the model requests use it. */
-function fakeEngine() {
-  const engine = {
-    listPairs: vi.fn(async (_refresh?: boolean) => [] as BergamotPairInfo[]),
-    install: vi.fn(async (_src: string, _tgt: string, _onProgress?: unknown, _signal?: AbortSignal) => {}),
-    remove: vi.fn(async (_src: string, _tgt: string) => {}),
-    signature: async () => "",
-  }
-  vi.doMock("../src/offline/bergamot", () => ({ getBergamot: () => engine }))
-  return engine
-}
 
 /** Google endpoint answering G(<text>). */
 const google = vi.fn(async (_url: string, init?: RequestInit) => jsonResponse(new URLSearchParams(String(init?.body)).getAll("q").map((q) => [`G(${q})`, "en"])))
@@ -189,24 +177,6 @@ describe("content script ports", () => {
 })
 
 describe("requests from pages", () => {
-  it("toggles the translation of a tab", async () => {
-    const bg = await start({ stored: stored(createDefaultSettings()) })
-    const [a, b, other] = [bg.connect(4), bg.connect(4), bg.connect(5)]
-    expect(await bg.send({ type: "toggleTab", tabId: 4 })).toBeUndefined()
-    for (const port of [a, b]) expect(port.posted.at(-1)).toEqual({ type: "toggle" })
-    expect(other.posted.some((m) => m.type === "toggle")).toBe(false)
-    // A tab without a content script: nothing to do.
-    expect(await bg.send({ type: "toggleTab", tabId: 9 })).toBeUndefined()
-  })
-
-  it("asks the content scripts of a tab to retranslate", async () => {
-    const bg = await start({ stored: stored(createDefaultSettings()) })
-    const [a, b, other] = [bg.connect(4), bg.connect(4), bg.connect(5)]
-    expect(await bg.send({ type: "retranslateTab", tabId: 4 })).toBeUndefined()
-    for (const port of [a, b]) expect(port.posted.at(-1)).toEqual({ type: "retranslate" })
-    expect(other.posted.some((m) => m.type === "retranslate")).toBe(false)
-  })
-
   it("tests a service and describes its failure", async () => {
     const bg = await start({ stored: stored(createDefaultSettings()) })
     const config = { enabled: true, apiKey: "", baseURL: "", model: "" }
@@ -229,6 +199,14 @@ describe("requests from pages", () => {
     expect(failed.error).toBe(localeText("de", "errUnknownProvider").replace("$1", "nope"))
   })
 
+  it("counts and clears the translation cache", async () => {
+    const bg = await start({ stored: { ...stored(createDefaultSettings()), [CACHE_STORAGE_KEY]: [["k1", "v1"], ["k2", "v2"]] } })
+    expect(await bg.send({ type: "cacheStats" })).toEqual({ size: 2 })
+    await bg.send({ type: "clearCache" })
+    expect(bg.api.storage.local.remove).toHaveBeenCalledWith(CACHE_STORAGE_KEY)
+    expect(await bg.send({ type: "cacheStats" })).toEqual({ size: 0 })
+  })
+
   it("answers the messages of a locale for content scripts", async () => {
     const bg = await start({ stored: stored(createDefaultSettings()) })
     const answer = (await bg.send({ type: "getLocaleMessages", uiLanguage: "de" })) as { locale: string; messages: Record<string, string> }
@@ -236,56 +214,6 @@ describe("requests from pages", () => {
     expect(answer.messages.actionTitle).toBe(localeText("de", "actionTitle"))
     // "auto" follows Thunderbird's language.
     expect(((await bg.send({ type: "getLocaleMessages", uiLanguage: "auto" })) as { locale: string }).locale).toBe("en")
-  })
-
-  it("reads the dictionary packs again after a change", async () => {
-    const bg = stubBackgroundApi({ stored: stored(createDefaultSettings()) })
-    vi.resetModules()
-    const invalidate = vi.spyOn((await import("../src/offline/dictionary")).Dictionary.prototype, "invalidate")
-    await import("../src/background/index")
-    expect(await bg.send({ type: "dictionaryChanged" })).toBeUndefined()
-    expect(invalidate).toHaveBeenCalledTimes(1)
-    invalidate.mockRestore()
-  })
-
-  it("L3: tells the content scripts that dictionary packs or offline models changed, so they forget their results", async () => {
-    const engine = fakeEngine()
-    const bg = await start({ stored: stored(createDefaultSettings()) })
-    const port = bg.connect(4)
-    const changes = () => port.posted.filter((m) => m.type === "offlineDataChanged").length
-    await bg.send({ type: "dictionaryChanged" })
-    expect(changes()).toBe(1)
-    // Also after a failed installation: part of the files may have been stored.
-    engine.install.mockRejectedValueOnce(new Error("disk full"))
-    expect(await bg.send({ type: "bergamotInstall", src: "de", tgt: "en" })).toEqual({ ok: false, error: "disk full" })
-    expect(await bg.send({ type: "bergamotRemove", src: "de", tgt: "en" })).toEqual({ ok: true })
-    expect(changes()).toBe(3)
-    await bg.send({ type: "bergamotList" })
-    expect(changes()).toBe(3)
-    // The extension pages hear of it too; without an open page the message goes nowhere.
-    expect(bg.api.runtime.sendMessage.mock.calls).toEqual([[{ type: "offlineDataChanged" }], [{ type: "offlineDataChanged" }], [{ type: "offlineDataChanged" }]])
-    bg.api.runtime.sendMessage.mockRejectedValueOnce(new Error("Could not establish connection. Receiving end does not exist."))
-    await bg.send({ type: "dictionaryChanged" })
-    expect(changes()).toBe(4)
-  })
-
-  it("opens the settings page at the place a content script names", async () => {
-    const bg = await start({ stored: stored(createDefaultSettings()) })
-    expect(await bg.send({ type: "openOptions", place: { section: "dictionaries", dictionaries: ["ja>en", "en>zh-Hans"], bergamot: ["ja>en"] } })).toBeUndefined()
-    expect(bg.api.tabs.create).toHaveBeenCalledWith({ url: "moz-extension://test/options.html?dict=ja%3Een%2Cen%3Ezh-Hans&bergamot=ja%3Een#dictionaries" })
-    await bg.send({ type: "openOptions", place: { section: "providers", tier: "ai" } })
-    expect(bg.api.tabs.create).toHaveBeenLastCalledWith({ url: "moz-extension://test/options.html?tier=ai#providers" })
-  })
-
-  it("mutes and unmutes notices about missing offline data, and answers the content script nothing", async () => {
-    const s = createDefaultSettings()
-    s.offlineMutedPairs = ["bergamot:de>en"]
-    const bg = await start({ stored: stored(s) })
-    const pairs = ["dictionary:ja>zh-Hans", "bergamot:ja>zh-Hans"]
-    expect(await bg.send({ type: "muteOfflinePairs", pairs, muted: true })).toBeUndefined()
-    expect((bg.local[SETTINGS_KEY] as Settings).offlineMutedPairs).toEqual(["bergamot:de>en", ...pairs])
-    await bg.send({ type: "muteOfflinePairs", pairs: ["bergamot:de>en", "bergamot:ja>zh-Hans"], muted: false })
-    expect((bg.local[SETTINGS_KEY] as Settings).offlineMutedPairs).toEqual(["dictionary:ja>zh-Hans"])
   })
 
   it("says what the offline services of the tiers lack for the languages, reading the dictionary index again after a failure and after six hours", async () => {
@@ -377,63 +305,6 @@ describe("requests from pages", () => {
     port.send({ type: "translate", id: 1, request: { ...request("Bonjour tout le monde, merci pour votre message"), tiers: ["dictionary"] } })
     await vi.waitFor(() => expect(port.posted.at(-1)).toEqual({ type: "done", id: 1 }))
     expect(port.posted[1]).toMatchObject({ type: "tier", tier: "dictionary", result: { ok: false, error: expect.stringContaining("en → zh-Hans") } })
-  })
-
-  it("counts and clears the translation cache", async () => {
-    const bg = await start({ stored: { ...stored(createDefaultSettings()), [CACHE_STORAGE_KEY]: [["k1", "v1"], ["k2", "v2"]] } })
-    expect(await bg.send({ type: "cacheStats" })).toEqual({ size: 2 })
-    await bg.send({ type: "clearCache" })
-    expect(bg.api.storage.local.remove).toHaveBeenCalledWith(CACHE_STORAGE_KEY)
-    expect(await bg.send({ type: "cacheStats" })).toEqual({ size: 0 })
-  })
-
-  it.each<[string, Record<string, unknown>, unknown, (engine: ReturnType<typeof fakeEngine>) => void]>([
-    ["bergamotList", { refresh: true }, { ok: true, pairs: [] }, (engine) => expect(engine.listPairs).toHaveBeenCalledWith(true)],
-    ["bergamotProgress", {}, {}, () => {}],
-    ["bergamotInstall", { src: "en", tgt: "de" }, { ok: true }, (engine) => expect(engine.install).toHaveBeenCalledWith("en", "de", expect.any(Function), expect.any(AbortSignal))],
-    ["bergamotCancel", { src: "en", tgt: "de" }, undefined, (engine) => expect(engine.install).not.toHaveBeenCalled()],
-    ["bergamotRemove", { src: "en", tgt: "de" }, { ok: true }, (engine) => expect(engine.remove).toHaveBeenCalledWith("en", "de")],
-  ])("hands %s to the offline engine of the background page", async (type, fields, answer, check) => {
-    const engine = fakeEngine()
-    const bg = await start({ stored: stored(createDefaultSettings()) })
-    expect(await bg.send({ type, ...fields })).toEqual(answer)
-    check(engine)
-  })
-
-  it("ignores messages that are not requests and unknown requests", async () => {
-    const bg = await start({ stored: stored(createDefaultSettings()) })
-    for (const message of [undefined, null, "toggleTab", { type: 1 }]) expect(bg.send(message)).toBeUndefined()
-    expect(await bg.send({ type: "somethingElse" })).toBeUndefined()
-  })
-
-  it("answers nothing to an unknown type, also one named after a property of every object", async () => {
-    const bg = await start({ stored: stored(createDefaultSettings()) })
-    for (const type of ["somethingElse", "toString", "constructor", "hasOwnProperty", "valueOf", "__proto__"]) expect(bg.send({ type })).toBeUndefined()
-  })
-
-  it("has one handler for each request of BackgroundApi, and no other", async () => {
-    // The compiler checks that this list names every request type and nothing else.
-    const types = Object.keys({
-      toggleTab: true,
-      retranslateTab: true,
-      getTabState: true,
-      testProvider: true,
-      clearCache: true,
-      cacheStats: true,
-      getLocaleMessages: true,
-      dictionaryChanged: true,
-      openOptions: true,
-      muteOfflinePairs: true,
-      offlineStatus: true,
-      bergamotList: true,
-      bergamotInstall: true,
-      bergamotCancel: true,
-      bergamotProgress: true,
-      bergamotRemove: true,
-    } satisfies Record<RequestType, true>)
-    await start({ stored: stored(createDefaultSettings()) })
-    const { handlers } = await import("../src/background/index")
-    expect(Object.keys(handlers).sort()).toEqual(types.sort())
   })
 })
 

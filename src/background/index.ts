@@ -1,26 +1,20 @@
-import { describeError } from "../shared/errors"
 import { ext } from "../shared/ext"
 import { getI18n } from "../shared/i18n"
 import { loadExtensionI18n, thunderbirdUiLanguage } from "../shared/i18n-ext"
-import {
-  type BackgroundHandlers,
-  type OfflineStatus,
-  optionsPath,
-  type PageNotice,
-} from "../shared/messages"
+import type { OfflineStatus } from "../shared/messages"
 import { pairKey } from "../shared/languages"
 import { type Catalog, offlineServiceOf, offlineState } from "../shared/offline-needs"
 import { TIERS } from "../shared/providers"
 import { SETTINGS_KEY, type Settings, type TierSettings, toPublicSettings } from "../shared/settings"
-import { readSettings, updateSettings } from "../shared/settings-store"
+import { readSettings } from "../shared/settings-store"
 import { sourceDetector } from "../shared/lang-detect"
 import { getBergamot } from "../offline/bergamot"
 import { CatalogCache } from "../offline/catalog-cache"
-import { bergamotHandlers } from "./bergamot-admin"
 import { type KeyValueStorage, PersistentCache } from "./cache"
 import { createCommandRunner } from "./commands"
 import { registerContentScripts } from "./content-scripts"
 import { createLocaleTables } from "./locale-tables"
+import { createDispatch, createHandlers } from "./router"
 import { createTabRegistry } from "./tabs"
 import { Dictionary } from "../offline/dictionary"
 import { fetchDictionaryIndex } from "../offline/dictionary/download"
@@ -141,63 +135,21 @@ const tabs = createTabRegistry({
   translate: (request, onTier) => service.translateForPage(request, onTier),
 })
 
-/** Dictionary packs or offline models changed: content scripts forget their results, pages show the new state. */
-function offlineDataChanged(): void {
-  tabs.broadcast({ type: "offlineDataChanged" })
-  ext.runtime.sendMessage({ type: "offlineDataChanged" } satisfies PageNotice).catch(() => {
-    // No page open.
-  })
-}
-
 ext.runtime.onConnect.addListener((port) => tabs.connect(port))
 
 const commandRunner = createCommandRunner({ ready: settingsReady, postToTab: tabs.postToTab })
 
 /* ---------- requests from content scripts, popup and options ---------- */
 
-const localeMessages = createLocaleTables(uiLang)
-
-/** The answers to the requests of the content scripts, the popup and the extension pages (exported for the tests). */
-export const handlers: BackgroundHandlers = {
-  toggleTab: (req) => tabs.postToTab(req.tabId, { type: "toggle" }),
-  retranslateTab: (req) => tabs.postToTab(req.tabId, { type: "retranslate" }),
-  getTabState: (req) => tabs.stateOf(req.tabId),
-  testProvider: async (req) => {
-    try {
-      return { ok: true, text: await service.testProvider(req.providerId, req.config, req.targetLang) }
-    } catch (error) {
-      return { ok: false, error: describeError(error, getI18n()) }
-    }
-  },
-  getLocaleMessages: (req) => localeMessages(req.uiLanguage),
-  dictionaryChanged: () => {
-    dictionary.invalidate()
-    offlineDataChanged()
-  },
-  offlineStatus: (req) => offlineStatus(req.sourceLang, req.targetLang, req.tiers),
-  openOptions: async (req) => void (await ext.tabs.create({ url: ext.runtime.getURL(optionsPath(req.place)) })),
-  // Nothing goes back: the settings hold API keys, and the request comes from a content script.
-  muteOfflinePairs: async (req) =>
-    void (await updateSettings((s) => {
-      const muted = new Set(s.offlineMutedPairs)
-      for (const pair of req.pairs) {
-        if (req.muted) muted.add(pair)
-        else muted.delete(pair)
-      }
-      s.offlineMutedPairs = [...muted]
-    })),
-  ...bergamotHandlers(offlineDataChanged),
-  clearCache: () => cache.clear(),
-  cacheStats: async () => ({ size: await cache.size() }),
-}
-
-ext.runtime.onMessage.addListener((message: unknown) => {
-  const type = (message as { type?: unknown } | null | undefined)?.type
-  // Only own properties: a request named after a property of Object.prototype ("toString") is unknown too.
-  if (typeof type !== "string" || !Object.hasOwn(handlers, type)) return undefined
-  const handler = handlers[type as keyof BackgroundHandlers] as (req: unknown) => unknown
-  return settingsReady.then(() => handler(message))
+const handlers = createHandlers({
+  tabs,
+  service,
+  localeMessages: createLocaleTables(uiLang),
+  dictionary,
+  offlineStatus,
+  cache,
 })
+ext.runtime.onMessage.addListener(createDispatch(handlers, settingsReady))
 
 /* ---------- keyboard shortcuts ---------- */
 
