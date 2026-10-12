@@ -15,6 +15,7 @@ import { offlineBackground, type OfflineBackground } from "./fixtures/offline"
 import { jsonResponse, nextTask, useFakeTimers } from "./helpers"
 
 const sendMessage = vi.fn<(req: unknown) => Promise<unknown>>()
+type Install = Extract<BackgroundRequest, { type: "offlineInstall" }>
 /** The extension API of the lists: runtime.sendMessage, and i18n for the recommended languages. */
 const api: Record<string, unknown> = { runtime: { sendMessage } }
 
@@ -418,7 +419,7 @@ describe("offline model list", () => {
   beforeEach(() => useFakeTimers())
 
   it("shows why the list could not be loaded", async () => {
-    background({ bergamotList: () => ({ ok: false, error: "Mozilla is unreachable" }) })
+    background({ offlineList: () => ({ ok: false, error: "Mozilla is unreachable" }) })
     const m = models()
     await m.section.load()
     expect(m.status.textContent).toBe("Mozilla is unreachable")
@@ -430,7 +431,7 @@ describe("offline model list", () => {
   })
 
   it("names the directions the languages need: from English with automatic detection, through English between two other languages", async () => {
-    background({ bergamotList: () => ({ ok: true, pairs: [pair("en", "de"), pair("ja", "en")] }) })
+    background({ offlineList: () => ({ ok: true, items: [pair("en", "de"), pair("ja", "en")] }) })
     let languages = { source: "auto", target: "de" }
     const m = panel()
     const section = new BergamotSection({ languages: () => languages, recommended: () => [], list: m.list, status: m.status, common: m.common, needed: m.needed })
@@ -448,7 +449,7 @@ describe("offline model list", () => {
   })
 
   it("names languages the interface does not list, and shows unknown tags as they are", async () => {
-    background({ bergamotList: () => ({ ok: true, pairs: [pair("be", "en"), pair("en", "x!y")] }) })
+    background({ offlineList: () => ({ ok: true, items: [pair("be", "en"), pair("en", "x!y")] }) })
     const m = models()
     await m.section.load()
     expect(m.rows().map((li) => li.querySelector(".dict-name")!.textContent)).toEqual(["Belarusian → English", "English → x!y"])
@@ -458,33 +459,33 @@ describe("offline model list", () => {
     let finish!: (r: unknown) => void
     let progress = (): unknown => Promise.reject(new Error("busy"))
     const requests = background({
-      bergamotList: () => ({ ok: true, pairs: [pair("de", "en")] }),
-      bergamotInstall: () => new Promise((r) => (finish = r)),
-      bergamotProgress: () => progress(),
+      offlineList: () => ({ ok: true, items: [pair("de", "en")] }),
+      offlineInstall: () => new Promise((r) => (finish = (result) => r([result]))),
+      offlineProgress: () => progress(),
     })
     const m = models()
     await m.section.load()
     button(m.rows()[0]!, ENGLISH.t("buttonDownload"))!.click()
     // A failed poll counts as no progress.
-    await vi.waitFor(() => expect(requests.filter((r) => r.type === "bergamotProgress").length).toBeGreaterThan(1))
+    await vi.waitFor(() => expect(requests.filter((r) => r.type === "offlineProgress").length).toBeGreaterThan(1))
     expect(m.rows()[0]!.textContent).toContain(ENGLISH.t("dictDownloading", [0]))
-    progress = () => ({ "de>en": { done: 3, total: 4 } })
+    progress = () => ({ bergamot: { "de>en": { state: "running", done: 3, total: 4 } } })
     await vi.waitFor(() => expect(m.rows()[0]!.textContent).toContain(ENGLISH.t("dictDownloading", [75])))
     finish({ ok: false, error: "disk full" })
     await vi.waitFor(() => expect(m.rows()[0]!.querySelector(".test-result")?.textContent).toBe("disk full"))
     // The poll after the end of the installation is the last one (pollMs 5).
     await vi.advanceTimersByTimeAsync(30)
-    const polls = requests.filter((r) => r.type === "bergamotProgress").length
+    const polls = requests.filter((r) => r.type === "offlineProgress").length
     await vi.advanceTimersByTimeAsync(30)
-    expect(requests.filter((r) => r.type === "bergamotProgress").length).toBe(polls)
+    expect(requests.filter((r) => r.type === "offlineProgress").length).toBe(polls)
   })
 
   it.each([
     ["no answer", () => undefined, unknownError],
-    ["a failure without text", () => ({ ok: false }), unknownError],
+    ["a failure without text", () => [{ ok: false }], unknownError],
     ["a lost connection", () => Promise.reject(new Error("port closed")), describeError(new Error("port closed"), ENGLISH)],
   ])("describes an installation that ends with %s", async (_, answer, text) => {
-    background({ bergamotList: () => ({ ok: true, pairs: [pair("de", "en")] }), bergamotInstall: answer })
+    background({ offlineList: () => ({ ok: true, items: [pair("de", "en")] }), offlineInstall: answer })
     const m = models()
     await m.section.load()
     button(m.rows()[0]!, ENGLISH.t("buttonDownload"))!.click()
@@ -492,18 +493,18 @@ describe("offline model list", () => {
   })
 
   it("updates an installed pair", async () => {
-    const requests = background({ bergamotList: () => ({ ok: true, pairs: [pair("de", "en", { installed: true, installedVersion: "2.9" })] }), bergamotInstall: () => ({ ok: true }) })
+    const requests = background({ offlineList: () => ({ ok: true, items: [pair("de", "en", { installed: true, installedVersion: "2.9" })] }), offlineInstall: () => [{ ok: true }] })
     const m = models()
     await m.section.load()
     button(m.rows()[0]!, ENGLISH.t("buttonUpdate"))!.click()
-    await vi.waitFor(() => expect(requests).toContainEqual({ type: "bergamotInstall", src: "de", tgt: "en" }))
+    await vi.waitFor(() => expect(requests).toContainEqual({ type: "offlineInstall", service: "bergamot", pairs: [{ src: "de", tgt: "en" }] }))
   })
 
   it("keeps a needed pair when the deletion is cancelled, and shows why a deletion failed", async () => {
     let removeAnswer = (): unknown => ({ ok: false, error: "locked" })
     const requests = background({
-      bergamotList: () => ({ ok: true, pairs: [pair("de", "en", { installed: true }), pair("fr", "en", { installed: true })] }),
-      bergamotRemove: () => removeAnswer(),
+      offlineList: () => ({ ok: true, items: [pair("de", "en", { installed: true }), pair("fr", "en", { installed: true })] }),
+      offlineRemove: () => removeAnswer(),
     })
     const m = models()
     await m.section.load()
@@ -511,7 +512,7 @@ describe("offline model list", () => {
     button(m.row("German"), ENGLISH.t("buttonDelete"))!.click()
     button(m.row("German"), ENGLISH.t("buttonCancel"))!.click()
     expect(button(m.row("German"), ENGLISH.t("buttonDelete"))).toBeDefined()
-    expect(requests.some((r) => r.type === "bergamotRemove")).toBe(false)
+    expect(requests.some((r) => r.type === "offlineRemove")).toBe(false)
 
     button(m.row("French"), ENGLISH.t("buttonDelete"))!.click()
     await vi.waitFor(() => expect(m.row("French").querySelector(".test-result")?.textContent).toBe("locked"))
@@ -525,8 +526,8 @@ describe("offline model list", () => {
 
   it("on the welcome page ticks the directions the language pair needs and downloads the ticked ones", async () => {
     const requests = background({
-      bergamotList: () => ({ ok: true, pairs: [pair("ja", "en"), pair("en", "zh-Hans"), pair("de", "en"), pair("en", "ko", { installed: true })] }),
-      bergamotInstall: () => ({ ok: true }),
+      offlineList: () => ({ ok: true, items: [pair("ja", "en"), pair("en", "zh-Hans"), pair("de", "en"), pair("en", "ko", { installed: true })] }),
+      offlineInstall: () => [{ ok: true }],
     })
     const recommended: SourcedLanguage[] = [
       { tag: "zh-CN", sources: ["target"] },
@@ -542,21 +543,21 @@ describe("offline model list", () => {
     box.checked = false
     box.dispatchEvent(new Event("change"))
     await m.section.downloadPicked()
-    expect(requests.filter((r) => r.type === "bergamotInstall")).toEqual([{ type: "bergamotInstall", src: "ja", tgt: "en" }])
+    expect(requests.filter((r) => r.type === "offlineInstall")).toEqual([{ type: "offlineInstall", service: "bergamot", pairs: [{ src: "ja", tgt: "en" }] }])
     box.checked = true
     box.dispatchEvent(new Event("change"))
     await m.section.downloadPicked()
-    expect(requests.filter((r) => r.type === "bergamotInstall")).toHaveLength(3)
+    expect(requests.filter((r) => r.type === "offlineInstall")).toHaveLength(3)
   })
 
   it("downloads the common languages that are not installed, after the confirmation", async () => {
     const installed = new Set(["en>de"])
     const requests = background({
-      bergamotList: () => ({ ok: true, pairs: [pair("en", "de"), pair("de", "en"), pair("en", "fr", { bytes: 2 * 1048576 }), pair("en", "vi")].map((p) => ({ ...p, installed: installed.has(`${p.src}>${p.tgt}`) })) }),
-      bergamotInstall: (r) => {
-        const { src, tgt } = r as { src: string; tgt: string }
+      offlineList: () => ({ ok: true, items: [pair("en", "de"), pair("de", "en"), pair("en", "fr", { bytes: 2 * 1048576 }), pair("en", "vi")].map((p) => ({ ...p, installed: installed.has(`${p.src}>${p.tgt}`) })) }),
+      offlineInstall: (r) => {
+        const [{ src, tgt }] = (r as Install).pairs
         installed.add(`${src}>${tgt}`)
-        return { ok: true }
+        return [{ ok: true }]
       },
     })
     const m = models()
@@ -565,22 +566,23 @@ describe("offline model list", () => {
     expect(m.common.querySelector(".common-confirm p")!.textContent).toBe(ENGLISH.t("commonConfirm", [2, "12.0"]))
     button(m.common.querySelector(".common-confirm")!, ENGLISH.t("buttonConfirmDownload"))!.click()
     await vi.waitFor(() => expect(m.common.textContent).toContain(ENGLISH.t("commonAllInstalled")))
-    expect(requests.filter((r) => r.type === "bergamotInstall").map((r) => r.type === "bergamotInstall" && `${r.src}>${r.tgt}`).sort()).toEqual(["de>en", "en>fr"])
+    expect(requests.flatMap((r) => (r.type === "offlineInstall" ? r.pairs.map((p) => `${p.src}>${p.tgt}`) : [])).sort()).toEqual(["de>en", "en>fr"])
   })
 
   it("M3: downloads the common languages two at a time and reads the list once at the end", async () => {
     const installed = new Set<string>()
     const waiting: (() => void)[] = []
     const requests = background({
-      bergamotList: () => ({ ok: true, pairs: [pair("en", "de"), pair("de", "en"), pair("en", "fr"), pair("fr", "en")].map((p) => ({ ...p, installed: installed.has(`${p.src}>${p.tgt}`) })) }),
-      bergamotInstall: (r) =>
+      offlineList: () => ({ ok: true, items: [pair("en", "de"), pair("de", "en"), pair("en", "fr"), pair("fr", "en")].map((p) => ({ ...p, installed: installed.has(`${p.src}>${p.tgt}`) })) }),
+      offlineInstall: (r) =>
         new Promise((resolve) =>
           waiting.push(() => {
-            installed.add(`${(r as { src: string }).src}>${(r as { tgt: string }).tgt}`)
-            resolve({ ok: true })
+            const [{ src, tgt }] = (r as Install).pairs
+            installed.add(`${src}>${tgt}`)
+            resolve([{ ok: true }])
           }),
         ),
-      bergamotProgress: () => ({}),
+      offlineProgress: () => ({}),
     })
     const m = models()
     await m.section.load()
@@ -593,25 +595,26 @@ describe("offline model list", () => {
       waiting.splice(0).forEach((resolve) => resolve())
       expect(m.common.textContent).toContain(ENGLISH.t("commonAllInstalled"))
     })
-    expect(requests.filter((r) => r.type === "bergamotInstall")).toHaveLength(4)
-    expect(requests.filter((r) => r.type === "bergamotList")).toHaveLength(2)
+    expect(requests.filter((r) => r.type === "offlineInstall")).toHaveLength(4)
+    expect(requests.filter((r) => r.type === "offlineList")).toHaveLength(2)
   })
 
   it("M1: shows a queued pair as waiting with Cancel and installs it once", async () => {
     const installed = new Set<string>()
     const waiting: (() => void)[] = []
     const requests = background({
-      bergamotList: () => ({ ok: true, pairs: [pair("en", "de"), pair("de", "en"), pair("en", "fr"), pair("fr", "en")].map((p) => ({ ...p, installed: installed.has(`${p.src}>${p.tgt}`) })) }),
-      bergamotInstall: (r) =>
+      offlineList: () => ({ ok: true, items: [pair("en", "de"), pair("de", "en"), pair("en", "fr"), pair("fr", "en")].map((p) => ({ ...p, installed: installed.has(`${p.src}>${p.tgt}`) })) }),
+      offlineInstall: (r) =>
         new Promise((resolve) =>
           waiting.push(() => {
-            installed.add(`${(r as { src: string }).src}>${(r as { tgt: string }).tgt}`)
-            resolve({ ok: true })
+            const [{ src, tgt }] = (r as Install).pairs
+            installed.add(`${src}>${tgt}`)
+            resolve([{ ok: true }])
           }),
         ),
-      bergamotProgress: () => ({}),
+      offlineProgress: () => ({}),
     })
-    const installs = () => requests.flatMap((r) => (r.type === "bergamotInstall" ? [`${r.src}>${r.tgt}`] : []))
+    const installs = () => requests.flatMap((r) => (r.type === "offlineInstall" ? r.pairs.map((p) => `${p.src}>${p.tgt}`) : []))
     const m = models()
     await m.section.load()
     m.commonButton().click()
@@ -628,7 +631,7 @@ describe("offline model list", () => {
       waiting.splice(0).forEach((resolve) => resolve())
       expect(installed.size).toBe(3)
     })
-    await vi.waitFor(() => expect(requests.filter((r) => r.type === "bergamotList")).toHaveLength(2))
+    await vi.waitFor(() => expect(requests.filter((r) => r.type === "offlineList")).toHaveLength(2))
     expect(installs().sort()).toEqual(["de>en", "en>de", "en>fr"])
   })
 })

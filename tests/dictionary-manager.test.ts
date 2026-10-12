@@ -117,16 +117,6 @@ describe("dictionary manager", () => {
     expect((await texts(m.manager, ["hello"], "en", "de"))[0]).toMatch(/^! /)
   })
 
-  it("reads the packs again after another module changed the store", async () => {
-    const m = managerFor({ "dicts-v1": [EN_DE] })
-    await m.manager.install("en", "de")
-    const before = await m.manager.signature()
-    await m.store.remove("en>de")
-    expect(await m.manager.signature()).toBe(before)
-    m.manager.invalidate()
-    expect(await m.manager.signature()).not.toBe(before)
-  })
-
   it("fails an installation while the index cannot be read", async () => {
     const m = managerFor({ "dicts-v1": [EN_DE] })
     m.state.offline = true

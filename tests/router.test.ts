@@ -26,7 +26,6 @@ function router(settings: Settings = createDefaultSettings()) {
     },
     service: { testProvider: vi.fn(async () => "Hallo") },
     localeMessages: vi.fn(async () => ({ locale: "de" as const, messages: {} })),
-    dictionary: { invalidate: vi.fn() },
     offlineManager: () => bergamot,
     offlineStatus: vi.fn(async () => ({})),
     cache: { clear: vi.fn(async () => {}), size: vi.fn(async () => 2) },
@@ -69,16 +68,10 @@ describe("requests from pages", () => {
     expect(deps.localeMessages).toHaveBeenCalledWith("de")
   })
 
-  it("reads the dictionary packs again after a change", async () => {
-    const { send, deps } = router()
-    expect(await send({ type: "dictionaryChanged" })).toBeUndefined()
-    expect(deps.dictionary.invalidate).toHaveBeenCalledTimes(1)
-  })
-
   it("L3: tells the content scripts that dictionary packs or offline models changed, so they forget their results", async () => {
     const { send, pushed, browser } = router()
     const changes = () => pushed.filter(([to, m]) => to === "all" && m.type === "offlineDataChanged").length
-    await send({ type: "dictionaryChanged" })
+    expect(await send({ type: "offlineInstall", service: "bergamot", pairs: [{ src: "en", tgt: "de" }] })).toEqual([{ ok: true }])
     expect(changes()).toBe(1)
     // Also after a failed installation: part of the files may have been stored.
     vi.mocked(bergamot.install).mockRejectedValueOnce(new Error("disk full"))
@@ -91,7 +84,7 @@ describe("requests from pages", () => {
     // The extension pages hear of it too; without an open page the message goes nowhere.
     expect(browser.api.runtime.sendMessage.mock.calls).toEqual([[{ type: "offlineDataChanged" }], [{ type: "offlineDataChanged" }], [{ type: "offlineDataChanged" }]])
     browser.api.runtime.sendMessage.mockRejectedValueOnce(new Error("Could not establish connection. Receiving end does not exist."))
-    await send({ type: "dictionaryChanged" })
+    await send({ type: "offlineRemove", service: "bergamot", src: "en", tgt: "de" })
     expect(changes()).toBe(4)
   })
 
@@ -138,7 +131,6 @@ describe("requests from pages", () => {
       clearCache: true,
       cacheStats: true,
       getLocaleMessages: true,
-      dictionaryChanged: true,
       openOptions: true,
       muteOfflinePairs: true,
       offlineStatus: true,
@@ -147,11 +139,6 @@ describe("requests from pages", () => {
       offlineCancel: true,
       offlineProgress: true,
       offlineRemove: true,
-      bergamotList: true,
-      bergamotInstall: true,
-      bergamotCancel: true,
-      bergamotProgress: true,
-      bergamotRemove: true,
     } satisfies Record<RequestType, true>)
     expect(Object.keys(router().handlers).sort()).toEqual(types.sort())
   })

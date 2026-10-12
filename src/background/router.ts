@@ -24,8 +24,6 @@ export interface RouterDeps {
   service: Pick<TranslationService, "testProvider">
   /** The interface messages of a language for a content script. */
   localeMessages: (setting: unknown) => Promise<LocaleMessages>
-  /** The dictionary of the translations, which reads the packs again after invalidate(). */
-  dictionary: { invalidate(): void }
   /** The manager of an offline service. */
   offlineManager: (service: OfflineService) => OfflineManager<OfflineItem>
   /** What the offline services among `tiers` lack for the languages. */
@@ -33,7 +31,7 @@ export interface RouterDeps {
   cache: Pick<PersistentCache, "clear" | "size">
 }
 
-export function createHandlers({ tabs, service, localeMessages, dictionary, offlineManager, offlineStatus, cache }: RouterDeps): BackgroundHandlers {
+export function createHandlers({ tabs, service, localeMessages, offlineManager, offlineStatus, cache }: RouterDeps): BackgroundHandlers {
   /** Dictionary packs or offline models changed: content scripts forget their results, pages show the new state. */
   const offlineDataChanged = () => {
     tabs.broadcast({ type: "offlineDataChanged" })
@@ -53,10 +51,6 @@ export function createHandlers({ tabs, service, localeMessages, dictionary, offl
       }
     },
     getLocaleMessages: (req) => localeMessages(req.uiLanguage),
-    dictionaryChanged: () => {
-      dictionary.invalidate()
-      offlineDataChanged()
-    },
     offlineStatus: (req) => offlineStatus(req.sourceLang, req.targetLang, req.tiers),
     openOptions: async (req) => void (await ext.tabs.create({ url: ext.runtime.getURL(optionsPath(req.place)) })),
     // Nothing goes back: the settings hold API keys, and the request comes from a content script.

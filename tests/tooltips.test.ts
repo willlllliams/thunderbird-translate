@@ -16,6 +16,7 @@ import { IDLE_TAB_STATE, type PortReport, type TabState } from "../src/shared/me
 import { createDefaultSettings, toPublicSettings } from "../src/shared/settings"
 import { WELCOME_KEY } from "../src/welcome/steps"
 import { pagePort } from "./fixtures/browser"
+import { bergamotStandIn } from "./fixtures/offline"
 import { jsonResponse, openPage, useFakeTimers } from "./helpers"
 
 // Fake timers in every test: a page left open by a test cannot fire its timers into the next one.
@@ -148,13 +149,8 @@ describe("settings page", () => {
     s.tiers = { dictionary: "dictionary", machine: "bergamot", ai: "openai" }
     const page = await openPage("options", s, {
       fetchUrl: async () => jsonResponse(INDEX),
-      respond: (req) => {
-        if (req.type === "bergamotList") return { ok: true, pairs: PAIRS }
-        if (req.type === "bergamotInstall") return new Promise(() => {})
-        if (req.type === "bergamotProgress") return {}
-        if (req.type === "cacheStats") return { size: 0 }
-        return undefined
-      },
+      // Downloads that never end.
+      bergamot: bergamotStandIn(PAIRS, { install: () => new Promise(() => {}) }),
     })
     await vi.waitFor(() => expect(document.querySelectorAll("#bergamotList li")).toHaveLength(PAIRS.length))
     await vi.waitFor(() => expect(document.querySelectorAll("#dictList li")).toHaveLength(1))
@@ -292,7 +288,7 @@ describe("setup guide", () => {
       stored: { [WELCOME_KEY]: { step } },
       connect: () => port,
       fetchUrl: async () => jsonResponse(INDEX),
-      respond: (req) => (req.type === "bergamotList" ? { ok: true, pairs: [pair("fr", "en"), pair("en", "zh-Hans")] } : req.type === "bergamotProgress" ? {} : undefined),
+      bergamot: bergamotStandIn([pair("fr", "en"), pair("en", "zh-Hans")]),
     })
     await vi.waitFor(() => expect(current()).toBe(step))
     return { page, s, port }

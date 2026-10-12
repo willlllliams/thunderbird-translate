@@ -109,9 +109,4 @@ export class DictionaryManager implements OfflineManager<DictionaryPackInfo> {
   translate(texts: string[], sourceLang: string, targetLang: string): Promise<PromiseSettledResult<string>[]> {
     return this.dictionary.translate(texts, sourceLang, targetLang)
   }
-
-  /** The packs were changed outside the manager: read them again on next use. */
-  invalidate(): void {
-    this.dictionary.invalidate()
-  }
 }

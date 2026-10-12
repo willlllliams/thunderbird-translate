@@ -28,11 +28,10 @@ import { ext } from "../shared/ext"
 import { SETTINGS_KEY } from "../shared/settings"
 import { readSettings, updateSettings } from "../shared/settings-store"
 import type { KeyValueStorage } from "../background/cache"
-import { fetchDictionaryIndex, installPack } from "../offline/dictionary/download"
-import { DictionaryStore } from "../offline/dictionary/store"
+import type { DictionaryManager } from "../offline/dictionary/manager"
 import { pairKey } from "../shared/languages"
 import { E2E_MARKER, WELCOME_PROBE_PARAM } from "./marker"
-import { DICT_TAG, releaseFetch } from "./release"
+import { DICT_TAG } from "./release"
 import { WORKER_FILE, type WorkerResponse } from "../offline/bergamot/protocol"
 
 declare const __E2E_SERVER__: string
@@ -55,15 +54,12 @@ async function post(path: string, body: unknown): Promise<void> {
   }
 }
 
-async function installDictionary(dictionary: { invalidate(): void }): Promise<string[]> {
-  const store = new DictionaryStore()
-  const installed = new Set((await store.list()).map((p) => p.id))
-  const packs = await fetchDictionaryIndex(DICT_TAG, releaseFetch)
-  for (const pack of packs) {
-    if (!installed.has(pairKey(pack.src, pack.tgt))) await installPack(pack, DICT_TAG, store, { fetchFn: releaseFetch })
-  }
-  dictionary.invalidate()
-  return packs.map((p) => pairKey(p.src, p.tgt))
+/** Install every pack of the mock server's release through the dictionary manager of the background script. */
+async function installDictionary(dictionary: DictionaryManager): Promise<string[]> {
+  const { items, error } = await dictionary.list({ tag: DICT_TAG })
+  if (error !== undefined) throw error
+  for (const pack of items) if (!pack.installed) await dictionary.install(pack.src, pack.tgt, undefined, undefined, { tag: DICT_TAG })
+  return items.map((p) => pairKey(p.src, p.tgt))
 }
 
 /**
@@ -87,16 +83,17 @@ function probeBergamotWorker(): Promise<string> {
   })
 }
 
-/** Empty the dictionary store, so that the setup guide has packs to download. */
-async function uninstallDictionary(dictionary: { invalidate(): void }): Promise<void> {
-  const store = new DictionaryStore()
-  for (const pack of await store.list()) await store.remove(pack.id)
-  dictionary.invalidate()
+/** Remove every installed pack, so that the setup guide has packs to download. */
+async function uninstallDictionary(dictionary: DictionaryManager): Promise<void> {
+  for (const key of await dictionary.installedKeys()) {
+    const [src, tgt] = key.split(">")
+    await dictionary.remove(src, tgt)
+  }
 }
 
 export interface E2eDeps {
   storage: KeyValueStorage
-  dictionary: { invalidate(): void }
+  dictionary: DictionaryManager
   runCommand: (command: string, tab?: browser.tabs.Tab) => Promise<void>
 }
 

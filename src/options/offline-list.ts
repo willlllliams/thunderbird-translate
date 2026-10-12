@@ -15,10 +15,16 @@
  * every direction that is not installed has a check box for the page's "Download selected": with
  * automatic detection the directions of the recommended languages are
  * ticked, with a fixed source language the ones the language pair needs.
+ *
+ * The background script lists, installs and removes the directions (see
+ * src/background/offline-admin.ts), so a download goes on when the page is
+ * closed; the page polls the download progress.
  */
 
+import { describeError } from "../shared/errors"
 import { ext } from "../shared/ext"
 import { getI18n, type MessageKey, t } from "../shared/i18n"
+import { type InstallProgress, type OfflineItem, type OfflineResult, send } from "../shared/messages"
 import { localeToLanguageTag } from "../shared/locales"
 import { commonDirections, itemSources, type LanguageSource, type OfflineService, orderItems, pairNeeds, recommendedLanguages, serviceLang, type SourcedLanguage } from "../shared/offline-needs"
 import type { Settings } from "../shared/settings"
@@ -48,6 +54,8 @@ export interface OfflineListDeps {
   pick?: boolean
   /** Runs after every redraw, e.g. to update the page's "Download selected" button. */
   onRender?: () => void
+  /** Interval of the progress requests while downloads run. */
+  pollMs?: number
 }
 
 const SOURCE_KEYS: Record<LanguageSource, MessageKey> = {
@@ -102,21 +110,91 @@ export abstract class OfflineList<T extends ListItem> {
   private confirmingCommon = false
   /** Directions waiting for their turn to download, by id. */
   protected readonly queued = new Set<string>()
+  /** The directions as the background script listed them. */
+  protected entries: OfflineItem[] = []
+  /** Directions this page is downloading, by id. */
+  private readonly running = new Set<string>()
+  /** Bytes received and expected of the running downloads, by id, as last polled. */
+  private progress: Record<string, InstallProgress> = {}
+  private timer: ReturnType<typeof setInterval> | null = null
 
   constructor(private readonly base: OfflineListDeps) {}
 
-  /** The catalog and the installed directions. */
+  /** The listed directions with their ids. */
   protected abstract items(): T[]
-  /** Download (or update) a direction; a failure goes to rowErrors. Through installAll(), which reads the list again. */
-  protected abstract install(item: T): Promise<void>
-  /** Read the list again after downloads. */
-  protected abstract reload(): Promise<void>
-  /** Queued or downloading. */
-  protected abstract installing(item: T): boolean
   /** Size, state and buttons of a row, after its name and labels. */
   protected abstract details(item: T): (Node | null)[]
   /** Status line while the list loads, and when the catalog is empty. */
   protected abstract statusText(): { loading: string; empty: string }
+
+  /** Release tag of the dictionary packs as edited on the page; undefined for a service without one. */
+  protected tag(): string | undefined {
+    return undefined
+  }
+
+  /** Read the list from the background script; `refresh` reads the catalog of the service again. */
+  async load(refresh = false): Promise<void> {
+    this.loading = true
+    this.render()
+    try {
+      const r = await send({ type: "offlineList", service: this.service, refresh, tag: this.tag() })
+      this.entries = r?.ok ? r.items : []
+      this.listError = r?.error ?? ""
+    } catch (error) {
+      this.entries = []
+      this.listError = describeError(error, getI18n())
+    }
+    this.loading = false
+    this.render()
+  }
+
+  /** Queued or downloading. */
+  protected installing(item: T): boolean {
+    return this.queued.has(item.id) || this.running.has(item.id)
+  }
+
+  /** The progress of a downloading row with its Cancel, the "Waiting" of a queued one; null for a row without a download. */
+  protected activity({ id, src, tgt }: T): Node[] | null {
+    if (this.running.has(id)) {
+      const progress = this.progress[id]
+      const percent = progress?.total ? Math.min(100, Math.round((progress.done / progress.total) * 100)) : 0
+      return [h("span", { text: t("dictDownloading", [percent]) }), button(t("buttonCancel"), () => void send({ type: "offlineCancel", service: this.service, src, tgt }), false, t("tipCancelDownload"))]
+    }
+    return this.queued.has(id) ? this.waiting(id) : null
+  }
+
+  /** Ask for the progress of the downloads until none of this page runs. */
+  private poll(): void {
+    this.timer ??= setInterval(async () => {
+      this.progress = (await send({ type: "offlineProgress" }).catch(() => undefined))?.[this.service] ?? {}
+      if (this.running.size === 0 && this.timer) {
+        clearInterval(this.timer)
+        this.timer = null
+      }
+      this.render()
+    }, this.base.pollMs ?? 400)
+  }
+
+  /** Download (or update) a direction; a failure goes to rowErrors. Through installAll(), which reads the list again. */
+  private async install({ id, src, tgt }: T): Promise<void> {
+    this.rowErrors.delete(id)
+    this.running.add(id)
+    this.poll()
+    this.render()
+    const r = await send({ type: "offlineInstall", service: this.service, pairs: [{ src, tgt }], tag: this.tag() })
+      .then((results) => results?.[0])
+      .catch((error): OfflineResult => ({ ok: false, error: describeError(error, getI18n()) }))
+    this.running.delete(id)
+    if (!r?.ok && !r?.cancelled) this.rowErrors.set(id, r?.error || describeError(undefined, getI18n()))
+  }
+
+  /** Delete a direction, then read the list again. */
+  protected async remove({ id, src, tgt }: T): Promise<void> {
+    this.rowErrors.delete(id)
+    const r = await send({ type: "offlineRemove", service: this.service, src, tgt }).catch((error): OfflineResult => ({ ok: false, error: describeError(error, getI18n()) }))
+    if (!r?.ok) this.rowErrors.set(id, r?.error || describeError(undefined, getI18n()))
+    await this.load()
+  }
 
   /** The directions the language pair of the settings uses; with automatic detection, those from English. */
   protected required(): string[] {
@@ -163,7 +241,7 @@ export abstract class OfflineList<T extends ListItem> {
       }
     }
     await Promise.all([worker(), worker()])
-    await this.reload()
+    await this.load()
   }
 
   /** The languages changed: the check boxes start from the new recommendation. */

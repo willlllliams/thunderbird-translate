@@ -72,7 +72,7 @@ describe("a page still loading when its test ends", { shuffle: false }, () => {
     await openPage("welcome", settings, {
       stored: { [WELCOME_KEY]: { step: "offline" } },
       // Like an answer that IndexedDB requests of the background script hold up: no timer, only turns of the event loop.
-      respond: (req) => (req.type === "bergamotList" ? ((asked = true), settle(SETTLE_TURNS / 2).then(() => ({ ok: true, pairs }))) : undefined),
+      respond: (req) => (req.type === "offlineList" && req.service === "bergamot" ? ((asked = true), settle(SETTLE_TURNS / 2).then(() => ({ ok: true, items: pairs }))) : undefined),
     })
     await vi.waitFor(() => expect(asked).toBe(true))
     expect(document.querySelectorAll("#bergamotList input[type=checkbox]")).toHaveLength(0)

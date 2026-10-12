@@ -13,7 +13,7 @@ import type { OfflineManager } from "../offline/manager"
 import { describeError } from "../shared/errors"
 import { getI18n } from "../shared/i18n"
 import { pairKey } from "../shared/languages"
-import type { BackgroundHandlers, BergamotPairInfo, OfflineItem, OfflineProgress, OfflineRequest, OfflineResult } from "../shared/messages"
+import type { BackgroundHandlers, OfflineItem, OfflineProgress, OfflineRequest, OfflineResult } from "../shared/messages"
 import { type OfflineService, serviceLang } from "../shared/offline-needs"
 
 export interface OfflineAdminDeps {
@@ -75,17 +75,5 @@ export function offlineHandlers({ manager, changed }: OfflineAdminDeps): Pick<Ba
     offlineCancel: ({ service, src, tgt }) => registry(service).cancel(src, tgt),
     offlineProgress: () => progress(),
     offlineRemove: ({ service, src, tgt }) => remove(service, src, tgt),
-    // The requests of the offline model list, until it takes the ones above.
-    bergamotList: async ({ refresh }) => {
-      try {
-        return { ok: true, pairs: (await manager("bergamot").list({ refresh: refresh === true })).items as BergamotPairInfo[] }
-      } catch (error) {
-        return { ok: false, error: describe(error) }
-      }
-    },
-    bergamotProgress: () => Object.fromEntries(Object.entries(progress().bergamot ?? {}).map(([key, { done, total }]) => [key, { done, total }])),
-    bergamotInstall: async ({ src, tgt }) => resultOf(await registry("bergamot").install(src, tgt)),
-    bergamotCancel: ({ src, tgt }) => registry("bergamot").cancel(src, tgt),
-    bergamotRemove: ({ src, tgt }) => remove("bergamot", src, tgt),
   }
 }

@@ -23,8 +23,6 @@ export interface BackgroundApi {
   clearCache: { req: NoFields; res: void }
   cacheStats: { req: NoFields; res: { size: number } }
   getLocaleMessages: { req: { uiLanguage: UiLanguageSetting }; res: LocaleMessages }
-  /** The settings page installed or deleted dictionary packs. */
-  dictionaryChanged: { req: NoFields; res: void }
   /** A content script opens the settings page (content scripts cannot), e.g. at the offline downloads filtered to what a message needs. */
   openOptions: { req: { place: OptionsPlace }; res: void }
   /** The notice about missing offline data stays away (or comes back) for these services and language pairs ("dictionary:ja>zh-Hans"). */
@@ -40,13 +38,6 @@ export interface BackgroundApi {
   /** The installations of every service that have not ended. */
   offlineProgress: { req: NoFields; res: OfflineProgress }
   offlineRemove: { req: { service: OfflineService } & OfflinePair; res: OfflineResult }
-  /** Offline models; `refresh` reads Mozilla's model list again. */
-  bergamotList: { req: { refresh?: boolean }; res: BergamotResult }
-  /** Answers when the installation ends. */
-  bergamotInstall: { req: { src: string; tgt: string }; res: BergamotResult }
-  bergamotCancel: { req: { src: string; tgt: string }; res: void }
-  bergamotProgress: { req: NoFields; res: BergamotProgress }
-  bergamotRemove: { req: { src: string; tgt: string }; res: BergamotResult }
 }
 
 export type RequestType = keyof BackgroundApi
@@ -97,7 +88,7 @@ export function optionsPath({ section, dictionaries, bergamot, tier }: OptionsPl
 }
 
 /** Dictionary packs and offline models, handled by the background script (background/offline-admin.ts). */
-export type OfflineRequest = RequestOf<"offlineList" | "offlineInstall" | "offlineCancel" | "offlineProgress" | "offlineRemove" | "bergamotList" | "bergamotInstall" | "bergamotCancel" | "bergamotProgress" | "bergamotRemove">
+export type OfflineRequest = RequestOf<"offlineList" | "offlineInstall" | "offlineCancel" | "offlineProgress" | "offlineRemove">
 
 /** A direction of an offline service. */
 export interface OfflinePair {
@@ -154,10 +145,6 @@ export interface DictionaryPackInfo {
   version?: string
 }
 
-export type BergamotResult = { ok: true; pairs?: BergamotPairInfo[] } | { ok: false; error?: string; cancelled?: true }
-
-/** Running installations by "src>tgt": bytes done and total. */
-export type BergamotProgress = Record<string, { done: number; total: number }>
 
 /** Answer to getLocaleMessages: the resolved locale and its messages (key → template). */
 export interface LocaleMessages {

@@ -10,13 +10,14 @@
  */
 
 import type { KeyValueStorage } from "../background/cache"
+import type { DictionaryManager } from "../offline/dictionary/manager"
 
 /** What the background script hands to its hook. */
 export interface BackgroundHookDeps {
   /** storage.local of the background script. */
   storage: KeyValueStorage
-  /** The dictionary of the background script, to read the packs again. */
-  dictionary: { invalidate(): void }
+  /** The dictionary packs of the background script. */
+  dictionary: DictionaryManager
   /** Runs a keyboard command as if it was pressed in `tab`. */
   runCommand: (command: string, tab?: browser.tabs.Tab) => Promise<void>
 }

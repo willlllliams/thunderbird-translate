@@ -23,7 +23,6 @@
  * the mock server; the test runner (e2e/run.mjs) makes the assertions.
  */
 
-import { DictionaryStore } from "../offline/dictionary/store"
 import { ext } from "../shared/ext"
 import { t } from "../shared/i18n"
 import { send } from "../shared/messages"
@@ -114,12 +113,17 @@ function countRecords(database: string, stores: string[]): Promise<Record<string
   })
 }
 
+/** The installed directions of a service, as the background script lists them; the error when it cannot. */
+async function installed(service: "dictionary" | "bergamot"): Promise<string[] | string> {
+  const list = await send({ type: "offlineList", service })
+  return list.ok ? list.items.filter((p) => p.installed).map((p) => `${p.src}>${p.tgt}`).sort() : list.error
+}
+
 /** What the extension holds: the answers of the background script and the object stores themselves. */
 async function stored() {
-  const list = await send({ type: "bergamotList" })
   return {
-    bergamotInstalled: list.ok ? (list.pairs ?? []).filter((p) => p.installed).map((p) => `${p.src}>${p.tgt}`) : list.error,
-    dictionaryInstalled: (await new DictionaryStore().list()).map((p) => p.id).sort(),
+    bergamotInstalled: await installed("bergamot"),
+    dictionaryInstalled: await installed("dictionary"),
     bergamotRecords: await countRecords("tt-bergamot", ["pairs", "files"]),
     dictionaryRecords: await countRecords("tt-dictionary", ["packs", "data"]),
   }
@@ -214,10 +218,8 @@ export async function runWelcomeProbe(scenario: string): Promise<void> {
     // The guide has no delete button; remove the downloads the way the settings page does.
     for (const id of downloaded) {
       const [src, tgt] = id.split(">")
-      await send({ type: "bergamotRemove", src, tgt })
-      await new DictionaryStore().remove(id)
+      for (const service of ["bergamot", "dictionary"] as const) await send({ type: "offlineRemove", service, src, tgt })
     }
-    await send({ type: "dictionaryChanged" })
     report.removed = await stored()
   } catch (error) {
     report.error = error instanceof Error ? `${error.message}\n${error.stack}` : String(error)

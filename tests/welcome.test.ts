@@ -11,6 +11,7 @@ import { createDefaultSettings, type Settings, toPublicSettings } from "../src/s
 import { neighbourStep, resumeStep, stepNeeded, trialLanguage, WELCOME_KEY } from "../src/welcome/steps"
 import { readLocaleSources } from "../scripts/locales.mjs"
 import { pagePort, stubBrowser } from "./fixtures/browser"
+import { bergamotStandIn } from "./fixtures/offline"
 import { flushSave } from "./fixtures/pages"
 import { jsonResponse, nextTask, openPage, useFakeTimers } from "./helpers"
 
@@ -283,32 +284,24 @@ describe("welcome page", () => {
     const urls: string[] = []
     const requests: BackgroundRequest[] = []
     const waiting: (() => void)[] = []
-    const respond = (req: BackgroundRequest) => {
-      requests.push(req)
-      switch (req.type) {
-        case "bergamotList": {
-          const pair = (src: string, tgt: string) => ({ src, tgt, version: "1", architecture: "base", bytes: 30e6, rawBytes: 1, installed: installed.includes(`${src}>${tgt}`) })
-          return { ok: true, pairs: [pair("ja", "en"), pair("en", "zh-Hans"), pair("zh-Hans", "en"), pair("fr", "en"), pair("en", "fr")] }
-        }
-        case "bergamotInstall":
-          return new Promise((resolve) => waiting.push(() => resolve({ ok: true })))
-        case "bergamotProgress":
-          return {}
-      }
-      return undefined
-    }
+    const respond = (req: BackgroundRequest) => void requests.push(req)
+    const pair = (src: string, tgt: string) => ({ src, tgt, version: "1", architecture: "base", bytes: 30e6, rawBytes: 1, installed: installed.includes(`${src}>${tgt}`) })
+    // The Bergamot manager of the background script: its installations end when the test says so.
+    const bergamot = bergamotStandIn([pair("ja", "en"), pair("en", "zh-Hans"), pair("zh-Hans", "en"), pair("fr", "en"), pair("en", "fr")], {
+      install: () => new Promise<void>((resolve) => waiting.push(resolve)),
+    })
     const fetchUrl = async (url: string) => {
       urls.push(url)
       return url.endsWith("dict-index.json") ? jsonResponse(index) : new Response("missing", { status: 404 })
     }
-    return { urls, requests, respond, fetchUrl, finish: () => waiting.splice(0).forEach((done) => done()) }
+    return { urls, requests, respond, fetchUrl, bergamot, finish: () => waiting.splice(0).forEach((done) => done()) }
   }
 
   it("with automatic detection lists everything, the recommended languages first and ticked, and reports the download", async () => {
     vi.stubGlobal("indexedDB", new IDBFactory())
     const services = offlineServices()
     const s = settings((s) => (s.tiers = { dictionary: "dictionary", machine: "bergamot", ai: null }))
-    await openPage("welcome", s, { stored: { [WELCOME_KEY]: { step: "offline" } }, respond: services.respond, fetchUrl: services.fetchUrl, systemLanguages: ["fr-FR"] })
+    await openPage("welcome", s, { stored: { [WELCOME_KEY]: { step: "offline" } }, respond: services.respond, fetchUrl: services.fetchUrl, bergamot: services.bergamot, systemLanguages: ["fr-FR"] })
     const names = (list: string) => Array.from(document.querySelectorAll(`#${list} .dict-name`)).map((el) => el.textContent)
     const ticked = (list: string) => Array.from(document.querySelectorAll<HTMLInputElement>(`#${list} input[type=checkbox]`)).filter((b) => b.checked).length
     await vi.waitFor(() => expect(names("dictList")).toHaveLength(5))
@@ -331,7 +324,7 @@ describe("welcome page", () => {
       services.finish()
       expect($("downloadStatus").textContent).toBe(ENGLISH.t("downloadFailed", [3]))
     })
-    expect(services.requests.filter((r) => r.type === "bergamotInstall")).toHaveLength(4)
+    expect(services.requests.filter((r) => r.type === "offlineInstall" && r.service === "bergamot")).toHaveLength(4)
   })
 
   it("says that nothing is ticked and keeps Download selected disabled until something is", async () => {
@@ -341,7 +334,7 @@ describe("welcome page", () => {
       s.sourceLang = "fr"
       s.tiers = { dictionary: null, machine: "bergamot", ai: null }
     })
-    await openPage("welcome", s, { stored: { [WELCOME_KEY]: { step: "offline" } }, respond: services.respond, fetchUrl: services.fetchUrl })
+    await openPage("welcome", s, { stored: { [WELCOME_KEY]: { step: "offline" } }, respond: services.respond, fetchUrl: services.fetchUrl, bergamot: services.bergamot })
     await vi.waitFor(() => expect(document.querySelectorAll("#bergamotList input[type=checkbox]")).toHaveLength(4))
     const box = () => Array.from(document.querySelectorAll<HTMLInputElement>("#bergamotList input[type=checkbox]")).find((b) => b.checked)!
     // fr → zh-CN needs fr → en (ticked) and en → zh-Hans (installed).
@@ -371,25 +364,12 @@ describe("welcome page", () => {
     const index = { version: 1, packs: [pack("ja", "en"), pack("en", "zh-Hans"), pack("en", "de")] }
     const urls: string[] = []
     const requests: BackgroundRequest[] = []
-    const respond = (req: BackgroundRequest) => {
-      requests.push(req)
-      switch (req.type) {
-        case "bergamotList":
-          return {
-            ok: true,
-            pairs: [
-              { src: "ja", tgt: "en", version: "1", architecture: "base", bytes: 30e6, rawBytes: 1, installed: false },
-              { src: "en", tgt: "zh-Hans", version: "1", architecture: "base", bytes: 35e6, rawBytes: 1, installed: true },
-              { src: "fr", tgt: "en", version: "1", architecture: "base", bytes: 30e6, rawBytes: 1, installed: false },
-            ],
-          }
-        case "bergamotInstall":
-          return { ok: true }
-        case "bergamotProgress":
-          return {}
-      }
-      return undefined
-    }
+    const respond = (req: BackgroundRequest) => void requests.push(req)
+    const bergamot = bergamotStandIn([
+      { src: "ja", tgt: "en", version: "1", architecture: "base", bytes: 30e6, rawBytes: 1, installed: false },
+      { src: "en", tgt: "zh-Hans", version: "1", architecture: "base", bytes: 35e6, rawBytes: 1, installed: true },
+      { src: "fr", tgt: "en", version: "1", architecture: "base", bytes: 30e6, rawBytes: 1, installed: false },
+    ])
     const s = settings((s) => {
       s.sourceLang = "ja"
       s.tiers = { dictionary: "dictionary", machine: "bergamot", ai: null }
@@ -397,6 +377,7 @@ describe("welcome page", () => {
     await openPage("welcome", s, {
       stored: { [WELCOME_KEY]: { step: "offline" } },
       respond,
+      bergamot,
       fetchUrl: async (url) => {
         urls.push(url)
         return url.endsWith("dict-index.json") ? jsonResponse(index) : new Response("missing", { status: 404 })
@@ -421,10 +402,10 @@ describe("welcome page", () => {
     expect(dictBoxes.map((b) => b.checked)).toEqual([true, true, false])
     dictBoxes[0].click()
     $("downloadPicked").click()
-    await vi.waitFor(() => expect(requests).toContainEqual({ type: "bergamotInstall", src: "ja", tgt: "en" }))
+    await vi.waitFor(() => expect(requests).toContainEqual({ type: "offlineInstall", service: "bergamot", pairs: [{ src: "ja", tgt: "en" }] }))
     await vi.waitFor(() => expect(urls.some((u) => u.endsWith("/dict-ja-en.tsv.gz"))).toBe(true))
     expect(urls.some((u) => u.endsWith("/dict-en-zh-Hans.tsv.gz"))).toBe(false)
-    expect(requests.some((r) => r.type === "bergamotInstall" && r.src === "fr")).toBe(false)
+    expect(requests.some((r) => r.type === "offlineInstall" && r.pairs.some((p) => p.src === "fr"))).toBe(false)
   })
 
   it("applies a preset to a prompt with the shared prompt editor", async () => {
@@ -604,10 +585,7 @@ describe("welcome page", () => {
   it("shows only the offline lists of the offline services in use", async () => {
     vi.stubGlobal("indexedDB", new IDBFactory())
     const requests: BackgroundRequest[] = []
-    const respond = (req: BackgroundRequest) => {
-      requests.push(req)
-      return req.type === "bergamotList" ? { ok: true, pairs: [] } : undefined
-    }
+    const respond = (req: BackgroundRequest) => void requests.push(req)
     await openPage("welcome", settings((s) => (s.tiers.dictionary = "dictionary")), { stored: { [WELCOME_KEY]: { step: "offline" } }, respond })
     await vi.waitFor(() => expect(current()).toBe("offline"))
     expect($("offlineDictionary").hidden).toBe(false)
@@ -616,6 +594,6 @@ describe("welcome page", () => {
     await vi.waitFor(() => expect($("dictStatus").textContent).toContain(ENGLISH.t("dictIndexFailed", [""]).trim()))
     expect($<HTMLButtonElement>("downloadPicked").disabled).toBe(true)
     expect($("downloadStatus").textContent).toBe(ENGLISH.t("downloadNothingPicked"))
-    expect(requests.some((r) => r.type === "bergamotInstall")).toBe(false)
+    expect(requests.some((r) => r.type === "offlineInstall")).toBe(false)
   })
 })

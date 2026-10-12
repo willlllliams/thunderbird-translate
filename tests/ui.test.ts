@@ -8,6 +8,7 @@ import { applyPreset, getPromptPreset, NO_PRESET } from "../src/shared/prompt-pr
 import { DEFAULT_PROMPTS, PROMPT_KINDS } from "../src/shared/prompts"
 import { ADD_SERVICE } from "../src/shared/page"
 import { createDefaultSettings } from "../src/shared/settings"
+import { bergamotStandIn } from "./fixtures/offline"
 import { flushSave } from "./fixtures/pages"
 import { jsonResponse, nextTask, openPage, useFakeTimers } from "./helpers"
 
@@ -454,10 +455,10 @@ describe("dictionaries on the settings page", () => {
     expect(rows()).toHaveLength(0)
   })
 
-  it("loads the list of another release tag", async () => {
+  it("loads the list of another release tag at once, before the tag is saved", async () => {
     vi.stubGlobal("indexedDB", new IDBFactory())
     const urls: string[] = []
-    const { stored } = await openPage("options", createDefaultSettings("en"), {
+    const { stored, offline } = await openPage("options", createDefaultSettings("en"), {
       fetchUrl: async (url) => {
         urls.push(url)
         return jsonResponse(INDEX)
@@ -468,7 +469,11 @@ describe("dictionaries on the settings page", () => {
     expect(tag.value).toBe("dicts-v1")
     tag.value = "dicts-v2"
     tag.dispatchEvent(new Event("change"))
+    // The settings are written 300 ms later; the request names the tag of the page, so the list does not show the old release.
+    expect(offline.requests.at(-1)).toEqual({ type: "offlineList", service: "dictionary", refresh: false, tag: "dicts-v2" })
+    expect(stored().dictionary.releaseTag).toBe("dicts-v1")
     await vi.waitFor(() => expect(urls.at(-1)).toContain("/dicts-v2/dict-index.json"))
+    await vi.waitFor(() => expect(document.querySelectorAll("#dictList li")).toHaveLength(1))
     await flushSave()
     expect(stored().dictionary.releaseTag).toBe("dicts-v2")
   })
@@ -484,26 +489,17 @@ describe("offline models on the settings page", () => {
   const row = (start: string) => rows().find((li) => li.textContent!.startsWith(start))!
   const rowButton = (li: HTMLLIElement, text: string) => Array.from(li.querySelectorAll("button")).find((b) => b.textContent === text)!
 
+  /** The Bergamot manager of the background script: an installation reaches half of its bytes and ends when cancelled; `requests` records what the page asks. */
   function background() {
     const requests: BackgroundRequest[] = []
-    let finishInstall!: (r: unknown) => void
-    const respond = (req: BackgroundRequest) => {
-      requests.push(req)
-      switch (req.type) {
-        case "bergamotList":
-          return { ok: true, pairs: PAIRS }
-        case "bergamotInstall":
-          return new Promise((r) => (finishInstall = r))
-        case "bergamotProgress":
-          return { "ja>en": { done: 15_000_000, total: 30_000_000 } }
-        case "bergamotRemove":
-          return { ok: true }
-        case "cacheStats":
-          return { size: 0 }
-      }
-      return undefined
-    }
-    return { requests, respond, finish: (r: unknown) => finishInstall(r) }
+    const bergamot = bergamotStandIn(PAIRS, {
+      install: (_src, _tgt, onProgress, signal) =>
+        new Promise((_, reject) => {
+          onProgress?.(15_000_000, 30_000_000)
+          signal?.addEventListener("abort", () => reject(new DOMException("Aborted", "AbortError")))
+        }),
+    })
+    return { requests, page: { bergamot, respond: (req: BackgroundRequest) => void requests.push(req) } }
   }
 
   it("lists the pairs with size, state and updates, the needed ones first", async () => {
@@ -511,7 +507,7 @@ describe("offline models on the settings page", () => {
     s.sourceLang = "ja"
     s.targetLang = "zh-CN"
     const bg = background()
-    await openPage("options", s, { respond: bg.respond })
+    await openPage("options", s, bg.page)
     await vi.waitFor(() => expect(rows()).toHaveLength(3))
     expect(document.querySelector("#bergamotNeeded")!.textContent).toContain("Japanese")
     expect(rows()[0].textContent).toMatch(/^English → /)
@@ -524,7 +520,7 @@ describe("offline models on the settings page", () => {
   })
 
   it("filters by language", async () => {
-    await openPage("options", createDefaultSettings("en"), { respond: background().respond })
+    await openPage("options", createDefaultSettings("en"), background().page)
     await vi.waitFor(() => expect(rows()).toHaveLength(3))
     const filter = document.querySelector<HTMLInputElement>("#bergamotFilter")!
     filter.value = "japan"
@@ -537,14 +533,13 @@ describe("offline models on the settings page", () => {
 
   it("downloads a pair with progress and can cancel", async () => {
     const bg = background()
-    await openPage("options", createDefaultSettings("en"), { respond: bg.respond })
+    await openPage("options", createDefaultSettings("en"), bg.page)
     await vi.waitFor(() => expect(rows()).toHaveLength(3))
     rowButton(row("Japanese"), ENGLISH.t("buttonDownload")).click()
-    expect(bg.requests).toContainEqual({ type: "bergamotInstall", src: "ja", tgt: "en" })
+    expect(bg.requests).toContainEqual({ type: "offlineInstall", service: "bergamot", pairs: [{ src: "ja", tgt: "en" }] })
     await vi.waitFor(() => expect(row("Japanese").textContent).toContain(ENGLISH.t("dictDownloading", ["50"])), { timeout: 2000 })
     rowButton(row("Japanese"), ENGLISH.t("buttonCancel")).click()
-    expect(bg.requests).toContainEqual({ type: "bergamotCancel", src: "ja", tgt: "en" })
-    bg.finish({ ok: false, cancelled: true })
+    expect(bg.requests).toContainEqual({ type: "offlineCancel", service: "bergamot", src: "ja", tgt: "en" })
     await vi.waitFor(() => expect(rowButton(row("Japanese"), ENGLISH.t("buttonDownload"))).toBeDefined())
     expect(row("Japanese").querySelector(".test-result")).toBeNull()
   })
@@ -553,16 +548,16 @@ describe("offline models on the settings page", () => {
     const bg = background()
     const s = createDefaultSettings("en")
     s.targetLang = "zh-CN"
-    await openPage("options", s, { respond: bg.respond })
+    await openPage("options", s, bg.page)
     await vi.waitFor(() => expect(rows()).toHaveLength(3))
     rowButton(row("English → "), ENGLISH.t("buttonDelete")).click()
     expect(row("English → ").textContent).toContain(ENGLISH.t("bergamotDeleteNeeded"))
-    expect(bg.requests.some((r) => r.type === "bergamotRemove")).toBe(false)
+    expect(bg.requests.some((r) => r.type === "offlineRemove")).toBe(false)
     rowButton(row("English → "), ENGLISH.t("buttonDeleteAnyway")).click()
-    await vi.waitFor(() => expect(bg.requests).toContainEqual({ type: "bergamotRemove", src: "en", tgt: "zh-Hans" }))
+    await vi.waitFor(() => expect(bg.requests).toContainEqual({ type: "offlineRemove", service: "bergamot", src: "en", tgt: "zh-Hans" }))
     // A pair nobody needs goes at once.
     rowButton(row("German"), ENGLISH.t("buttonDelete")).click()
-    await vi.waitFor(() => expect(bg.requests).toContainEqual({ type: "bergamotRemove", src: "de", tgt: "en" }))
+    await vi.waitFor(() => expect(bg.requests).toContainEqual({ type: "offlineRemove", service: "bergamot", src: "de", tgt: "en" }))
   })
 })
 

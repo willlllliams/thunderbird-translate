@@ -92,7 +92,7 @@ async function applyUiLanguage(uiLanguage: string): Promise<void> {
 
 const commandRunner = createCommandRunner({ ready: settings.ready, postToTab: tabs.postToTab })
 
-const handlers = createHandlers({ tabs, service, localeMessages: createLocaleTables(uiLang), dictionary, offlineManager, offlineStatus: offline.status, cache })
+const handlers = createHandlers({ tabs, service, localeMessages: createLocaleTables(uiLang), offlineManager, offlineStatus: offline.status, cache })
 
 /* ---------- listeners: all of them in this first run ---------- */
 
