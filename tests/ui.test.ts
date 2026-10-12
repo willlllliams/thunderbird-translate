@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 /** Popup and settings page: tiers, source language, added services, prompts, dictionaries and offline models. */
 import { IDBFactory } from "fake-indexeddb"
-import { afterEach, describe, expect, it, vi } from "vitest"
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 import { ENGLISH } from "../src/shared/i18n"
 import type { BackgroundRequest, OfflineStatus } from "../src/shared/messages"
 import { applyPreset, getPromptPreset, NO_PRESET } from "../src/shared/prompt-presets"
@@ -10,6 +10,9 @@ import { ADD_SERVICE } from "../src/shared/page"
 import { createDefaultSettings } from "../src/shared/settings"
 import { flushSave } from "./fixtures/pages"
 import { jsonResponse, nextTask, openPage, useFakeTimers } from "./helpers"
+
+// Fake timers in every test: a page left open by a test cannot fire its timers into the next one.
+beforeEach(() => useFakeTimers())
 
 afterEach(() => {
   vi.useRealTimers()
@@ -213,7 +216,8 @@ describe("settings page", () => {
     button(ENGLISH.t("buttonAddProvider")).click()
     button(ENGLISH.t("buttonUse")).click()
     expect(select("tier-dictionary").value).toBe("dictionary")
-    await vi.waitFor(() => expect(stored().tiers).toEqual({ dictionary: "dictionary", machine: "google-free", ai: null }))
+    await flushSave()
+    expect(stored().tiers).toEqual({ dictionary: "dictionary", machine: "google-free", ai: null })
     expect(button(ENGLISH.t("buttonRemoveProvider")).disabled).toBe(true)
   })
 
@@ -231,17 +235,18 @@ describe("settings page", () => {
     key.dispatchEvent(new Event("input"))
     expect(optionTexts(select("tier-ai"))).toContain("openai")
     expect(button(ENGLISH.t("buttonRemoveProvider")).disabled).toBe(false)
-    await vi.waitFor(() => expect(stored().providers.openai.enabled).toBe(true))
+    await flushSave()
+    expect(stored().providers.openai.enabled).toBe(true)
 
     button(ENGLISH.t("buttonRemoveProvider")).click()
     expect(optionTexts(select("tier-ai"))).not.toContain("openai")
-    await vi.waitFor(() => expect(stored().providers.openai.enabled).toBe(false))
+    await flushSave()
+    expect(stored().providers.openai.enabled).toBe(false)
     // The key stays, so adding the service again restores its configuration.
     expect(stored().providers.openai.apiKey).toBe("sk-test")
   })
 
   it("refuses to leave every tier empty", async () => {
-    useFakeTimers()
     const { stored, browser } = await openPage("options", createDefaultSettings("en"))
     await vi.waitFor(() => expect(select("tier-machine").options.length).toBeGreaterThan(1))
     choose(select("tier-machine"), "")
@@ -252,7 +257,8 @@ describe("settings page", () => {
     expect(stored().tiers.machine).toBe("google-free")
     choose(select("tier-machine"), "microsoft-free")
     expect(document.querySelector<HTMLElement>("#tiersEmpty")!.hidden).toBe(true)
-    await vi.waitFor(() => expect(stored().tiers.machine).toBe("microsoft-free"))
+    await flushSave()
+    expect(stored().tiers.machine).toBe("microsoft-free")
   })
 
   it("edits the three prompts and restores a default; the built-in prompt shows in the box and is stored as empty", async () => {
@@ -262,17 +268,21 @@ describe("settings page", () => {
     expect(box("bilingual").value).toBe(DEFAULT_PROMPTS.bilingual)
     box("translationOnly").value = "Natural {{to}}."
     box("translationOnly").dispatchEvent(new Event("input"))
-    await vi.waitFor(() => expect(stored().prompts.translationOnly).toBe("Natural {{to}}."))
+    await flushSave()
+    expect(stored().prompts.translationOnly).toBe("Natural {{to}}.")
     document.querySelector<HTMLButtonElement>("#reset-translationOnly")!.click()
     expect(box("translationOnly").value).toBe(DEFAULT_PROMPTS.translationOnly)
-    await vi.waitFor(() => expect(stored().prompts.translationOnly).toBe(""))
+    await flushSave()
+    expect(stored().prompts.translationOnly).toBe("")
     // Typing the built-in text back stores nothing either.
     box("precise").value = "Short."
     box("precise").dispatchEvent(new Event("input"))
-    await vi.waitFor(() => expect(stored().prompts.precise).toBe("Short."))
+    await flushSave()
+    expect(stored().prompts.precise).toBe("Short.")
     box("precise").value = `${DEFAULT_PROMPTS.precise}\n`
     box("precise").dispatchEvent(new Event("input"))
-    await vi.waitFor(() => expect(stored().prompts.precise).toBe(""))
+    await flushSave()
+    expect(stored().prompts.precise).toBe("")
   })
 
   it("applies presets to each of the three prompts, keeps the box editable and restores the default", async () => {
@@ -290,14 +300,17 @@ describe("settings page", () => {
       document.querySelector<HTMLButtonElement>("#presetApply")!.click()
       expect(box(kind).value).toBe(applyPreset(DEFAULT_PROMPTS[kind], dialect, dialect.options!.find((o) => o.id === "pt-PT")))
     }
-    await vi.waitFor(() => expect(stored().prompts.precise).toContain(dialect.heading))
+    await flushSave()
+    expect(stored().prompts.precise).toContain(dialect.heading)
     expect(stored().prompts.bilingual).toContain(dialect.heading)
 
     box("bilingual").value += "\n- Keep it short."
     box("bilingual").dispatchEvent(new Event("input"))
-    await vi.waitFor(() => expect(stored().prompts.bilingual.endsWith("- Keep it short.")).toBe(true))
+    await flushSave()
+    expect(stored().prompts.bilingual.endsWith("- Keep it short.")).toBe(true)
     document.querySelector<HTMLButtonElement>("#reset-bilingual")!.click()
-    await vi.waitFor(() => expect(stored().prompts.bilingual).toBe(""))
+    await flushSave()
+    expect(stored().prompts.bilingual).toBe("")
     expect(box("bilingual").value).toBe(DEFAULT_PROMPTS.bilingual)
 
     // Another target language changes the offered variants.
@@ -342,7 +355,8 @@ describe("settings page", () => {
     document.querySelector<HTMLButtonElement>("#clearMuted")!.click()
     expect(document.querySelector("#mutedPairs")!.textContent).toBe(ENGLISH.t("mutedPairsNone"))
     expect(document.querySelector<HTMLButtonElement>("#clearMuted")!.disabled).toBe(true)
-    await vi.waitFor(() => expect(page.stored().offlineMutedPairs).toEqual([]))
+    await flushSave()
+    expect(page.stored().offlineMutedPairs).toEqual([])
     page.external((s) => (s.offlineMutedPairs = ["bergamot:fr>en"]))
     expect(document.querySelector("#mutedPairs")!.textContent).toContain("French")
   })
@@ -458,7 +472,8 @@ describe("dictionaries on the settings page", () => {
     tag.value = "dicts-v2"
     tag.dispatchEvent(new Event("change"))
     await vi.waitFor(() => expect(urls.at(-1)).toContain("/dicts-v2/dict-index.json"))
-    await vi.waitFor(() => expect(stored().dictionary.releaseTag).toBe("dicts-v2"))
+    await flushSave()
+    expect(stored().dictionary.releaseTag).toBe("dicts-v2")
   })
 })
 
@@ -580,7 +595,8 @@ describe("Microsoft Translator interface", () => {
     expect(key.type).toBe("password")
     change(key, " azure-key ")
     change(region, "westeurope")
-    await vi.waitFor(() => expect(stored().providers["microsoft-free"]).toMatchObject({ mode: "key", apiKey: "azure-key", region: "westeurope" }))
+    await flushSave()
+    expect(stored().providers["microsoft-free"]).toMatchObject({ mode: "key", apiKey: "azure-key", region: "westeurope" })
 
     // The connection test sends the unsaved configuration with the mode.
     button(ENGLISH.t("buttonTest")).click()
@@ -593,7 +609,8 @@ describe("Microsoft Translator interface", () => {
     radio("free").checked = true
     radio("free").dispatchEvent(new Event("change"))
     expect(azureFields().hidden).toBe(true)
-    await vi.waitFor(() => expect(stored().providers["microsoft-free"].mode).toBeUndefined())
+    await flushSave()
+    expect(stored().providers["microsoft-free"].mode).toBeUndefined()
   })
 
   it("opens in key mode when the settings say so, with the saved values", async () => {
@@ -627,7 +644,8 @@ describe("settings changed in another page", () => {
     expect(select("targetLang").value).toBe("de")
 
     edit(select("mode"), "translation-only", "change")
-    await vi.waitFor(() => expect(page.stored().mode).toBe("translation-only"))
+    await flushSave()
+    expect(page.stored().mode).toBe("translation-only")
     expect(page.stored()).toMatchObject({ autoTranslate: true, targetLang: "de" })
   })
 
@@ -636,7 +654,8 @@ describe("settings changed in another page", () => {
     await ready()
     page.external((s) => (s.autoTranslate = true), false)
     edit(select("mode"), "translation-only", "change")
-    await vi.waitFor(() => expect(page.stored().mode).toBe("translation-only"))
+    await flushSave()
+    expect(page.stored().mode).toBe("translation-only")
     expect(page.stored().autoTranslate).toBe(true)
     expect(check("autoTranslate").checked).toBe(true)
   })
@@ -652,7 +671,8 @@ describe("settings changed in another page", () => {
     })
     expect(prompt.value).toBe("my prompt")
     expect(select("tier-machine").value).toBe("microsoft-free")
-    await vi.waitFor(() => expect(page.stored().prompts.bilingual).toBe("my prompt"))
+    await flushSave()
+    expect(page.stored().prompts.bilingual).toBe("my prompt")
     expect(page.stored().tiers.machine).toBe("microsoft-free")
   })
 
@@ -668,7 +688,8 @@ describe("settings changed in another page", () => {
     // The panel is not redrawn under the cursor.
     expect(document.querySelector('#providerPanel input[type="password"]')).toBe(key)
     expect(key.value).toBe("sk-typing")
-    await vi.waitFor(() => expect(page.stored().providers.openai.apiKey).toBe("sk-typing"))
+    await flushSave()
+    expect(page.stored().providers.openai.apiKey).toBe("sk-typing")
     expect(page.stored().tiers.machine).toBe("microsoft-free")
   })
 

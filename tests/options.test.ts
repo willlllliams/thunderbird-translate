@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 /** Settings page: general, batching, style and cache fields, the service panel of each kind, and the interface language. */
-import { afterEach, describe, expect, it, vi } from "vitest"
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 import { readLocaleSources } from "../scripts/locales.mjs"
 import { describeError } from "../src/shared/errors"
 import { ENGLISH } from "../src/shared/i18n"
@@ -8,6 +8,9 @@ import type { BackgroundRequest } from "../src/shared/messages"
 import { createDefaultSettings, type Settings } from "../src/shared/settings"
 import { flushSave } from "./fixtures/pages"
 import { openPage, useFakeTimers } from "./helpers"
+
+// Fake timers in every test: a page left open by a test cannot fire its timers into the next one.
+beforeEach(() => useFakeTimers())
 
 afterEach(() => {
   vi.useRealTimers()
@@ -40,9 +43,28 @@ describe("general settings", () => {
     expect($("sameLanguage").hidden).toBe(false)
     set("mode", "translation-only")
     $<HTMLInputElement>("autoTranslate").click()
-    await vi.waitFor(() => expect(page.stored()).toMatchObject({ sourceLang: "en", mode: "translation-only", autoTranslate: true }))
+    await flushSave()
+    expect(page.stored()).toMatchObject({ sourceLang: "en", mode: "translation-only", autoTranslate: true })
     set("sourceLang", "auto")
     expect($("sameLanguage").hidden).toBe(true)
+  })
+
+  it("shows the saved note for a moment, and a failed save until a save succeeds", async () => {
+    const page = await options()
+    const note = () => [$("saved").classList.contains("show"), $("saved").classList.contains("error")]
+    $<HTMLInputElement>("autoTranslate").click()
+    await flushSave()
+    expect(note()).toEqual([true, false])
+    await vi.advanceTimersByTimeAsync(1200)
+    expect(note()).toEqual([false, false])
+    // A save fails while the note of the save before is still shown: the failure stays.
+    $<HTMLInputElement>("autoTranslate").click()
+    await flushSave()
+    page.browser.local.failWrites()
+    $<HTMLInputElement>("autoTranslate").click()
+    await flushSave()
+    await vi.advanceTimersByTimeAsync(1200)
+    expect(note()).toEqual([true, true])
   })
 
   it("switches the interface language at once and saves it", async () => {
@@ -53,7 +75,8 @@ describe("general settings", () => {
     await vi.waitFor(() => expect(document.documentElement.lang).toBe("fr"))
     expect(document.querySelector("h1")!.textContent).toBe(fr.optionsTitle)
     expect($("tierLabel-machine").textContent).toContain(fr.tierMachine)
-    await vi.waitFor(() => expect(page.stored().uiLanguage).toBe("fr"))
+    await flushSave()
+    expect(page.stored().uiLanguage).toBe("fr")
     expect($<HTMLSelectElement>("uiLanguage").value).toBe("fr")
   })
 
@@ -73,7 +96,8 @@ describe("general settings", () => {
     expect($<HTMLInputElement>("preciseEnabled").disabled).toBe(false)
     expect($<HTMLSelectElement>("tier-ai").value).toBe("openai")
     $<HTMLInputElement>("preciseEnabled").click()
-    await vi.waitFor(() => expect(page.stored().precise.enabled).toBe(true))
+    await flushSave()
+    expect(page.stored().precise.enabled).toBe(true)
   })
 
   it("shows that the settings were saved", async () => {
@@ -113,11 +137,11 @@ describe("batching, style and cache", () => {
     set(id, value)
     expect($<HTMLInputElement>(id).value).toBe(String(expected))
     const key = id === "cacheMax" ? "maxEntries" : id
-    await vi.waitFor(() => expect((page.stored()[group as "batch"] as unknown as Record<string, number>)[key]).toBe(expected))
+    await flushSave()
+    expect((page.stored()[group as "batch"] as unknown as Record<string, number>)[key]).toBe(expected)
   })
 
   it.each(["batchDelayMs", "maxCharsPerBatch", "concurrency", "cacheMax"])("%s: an empty or invalid entry keeps the value", async (id) => {
-    useFakeTimers()
     const page = await options()
     const before = $<HTMLInputElement>(id).value
     set(id, "")
@@ -134,7 +158,8 @@ describe("batching, style and cache", () => {
     const page = await options()
     $<HTMLInputElement>("llmBatchEnabled").click()
     $<HTMLInputElement>("cacheEnabled").click()
-    await vi.waitFor(() => expect([page.stored().batch.llmBatchEnabled, page.stored().cache.enabled]).toEqual([false, false]))
+    await flushSave()
+    expect([page.stored().batch.llmBatchEnabled, page.stored().cache.enabled]).toEqual([false, false])
   })
 
   it("previews and saves the translation style", async () => {
@@ -149,7 +174,8 @@ describe("batching, style and cache", () => {
     expect(preview.style.getPropertyValue("--tt-color")).toBe("#ff0000")
     expect(preview.style.getPropertyValue("--tt-opacity")).toBe("0.5")
     expect(preview.style.getPropertyValue("--tt-scale")).toBe("1.2")
-    await vi.waitFor(() => expect(page.stored().style).toEqual({ preset: "highlight", color: "#ff0000", textColor: "", opacity: 0.5, fontScale: 1.2 }))
+    await flushSave()
+    expect(page.stored().style).toEqual({ preset: "highlight", color: "#ff0000", textColor: "", opacity: 0.5, fontScale: 1.2 })
   })
 
   it("sets the text colour of the translations and restores the colour of the message", async () => {
@@ -165,12 +191,14 @@ describe("batching, style and cache", () => {
     set("styleTextColor", "#202124", "input")
     expect(preview.style.getPropertyValue("--tt-text-color")).toBe("#202124")
     expect([reset.disabled, $("styleTextColorAuto").hidden]).toEqual([false, true])
-    await vi.waitFor(() => expect(page.stored().style.textColor).toBe("#202124"))
+    await flushSave()
+    expect(page.stored().style.textColor).toBe("#202124")
 
     reset.click()
     expect(preview.style.getPropertyValue("--tt-text-color")).toBe("")
     expect([reset.disabled, $("styleTextColorAuto").hidden]).toEqual([true, false])
-    await vi.waitFor(() => expect(page.stored().style.textColor).toBe(""))
+    await flushSave()
+    expect(page.stored().style.textColor).toBe("")
 
     // Set in another page.
     page.external((s) => (s.style = { ...s.style, textColor: "#336699" }))
@@ -242,7 +270,6 @@ describe("service panel", () => {
   })
 
   it("switches the Microsoft mode only on the radio button that becomes checked", async () => {
-    useFakeTimers()
     const page = await options()
     pick("Microsoft Translator (free)")
     const key = panel().querySelector<HTMLInputElement>('input[name="microsoftMode"][value="key"]')!
@@ -276,11 +303,13 @@ describe("service panel", () => {
     fire(endpoint, endpoint.value, "change")
     expect(warning.textContent).toContain(ENGLISH.t("hintWebHost", ["platform.openai.com"]))
     expect(warning.textContent).toContain(ENGLISH.t("warnBaseUrlDefault", ["https://api.openai.com/v1"]))
-    await vi.waitFor(() => expect(page.stored().providers.openai.baseURL).toBe("https://platform.openai.com/"))
+    await flushSave()
+    expect(page.stored().providers.openai.baseURL).toBe("https://platform.openai.com/")
     button(ENGLISH.t("buttonRestoreBaseUrl")).click()
     expect(endpoint.value).toBe("")
     expect(warning.hidden).toBe(true)
-    await vi.waitFor(() => expect(page.stored().providers.openai.baseURL).toBe(""))
+    await flushSave()
+    expect(page.stored().providers.openai.baseURL).toBe("")
   })
 
   it("offers no default endpoint for a service without one", async () => {
@@ -299,7 +328,8 @@ describe("service panel", () => {
     fire(input("text"), "https://deeplx.example.com/translate")
     expect(button(ENGLISH.t("buttonUse"))).toBeDefined()
     expect(Array.from($<HTMLSelectElement>("tier-machine").options).map((o) => o.value)).toContain("deeplx")
-    await vi.waitFor(() => expect(page.stored().providers.deeplx).toMatchObject({ enabled: true, baseURL: "https://deeplx.example.com/translate" }))
+    await flushSave()
+    expect(page.stored().providers.deeplx).toMatchObject({ enabled: true, baseURL: "https://deeplx.example.com/translate" })
   })
 
   it("saves model, temperature and thinking mode of an AI service", async () => {
@@ -313,9 +343,11 @@ describe("service panel", () => {
     fire(model, " gpt-4.1 ")
     fire(temperature, "5")
     input("checkbox").click()
-    await vi.waitFor(() => expect(page.stored().providers.openai).toMatchObject({ model: "gpt-4.1", temperature: 2, thinking: true }))
+    await flushSave()
+    expect(page.stored().providers.openai).toMatchObject({ model: "gpt-4.1", temperature: 2, thinking: true })
     fire(temperature, "")
-    await vi.waitFor(() => expect(page.stored().providers.openai.temperature).toBeNull())
+    await flushSave()
+    expect(page.stored().providers.openai.temperature).toBeNull()
   })
 
   it("shows an empty temperature field for a service that sends none", async () => {
@@ -329,7 +361,8 @@ describe("service panel", () => {
     pick("Microsoft Translator (free)")
     button(ENGLISH.t("buttonUse")).click()
     expect(button(ENGLISH.t("buttonUse")).disabled).toBe(true)
-    await vi.waitFor(() => expect(page.stored().tiers.machine).toBe("microsoft-free"))
+    await flushSave()
+    expect(page.stored().tiers.machine).toBe("microsoft-free")
   })
 
   describe("connection test", () => {

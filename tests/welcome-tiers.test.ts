@@ -1,11 +1,15 @@
 // @vitest-environment jsdom
 /** Welcome page: the style controls of the display step, the demo and the tour of the tiers step. */
-import { afterEach, describe, expect, it, vi } from "vitest"
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 import { ENGLISH } from "../src/shared/i18n"
 import { createDefaultSettings, type Settings } from "../src/shared/settings"
 import { DEMO_TIMES, TierDemo } from "../src/welcome/demo"
 import { WELCOME_KEY } from "../src/welcome/steps"
+import { flushSave } from "./fixtures/pages"
 import { openPage, useFakeTimers } from "./helpers"
+
+// Fake timers in every test: a page left open by a test cannot fire its timers into the next one.
+beforeEach(() => useFakeTimers())
 
 afterEach(() => {
   vi.useRealTimers()
@@ -153,10 +157,12 @@ describe("welcome page: display and tiers steps", () => {
     const preview = $("modePreview")
     expect(Array.from(preview.querySelectorAll(".tt-translation"), (el) => el.classList.contains("tt-style-highlight"))).toEqual([true, true])
     expect(["--tt-color", "--tt-text-color", "--tt-opacity", "--tt-scale"].map((v) => preview.style.getPropertyValue(v))).toEqual(["#ff0000", "#202124", "0.5", "1.2"])
-    await vi.waitFor(() => expect(page.stored().style).toEqual({ preset: "highlight", color: "#ff0000", textColor: "#202124", opacity: 0.5, fontScale: 1.2 }))
+    await flushSave()
+    expect(page.stored().style).toEqual({ preset: "highlight", color: "#ff0000", textColor: "#202124", opacity: 0.5, fontScale: 1.2 })
     $("styleTextColorReset").click()
     expect(preview.style.getPropertyValue("--tt-text-color")).toBe("")
-    await vi.waitFor(() => expect(page.stored().style.textColor).toBe(""))
+    await flushSave()
+    expect(page.stored().style.textColor).toBe("")
   })
 
   it("replays the demo after each choice, with the services chosen", async () => {
@@ -179,7 +185,8 @@ describe("welcome page: display and tiers steps", () => {
     expect(shown()).toMatchObject({ text: ENGLISH.t("demoDictionary") })
     $("demoReplay").click()
     expect(shown()).toMatchObject({ text: ENGLISH.t("demoDictionary") })
-    await vi.waitFor(() => expect(page.stored().tiers).toEqual({ dictionary: "dictionary", machine: null, ai: null }))
+    await flushSave()
+    expect(page.stored().tiers).toEqual({ dictionary: "dictionary", machine: null, ai: null })
   })
 
   it("tours the selectors once: Next, a choice and Enter go on, the last step closes it, the link shows it again and Esc skips", async () => {
@@ -229,7 +236,6 @@ describe("welcome page: display and tiers steps", () => {
   })
 
   it("stops the demo and ends the tour when the user leaves the step, and only stops them when the page goes away", async () => {
-    useFakeTimers()
     const page = await openPage("welcome", settings((s) => (s.tiers.ai = "deepseek")), { stored: { [WELCOME_KEY]: { step: "tiers" } } })
     await vi.waitFor(() => expect(current()).toBe("tiers"))
     expect(spot()).toBe("tier-dictionary")

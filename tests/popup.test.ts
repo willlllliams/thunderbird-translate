@@ -1,12 +1,15 @@
 // @vitest-environment jsdom
 /** Popup: translation state of the message, the toggle and retranslate buttons, every switch, the links and the interface language. */
 import { readLocaleSources } from "../scripts/locales.mjs"
-import { afterEach, describe, expect, it, vi } from "vitest"
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 import { ENGLISH } from "../src/shared/i18n"
 import { IDLE_TAB_STATE, type TabState } from "../src/shared/messages"
 import { createDefaultSettings } from "../src/shared/settings"
 import { REFRESH_AFTER_ACTION_MS, REFRESH_INTERVAL_MS } from "../src/popup/timing"
 import { nextTask, openPage, useFakeTimers } from "./helpers"
+
+// Fake timers in every test: a page left open by a test cannot fire its timers into the next one.
+beforeEach(() => useFakeTimers())
 
 afterEach(() => {
   vi.useRealTimers()
@@ -66,7 +69,6 @@ describe("translation state", () => {
   })
 
   it("follows the state of the message every half second", async () => {
-    useFakeTimers()
     let state = tabState({ active: true, total: 4, done: 1 })
     await popup(() => state)
     expect($("status").textContent).toBe(ENGLISH.t("popupProgress", [1, 4]))
@@ -76,7 +78,6 @@ describe("translation state", () => {
   })
 
   it("asks no state and keeps the button disabled without a message tab", async () => {
-    useFakeTimers()
     const { sendMessage } = await openPage("popup", createDefaultSettings("en"))
     await vi.waitFor(() => expect($("status").textContent).toBe(ENGLISH.t("popupNotConnected")))
     $("toggle").click()
@@ -91,7 +92,6 @@ describe("translation state", () => {
 
 describe("controls", () => {
   it("toggles the translation of the tab and shows the new state", async () => {
-    useFakeTimers()
     let state = tabState({})
     const page = await popup(() => state)
     page.sendMessage.mockImplementation(async (req) => {
@@ -109,7 +109,6 @@ describe("controls", () => {
   })
 
   it("retranslates a translated message and keeps offering it", async () => {
-    useFakeTimers()
     const page = await popup(tabState({ active: true, total: 3, done: 3 }))
     expect($("retranslate").textContent).toBe(ENGLISH.t("popupRetranslate"))
     expect($("retranslate").title).toBe(ENGLISH.t("popupRetranslateHint"))

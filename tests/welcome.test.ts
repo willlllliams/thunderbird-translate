@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 /** Welcome page: opening after installation, steps and navigation, saving, offline downloads, prompts and the trial. */
 import { IDBFactory } from "fake-indexeddb"
-import { afterEach, describe, expect, it, vi } from "vitest"
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 import { ENGLISH } from "../src/shared/i18n"
 import type { BackgroundRequest, PortReport } from "../src/shared/messages"
 import { getPromptPreset, NO_PRESET, presetBlock, removePresets } from "../src/shared/prompt-presets"
@@ -10,7 +10,11 @@ import { createDefaultSettings, type Settings, toPublicSettings } from "../src/s
 import { neighbourStep, resumeStep, stepNeeded, trialLanguage, WELCOME_KEY } from "../src/welcome/steps"
 import { readLocaleSources } from "../scripts/locales.mjs"
 import { pagePort, stubBrowser } from "./fixtures/browser"
-import { jsonResponse, nextTask, openPage } from "./helpers"
+import { flushSave } from "./fixtures/pages"
+import { jsonResponse, nextTask, openPage, useFakeTimers } from "./helpers"
+
+// Fake timers in every test: a page left open by a test cannot fire its timers into the next one.
+beforeEach(() => useFakeTimers())
 
 afterEach(() => {
   vi.useRealTimers()
@@ -138,21 +142,24 @@ describe("welcome page", () => {
     await ready()
     choose("targetLang", "ja")
     choose("sourceLang", "de")
-    await vi.waitFor(() => expect(page.stored()).toMatchObject({ targetLang: "ja", sourceLang: "de" }))
+    await flushSave()
+    expect(page.stored()).toMatchObject({ targetLang: "ja", sourceLang: "de" })
 
     stepButtons()[1].click()
     await vi.waitFor(() => expect(page.local(WELCOME_KEY)).toEqual({ step: "display" }))
     const only = document.querySelector<HTMLInputElement>('input[name="mode"][value="translation-only"]')!
     only.checked = true
     only.dispatchEvent(new Event("change"))
-    await vi.waitFor(() => expect(page.stored().mode).toBe("translation-only"))
+    await flushSave()
+    expect(page.stored().mode).toBe("translation-only")
     // The preview is drawn by the content script's renderer in the chosen mode.
     expect(document.querySelectorAll("#modePreview .tt-translation.tt-only")).toHaveLength(2)
 
     stepButtons()[2].click()
     choose("tier-ai", "deepseek")
     choose("tier-dictionary", "dictionary")
-    await vi.waitFor(() => expect(page.stored().tiers).toEqual({ dictionary: "dictionary", machine: "google-free", ai: "deepseek" }))
+    await flushSave()
+    expect(page.stored().tiers).toEqual({ dictionary: "dictionary", machine: "google-free", ai: "deepseek" })
     expect(page.stored().providers.deepseek.enabled).toBe(true)
     expect(stepButtons().filter((b) => b.disabled)).toHaveLength(0)
 
@@ -184,7 +191,8 @@ describe("welcome page", () => {
     const only = document.querySelector<HTMLInputElement>('input[name="mode"][value="translation-only"]')!
     only.checked = true
     only.dispatchEvent(new Event("change"))
-    await vi.waitFor(() => expect(page.stored()).toMatchObject({ targetLang: "ja", mode: "translation-only" }))
+    await flushSave()
+    expect(page.stored()).toMatchObject({ targetLang: "ja", mode: "translation-only" })
     expect($("saved").textContent).toBe(ENGLISH.t("saved"))
     expect($("saved").classList.contains("error")).toBe(false)
   })
@@ -241,13 +249,16 @@ describe("welcome page", () => {
     const key = document.querySelector<HTMLInputElement>('#aiPanel input[type="password"]')!
     key.value = "sk-test"
     key.dispatchEvent(new Event("input"))
-    await vi.waitFor(() => expect(page.stored().tiers.ai).toBe("deepseek"))
-    await vi.waitFor(() => expect(page.stored().providers.deepseek.apiKey).toBe("sk-test"))
+    await flushSave()
+    expect(page.stored().tiers.ai).toBe("deepseek")
+    await flushSave()
+    expect(page.stored().providers.deepseek.apiKey).toBe("sk-test")
     Array.from(document.querySelectorAll<HTMLButtonElement>("#aiPanel button")).find((b) => b.textContent === ENGLISH.t("buttonTest"))!.click()
     await vi.waitFor(() => expect(document.querySelector("#aiPanel .test-result.ok")?.textContent).toBe(ENGLISH.t("testOk", ["你好"])))
     expect(page.sendMessage).toHaveBeenCalledWith(expect.objectContaining({ type: "testProvider", providerId: "deepseek" }))
     $<HTMLInputElement>("preciseEnabled").click()
-    await vi.waitFor(() => expect(page.stored().precise.enabled).toBe(true))
+    await flushSave()
+    expect(page.stored().precise.enabled).toBe(true)
   })
 
   it("shows the online translator's fields only for the service of the machine tier", async () => {
@@ -432,7 +443,8 @@ describe("welcome page", () => {
     const preset = getPromptPreset("style")!
     const expected = `${DEFAULT_PROMPTS.precise}\n\n${presetBlock(preset, preset.options!.find((o) => o.id === "plain"))}`
     expect($<HTMLTextAreaElement>("prompt-precise").value).toBe(expected)
-    await vi.waitFor(() => expect(page.stored().prompts.precise).toBe(expected))
+    await flushSave()
+    expect(page.stored().prompts.precise).toBe(expected)
     expect($("presetStatus").textContent).toBe(ENGLISH.t("presetApplied", [ENGLISH.t("labelPrecise")]))
   })
 
@@ -453,13 +465,15 @@ describe("welcome page", () => {
     choose("presetKind", "bilingual")
     $("presetApply").click()
     expect($<HTMLTextAreaElement>("prompt-bilingual").value).toBe(`${DEFAULT_PROMPTS.bilingual}\n\n${own}`)
-    await vi.waitFor(() => expect(page.stored().prompts.bilingual).toBe(`${DEFAULT_PROMPTS.bilingual}\n\n${own}`))
+    await flushSave()
+    expect(page.stored().prompts.bilingual).toBe(`${DEFAULT_PROMPTS.bilingual}\n\n${own}`)
     expect($("presetStatus").textContent).toBe(ENGLISH.t("presetRemoved", [ENGLISH.t("modeBilingual")]))
     // Without the user's text the prompt is the built-in one again, stored as empty.
     $<HTMLTextAreaElement>("prompt-bilingual").value = `${DEFAULT_PROMPTS.bilingual}\n\n${presetBlock(style, style.options![1])}`
     $("prompt-bilingual").dispatchEvent(new Event("input"))
     $("presetApply").click()
-    await vi.waitFor(() => expect(page.stored().prompts.bilingual).toBe(""))
+    await flushSave()
+    expect(page.stored().prompts.bilingual).toBe("")
     expect($<HTMLTextAreaElement>("prompt-bilingual").value).toBe(DEFAULT_PROMPTS.bilingual)
     expect(removePresets(prompt)).toBe(`${DEFAULT_PROMPTS.bilingual}\n\n${own}`)
   })
@@ -517,7 +531,8 @@ describe("welcome page", () => {
     await vi.waitFor(() => expect(document.documentElement.lang).toBe("de"))
     expect(stepButtons()[0].textContent).toBe(`1. ${de.stepLanguage}`)
     expect($("nextStep").textContent).toBe(de.buttonNext)
-    await vi.waitFor(() => expect(page.stored().uiLanguage).toBe("de"))
+    await flushSave()
+    expect(page.stored().uiLanguage).toBe("de")
   })
 
   it("explains the skipped steps and marks the current one", async () => {
@@ -563,7 +578,8 @@ describe("welcome page", () => {
     const page = await openPage("welcome", settings(), { stored: { [WELCOME_KEY]: { step: "finish" } } })
     await vi.waitFor(() => expect(current()).toBe("finish"))
     $<HTMLInputElement>("autoTranslate").click()
-    await vi.waitFor(() => expect(page.stored().autoTranslate).toBe(true))
+    await flushSave()
+    expect(page.stored().autoTranslate).toBe(true)
     $("openOptions").click()
     expect(page.openOptionsPage).toHaveBeenCalledTimes(1)
   })
@@ -585,7 +601,8 @@ describe("welcome page", () => {
     endpoint.dispatchEvent(new Event("input"))
     endpoint.value = "https://deeplx.example.com/translate"
     endpoint.dispatchEvent(new Event("input"))
-    await vi.waitFor(() => expect(page.stored().providers.deeplx).toMatchObject({ enabled: true, baseURL: "https://deeplx.example.com/translate" }))
+    await flushSave()
+    expect(page.stored().providers.deeplx).toMatchObject({ enabled: true, baseURL: "https://deeplx.example.com/translate" })
   })
 
   it("shows only the offline lists of the offline services in use", async () => {
