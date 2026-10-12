@@ -8,6 +8,7 @@ import { compareVersions, type ModelRecord, selectPairs } from "../src/offline/b
 import { BergamotStore, DB_NAME } from "../src/offline/bergamot/store"
 import { prepareTexts } from "../src/offline/bergamot/text"
 import { CDN, FakeWorker, makeManager, modelFile, RECORDS_URL, SERVER, triple } from "./fixtures/bergamot"
+import { useFakeTimers } from "./helpers"
 
 afterEach(() => {
   vi.useRealTimers()
@@ -370,16 +371,23 @@ describe("BergamotEngine edge cases", () => {
     const engine = engineWith(
       () => {
         const worker = new FakeWorker()
-        if (created.length < 2) worker.postMessage = () => {}
+        if (created.length < 2) worker.postMessage = vi.fn()
         created.push(worker)
         return worker
       },
       { timeoutMs: 30, loadTimeoutMs: 30, pauseMs: 60_000, now: () => now },
     )
-    for (const text of ["a", "b"]) await expect(engine.translate(["de>en"], [text])).rejects.toThrow(/did not answer within/)
-    const started = Date.now()
+    useFakeTimers()
+    for (const text of ["a", "b"]) {
+      const failed = engine.translate(["de>en"], [text]).catch((e) => e)
+      await vi.advanceTimersByTimeAsync(30)
+      expect(await failed).toMatchObject({ message: expect.stringMatching(/did not answer within/) })
+    }
+    const posts = () => created.slice(0, 2).reduce((n, w) => n + vi.mocked(w.postMessage).mock.calls.length, 0)
+    const [postsBefore, timersBefore] = [posts(), vi.getTimerCount()]
     const paused = await engine.translate(["de>en"], ["c"]).catch((e) => e)
-    expect(Date.now() - started).toBeLessThan(25)
+    // Paused: the call fails without a request to a worker and without starting a timer.
+    expect([posts() - postsBefore, vi.getTimerCount() - timersBefore]).toEqual([0, 0])
     expect(paused).toMatchObject({ i18nText: { key: "bergamotEnginePaused", args: ["60"] } })
     expect(created).toHaveLength(2)
     now = 60_001

@@ -5,7 +5,8 @@ import { afterEach, describe, expect, it, vi } from "vitest"
 import { ENGLISH } from "../src/shared/i18n"
 import { IDLE_TAB_STATE, type TabState } from "../src/shared/messages"
 import { createDefaultSettings } from "../src/shared/settings"
-import { openPage } from "./helpers"
+import { REFRESH_AFTER_ACTION_MS, REFRESH_INTERVAL_MS } from "../src/popup/timing"
+import { nextTask, openPage, useFakeTimers } from "./helpers"
 
 afterEach(() => {
   vi.useRealTimers()
@@ -14,6 +15,8 @@ afterEach(() => {
 
 const $ = <T extends HTMLElement>(id: string) => document.getElementById(id) as T
 const tabState = (over: Partial<TabState>): TabState => ({ ...IDLE_TAB_STATE, connected: true, ...over })
+/** How often the popup asked for the state of the tab. */
+const asked = (page: { sendMessage: { mock: { calls: [{ type: string }][] } } }) => page.sendMessage.mock.calls.filter(([req]) => req.type === "getTabState").length
 
 /** The popup over a message tab whose content script reports `state`. */
 async function popup(state: TabState | (() => TabState), settings = createDefaultSettings("en"), uiLanguage?: string) {
@@ -63,21 +66,24 @@ describe("translation state", () => {
   })
 
   it("follows the state of the message every half second", async () => {
+    useFakeTimers()
     let state = tabState({ active: true, total: 4, done: 1 })
     await popup(() => state)
     expect($("status").textContent).toBe(ENGLISH.t("popupProgress", [1, 4]))
     state = tabState({ active: true, total: 4, done: 4 })
-    await vi.waitFor(() => expect($("status").textContent).toBe(ENGLISH.t("popupProgress", [4, 4])), { timeout: 2000 })
+    await vi.advanceTimersByTimeAsync(REFRESH_INTERVAL_MS)
+    expect($("status").textContent).toBe(ENGLISH.t("popupProgress", [4, 4]))
   })
 
   it("asks no state and keeps the button disabled without a message tab", async () => {
+    useFakeTimers()
     const { sendMessage } = await openPage("popup", createDefaultSettings("en"))
     await vi.waitFor(() => expect($("status").textContent).toBe(ENGLISH.t("popupNotConnected")))
     $("toggle").click()
-    await new Promise((r) => setTimeout(r, 20))
+    await nextTask()
     expect(sendMessage.mock.calls.map(([req]) => req.type)).not.toContain("toggleTab")
     $("retranslate").click()
-    await new Promise((r) => setTimeout(r, 20))
+    await vi.advanceTimersByTimeAsync(REFRESH_AFTER_ACTION_MS + REFRESH_INTERVAL_MS)
     expect(sendMessage.mock.calls.map(([req]) => req.type)).not.toContain("retranslateTab")
     expect(sendMessage.mock.calls.map(([req]) => req.type)).not.toContain("getTabState")
   })
@@ -85,6 +91,7 @@ describe("translation state", () => {
 
 describe("controls", () => {
   it("toggles the translation of the tab and shows the new state", async () => {
+    useFakeTimers()
     let state = tabState({})
     const page = await popup(() => state)
     page.sendMessage.mockImplementation(async (req) => {
@@ -93,18 +100,26 @@ describe("controls", () => {
     })
     $("toggle").click()
     expect(page.sendMessage).toHaveBeenCalledWith({ type: "toggleTab", tabId: 3 })
-    await vi.waitFor(() => expect($("toggle").textContent).toBe(ENGLISH.t("popupShowOriginal")))
-    expect(page.sendMessage).toHaveBeenCalledWith({ type: "getTabState", tabId: 3 })
+    await nextTask()
+    const before = asked(page)
+    // The state is asked again a moment after the click, before the next regular refresh.
+    await vi.advanceTimersByTimeAsync(REFRESH_AFTER_ACTION_MS)
+    expect(asked(page)).toBe(before + 1)
+    expect($("toggle").textContent).toBe(ENGLISH.t("popupShowOriginal"))
   })
 
   it("retranslates a translated message and keeps offering it", async () => {
+    useFakeTimers()
     const page = await popup(tabState({ active: true, total: 3, done: 3 }))
     expect($("retranslate").textContent).toBe(ENGLISH.t("popupRetranslate"))
     expect($("retranslate").title).toBe(ENGLISH.t("popupRetranslateHint"))
     $("retranslate").click()
     expect(page.sendMessage).toHaveBeenCalledWith({ type: "retranslateTab", tabId: 3 })
     expect(page.sendMessage).not.toHaveBeenCalledWith({ type: "toggleTab", tabId: 3 })
-    await new Promise((r) => setTimeout(r, 200))
+    await nextTask()
+    const before = asked(page)
+    await vi.advanceTimersByTimeAsync(REFRESH_AFTER_ACTION_MS)
+    expect(asked(page)).toBe(before + 1)
     expect($("retranslate").hidden).toBe(false)
   })
 

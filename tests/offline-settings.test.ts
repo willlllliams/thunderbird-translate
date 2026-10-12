@@ -10,7 +10,7 @@ import type { BackgroundRequest, BergamotPairInfo } from "../src/shared/messages
 import { languageTag } from "../src/shared/languages"
 import type { SourcedLanguage } from "../src/shared/offline-needs"
 import { gz, packEntry, releaseServer, tsv } from "./fixtures/dictionary"
-import { asFetch, jsonResponse } from "./helpers"
+import { asFetch, jsonResponse, nextTask, useFakeTimers } from "./helpers"
 
 // shared/ext reads the extension namespace when it is imported.
 const sendMessage = vi.hoisted(() => {
@@ -273,7 +273,7 @@ describe("dictionary list", () => {
     d.commonButton().click()
     button(d.common.querySelector(".common-confirm")!, ENGLISH.t("buttonConfirmDownload"))!.click()
     await vi.waitFor(() => expect(waiting).toHaveLength(2))
-    await new Promise((r) => setTimeout(r, 20))
+    await nextTask()
     expect(waiting).toHaveLength(2)
     waiting.shift()!()
     // A finished pack shows as installed while the others are still running, without a word to the background script yet.
@@ -452,6 +452,7 @@ describe("offline model list", () => {
       bergamotInstall: () => new Promise((r) => (finish = r)),
       bergamotProgress: () => progress(),
     })
+    useFakeTimers()
     const m = models()
     await m.section.load()
     button(m.rows()[0]!, ENGLISH.t("buttonDownload"))!.click()
@@ -462,9 +463,10 @@ describe("offline model list", () => {
     await vi.waitFor(() => expect(m.rows()[0]!.textContent).toContain(ENGLISH.t("dictDownloading", [75])))
     finish({ ok: false, error: "disk full" })
     await vi.waitFor(() => expect(m.rows()[0]!.querySelector(".test-result")?.textContent).toBe("disk full"))
-    await new Promise((r) => setTimeout(r, 30))
+    // The poll after the end of the installation is the last one (pollMs 5).
+    await vi.advanceTimersByTimeAsync(30)
     const polls = requests.filter((r) => r.type === "bergamotProgress").length
-    await new Promise((r) => setTimeout(r, 30))
+    await vi.advanceTimersByTimeAsync(30)
     expect(requests.filter((r) => r.type === "bergamotProgress").length).toBe(polls)
   })
 
@@ -576,7 +578,7 @@ describe("offline model list", () => {
     m.commonButton().click()
     button(m.common.querySelector(".common-confirm")!, ENGLISH.t("buttonConfirmDownload"))!.click()
     await vi.waitFor(() => expect(waiting).toHaveLength(2))
-    await new Promise((r) => setTimeout(r, 20))
+    await nextTask()
     expect(waiting).toHaveLength(2)
     await vi.waitFor(() => {
       waiting.splice(0).forEach((resolve) => resolve())

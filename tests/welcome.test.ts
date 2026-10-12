@@ -10,9 +10,10 @@ import { createDefaultSettings, type Settings, toPublicSettings } from "../src/s
 import { neighbourStep, resumeStep, stepNeeded, trialLanguage, WELCOME_KEY } from "../src/welcome/steps"
 import { readLocaleSources } from "../scripts/locales.mjs"
 import { pagePort, stubBrowser } from "./fixtures/browser"
-import { jsonResponse, openPage } from "./helpers"
+import { jsonResponse, nextTask, openPage } from "./helpers"
 
 afterEach(() => {
+  vi.useRealTimers()
   vi.resetModules()
 })
 
@@ -210,7 +211,7 @@ describe("welcome page", () => {
     for (const button of ["exitGuide", "nextStep"]) {
       $(button).click()
       await vi.waitFor(() => expect($("saved").textContent).toBe(ENGLISH.t("errSaveFailed", ["quota exceeded"])))
-      await new Promise((r) => setTimeout(r, 20))
+      await nextTask()
       expect(page.removed).toEqual([])
       $("saved").textContent = ""
     }

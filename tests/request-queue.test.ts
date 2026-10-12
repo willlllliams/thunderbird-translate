@@ -1,5 +1,5 @@
 /** fetchOk(), Retry-After, retry classification and the concurrency limit of the RequestQueue. */
-import { describe, expect, it, vi } from "vitest"
+import { afterEach, describe, expect, it, vi } from "vitest"
 import { isRetryableError, RequestQueue } from "../src/background/queue/request-queue"
 import { fetchOk, HttpError, parseRetryAfter, timeoutSignal } from "../src/shared/http"
 import { llmTranslateSingle } from "../src/background/translators/llm"
@@ -7,6 +7,8 @@ import { NetworkError, TimeoutError } from "../src/shared/errors"
 import { ENGLISH } from "../src/shared/i18n"
 import { resolveProviderConfig } from "../src/shared/settings"
 import { asFetch, chatCompletion } from "./helpers"
+
+afterEach(() => vi.useRealTimers())
 
 const spec = { url: "https://api.example.com/translate", init: { method: "POST", headers: {} } }
 

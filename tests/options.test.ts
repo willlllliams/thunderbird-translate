@@ -6,9 +6,11 @@ import { describeError } from "../src/shared/errors"
 import { ENGLISH } from "../src/shared/i18n"
 import type { BackgroundRequest } from "../src/shared/messages"
 import { createDefaultSettings, type Settings } from "../src/shared/settings"
-import { openPage } from "./helpers"
+import { flushSave } from "./fixtures/pages"
+import { openPage, useFakeTimers } from "./helpers"
 
 afterEach(() => {
+  vi.useRealTimers()
   vi.resetModules()
 })
 
@@ -115,13 +117,16 @@ describe("batching, style and cache", () => {
   })
 
   it.each(["batchDelayMs", "maxCharsPerBatch", "concurrency", "cacheMax"])("%s: an empty or invalid entry keeps the value", async (id) => {
+    useFakeTimers()
     const page = await options()
     const before = $<HTMLInputElement>(id).value
     set(id, "")
     expect($<HTMLInputElement>(id).value).toBe(before)
     set(id, "lots")
     expect($<HTMLInputElement>(id).value).toBe(before)
-    await new Promise((r) => setTimeout(r, 350))
+    await flushSave()
+    // The page saved after the delay, with the value as it was.
+    expect(page.browser.local.set).toHaveBeenCalledTimes(1)
     expect(page.stored()).toEqual(createDefaultSettings("en"))
   })
 
@@ -237,12 +242,14 @@ describe("service panel", () => {
   })
 
   it("switches the Microsoft mode only on the radio button that becomes checked", async () => {
+    useFakeTimers()
     const page = await options()
     pick("Microsoft Translator (free)")
     const key = panel().querySelector<HTMLInputElement>('input[name="microsoftMode"][value="key"]')!
     key.dispatchEvent(new Event("change"))
     expect(panel().querySelector<HTMLElement>(".azure-fields")!.hidden).toBe(true)
-    await new Promise((r) => setTimeout(r, 350))
+    await flushSave()
+    expect(page.browser.local.set).not.toHaveBeenCalled()
     expect(page.stored().providers["microsoft-free"].mode).toBeUndefined()
   })
 

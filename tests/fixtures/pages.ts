@@ -3,10 +3,14 @@ import { readFileSync } from "node:fs"
 import { join } from "node:path"
 import { vi } from "vitest"
 import type { BackgroundRequest } from "../../src/shared/messages"
+import { SAVE_DELAY_MS } from "../../src/options/session"
 import { type Settings, SETTINGS_KEY } from "../../src/shared/settings"
 import { stubBrowser } from "./browser"
 import { packagedFetch } from "./locales"
 import type { StorageChanges } from "./storage"
+
+/** With fake timers: let the delay of the settings page and the setup guide pass, after which their edits are written. */
+export const flushSave = () => vi.advanceTimersByTimeAsync(SAVE_DELAY_MS)
 
 /**
  * Load the popup, the settings page or the welcome page and run its script

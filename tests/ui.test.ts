@@ -8,9 +8,11 @@ import { applyPreset, getPromptPreset, NO_PRESET } from "../src/shared/prompt-pr
 import { DEFAULT_PROMPTS, PROMPT_KINDS } from "../src/shared/prompts"
 import { ADD_SERVICE } from "../src/shared/page"
 import { createDefaultSettings } from "../src/shared/settings"
-import { jsonResponse, openPage } from "./helpers"
+import { flushSave } from "./fixtures/pages"
+import { jsonResponse, nextTask, openPage, useFakeTimers } from "./helpers"
 
 afterEach(() => {
+  vi.useRealTimers()
   vi.resetModules()
 })
 
@@ -122,7 +124,7 @@ describe("popup", () => {
       page.external((s) => (s.targetLang = "ja"))
       await vi.waitFor(() => expect(page.sendMessage).toHaveBeenLastCalledWith(expect.objectContaining({ type: "offlineStatus", targetLang: "ja" })))
       page.external((s) => (s.autoTranslate = true))
-      await new Promise((r) => setTimeout(r, 10))
+      await nextTask()
       expect(page.sendMessage.mock.calls.filter(([req]) => req.type === "offlineStatus")).toHaveLength(2)
     })
   })
@@ -140,7 +142,8 @@ describe("popup", () => {
     choose(select("tier-ai"), "")
     expect(select("tier-ai").value).toBe("openai")
     expect(document.querySelector<HTMLElement>("#tiersEmpty")!.hidden).toBe(false)
-    await new Promise((r) => setTimeout(r, 20))
+    // The popup writes a choice at once; the refused one is never written.
+    await nextTask()
     expect(stored().tiers.ai).toBe("openai")
   })
 
@@ -238,11 +241,15 @@ describe("settings page", () => {
   })
 
   it("refuses to leave every tier empty", async () => {
-    const { stored } = await openPage("options", createDefaultSettings("en"))
+    useFakeTimers()
+    const { stored, browser } = await openPage("options", createDefaultSettings("en"))
     await vi.waitFor(() => expect(select("tier-machine").options.length).toBeGreaterThan(1))
     choose(select("tier-machine"), "")
     expect(select("tier-machine").value).toBe("google-free")
     expect(document.querySelector<HTMLElement>("#tiersEmpty")!.hidden).toBe(false)
+    await flushSave()
+    expect(browser.local.set).not.toHaveBeenCalled()
+    expect(stored().tiers.machine).toBe("google-free")
     choose(select("tier-machine"), "microsoft-free")
     expect(document.querySelector<HTMLElement>("#tiersEmpty")!.hidden).toBe(true)
     await vi.waitFor(() => expect(stored().tiers.machine).toBe("microsoft-free"))

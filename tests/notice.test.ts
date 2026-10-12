@@ -8,6 +8,7 @@ import { ENGLISH } from "../src/shared/i18n"
 import type { BackgroundRequest, TranslateResponse } from "../src/shared/messages"
 import type { Tier } from "../src/shared/providers"
 import { answering, manualTranslate, tieredSettings } from "./fixtures/content"
+import { nextTask } from "./helpers"
 
 const DICT: MissingData = { service: "dictionary", pair: "ja>zh-Hans", models: ["ja>en", "en>zh-Hans"] }
 const BERGAMOT: MissingData = { service: "bergamot", pair: "ja>zh-Hans", models: ["ja>en"] }
@@ -65,7 +66,7 @@ describe("notice", () => {
     manual.answer(first, "dictionary", missing(DICT))
     manual.done(first)
     // One paragraph is still on its way: nothing shows yet.
-    await new Promise((r) => setTimeout(r, 0))
+    await nextTask()
     expect(panel()).toBeNull()
     manual.answer(second, "dictionary", missing(DICT))
     manual.done(second)

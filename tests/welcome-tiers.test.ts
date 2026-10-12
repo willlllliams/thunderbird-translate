@@ -5,7 +5,7 @@ import { ENGLISH } from "../src/shared/i18n"
 import { createDefaultSettings, type Settings } from "../src/shared/settings"
 import { DEMO_TIMES, TierDemo } from "../src/welcome/demo"
 import { WELCOME_KEY } from "../src/welcome/steps"
-import { openPage } from "./helpers"
+import { openPage, useFakeTimers } from "./helpers"
 
 afterEach(() => {
   vi.useRealTimers()
@@ -229,6 +229,7 @@ describe("welcome page: display and tiers steps", () => {
   })
 
   it("stops the demo and ends the tour when the user leaves the step, and only stops them when the page goes away", async () => {
+    useFakeTimers()
     const page = await openPage("welcome", settings((s) => (s.tiers.ai = "deepseek")), { stored: { [WELCOME_KEY]: { step: "tiers" } } })
     await vi.waitFor(() => expect(current()).toBe("tiers"))
     expect(spot()).toBe("tier-dictionary")
@@ -236,7 +237,7 @@ describe("welcome page: display and tiers steps", () => {
     // The page goes away: timers and listeners end, the tour has not been closed by the user.
     dispatchEvent(new Event("pagehide"))
     expect(spot()).toBeUndefined()
-    await new Promise((r) => setTimeout(r, DEMO_TIMES.machine + 50))
+    await vi.advanceTimersByTimeAsync(DEMO_TIMES.ai)
     expect(shown()).toBe("loading")
     expect(page.local(WELCOME_KEY)).toEqual({ step: "tiers" })
 
@@ -245,7 +246,7 @@ describe("welcome page: display and tiers steps", () => {
     $("nextStep").click()
     await vi.waitFor(() => expect(current()).toBe("machine"))
     expect(spot()).toBeUndefined()
-    await new Promise((r) => setTimeout(r, DEMO_TIMES.machine + 50))
+    await vi.advanceTimersByTimeAsync(DEMO_TIMES.ai)
     expect(shown()).toBe("loading")
     await vi.waitFor(() => expect(page.local(WELCOME_KEY)).toEqual({ step: "machine", toured: true }))
   })

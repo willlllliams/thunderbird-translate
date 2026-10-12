@@ -10,7 +10,7 @@ import { DEFAULT_PROMPTS } from "../src/shared/prompts"
 import { createDefaultSettings, SETTINGS_KEY, type Settings, toPublicSettings } from "../src/shared/settings"
 import { localeText, stubBackgroundApi } from "./fixtures/background-api"
 import { packEntry, releaseServer, tsv } from "./fixtures/dictionary"
-import { asFetch, jsonResponse } from "./helpers"
+import { asFetch, jsonResponse, nextTask } from "./helpers"
 
 afterEach(() => {
   vi.doUnmock("../src/background/bergamot-admin")
@@ -152,7 +152,7 @@ describe("content script ports", () => {
     const bg = await start({ stored: stored(createDefaultSettings()) })
     const other = bg.connect(4, "something-else")
     const noTab = bg.connect(undefined)
-    await new Promise((r) => setTimeout(r, 10))
+    await nextTask()
     expect([other.posted, noTab.posted]).toEqual([[], []])
     expect(other.onMessage.listeners).toHaveLength(0)
     expect(await bg.send({ type: "getTabState", tabId: 4 })).toEqual(IDLE_TAB_STATE)

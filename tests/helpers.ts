@@ -7,6 +7,17 @@ import type { TranslateRequest, TranslateResponse } from "../src/shared/messages
 import { getPreset, tierOf } from "../src/shared/providers"
 import type { Settings } from "../src/shared/settings"
 
+/**
+ * Fake setTimeout and setInterval (and Date with `now`). setImmediate stays
+ * real: fake-indexeddb runs its requests on it, and nextTask() waits for it.
+ */
+export function useFakeTimers(now?: Date): void {
+  vi.useFakeTimers(now ? { toFake: ["setTimeout", "clearTimeout", "setInterval", "clearInterval", "Date"], now } : { toFake: ["setTimeout", "clearTimeout", "setInterval", "clearInterval"] })
+}
+
+/** One turn of the event loop: every promise chain that waits for no timer has run. Works with fake timers too. */
+export const nextTask = () => new Promise<void>((resolve) => setImmediate(resolve))
+
 /** Hex SHA-256, as in dict-index.json and the Bergamot model records. */
 export const sha256Hex = (data: Uint8Array) => createHash("sha256").update(data).digest("hex")
 

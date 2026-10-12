@@ -7,6 +7,7 @@ import type { BackgroundRequest } from "../src/shared/messages"
 import type { PublicSettings } from "../src/shared/settings"
 import { pagePort } from "./fixtures/browser"
 import { publicSettings, tieredSettings } from "./fixtures/content"
+import { nextTask } from "./helpers"
 
 // ext.ts reads the global namespace when it is first imported.
 const stub = vi.hoisted(() => {
@@ -152,7 +153,7 @@ describe("connectContent", () => {
     void client.controller.toggle()
     // The second settings win, whether they reach the controller before or after the start.
     await vi.waitFor(() => expect(port.posted("translate").at(-1)?.request.targetLang).toBe("ja"))
-    await new Promise((r) => setTimeout(r, 10))
+    await nextTask()
     expect(port.posted("translate").at(-1)?.request.targetLang).toBe("ja")
   })
 

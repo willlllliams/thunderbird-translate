@@ -3,7 +3,7 @@ import { afterEach, describe, expect, it, vi } from "vitest"
 import { CACHE_STORAGE_KEY, cacheKey, LruCache, PersistentCache } from "../src/background/cache"
 import { hashText } from "../src/shared/hash"
 import { createDefaultSettings, type Settings } from "../src/shared/settings"
-import { createService, fakeDictionary, memoryStorage, translateOne } from "./helpers"
+import { createService, fakeDictionary, memoryStorage, translateOne, useFakeTimers } from "./helpers"
 
 afterEach(() => vi.useRealTimers())
 
@@ -118,6 +118,7 @@ describe("PersistentCache", () => {
   })
 
   it("writes nothing while the stored entries cannot be read", async () => {
+    useFakeTimers()
     const storage = memoryStorage()
     storage.data.set(CACHE_STORAGE_KEY, [["old", "1"]])
     vi.spyOn(storage, "get").mockRejectedValue(new Error("storage broken"))
@@ -125,7 +126,7 @@ describe("PersistentCache", () => {
     const cache = new PersistentCache(storage, 10, 0)
     await cache.set("new", "2")
     expect(await cache.get("new")).toBe("2")
-    await new Promise((r) => setTimeout(r, 20))
+    await vi.runAllTimersAsync()
     expect(set).not.toHaveBeenCalled()
     expect(storage.data.get(CACHE_STORAGE_KEY)).toEqual([["old", "1"]])
   })
