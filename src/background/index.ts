@@ -1,3 +1,11 @@
+/**
+ * The background script: builds the translation service, the settings,
+ * the tab registry and the request handlers, and registers every listener
+ * of the extension API in its first run, so that an event that woke the
+ * background page reaches them. The modules get what they need from here
+ * as arguments.
+ */
+
 import { ext } from "../shared/ext"
 import { getI18n } from "../shared/i18n"
 import { loadExtensionI18n, thunderbirdUiLanguage } from "../shared/i18n-ext"
@@ -5,8 +13,7 @@ import type { OfflineStatus } from "../shared/messages"
 import { pairKey } from "../shared/languages"
 import { type Catalog, offlineServiceOf, offlineState } from "../shared/offline-needs"
 import { TIERS } from "../shared/providers"
-import { SETTINGS_KEY, type Settings, type TierSettings, toPublicSettings } from "../shared/settings"
-import { readSettings } from "../shared/settings-store"
+import { createDefaultSettings, SETTINGS_KEY, type TierSettings, toPublicSettings } from "../shared/settings"
 import { sourceDetector } from "../shared/lang-detect"
 import { getBergamot } from "../offline/bergamot"
 import { CatalogCache } from "../offline/catalog-cache"
@@ -15,6 +22,7 @@ import { createCommandRunner } from "./commands"
 import { registerContentScripts } from "./content-scripts"
 import { createLocaleTables } from "./locale-tables"
 import { createDispatch, createHandlers } from "./router"
+import { createSettingsState } from "./settings-state"
 import { createTabRegistry } from "./tabs"
 import { Dictionary } from "../offline/dictionary"
 import { fetchDictionaryIndex } from "../offline/dictionary/download"
@@ -26,7 +34,6 @@ import { releaseFetch } from "../hooks/servers"
 declare const __DEBUG__: boolean
 
 const uiLang = thunderbirdUiLanguage()
-let settings: Settings = readSettings(undefined)
 
 const storage: KeyValueStorage = {
   get: async (key) => (await ext.storage.local.get(key))[key],
@@ -34,7 +41,7 @@ const storage: KeyValueStorage = {
   remove: (key) => ext.storage.local.remove(key),
 }
 
-const cache = new PersistentCache(storage, settings.cache.maxEntries)
+const cache = new PersistentCache(storage, createDefaultSettings().cache.maxEntries)
 // The dictionary and the offline models name the source language of a paragraph the same way.
 const detect = sourceDetector(ext.i18n)
 
@@ -49,10 +56,10 @@ function dictionaryCatalogOf(tag: string): CatalogCache<Set<string>> {
   return catalog
 }
 /** The index of the release in use; null when it cannot be read. */
-const dictionaryCatalog = (): Promise<Catalog> => dictionaryCatalogOf(settings.dictionary.releaseTag).get()
+const dictionaryCatalog = (): Promise<Catalog> => dictionaryCatalogOf(settings.current().dictionary.releaseTag).get()
 
 // Translations take the index read so far: they never wait for the network.
-const dictionary = new Dictionary(undefined, { detect, catalog: () => dictionaryCatalogOf(settings.dictionary.releaseTag).peek() })
+const dictionary = new Dictionary(undefined, { detect, catalog: () => dictionaryCatalogOf(settings.current().dictionary.releaseTag).peek() })
 
 /** The offline services among the services of `tiers`. */
 const offlineKinds = (tiers: TierSettings) => TIERS.map((tier) => offlineServiceOf(tiers[tier]))
@@ -75,38 +82,39 @@ async function offlineStatus(sourceLang: string, targetLang: string, tiers: Tier
   ])
   return status
 }
-// Badge, button title and error messages use the current i18n instance, set by applyUiLanguage().
-const service = new TranslationService({ getSettings: () => settings, cache, dictionary, detect, i18n: getI18n })
 
-function adoptSettings(stored: unknown): void {
-  settings = readSettings(stored)
-  cache.configure(settings.cache.enabled, settings.cache.maxEntries)
-  // The AI SDK is a chunk of its own (scripts/build.mjs), loaded once the AI tier is in use; a failure shows with the first AI request.
-  if (settings.tiers.ai) import("./translators/llm").catch(() => {})
-  // Translations name missing packs and models only from catalogs already read: read those of the offline services in use ahead.
-  const kinds = offlineKinds(settings.tiers)
-  if (kinds.includes("dictionary")) void dictionaryCatalog()
-  if (kinds.includes("bergamot")) void getBergamot().catalog()
-}
-
-/** The keyboard commands; created once the settings and the ports exist (see below). */
+/** The keyboard commands, created below once the settings and the tabs exist; the hook of the e2e build gets them first. */
 const runCommand = (command: string, tab?: browser.tabs.Tab) => commandRunner(command, tab)
 
-// Test build (npm run e2e): settings and dictionary pack of the local mock server, before anything is translated.
-const hookReady = beforeSettingsRead?.({ storage, dictionary, runCommand })
+const settings = createSettingsState({
+  storage,
+  // Test build (npm run e2e): settings and dictionary pack of the local mock server, before anything is translated.
+  beforeRead: beforeSettingsRead && (() => beforeSettingsRead!({ storage, dictionary, runCommand })),
+  onAdopt: (s) => {
+    cache.configure(s.cache.enabled, s.cache.maxEntries)
+    // The AI SDK is a chunk of its own (scripts/build.mjs), loaded once the AI tier is in use; a failure shows with the first AI request.
+    if (s.tiers.ai) import("./translators/llm").catch(() => {})
+    // Translations name missing packs and models only from catalogs already read: read those of the offline services in use ahead.
+    const kinds = offlineKinds(s.tiers)
+    if (kinds.includes("dictionary")) void dictionaryCatalog()
+    if (kinds.includes("bergamot")) void getBergamot().catalog()
+  },
+  onUiLanguage: (s) => applyUiLanguage(s.uiLanguage),
+})
 
-const settingsReady = (async () => {
-  await hookReady
-  const stored = await storage.get(SETTINGS_KEY)
-  adoptSettings(stored)
-  // A fresh installation, or settings that reading migrated (earlier forms, copies of built-in prompts): store them in the current form.
-  if (JSON.stringify(settings) !== JSON.stringify(stored)) await storage.set(SETTINGS_KEY, settings)
-  await applyUiLanguage()
-})()
+// Badge, button title and error messages use the current i18n instance, set by applyUiLanguage().
+const service = new TranslationService({ getSettings: () => settings.current(), cache, dictionary, detect, i18n: getI18n })
 
-async function applyUiLanguage(): Promise<void> {
-  const i18n = await loadExtensionI18n(settings.uiLanguage)
-  if (__DEBUG__) console.info("[thunderbird-translate] interface language", settings.uiLanguage, uiLang, "→", i18n.locale, i18n.t("actionTitle"))
+const tabs = createTabRegistry({
+  ready: settings.ready,
+  publicSettings: () => toPublicSettings(settings.current()),
+  setContext: (context, bypassCache) => service.setContext(context, bypassCache),
+  translate: (request, onTier) => service.translateForPage(request, onTier),
+})
+
+async function applyUiLanguage(uiLanguage: string): Promise<void> {
+  const i18n = await loadExtensionI18n(uiLanguage)
+  if (__DEBUG__) console.info("[thunderbird-translate] interface language", uiLanguage, uiLang, "→", i18n.locale, i18n.t("actionTitle"))
   try {
     // Global title of the message header button; the manifest default follows Thunderbird only.
     // Not awaited: when Thunderbird starts with a message on screen, the call can stay pending
@@ -118,50 +126,24 @@ async function applyUiLanguage(): Promise<void> {
   tabs.redrawBadges()
 }
 
+const commandRunner = createCommandRunner({ ready: settings.ready, postToTab: tabs.postToTab })
+
+const handlers = createHandlers({ tabs, service, localeMessages: createLocaleTables(uiLang), dictionary, offlineStatus, cache })
+
+/* ---------- listeners: all of them in this first run ---------- */
+
 ext.storage.onChanged.addListener((changes, area) => {
   if (area !== "local" || !changes[SETTINGS_KEY]) return
-  const previousUiLanguage = settings.uiLanguage
-  adoptSettings(changes[SETTINGS_KEY].newValue)
-  if (settings.uiLanguage !== previousUiLanguage) void applyUiLanguage()
-  tabs.broadcast({ type: "settings", settings: toPublicSettings(settings) })
+  settings.adopt(changes[SETTINGS_KEY].newValue)
+  tabs.broadcast({ type: "settings", settings: toPublicSettings(settings.current()) })
 })
-
-/* ---------- content script connections ---------- */
-
-const tabs = createTabRegistry({
-  ready: settingsReady,
-  publicSettings: () => toPublicSettings(settings),
-  setContext: (context, bypassCache) => service.setContext(context, bypassCache),
-  translate: (request, onTier) => service.translateForPage(request, onTier),
-})
-
 ext.runtime.onConnect.addListener((port) => tabs.connect(port))
-
-const commandRunner = createCommandRunner({ ready: settingsReady, postToTab: tabs.postToTab })
-
-/* ---------- requests from content scripts, popup and options ---------- */
-
-const handlers = createHandlers({
-  tabs,
-  service,
-  localeMessages: createLocaleTables(uiLang),
-  dictionary,
-  offlineStatus,
-  cache,
-})
-ext.runtime.onMessage.addListener(createDispatch(handlers, settingsReady))
-
-/* ---------- keyboard shortcuts ---------- */
-
-ext.commands.onCommand.addListener((command: string, tab?: browser.tabs.Tab) => runCommand(command, tab))
-
-/* ---------- installation ---------- */
-
+ext.runtime.onMessage.addListener(createDispatch(handlers, settings.ready))
+ext.commands.onCommand.addListener(runCommand)
 ext.runtime.onInstalled.addListener((details) => {
   if (__DEBUG__) console.info("[thunderbird-translate] installed:", details.reason)
   void openWelcomeOnInstall(details)
 })
 
-/* ---------- content script registration, after every listener ---------- */
-
+// After every listener: a content script that starts right away finds the background ready to answer.
 void registerContentScripts()

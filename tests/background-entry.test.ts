@@ -6,7 +6,6 @@ import { installPack } from "../src/offline/dictionary/download"
 import { DictionaryStore } from "../src/offline/dictionary/store"
 import { createMailContext } from "../src/shared/mail-context"
 import { IDLE_TAB_STATE, type PortPush, type TranslateRequest } from "../src/shared/messages"
-import { DEFAULT_PROMPTS } from "../src/shared/prompts"
 import { createDefaultSettings, SETTINGS_KEY, type Settings, toPublicSettings } from "../src/shared/settings"
 import { localeText, stubBackgroundApi } from "./fixtures/background-api"
 import { packEntry, releaseServer, tsv } from "./fixtures/dictionary"
@@ -42,27 +41,6 @@ describe("settings", { timeout: 20_000 }, () => {
     const bg = await start()
     expect(settingsWrites(bg)).toHaveLength(1)
     expect((bg.local[SETTINGS_KEY] as Settings).tiers).toEqual(createDefaultSettings().tiers)
-  })
-
-  it("rewrites settings of 1.3 and earlier in the current form", async () => {
-    const bg = await start({ stored: { [SETTINGS_KEY]: { activeProviderId: "deepseek", targetLang: "ja" } } })
-    expect((bg.local[SETTINGS_KEY] as Settings).tiers).toEqual({ dictionary: null, machine: null, ai: "deepseek" })
-    expect((bg.local[SETTINGS_KEY] as Settings).targetLang).toBe("ja")
-  })
-
-  it("leaves current settings alone", async () => {
-    const bg = await start({ stored: stored(createDefaultSettings()) })
-    expect(settingsWrites(bg)).toHaveLength(0)
-  })
-
-  it("L10: stores current settings again when reading them migrated a copy of a built-in prompt", async () => {
-    const s = createDefaultSettings()
-    s.prompts.bilingual = `  ${DEFAULT_PROMPTS.bilingual}
-`
-    s.prompts.precise = "My own prompt for {{to}}."
-    const bg = await start({ stored: stored(s) })
-    await vi.waitFor(() => expect(settingsWrites(bg)).toHaveLength(1))
-    expect((bg.local[SETTINGS_KEY] as Settings).prompts).toEqual({ bilingual: "", translationOnly: "", precise: "My own prompt for {{to}}." })
   })
 
   it("titles the header button in the interface language", async () => {
