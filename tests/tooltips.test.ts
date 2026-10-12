@@ -6,12 +6,13 @@
  */
 import { readdirSync, readFileSync, statSync } from "node:fs"
 import { join } from "node:path"
+import { IDBFactory } from "fake-indexeddb"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 import { readLocaleSources } from "../scripts/locales.mjs"
 import { ENGLISH } from "../src/shared/i18n"
 import { IDLE_TAB_STATE, type TabState } from "../src/shared/messages"
 import { createDefaultSettings } from "../src/shared/settings"
-import { openPage, useFakeTimers } from "./helpers"
+import { jsonResponse, openPage, useFakeTimers } from "./helpers"
 
 // Fake timers in every test: a page left open by a test cannot fire its timers into the next one.
 beforeEach(() => useFakeTimers())
@@ -113,5 +114,146 @@ describe("popup", () => {
     await vi.waitFor(() => expect($("toggle").title).toBe(sources.zh_CN.tipTranslate))
     for (const [key, title] of declared()) expect(title, key).toBe(sources.zh_CN[key])
     expect($("targetLang").title).toBe(sources.zh_CN.tipTargetLang)
+  })
+})
+
+describe("settings page", () => {
+  const INDEX = {
+    version: 1,
+    packs: [
+      { src: "en", tgt: "de", file: "dict-en-de.tsv.gz", bytes: 700000, rawBytes: 1, entries: 50000, forms: 1, sha256: "f2".repeat(32), source: "Wiktionary", license: "CC BY-SA 4.0", attribution: "Wiktionary contributors" },
+    ],
+  }
+  const PAIRS = [
+    { src: "en", tgt: "de", version: "3.0", architecture: "base", bytes: 30_000_000, rawBytes: 1, installed: true },
+    { src: "de", tgt: "en", version: "3.1", architecture: "base", bytes: 30_000_000, rawBytes: 1, installed: true, installedVersion: "3.0" },
+    { src: "ja", tgt: "en", version: "3.0", architecture: "base", bytes: 30_000_000, rawBytes: 1, installed: false },
+    { src: "en", tgt: "ja", version: "3.0", architecture: "base", bytes: 30_000_000, rawBytes: 1, installed: false },
+    { src: "fr", tgt: "en", version: "3.0", architecture: "base", bytes: 30_000_000, rawBytes: 1, installed: false },
+    { src: "en", tgt: "fr", version: "3.0", architecture: "base", bytes: 30_000_000, rawBytes: 1, installed: false },
+  ]
+  const pick = (name: string) => Array.from(document.querySelectorAll<HTMLLIElement>("#providerList li")).find((li) => li.firstChild?.textContent === name)!.click()
+  const buttonIn = (scope: ParentNode, text: string) => Array.from(scope.querySelectorAll<HTMLButtonElement>("button")).find((b) => b.textContent === text)!
+  const bergamotRow = (start: string) => Array.from(document.querySelectorAll<HTMLLIElement>("#bergamotList li")).find((li) => li.textContent!.startsWith(start))!
+
+  /** The settings page with both offline lists loaded; German as target language, the AI tier with OpenAI. */
+  async function settingsPage() {
+    vi.stubGlobal("indexedDB", new IDBFactory())
+    const s = createDefaultSettings("en")
+    s.targetLang = "de"
+    s.tiers = { dictionary: "dictionary", machine: "bergamot", ai: "openai" }
+    const page = await openPage("options", s, {
+      fetchUrl: async () => jsonResponse(INDEX),
+      respond: (req) => {
+        if (req.type === "bergamotList") return { ok: true, pairs: PAIRS }
+        if (req.type === "bergamotInstall") return new Promise(() => {})
+        if (req.type === "bergamotProgress") return {}
+        if (req.type === "cacheStats") return { size: 0 }
+        return undefined
+      },
+    })
+    await vi.waitFor(() => expect(document.querySelectorAll("#bergamotList li")).toHaveLength(PAIRS.length))
+    await vi.waitFor(() => expect(document.querySelectorAll("#dictList li")).toHaveLength(1))
+    return page
+  }
+
+  it("gives every control a hover text: fields, service panels, lists, prompts, style, batching and cache", async () => {
+    await settingsPage()
+    expect(untitled()).toEqual([])
+    for (const [key, title] of declared()) expect(title, key).toBe(ENGLISH.t(key as never))
+    // The AI service panel.
+    const panel = $("providerPanel")
+    expect(panel.querySelector<HTMLInputElement>('input[type="password"]')!.title).toBe(ENGLISH.t("tipApiKey"))
+    expect(panel.querySelector<HTMLInputElement>('input[type="number"]')!.title).toBe(ENGLISH.t("tipTemperature"))
+    expect(panel.querySelector<HTMLInputElement>('input[type="checkbox"]')!.title).toBe(ENGLISH.t("tipThinking"))
+    expect(panel.querySelector<HTMLInputElement>("input[list]")!.title).toBe(ENGLISH.t("tipModel"))
+    expect(panel.querySelector<HTMLInputElement>('input[type="text"]')!.title).toBe(ENGLISH.t("tipBaseUrlDefault"))
+    // A service in use keeps the reason why it cannot be removed.
+    expect(buttonIn(panel, ENGLISH.t("buttonRemoveProvider")).title).toBe(ENGLISH.t("removeBlockedTier", [ENGLISH.t("tierAi")]))
+    // The labels and the size lines of the lists.
+    for (const el of Array.from(document.querySelectorAll<HTMLElement>(".tag, .dict-meta, #providerList li"))) expect(el.title, el.textContent!).not.toBe("")
+    expect(document.querySelector<HTMLElement>("#dictList .dict-meta")!.title).toBe(ENGLISH.t("tipPackMeta"))
+    expect(bergamotRow("German").querySelector<HTMLElement>(".dict-meta")!.title).toBe(ENGLISH.t("tipModelMeta"))
+    expect(buttonIn(bergamotRow("German"), ENGLISH.t("buttonUpdate")).title).toBe(ENGLISH.t("tipUpdate"))
+    const tags = Array.from(document.querySelectorAll<HTMLElement>("#bergamotList .lang-sources .tag"), (el) => [el.textContent, el.title])
+    expect(tags).toContainEqual([ENGLISH.t("langSourceTarget"), ENGLISH.t("tipLangTarget")])
+    expect(tags).toContainEqual([ENGLISH.t("routeDirect"), ENGLISH.t("tipRouteDirect")])
+    // The filters keep their accessible name; the hover text is a description.
+    expect($("dictFilter").getAttribute("aria-label")).toBe(ENGLISH.t("bergamotFilter"))
+    expect($("bergamotFilter").getAttribute("aria-label")).toBe(ENGLISH.t("bergamotFilter"))
+    expect($("dictReleaseTag").getAttribute("aria-label")).toBe(ENGLISH.t("labelDictTag"))
+  })
+
+  it.each([
+    ["Microsoft Translator (free)", "tipMicrosoftFree"],
+    ["DeepLX", "tipDeeplxUrl"],
+    ["Azure OpenAI", "tipBaseUrl"],
+    ["Google Translate (free)", "tipTest"],
+  ] as const)("gives the panel of %s hover texts", async (name, tip) => {
+    await settingsPage()
+    pick(name)
+    const panel = $("providerPanel")
+    expect(untitled(panel)).toEqual([])
+    expect(Array.from(panel.querySelectorAll<HTMLElement>("input, button"), (el) => el.title)).toContain(ENGLISH.t(tip))
+  })
+
+  it("gives the Azure fields and the endpoint warning hover texts", async () => {
+    await settingsPage()
+    pick("Microsoft Translator (free)")
+    const panel = $("providerPanel")
+    panel.querySelector<HTMLInputElement>('input[value="key"]')!.click()
+    expect(untitled(panel)).toEqual([])
+    expect(panel.querySelector<HTMLInputElement>('input[placeholder="westeurope"]')!.title).toBe(ENGLISH.t("tipRegion"))
+    pick("OpenAI")
+    const endpoint = $("providerPanel").querySelector<HTMLInputElement>('input[type="text"]')!
+    endpoint.value = "api.openai.com"
+    endpoint.dispatchEvent(new Event("change"))
+    expect(buttonIn($("providerPanel"), ENGLISH.t("buttonRestoreBaseUrl")).title).toBe(ENGLISH.t("tipRestoreBaseUrl"))
+    expect(untitled($("providerPanel"))).toEqual([])
+  })
+
+  it("gives the buttons of a service not added and of one added hover texts", async () => {
+    await settingsPage()
+    pick("DeepLX")
+    expect(buttonIn($("providerPanel"), ENGLISH.t("buttonAddProvider")).title).toBe(ENGLISH.t("tipAdd"))
+    pick("Microsoft Translator (free)")
+    expect(buttonIn($("providerPanel"), ENGLISH.t("buttonUse")).title).toBe(ENGLISH.t("tipUse"))
+    expect(buttonIn($("providerPanel"), ENGLISH.t("buttonRemoveProvider")).title).toBe(ENGLISH.t("tipRemove"))
+  })
+
+  it("gives the rows of downloads, the queue, the common languages and the delete confirmation hover texts", async () => {
+    await settingsPage()
+    buttonIn($("bergamotCommon"), ENGLISH.t("buttonDownloadCommon")).click()
+    expect(buttonIn($("bergamotCommon"), ENGLISH.t("buttonConfirmDownload")).title).toBe(ENGLISH.t("tipConfirmDownload"))
+    expect(buttonIn($("bergamotCommon"), ENGLISH.t("buttonCancel")).title).toBe(ENGLISH.t("tipCancelCommon"))
+    expect(untitled()).toEqual([])
+    buttonIn($("bergamotCommon"), ENGLISH.t("buttonConfirmDownload")).click()
+    // Two run, the others wait for their turn.
+    const waiting = () => Array.from(document.querySelectorAll<HTMLElement>("#bergamotList li span")).filter((el) => el.textContent === ENGLISH.t("dictQueued"))
+    await vi.waitFor(() => expect(waiting().length).toBeGreaterThan(0))
+    for (const el of waiting()) expect(el.title).toBe(ENGLISH.t("tipWaiting"))
+    const titles = Array.from(document.querySelectorAll<HTMLButtonElement>("#bergamotList button"), (b) => b.title)
+    expect(titles).toContain(ENGLISH.t("tipCancelQueued"))
+    expect(titles).toContain(ENGLISH.t("tipCancelDownload"))
+    expect(untitled()).toEqual([])
+    // English → German is what the languages need: deleting it asks first.
+    buttonIn(bergamotRow("English"), ENGLISH.t("buttonDelete")).click()
+    expect(buttonIn(bergamotRow("English"), ENGLISH.t("buttonDeleteAnyway")).title).toBe(ENGLISH.t("tipDeleteAnyway"))
+    expect(buttonIn(bergamotRow("English"), ENGLISH.t("buttonCancel")).title).toBe(ENGLISH.t("tipKeepModel"))
+    expect(untitled()).toEqual([])
+  })
+
+  it("writes the hover texts in the new interface language, also those of the panel and the lists", async () => {
+    await settingsPage()
+    const ui = $<HTMLSelectElement>("uiLanguage")
+    ui.value = "zh_TW"
+    ui.dispatchEvent(new Event("change"))
+    await vi.waitFor(() => expect($("clearCache").title).toBe(sources.zh_TW.tipClearCache))
+    for (const [key, title] of declared()) expect(title, key).toBe(sources.zh_TW[key])
+    expect($("batchDelayMs").title).toBe(sources.zh_TW.tipBatchDelay)
+    expect(buttonIn($("providerPanel"), sources.zh_TW.buttonTest).title).toBe(sources.zh_TW.tipTest)
+    expect(document.querySelector<HTMLElement>("#dictList .dict-meta")!.title).toBe(sources.zh_TW.tipPackMeta)
+    expect(document.querySelector<HTMLElement>("#providerList li:not(.group)")!.title).toBe(sources.zh_TW.tipProviderItem)
+    expect(untitled()).toEqual([])
   })
 })

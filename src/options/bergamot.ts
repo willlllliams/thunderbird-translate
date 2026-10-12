@@ -77,35 +77,45 @@ export class BergamotSection extends OfflineList<PairItem> {
 
   protected details(p: PairItem): (Node | null)[] {
     const out: (Node | null)[] = [
-      h("span", { className: "dict-meta hint", text: t("bergamotPairMeta", [megabytes(p.bytes), p.version]) }),
-      p.installed ? h("span", { className: "tag active", text: t("dictInstalled") }) : null,
+      h("span", { className: "dict-meta hint", text: t("bergamotPairMeta", [megabytes(p.bytes), p.version]), title: t("tipModelMeta") }),
+      p.installed ? h("span", { className: "tag active", text: t("dictInstalled"), title: t("tipInstalled") }) : null,
     ]
     if (p.installedVersion) out.push(h("span", { className: "hint", text: t("bergamotUpdateAvailable", [p.installedVersion, p.version]) }))
     const progress = this.progress[p.id]
     if (this.running.has(p.id)) {
       const percent = progress?.total ? Math.min(100, Math.round((progress.done / progress.total) * 100)) : 0
-      out.push(h("span", { text: t("dictDownloading", [percent]) }), button(t("buttonCancel"), () => void send({ type: "bergamotCancel", src: p.src, tgt: p.tgt })))
+      out.push(h("span", { text: t("dictDownloading", [percent]) }), button(t("buttonCancel"), () => void send({ type: "bergamotCancel", src: p.src, tgt: p.tgt }), false, t("tipCancelDownload")))
     } else if (this.queued.has(p.id)) {
       out.push(...this.waiting(p.id))
     } else if (this.deleting.has(p.id)) {
       out.push(
         h("span", { className: "field-warning", text: t("bergamotDeleteNeeded") }),
-        button(t("buttonDeleteAnyway"), () => void this.remove(p)),
-        button(t("buttonCancel"), () => {
-          this.deleting.delete(p.id)
-          this.render()
-        }),
+        button(t("buttonDeleteAnyway"), () => void this.remove(p), false, t("tipDeleteAnyway")),
+        button(
+          t("buttonCancel"),
+          () => {
+            this.deleting.delete(p.id)
+            this.render()
+          },
+          false,
+          t("tipKeepModel"),
+        ),
       )
     } else if (!this.deps.pick) {
-      if (!p.installed) out.push(button(t("buttonDownload"), () => void this.installAll([p]), true))
-      if (p.installedVersion) out.push(button(t("buttonUpdate"), () => void this.installAll([p]), true))
+      if (!p.installed) out.push(button(t("buttonDownload"), () => void this.installAll([p]), true, t("tipDownloadItem")))
+      if (p.installedVersion) out.push(button(t("buttonUpdate"), () => void this.installAll([p]), true, t("tipUpdate")))
       if (p.installed) {
         out.push(
-          button(t("buttonDelete"), () => {
-            if (!this.required().includes(p.id)) return void this.remove(p)
-            this.deleting.add(p.id)
-            this.render()
-          }),
+          button(
+            t("buttonDelete"),
+            () => {
+              if (!this.required().includes(p.id)) return void this.remove(p)
+              this.deleting.add(p.id)
+              this.render()
+            },
+            false,
+            t("tipDelete"),
+          ),
         )
       }
     }

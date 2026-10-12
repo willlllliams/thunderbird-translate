@@ -21,17 +21,17 @@ function hexColor(computed: string): string {
 /** Build the controls into `box` and bind them to the style of the session's settings; `changed` redraws the preview. */
 export function mountStyleControls(box: HTMLElement, session: SettingsSession, changed: () => void): void {
   const st = session.settings.style
-  const field = (key: MessageKey, control: HTMLElement) => h("label", {}, h("span", { "data-i18n": key }), control)
+  const field = (key: MessageKey, tip: MessageKey, control: HTMLElement) => h("label", { "data-i18n-title": tip }, h("span", { "data-i18n": key }), control)
   const input = (id: string, props: Record<string, string>) => h("input", { id, ...props })
   const range = (id: string, min: string, max: string) => input(id, { type: "range", min, max, step: "0.05" })
-  const reset = h("button", { type: "button", id: "styleTextColorReset", "data-i18n": "buttonResetDefault" })
+  const reset = h("button", { type: "button", id: "styleTextColorReset", "data-i18n": "buttonResetDefault", "data-i18n-title": "tipResetTextColor" })
   const auto = h("span", { id: "styleTextColorAuto", className: "hint", "data-i18n": "textColorAuto" })
   box.replaceChildren(
-    field("labelStylePreset", h("select", { id: "stylePreset" }, ...Object.entries(PRESETS).map(([value, key]) => h("option", { value, "data-i18n": key })))),
-    field("labelColor", input("styleColor", { type: "color" })),
-    h("div", {}, field("labelTextColor", input("styleTextColor", { type: "color" })), h("span", { className: "row" }, reset, auto)),
-    field("labelOpacity", range("styleOpacity", "0.3", "1")),
-    field("labelFontScale", range("styleFontScale", "0.7", "1.5")),
+    field("labelStylePreset", "tipStylePreset", h("select", { id: "stylePreset" }, ...Object.entries(PRESETS).map(([value, key]) => h("option", { value, "data-i18n": key })))),
+    field("labelColor", "tipColor", input("styleColor", { type: "color" })),
+    h("div", {}, field("labelTextColor", "tipTextColor", input("styleTextColor", { type: "color" })), h("span", { className: "row" }, reset, auto)),
+    field("labelOpacity", "tipOpacity", range("styleOpacity", "0.3", "1")),
+    field("labelFontScale", "tipFontScale", range("styleFontScale", "0.7", "1.5")),
   )
   // Without a colour of its own the field shows the colour of the page text, next to "Follows the message".
   const showTextColor = (el: Control) => {

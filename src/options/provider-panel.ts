@@ -9,7 +9,7 @@ import { getI18n, t } from "../shared/i18n"
 import { send } from "../shared/messages"
 import { checkBaseURL, type ProviderPreset, providerDisplayName } from "../shared/providers"
 import { emptyProviderConfig, type ProviderConfig } from "../shared/settings"
-import { button, h } from "../shared/dom"
+import { button, h, setTitle } from "../shared/dom"
 import type { SettingsSession } from "./session"
 
 /** The service shown and its configuration. */
@@ -27,8 +27,11 @@ export function providerConfig(session: SettingsSession, id: string): ProviderCo
   return session.settings.providers[id]
 }
 
-function field(label: string, input: HTMLElement, hint?: string): HTMLElement {
-  return h("label", { className: "panel-field" }, h("span", { text: label }), input, hint ? h("span", { className: "hint", text: hint }) : null)
+/** A labelled field; `tip` is the hover text of the label and its control. */
+function field(label: string, input: HTMLElement, tip: string, hint?: string): HTMLElement {
+  const el = h("label", { className: "panel-field" }, h("span", { text: label }), input, hint ? h("span", { className: "hint", text: hint }) : null)
+  setTitle(el, tip)
+  return el
 }
 
 /**
@@ -44,7 +47,7 @@ function renderBaseUrlWarning(box: HTMLElement, p: ProviderPreset, input: HTMLIn
   }
   const children: HTMLElement[] = [h("div", { text: issue.kind === "invalid" ? t("warnBaseUrlInvalid") : t("hintWebHost", [issue.host]) })]
   if (p.defaultBaseURL) {
-    children.push(h("div", { className: "row" }, h("span", { text: t("warnBaseUrlDefault", [p.defaultBaseURL]) }), button(t("buttonRestoreBaseUrl"), restore)))
+    children.push(h("div", { className: "row" }, h("span", { text: t("warnBaseUrlDefault", [p.defaultBaseURL]) }), button(t("buttonRestoreBaseUrl"), restore, false, t("tipRestoreBaseUrl"))))
   }
   box.replaceChildren(...children)
   box.hidden = false
@@ -81,7 +84,8 @@ function endpointField({ p, cfg, session, addWhileTyping }: PanelState, label: s
   // Checked when the value is committed (blur / Enter), not on every keystroke.
   baseURL.addEventListener("change", validate)
   validate()
-  return h("div", { className: "field-group" }, field(label, baseURL, hint), warning)
+  const tip = p.kind === "deeplx" ? t("tipDeeplxUrl") : p.defaultBaseURL ? t("tipBaseUrlDefault") : t("tipBaseUrl")
+  return h("div", { className: "field-group" }, field(label, baseURL, tip, hint), warning)
 }
 
 /** Key / token field, hidden by default and with a button to show it. */
@@ -92,13 +96,13 @@ function keyField({ cfg, session, addWhileTyping }: PanelState, label: string): 
     addWhileTyping(cfg.apiKey)
     session.save()
   })
-  const show = h("button", { type: "button", text: t("buttonShowKey") })
+  const show = h("button", { type: "button", text: t("buttonShowKey"), title: t("tipShowKey") })
   show.addEventListener("click", () => {
     const hidden = key.type === "password"
     key.type = hidden ? "text" : "password"
     show.textContent = hidden ? t("buttonHideKey") : t("buttonShowKey")
   })
-  return field(label, h("div", { className: "row" }, key, show), t("hintKeyLocal"))
+  return field(label, h("div", { className: "row" }, key, show), t("tipApiKey"), t("hintKeyLocal"))
 }
 
 /** Two interfaces: the free Edge endpoints, or Azure Translator with the user's key. The fields of the second are hidden in the first. */
@@ -115,10 +119,10 @@ function microsoftFields(state: PanelState): HTMLElement[] {
     { className: "azure-fields", hidden: cfg.mode !== "key" },
     endpointField(state, t("labelAzureEndpoint"), t("hintAzureEndpoint")),
     keyField(state, t("labelApiKey")),
-    field(t("labelRegion"), region, t("hintAzureRegion")),
-    h("a", { href: p.docsUrl, target: "_blank", rel: "noopener", text: t("getKey") }),
+    field(t("labelRegion"), region, t("tipRegion"), t("hintAzureRegion")),
+    h("a", { href: p.docsUrl, target: "_blank", rel: "noopener", text: t("getKey"), title: t("tipGetKey") }),
   )
-  const radio = (value: "free" | "key", label: string) => {
+  const radio = (value: "free" | "key", label: string, tip: string) => {
     const input = h("input", { type: "radio", name: "microsoftMode", value, checked: (cfg.mode ?? "free") === value })
     input.addEventListener("change", () => {
       if (!input.checked) return
@@ -128,9 +132,11 @@ function microsoftFields(state: PanelState): HTMLElement[] {
       fields.hidden = value !== "key"
       session.save()
     })
-    return h("label", {}, input, h("span", { text: label }))
+    const el = h("label", {}, input, h("span", { text: label }))
+    setTitle(el, tip)
+    return el
   }
-  const modeSwitch = h("div", { className: "mode-switch" }, radio("free", t("microsoftModeFree")), radio("key", t("microsoftModeKey")))
+  const modeSwitch = h("div", { className: "mode-switch" }, radio("free", t("microsoftModeFree"), t("tipMicrosoftFree")), radio("key", t("microsoftModeKey"), t("tipMicrosoftKey")))
   return [h("div", { className: "panel-field" }, h("span", { text: t("microsoftModeLabel") }), modeSwitch), freeHint, fields]
 }
 
@@ -154,17 +160,19 @@ function llmFields({ p, cfg, session }: PanelState): HTMLElement[] {
 
   const supported = supportsThinkingControl(p.id)
   const thinking = h("input", { type: "checkbox", checked: supported && cfg.thinking === true, disabled: !supported })
+  const thinkingField = h("label", { className: "check" }, thinking, h("span", { text: t("labelThinking") }))
+  setTitle(thinkingField, t("tipThinking"))
   thinking.addEventListener("change", () => {
     cfg.thinking = thinking.checked
     session.save()
   })
   return [
-    field(t("labelModel"), h("div", {}, model, datalist)),
-    field(t("labelTemperature"), temp),
+    field(t("labelModel"), h("div", {}, model, datalist), t("tipModel")),
+    field(t("labelTemperature"), temp, t("tipTemperature")),
     h(
       "div",
       { className: "field-group" },
-      h("label", { className: "check" }, thinking, h("span", { text: t("labelThinking") })),
+      thinkingField,
       h("span", { className: "hint", text: supported ? t("hintThinking") : t("hintThinkingUnsupported") }),
     ),
   ]
@@ -173,7 +181,7 @@ function llmFields({ p, cfg, session }: PanelState): HTMLElement[] {
 /** Title of a service with the link to its key or documentation. */
 export function providerTitle(p: ProviderPreset): HTMLElement {
   const title = h("div", { className: "row" }, h("h3", { text: providerDisplayName(p) }))
-  if (p.docsUrl && p.kind !== "microsoft") title.append(h("a", { href: p.docsUrl, target: "_blank", rel: "noopener", text: t("getKey") }))
+  if (p.docsUrl && p.kind !== "microsoft") title.append(h("a", { href: p.docsUrl, target: "_blank", rel: "noopener", text: t("getKey"), title: t("tipGetKey") }))
   return title
 }
 
@@ -203,7 +211,7 @@ export function providerFields(state: PanelState): HTMLElement[] {
 
 /** Connection test with the configuration as it is on screen, saved or not; the result goes into `result`. */
 export function testButton({ p, cfg, session }: PanelState, result: HTMLElement): HTMLButtonElement {
-  const test = h("button", { type: "button", text: t("buttonTest") })
+  const test = h("button", { type: "button", text: t("buttonTest"), title: t("tipTest") })
   test.addEventListener("click", async () => {
     result.className = "test-result"
     result.textContent = t("testRunning")

@@ -87,8 +87,8 @@ function remoteChanged(before: Settings): void {
 /** Side list in two groups: added services, then the ones that can be added. */
 function renderProviderList(): void {
   const item = (p: ProviderPreset) => {
-    const tag = removalBlocker(settings, p.id) ? h("span", { className: "tag active", text: t("providerInUse") }) : null
-    const li = h("li", { className: p.id === selectedProvider ? "selected" : "" }, h("span", { text: providerDisplayName(p) }), tag)
+    const tag = removalBlocker(settings, p.id) ? h("span", { className: "tag active", text: t("providerInUse"), title: t("tipInUse") }) : null
+    const li = h("li", { className: p.id === selectedProvider ? "selected" : "", title: t("tipProviderItem") }, h("span", { text: providerDisplayName(p) }), tag)
     li.addEventListener("click", () => {
       selectedProvider = p.id
       renderProviderList()
@@ -96,13 +96,13 @@ function renderProviderList(): void {
     })
     return li
   }
-  const group = (label: string, presets: ProviderPreset[]) =>
-    presets.length > 0 ? [h("li", { className: "group", role: "presentation", text: label }), ...presets.map(item)] : []
+  const group = (label: string, title: string, presets: ProviderPreset[]) =>
+    presets.length > 0 ? [h("li", { className: "group", role: "presentation", text: label, title }), ...presets.map(item)] : []
   const shown = PROVIDER_PRESETS.filter((p) => !providerTier || tierOf(p) === providerTier)
   const added = addedProviders(settings).filter((p) => shown.includes(p))
   $("providerList").replaceChildren(
-    ...group(t("providerGroupAdded"), added),
-    ...group(t("providerGroupAvailable"), shown.filter((p) => !added.includes(p))),
+    ...group(t("providerGroupAdded"), t("tipGroupAdded"), added),
+    ...group(t("providerGroupAvailable"), t("tipGroupAvailable"), shown.filter((p) => !added.includes(p))),
   )
 }
 
@@ -149,19 +149,19 @@ function renderProviderPanel(): void {
       const add = button(t("buttonAddProvider"), () => {
         cfg.enabled = true
         providersChanged()
-      }, true)
+      }, true, t("tipAdd"))
       actions.replaceChildren(test, add)
       return
     }
     const use = button(t("buttonUse"), () => {
       settings.tiers[tierOf(p)] = p.id
       providersChanged()
-    }, true)
+    }, true, t("tipUse"))
     use.disabled = settings.tiers[tierOf(p)] === p.id
     const remove = button(t("buttonRemoveProvider"), () => {
       cfg.enabled = false
       providersChanged()
-    })
+    }, false, t("tipRemove"))
     const blocker = removalBlocker(settings, p.id)
     if (blocker) {
       remove.disabled = true

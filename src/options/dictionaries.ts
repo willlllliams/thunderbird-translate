@@ -78,14 +78,14 @@ export class DictionarySection extends OfflineList<PackItem> {
     const { id, available, stored } = item
     const pack = (stored ?? available)!
     const out: (Node | null)[] = [
-      h("span", { className: "dict-meta hint", text: t("dictPackMeta", [megabytes(pack.bytes), pack.entries, pack.license]) }),
-      stored ? h("span", { className: "tag active", text: t("dictInstalled") }) : null,
+      h("span", { className: "dict-meta hint", text: t("dictPackMeta", [megabytes(pack.bytes), pack.entries, pack.license]), title: t("tipPackMeta") }),
+      stored ? h("span", { className: "tag active", text: t("dictInstalled"), title: t("tipInstalled") }) : null,
     ]
     const progress = this.progress.get(id)
-    if (progress !== undefined) out.push(h("span", { text: t("dictDownloading", [progress]) }), button(t("buttonCancel"), () => this.downloads.get(id)?.abort()))
+    if (progress !== undefined) out.push(h("span", { text: t("dictDownloading", [progress]) }), button(t("buttonCancel"), () => this.downloads.get(id)?.abort(), false, t("tipCancelDownload")))
     else if (this.queued.has(id)) out.push(...this.waiting(id))
-    else if (stored && !this.deps.pick) out.push(button(t("buttonDelete"), () => void this.remove(id)))
-    else if (available && !stored && !this.deps.pick) out.push(button(t("buttonDownload"), () => void this.installAll([item]), true))
+    else if (stored && !this.deps.pick) out.push(button(t("buttonDelete"), () => void this.remove(id), false, t("tipDelete")))
+    else if (available && !stored && !this.deps.pick) out.push(button(t("buttonDownload"), () => void this.installAll([item]), true, t("tipDownloadItem")))
     out.push(h("span", { className: "attribution hint", text: pack.attribution }))
     return out
   }

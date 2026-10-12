@@ -10,27 +10,27 @@
     <header class="top">
       <img src="icons/icon.svg" alt="" width="32" height="32" />
       <h1 data-i18n="optionsTitle"></h1>
-      <span id="saved" class="saved" data-i18n="saved"></span>
-      <button type="button" id="openWelcome" data-i18n="openWelcome"></button>
+      <span id="saved" class="saved" data-i18n="saved" data-i18n-title="tipSaved"></span>
+      <button type="button" id="openWelcome" data-i18n="openWelcome" data-i18n-title="tipOpenWelcome"></button>
     </header>
 
     <main>
       <section>
         <h2 data-i18n="sectionGeneral"></h2>
         <div class="grid">
-          <label>
+          <label data-i18n-title="tipUiLanguage">
             <span data-i18n="labelUiLanguage"></span>
             <select id="uiLanguage" aria-describedby="uiLanguageHint"></select>
           </label>
-          <label>
+          <label data-i18n-title="tipSourceLang">
             <span data-i18n="labelSourceLang"></span>
             <select id="sourceLang"></select>
           </label>
-          <label>
+          <label data-i18n-title="tipTargetLang">
             <span data-i18n="labelTargetLang"></span>
             <select id="targetLang"></select>
           </label>
-          <label>
+          <label data-i18n-title="tipDefaultMode">
             <span data-i18n="labelDefaultMode"></span>
             <select id="mode">
               <option value="bilingual" data-i18n="modeBilingual"></option>
@@ -40,7 +40,7 @@
         </div>
         <p id="sameLanguage" class="field-warning" data-i18n="hintSameLanguage" hidden></p>
         <p class="hint" id="uiLanguageHint" data-i18n="uiLanguageHint"></p>
-        <label class="check">
+        <label class="check" data-i18n-title="tipAutoTranslate">
           <input type="checkbox" id="autoTranslate" />
           <span data-i18n="labelAutoTranslate"></span>
         </label>
@@ -50,24 +50,24 @@
         <h2 data-i18n="labelTiers"></h2>
         <p class="hint" data-i18n="tiersHint"></p>
         <div class="grid">
-          <label><span id="tierLabel-dictionary"></span><select id="tier-dictionary"></select></label>
-          <label><span id="tierLabel-machine"></span><select id="tier-machine"></select></label>
-          <label><span id="tierLabel-ai"></span><select id="tier-ai"></select></label>
+          <label data-i18n-title="tipTierDictionary"><span id="tierLabel-dictionary"></span><select id="tier-dictionary"></select></label>
+          <label data-i18n-title="tipTierMachine"><span id="tierLabel-machine"></span><select id="tier-machine"></select></label>
+          <label data-i18n-title="tipTierAi"><span id="tierLabel-ai"></span><select id="tier-ai"></select></label>
         </div>
         <p id="tiersEmpty" class="field-warning" data-i18n="tiersEmpty" hidden></p>
         <p id="offlineMissing" class="offline-hint" role="status" hidden></p>
-        <label class="check">
+        <label class="check" data-i18n-title="tipPrecise">
           <input type="checkbox" id="preciseEnabled" />
           <span data-i18n="labelPrecise"></span>
         </label>
         <p class="hint" data-i18n="hintPrecise"></p>
         <h3 data-i18n="mutedPairsTitle"></h3>
-        <p class="row"><span id="mutedPairs" class="hint"></span> <button type="button" id="clearMuted" data-i18n="buttonClearMuted"></button></p>
+        <p class="row"><span id="mutedPairs" class="hint"></span> <button type="button" id="clearMuted" data-i18n="buttonClearMuted" data-i18n-title="tipClearMuted"></button></p>
       </section>
 
       <section id="providers">
         <h2 data-i18n="sectionProviders"></h2>
-        <label class="row"><span data-i18n="providerFilterLabel"></span><select id="providerTierFilter"></select></label>
+        <label class="row" data-i18n-title="tipProviderFilter"><span data-i18n="providerFilterLabel"></span><select id="providerTierFilter"></select></label>
         <div class="providers">
           <ul id="providerList" class="provider-list"></ul>
           <div id="providerPanel" class="provider-panel"></div>
@@ -79,16 +79,16 @@
         <p class="hint" data-i18n="dictionaryHint"></p>
         <p class="hint" data-i18n="dictionaryAttribution"></p>
         <div class="row">
-          <input type="search" id="dictFilter" data-i18n-placeholder="bergamotFilter" spellcheck="false" />
+          <input type="search" id="dictFilter" data-i18n-placeholder="bergamotFilter" data-i18n-aria-label="bergamotFilter" data-i18n-title="tipFilter" spellcheck="false" />
         </div>
         <div id="dictCommon" class="common"></div>
         <p id="dictStatus" class="hint" role="status"></p>
         <ul id="dictList" class="dict-list"></ul>
         <details>
-          <summary data-i18n="labelDictTag"></summary>
+          <summary data-i18n="labelDictTag" data-i18n-title="tipDictTag"></summary>
           <div class="row">
-            <input type="text" id="dictReleaseTag" spellcheck="false" />
-            <button type="button" id="dictReload" data-i18n="buttonReloadList"></button>
+            <input type="text" id="dictReleaseTag" data-i18n-aria-label="labelDictTag" data-i18n-title="tipDictTag" spellcheck="false" />
+            <button type="button" id="dictReload" data-i18n="buttonReloadList" data-i18n-title="tipDictReload"></button>
           </div>
         </details>
       </section>
@@ -98,8 +98,8 @@
         <p class="hint" data-i18n="bergamotHint"></p>
         <p id="bergamotNeeded" class="hint"></p>
         <div class="row">
-          <input type="search" id="bergamotFilter" data-i18n-placeholder="bergamotFilter" spellcheck="false" />
-          <button type="button" id="bergamotReload" data-i18n="buttonReloadList"></button>
+          <input type="search" id="bergamotFilter" data-i18n-placeholder="bergamotFilter" data-i18n-aria-label="bergamotFilter" data-i18n-title="tipFilter" spellcheck="false" />
+          <button type="button" id="bergamotReload" data-i18n="buttonReloadList" data-i18n-title="tipBergamotReload"></button>
         </div>
         <div id="bergamotCommon" class="common"></div>
         <p id="bergamotStatus" class="hint" role="status"></p>
@@ -115,14 +115,14 @@
       <section>
         <h2 data-i18n="sectionBatch"></h2>
         <div class="grid">
-          <label><span data-i18n="labelBatchDelay"></span><input type="number" id="batchDelayMs" min="0" max="2000" step="10" /></label>
-          <label><span data-i18n="labelMaxChars"></span><input type="number" id="maxCharsPerBatch" min="200" max="50000" step="100" /></label>
-          <label><span data-i18n="labelMaxItems"></span><input type="number" id="maxItemsPerBatch" min="1" max="200" /></label>
-          <label><span data-i18n="labelConcurrency"></span><input type="number" id="concurrency" min="1" max="20" /></label>
-          <label><span data-i18n="labelRetries"></span><input type="number" id="maxRetries" min="0" max="10" /></label>
-          <label><span data-i18n="labelTimeout"></span><input type="number" id="timeoutSeconds" min="5" max="600" step="5" /></label>
+          <label data-i18n-title="tipBatchDelay"><span data-i18n="labelBatchDelay"></span><input type="number" id="batchDelayMs" min="0" max="2000" step="10" /></label>
+          <label data-i18n-title="tipMaxChars"><span data-i18n="labelMaxChars"></span><input type="number" id="maxCharsPerBatch" min="200" max="50000" step="100" /></label>
+          <label data-i18n-title="tipMaxItems"><span data-i18n="labelMaxItems"></span><input type="number" id="maxItemsPerBatch" min="1" max="200" /></label>
+          <label data-i18n-title="tipConcurrency"><span data-i18n="labelConcurrency"></span><input type="number" id="concurrency" min="1" max="20" /></label>
+          <label data-i18n-title="tipRetries"><span data-i18n="labelRetries"></span><input type="number" id="maxRetries" min="0" max="10" /></label>
+          <label data-i18n-title="tipTimeout"><span data-i18n="labelTimeout"></span><input type="number" id="timeoutSeconds" min="5" max="600" step="5" /></label>
         </div>
-        <label class="check"><input type="checkbox" id="llmBatchEnabled" /><span data-i18n="labelLlmBatch"></span></label>
+        <label class="check" data-i18n-title="tipLlmBatch"><input type="checkbox" id="llmBatchEnabled" /><span data-i18n="labelLlmBatch"></span></label>
         <p class="hint" data-i18n="batchHint"></p>
       </section>
 
@@ -140,10 +140,10 @@
       <section>
         <h2 data-i18n="sectionCache"></h2>
         <div class="grid">
-          <label class="check"><input type="checkbox" id="cacheEnabled" /><span data-i18n="labelCacheEnabled"></span></label>
-          <label><span data-i18n="labelCacheMax"></span><input type="number" id="cacheMax" min="0" max="100000" step="100" /></label>
+          <label class="check" data-i18n-title="tipCacheEnabled"><input type="checkbox" id="cacheEnabled" /><span data-i18n="labelCacheEnabled"></span></label>
+          <label data-i18n-title="tipCacheMax"><span data-i18n="labelCacheMax"></span><input type="number" id="cacheMax" min="0" max="100000" step="100" /></label>
         </div>
-        <p><span id="cacheCount" class="hint"></span> <button type="button" id="clearCache" data-i18n="buttonClearCache"></button></p>
+        <p><span id="cacheCount" class="hint"></span> <button type="button" id="clearCache" data-i18n="buttonClearCache" data-i18n-title="tipClearCache"></button></p>
       </section>
     </main>
     <script src="options.js"></script>

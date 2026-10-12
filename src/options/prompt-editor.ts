@@ -26,13 +26,13 @@ const KIND_LABELS: Record<PromptKind, MessageKey> = {
 /** Short names of the prompts in the "Apply to" list. */
 const KIND_NAMES: Record<PromptKind, MessageKey> = { bilingual: "modeBilingual", translationOnly: "modeTranslationOnly", precise: "labelPrecise" }
 
-const labelled = (key: MessageKey, control: HTMLElement) => h("label", {}, h("span", { "data-i18n": key }), control)
+const labelled = (key: MessageKey, tip: MessageKey, control: HTMLElement) => h("label", { "data-i18n-title": tip }, h("span", { "data-i18n": key }), control)
 
 export class PromptEditor {
   private readonly preset = h("select", { id: "presetId" })
   private readonly option = h("select", { id: "presetOption" })
   private readonly kind = h("select", { id: "presetKind" })
-  private readonly optionField = labelled("presetOptionLabel", this.option)
+  private readonly optionField = labelled("presetOptionLabel", "tipPresetOption", this.option)
   private readonly hint = h("p", { className: "hint", id: "presetHint" })
   private readonly example = h("p", { className: "preset-example", id: "presetExample" })
   private readonly status = h("p", { className: "hint", id: "presetStatus", role: "status" })
@@ -42,7 +42,7 @@ export class PromptEditor {
     container: HTMLElement,
     private readonly session: SettingsSession,
   ) {
-    const apply = h("button", { type: "button", className: "primary", id: "presetApply", "data-i18n": "buttonApplyPreset" })
+    const apply = h("button", { type: "button", className: "primary", id: "presetApply", "data-i18n": "buttonApplyPreset", "data-i18n-title": "tipApplyPreset" })
     apply.addEventListener("click", () => this.apply())
     this.preset.addEventListener("change", () => {
       this.status.textContent = ""
@@ -54,7 +54,7 @@ export class PromptEditor {
       { className: "presets" },
       h("h3", { "data-i18n": "presetsTitle" }),
       h("p", { className: "hint", "data-i18n": "presetsHint" }),
-      h("div", { className: "grid" }, labelled("presetLabel", this.preset), this.optionField, labelled("presetKindLabel", this.kind)),
+      h("div", { className: "grid" }, labelled("presetLabel", "tipPreset", this.preset), this.optionField, labelled("presetKindLabel", "tipPresetKind", this.kind)),
       this.hint,
       this.example,
       h("div", { className: "row" }, apply, this.status),
@@ -69,14 +69,14 @@ export class PromptEditor {
 
   private promptBox(kind: PromptKind): HTMLElement {
     const s = this.session
-    const box = h("textarea", { id: `prompt-${kind}`, rows: "9", spellcheck: "false", placeholder: DEFAULT_PROMPTS[kind] })
+    const box = h("textarea", { id: `prompt-${kind}`, rows: "9", spellcheck: "false", placeholder: DEFAULT_PROMPTS[kind], "data-i18n-title": "tipPrompt" })
     this.boxes[kind] = box
     s.track(box, () => (box.value = promptText(s.settings.prompts, kind)))
     box.addEventListener("input", () => {
       s.settings.prompts[kind] = box.value.trim() === DEFAULT_PROMPTS[kind] ? "" : box.value
       s.save()
     })
-    const reset = h("button", { type: "button", id: `reset-${kind}`, "data-i18n": "buttonResetPrompt" })
+    const reset = h("button", { type: "button", id: `reset-${kind}`, "data-i18n": "buttonResetPrompt", "data-i18n-title": "tipResetPrompt" })
     reset.addEventListener("click", () => this.setPrompt(kind, ""))
     return h("div", { className: "prompt" }, h("label", { for: box.id, "data-i18n": KIND_LABELS[kind] }), box, reset)
   }

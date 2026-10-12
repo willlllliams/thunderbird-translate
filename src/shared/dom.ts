@@ -15,9 +15,9 @@ export function h<K extends keyof HTMLElementTagNameMap>(
   return el
 }
 
-/** A button that runs `onClick`; `primary` for the main action of its row. */
-export function button(text: string, onClick: () => void, primary = false): HTMLButtonElement {
-  const b = h("button", { type: "button", className: primary ? "primary" : undefined, text })
+/** A button that runs `onClick`; `primary` for the main action of its row, `title` its hover text. */
+export function button(text: string, onClick: () => void, primary = false, title?: string): HTMLButtonElement {
+  const b = h("button", { type: "button", className: primary ? "primary" : undefined, text, title })
   b.addEventListener("click", onClick)
   return b
 }

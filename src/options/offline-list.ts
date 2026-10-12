@@ -22,7 +22,7 @@ import { getI18n, type MessageKey, t } from "../shared/i18n"
 import { localeToLanguageTag } from "../shared/locales"
 import { commonDirections, itemSources, type LanguageSource, type OfflineService, orderItems, pairNeeds, recommendedLanguages, serviceLang, type SourcedLanguage } from "../shared/offline-needs"
 import type { Settings } from "../shared/settings"
-import { button, h } from "../shared/dom"
+import { button, h, setTitle } from "../shared/dom"
 
 /** A direction of a list. */
 export interface ListItem {
@@ -56,6 +56,15 @@ const SOURCE_KEYS: Record<LanguageSource, MessageKey> = {
   addon: "langSourceAddon",
   thunderbird: "langSourceThunderbird",
   system: "langSourceSystem",
+}
+
+/** Hover text of each source label. */
+const SOURCE_TIPS: Record<LanguageSource, MessageKey> = {
+  target: "tipLangTarget",
+  source: "tipLangSource",
+  addon: "tipLangAddon",
+  thunderbird: "tipLangThunderbird",
+  system: "tipLangSystem",
 }
 
 export const megabytes = (bytes: number) => (bytes / 1048576).toFixed(1)
@@ -194,6 +203,7 @@ export abstract class OfflineList<T extends ListItem> {
         this.base.onRender?.()
       })
       label = h("label", { className: "check dict-name" }, box, h("span", { text: name }))
+      setTitle(label, t("tipPickItem"))
     }
     const li = h("li", { "data-id": item.id }, label, this.labels(item), ...this.details(item))
     const error = this.rowErrors.get(item.id)
@@ -204,11 +214,16 @@ export abstract class OfflineList<T extends ListItem> {
   /** A queued row: "Waiting" and a Cancel that takes it off the queue. */
   protected waiting(id: string): Node[] {
     return [
-      h("span", { text: t("dictQueued") }),
-      button(t("buttonCancel"), () => {
-        this.queued.delete(id)
-        this.render()
-      }),
+      h("span", { text: t("dictQueued"), title: t("tipWaiting") }),
+      button(
+        t("buttonCancel"),
+        () => {
+          this.queued.delete(id)
+          this.render()
+        },
+        false,
+        t("tipCancelQueued"),
+      ),
     ]
   }
 
@@ -217,10 +232,10 @@ export abstract class OfflineList<T extends ListItem> {
     const sources = this.sources(item)
     if (sources.length === 0) return null
     const target = serviceLang(this.service, this.base.languages().target)
-    const texts = sources.map((s) => t(SOURCE_KEYS[s]))
-    if (target && target !== "en" && item.tgt === target) texts.push(t("routeDirect"))
-    else if (target && target !== "en" && item.tgt === "en" && item.src !== target) texts.push(t("routeViaEnglish"))
-    return h("span", { className: "lang-sources" }, ...texts.map((text) => h("span", { className: "tag", text })))
+    const tags: [MessageKey, MessageKey][] = sources.map((s) => [SOURCE_KEYS[s], SOURCE_TIPS[s]])
+    if (target && target !== "en" && item.tgt === target) tags.push(["routeDirect", "tipRouteDirect"])
+    else if (target && target !== "en" && item.tgt === "en" && item.src !== target) tags.push(["routeViaEnglish", "tipRouteViaEnglish"])
+    return h("span", { className: "lang-sources" }, ...tags.map(([text, tip]) => h("span", { className: "tag", text: t(text), title: t(tip) })))
   }
 
   /** "Download common languages", then the confirmation with what it downloads. */
@@ -229,10 +244,15 @@ export abstract class OfflineList<T extends ListItem> {
     const common = new Set(commonDirections(items.map((i) => i.id)))
     const missing = items.filter((i) => common.has(i.id) && !i.installed)
     const downloads = missing.filter((i) => !this.installing(i))
-    const start = button(t("buttonDownloadCommon"), () => {
-      this.confirmingCommon = true
-      this.render()
-    })
+    const start = button(
+      t("buttonDownloadCommon"),
+      () => {
+        this.confirmingCommon = true
+        this.render()
+      },
+      false,
+      t("tipDownloadCommon"),
+    )
     start.disabled = this.loading || downloads.length === 0
     const parts: HTMLElement[] = [start]
     if (downloads.length === 0) this.confirmingCommon = false
@@ -242,11 +262,11 @@ export abstract class OfflineList<T extends ListItem> {
       const confirm = button(t("buttonConfirmDownload"), () => {
         this.confirmingCommon = false
         void this.installAll(downloads)
-      }, true)
+      }, true, t("tipConfirmDownload"))
       const cancel = button(t("buttonCancel"), () => {
         this.confirmingCommon = false
         this.render()
-      })
+      }, false, t("tipCancelCommon"))
       parts.push(
         h(
           "div",
