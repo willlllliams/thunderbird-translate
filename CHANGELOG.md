@@ -2,6 +2,12 @@
 
 All notable changes to this project are documented in this file. Versions follow [Semantic Versioning](https://semver.org/).
 
+## 1.11.0
+
+### Fixed
+
+- The background script read the index of the dictionary packs once per release and kept it for as long as Thunderbird ran. The popup, the tier selectors of the settings page and the notice about missing offline data name downloadable packs from this index, so packs published later were not offered until Thunderbird restarted. The index is now read again once it is 6 hours old, as the Bergamot model list already was. After a failed read it is asked for again 10 minutes later at the earliest, and the index read before keeps answering meanwhile.
+
 ## 1.10.0
 
 ### Changed
