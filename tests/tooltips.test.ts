@@ -232,9 +232,10 @@ describe("settings page", () => {
     const waiting = () => Array.from(document.querySelectorAll<HTMLElement>("#bergamotList li span")).filter((el) => el.textContent === ENGLISH.t("dictQueued"))
     await vi.waitFor(() => expect(waiting().length).toBeGreaterThan(0))
     for (const el of waiting()) expect(el.title).toBe(ENGLISH.t("tipWaiting"))
-    const titles = Array.from(document.querySelectorAll<HTMLButtonElement>("#bergamotList button"), (b) => b.title)
-    expect(titles).toContain(ENGLISH.t("tipCancelQueued"))
-    expect(titles).toContain(ENGLISH.t("tipCancelDownload"))
+    const titles = () => Array.from(document.querySelectorAll<HTMLButtonElement>("#bergamotList button"), (b) => b.title)
+    expect(titles()).toContain(ENGLISH.t("tipCancelQueued"))
+    // The background script reports which ones run.
+    await vi.waitFor(() => expect(titles()).toContain(ENGLISH.t("tipCancelDownload")))
     expect(untitled()).toEqual([])
     // English → German is what the languages need: deleting it asks first.
     buttonIn(bergamotRow("English"), ENGLISH.t("buttonDelete")).click()

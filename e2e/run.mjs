@@ -281,9 +281,11 @@ function checkWelcome(ready, report, calls) {
     expect(report.commonAfter?.allInstalled === true && report.commonAfter.disabled === true, "Download common languages does not say that all are installed", report.commonAfter)
     expect(report.untickedPicks === true && report.retickedPicks === true, "the check box of a model did not follow the clicks", { untickedPicks: report.untickedPicks, retickedPicks: report.retickedPicks })
   } else {
+    // The page shows the progress the background script reports at most every 250 ms: some value between 0 and 100 %, never going back.
     for (const kind of ["dictionary", "bergamot"]) {
       const seen = report.progress?.[kind] ?? []
-      expect(seen.length > 0 && seen.includes(0) && seen.some((p) => p > 0 && p < 100), `${kind}: no progress between 0 and 100 % on the page`, seen)
+      expect(seen.some((p) => p > 0 && p < 100), `${kind}: no progress between 0 and 100 % on the page`, seen)
+      expect(seen.every((p, i) => i === 0 || p >= seen[i - 1]), `${kind}: the progress on the page went back`, seen)
     }
   }
   // "Download selected" is disabled while it runs, says so, and reports the end.

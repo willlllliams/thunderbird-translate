@@ -11,7 +11,7 @@ import type { BackgroundRequest, BergamotPairInfo } from "../src/shared/messages
 import { languageTag } from "../src/shared/languages"
 import type { SourcedLanguage } from "../src/shared/offline-needs"
 import { gz, packEntry, releaseServer, tsv } from "./fixtures/dictionary"
-import { offlineBackground, type OfflineBackground } from "./fixtures/offline"
+import { bergamotStandIn, offlineBackground, type OfflineBackground } from "./fixtures/offline"
 import { jsonResponse, nextTask, useFakeTimers } from "./helpers"
 
 const sendMessage = vi.fn<(req: unknown) => Promise<unknown>>()
@@ -75,9 +75,11 @@ const DE_EN = tsv("de", "en", { hallo: "hello" })
 /** The dictionary list over the offline handlers of the background script, whose dictionary manager reads the release from `fetchUrl` (`texts` by default). */
 function dictionaries(texts: string[], options: ListOptions & { fetchUrl?: (url: string) => Promise<Response>; tag?: string; bg?: OfflineBackground } = {}) {
   const p = panel()
-  const bg = options.bg ?? offlineBackground({ fetchUrl: options.fetchUrl ?? (async (url) => releaseServer(texts)(url)) })
+  // The notices of the background script reach the section, as the page forwards them.
+  let section: DictionarySection | undefined
+  const bg = options.bg ?? offlineBackground({ fetchUrl: options.fetchUrl ?? (async (url) => releaseServer(texts)(url)), toPages: (notice) => section?.receive(notice) })
   sendMessage.mockImplementation(async (req) => bg.respond(req as BackgroundRequest))
-  const section = new DictionarySection({
+  section = new DictionarySection({
     tag: () => options.tag ?? "dicts-v1",
     list: p.list,
     status: p.status,
@@ -86,7 +88,6 @@ function dictionaries(texts: string[], options: ListOptions & { fetchUrl?: (url:
     languages: () => options.languages ?? { source: "de", target: "en" },
     recommended: () => options.recommended ?? [],
     pick: options.pick,
-    pollMs: 5,
   })
   return { ...p, bg, store: bg.store, section }
 }
@@ -107,7 +108,7 @@ describe("dictionary list", () => {
     const d = dictionaries([EN_DE], { tag: "dicts-v2" })
     await d.section.load()
     await d.section.load()
-    expect(d.bg.requests).toEqual([
+    expect(d.bg.requests.filter((r) => r.type === "offlineList")).toEqual([
       { type: "offlineList", service: "dictionary", refresh: false, tag: "dicts-v2" },
       { type: "offlineList", service: "dictionary", refresh: false, tag: "dicts-v2" },
     ])
@@ -147,7 +148,7 @@ describe("dictionary list", () => {
     push.close()
     await until(() => expect(button(d.rows()[0]!, ENGLISH.t("buttonDelete"))).toBeDefined())
     expect(d.rows()[0]!.textContent).toContain(ENGLISH.t("dictInstalled"))
-    expect(d.bg.changed.mock.calls).toEqual([["dictionary"]])
+    expect([d.bg.contentScripts.mock.calls.length, d.bg.dataNotices()]).toEqual([1, 1])
     expect((await d.store.list()).map((p) => p.id)).toEqual(["en>de"])
   })
 
@@ -205,7 +206,7 @@ describe("dictionary list", () => {
     await until(() => expect(other.row("English").querySelector(".test-result")?.textContent).toBe(`${ENGLISH.t("dictionaryStorageFailed")} - database locked`))
     button(other.row("English"), ENGLISH.t("buttonDelete"))!.click()
     await until(() => expect(other.rows()).toHaveLength(1))
-    expect(bg.changed).toHaveBeenCalledTimes(3)
+    expect([bg.contentScripts.mock.calls.length, bg.dataNotices()]).toEqual([3, 3])
   })
 
   it("on the welcome page lists every pack with a check box, ticks those the language pair needs and downloads the ticked ones", async () => {
@@ -305,7 +306,7 @@ describe("dictionary list", () => {
     return { fetchUrl, waiting, files }
   }
 
-  it("M3: downloads the common languages two at a time and reads the list once at the end", async () => {
+  it("M3: downloads the common languages two at a time in the background script, reads the list once at the end and tells the content scripts once", async () => {
     const release = heldRelease([EN_DE, DE_EN, FR_EN, EN_JA])
     const d = dictionaries([], { fetchUrl: release.fetchUrl })
     await d.section.load()
@@ -321,7 +322,7 @@ describe("dictionary list", () => {
       expect(d.common.textContent).toContain(ENGLISH.t("commonAllInstalled"))
     })
     expect(d.bg.requests.filter((r) => r.type === "offlineList")).toHaveLength(2)
-    expect(d.bg.changed).toHaveBeenCalledTimes(4)
+    expect([d.bg.contentScripts.mock.calls.length, d.bg.dataNotices()]).toEqual([1, 4])
   })
 
   it("M1: shows a queued pack as waiting with Cancel, downloads it once and leaves it out of a second download", async () => {
@@ -358,9 +359,10 @@ describe("dictionary list", () => {
     expect(d.ticked()).toHaveLength(3)
     const done = d.section.downloadPicked()
     await until(() => expect(release.waiting).toHaveLength(2))
-    const queued = d.rows().filter((li) => li.textContent!.includes(ENGLISH.t("dictQueued")))
-    expect(queued).toHaveLength(1)
-    expect(queued[0]!.querySelector<HTMLInputElement>("input[type=checkbox]")!.disabled).toBe(true)
+    // The progress of the background script tells the running packs from the queued one.
+    const queued = () => d.rows().filter((li) => li.textContent!.includes(ENGLISH.t("dictQueued")))
+    await until(() => expect(queued()).toHaveLength(1))
+    expect(d.rows().every((li) => li.querySelector<HTMLInputElement>("input[type=checkbox]")!.disabled)).toBe(true)
     expect(d.section.picked()).toEqual([])
     await until(() => {
       release.waiting.splice(0).forEach((resolve) => resolve())
@@ -368,6 +370,29 @@ describe("dictionary list", () => {
     })
     release.waiting.splice(0).forEach((resolve) => resolve())
     expect(await done).toBe(0)
+  })
+
+  it("shows the downloads a closed page started, running and queued, when it opens again, and follows them to the end", async () => {
+    const release = heldRelease([EN_DE, DE_EN, FR_EN])
+    let page: DictionarySection | undefined
+    const bg = offlineBackground({ fetchUrl: release.fetchUrl, toPages: (notice) => page?.receive(notice) })
+    // A page asked for three packs and was closed.
+    void bg.respond({ type: "offlineInstall", service: "dictionary", pairs: [{ src: "en", tgt: "de" }, { src: "de", tgt: "en" }, { src: "fr", tgt: "en" }], tag: "dicts-v1" })
+    await until(() => expect(release.waiting).toHaveLength(2))
+    const d = dictionaries([], { bg })
+    page = d.section
+    await d.section.load()
+    expect(d.row("English").textContent).toContain(ENGLISH.t("dictDownloading", [0]))
+    expect(d.row("German").textContent).toContain(ENGLISH.t("dictDownloading", [0]))
+    expect(d.row("French").textContent).toContain(ENGLISH.t("dictQueued"))
+    button(d.row("French"), ENGLISH.t("buttonCancel"))!.click()
+    expect(button(d.row("French"), ENGLISH.t("buttonDownload"))).toBeDefined()
+    await until(() => {
+      release.waiting.splice(0).forEach((resolve) => resolve())
+      expect(d.rows().filter((li) => li.textContent!.includes(ENGLISH.t("dictInstalled")))).toHaveLength(2)
+    })
+    expect(release.files.sort()).toEqual(["dict-de-en.tsv.gz", "dict-en-de.tsv.gz"])
+    expect(button(d.row("French"), ENGLISH.t("buttonDownload"))).toBeDefined()
   })
 
   it("L2: with automatic detection ticks a direct pack only between a recommended language and the target", async () => {
@@ -409,12 +434,11 @@ function models(options: ListOptions = {}) {
     needed: p.needed,
     filter: p.filter,
     pick: options.pick,
-    pollMs: 5,
   })
   return { ...p, section }
 }
 describe("offline model list", () => {
-  // Fake timers: the progress polling of a model list left running by a test goes with the clock instead of reaching the next test.
+  // Fake timers: the progress notices of the offline handlers go with the clock instead of reaching the next test.
   // The dictionary list stays on real time: its downloads give up after 30 s without data, which vi.waitFor() would pass on fake timers.
   beforeEach(() => useFakeTimers())
 
@@ -455,29 +479,53 @@ describe("offline model list", () => {
     expect(m.rows().map((li) => li.querySelector(".dict-name")!.textContent)).toEqual(["Belarusian → English", "English → x!y"])
   })
 
-  it("installs with progress and stops asking for it afterwards; shows why an installation failed", async () => {
+  it("shows the progress the background script reports, without asking for it, and why an installation failed", async () => {
     let finish!: (r: unknown) => void
-    let progress = (): unknown => Promise.reject(new Error("busy"))
     const requests = background({
       offlineList: () => ({ ok: true, items: [pair("de", "en")] }),
       offlineInstall: () => new Promise((r) => (finish = (result) => r([result]))),
-      offlineProgress: () => progress(),
     })
     const m = models()
     await m.section.load()
     button(m.rows()[0]!, ENGLISH.t("buttonDownload"))!.click()
-    // A failed poll counts as no progress.
-    await vi.waitFor(() => expect(requests.filter((r) => r.type === "offlineProgress").length).toBeGreaterThan(1))
-    expect(m.rows()[0]!.textContent).toContain(ENGLISH.t("dictDownloading", [0]))
-    progress = () => ({ bergamot: { "de>en": { state: "running", done: 3, total: 4 } } })
-    await vi.waitFor(() => expect(m.rows()[0]!.textContent).toContain(ENGLISH.t("dictDownloading", [75])))
+    // Asked for and not reported yet: waiting for its turn.
+    expect(m.rows()[0]!.textContent).toContain(ENGLISH.t("dictQueued"))
+    m.section.receive({ type: "offlineProgress", progress: { bergamot: { "de>en": { state: "running", done: 3, total: 4 } } } })
+    expect(m.rows()[0]!.textContent).toContain(ENGLISH.t("dictDownloading", [75]))
+    // Notices of other services and other messages leave the row as it is.
+    m.section.receive({ type: "offlineProgress", progress: { dictionary: {} } })
+    m.section.receive({ type: "somethingElse" })
+    m.section.receive(undefined)
+    expect(m.rows()[0]!.textContent).toContain(ENGLISH.t("dictQueued"))
     finish({ ok: false, error: "disk full" })
     await vi.waitFor(() => expect(m.rows()[0]!.querySelector(".test-result")?.textContent).toBe("disk full"))
-    // The poll after the end of the installation is the last one (pollMs 5).
-    await vi.advanceTimersByTimeAsync(30)
-    const polls = requests.filter((r) => r.type === "offlineProgress").length
-    await vi.advanceTimersByTimeAsync(30)
-    expect(requests.filter((r) => r.type === "offlineProgress").length).toBe(polls)
+    await vi.advanceTimersByTimeAsync(10_000)
+    // The only request for the progress came with the list.
+    expect(requests.filter((r) => r.type === "offlineProgress")).toHaveLength(2)
+    expect(requests.filter((r) => r.type === "offlineList")).toHaveLength(2)
+  })
+
+  it("shows the downloads of another page when it opens, running and queued, and takes a queued one off the queue", async () => {
+    const requests = background({
+      offlineList: () => ({ ok: true, items: [pair("de", "en"), pair("en", "fr"), pair("ja", "en")] }),
+      offlineProgress: () => ({ bergamot: { "de>en": { state: "running", done: 1, total: 2 }, "en>fr": { state: "queued", done: 0, total: 0 } } }),
+    })
+    const m = models({ pick: true })
+    await m.section.load()
+    expect(m.row("German").textContent).toContain(ENGLISH.t("dictDownloading", [50]))
+    expect(m.row("English").textContent).toContain(ENGLISH.t("dictQueued"))
+    expect(m.section.picked().map((p) => p.id)).toEqual([])
+    expect(m.row("German").querySelector<HTMLInputElement>("input[type=checkbox]")!.disabled).toBe(true)
+    button(m.row("German"), ENGLISH.t("buttonCancel"))!.click()
+    expect(requests).toContainEqual({ type: "offlineCancel", service: "bergamot", src: "de", tgt: "en" })
+    button(m.row("English"), ENGLISH.t("buttonCancel"))!.click()
+    expect(requests).toContainEqual({ type: "offlineCancel", service: "bergamot", src: "en", tgt: "fr" })
+    expect(m.row("English").textContent).not.toContain(ENGLISH.t("dictQueued"))
+    expect(m.row("English").querySelector<HTMLInputElement>("input[type=checkbox]")!.disabled).toBe(false)
+    // Installed or removed data: the list is read again.
+    const lists = () => requests.filter((r) => r.type === "offlineList").length
+    m.section.receive({ type: "offlineDataChanged" })
+    await vi.waitFor(() => expect(lists()).toBe(2))
   })
 
   it.each([
@@ -569,58 +617,59 @@ describe("offline model list", () => {
     expect(requests.flatMap((r) => (r.type === "offlineInstall" ? r.pairs.map((p) => `${p.src}>${p.tgt}`) : [])).sort()).toEqual(["de>en", "en>fr"])
   })
 
-  it("M3: downloads the common languages two at a time and reads the list once at the end", async () => {
+  /** The offline handlers of the background script over a Bergamot manager that offers `keys` and whose installations wait for the test. */
+  function heldModels(keys: string[]) {
     const installed = new Set<string>()
-    const waiting: (() => void)[] = []
-    const requests = background({
-      offlineList: () => ({ ok: true, items: [pair("en", "de"), pair("de", "en"), pair("en", "fr"), pair("fr", "en")].map((p) => ({ ...p, installed: installed.has(`${p.src}>${p.tgt}`) })) }),
-      offlineInstall: (r) =>
-        new Promise((resolve) =>
-          waiting.push(() => {
-            const [{ src, tgt }] = (r as Install).pairs
+    const waiting = new Map<string, () => void>()
+    let page: BergamotSection | undefined
+    const bergamot = bergamotStandIn([], {
+      list: async () => ({ items: keys.map((key) => pair(key.split(">")[0]!, key.split(">")[1]!, { installed: installed.has(key) })) }),
+      install: (src, tgt, _onProgress, signal) =>
+        new Promise<void>((resolve, reject) => {
+          waiting.set(`${src}>${tgt}`, () => {
             installed.add(`${src}>${tgt}`)
-            resolve([{ ok: true }])
-          }),
-        ),
-      offlineProgress: () => ({}),
+            resolve()
+          })
+          signal?.addEventListener("abort", () => reject(new DOMException("Aborted", "AbortError")))
+        }),
     })
+    const bg = offlineBackground({ bergamot, toPages: (notice) => page?.receive(notice) })
+    sendMessage.mockImplementation(async (req) => bg.respond(req as BackgroundRequest))
     const m = models()
+    page = m.section
+    const finish = () => {
+      for (const [key, done] of [...waiting]) {
+        waiting.delete(key)
+        done()
+      }
+    }
+    return { ...m, bg, waiting, installed, finish }
+  }
+
+  it("M3: downloads the common languages two at a time in the background script and reads the list once at the end", async () => {
+    const m = heldModels(["en>de", "de>en", "en>fr", "fr>en"])
     await m.section.load()
     m.commonButton().click()
     button(m.common.querySelector(".common-confirm")!, ENGLISH.t("buttonConfirmDownload"))!.click()
-    await vi.waitFor(() => expect(waiting).toHaveLength(2))
+    await vi.waitFor(() => expect(m.waiting.size).toBe(2))
     await nextTask()
-    expect(waiting).toHaveLength(2)
+    expect(m.waiting.size).toBe(2)
     await vi.waitFor(() => {
-      waiting.splice(0).forEach((resolve) => resolve())
+      m.finish()
       expect(m.common.textContent).toContain(ENGLISH.t("commonAllInstalled"))
     })
-    expect(requests.filter((r) => r.type === "offlineInstall")).toHaveLength(4)
-    expect(requests.filter((r) => r.type === "offlineList")).toHaveLength(2)
+    expect(m.bg.requests.filter((r) => r.type === "offlineInstall")).toHaveLength(4)
+    expect(m.bg.requests.filter((r) => r.type === "offlineList")).toHaveLength(2)
+    expect([m.bg.contentScripts.mock.calls.length, m.bg.dataNotices()]).toEqual([1, 4])
   })
 
-  it("M1: shows a queued pair as waiting with Cancel and installs it once", async () => {
-    const installed = new Set<string>()
-    const waiting: (() => void)[] = []
-    const requests = background({
-      offlineList: () => ({ ok: true, items: [pair("en", "de"), pair("de", "en"), pair("en", "fr"), pair("fr", "en")].map((p) => ({ ...p, installed: installed.has(`${p.src}>${p.tgt}`) })) }),
-      offlineInstall: (r) =>
-        new Promise((resolve) =>
-          waiting.push(() => {
-            const [{ src, tgt }] = (r as Install).pairs
-            installed.add(`${src}>${tgt}`)
-            resolve([{ ok: true }])
-          }),
-        ),
-      offlineProgress: () => ({}),
-    })
-    const installs = () => requests.flatMap((r) => (r.type === "offlineInstall" ? r.pairs.map((p) => `${p.src}>${p.tgt}`) : []))
-    const m = models()
+  it("M1: shows a queued pair as waiting with Cancel, never installs it, and installs the others once", async () => {
+    const m = heldModels(["en>de", "de>en", "en>fr", "fr>en"])
     await m.section.load()
     m.commonButton().click()
     button(m.common.querySelector(".common-confirm")!, ENGLISH.t("buttonConfirmDownload"))!.click()
-    await vi.waitFor(() => expect(waiting).toHaveLength(2))
-    expect(installs().sort()).toEqual(["de>en", "en>de"])
+    await vi.waitFor(() => expect(m.waiting.size).toBe(2))
+    expect([...m.waiting.keys()].sort()).toEqual(["de>en", "en>de"])
     const [toFrench, fromFrench] = [m.row("English → French"), m.row("French")]
     button(toFrench, ENGLISH.t("buttonDownload"))?.click()
     expect(toFrench.textContent).toContain(ENGLISH.t("dictQueued"))
@@ -628,11 +677,12 @@ describe("offline model list", () => {
     button(fromFrench, ENGLISH.t("buttonCancel"))!.click()
     expect(button(m.row("French"), ENGLISH.t("buttonDownload"))).toBeDefined()
     await vi.waitFor(() => {
-      waiting.splice(0).forEach((resolve) => resolve())
-      expect(installed.size).toBe(3)
+      m.finish()
+      expect(m.installed.size).toBe(3)
     })
-    await vi.waitFor(() => expect(requests.filter((r) => r.type === "offlineList")).toHaveLength(2))
-    expect(installs().sort()).toEqual(["de>en", "en>de", "en>fr"])
+    await vi.waitFor(() => expect(m.rows().filter((li) => li.textContent!.includes(ENGLISH.t("dictInstalled")))).toHaveLength(3))
+    expect(m.installed.has("fr>en")).toBe(false)
+    expect(m.bg.requests.filter((r) => r.type === "offlineInstall")).toHaveLength(4)
   })
 })
 

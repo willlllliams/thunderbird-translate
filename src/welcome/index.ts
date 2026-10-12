@@ -412,6 +412,11 @@ async function main(): Promise<void> {
   $("nextStep").addEventListener("click", forward)
   $("skipStep").addEventListener("click", forward)
   $("exitGuide").addEventListener("click", () => void exit())
+  // The progress of the downloads, also those another page started, and installed or deleted packs and models.
+  ext.runtime.onMessage.addListener((message: unknown) => {
+    dictionaries.receive(message)
+    bergamot.receive(message)
+  })
 
   const stored = (await ext.storage.local.get(WELCOME_KEY))[WELCOME_KEY] as WelcomeState | undefined
   toured = stored?.toured === true

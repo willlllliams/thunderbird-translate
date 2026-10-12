@@ -246,9 +246,11 @@ async function main(): Promise<void> {
   applyLanguage()
   if (location.hash) goTo({ section: location.hash.slice(1) as OptionsPlace["section"], dictionaries: terms("dict"), bergamot: terms("bergamot"), tier: providerTier || undefined })
   void refreshOffline()
-  // Another page installed or deleted packs or models.
+  // Packs or models were installed or deleted, also through another page; the progress of the downloads.
   ext.runtime.onMessage.addListener((message: unknown) => {
     if ((message as PageNotice | undefined)?.type === "offlineDataChanged") void refreshOffline()
+    dictionaries.receive(message)
+    bergamot.receive(message)
   })
   $("openWelcome").addEventListener("click", () => void ext.tabs.create({ url: ext.runtime.getURL("welcome.html") }))
 

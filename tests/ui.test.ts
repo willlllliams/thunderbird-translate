@@ -470,7 +470,7 @@ describe("dictionaries on the settings page", () => {
     tag.value = "dicts-v2"
     tag.dispatchEvent(new Event("change"))
     // The settings are written 300 ms later; the request names the tag of the page, so the list does not show the old release.
-    expect(offline.requests.at(-1)).toEqual({ type: "offlineList", service: "dictionary", refresh: false, tag: "dicts-v2" })
+    expect(offline.requests.filter((r) => r.type === "offlineList").at(-1)).toEqual({ type: "offlineList", service: "dictionary", refresh: false, tag: "dicts-v2" })
     expect(stored().dictionary.releaseTag).toBe("dicts-v1")
     await vi.waitFor(() => expect(urls.at(-1)).toContain("/dicts-v2/dict-index.json"))
     await vi.waitFor(() => expect(document.querySelectorAll("#dictList li")).toHaveLength(1))

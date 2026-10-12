@@ -10,8 +10,7 @@ import { offlineHandlers } from "../../src/background/offline-admin"
 import { DictionaryManager } from "../../src/offline/dictionary/manager"
 import { DictionaryStore } from "../../src/offline/dictionary/store"
 import type { OfflineManager } from "../../src/offline/manager"
-import type { BackgroundRequest, BergamotPairInfo, OfflineItem } from "../../src/shared/messages"
-import type { OfflineService } from "../../src/shared/offline-needs"
+import type { BackgroundRequest, BergamotPairInfo, OfflineItem, PageNotice } from "../../src/shared/messages"
 import { asFetch } from "../helpers"
 
 /** A Bergamot manager that offers `pairs` and installs at once; override what a test needs. */
@@ -35,9 +34,11 @@ export interface OfflineBackgroundOptions {
   /** The release tag of the settings. */
   tag?: () => string
   bergamot?: OfflineManager<OfflineItem>
+  /** Receives the notices to the extension pages, besides the `pages` spy. */
+  toPages?: (notice: PageNotice) => void
 }
 
-export function offlineBackground({ fetchUrl, tag = () => "dicts-v1", bergamot = bergamotStandIn() }: OfflineBackgroundOptions = {}) {
+export function offlineBackground({ fetchUrl, tag = () => "dicts-v1", bergamot = bergamotStandIn(), toPages }: OfflineBackgroundOptions = {}) {
   const idb = new IDBFactory()
   const store = new DictionaryStore(() => idb)
   const fetch = vi.fn(async (url: string) => {
@@ -45,9 +46,10 @@ export function offlineBackground({ fetchUrl, tag = () => "dicts-v1", bergamot =
     return fetchUrl(url)
   })
   const dictionary = new DictionaryManager({ releaseTag: tag, store, fetch: asFetch(fetch) })
-  /** Called after every installation and removal, with the service. */
-  const changed = vi.fn((_service: OfflineService) => {})
-  const handlers = offlineHandlers({ manager: (service) => (service === "dictionary" ? dictionary : bergamot), changed })
+  /** The notices to the content scripts and to the pages. */
+  const contentScripts = vi.fn(() => {})
+  const pages = vi.fn((notice: PageNotice) => toPages?.(notice))
+  const handlers = offlineHandlers({ manager: (service) => (service === "dictionary" ? dictionary : bergamot), contentScripts, pages })
   const requests: BackgroundRequest[] = []
   return {
     handlers,
@@ -55,7 +57,10 @@ export function offlineBackground({ fetchUrl, tag = () => "dicts-v1", bergamot =
     store,
     idb,
     fetch,
-    changed,
+    contentScripts,
+    pages,
+    /** The offlineDataChanged notices to the pages. */
+    dataNotices: () => pages.mock.calls.filter(([n]) => n.type === "offlineDataChanged").length,
     /** The offline requests the handlers answered. */
     requests,
     /** The answer to an offline request; undefined for any other request. */

@@ -32,13 +32,8 @@ export interface RouterDeps {
 }
 
 export function createHandlers({ tabs, service, localeMessages, offlineManager, offlineStatus, cache }: RouterDeps): BackgroundHandlers {
-  /** Dictionary packs or offline models changed: content scripts forget their results, pages show the new state. */
-  const offlineDataChanged = () => {
-    tabs.broadcast({ type: "offlineDataChanged" })
-    ext.runtime.sendMessage({ type: "offlineDataChanged" } satisfies PageNotice).catch(() => {
-      // No page open.
-    })
-  }
+  /** A notice to the extension pages; without an open page it goes nowhere. */
+  const toPages = (notice: PageNotice) => void ext.runtime.sendMessage(notice).catch(() => {})
   return {
     toggleTab: (req) => tabs.postToTab(req.tabId, { type: "toggle" }),
     retranslateTab: (req) => tabs.postToTab(req.tabId, { type: "retranslate" }),
@@ -63,7 +58,8 @@ export function createHandlers({ tabs, service, localeMessages, offlineManager, 
         }
         s.offlineMutedPairs = [...muted]
       })),
-    ...offlineHandlers({ manager: offlineManager, changed: offlineDataChanged }),
+    // Dictionary packs or offline models changed: content scripts forget their results, pages show the new state.
+    ...offlineHandlers({ manager: offlineManager, contentScripts: () => tabs.broadcast({ type: "offlineDataChanged" }), pages: toPages }),
     clearCache: () => cache.clear(),
     cacheStats: async () => ({ size: await cache.size() }),
   }

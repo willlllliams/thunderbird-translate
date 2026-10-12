@@ -62,7 +62,9 @@ export function send<R extends BackgroundRequest>(req: R): Promise<ResponseOf<R[
 /** Sent by the background script to the extension pages (popup, settings page, welcome page). */
 export type PageNotice =
   /** Dictionary packs or offline models were installed or removed. */
-  { type: "offlineDataChanged" }
+  | { type: "offlineDataChanged" }
+  /** The installations that have not ended, after a change, at most every 250 ms. */
+  | { type: "offlineProgress"; progress: OfflineProgress }
 
 /** State of the offline services in use (dictionary tier, Bergamot in the machine tier). */
 export type OfflineStatus = Partial<Record<OfflineService, OfflineState>>

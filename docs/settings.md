@@ -287,7 +287,9 @@ The dictionary translates word by word with dictionary packs from a GitHub relea
 
 Bergamot translates with the engine and the models of Firefox Translations, published by Mozilla under MPL-2.0. The engine ships with the extension. Each translation direction is downloaded once from Mozilla, 13 to 48 MB. The catalog has 114 direction pairs among 58 languages, and every model has English on one side, so Japanese to Chinese uses Japanese → English and English → Chinese. A loaded direction takes about 200 MB of memory and is released after five minutes without use. An installed pair with a newer version offered by Mozilla shows "Update". Deleting a pair that the current languages need asks for confirmation. [bergamot.md](bergamot.md) describes model selection, verification, storage and the engine.
 
-Both lists fail after 30 seconds without an answer. A download that receives no data for 30 seconds stops with an error; a slow download that keeps receiving data has no time limit. Downloads show their progress and can be cancelled. If a list cannot be loaded, the section says why, and installed packs and models can still be deleted.
+Both lists fail after 30 seconds without an answer. A download that receives no data for 30 seconds stops with an error; a slow download that keeps receiving data has no time limit. If a list cannot be loaded, the section says why, and installed packs and models can still be deleted.
+
+The background script downloads, checks and stores the packs and models, and the pages only ask for them. A download therefore goes on when the settings page or the setup guide is closed, and translations use a pack or model as soon as it is stored. Every open page shows the progress of every download, also of those another page started, and a page opened later shows the downloads that are still running or waiting. Each of these pages can cancel a download.
 
 ## Offline lists
 
@@ -307,7 +309,7 @@ For every recommended language X other than English, the directions X → Englis
 
 "Download common languages" in both lists downloads the directions to and from English of eight fixed languages: Simplified Chinese, Spanish, French, German, Japanese, Portuguese, Russian and Korean, as far as the catalog has them. Before downloading it lists the directions and their total size; installed directions and directions already queued or downloading are left out. When all are installed, the button is disabled and says "The common languages are all installed.".
 
-Downloads run two at a time. A direction waiting for its turn reads "Waiting…" and has a "Cancel" that takes it off the queue; it offers no second "Download", and in the setup guide its check box is disabled. A running download shows its progress and also has "Cancel".
+The background script downloads two directions of each service at a time and keeps the others in its queue, also after the page that asked for them is closed. A direction waiting for its turn reads "Waiting…" and has a "Cancel" that takes it off the queue; it offers no second "Download", and in the setup guide its check box is disabled. A running download shows its progress and also has "Cancel". A direction that two pages ask for is downloaded once.
 
 ## Missing offline data
 
@@ -387,8 +389,8 @@ Settings saved before version 1.9.0 have no text color; translations keep the co
   - user names and passwords in URLs;
   - URL parameters whose names contain key, token, auth, secret, sig, pass, credential or session.
 - Message text is sent only to the services of the tiers in use. The dictionary and Bergamot translate on your computer and send no text anywhere.
-- Two lists come from the network, without any message text: the list of dictionary packs from this repository's GitHub releases and the list of Bergamot models from Mozilla. The settings page and the setup guide read them to show the offline lists.
-- While the dictionary or Bergamot is the service of a tier, the background script also reads its list: when Thunderbird starts, when the settings change, and when the popup or the settings page asks what is missing. It reads either list again once the copy in memory is older than 6 hours (the dictionary list per release tag). After a failed read, either list is read again 10 minutes later at the earliest; until then it answers with the copy in memory, and the Bergamot list also with the copy saved by an earlier session, if there is one. "Reload list" in the section "Offline translation models (Bergamot)" of the settings page reads the Bergamot list at once. Translating a message reads neither list, also when a pack or model is missing.
+- Two lists come from the network, without any message text: the list of dictionary packs from this repository's GitHub releases and the list of Bergamot models from Mozilla. The background script reads them and keeps the copy it read; the settings page and the setup guide show the offline lists from that copy.
+- The background script reads a list when a page shows it and, while the dictionary or Bergamot is the service of a tier, when Thunderbird starts, when the settings change, and when the popup or the settings page asks what is missing. It reads either list again once the copy in memory is older than 6 hours (the dictionary list per release tag). After a failed read, either list is read again 10 minutes later at the earliest; until then it answers with the copy in memory, and the Bergamot list also with the copy saved by an earlier session, if there is one. "Reload list" in either offline section of the settings page reads its list at once. Translating a message reads neither list, also when a pack or model is missing.
 - The packs and models themselves are downloaded only when you click "Download" or one of the download buttons. The extension collects no statistics and contacts no other network address.
 - The translation cache is stored locally and can be turned off or cleared on the settings page.
 

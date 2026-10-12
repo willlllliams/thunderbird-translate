@@ -78,7 +78,8 @@ export async function openPage(
   const html = readFileSync(join(__dirname, "..", "..", "static", `${page}.html`), "utf8")
   document.documentElement.innerHTML = new DOMParser().parseFromString(html, "text/html").documentElement.innerHTML
   const tabs = activeTab ? [activeTab] : []
-  const offline = offlineBackground({ fetchUrl, bergamot })
+  // The notices of the background script reach the page as runtime messages.
+  const offline = offlineBackground({ fetchUrl, bergamot, toPages: (notice) => browser.events.message.fire(notice) })
   const browser = stubBrowser({
     stored: { ...other, [SETTINGS_KEY]: settings },
     uiLanguage,

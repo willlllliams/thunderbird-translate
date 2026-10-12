@@ -8,23 +8,27 @@
  * labelled with where the language comes from, then the others by name; a
  * filter narrows the list down. "Download common languages" shows the
  * directions of COMMON_LANGUAGES that are not installed and their size, and
- * downloads them once confirmed. Downloads run two at a time, and the list
- * is read again once they have ended. A direction waiting for its turn
- * reads "Waiting" with a Cancel that takes it off the queue; a queued or
- * running direction is not downloaded a second time. On the welcome page
+ * downloads them once confirmed. A direction waiting for its turn reads
+ * "Waiting" with a Cancel that takes it off the queue; a queued or running
+ * direction is not downloaded a second time. On the welcome page
  * every direction that is not installed has a check box for the page's "Download selected": with
  * automatic detection the directions of the recommended languages are
  * ticked, with a fixed source language the ones the language pair needs.
  *
  * The background script lists, installs and removes the directions (see
- * src/background/offline-admin.ts), so a download goes on when the page is
- * closed; the page polls the download progress.
+ * src/background/offline-admin.ts). It runs two downloads of a service at
+ * a time and keeps the others in its queue, so the downloads, the queued
+ * ones too, go on when the page is closed. The page reads the list and the
+ * downloads that have not ended when it loads, and then follows the notices
+ * of the background script (receive()): the progress of every download,
+ * also those another page started, and every change of the installed data.
  */
 
 import { describeError } from "../shared/errors"
 import { ext } from "../shared/ext"
 import { getI18n, type MessageKey, t } from "../shared/i18n"
-import { type InstallProgress, type OfflineItem, type OfflineResult, send } from "../shared/messages"
+import { pairKey } from "../shared/languages"
+import { type InstallProgress, type OfflineItem, type OfflineResult, type PageNotice, send } from "../shared/messages"
 import { localeToLanguageTag } from "../shared/locales"
 import { commonDirections, itemSources, type LanguageSource, type OfflineService, orderItems, pairNeeds, recommendedLanguages, serviceLang, type SourcedLanguage } from "../shared/offline-needs"
 import type { Settings } from "../shared/settings"
@@ -54,8 +58,6 @@ export interface OfflineListDeps {
   pick?: boolean
   /** Runs after every redraw, e.g. to update the page's "Download selected" button. */
   onRender?: () => void
-  /** Interval of the progress requests while downloads run. */
-  pollMs?: number
 }
 
 const SOURCE_KEYS: Record<LanguageSource, MessageKey> = {
@@ -108,15 +110,14 @@ export abstract class OfflineList<T extends ListItem> {
   private choice = new Map<string, boolean>()
   /** "Download common languages" shows its confirmation. */
   private confirmingCommon = false
-  /** Directions waiting for their turn to download, by id. */
-  protected readonly queued = new Set<string>()
   /** The directions as the background script listed them. */
   protected entries: OfflineItem[] = []
-  /** Directions this page is downloading, by id. */
-  private readonly running = new Set<string>()
-  /** Bytes received and expected of the running downloads, by id, as last polled. */
+  /** Directions this page asked the background script to install, until it answers, by id. */
+  private readonly requested = new Set<string>()
+  /** The installations of the service that have not ended, by id, as the background script reported them last. */
   private progress: Record<string, InstallProgress> = {}
-  private timer: ReturnType<typeof setInterval> | null = null
+  /** The list was read: notices of changed data read it again. */
+  private loaded = false
 
   constructor(private readonly base: OfflineListDeps) {}
 
@@ -136,56 +137,76 @@ export abstract class OfflineList<T extends ListItem> {
   async load(refresh = false): Promise<void> {
     this.loading = true
     this.render()
-    try {
-      const r = await send({ type: "offlineList", service: this.service, refresh, tag: this.tag() })
-      this.entries = r?.ok ? r.items : []
-      this.listError = r?.error ?? ""
-    } catch (error) {
-      this.entries = []
-      this.listError = describeError(error, getI18n())
-    }
+    await this.read(refresh)
     this.loading = false
     this.render()
   }
 
-  /** Queued or downloading. */
-  protected installing(item: T): boolean {
-    return this.queued.has(item.id) || this.running.has(item.id)
-  }
-
-  /** The progress of a downloading row with its Cancel, the "Waiting" of a queued one; null for a row without a download. */
-  protected activity({ id, src, tgt }: T): Node[] | null {
-    if (this.running.has(id)) {
-      const progress = this.progress[id]
-      const percent = progress?.total ? Math.min(100, Math.round((progress.done / progress.total) * 100)) : 0
-      return [h("span", { text: t("dictDownloading", [percent]) }), button(t("buttonCancel"), () => void send({ type: "offlineCancel", service: this.service, src, tgt }), false, t("tipCancelDownload"))]
+  /** The list and the installations that have not ended, from the background script. */
+  private async read(refresh = false): Promise<void> {
+    try {
+      const [r, progress] = await Promise.all([
+        send({ type: "offlineList", service: this.service, refresh, tag: this.tag() }),
+        send({ type: "offlineProgress" }).catch(() => undefined),
+      ])
+      this.entries = r?.ok ? r.items : []
+      this.listError = r?.error ?? ""
+      if (progress) this.progress = progress[this.service] ?? {}
+    } catch (error) {
+      this.entries = []
+      this.listError = describeError(error, getI18n())
     }
-    return this.queued.has(id) ? this.waiting(id) : null
+    this.loaded = true
   }
 
-  /** Ask for the progress of the downloads until none of this page runs. */
-  private poll(): void {
-    this.timer ??= setInterval(async () => {
-      this.progress = (await send({ type: "offlineProgress" }).catch(() => undefined))?.[this.service] ?? {}
-      if (this.running.size === 0 && this.timer) {
-        clearInterval(this.timer)
-        this.timer = null
-      }
+  /**
+   * A message to the page: the progress of the installations, or installed
+   * or removed data, after which the list is read again; while downloads of
+   * this page run, it is read once they have ended. Other messages are
+   * ignored.
+   */
+  receive(message: unknown): void {
+    const notice = message as PageNotice | null | undefined
+    if (notice?.type === "offlineProgress") {
+      this.progress = notice.progress[this.service] ?? {}
       this.render()
-    }, this.base.pollMs ?? 400)
+    } else if (notice?.type === "offlineDataChanged" && this.loaded && this.requested.size === 0) {
+      void this.read().then(() => this.render())
+    }
   }
 
-  /** Download (or update) a direction; a failure goes to rowErrors. Through installAll(), which reads the list again. */
-  private async install({ id, src, tgt }: T): Promise<void> {
-    this.rowErrors.delete(id)
-    this.running.add(id)
-    this.poll()
-    this.render()
-    const r = await send({ type: "offlineInstall", service: this.service, pairs: [{ src, tgt }], tag: this.tag() })
-      .then((results) => results?.[0])
-      .catch((error): OfflineResult => ({ ok: false, error: describeError(error, getI18n()) }))
-    this.running.delete(id)
-    if (!r?.ok && !r?.cancelled) this.rowErrors.set(id, r?.error || describeError(undefined, getI18n()))
+  /** Queued or downloading, for this page or another. */
+  protected installing(item: T): boolean {
+    return this.requested.has(item.id) || Object.hasOwn(this.progress, item.id)
+  }
+
+  /** The progress of a downloading row with its Cancel, the "Waiting" of a queued one with a Cancel that takes it off the queue; null for a row without a download. */
+  protected activity(item: T): Node[] | null {
+    const progress = Object.hasOwn(this.progress, item.id) ? this.progress[item.id] : undefined
+    if (progress?.state === "running") {
+      const percent = progress.total ? Math.min(100, Math.round((progress.done / progress.total) * 100)) : 0
+      return [h("span", { text: t("dictDownloading", [percent]) }), button(t("buttonCancel"), () => this.cancel(item), false, t("tipCancelDownload"))]
+    }
+    if (!this.installing(item)) return null
+    return [
+      h("span", { text: t("dictQueued"), title: t("tipWaiting") }),
+      button(
+        t("buttonCancel"),
+        () => {
+          // Off the queue at once: the background script answers the installation as cancelled.
+          this.requested.delete(item.id)
+          delete this.progress[item.id]
+          this.cancel(item)
+          this.render()
+        },
+        false,
+        t("tipCancelQueued"),
+      ),
+    ]
+  }
+
+  private cancel({ src, tgt }: T): void {
+    send({ type: "offlineCancel", service: this.service, src, tgt }).catch(() => {})
   }
 
   /** Delete a direction, then read the list again. */
@@ -228,20 +249,33 @@ export abstract class OfflineList<T extends ListItem> {
     return picked.filter((i) => this.rowErrors.has(i.id)).length
   }
 
-  /** Download the directions that are neither queued nor running, two at a time, then read the list once. */
+  /**
+   * Download (or update) the directions that are neither queued nor running.
+   * The background script queues them and runs two at a time; each answers
+   * when it has ended, and its failure goes to its row. The list is read
+   * again at the end.
+   */
   protected async installAll(items: readonly T[]): Promise<void> {
-    const queue = items.filter((i) => !this.installing(i))
-    for (const item of queue) this.queued.add(item.id)
-    this.render()
-    const worker = async () => {
-      for (let item = queue.shift(); item; item = queue.shift()) {
-        // Skipped when taken off the queue, or installed since it was queued.
-        if (!this.queued.delete(item.id) || (!item.installed && this.items().some((i) => i.id === item.id && i.installed))) continue
-        await this.install(item)
-      }
+    const wanted = items.filter((i) => !this.installing(i))
+    for (const item of wanted) {
+      this.requested.add(item.id)
+      this.rowErrors.delete(item.id)
     }
-    await Promise.all([worker(), worker()])
-    await this.load()
+    this.render()
+    await Promise.all(
+      wanted.map(async ({ id, src, tgt }) => {
+        const r = await send({ type: "offlineInstall", service: this.service, pairs: [{ src, tgt }], tag: this.tag() })
+          .then((results) => results?.[0])
+          .catch((error): OfflineResult => ({ ok: false, error: describeError(error, getI18n()) }))
+        this.requested.delete(id)
+        // Shown as installed until the list is read again.
+        if (r?.ok) Object.assign(this.entries.find((e) => pairKey(e.src, e.tgt) === id) ?? {}, { installed: true, installedVersion: undefined })
+        else if (!r?.cancelled) this.rowErrors.set(id, r?.error || describeError(undefined, getI18n()))
+        this.render()
+      }),
+    )
+    await this.read()
+    this.render()
   }
 
   /** The languages changed: the check boxes start from the new recommendation. */
@@ -287,22 +321,6 @@ export abstract class OfflineList<T extends ListItem> {
     const error = this.rowErrors.get(item.id)
     if (error) li.append(h("div", { className: "test-result fail", text: error }))
     return li
-  }
-
-  /** A queued row: "Waiting" and a Cancel that takes it off the queue. */
-  protected waiting(id: string): Node[] {
-    return [
-      h("span", { text: t("dictQueued"), title: t("tipWaiting") }),
-      button(
-        t("buttonCancel"),
-        () => {
-          this.queued.delete(id)
-          this.render()
-        },
-        false,
-        t("tipCancelQueued"),
-      ),
-    ]
   }
 
   /** Where the languages of a recommended direction come from, and its part in translating into the target language. */

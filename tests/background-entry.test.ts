@@ -300,6 +300,51 @@ describe("offline data in the background script", () => {
     expect(notices()).toEqual({ contentScripts: 2, pages: 2 })
     expect(await translate("hello")).toMatchObject({ ok: false })
   })
+  it("installs five packs of one request two at a time after the page is gone, leaves out a cancelled queued one, and installs a pack two pages ask for once", async () => {
+    vi.stubGlobal("indexedDB", new IDBFactory())
+    const texts = [tsv("en", "de", { hello: "hallo" }), tsv("de", "en", { hallo: "hello" }), tsv("en", "fr", { hello: "bonjour" }), tsv("fr", "en", { bonjour: "hello" }), tsv("en", "ja", { hello: "こんにちは" })]
+    const server = releaseServer(texts)
+    /** Pack downloads wait until the test lets them go. */
+    const waiting: (() => void)[] = []
+    const files: string[] = []
+    const fetchUrl = vi.fn(async (url: string, init?: RequestInit) => {
+      if (!url.includes("/releases/download/")) return google(url, init)
+      if (!url.endsWith("dict-index.json")) {
+        files.push(url.split("/").pop()!)
+        await new Promise<void>((resolve) => waiting.push(resolve))
+      }
+      return server(url)
+    })
+    const s = createDefaultSettings()
+    s.tiers.dictionary = "dictionary"
+    const bg = await start({ stored: stored(s), fetchUrl })
+    const port = bg.connect(5)
+    const pair = (key: string) => ({ src: key.split(">")[0]!, tgt: key.split(">")[1]! })
+    const results = bg.send({ type: "offlineInstall", service: "dictionary", pairs: ["en>de", "de>en", "en>fr", "fr>en", "en>ja"].map(pair) }) as Promise<unknown>
+    // A second page asks for a pack of the first one.
+    const second = bg.send({ type: "offlineInstall", service: "dictionary", pairs: [pair("en>de")] }) as Promise<unknown>
+    await vi.waitFor(() => expect(files).toEqual(["dict-en-de.tsv.gz", "dict-de-en.tsv.gz"]))
+    expect(await bg.send({ type: "offlineProgress" })).toMatchObject({ dictionary: { "en>de": { state: "running" }, "de>en": { state: "running" }, "en>fr": { state: "queued" }, "fr>en": { state: "queued" }, "en>ja": { state: "queued" } } })
+    await bg.send({ type: "offlineCancel", service: "dictionary", src: "fr", tgt: "en" })
+    // The pages that asked are gone: nothing more comes from them.
+    await vi.waitFor(() => {
+      waiting.splice(0).forEach((resolve) => resolve())
+      expect(files).toHaveLength(4)
+    })
+    waiting.splice(0).forEach((resolve) => resolve())
+    expect(await results).toEqual([{ ok: true }, { ok: true }, { ok: true }, { ok: false, cancelled: true }, { ok: true }])
+    expect(await second).toEqual([{ ok: true }])
+    expect(files.sort()).toEqual(["dict-de-en.tsv.gz", "dict-en-de.tsv.gz", "dict-en-fr.tsv.gz", "dict-en-ja.tsv.gz"])
+    expect((await new DictionaryStore().list()).map((p) => p.id).sort()).toEqual(["de>en", "en>de", "en>fr", "en>ja"])
+    // The content scripts forget their results once, after the last pack; the pages hear of every pack.
+    expect(port.posted.filter((m) => m.type === "offlineDataChanged")).toHaveLength(1)
+    expect(bg.api.runtime.sendMessage.mock.calls.filter(([m]) => (m as { type?: string }).type === "offlineDataChanged")).toHaveLength(4)
+    // The pages follow the progress, at most every 250 ms; the last notice has nothing left.
+    await vi.advanceTimersByTimeAsync(250)
+    const progress = bg.api.runtime.sendMessage.mock.calls.flatMap(([m]) => ((m as { type?: string }).type === "offlineProgress" ? [(m as unknown as { progress: unknown }).progress] : []))
+    expect(progress.length).toBeGreaterThan(0)
+    expect(progress.at(-1)).toEqual({ dictionary: {} })
+  })
 })
 
 describe("keyboard shortcuts", () => {

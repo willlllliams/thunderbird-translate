@@ -2,10 +2,15 @@
  * Dictionary packs and offline models for the extension pages: list,
  * install with progress and cancel, remove. The work runs in the background
  * script, which translates with the data, so it goes on after the page that
- * asked for it is closed, and a direction two pages ask for is installed
- * once. Requests name their service; each service has its manager
- * (offline/manager.ts) and its installations (offline/install-registry.ts).
- * Progress is polled by the page.
+ * asked for it is closed, also for the directions still waiting in the
+ * queue, and a direction two pages ask for is installed once. Requests name
+ * their service; each service has its manager (offline/manager.ts) and its
+ * installations, two at a time (offline/install-registry.ts).
+ *
+ * The pages hear of the progress of every installation (offlineProgress, at
+ * most every 250 ms) and of every installation that ended and every removal
+ * (offlineDataChanged). The content scripts forget their results once the
+ * installations of a service have all ended, and after every removal.
  */
 
 import { InstallRegistry, type InstallOutcome } from "../offline/install-registry"
@@ -13,14 +18,19 @@ import type { OfflineManager } from "../offline/manager"
 import { describeError } from "../shared/errors"
 import { getI18n } from "../shared/i18n"
 import { pairKey } from "../shared/languages"
-import type { BackgroundHandlers, OfflineItem, OfflineProgress, OfflineRequest, OfflineResult } from "../shared/messages"
+import type { BackgroundHandlers, OfflineItem, OfflineProgress, OfflineRequest, OfflineResult, PageNotice } from "../shared/messages"
 import { type OfflineService, serviceLang } from "../shared/offline-needs"
+
+/** The pages hear of the progress at most this often. */
+export const PROGRESS_INTERVAL_MS = 250
 
 export interface OfflineAdminDeps {
   /** The manager of an offline service. */
   manager: (service: OfflineService) => OfflineManager<OfflineItem>
-  /** Data of `service` was installed or removed: content scripts and pages hear of it. Runs after every installation, whatever its result, and every removal. */
-  changed: (service: OfflineService) => void
+  /** Tells the content scripts that offline data changed: their results may be outdated. */
+  contentScripts: () => void
+  /** Sends a notice to the extension pages. */
+  pages: (notice: PageNotice) => void
 }
 
 const describe = (error: unknown) => describeError(error, getI18n())
@@ -30,24 +40,33 @@ const resultOf = (outcome: InstallOutcome): OfflineResult => (outcome.ok ? { ok:
 /** The pair key of a direction in the language tags of the service ("zh-CN" → "zh-Hans"). */
 const keyOf = (service: OfflineService) => (src: string, tgt: string) => pairKey(serviceLang(service, src) ?? src, serviceLang(service, tgt) ?? tgt)
 
-export function offlineHandlers({ manager, changed }: OfflineAdminDeps): Pick<BackgroundHandlers, OfflineRequest["type"]> {
+export function offlineHandlers({ manager, contentScripts, pages }: OfflineAdminDeps): Pick<BackgroundHandlers, OfflineRequest["type"]> {
   const registries = new Map<OfflineService, InstallRegistry>()
+  const progress = (): OfflineProgress => Object.fromEntries([...registries].map(([service, installs]) => [service, installs.snapshot()]))
+  let progressTimer: ReturnType<typeof setTimeout> | null = null
+  const progressChanged = () => {
+    progressTimer ??= setTimeout(() => {
+      progressTimer = null
+      pages({ type: "offlineProgress", progress: progress() })
+    }, PROGRESS_INTERVAL_MS)
+  }
   const registry = (service: OfflineService): InstallRegistry => {
     let found = registries.get(service)
     if (!found) {
-      found = new InstallRegistry({
+      const installs = new InstallRegistry({
         key: keyOf(service),
         run: (src, tgt, onProgress, signal, tag) => manager(service).install(src, tgt, onProgress, signal, { tag }),
-        onEnd: () => changed(service),
+        onChange: progressChanged,
+        onEnd: () => {
+          pages({ type: "offlineDataChanged" })
+          if (!installs.busy) contentScripts()
+        },
       })
-      registries.set(service, found)
+      registries.set(service, installs)
+      found = installs
     }
     return found
   }
-  const progress = (): OfflineProgress =>
-    Object.fromEntries(
-      [...registries].map(([service, installs]) => [service, Object.fromEntries(Object.entries(installs.snapshot()).map(([key, state]) => [key, { state: "running", ...state }]))]),
-    )
   const remove = async (service: OfflineService, src: string, tgt: string): Promise<OfflineResult> => {
     try {
       await manager(service).remove(src, tgt)
@@ -55,7 +74,8 @@ export function offlineHandlers({ manager, changed }: OfflineAdminDeps): Pick<Ba
     } catch (error) {
       return { ok: false, error: describe(error) }
     } finally {
-      changed(service)
+      pages({ type: "offlineDataChanged" })
+      contentScripts()
     }
   }
 
