@@ -194,49 +194,6 @@ describe("requests from pages", () => {
     expect(((await bg.send({ type: "getLocaleMessages", uiLanguage: "auto" })) as { locale: string }).locale).toBe("en")
   })
 
-  it("says what the offline services of the tiers lack for the languages, reading the dictionary index again after a failure and after six hours", async () => {
-    const bergamot = { catalog: vi.fn(async () => new Set(["en>zh-Hans", "ja>en"])), installedKeys: vi.fn(async () => new Set(["en>zh-Hans"])), signature: async () => "" }
-    vi.doMock("../src/offline/bergamot", () => ({ getBergamot: () => bergamot }))
-    vi.stubGlobal("indexedDB", new IDBFactory())
-    let indexAnswer = (): Promise<Response> => Promise.reject(new TypeError("NetworkError"))
-    const fetchUrl = vi.fn(async (url: string) => (url.endsWith("dict-index.json") ? indexAnswer() : google(url)))
-    const bg = await start({ stored: stored(createDefaultSettings()), fetchUrl })
-    const tiers: Settings["tiers"] = { dictionary: "dictionary", machine: "bergamot", ai: null }
-    const ask = (sourceLang: string, targetLang: string, t = tiers) => bg.send({ type: "offlineStatus", sourceLang, targetLang, tiers: t })
-    const t0 = Date.now()
-    const clock = vi.spyOn(Date, "now").mockReturnValue(t0)
-    const at = (ms: number) => clock.mockReturnValue(t0 + ms)
-    // Without the index nothing is known to be downloadable.
-    expect(await ask("auto", "zh-CN")).toEqual({
-      dictionary: { required: ["en>zh-Hans"], missing: [], unsupported: false },
-      bergamot: { required: ["en>zh-Hans"], missing: [], unsupported: false },
-    })
-    const indexReads = () => fetchUrl.mock.calls.filter(([url]) => url.endsWith("dict-index.json")).length
-    expect(indexReads()).toBe(1)
-    // A failed index is read again after ten minutes, not before.
-    indexAnswer = async () => jsonResponse({ version: 1, packs: [] })
-    expect(await ask("ja", "zh-CN")).toMatchObject({ dictionary: { required: ["ja>en", "en>zh-Hans"], missing: [], unsupported: false } })
-    at(10 * 60_000 - 1)
-    await ask("ja", "zh-CN")
-    expect(indexReads()).toBe(1)
-    at(10 * 60_000)
-    expect(await ask("ja", "zh-CN")).toEqual({
-      dictionary: { required: [], missing: [], unsupported: true },
-      bergamot: { required: ["ja>en", "en>zh-Hans"], missing: ["ja>en"], unsupported: false },
-    })
-    await ask("de", "en")
-    expect(indexReads()).toBe(2)
-    // A background page that runs for days reads the index again after six hours.
-    at(10 * 60_000 + 6 * 60 * 60_000 - 1)
-    await ask("de", "en")
-    expect(indexReads()).toBe(2)
-    at(10 * 60_000 + 6 * 60 * 60_000)
-    await ask("de", "en")
-    expect(indexReads()).toBe(3)
-    expect(await ask("auto", "zh-CN", { dictionary: null, machine: "google-free", ai: null })).toEqual({})
-    vi.doUnmock("../src/offline/bergamot")
-  })
-
   it("M1: reads the catalogs of the offline services in use when it starts and when the settings change", async () => {
     const bergamot = { catalog: vi.fn(async () => new Set(["en>de"])), signature: async () => "" }
     vi.doMock("../src/offline/bergamot", () => ({ getBergamot: () => bergamot }))

@@ -135,7 +135,7 @@ src/
   offline/       offline data of the background page; catalog-cache.ts keeps the catalogs (dictionary index, Bergamot model list)
     dictionary/  dictionary packs: format, download, storage, lookup
     bergamot/    Bergamot engine: model list, download, storage, worker
-  background/    background script: translation service, batch and request queues, cache, provider factory, translators, offline model administration
+  background/    background script: the entry index.ts and the modules it assembles, translation service, batch and request queues, cache, provider factory, translators, offline model administration
   content/       content script: paragraph detection, rendering, translation state, notice about missing offline data
   popup/         popup
   options/       settings page and the parts the setup guide shares: translation style controls, service fields, dictionary and Bergamot lists, prompt editor, settings session
@@ -154,6 +154,8 @@ tests/           vitest tests
 e2e/             end-to-end test in a real Thunderbird: runner, mock server, fixture messages
 .github/         workflows: build and release, dictionary packs
 ```
+
+The entry of the background script, `background/index.ts`, only assembles. It creates the settings (`settings-state.ts`), the content scripts by tab with their state and badge (`tabs.ts`), the request handlers and their dispatch (`router.ts`), the keyboard commands (`commands.ts`), what the offline services lack (`offline-status.ts`) and the interface messages for the content scripts (`locale-tables.ts`), and passes each module what it needs from the others as arguments. Then it registers its five listeners (`storage.onChanged`, `runtime.onConnect`, `runtime.onMessage`, `commands.onCommand`, `runtime.onInstalled`) and, after them, the content script (`content-scripts.ts`). Thunderbird hands the event that woke a background page only to the listeners registered in its first run, so no module of the background script awaits anything at the top level or before its listener is registered; `tests/background-entry.test.ts` checks that the five listeners exist when the content script is registered.
 
 The directories under `src/` are layers. A file may import from its own directory and from the directories listed for it:
 
