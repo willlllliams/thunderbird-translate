@@ -313,27 +313,6 @@ describe("requests from pages", () => {
     expect(((await bg.send({ type: "getLocaleMessages", uiLanguage: "auto" })) as { locale: string }).locale).toBe("en")
   })
 
-  it("L6: reads the messages of a locale again after a failed read instead of keeping English", async () => {
-    const bg = await start({ stored: stored(createDefaultSettings()) })
-    const read = vi.mocked(fetch).getMockImplementation()!
-    vi.mocked(fetch).mockImplementationOnce(async () => Promise.reject(new TypeError("file busy")))
-    expect(((await bg.send({ type: "getLocaleMessages", uiLanguage: "fr" })) as { locale: string }).locale).toBe("en")
-    vi.mocked(fetch).mockImplementation(read)
-    const answer = (await bg.send({ type: "getLocaleMessages", uiLanguage: "fr" })) as { locale: string; messages: Record<string, string> }
-    expect(answer.locale).toBe("fr")
-    expect(answer.messages.actionTitle).toBe(localeText("fr", "actionTitle"))
-  })
-
-  it("reads and compiles the messages of a locale once, however many messages are displayed", async () => {
-    const bg = await start({ stored: stored(createDefaultSettings()) })
-    const reads = () => vi.mocked(fetch).mock.calls.filter(([url]) => String(url).endsWith("/_locales/fr/messages.json")).length
-    const answers = await Promise.all([1, 2, 3].map(() => bg.send({ type: "getLocaleMessages", uiLanguage: "fr" })))
-    await bg.send({ type: "getLocaleMessages", uiLanguage: "fr" })
-    expect(reads()).toBe(1)
-    expect(answers[0]).toEqual(answers[2])
-    expect((answers[0] as { messages: Record<string, string> }).messages.actionTitle).toBe(localeText("fr", "actionTitle"))
-  })
-
   it("reads the dictionary packs again after a change", async () => {
     const bg = stubBackgroundApi({ stored: stored(createDefaultSettings()) })
     vi.resetModules()
@@ -534,38 +513,6 @@ describe("requests from pages", () => {
 })
 
 describe("keyboard shortcuts", () => {
-  it("toggles the translation of the tab of the shortcut, else of the active tab", async () => {
-    const bg = await start({ stored: stored(createDefaultSettings()), activeTabs: [{ id: 5 }] })
-    const [four, five] = [bg.connect(4), bg.connect(5)]
-    await bg.command("toggle-translation", { id: 4 })
-    expect(four.posted.at(-1)).toEqual({ type: "toggle" })
-    expect(five.posted.some((m) => m.type === "toggle")).toBe(false)
-    await bg.command("toggle-translation")
-    expect(bg.api.tabs.query).toHaveBeenCalledWith({ active: true, currentWindow: true })
-    expect(five.posted.at(-1)).toEqual({ type: "toggle" })
-  })
-
-  it("retranslates the message of the tab of the shortcut, else of the active tab", async () => {
-    const bg = await start({ stored: stored(createDefaultSettings()), activeTabs: [{ id: 5 }] })
-    const [four, five] = [bg.connect(4), bg.connect(5)]
-    await bg.command("retranslate", { id: 4 })
-    expect(four.posted.at(-1)).toEqual({ type: "retranslate" })
-    expect(five.posted.some((m) => m.type === "retranslate")).toBe(false)
-    await bg.command("retranslate")
-    expect(five.posted.at(-1)).toEqual({ type: "retranslate" })
-    expect(four.posted.filter((m) => m.type === "toggle")).toEqual([])
-  })
-
-  it("does nothing without an active tab", async () => {
-    const bg = await start({ stored: stored(createDefaultSettings()) })
-    const port = bg.connect(4)
-    await bg.command("toggle-translation")
-    await bg.command("retranslate")
-    await bg.command("unknown-command", { id: 4 })
-    await bg.command("toString", { id: 4 })
-    expect(port.posted.some((m) => m.type === "toggle" || m.type === "retranslate")).toBe(false)
-  })
-
   it("switches the display mode back and forth and tells the content scripts", async () => {
     const bg = await start({ stored: stored(createDefaultSettings()) })
     const port = bg.connect(4)
@@ -588,19 +535,19 @@ describe("installation and content scripts", () => {
     expect(bg.api.tabs.create).toHaveBeenCalledWith({ url: "moz-extension://test/welcome.html" })
   })
 
-  it("registers the content script and injects it into the messages already on screen", async () => {
-    const bg = stubBackgroundApi({
-      stored: stored(createDefaultSettings()),
-      tabs: [{ id: 1, type: "mail" }, { id: 2, type: "messageDisplay" }, { id: 3, type: "content" }, { type: "mail" }, { id: 4, type: "mail" }, { id: 5, type: "mail" }],
+  it("registers its five listeners while the entry module runs, before the content script and without waiting for anything", async () => {
+    const bg = stubBackgroundApi({ stored: stored(createDefaultSettings()) })
+    const { storage, runtime, commands } = bg.api
+    const listeners = () => [storage.onChanged, runtime.onConnect, runtime.onMessage, commands.onCommand, runtime.onInstalled].map((event) => event.listeners.length)
+    let atRegistration: number[] | undefined
+    bg.api.messageDisplayScripts.register.mockImplementation(async () => {
+      atRegistration ??= listeners()
+      return { unregister: async () => {} }
     })
-    bg.api.tabs.insertCSS.mockImplementation(async (tabId: number) => {
-      if (tabId === 4) throw new Error("No message displayed")
-    })
+    // Thunderbird delivers an event that woke the background page only to listeners registered in its first run.
     vi.resetModules()
     await import("../src/background/index")
-    await vi.waitFor(() => expect(bg.api.tabs.executeScript.mock.calls.map(([id]) => id)).toEqual([1, 2, 5]))
+    expect(atRegistration).toEqual([1, 1, 1, 1, 1])
     expect(bg.api.messageDisplayScripts.register).toHaveBeenCalledWith({ js: [{ file: "/content.js" }], css: [{ file: "/content.css" }] })
-    expect(bg.api.tabs.insertCSS.mock.calls.map(([id, details]) => [id, details])).toEqual([1, 2, 4, 5].map((id) => [id, { file: "/content.css" }]))
-    expect(bg.api.tabs.executeScript).toHaveBeenCalledWith(1, { file: "/content.js" })
   })
 })

@@ -1,13 +1,12 @@
 import { describeError } from "../shared/errors"
 import { ext } from "../shared/ext"
-import { getI18n, loadI18n, t } from "../shared/i18n"
-import { fetchPackagedMessages, loadExtensionI18n, thunderbirdUiLanguage } from "../shared/i18n-ext"
+import { getI18n, t } from "../shared/i18n"
+import { loadExtensionI18n, thunderbirdUiLanguage } from "../shared/i18n-ext"
 import {
   type BackgroundHandlers,
   CONTENT_PORT_NAME,
   IDLE_TAB_STATE,
   isPortReport,
-  type LocaleMessages,
   type OfflineStatus,
   optionsPath,
   type PageNotice,
@@ -15,7 +14,6 @@ import {
   type TabState,
 } from "../shared/messages"
 import { pairKey } from "../shared/languages"
-import { resolveUiLocale } from "../shared/locales"
 import { type Catalog, offlineServiceOf, offlineState } from "../shared/offline-needs"
 import { TIERS } from "../shared/providers"
 import { SETTINGS_KEY, type Settings, type TierSettings, toPublicSettings } from "../shared/settings"
@@ -25,6 +23,9 @@ import { getBergamot } from "../offline/bergamot"
 import { CatalogCache } from "../offline/catalog-cache"
 import { bergamotHandlers } from "./bergamot-admin"
 import { type KeyValueStorage, PersistentCache } from "./cache"
+import { createCommandRunner } from "./commands"
+import { registerContentScripts } from "./content-scripts"
+import { createLocaleTables } from "./locale-tables"
 import { Dictionary } from "../offline/dictionary"
 import { fetchDictionaryIndex } from "../offline/dictionary/download"
 import { TranslationService } from "./service"
@@ -97,6 +98,9 @@ function adoptSettings(stored: unknown): void {
   if (kinds.includes("dictionary")) void dictionaryCatalog()
   if (kinds.includes("bergamot")) void getBergamot().catalog()
 }
+
+/** The keyboard commands; created once the settings and the ports exist (see below). */
+const runCommand = (command: string, tab?: browser.tabs.Tab) => commandRunner(command, tab)
 
 // Test build (npm run e2e): settings and dictionary pack of the local mock server, before anything is translated.
 const hookReady = beforeSettingsRead?.({ storage, dictionary, runCommand })
@@ -213,25 +217,11 @@ ext.runtime.onConnect.addListener((port) => {
   void settingsReady.then(() => safePost(port, { type: "settings", settings: toPublicSettings(settings) }))
 })
 
+const commandRunner = createCommandRunner({ ready: settingsReady, postToTab })
+
 /* ---------- requests from content scripts, popup and options ---------- */
 
-/** Messages of each interface language, read and compiled once: every displayed message asks for them. */
-const localeTables = new Map<string, Promise<LocaleMessages>>()
-
-function localeMessages(setting: unknown): Promise<LocaleMessages> {
-  const locale = resolveUiLocale(setting, uiLang)
-  let table = localeTables.get(locale)
-  if (!table) {
-    // Content scripts get their messages here instead of fetching moz-extension:// URLs.
-    // English in place of a locale whose file could not be read is not kept: the next request reads the file again.
-    table = loadI18n(locale, uiLang, fetchPackagedMessages).then((i18n) => {
-      if (i18n.locale !== locale) localeTables.delete(locale)
-      return { locale: i18n.locale, messages: i18n.messages }
-    })
-    localeTables.set(locale, table)
-  }
-  return table
-}
+const localeMessages = createLocaleTables(uiLang)
 
 /** The answers to the requests of the content scripts, the popup and the extension pages (exported for the tests). */
 export const handlers: BackgroundHandlers = {
@@ -277,23 +267,6 @@ ext.runtime.onMessage.addListener((message: unknown) => {
 
 /* ---------- keyboard shortcuts ---------- */
 
-/** Commands for the message of the tab of the shortcut, else of the active tab. */
-const TAB_COMMANDS = new Map<string, PortPush>([
-  ["toggle-translation", { type: "toggle" }],
-  ["retranslate", { type: "retranslate" }],
-])
-
-async function runCommand(command: string, tab?: browser.tabs.Tab): Promise<void> {
-  await settingsReady
-  const push = TAB_COMMANDS.get(command)
-  if (push) {
-    const tabId = tab?.id ?? (await ext.tabs.query({ active: true, currentWindow: true }))[0]?.id
-    if (tabId !== undefined) postToTab(tabId, push)
-  } else if (command === "toggle-display-mode") {
-    await updateSettings((s) => (s.mode = s.mode === "bilingual" ? "translation-only" : "bilingual"))
-  }
-}
-
 ext.commands.onCommand.addListener((command: string, tab?: browser.tabs.Tab) => runCommand(command, tab))
 
 /* ---------- installation ---------- */
@@ -303,26 +276,6 @@ ext.runtime.onInstalled.addListener((details) => {
   void openWelcomeOnInstall(details)
 })
 
-/* ---------- content script registration ---------- */
+/* ---------- content script registration, after every listener ---------- */
 
-async function registerScripts(): Promise<void> {
-  await ext.messageDisplayScripts.register({
-    js: [{ file: "/content.js" }],
-    css: [{ file: "/content.css" }],
-  })
-  if (__DEBUG__) console.info("[thunderbird-translate] message display script registered")
-  // Registered scripts only reach messages opened from now on; inject into
-  // messages that are already on screen (e.g. right after installation).
-  for (const tab of await ext.tabs.query({})) {
-    const type = (tab as { type?: string }).type
-    if (tab.id === undefined || (type !== "mail" && type !== "messageDisplay")) continue
-    try {
-      await ext.tabs.insertCSS(tab.id, { file: "/content.css" })
-      await ext.tabs.executeScript(tab.id, { file: "/content.js" })
-    } catch {
-      // No message displayed in this tab.
-    }
-  }
-}
-
-void registerScripts()
+void registerContentScripts()
