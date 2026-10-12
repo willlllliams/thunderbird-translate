@@ -175,6 +175,8 @@ describe("request timeout", () => {
   async function after<T>(ms: number, request: Promise<T>): Promise<T> {
     let settled = false
     const result = request.finally(() => (settled = true))
+    // Handled while the clock moves; the caller still awaits (and asserts on) `result`.
+    result.catch(() => {})
     await vi.advanceTimersByTimeAsync(ms)
     expect(settled).toBe(true)
     return result
