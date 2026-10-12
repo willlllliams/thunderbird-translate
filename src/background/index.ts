@@ -28,11 +28,10 @@ import { Dictionary } from "../offline/dictionary"
 import { fetchDictionaryIndex } from "../offline/dictionary/download"
 import { TranslationService } from "./service"
 import { openWelcomeOnInstall } from "./welcome"
-import { setUpE2e } from "../e2e/background"
-import { releaseFetch } from "../e2e/release"
+import { beforeSettingsRead } from "../hooks/background"
+import { releaseFetch } from "../hooks/servers"
 
 declare const __DEBUG__: boolean
-declare const __E2E__: boolean
 
 const uiLang = thunderbirdUiLanguage()
 let settings: Settings = readSettings(undefined)
@@ -57,7 +56,7 @@ function dictionaryCatalog(): Promise<Catalog> {
   const tag = settings.dictionary.releaseTag
   let catalog = dictionaryCatalogs.get(tag)
   if (!catalog) {
-    catalog = fetchDictionaryIndex(tag, __E2E__ ? releaseFetch : undefined).then(
+    catalog = fetchDictionaryIndex(tag, releaseFetch).then(
       (packs) => dictionaryCatalogsRead.set(tag, new Set(packs.map((p) => pairKey(p.src, p.tgt)))).get(tag)!,
       () => {
         setTimeout(() => dictionaryCatalogs.delete(tag), CATALOG_RETRY_MS)
@@ -107,10 +106,10 @@ function adoptSettings(stored: unknown): void {
 }
 
 // Test build (npm run e2e): settings and dictionary pack of the local mock server, before anything is translated.
-const e2eReady = __E2E__ ? setUpE2e({ storage, dictionary, runCommand }) : undefined
+const hookReady = beforeSettingsRead?.({ storage, dictionary, runCommand })
 
 const settingsReady = (async () => {
-  await e2eReady
+  await hookReady
   const stored = await storage.get(SETTINGS_KEY)
   adoptSettings(stored)
   // A fresh installation, or settings that reading migrated (earlier forms, copies of built-in prompts): store them in the current form.

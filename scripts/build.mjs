@@ -6,11 +6,13 @@ import * as esbuild from "esbuild"
 import { zipSync } from "fflate"
 import { checkLocales, readLocaleSources, writeLocales } from "./locales.mjs"
 import { BERGAMOT_WASM_FILE, ensureBergamotWasm } from "./fetch-bergamot.mjs"
+import { e2eHooks } from "./e2e-hooks.mjs"
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..")
 // --debug: content script starts translating on load and logs progress to the console.
 const debug = process.argv.includes("--debug")
-// --e2e <server>: test build for npm run e2e, with the hooks of src/e2e/ talking to the mock server; built into .cache/e2e/.
+// --e2e <server>: test build for npm run e2e, with the hooks of src/e2e/hooks/ in place of src/hooks/, talking to the mock server;
+// built into .cache/e2e/.
 const e2eIndex = process.argv.indexOf("--e2e")
 const e2eServer = e2eIndex === -1 ? "" : process.argv[e2eIndex + 1]
 if (e2eIndex !== -1 && !/^http:\/\/127\.0\.0\.1:\d+$/.test(e2eServer ?? "")) {
@@ -65,7 +67,8 @@ const options = {
   charset: "utf8",
   logLevel: "info",
   metafile: true,
-  define: { "process.env.NODE_ENV": '"production"', __DEBUG__: String(debug), __E2E__: String(e2e), __E2E_SERVER__: JSON.stringify(e2eServer) },
+  define: { "process.env.NODE_ENV": '"production"', __DEBUG__: String(debug), __E2E_SERVER__: JSON.stringify(e2eServer) },
+  plugins: e2e ? [e2eHooks(root)] : [],
 }
 // The background script is an ES module ("type": "module" in the manifest), so the packages of the AI SDK
 // become chunks that load with the first AI request. Content script, pages and worker stay classic scripts.
@@ -101,15 +104,21 @@ if (e2e && withHooks.length === 0) {
   console.error("e2e build without the e2e hooks")
   process.exit(1)
 }
-// Guard: no source file of src/e2e/ in the bundles of a regular build. metafile.inputs lists every file esbuild parsed,
-// also the hooks that the __E2E__ define then removes; the inputs of each output file list what went into it.
-const e2eSources = [...new Set(Object.values(result.metafile.outputs).flatMap((output) => Object.keys(output.inputs)))].filter((input) => input.startsWith("src/e2e/"))
+// Guard: a regular build parses no file of src/e2e/ (metafile.inputs lists every file esbuild read); the e2e build
+// reads src/e2e/hooks/ in place of every module of src/hooks/, so a module of src/hooks/ among its inputs was not replaced.
+const inputs = Object.keys(result.metafile.inputs)
+const e2eSources = inputs.filter((input) => input.startsWith("src/e2e/"))
 if (!e2e && e2eSources.length) {
   console.error("e2e sources in a regular build:", e2eSources)
   process.exit(1)
 }
 if (e2e && e2eSources.length === 0) {
   console.error("e2e build without the e2e sources")
+  process.exit(1)
+}
+const unreplaced = inputs.filter((input) => input.startsWith("src/hooks/"))
+if (e2e && unreplaced.length) {
+  console.error("hooks of src/hooks/ not replaced in the e2e build:", unreplaced)
   process.exit(1)
 }
 const jsOutputs = Object.entries(result.metafile.outputs).filter(([file]) => file.endsWith(".js"))

@@ -1,18 +1,23 @@
 // End-to-end test in a real Thunderbird: npm run e2e
 //
 // 1. Start the mock server (e2e/mock-server.mjs) and build the test xpi against it
-//    (scripts/build.mjs --e2e: the hooks of src/e2e/ preset the three tiers
-//    dictionary / Google / AI on the mock server and drive the content script).
+//    (scripts/build.mjs --e2e: the hooks of src/e2e/hooks/ take the place of
+//    src/hooks/, preset the three tiers dictionary / Google / AI on the mock
+//    server and follow the content script).
 // 2. For each fixture message, start a headless Thunderbird on a temporary profile
 //    with the xpi preinstalled and the message opened from the command line.
 // 3. The content script translates, switches to translation-only, restores the
 //    original, translates again from what it remembers and retranslates past every
 //    cache, then reports what it saw; this script checks the report together with
 //    the requests the mock server received.
-// 4. The "missing" run opens a message with the dictionary and Bergamot tiers and
+// 4. The "auto" run opens the HTML message with automatic translation on and the
+//    cache off: automatic translation translates every paragraph without the
+//    probe starting anything. The "auto-skip" run opens a Chinese message with
+//    Simplified Chinese as target language: nothing may be requested.
+// 5. The "missing" run opens a message with the dictionary and Bergamot tiers and
 //    nothing installed: the notice about missing offline data appears, is muted,
 //    stays away when translating again, and stays away with Google instead.
-// 5. Two Thunderbirds started without a message open the setup guide
+// 6. Two Thunderbirds started without a message open the setup guide
 //    (src/welcome/), where the probe of src/e2e/welcome.ts skips the tour of the
 //    tiers step and watches its demo (first run only), then clicks through to the
 //    offline step and downloads dictionary packs and Bergamot models from the
@@ -43,8 +48,14 @@ const CASES = [
   { name: "plain", eml: "plain.eml", paragraphs: 5 },
 ]
 
-/** The scenarios after the messages: the notice about missing offline data, the offline downloads of the setup guide. */
+/**
+ * The scenarios after the messages: automatic translation of a message and of a message already in the target
+ * language, the notice about missing offline data, the offline downloads of the setup guide.
+ */
 const SCENARIOS = [
+  { name: "auto", eml: "html.eml", scenario: "auto", paragraphs: 7 },
+  // Simplified Chinese except for one English line, which a started translation would request.
+  { name: "auto-skip", eml: "zh.eml", scenario: "auto-skip" },
   { name: "missing", eml: "html.eml", scenario: "missing", paragraphs: 7 },
   { name: "welcome", scenario: "welcome" },
   { name: "welcome-auto", scenario: "welcome-auto" },
@@ -148,6 +159,51 @@ function check(c, ready, report, calls) {
   for (const s of again?.shown ?? []) {
     expect(s.mode === "only" && s.mark === null && /^\[AI translation-only #\d+\] /.test(s.text), "retranslation shows something other than the new AI translation", s)
   }
+  return failures
+}
+
+/** Check the report of the "auto" run: automatic translation translated the message alone; returns the failures. */
+function checkAuto(c, ready, report, calls) {
+  const failures = []
+  const expect = (ok, message, detail) => {
+    if (!ok) failures.push(detail === undefined ? message : `${message}: ${JSON.stringify(detail)}`)
+  }
+  expect(!ready.error && ready.scenario === "auto", "setup of the auto scenario failed", ready)
+  if (report.error) return [...failures, `content script: ${report.error}`]
+  const translated = report.translated
+  expect(translated?.active === true, "the message is not translated", translated)
+  expect(translated?.state?.total === c.paragraphs && translated.state.done === c.paragraphs && translated.state.failed === 0, `expected ${c.paragraphs} translated paragraphs`, translated?.state)
+  expect(translated?.shown?.length === c.paragraphs, `expected ${c.paragraphs} translations on screen`, translated?.shown?.length)
+  for (const s of translated?.shown ?? []) {
+    expect(s.mode === "bilingual" && s.mark === null && s.text.startsWith("[AI bilingual] "), "final translation is not the AI translation", s)
+  }
+  // Every paragraph went through the three tiers in order: nothing came from the cache.
+  const byRequest = Map.groupBy(report.events, (e) => e.id)
+  expect(byRequest.size === c.paragraphs, `expected ${c.paragraphs} paragraph requests`, byRequest.size)
+  for (const [id, events] of byRequest) {
+    expect(JSON.stringify(events.map((e) => e.tier)) === JSON.stringify(TIER_ORDER) && events.every((e) => e.ok), `request ${id}: tiers arrived as ${events.map((e) => `${e.tier}:${e.ok}`).join(", ")}`)
+  }
+  expect(calls.some((x) => x.type === "google"), "Google was not requested")
+  const ai = calls.filter((x) => x.type === "ai")
+  expect(ai.length > 0 && ai.every((x) => x.mode === "bilingual"), "AI requests must use the bilingual prompt", ai)
+  expect(!calls.some((x) => x.type === "mark"), "a keyboard command was run", calls.filter((x) => x.type === "mark"))
+  return failures
+}
+
+/** Check the report of the "auto-skip" run: a message in the target language is left alone; returns the failures. */
+function checkAutoSkip(ready, report, calls) {
+  const failures = []
+  const expect = (ok, message, detail) => {
+    if (!ok) failures.push(detail === undefined ? message : `${message}: ${JSON.stringify(detail)}`)
+  }
+  expect(!ready.error && ready.scenario === "auto-skip", "setup of the auto-skip scenario failed", ready)
+  if (report.error) return [...failures, `content script: ${report.error}`]
+  const skipped = report.skipped
+  expect(skipped?.waitedMs >= 2000, "the probe did not wait for a translation that must not start", skipped)
+  expect(skipped?.active === false && skipped.shown === 0 && (skipped.state === null || skipped.state.total === 0), "the message in the target language was translated", skipped)
+  expect(report.events?.length === 0, "a paragraph was requested", report.events)
+  const requested = calls.filter((x) => x.type === "google" || x.type === "ai")
+  expect(requested.length === 0, "a service was requested", requested)
   return failures
 }
 
@@ -303,6 +359,14 @@ ${JSON.stringify(report, null, 2)}`)
           const progress = dictionary ? `progress of the pack ${dictionary.join(", ")} %, of the model ${bergamot?.join(", ")} %; ` : ""
           const demo = report.demo ? `demo replayed with the AI tier in ${report.demo.replayMs} ms; ` : ""
           console.log(`  ${c.name}: ${demo}${progress}stored ${JSON.stringify(report.downloaded?.bergamotRecords)}, then deleted; ${systemLanguages} ${JSON.stringify(report.systemLanguages)}`)
+        } else if (c.scenario === "auto") {
+          failures = checkAuto(c, ready, report, server.calls)
+          if (failures.length) failures.push(`report of the content script:\n${JSON.stringify(report, null, 2)}`)
+          console.log(`  ${c.name}: ${report.translated?.state?.done ?? "?"} of ${report.translated?.state?.total ?? "?"} paragraphs translated automatically; ${server.calls.filter((x) => x.type === "google").length} Google and ${server.calls.filter((x) => x.type === "ai").length} AI requests; ${systemLanguages}`)
+        } else if (c.scenario === "auto-skip") {
+          failures = checkAutoSkip(ready, report, server.calls)
+          if (failures.length) failures.push(`report of the content script:\n${JSON.stringify(report, null, 2)}`)
+          console.log(`  ${c.name}: after ${report.skipped?.waitedMs ?? "?"} ms ${report.events?.length ?? "?"} tier results, ${server.calls.filter((x) => x.type === "google" || x.type === "ai").length} requests; ${systemLanguages}`)
         } else if (c.scenario === "missing") {
           failures = checkMissing(c, ready, report, server.calls)
           if (failures.length) failures.push(`report of the content script:\n${JSON.stringify(report, null, 2)}`)

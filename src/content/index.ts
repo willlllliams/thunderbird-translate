@@ -4,6 +4,7 @@
  * script (see client.ts).
  */
 
+import { contentProbe } from "../hooks/content"
 import { connectContent } from "./client"
 
 declare global {
@@ -15,5 +16,6 @@ declare global {
 // Guard against double injection (registered script + executeScript).
 if (!window.__thunderbirdTranslateLoaded) {
   window.__thunderbirdTranslateLoaded = true
-  connectContent({ root: () => document.body, contentScript: true })
+  // Test build (npm run e2e): a probe follows the client and runs the scenario of the run.
+  connectContent({ root: () => document.body, contentScript: true, probe: contentProbe })
 }

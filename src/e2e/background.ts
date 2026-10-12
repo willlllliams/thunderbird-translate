@@ -1,7 +1,7 @@
 /**
- * End-to-end test hooks of the background script, compiled only into the
- * e2e build (scripts/build.mjs --e2e <server>; __E2E__ is false in every
- * other build, so esbuild drops this module).
+ * End-to-end test hook of the background script, compiled only into the e2e
+ * build (scripts/build.mjs --e2e <server> puts src/e2e/hooks/ in place of
+ * src/hooks/; src/e2e/hooks/background.ts hands setUpE2e() over).
  *
  * Before the background script reads its settings, the hook stores settings
  * whose three tiers point at the local mock server of e2e/ (dictionary,
@@ -11,6 +11,10 @@
  *
  * The scenario comes from GET /scenario:
  * - "message": the settings above; the content script's probe translates.
+ * - "auto", "auto-skip": the same with automatic translation on and the
+ *   cache off; the probe only watches automatic translation, which
+ *   translates every paragraph of the English message ("auto") and nothing
+ *   of a message in the target language ("auto-skip").
  * - "welcome", "welcome-auto": the two offline services (source language
  *   English, or detected automatically), every dictionary pack uninstalled,
  *   and the setup guide opened; its probe (src/e2e/welcome.ts) downloads.
@@ -125,7 +129,7 @@ export async function setUpE2e({ storage, dictionary, runCommand }: E2eDeps): Pr
     settings.sourceLang = scenario === "welcome" ? "en" : "auto"
     settings.targetLang = "zh-CN"
     settings.mode = "bilingual"
-    settings.autoTranslate = false
+    settings.autoTranslate = scenario.startsWith("auto")
     settings.precise.enabled = false
     settings.dictionary.releaseTag = DICT_TAG
     settings.tiers = { dictionary: "dictionary", machine: offline ? "bergamot" : "google-free", ai: offline ? null : "custom" }
@@ -133,8 +137,8 @@ export async function setUpE2e({ storage, dictionary, runCommand }: E2eDeps): Pr
     settings.providers.custom = { enabled: true, apiKey: "e2e-test-key", baseURL: `${__E2E_SERVER__}/v1`, model: "e2e-model" }
     settings.providers.dictionary = { ...settings.providers.dictionary, enabled: true }
     if (offline) settings.providers.bergamot = { ...settings.providers.bergamot, enabled: true }
-    // The earlier runs share the profile: Google has to answer this run itself, not the cache.
-    if (scenario === "missing") settings.cache.enabled = false
+    // The earlier runs share the profile: Google and the AI service have to answer this run themselves, not the cache.
+    if (scenario === "missing" || scenario.startsWith("auto")) settings.cache.enabled = false
     await storage.set(SETTINGS_KEY, settings)
     if (offline) await uninstallDictionary(dictionary)
     if (welcome) {

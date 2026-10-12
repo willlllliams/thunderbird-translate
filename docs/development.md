@@ -65,7 +65,7 @@ The unit tests live in `tests/` and run in Node with vitest; DOM tests use jsdom
 | Branches | 93% |
 | Functions | 96% |
 
-Two parts are excluded from coverage. `src/offline/bergamot/worker.ts` hands the real wasm module to `worker-core.ts`, which the unit tests cover with a stand-in. `src/e2e/**` holds the hooks of the e2e build and runs only in `npm run e2e`.
+Two parts are excluded from coverage. `src/offline/bergamot/worker.ts` hands the real wasm module to `worker-core.ts`, which the unit tests cover with a stand-in. `src/e2e/**` is the code of the e2e build, which puts it in place of the empty hooks of `src/hooks/`; it runs only in `npm run e2e`. `tests/hooks.test.ts` checks that every hook of `src/hooks/` is undefined and that `src/e2e/hooks/` defines the same hooks.
 
 The unit tests cover these areas:
 
@@ -90,12 +90,27 @@ The service tests run on the production path `translateForPage()`, with the tier
 
 ## End-to-end tests
 
-`npm run e2e` builds a test xpi (`scripts/build.mjs --e2e`) against a local mock server (`e2e/mock-server.mjs`). The hooks of `src/e2e/` preset the three tiers dictionary / Google / AI on the mock server and drive the content script. Every run starts its own headless Thunderbird on a temporary profile with the xpi preinstalled, and the runner stops only the processes it started.
+`npm run e2e` builds a test xpi (`scripts/build.mjs --e2e`) against a local mock server (`e2e/mock-server.mjs`). Every run starts its own headless Thunderbird on a temporary profile with the xpi preinstalled, and the runner stops only the processes it started.
+
+The production code reaches the test build through the hooks of `src/hooks/`, which are undefined. The test build replaces every module of `src/hooks/` with the module of the same name in `src/e2e/hooks/` (the esbuild plugin `scripts/e2e-hooks.mjs`):
+
+| Hook | Called by | In the test build |
+| --- | --- | --- |
+| `beforeSettingsRead` (`hooks/background.ts`) | the background script, before it reads its settings | stores the settings of the scenario (the three tiers dictionary / Google / AI on the mock server, or the offline services) and installs the dictionary pack |
+| `releaseFetch`, `bergamotServerUrl` (`hooks/servers.ts`) | the dictionary catalog, the dictionary list of the setup guide, the Bergamot model list | the mock server instead of GitHub and Mozilla Remote Settings |
+| `contentProbe` (`hooks/content.ts`) | the content client of a displayed message: its parts, every progress report, every message of the background script | runs the scenario of the run and reports what it saw |
+| `welcomeProbe` (`hooks/welcome.ts`) | the setup guide, once its first step is shown | walks through the tiers and offline steps |
+
+A hook is called as `hook?.(args)`, which does not evaluate `args` when the hook is undefined; its arguments are therefore values already computed or references to objects. The content client decides on automatic translation in the test build as in every other build; the probe only follows it.
+
+`scripts/build.mjs` checks both builds: the bundles of a regular build contain neither the marker string of the hooks nor any file of `src/e2e/` among the files esbuild read, and the test build contains the marker and reads no module of `src/hooks/`, which would mean that a module was not replaced.
 
 | Run | What it checks |
 | --- | --- |
 | `html` | paragraph detection in an HTML message, the order dictionary → Google → AI for every paragraph, provisional and final translations, the switch to translation-only (only the AI tier is asked again), restoring the original DOM, translating again from memory without any request, and Alt+R: every tier is asked again although everything is cached, and the new AI translation is shown |
 | `plain` | the same for a plain-text message with a quote |
+| `auto` | the HTML message with automatic translation on and the cache off: automatic translation translates every paragraph through the three tiers, without the probe starting anything |
+| `auto-skip` | a Simplified Chinese message with one English line, target language Simplified Chinese, automatic translation on: after 2.5 s nothing is translated and no service was requested |
 | `missing` | the dictionary and Bergamot tiers with nothing installed: the notice about missing offline data appears, is muted, stays away when translating again, and stays away with Google instead |
 | `welcome` | Thunderbird starts without a message and opens the setup guide; the test skips the tour of the tiers step, waits until the demo shows the machine translation, chooses an AI service and waits for the replayed demo to show the AI text; then, with English as source language, it goes to the offline step, downloads the ticked dictionary pack and Bergamot model from the mock server with progress, checks that both are stored and deletes them again |
 | `welcome-auto` | the same with automatic detection: the recommended directions are labelled and ticked, and the test downloads through "Download common languages" and "Download selected" |
@@ -125,10 +140,11 @@ src/
   popup/         popup
   options/       settings page and the parts the setup guide shares: translation style controls, service fields, dictionary and Bergamot lists, prompt editor, settings session
   welcome/       setup guide: steps and navigation, demo and tour of the tiers step
-  e2e/           hooks of the e2e test build (left out of every other build)
+  hooks/         hooks of the e2e test build, undefined in every other build
+  e2e/           code of the e2e test build: the defined hooks (e2e/hooks/) and the probes they run
 locales/         interface text, one JSON file per language; en.json is the reference
 static/          manifest.json, HTML, CSS, SVG icon
-scripts/         build, Bergamot engine download, locale generation and checks, Markdown link check, layer check of src/, live endpoint test
+scripts/         build and the hook plugin of the e2e build, Bergamot engine download, locale generation and checks, Markdown link check, layer check of src/, live endpoint test
 vendor/
   bergamot/      Bergamot engine glue script (bergamot-translator.js)
 tools/           dict-build: the pipeline that builds the dictionary packs
@@ -144,14 +160,16 @@ The directories under `src/` are layers. A file may import from its own director
 | Directory | May import from |
 | --- | --- |
 | `shared/` | npm packages and `locales/*.json` only |
-| `offline/` | `shared/` |
-| `background/` | `shared/`, `offline/` |
-| `content/`, `popup/` | `shared/` |
+| `hooks/` | types only (`import type`, `export type`), from `shared/`, `offline/`, `background/`, `content/`, `welcome/` |
+| `offline/` | `shared/`, `hooks/` |
+| `background/` | `shared/`, `offline/`, `hooks/` |
+| `content/` | `shared/`, `hooks/` |
+| `popup/` | `shared/` |
 | `options/` | `shared/`, `offline/`, `content/` (the style preview sets the same CSS variables as the translations in a message) |
-| `welcome/` | `shared/`, `offline/`, `content/`, `options/` |
+| `welcome/` | `shared/`, `offline/`, `content/`, `options/`, `hooks/` |
 | `e2e/` | every directory |
 
-No production file imports from `e2e/`, except the three that start the hooks of the test build: `background/index.ts`, `content/client.ts` and `welcome/index.ts`. `npm run imports:check` (`scripts/check-imports.mjs`) reads every `import`, `import type`, `export … from`, side-effect and dynamic import of `src/` and fails on an import across these boundaries; CI runs it after the link check.
+No production file imports from `e2e/`. `npm run imports:check` (`scripts/check-imports.mjs`) reads every `import`, `import type`, `export … from`, side-effect and dynamic import of `src/` and fails on an import across these boundaries; CI runs it after the link check.
 
 The design of paragraph detection, the batch queue, the prompts and the provider configuration follows [Read Frog](https://github.com/mengxi-ream/read-frog), a browser extension for translating web pages released under GPL-3.0. This project carries these ideas over to Thunderbird's message reader and adapts them to email, for example splitting plain-text mail at blank lines and joining hard-wrapped lines.
 

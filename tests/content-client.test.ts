@@ -3,7 +3,8 @@
 import { beforeEach, describe, expect, it, vi } from "vitest"
 import { connectContent } from "../src/content/client"
 import { ENGLISH, getI18n, I18n, setI18n } from "../src/shared/i18n"
-import type { BackgroundRequest } from "../src/shared/messages"
+import type { ContentProbeParts } from "../src/hooks/content"
+import type { BackgroundRequest, PortPush } from "../src/shared/messages"
 import type { PublicSettings } from "../src/shared/settings"
 import { pagePort } from "./fixtures/browser"
 import { publicSettings, tieredSettings } from "./fixtures/content"
@@ -131,6 +132,33 @@ describe("connectContent", () => {
     sendMessage.mockRejectedValueOnce(new Error("gone"))
     Array.from(document.querySelectorAll<HTMLButtonElement>(".tt-notice button")).find((b) => b.textContent === ENGLISH.t("noticeOpenSettings"))!.click()
     expect(sendMessage).toHaveBeenLastCalledWith({ type: "openOptions", place: { section: "dictionaries", dictionaries: ["en>zh-Hans"], bergamot: [] } })
+  })
+
+  it("hands its parts, every progress report and every handled message to a probe, and still decides on auto-translation itself", async () => {
+    sendMessage.mockResolvedValue({ locale: "en", messages: {} })
+    const seen: string[] = []
+    const probe = {
+      attach: vi.fn((_parts: ContentProbeParts) => {}),
+      state: vi.fn((state: { active: boolean }) => void seen.push(`state ${state.active}`)),
+      // A message reaches the probe after the client handled it: a tier result is on screen already.
+      push: vi.fn((msg: PortPush) => void seen.push(msg.type === "tier" ? `tier ${document.querySelector(".tt-translation")?.textContent}` : msg.type)),
+    }
+    const root = () => document.body
+    const client = connectContent({ root, contentScript: true, probe })
+    expect(probe.attach).toHaveBeenCalledTimes(1)
+    const [parts] = probe.attach.mock.calls[0]
+    expect(parts).toMatchObject({ contentScript: true, root, controller: client.controller, ready: client.ready })
+    expect(parts.notice).toBeDefined()
+    settingsPush(publicSettings({ autoTranslate: true }))
+    await client.ready
+    await vi.waitFor(() => expect(port.posted("translate")).toHaveLength(1))
+    const [{ id }] = port.posted("translate")
+    port.push({ type: "tier", id, tier: "machine", result: { ok: true, text: "大家早上好" } })
+    port.push({ type: "done", id })
+    await vi.waitFor(() => expect(lastState()).toMatchObject({ done: 1 }))
+    expect(seen.filter((s) => !s.startsWith("state"))).toEqual(["settings", "tier 大家早上好", "done"])
+    expect(seen).toContain("state true")
+    expect(probe.state.mock.calls.map(([state]) => state)).toEqual(port.posted("state").map((report) => report.state))
   })
 
   it("extension pages: no notice", async () => {

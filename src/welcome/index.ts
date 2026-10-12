@@ -26,14 +26,12 @@ import { PromptEditor } from "../options/prompt-editor"
 import { type PanelState, providerConfig, providerFields, providerTitle, testButton, testResult } from "../options/provider-panel"
 import { SettingsSession } from "../options/session"
 import { mountStyleControls } from "../options/style-controls"
-import { WELCOME_PROBE_PARAM } from "../e2e/marker"
-import { runWelcomeProbe } from "../e2e/welcome"
-import { releaseFetch } from "../e2e/release"
+import { releaseFetch } from "../hooks/servers"
+import { welcomeProbe } from "../hooks/welcome"
 import { TierDemo, TierTour } from "./demo"
 import { neighbourStep, resumeStep, STEP_IDS, STEP_TITLE_KEYS, type StepId, stepNeeded, TRY_MAIL, trialLanguage, WELCOME_KEY, type WelcomeState } from "./steps"
 
 declare const __DEBUG__: boolean
-declare const __E2E__: boolean
 
 let session: SettingsSession
 let settings: Settings
@@ -329,7 +327,7 @@ async function main(): Promise<void> {
     status: $("dictStatus"),
     common: $("dictCommon"),
     filter: $<HTMLInputElement>("dictFilter"),
-    fetchFn: __E2E__ ? releaseFetch : undefined,
+    fetchFn: releaseFetch,
   })
   bergamot = new BergamotSection({
     ...lists,
@@ -418,11 +416,8 @@ async function main(): Promise<void> {
   applyLanguage()
   await go(step, false)
   if (__DEBUG__) console.info("[thunderbird-translate] welcome page open at step", step)
-  // Test build (npm run e2e): the background script opens the page with ?e2e=<scenario> to have the offline step walked through.
-  if (__E2E__) {
-    const scenario = new URLSearchParams(location.search).get(WELCOME_PROBE_PARAM)
-    if (scenario) void runWelcomeProbe(scenario)
-  }
+  // Test build (npm run e2e): the background script opens the page for a scenario to have the offline step walked through.
+  welcomeProbe?.()
 }
 
 void main()

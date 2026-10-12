@@ -11,17 +11,18 @@ import { browserDetector } from "../shared/lang-detect"
 import type { UiLanguageSetting } from "../shared/locales"
 import { CONTENT_PORT_NAME, isPortPush, type LocaleMessages, type PortReport, send, type TranslateResponse } from "../shared/messages"
 import type { Tier } from "../shared/providers"
+import type { ContentProbe } from "../hooks/content"
 import { TranslationController } from "./controller"
 import { MissingNotice } from "./notice"
-import { createE2eProbe } from "../e2e/content"
 
 declare const __DEBUG__: boolean
-declare const __E2E__: boolean
 
 export interface ClientOptions {
   root: () => HTMLElement | null
   /** Content script: load the labels of the interface language through the background, decide on auto-translation and show the notice about missing offline data. Extension pages load their labels themselves. */
   contentScript?: boolean
+  /** Follows the client (test build, see hooks/content.ts). */
+  probe?: ContentProbe
 }
 
 export interface ContentClient {
@@ -40,7 +41,7 @@ async function loadLabels(uiLanguage: UiLanguageSetting): Promise<void> {
   }
 }
 
-export function connectContent({ root, contentScript = false }: ClientOptions): ContentClient {
+export function connectContent({ root, contentScript = false, probe }: ClientOptions): ContentClient {
   const port = ext.runtime.connect({ name: CONTENT_PORT_NAME })
   const post = (msg: PortReport) => port.postMessage(msg)
 
@@ -72,7 +73,7 @@ export function connectContent({ root, contentScript = false }: ClientOptions): 
         const first = root()?.querySelector(".tt-translation")?.textContent ?? ""
         console.info("[thunderbird-translate] state", JSON.stringify(state), first.slice(0, 80))
       }
-      if (__E2E__) probe?.state(state)
+      probe?.state(state)
       try {
         post({ type: "state", state })
       } catch {
@@ -81,11 +82,9 @@ export function connectContent({ root, contentScript = false }: ClientOptions): 
     },
   })
 
-  // Test build (npm run e2e): runs the end-to-end scenario on the displayed message instead of auto-translation.
-  const probe = __E2E__ && contentScript ? createE2eProbe(root, controller, notice) : null
-
   let markReady!: () => void
   const ready = new Promise<void>((resolve) => (markReady = resolve))
+  probe?.attach({ contentScript, root, controller, notice, ready })
   let firstSettings = true
   let uiLanguage: UiLanguageSetting | null = null
   // Settings are applied in the order they arrive, each once its labels are loaded.
@@ -95,7 +94,6 @@ export function connectContent({ root, contentScript = false }: ClientOptions): 
     if (msg.type === "settings") {
       const next = msg.settings
       mutedPairs = next.offlineMutedPairs
-      if (__E2E__) probe?.settings(next)
       settingsApplied = settingsApplied.then(async () => {
         if (contentScript && next.uiLanguage !== uiLanguage) {
           uiLanguage = next.uiLanguage
@@ -105,8 +103,7 @@ export function connectContent({ root, contentScript = false }: ClientOptions): 
         if (!firstSettings) return
         firstSettings = false
         markReady()
-        if (__E2E__ && probe) void probe.run()
-        else if (contentScript) void (__DEBUG__ ? controller.start() : controller.maybeAutoStart())
+        if (contentScript) void (__DEBUG__ ? controller.start() : controller.maybeAutoStart())
       })
     } else if (msg.type === "toggle") {
       void controller.toggle()
@@ -118,11 +115,11 @@ export function connectContent({ root, contentScript = false }: ClientOptions): 
       const request = pending.get(msg.id)
       request?.tiers.delete(msg.tier)
       request?.onTier(msg.tier, msg.result)
-      if (__E2E__) probe?.tier(msg.id, msg.tier, msg.result)
     } else if (msg.type === "done") {
       pending.get(msg.id)?.resolve()
       pending.delete(msg.id)
     }
+    probe?.push(msg)
   })
   // The background went away (extension reloaded): settle what is still waiting.
   port.onDisconnect.addListener(() => {
