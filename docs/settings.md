@@ -42,6 +42,8 @@ Code, paragraphs already in the target language, numbers, bare links and whitesp
 
 Open the settings page with the "Options" button of this extension in the Add-ons Manager. Settings are saved automatically. "Saved" appears in the top right corner once they are written. When a save fails, the error appears in its place and the change goes with the next save. The "Setup guide" button next to it opens the setup guide.
 
+Resting the mouse on any control of the settings page, the popup or the setup guide shows one short sentence about what it is or what it does; the buttons of the notice above a message have one too.
+
 | Section | Contents |
 | --- | --- |
 | General | Interface language, source language, target language, default display mode, the switch "Automatically translate messages not in the target language" |

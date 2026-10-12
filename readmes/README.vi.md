@@ -65,7 +65,7 @@ Có thể đổi các phím tắt trong mục "Quản lý phím tắt tiện íc
 
 Chế độ song ngữ đặt mỗi bản dịch dưới đoạn gốc của nó. Chế độ chỉ bản dịch thay thế đoạn gốc; di chuột lên bản dịch để xem văn bản gốc.
 
-Mọi cài đặt khác nằm trên trang cài đặt: nút "Tùy chọn" của tiện ích trong Trình quản lý tiện ích. Thay đổi được lưu tự động. Từng cài đặt được mô tả trong [docs/settings.md](../docs/settings.md) (tiếng Anh).
+Mọi cài đặt khác nằm trên trang cài đặt: nút "Tùy chọn" của tiện ích trong Trình quản lý tiện ích. Thay đổi được lưu tự động, và khi rê chuột lên một điều khiển sẽ hiện chú thích về chức năng của nó. Từng cài đặt được mô tả trong [docs/settings.md](../docs/settings.md) (tiếng Anh).
 
 ## Các tầng dịch
 

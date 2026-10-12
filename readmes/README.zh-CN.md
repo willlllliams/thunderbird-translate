@@ -65,7 +65,7 @@ Thunderbird 邮件翻译（Thunderbird Translate）是一个 Thunderbird 扩展�
 
 双语对照把译文放在对应原文段落的下方。仅译文用译文替换原文，鼠标悬停在译文上可以查看原文。
 
-其余设置都在设置页：在附加组件管理器中点击本扩展的“选项”打开。改动自动保存。全部设置项的说明见 [docs/settings.md](../docs/settings.md)（英文）。
+其余设置都在设置页：在附加组件管理器中点击本扩展的“选项”打开。改动自动保存，鼠标悬停在任一控件上即可看到说明。全部设置项的说明见 [docs/settings.md](../docs/settings.md)（英文）。
 
 ## 三层翻译
 

@@ -65,7 +65,7 @@ The shortcuts can be changed under "Manage Extension Shortcuts" in the gear menu
 
 Bilingual mode puts each translation under its original paragraph. Translation-only mode replaces the original; hover over a translation to see the original text.
 
-All other settings are on the settings page: the "Options" button of the extension in the Add-ons Manager. Changes are saved automatically. Every setting is described in [docs/settings.md](docs/settings.md).
+All other settings are on the settings page: the "Options" button of the extension in the Add-ons Manager. Changes are saved automatically, and hovering over a control shows what it does. Every setting is described in [docs/settings.md](docs/settings.md).
 
 ## Translation tiers
 

@@ -84,6 +84,7 @@ The unit tests cover these areas:
 - precise translation: single request, analysis with batches, failed analysis, cache keys and batches per message, identical prompt prefix with Anthropic cache control;
 - the setup guide: opening only on a new installation, step navigation with skipped steps and resuming, saving of every step, recommended dictionary packs and Bergamot directions and their download, service configuration and connection test, presets on the prompts, the trial translation through the content script modules;
 - the prompt presets: variants by target language, composition with each of the three prompts, replacement of the same preset, batch parsing with all four presets applied to one prompt in both answer formats;
+- the hover texts: every control of the popup, the settings page, the setup guide and the notice above a message has one, also after a change of the interface language, and each is at most 60 characters in English;
 - localization: identical key sets and placeholders in all languages, every `__MSG_*__` reference in the manifest, mapping of Thunderbird languages to supported languages, fallback to English for missing keys, and the absence of hard-coded interface text in the HTML pages and sources.
 
 The service tests run on the production path `translateForPage()`, with the tiers side by side on separate request queues.

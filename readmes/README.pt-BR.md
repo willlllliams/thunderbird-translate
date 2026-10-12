@@ -65,7 +65,7 @@ Os atalhos podem ser alterados em "Gerenciar atalhos de extensões", no menu de 
 
 O modo bilíngue coloca cada tradução abaixo do parágrafo original. O modo só tradução substitui o original; passe o mouse sobre uma tradução para ver o texto original.
 
-Todas as outras configurações ficam na página de configurações: o botão "Opções" da extensão no Gerenciador de extensões. As alterações são salvas automaticamente. Cada configuração é descrita em [docs/settings.md](../docs/settings.md) (em inglês).
+Todas as outras configurações ficam na página de configurações: o botão "Opções" da extensão no Gerenciador de extensões. As alterações são salvas automaticamente, e passar o mouse sobre um controle mostra o que ele faz. Cada configuração é descrita em [docs/settings.md](../docs/settings.md) (em inglês).
 
 ## Níveis de tradução
 

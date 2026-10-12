@@ -65,7 +65,7 @@ Die Tastenkombinationen lassen sich im Zahnradmenü der Add-ons-Verwaltung unter
 
 Der zweisprachige Modus setzt jede Übersetzung unter ihren Originalabsatz. Der Modus „Nur Übersetzung“ ersetzt das Original; fährt man mit der Maus über eine Übersetzung, erscheint der Originaltext.
 
-Alle weiteren Einstellungen liegen auf der Einstellungsseite, die sich über die Schaltfläche „Einstellungen“ der Erweiterung in der Add-ons-Verwaltung öffnet. Änderungen werden automatisch gespeichert. Jede Einstellung ist in [docs/settings.md](../docs/settings.md) (auf Englisch) beschrieben.
+Alle weiteren Einstellungen liegen auf der Einstellungsseite, die sich über die Schaltfläche „Einstellungen“ der Erweiterung in der Add-ons-Verwaltung öffnet. Änderungen werden automatisch gespeichert, und beim Zeigen mit der Maus auf ein Bedienelement erscheint, was es tut. Jede Einstellung ist in [docs/settings.md](../docs/settings.md) (auf Englisch) beschrieben.
 
 ## Übersetzungsstufen
 

@@ -65,7 +65,7 @@ Les raccourcis se modifient via « Gérer les raccourcis d’extensions » dans 
 
 Le mode bilingue place chaque traduction sous son paragraphe original. Le mode traduction seule remplace l’original ; survolez une traduction pour voir le texte original.
 
-Tous les autres paramètres se trouvent sur la page de paramètres : le bouton « Options » de l’extension dans le gestionnaire de modules complémentaires. Les modifications sont enregistrées automatiquement. Chaque paramètre est décrit dans [docs/settings.md](../docs/settings.md) (en anglais).
+Tous les autres paramètres se trouvent sur la page de paramètres : le bouton « Options » de l’extension dans le gestionnaire de modules complémentaires. Les modifications sont enregistrées automatiquement, et le survol d’un contrôle affiche ce qu’il fait. Chaque paramètre est décrit dans [docs/settings.md](../docs/settings.md) (en anglais).
 
 ## Niveaux de traduction
 

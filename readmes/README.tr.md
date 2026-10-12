@@ -65,7 +65,7 @@ Kısayollar, Eklenti yöneticisinin dişli menüsündeki "Eklenti kısayolların
 
 İki dilli modda her çeviri kendi özgün paragrafının altına konur. Yalnızca çeviri modunda çeviri özgün metnin yerini alır; özgün metni görmek için çevirinin üzerine gelin.
 
-Diğer tüm ayarlar, Eklenti yöneticisinde eklentinin "Seçenekler" düğmesiyle açılan ayarlar sayfasındadır. Değişiklikler otomatik kaydedilir. Her ayar [docs/settings.md](../docs/settings.md) dosyasında (İngilizce) açıklanmıştır.
+Diğer tüm ayarlar, Eklenti yöneticisinde eklentinin "Seçenekler" düğmesiyle açılan ayarlar sayfasındadır. Değişiklikler otomatik kaydedilir; fareyle bir denetimin üzerine gelindiğinde ne işe yaradığı görünür. Her ayar [docs/settings.md](../docs/settings.md) dosyasında (İngilizce) açıklanmıştır.
 
 ## Çeviri kademeleri
 

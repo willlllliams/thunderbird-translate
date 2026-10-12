@@ -65,7 +65,7 @@ Los atajos se pueden cambiar en "Administrar atajos de teclado de extensiones", 
 
 El modo bilingüe coloca cada traducción debajo de su párrafo original. El modo solo traducción sustituye el original; al pasar el ratón sobre una traducción se ve el texto original.
 
-El resto de la configuración está en la página de configuración: el botón "Opciones" de la extensión en el Administrador de complementos. Los cambios se guardan automáticamente. Cada ajuste se describe en [docs/settings.md](../docs/settings.md) (en inglés).
+El resto de la configuración está en la página de configuración: el botón "Opciones" de la extensión en el Administrador de complementos. Los cambios se guardan automáticamente, y al pasar el ratón sobre un control se muestra para qué sirve. Cada ajuste se describe en [docs/settings.md](../docs/settings.md) (en inglés).
 
 ## Niveles de traducción
 
