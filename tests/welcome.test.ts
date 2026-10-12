@@ -9,7 +9,7 @@ import { DEFAULT_PROMPTS } from "../src/shared/prompts"
 import { createDefaultSettings, type Settings, toPublicSettings } from "../src/shared/settings"
 import { neighbourStep, resumeStep, stepNeeded, trialLanguage, WELCOME_KEY } from "../src/welcome/steps"
 import { readLocaleSources } from "../scripts/locales.mjs"
-import { fakePort } from "./fixtures/content"
+import { pagePort, stubBrowser } from "./fixtures/browser"
 import { jsonResponse, openPage } from "./helpers"
 
 afterEach(() => {
@@ -20,11 +20,10 @@ const tiers = (t: Partial<Settings["tiers"]>) => ({ tiers: { dictionary: null, m
 
 describe("installation", () => {
   async function stubTabs() {
-    const create = vi.fn(async () => ({}))
-    vi.stubGlobal("browser", { tabs: { create }, runtime: { getURL: (p: string) => `moz-extension://test/${p}` } })
+    const { api } = stubBrowser()
     vi.resetModules()
     const { openWelcomeOnInstall } = await import("../src/background/welcome")
-    return { create, openWelcomeOnInstall }
+    return { create: api.tabs.create, openWelcomeOnInstall }
   }
 
   it("opens the welcome page after a new installation", async () => {
@@ -34,25 +33,15 @@ describe("installation", () => {
   })
 
   it("is registered by the background script", async () => {
-    const listeners: ((details: { reason: string }) => void)[] = []
-    const create = vi.fn(async () => ({}))
-    const event = () => ({ addListener: () => {} })
-    vi.stubGlobal("browser", {
-      runtime: { getURL: (p: string) => `moz-extension://test/${p}`, onInstalled: { addListener: (l: (d: { reason: string }) => void) => listeners.push(l) }, onConnect: event(), onMessage: event() },
-      storage: { local: { get: async () => ({}), set: async () => {}, remove: async () => {} }, onChanged: event() },
-      tabs: { create, query: async () => [] },
-      commands: { onCommand: event() },
-      i18n: { getUILanguage: () => "en" },
-      messageDisplayAction: { setTitle: async () => {}, setBadgeText: async () => {}, setBadgeBackgroundColor: async () => {} },
-      messageDisplayScripts: { register: async () => ({}) },
-    })
+    const { api, events } = stubBrowser({ uiLanguage: "en" })
+    const { listeners } = events.installed
     vi.resetModules()
     await import("../src/background/index")
     expect(listeners).toHaveLength(1)
     listeners[0]({ reason: "update" })
-    expect(create).not.toHaveBeenCalled()
+    expect(api.tabs.create).not.toHaveBeenCalled()
     listeners[0]({ reason: "install" })
-    expect(create).toHaveBeenCalledWith({ url: "moz-extension://test/welcome.html" })
+    expect(api.tabs.create).toHaveBeenCalledWith({ url: "moz-extension://test/welcome.html" })
   })
 
   it("does not open it after an update of the extension or of Thunderbird", async () => {
@@ -476,7 +465,7 @@ describe("welcome page", () => {
 
   /** The background script's end of the content script Port: answers every paragraph with "[zh] <text>". */
   function answeringPort() {
-    const port = fakePort()
+    const port = pagePort()
     port.postMessage.mockImplementation((m: PortReport) => {
       if (m.type !== "translate") return
       queueMicrotask(() => {

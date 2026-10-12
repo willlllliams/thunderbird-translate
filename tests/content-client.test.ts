@@ -5,7 +5,8 @@ import { connectContent } from "../src/content/client"
 import { ENGLISH, getI18n, I18n, setI18n } from "../src/shared/i18n"
 import type { BackgroundRequest } from "../src/shared/messages"
 import type { PublicSettings } from "../src/shared/settings"
-import { fakePort, publicSettings, tieredSettings } from "./fixtures/content"
+import { pagePort } from "./fixtures/browser"
+import { publicSettings, tieredSettings } from "./fixtures/content"
 
 // ext.ts reads the global namespace when it is first imported.
 const stub = vi.hoisted(() => {
@@ -17,12 +18,12 @@ const stub = vi.hoisted(() => {
   return s
 })
 
-let port: ReturnType<typeof fakePort>
+let port: ReturnType<typeof pagePort>
 const connect = vi.fn((_info: { name: string }) => port)
 const sendMessage = vi.fn(async (_req: BackgroundRequest): Promise<unknown> => undefined)
 
 beforeEach(() => {
-  port = fakePort()
+  port = pagePort()
   connect.mockClear()
   sendMessage.mockReset()
   stub.runtime.connect = connect

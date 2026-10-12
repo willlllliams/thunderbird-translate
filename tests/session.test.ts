@@ -2,6 +2,7 @@
 /** SettingsSession: saving the edits of a page, failed saves, and changes made elsewhere while the page edits or saves. */
 import { afterEach, describe, expect, it, vi } from "vitest"
 import { createDefaultSettings, type Settings, SETTINGS_KEY } from "../src/shared/settings"
+import { stubBrowser } from "./fixtures/browser"
 
 afterEach(() => {
   vi.resetModules()
@@ -10,42 +11,22 @@ afterEach(() => {
 
 /** A session over a fake storage.local. `refuse` makes writes fail; `hold` keeps writes from reporting back until the returned function is called. */
 async function open(settings: Settings = createDefaultSettings("en")) {
-  let stored = structuredClone(settings)
-  const listeners: ((changes: object, area: string) => void)[] = []
-  const notify = () => listeners.forEach((l) => l({ [SETTINGS_KEY]: { newValue: structuredClone(stored) } }, "local"))
-  let refuse = false
-  let gate: Promise<void> | null = null
-  const set = vi.fn(async (v: Record<string, unknown>) => {
-    if (refuse) throw new Error("quota exceeded")
-    stored = structuredClone(v[SETTINGS_KEY] as Settings)
-    notify()
-    // The change event goes out before the write reports back.
-    if (gate) await gate
-  })
-  vi.stubGlobal("browser", {
-    storage: { local: { get: async () => ({ [SETTINGS_KEY]: structuredClone(stored) }), set }, onChanged: { addListener: (l: (typeof listeners)[number]) => listeners.push(l) } },
-    i18n: { getUILanguage: () => "en" },
-  })
+  // The change event of a write goes out before the write reports back.
+  const { local } = stubBrowser({ stored: { [SETTINGS_KEY]: settings }, uiLanguage: "en", storage: { changeBeforeWriteEnds: true } })
   vi.resetModules()
   const { SettingsSession } = await import("../src/options/session")
   const session = await SettingsSession.open()
+  const stored = () => local.data[SETTINGS_KEY] as Settings
   return {
     session,
-    set,
-    stored: () => stored,
-    refuse: (value: boolean) => (refuse = value),
-    hold() {
-      let release!: () => void
-      gate = new Promise<void>((r) => (release = r))
-      return () => {
-        gate = null
-        release()
-      }
-    },
+    set: local.set,
+    stored,
+    refuse: (value: boolean) => local.failWrites(value && new Error("quota exceeded")),
+    hold: local.hold,
     /** Another page writes the settings. */
     external(change: (s: Settings) => void) {
-      change(stored)
-      notify()
+      change(stored())
+      local.announce(SETTINGS_KEY)
     },
   }
 }

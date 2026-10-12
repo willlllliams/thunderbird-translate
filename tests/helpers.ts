@@ -3,12 +3,12 @@ import { createHash } from "node:crypto"
 import { readFileSync } from "node:fs"
 import { join } from "node:path"
 import { vi } from "vitest"
-import { readLocaleSources, toMessagesJson } from "../scripts/locales.mjs"
 import { type KeyValueStorage, PersistentCache } from "../src/background/cache"
 import { type ServiceDeps, TranslationService } from "../src/background/service"
 import type { BackgroundRequest, TranslateRequest, TranslateResponse } from "../src/shared/messages"
 import { getPreset, tierOf } from "../src/shared/providers"
 import type { Settings } from "../src/shared/settings"
+import { packagedFetch } from "./fixtures/locales"
 
 /** Hex SHA-256, as in dict-index.json and the Bergamot model records. */
 export const sha256Hex = (data: Uint8Array) => createHash("sha256").update(data).digest("hex")
@@ -90,8 +90,6 @@ export async function translateOne(service: TranslationService, { providerId, ..
   return result.text
 }
 
-const localeSources = readLocaleSources()
-
 /**
  * Load the popup, the settings page or the welcome page and run its script
  * with a fake extension API holding `settings` (and `stored`, other
@@ -169,13 +167,7 @@ export async function openPage(
     i18n: { getUILanguage: () => uiLanguage, ...(systemLanguages ? { getPreferredSystemLanguages: async () => systemLanguages } : {}) },
   })
   vi.stubGlobal("close", close)
-  // _locales/<locale>/messages.json packaged with the extension.
-  vi.stubGlobal("fetch", async (url: string) => {
-    const locale = localeSources[url.split("/").at(-2)!]
-    if (locale) return new Response(JSON.stringify(toMessagesJson(locale)))
-    if (fetchUrl) return fetchUrl(url)
-    throw new TypeError("NetworkError when attempting to fetch resource.")
-  })
+  vi.stubGlobal("fetch", packagedFetch(fetchUrl))
   const modules = { popup: () => import("../src/popup/index"), options: () => import("../src/options/index"), welcome: () => import("../src/welcome/index") }
   // Modules that the test file imported before the stub (shared/ext.ts reads the global once) are loaded again over it.
   vi.resetModules()

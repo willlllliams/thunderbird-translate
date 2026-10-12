@@ -1,6 +1,6 @@
 /** Test doubles for the content side: public settings and translate() stand-ins for the TranslationController. */
 import { vi } from "vitest"
-import type { PortPush, PortReport, TranslateRequest, TranslateResponse } from "../../src/shared/messages"
+import type { TranslateRequest, TranslateResponse } from "../../src/shared/messages"
 import type { Tier } from "../../src/shared/providers"
 import type { PublicSettings } from "../../src/shared/settings"
 
@@ -42,21 +42,5 @@ export function manualTranslate() {
     translate,
     answer: (text: string, tier: Tier, result: TranslateResponse) => waiting.get(text)!.onTier(tier, result),
     done: (text: string) => waiting.get(text)!.done(),
-  }
-}
-
-/** runtime.Port stand-in: `push` delivers a message from the background, `posted` lists what the page sent. */
-export function fakePort() {
-  const onMessage: ((msg: unknown) => void)[] = []
-  const onDisconnect: (() => void)[] = []
-  const postMessage = vi.fn((_msg: PortReport) => {})
-  return {
-    postMessage,
-    onMessage: { addListener: (l: (msg: unknown) => void) => void onMessage.push(l) },
-    onDisconnect: { addListener: (l: () => void) => void onDisconnect.push(l) },
-    push: (msg: PortPush) => onMessage.forEach((l) => l(msg)),
-    disconnect: () => onDisconnect.forEach((l) => l()),
-    posted: <T extends PortReport["type"]>(type: T) =>
-      postMessage.mock.calls.map(([msg]) => msg).filter((msg): msg is Extract<PortReport, { type: T }> => msg.type === type),
   }
 }

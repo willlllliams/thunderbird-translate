@@ -27,6 +27,7 @@ import {
 import { getLanguage, LANGUAGES } from "../src/shared/languages"
 import { PROVIDER_PRESETS, providerDisplayName } from "../src/shared/providers"
 import { defaultTargetLang, normalizeSettings } from "../src/shared/settings"
+import { packagedFetch } from "./fixtures/locales"
 
 const root = join(__dirname, "..")
 const sources = readLocaleSources()
@@ -462,16 +463,13 @@ describe("extension glue", () => {
 
   async function glue(getUILanguage: () => string, fetchImpl: (url: string) => Promise<Response>) {
     vi.stubGlobal("browser", { i18n: { getUILanguage }, runtime: { getURL: (p: string) => `moz-extension://test/${p}` } })
-    vi.stubGlobal("fetch", vi.fn(fetchImpl))
+    vi.stubGlobal("fetch", fetchImpl)
     vi.resetModules()
     return { ext: await import("../src/shared/i18n-ext"), i18n: await import("../src/shared/i18n") }
   }
 
   it("loads the packaged messages of Thunderbird's language and makes them current", async () => {
-    const { ext, i18n } = await glue(
-      () => "zh-TW",
-      async (url) => new Response(JSON.stringify(toMessagesJson(sources[url.split("/").at(-2)!]))),
-    )
+    const { ext, i18n } = await glue(() => "zh-TW", packagedFetch())
     expect(ext.thunderbirdUiLanguage()).toBe("zh-TW")
     const loaded = await ext.loadExtensionI18n("auto")
     expect(loaded.locale).toBe("zh_TW")
@@ -485,7 +483,7 @@ describe("extension glue", () => {
       () => {
         throw new Error("not available")
       },
-      async () => new Response("", { status: 404 }),
+      vi.fn(async () => new Response("", { status: 404 })),
     )
     expect(ext.thunderbirdUiLanguage()).toBe("en")
     await expect(ext.fetchPackagedMessages("de")).rejects.toThrow("HTTP 404")

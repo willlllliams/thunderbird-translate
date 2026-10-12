@@ -2,6 +2,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest"
 import { createDefaultSettings, type Settings, SETTINGS_KEY } from "../src/shared/settings"
 import { mergeChanges } from "../src/shared/settings-store"
+import { stubBrowser } from "./fixtures/browser"
 
 afterEach(() => {
   vi.resetModules()
@@ -9,15 +10,10 @@ afterEach(() => {
 
 /** The store module over a fake storage.local holding `stored`. */
 async function store(stored: unknown, uiLanguage = "en-US") {
-  const area: Record<string, unknown> = { [SETTINGS_KEY]: structuredClone(stored) }
-  const set = vi.fn(async (v: Record<string, unknown>) => void Object.assign(area, structuredClone(v)))
-  vi.stubGlobal("browser", {
-    storage: { local: { get: async (key: string) => ({ [key]: structuredClone(area[key]) }), set } },
-    i18n: { getUILanguage: () => uiLanguage },
-  })
+  const { local } = stubBrowser({ stored: { [SETTINGS_KEY]: stored }, uiLanguage })
   vi.resetModules()
   const mod = await import("../src/shared/settings-store")
-  return { ...mod, set, stored: () => area[SETTINGS_KEY] as Settings }
+  return { ...mod, set: local.set, stored: () => local.data[SETTINGS_KEY] as Settings }
 }
 
 describe("mergeChanges", () => {
