@@ -2,6 +2,12 @@
 
 All notable changes to this project are documented in this file. Versions follow [Semantic Versioning](https://semver.org/).
 
+## 1.10.0
+
+### Changed
+
+- The extension behaves as in 1.9.1. Internally the source is split into layers that `npm run imports:check` keeps apart in CI, one function decides what goes into the cache key of a translation, the requests to the background script are typed from one table, and the unit tests run on simulated time instead of waiting.
+
 ## 1.9.1
 
 ### Fixed
