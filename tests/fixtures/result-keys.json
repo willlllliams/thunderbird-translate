@@ -1,0 +1,782 @@
+{
+  "base": {
+    "none": {
+      "dictionary": [
+        "dictionary||en>zh-CN|9mcjsho4a595fj8ur1k86|yekku5o2mwcus9iex3v5b",
+        "dictionary||en|zh-CN|9mcjsho4a595fj8ur1k86"
+      ],
+      "machine": [
+        "microsoft-free||en>zh-CN|26fgczb768y1fvnu7sj211p|yekku5o2mwcus9iex3v5b",
+        "microsoft-free||en|zh-CN|26fgczb768y1fvnu7sj211p"
+      ],
+      "ai": [
+        "openai|gpt-4.1-mini|en>zh-CN|27nyh5ecmg31gxkgx670rooj|yekku5o2mwcus9iex3v5b",
+        "openai|gpt-4.1-mini|en|zh-CN|27nyh5ecmg31gxkgx670rooj"
+      ]
+    },
+    "1a2b3c": {
+      "dictionary": [
+        "dictionary||en>zh-CN|1zerpqpqwi81s6x3e3c1jfc|yekku5o2mwcus9iex3v5b",
+        "dictionary||en|zh-CN|1zerpqpqwi81s6x3e3c1jfc"
+      ],
+      "machine": [
+        "microsoft-free||en>zh-CN|fu0veotjt91fcey85lcbi1v|yekku5o2mwcus9iex3v5b",
+        "microsoft-free||en|zh-CN|fu0veotjt91fcey85lcbi1v"
+      ],
+      "ai": [
+        "openai|gpt-4.1-mini|en>zh-CN|1z7kxs1nbzd1ax11t6rcrsop|yekku5o2mwcus9iex3v5b",
+        "openai|gpt-4.1-mini|en|zh-CN|1z7kxs1nbzd1ax11t6rcrsop"
+      ]
+    }
+  },
+  "translation-only mode": {
+    "none": {
+      "dictionary": [
+        "dictionary||en>zh-CN|9mcjsho4a595fj8ur1k86|yekku5o2mwcus9iex3v5b",
+        "dictionary||en|zh-CN|9mcjsho4a595fj8ur1k86"
+      ],
+      "machine": [
+        "microsoft-free||en>zh-CN|26fgczb768y1fvnu7sj211p|yekku5o2mwcus9iex3v5b",
+        "microsoft-free||en|zh-CN|26fgczb768y1fvnu7sj211p"
+      ],
+      "ai": [
+        "openai|gpt-4.1-mini|en>zh-CN|xz24y3cm811a74khotym7sv|yekku5o2mwcus9iex3v5b",
+        "openai|gpt-4.1-mini|en|zh-CN|xz24y3cm811a74khotym7sv"
+      ]
+    },
+    "1a2b3c": {
+      "dictionary": [
+        "dictionary||en>zh-CN|1zerpqpqwi81s6x3e3c1jfc|yekku5o2mwcus9iex3v5b",
+        "dictionary||en|zh-CN|1zerpqpqwi81s6x3e3c1jfc"
+      ],
+      "machine": [
+        "microsoft-free||en>zh-CN|fu0veotjt91fcey85lcbi1v|yekku5o2mwcus9iex3v5b",
+        "microsoft-free||en|zh-CN|fu0veotjt91fcey85lcbi1v"
+      ],
+      "ai": [
+        "openai|gpt-4.1-mini|en>zh-CN|1trft43op0628u7syirtb2t1|yekku5o2mwcus9iex3v5b",
+        "openai|gpt-4.1-mini|en|zh-CN|1trft43op0628u7syirtb2t1"
+      ]
+    }
+  },
+  "precise mode": {
+    "none": {
+      "dictionary": [
+        "dictionary||en>zh-CN|9mcjsho4a595fj8ur1k86|yekku5o2mwcus9iex3v5b",
+        "dictionary||en|zh-CN|9mcjsho4a595fj8ur1k86"
+      ],
+      "machine": [
+        "microsoft-free||en>zh-CN|26fgczb768y1fvnu7sj211p|yekku5o2mwcus9iex3v5b",
+        "microsoft-free||en|zh-CN|26fgczb768y1fvnu7sj211p"
+      ],
+      "ai": [
+        "openai|gpt-4.1-mini|en>zh-CN|11r3cpsbq421swifmbjvwss7|yekku5o2mwcus9iex3v5b",
+        "openai|gpt-4.1-mini|en|zh-CN|11r3cpsbq421swifmbjvwss7"
+      ]
+    },
+    "1a2b3c": {
+      "dictionary": [
+        "dictionary||en>zh-CN|1zerpqpqwi81s6x3e3c1jfc|yekku5o2mwcus9iex3v5b",
+        "dictionary||en|zh-CN|1zerpqpqwi81s6x3e3c1jfc"
+      ],
+      "machine": [
+        "microsoft-free||en>zh-CN|fu0veotjt91fcey85lcbi1v|yekku5o2mwcus9iex3v5b",
+        "microsoft-free||en|zh-CN|fu0veotjt91fcey85lcbi1v"
+      ],
+      "ai": [
+        "openai|gpt-4.1-mini|en>zh-CN|9konk7fp8orzeiw60p1asd|yekku5o2mwcus9iex3v5b",
+        "openai|gpt-4.1-mini|en|zh-CN|9konk7fp8orzeiw60p1asd"
+      ]
+    }
+  },
+  "precise mode with a registered message": {
+    "none": {
+      "dictionary": [
+        "dictionary||en>zh-CN|9mcjsho4a595fj8ur1k86|yekku5o2mwcus9iex3v5b",
+        "dictionary||en|zh-CN|9mcjsho4a595fj8ur1k86"
+      ],
+      "machine": [
+        "microsoft-free||en>zh-CN|26fgczb768y1fvnu7sj211p|yekku5o2mwcus9iex3v5b",
+        "microsoft-free||en|zh-CN|26fgczb768y1fvnu7sj211p"
+      ],
+      "ai": [
+        "openai|gpt-4.1-mini|en>zh-CN|11r3cpsbq421swifmbjvwss7:1tap40bjvv36wo2zqvv72t|yekku5o2mwcus9iex3v5b",
+        "openai|gpt-4.1-mini|en|zh-CN|11r3cpsbq421swifmbjvwss7:1tap40bjvv36wo2zqvv72t"
+      ]
+    },
+    "1a2b3c": {
+      "dictionary": [
+        "dictionary||en>zh-CN|1zerpqpqwi81s6x3e3c1jfc|yekku5o2mwcus9iex3v5b",
+        "dictionary||en|zh-CN|1zerpqpqwi81s6x3e3c1jfc"
+      ],
+      "machine": [
+        "microsoft-free||en>zh-CN|fu0veotjt91fcey85lcbi1v|yekku5o2mwcus9iex3v5b",
+        "microsoft-free||en|zh-CN|fu0veotjt91fcey85lcbi1v"
+      ],
+      "ai": [
+        "openai|gpt-4.1-mini|en>zh-CN|9konk7fp8orzeiw60p1asd:1tap40bjvv36wo2zqvv72t|yekku5o2mwcus9iex3v5b",
+        "openai|gpt-4.1-mini|en|zh-CN|9konk7fp8orzeiw60p1asd:1tap40bjvv36wo2zqvv72t"
+      ]
+    }
+  },
+  "own bilingual prompt": {
+    "none": {
+      "dictionary": [
+        "dictionary||en>zh-CN|9mcjsho4a595fj8ur1k86|yekku5o2mwcus9iex3v5b",
+        "dictionary||en|zh-CN|9mcjsho4a595fj8ur1k86"
+      ],
+      "machine": [
+        "microsoft-free||en>zh-CN|26fgczb768y1fvnu7sj211p|yekku5o2mwcus9iex3v5b",
+        "microsoft-free||en|zh-CN|26fgczb768y1fvnu7sj211p"
+      ],
+      "ai": [
+        "openai|gpt-4.1-mini|en>zh-CN|mypc2jvfg82eblb7m89yf2d|yekku5o2mwcus9iex3v5b",
+        "openai|gpt-4.1-mini|en|zh-CN|mypc2jvfg82eblb7m89yf2d"
+      ]
+    },
+    "1a2b3c": {
+      "dictionary": [
+        "dictionary||en>zh-CN|1zerpqpqwi81s6x3e3c1jfc|yekku5o2mwcus9iex3v5b",
+        "dictionary||en|zh-CN|1zerpqpqwi81s6x3e3c1jfc"
+      ],
+      "machine": [
+        "microsoft-free||en>zh-CN|fu0veotjt91fcey85lcbi1v|yekku5o2mwcus9iex3v5b",
+        "microsoft-free||en|zh-CN|fu0veotjt91fcey85lcbi1v"
+      ],
+      "ai": [
+        "openai|gpt-4.1-mini|en>zh-CN|1acsxed5f2mom7pfy4hvx2j|yekku5o2mwcus9iex3v5b",
+        "openai|gpt-4.1-mini|en|zh-CN|1acsxed5f2mom7pfy4hvx2j"
+      ]
+    }
+  },
+  "own translation-only prompt in that mode": {
+    "none": {
+      "dictionary": [
+        "dictionary||en>zh-CN|9mcjsho4a595fj8ur1k86|yekku5o2mwcus9iex3v5b",
+        "dictionary||en|zh-CN|9mcjsho4a595fj8ur1k86"
+      ],
+      "machine": [
+        "microsoft-free||en>zh-CN|26fgczb768y1fvnu7sj211p|yekku5o2mwcus9iex3v5b",
+        "microsoft-free||en|zh-CN|26fgczb768y1fvnu7sj211p"
+      ],
+      "ai": [
+        "openai|gpt-4.1-mini|en>zh-CN|2dya8y6yfzw1pzwhdz1vn51y|yekku5o2mwcus9iex3v5b",
+        "openai|gpt-4.1-mini|en|zh-CN|2dya8y6yfzw1pzwhdz1vn51y"
+      ]
+    },
+    "1a2b3c": {
+      "dictionary": [
+        "dictionary||en>zh-CN|1zerpqpqwi81s6x3e3c1jfc|yekku5o2mwcus9iex3v5b",
+        "dictionary||en|zh-CN|1zerpqpqwi81s6x3e3c1jfc"
+      ],
+      "machine": [
+        "microsoft-free||en>zh-CN|fu0veotjt91fcey85lcbi1v|yekku5o2mwcus9iex3v5b",
+        "microsoft-free||en|zh-CN|fu0veotjt91fcey85lcbi1v"
+      ],
+      "ai": [
+        "openai|gpt-4.1-mini|en>zh-CN|10bgzgfckxf1zhg7erjvqo24|yekku5o2mwcus9iex3v5b",
+        "openai|gpt-4.1-mini|en|zh-CN|10bgzgfckxf1zhg7erjvqo24"
+      ]
+    }
+  },
+  "own precise prompt in precise mode": {
+    "none": {
+      "dictionary": [
+        "dictionary||en>zh-CN|9mcjsho4a595fj8ur1k86|yekku5o2mwcus9iex3v5b",
+        "dictionary||en|zh-CN|9mcjsho4a595fj8ur1k86"
+      ],
+      "machine": [
+        "microsoft-free||en>zh-CN|26fgczb768y1fvnu7sj211p|yekku5o2mwcus9iex3v5b",
+        "microsoft-free||en|zh-CN|26fgczb768y1fvnu7sj211p"
+      ],
+      "ai": [
+        "openai|gpt-4.1-mini|en>zh-CN|1cz40kkgb7u2ebzt6ik8ci1t|yekku5o2mwcus9iex3v5b",
+        "openai|gpt-4.1-mini|en|zh-CN|1cz40kkgb7u2ebzt6ik8ci1t"
+      ]
+    },
+    "1a2b3c": {
+      "dictionary": [
+        "dictionary||en>zh-CN|1zerpqpqwi81s6x3e3c1jfc|yekku5o2mwcus9iex3v5b",
+        "dictionary||en|zh-CN|1zerpqpqwi81s6x3e3c1jfc"
+      ],
+      "machine": [
+        "microsoft-free||en>zh-CN|fu0veotjt91fcey85lcbi1v|yekku5o2mwcus9iex3v5b",
+        "microsoft-free||en|zh-CN|fu0veotjt91fcey85lcbi1v"
+      ],
+      "ai": [
+        "openai|gpt-4.1-mini|en>zh-CN|o6l3n7hby51swgk880tud1z|yekku5o2mwcus9iex3v5b",
+        "openai|gpt-4.1-mini|en|zh-CN|o6l3n7hby51swgk880tud1z"
+      ]
+    }
+  },
+  "own prompt of another mode": {
+    "none": {
+      "dictionary": [
+        "dictionary||en>zh-CN|9mcjsho4a595fj8ur1k86|yekku5o2mwcus9iex3v5b",
+        "dictionary||en|zh-CN|9mcjsho4a595fj8ur1k86"
+      ],
+      "machine": [
+        "microsoft-free||en>zh-CN|26fgczb768y1fvnu7sj211p|yekku5o2mwcus9iex3v5b",
+        "microsoft-free||en|zh-CN|26fgczb768y1fvnu7sj211p"
+      ],
+      "ai": [
+        "openai|gpt-4.1-mini|en>zh-CN|27nyh5ecmg31gxkgx670rooj|yekku5o2mwcus9iex3v5b",
+        "openai|gpt-4.1-mini|en|zh-CN|27nyh5ecmg31gxkgx670rooj"
+      ]
+    },
+    "1a2b3c": {
+      "dictionary": [
+        "dictionary||en>zh-CN|1zerpqpqwi81s6x3e3c1jfc|yekku5o2mwcus9iex3v5b",
+        "dictionary||en|zh-CN|1zerpqpqwi81s6x3e3c1jfc"
+      ],
+      "machine": [
+        "microsoft-free||en>zh-CN|fu0veotjt91fcey85lcbi1v|yekku5o2mwcus9iex3v5b",
+        "microsoft-free||en|zh-CN|fu0veotjt91fcey85lcbi1v"
+      ],
+      "ai": [
+        "openai|gpt-4.1-mini|en>zh-CN|1z7kxs1nbzd1ax11t6rcrsop|yekku5o2mwcus9iex3v5b",
+        "openai|gpt-4.1-mini|en|zh-CN|1z7kxs1nbzd1ax11t6rcrsop"
+      ]
+    }
+  },
+  "AI endpoint": {
+    "none": {
+      "dictionary": [
+        "dictionary||en>zh-CN|9mcjsho4a595fj8ur1k86|yekku5o2mwcus9iex3v5b",
+        "dictionary||en|zh-CN|9mcjsho4a595fj8ur1k86"
+      ],
+      "machine": [
+        "microsoft-free||en>zh-CN|26fgczb768y1fvnu7sj211p|yekku5o2mwcus9iex3v5b",
+        "microsoft-free||en|zh-CN|26fgczb768y1fvnu7sj211p"
+      ],
+      "ai": [
+        "openai|gpt-4.1-mini|en>zh-CN|jz5x47m1mh1rrtgx8pta3om|yekku5o2mwcus9iex3v5b",
+        "openai|gpt-4.1-mini|en|zh-CN|jz5x47m1mh1rrtgx8pta3om"
+      ]
+    },
+    "1a2b3c": {
+      "dictionary": [
+        "dictionary||en>zh-CN|1zerpqpqwi81s6x3e3c1jfc|yekku5o2mwcus9iex3v5b",
+        "dictionary||en|zh-CN|1zerpqpqwi81s6x3e3c1jfc"
+      ],
+      "machine": [
+        "microsoft-free||en>zh-CN|fu0veotjt91fcey85lcbi1v|yekku5o2mwcus9iex3v5b",
+        "microsoft-free||en|zh-CN|fu0veotjt91fcey85lcbi1v"
+      ],
+      "ai": [
+        "openai|gpt-4.1-mini|en>zh-CN|ta2gp5q7wnavqhgs8sr0os|yekku5o2mwcus9iex3v5b",
+        "openai|gpt-4.1-mini|en|zh-CN|ta2gp5q7wnavqhgs8sr0os"
+      ]
+    }
+  },
+  "AI endpoint with a trailing slash": {
+    "none": {
+      "dictionary": [
+        "dictionary||en>zh-CN|9mcjsho4a595fj8ur1k86|yekku5o2mwcus9iex3v5b",
+        "dictionary||en|zh-CN|9mcjsho4a595fj8ur1k86"
+      ],
+      "machine": [
+        "microsoft-free||en>zh-CN|26fgczb768y1fvnu7sj211p|yekku5o2mwcus9iex3v5b",
+        "microsoft-free||en|zh-CN|26fgczb768y1fvnu7sj211p"
+      ],
+      "ai": [
+        "openai|gpt-4.1-mini|en>zh-CN|27nyh5ecmg31gxkgx670rooj|yekku5o2mwcus9iex3v5b",
+        "openai|gpt-4.1-mini|en|zh-CN|27nyh5ecmg31gxkgx670rooj"
+      ]
+    },
+    "1a2b3c": {
+      "dictionary": [
+        "dictionary||en>zh-CN|1zerpqpqwi81s6x3e3c1jfc|yekku5o2mwcus9iex3v5b",
+        "dictionary||en|zh-CN|1zerpqpqwi81s6x3e3c1jfc"
+      ],
+      "machine": [
+        "microsoft-free||en>zh-CN|fu0veotjt91fcey85lcbi1v|yekku5o2mwcus9iex3v5b",
+        "microsoft-free||en|zh-CN|fu0veotjt91fcey85lcbi1v"
+      ],
+      "ai": [
+        "openai|gpt-4.1-mini|en>zh-CN|1z7kxs1nbzd1ax11t6rcrsop|yekku5o2mwcus9iex3v5b",
+        "openai|gpt-4.1-mini|en|zh-CN|1z7kxs1nbzd1ax11t6rcrsop"
+      ]
+    }
+  },
+  "AI model": {
+    "none": {
+      "dictionary": [
+        "dictionary||en>zh-CN|9mcjsho4a595fj8ur1k86|yekku5o2mwcus9iex3v5b",
+        "dictionary||en|zh-CN|9mcjsho4a595fj8ur1k86"
+      ],
+      "machine": [
+        "microsoft-free||en>zh-CN|26fgczb768y1fvnu7sj211p|yekku5o2mwcus9iex3v5b",
+        "microsoft-free||en|zh-CN|26fgczb768y1fvnu7sj211p"
+      ],
+      "ai": [
+        "openai|gpt-4.1|en>zh-CN|27nyh5ecmg31gxkgx670rooj|yekku5o2mwcus9iex3v5b",
+        "openai|gpt-4.1|en|zh-CN|27nyh5ecmg31gxkgx670rooj"
+      ]
+    },
+    "1a2b3c": {
+      "dictionary": [
+        "dictionary||en>zh-CN|1zerpqpqwi81s6x3e3c1jfc|yekku5o2mwcus9iex3v5b",
+        "dictionary||en|zh-CN|1zerpqpqwi81s6x3e3c1jfc"
+      ],
+      "machine": [
+        "microsoft-free||en>zh-CN|fu0veotjt91fcey85lcbi1v|yekku5o2mwcus9iex3v5b",
+        "microsoft-free||en|zh-CN|fu0veotjt91fcey85lcbi1v"
+      ],
+      "ai": [
+        "openai|gpt-4.1|en>zh-CN|1z7kxs1nbzd1ax11t6rcrsop|yekku5o2mwcus9iex3v5b",
+        "openai|gpt-4.1|en|zh-CN|1z7kxs1nbzd1ax11t6rcrsop"
+      ]
+    }
+  },
+  "AI temperature": {
+    "none": {
+      "dictionary": [
+        "dictionary||en>zh-CN|9mcjsho4a595fj8ur1k86|yekku5o2mwcus9iex3v5b",
+        "dictionary||en|zh-CN|9mcjsho4a595fj8ur1k86"
+      ],
+      "machine": [
+        "microsoft-free||en>zh-CN|26fgczb768y1fvnu7sj211p|yekku5o2mwcus9iex3v5b",
+        "microsoft-free||en|zh-CN|26fgczb768y1fvnu7sj211p"
+      ],
+      "ai": [
+        "openai|gpt-4.1-mini|en>zh-CN|1xagrscxnqddjyhken5beoj|yekku5o2mwcus9iex3v5b",
+        "openai|gpt-4.1-mini|en|zh-CN|1xagrscxnqddjyhken5beoj"
+      ]
+    },
+    "1a2b3c": {
+      "dictionary": [
+        "dictionary||en>zh-CN|1zerpqpqwi81s6x3e3c1jfc|yekku5o2mwcus9iex3v5b",
+        "dictionary||en|zh-CN|1zerpqpqwi81s6x3e3c1jfc"
+      ],
+      "machine": [
+        "microsoft-free||en>zh-CN|fu0veotjt91fcey85lcbi1v|yekku5o2mwcus9iex3v5b",
+        "microsoft-free||en|zh-CN|fu0veotjt91fcey85lcbi1v"
+      ],
+      "ai": [
+        "openai|gpt-4.1-mini|en>zh-CN|157z8j51rbbsbsnn14kd4op|yekku5o2mwcus9iex3v5b",
+        "openai|gpt-4.1-mini|en|zh-CN|157z8j51rbbsbsnn14kd4op"
+      ]
+    }
+  },
+  "AI without temperature": {
+    "none": {
+      "dictionary": [
+        "dictionary||en>zh-CN|9mcjsho4a595fj8ur1k86|yekku5o2mwcus9iex3v5b",
+        "dictionary||en|zh-CN|9mcjsho4a595fj8ur1k86"
+      ],
+      "machine": [
+        "microsoft-free||en>zh-CN|26fgczb768y1fvnu7sj211p|yekku5o2mwcus9iex3v5b",
+        "microsoft-free||en|zh-CN|26fgczb768y1fvnu7sj211p"
+      ],
+      "ai": [
+        "openai|gpt-4.1-mini|en>zh-CN|1w2evivdlrrnsw8og0a4rog|yekku5o2mwcus9iex3v5b",
+        "openai|gpt-4.1-mini|en|zh-CN|1w2evivdlrrnsw8og0a4rog"
+      ]
+    },
+    "1a2b3c": {
+      "dictionary": [
+        "dictionary||en>zh-CN|1zerpqpqwi81s6x3e3c1jfc|yekku5o2mwcus9iex3v5b",
+        "dictionary||en|zh-CN|1zerpqpqwi81s6x3e3c1jfc"
+      ],
+      "machine": [
+        "microsoft-free||en>zh-CN|fu0veotjt91fcey85lcbi1v|yekku5o2mwcus9iex3v5b",
+        "microsoft-free||en|zh-CN|fu0veotjt91fcey85lcbi1v"
+      ],
+      "ai": [
+        "openai|gpt-4.1-mini|en>zh-CN|ihy3ftlzfq1wletyguepjom|yekku5o2mwcus9iex3v5b",
+        "openai|gpt-4.1-mini|en|zh-CN|ihy3ftlzfq1wletyguepjom"
+      ]
+    }
+  },
+  "AI thinking": {
+    "none": {
+      "dictionary": [
+        "dictionary||en>zh-CN|9mcjsho4a595fj8ur1k86|yekku5o2mwcus9iex3v5b",
+        "dictionary||en|zh-CN|9mcjsho4a595fj8ur1k86"
+      ],
+      "machine": [
+        "microsoft-free||en>zh-CN|26fgczb768y1fvnu7sj211p|yekku5o2mwcus9iex3v5b",
+        "microsoft-free||en|zh-CN|26fgczb768y1fvnu7sj211p"
+      ],
+      "ai": [
+        "openai|gpt-4.1-mini|en>zh-CN|23hadexbof1prclspcm0koi|yekku5o2mwcus9iex3v5b",
+        "openai|gpt-4.1-mini|en|zh-CN|23hadexbof1prclspcm0koi"
+      ]
+    },
+    "1a2b3c": {
+      "dictionary": [
+        "dictionary||en>zh-CN|1zerpqpqwi81s6x3e3c1jfc|yekku5o2mwcus9iex3v5b",
+        "dictionary||en|zh-CN|1zerpqpqwi81s6x3e3c1jfc"
+      ],
+      "machine": [
+        "microsoft-free||en>zh-CN|fu0veotjt91fcey85lcbi1v|yekku5o2mwcus9iex3v5b",
+        "microsoft-free||en|zh-CN|fu0veotjt91fcey85lcbi1v"
+      ],
+      "ai": [
+        "openai|gpt-4.1-mini|en>zh-CN|pvplnjcmbt5wnpog3cjqoo|yekku5o2mwcus9iex3v5b",
+        "openai|gpt-4.1-mini|en|zh-CN|pvplnjcmbt5wnpog3cjqoo"
+      ]
+    }
+  },
+  "AI key": {
+    "none": {
+      "dictionary": [
+        "dictionary||en>zh-CN|9mcjsho4a595fj8ur1k86|yekku5o2mwcus9iex3v5b",
+        "dictionary||en|zh-CN|9mcjsho4a595fj8ur1k86"
+      ],
+      "machine": [
+        "microsoft-free||en>zh-CN|26fgczb768y1fvnu7sj211p|yekku5o2mwcus9iex3v5b",
+        "microsoft-free||en|zh-CN|26fgczb768y1fvnu7sj211p"
+      ],
+      "ai": [
+        "openai|gpt-4.1-mini|en>zh-CN|27nyh5ecmg31gxkgx670rooj|yekku5o2mwcus9iex3v5b",
+        "openai|gpt-4.1-mini|en|zh-CN|27nyh5ecmg31gxkgx670rooj"
+      ]
+    },
+    "1a2b3c": {
+      "dictionary": [
+        "dictionary||en>zh-CN|1zerpqpqwi81s6x3e3c1jfc|yekku5o2mwcus9iex3v5b",
+        "dictionary||en|zh-CN|1zerpqpqwi81s6x3e3c1jfc"
+      ],
+      "machine": [
+        "microsoft-free||en>zh-CN|fu0veotjt91fcey85lcbi1v|yekku5o2mwcus9iex3v5b",
+        "microsoft-free||en|zh-CN|fu0veotjt91fcey85lcbi1v"
+      ],
+      "ai": [
+        "openai|gpt-4.1-mini|en>zh-CN|1z7kxs1nbzd1ax11t6rcrsop|yekku5o2mwcus9iex3v5b",
+        "openai|gpt-4.1-mini|en|zh-CN|1z7kxs1nbzd1ax11t6rcrsop"
+      ]
+    }
+  },
+  "another AI service": {
+    "none": {
+      "dictionary": [
+        "dictionary||en>zh-CN|9mcjsho4a595fj8ur1k86|yekku5o2mwcus9iex3v5b",
+        "dictionary||en|zh-CN|9mcjsho4a595fj8ur1k86"
+      ],
+      "machine": [
+        "microsoft-free||en>zh-CN|26fgczb768y1fvnu7sj211p|yekku5o2mwcus9iex3v5b",
+        "microsoft-free||en|zh-CN|26fgczb768y1fvnu7sj211p"
+      ],
+      "ai": [
+        "deepseek|deepseek-flash|en>zh-CN|5dago19jwp1n0694kciyeoi|yekku5o2mwcus9iex3v5b",
+        "deepseek|deepseek-flash|en|zh-CN|5dago19jwp1n0694kciyeoi"
+      ]
+    },
+    "1a2b3c": {
+      "dictionary": [
+        "dictionary||en>zh-CN|1zerpqpqwi81s6x3e3c1jfc|yekku5o2mwcus9iex3v5b",
+        "dictionary||en|zh-CN|1zerpqpqwi81s6x3e3c1jfc"
+      ],
+      "machine": [
+        "microsoft-free||en>zh-CN|fu0veotjt91fcey85lcbi1v|yekku5o2mwcus9iex3v5b",
+        "microsoft-free||en|zh-CN|fu0veotjt91fcey85lcbi1v"
+      ],
+      "ai": [
+        "deepseek|deepseek-flash|en>zh-CN|adqijw6zce2fi7z6p3wmnoo|yekku5o2mwcus9iex3v5b",
+        "deepseek|deepseek-flash|en|zh-CN|adqijw6zce2fi7z6p3wmnoo"
+      ]
+    }
+  },
+  "Microsoft key mode": {
+    "none": {
+      "dictionary": [
+        "dictionary||en>zh-CN|9mcjsho4a595fj8ur1k86|yekku5o2mwcus9iex3v5b",
+        "dictionary||en|zh-CN|9mcjsho4a595fj8ur1k86"
+      ],
+      "machine": [
+        "microsoft-free||en>zh-CN|19yrbuzf5mc18rhp6xjfc81o|yekku5o2mwcus9iex3v5b",
+        "microsoft-free||en|zh-CN|19yrbuzf5mc18rhp6xjfc81o"
+      ],
+      "ai": [
+        "openai|gpt-4.1-mini|en>zh-CN|27nyh5ecmg31gxkgx670rooj|yekku5o2mwcus9iex3v5b",
+        "openai|gpt-4.1-mini|en|zh-CN|27nyh5ecmg31gxkgx670rooj"
+      ]
+    },
+    "1a2b3c": {
+      "dictionary": [
+        "dictionary||en>zh-CN|1zerpqpqwi81s6x3e3c1jfc|yekku5o2mwcus9iex3v5b",
+        "dictionary||en|zh-CN|1zerpqpqwi81s6x3e3c1jfc"
+      ],
+      "machine": [
+        "microsoft-free||en>zh-CN|1fnoysemtple9f7roridi1u|yekku5o2mwcus9iex3v5b",
+        "microsoft-free||en|zh-CN|1fnoysemtple9f7roridi1u"
+      ],
+      "ai": [
+        "openai|gpt-4.1-mini|en>zh-CN|1z7kxs1nbzd1ax11t6rcrsop|yekku5o2mwcus9iex3v5b",
+        "openai|gpt-4.1-mini|en|zh-CN|1z7kxs1nbzd1ax11t6rcrsop"
+      ]
+    }
+  },
+  "Microsoft key mode with region and endpoint": {
+    "none": {
+      "dictionary": [
+        "dictionary||en>zh-CN|9mcjsho4a595fj8ur1k86|yekku5o2mwcus9iex3v5b",
+        "dictionary||en|zh-CN|9mcjsho4a595fj8ur1k86"
+      ],
+      "machine": [
+        "microsoft-free||en>zh-CN|1nhaqztembwdzejifykk41e|yekku5o2mwcus9iex3v5b",
+        "microsoft-free||en|zh-CN|1nhaqztembwdzejifykk41e"
+      ],
+      "ai": [
+        "openai|gpt-4.1-mini|en>zh-CN|27nyh5ecmg31gxkgx670rooj|yekku5o2mwcus9iex3v5b",
+        "openai|gpt-4.1-mini|en|zh-CN|27nyh5ecmg31gxkgx670rooj"
+      ]
+    },
+    "1a2b3c": {
+      "dictionary": [
+        "dictionary||en>zh-CN|1zerpqpqwi81s6x3e3c1jfc|yekku5o2mwcus9iex3v5b",
+        "dictionary||en|zh-CN|1zerpqpqwi81s6x3e3c1jfc"
+      ],
+      "machine": [
+        "microsoft-free||en>zh-CN|1hc7c0nnmuzszfef3vly71k|yekku5o2mwcus9iex3v5b",
+        "microsoft-free||en|zh-CN|1hc7c0nnmuzszfef3vly71k"
+      ],
+      "ai": [
+        "openai|gpt-4.1-mini|en>zh-CN|1z7kxs1nbzd1ax11t6rcrsop|yekku5o2mwcus9iex3v5b",
+        "openai|gpt-4.1-mini|en|zh-CN|1z7kxs1nbzd1ax11t6rcrsop"
+      ]
+    }
+  },
+  "Google as the machine tier": {
+    "none": {
+      "dictionary": [
+        "dictionary||en>zh-CN|9mcjsho4a595fj8ur1k86|yekku5o2mwcus9iex3v5b",
+        "dictionary||en|zh-CN|9mcjsho4a595fj8ur1k86"
+      ],
+      "machine": [
+        "google-free||en>zh-CN|1jizt4o8o9ylqkhpgujbj12|yekku5o2mwcus9iex3v5b",
+        "google-free||en|zh-CN|1jizt4o8o9ylqkhpgujbj12"
+      ],
+      "ai": [
+        "openai|gpt-4.1-mini|en>zh-CN|27nyh5ecmg31gxkgx670rooj|yekku5o2mwcus9iex3v5b",
+        "openai|gpt-4.1-mini|en|zh-CN|27nyh5ecmg31gxkgx670rooj"
+      ]
+    },
+    "1a2b3c": {
+      "dictionary": [
+        "dictionary||en>zh-CN|1zerpqpqwi81s6x3e3c1jfc|yekku5o2mwcus9iex3v5b",
+        "dictionary||en|zh-CN|1zerpqpqwi81s6x3e3c1jfc"
+      ],
+      "machine": [
+        "google-free||en>zh-CN|ci31yr1ylhpvxcabh83918|yekku5o2mwcus9iex3v5b",
+        "google-free||en|zh-CN|ci31yr1ylhpvxcabh83918"
+      ],
+      "ai": [
+        "openai|gpt-4.1-mini|en>zh-CN|1z7kxs1nbzd1ax11t6rcrsop|yekku5o2mwcus9iex3v5b",
+        "openai|gpt-4.1-mini|en|zh-CN|1z7kxs1nbzd1ax11t6rcrsop"
+      ]
+    }
+  },
+  "Google endpoint": {
+    "none": {
+      "dictionary": [
+        "dictionary||en>zh-CN|9mcjsho4a595fj8ur1k86|yekku5o2mwcus9iex3v5b",
+        "dictionary||en|zh-CN|9mcjsho4a595fj8ur1k86"
+      ],
+      "machine": [
+        "google-free||en>zh-CN|1ba0pt786ce1qk5sune9lnz|yekku5o2mwcus9iex3v5b",
+        "google-free||en|zh-CN|1ba0pt786ce1qk5sune9lnz"
+      ],
+      "ai": [
+        "openai|gpt-4.1-mini|en>zh-CN|27nyh5ecmg31gxkgx670rooj|yekku5o2mwcus9iex3v5b",
+        "openai|gpt-4.1-mini|en|zh-CN|27nyh5ecmg31gxkgx670rooj"
+      ]
+    },
+    "1a2b3c": {
+      "dictionary": [
+        "dictionary||en>zh-CN|1zerpqpqwi81s6x3e3c1jfc|yekku5o2mwcus9iex3v5b",
+        "dictionary||en|zh-CN|1zerpqpqwi81s6x3e3c1jfc"
+      ],
+      "machine": [
+        "google-free||en>zh-CN|26q6cfgkjax5i7hnwhiem15|yekku5o2mwcus9iex3v5b",
+        "google-free||en|zh-CN|26q6cfgkjax5i7hnwhiem15"
+      ],
+      "ai": [
+        "openai|gpt-4.1-mini|en>zh-CN|1z7kxs1nbzd1ax11t6rcrsop|yekku5o2mwcus9iex3v5b",
+        "openai|gpt-4.1-mini|en|zh-CN|1z7kxs1nbzd1ax11t6rcrsop"
+      ]
+    }
+  },
+  "Bergamot as the machine tier": {
+    "none": {
+      "dictionary": [
+        "dictionary||en>zh-CN|9mcjsho4a595fj8ur1k86|yekku5o2mwcus9iex3v5b",
+        "dictionary||en|zh-CN|9mcjsho4a595fj8ur1k86"
+      ],
+      "machine": [
+        "bergamot||en>zh-CN|9mcjsho4a595fj8ur1k86|yekku5o2mwcus9iex3v5b",
+        "bergamot||en|zh-CN|9mcjsho4a595fj8ur1k86"
+      ],
+      "ai": [
+        "openai|gpt-4.1-mini|en>zh-CN|27nyh5ecmg31gxkgx670rooj|yekku5o2mwcus9iex3v5b",
+        "openai|gpt-4.1-mini|en|zh-CN|27nyh5ecmg31gxkgx670rooj"
+      ]
+    },
+    "1a2b3c": {
+      "dictionary": [
+        "dictionary||en>zh-CN|1zerpqpqwi81s6x3e3c1jfc|yekku5o2mwcus9iex3v5b",
+        "dictionary||en|zh-CN|1zerpqpqwi81s6x3e3c1jfc"
+      ],
+      "machine": [
+        "bergamot||en>zh-CN|1zerpqpqwi81s6x3e3c1jfc|yekku5o2mwcus9iex3v5b",
+        "bergamot||en|zh-CN|1zerpqpqwi81s6x3e3c1jfc"
+      ],
+      "ai": [
+        "openai|gpt-4.1-mini|en>zh-CN|1z7kxs1nbzd1ax11t6rcrsop|yekku5o2mwcus9iex3v5b",
+        "openai|gpt-4.1-mini|en|zh-CN|1z7kxs1nbzd1ax11t6rcrsop"
+      ]
+    }
+  },
+  "source language detected": {
+    "none": {
+      "dictionary": [
+        "dictionary||auto>zh-CN|9mcjsho4a595fj8ur1k86|yekku5o2mwcus9iex3v5b",
+        "dictionary||auto|zh-CN|9mcjsho4a595fj8ur1k86"
+      ],
+      "machine": [
+        "microsoft-free||auto>zh-CN|26fgczb768y1fvnu7sj211p|yekku5o2mwcus9iex3v5b",
+        "microsoft-free||auto|zh-CN|26fgczb768y1fvnu7sj211p"
+      ],
+      "ai": [
+        "openai|gpt-4.1-mini|auto>zh-CN|27nyh5ecmg31gxkgx670rooj|yekku5o2mwcus9iex3v5b",
+        "openai|gpt-4.1-mini|auto|zh-CN|27nyh5ecmg31gxkgx670rooj"
+      ]
+    },
+    "1a2b3c": {
+      "dictionary": [
+        "dictionary||auto>zh-CN|1zerpqpqwi81s6x3e3c1jfc|yekku5o2mwcus9iex3v5b",
+        "dictionary||auto|zh-CN|1zerpqpqwi81s6x3e3c1jfc"
+      ],
+      "machine": [
+        "microsoft-free||auto>zh-CN|fu0veotjt91fcey85lcbi1v|yekku5o2mwcus9iex3v5b",
+        "microsoft-free||auto|zh-CN|fu0veotjt91fcey85lcbi1v"
+      ],
+      "ai": [
+        "openai|gpt-4.1-mini|auto>zh-CN|1z7kxs1nbzd1ax11t6rcrsop|yekku5o2mwcus9iex3v5b",
+        "openai|gpt-4.1-mini|auto|zh-CN|1z7kxs1nbzd1ax11t6rcrsop"
+      ]
+    }
+  },
+  "other target language": {
+    "none": {
+      "dictionary": [
+        "dictionary||en>ja|9mcjsho4a595fj8ur1k86|yekku5o2mwcus9iex3v5b",
+        "dictionary||en|ja|9mcjsho4a595fj8ur1k86"
+      ],
+      "machine": [
+        "microsoft-free||en>ja|26fgczb768y1fvnu7sj211p|yekku5o2mwcus9iex3v5b",
+        "microsoft-free||en|ja|26fgczb768y1fvnu7sj211p"
+      ],
+      "ai": [
+        "openai|gpt-4.1-mini|en>ja|27nyh5ecmg31gxkgx670rooj|yekku5o2mwcus9iex3v5b",
+        "openai|gpt-4.1-mini|en|ja|27nyh5ecmg31gxkgx670rooj"
+      ]
+    },
+    "1a2b3c": {
+      "dictionary": [
+        "dictionary||en>ja|1zerpqpqwi81s6x3e3c1jfc|yekku5o2mwcus9iex3v5b",
+        "dictionary||en|ja|1zerpqpqwi81s6x3e3c1jfc"
+      ],
+      "machine": [
+        "microsoft-free||en>ja|fu0veotjt91fcey85lcbi1v|yekku5o2mwcus9iex3v5b",
+        "microsoft-free||en|ja|fu0veotjt91fcey85lcbi1v"
+      ],
+      "ai": [
+        "openai|gpt-4.1-mini|en>ja|1z7kxs1nbzd1ax11t6rcrsop|yekku5o2mwcus9iex3v5b",
+        "openai|gpt-4.1-mini|en|ja|1z7kxs1nbzd1ax11t6rcrsop"
+      ]
+    }
+  },
+  "other text": {
+    "none": {
+      "dictionary": [
+        "dictionary||en>zh-CN|9mcjsho4a595fj8ur1k86|3bot9fr0le1z2byhc1w38c",
+        "dictionary||en|zh-CN|9mcjsho4a595fj8ur1k86"
+      ],
+      "machine": [
+        "microsoft-free||en>zh-CN|26fgczb768y1fvnu7sj211p|3bot9fr0le1z2byhc1w38c",
+        "microsoft-free||en|zh-CN|26fgczb768y1fvnu7sj211p"
+      ],
+      "ai": [
+        "openai|gpt-4.1-mini|en>zh-CN|27nyh5ecmg31gxkgx670rooj|3bot9fr0le1z2byhc1w38c",
+        "openai|gpt-4.1-mini|en|zh-CN|27nyh5ecmg31gxkgx670rooj"
+      ]
+    },
+    "1a2b3c": {
+      "dictionary": [
+        "dictionary||en>zh-CN|1zerpqpqwi81s6x3e3c1jfc|3bot9fr0le1z2byhc1w38c",
+        "dictionary||en|zh-CN|1zerpqpqwi81s6x3e3c1jfc"
+      ],
+      "machine": [
+        "microsoft-free||en>zh-CN|fu0veotjt91fcey85lcbi1v|3bot9fr0le1z2byhc1w38c",
+        "microsoft-free||en|zh-CN|fu0veotjt91fcey85lcbi1v"
+      ],
+      "ai": [
+        "openai|gpt-4.1-mini|en>zh-CN|1z7kxs1nbzd1ax11t6rcrsop|3bot9fr0le1z2byhc1w38c",
+        "openai|gpt-4.1-mini|en|zh-CN|1z7kxs1nbzd1ax11t6rcrsop"
+      ]
+    }
+  },
+  "batch, cache and style settings": {
+    "none": {
+      "dictionary": [
+        "dictionary||en>zh-CN|9mcjsho4a595fj8ur1k86|yekku5o2mwcus9iex3v5b",
+        "dictionary||en|zh-CN|9mcjsho4a595fj8ur1k86"
+      ],
+      "machine": [
+        "microsoft-free||en>zh-CN|26fgczb768y1fvnu7sj211p|yekku5o2mwcus9iex3v5b",
+        "microsoft-free||en|zh-CN|26fgczb768y1fvnu7sj211p"
+      ],
+      "ai": [
+        "openai|gpt-4.1-mini|en>zh-CN|27nyh5ecmg31gxkgx670rooj|yekku5o2mwcus9iex3v5b",
+        "openai|gpt-4.1-mini|en|zh-CN|27nyh5ecmg31gxkgx670rooj"
+      ]
+    },
+    "1a2b3c": {
+      "dictionary": [
+        "dictionary||en>zh-CN|1zerpqpqwi81s6x3e3c1jfc|yekku5o2mwcus9iex3v5b",
+        "dictionary||en|zh-CN|1zerpqpqwi81s6x3e3c1jfc"
+      ],
+      "machine": [
+        "microsoft-free||en>zh-CN|fu0veotjt91fcey85lcbi1v|yekku5o2mwcus9iex3v5b",
+        "microsoft-free||en|zh-CN|fu0veotjt91fcey85lcbi1v"
+      ],
+      "ai": [
+        "openai|gpt-4.1-mini|en>zh-CN|1z7kxs1nbzd1ax11t6rcrsop|yekku5o2mwcus9iex3v5b",
+        "openai|gpt-4.1-mini|en|zh-CN|1z7kxs1nbzd1ax11t6rcrsop"
+      ]
+    }
+  },
+  "interface language and automatic translation": {
+    "none": {
+      "dictionary": [
+        "dictionary||en>zh-CN|9mcjsho4a595fj8ur1k86|yekku5o2mwcus9iex3v5b",
+        "dictionary||en|zh-CN|9mcjsho4a595fj8ur1k86"
+      ],
+      "machine": [
+        "microsoft-free||en>zh-CN|26fgczb768y1fvnu7sj211p|yekku5o2mwcus9iex3v5b",
+        "microsoft-free||en|zh-CN|26fgczb768y1fvnu7sj211p"
+      ],
+      "ai": [
+        "openai|gpt-4.1-mini|en>zh-CN|27nyh5ecmg31gxkgx670rooj|yekku5o2mwcus9iex3v5b",
+        "openai|gpt-4.1-mini|en|zh-CN|27nyh5ecmg31gxkgx670rooj"
+      ]
+    },
+    "1a2b3c": {
+      "dictionary": [
+        "dictionary||en>zh-CN|1zerpqpqwi81s6x3e3c1jfc|yekku5o2mwcus9iex3v5b",
+        "dictionary||en|zh-CN|1zerpqpqwi81s6x3e3c1jfc"
+      ],
+      "machine": [
+        "microsoft-free||en>zh-CN|fu0veotjt91fcey85lcbi1v|yekku5o2mwcus9iex3v5b",
+        "microsoft-free||en|zh-CN|fu0veotjt91fcey85lcbi1v"
+      ],
+      "ai": [
+        "openai|gpt-4.1-mini|en>zh-CN|1z7kxs1nbzd1ax11t6rcrsop|yekku5o2mwcus9iex3v5b",
+        "openai|gpt-4.1-mini|en|zh-CN|1z7kxs1nbzd1ax11t6rcrsop"
+      ]
+    }
+  }
+}
