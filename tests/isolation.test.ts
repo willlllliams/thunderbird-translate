@@ -10,6 +10,7 @@
  * leaves work pending, the second gives that work the chance to run against a
  * new fake API.
  */
+import { IDBFactory } from "fake-indexeddb"
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest"
 import { SAVE_DELAY_MS } from "../src/options/session"
 import { REFRESH_INTERVAL_MS } from "../src/popup/timing"
@@ -17,7 +18,7 @@ import { IDLE_TAB_STATE } from "../src/shared/messages"
 import { createDefaultSettings, SETTINGS_KEY } from "../src/shared/settings"
 import { WELCOME_KEY } from "../src/welcome/steps"
 import { stubBackgroundApi } from "./fixtures/background-api"
-import { stubBrowser } from "./fixtures/browser"
+import { SETTLE_TURNS, settle, stubBrowser } from "./fixtures/browser"
 import { openPage } from "./fixtures/pages"
 import { jsonResponse, nextTask, useFakeTimers } from "./helpers"
 
@@ -54,6 +55,34 @@ describe("a page left open by a test", { shuffle: false }, () => {
       document.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true, cancelable: true }))
     })
     expect(after).toEqual({ requests: [], writes: [] })
+  })
+})
+
+describe("a page still loading when its test ends", { shuffle: false }, () => {
+  beforeAll(() => useFakeTimers())
+  afterAll(() => vi.useRealTimers())
+
+  it("leaves the setup guide waiting for the model list, which arrives some turns of the event loop later", async () => {
+    vi.stubGlobal("indexedDB", new IDBFactory())
+    const settings = createDefaultSettings("en")
+    settings.sourceLang = "fr"
+    settings.tiers = { dictionary: null, machine: "bergamot", ai: null }
+    const pairs = [{ src: "fr", tgt: "en", version: "1", architecture: "base", bytes: 1, rawBytes: 1, installed: false }]
+    let asked = false
+    await openPage("welcome", settings, {
+      stored: { [WELCOME_KEY]: { step: "offline" } },
+      // Like an answer that IndexedDB requests of the background script hold up: no timer, only turns of the event loop.
+      respond: (req) => (req.type === "bergamotList" ? ((asked = true), settle(SETTLE_TURNS / 2).then(() => ({ ok: true, pairs }))) : undefined),
+    })
+    await vi.waitFor(() => expect(asked).toBe(true))
+    expect(document.querySelectorAll("#bergamotList input[type=checkbox]")).toHaveLength(0)
+  })
+
+  it("reads nothing from the extension API of the next test", async () => {
+    const { api, local } = stubBrowser()
+    const uiLanguage = vi.spyOn(api.i18n, "getUILanguage")
+    await settle()
+    expect({ requests: api.runtime.sendMessage.mock.calls, reads: local.get.mock.calls, uiLanguage: uiLanguage.mock.calls }).toEqual({ requests: [], reads: [], uiLanguage: [] })
   })
 })
 

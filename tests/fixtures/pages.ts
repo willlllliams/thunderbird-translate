@@ -5,7 +5,7 @@ import { onTestFinished, vi } from "vitest"
 import type { BackgroundRequest } from "../../src/shared/messages"
 import { SAVE_DELAY_MS } from "../../src/options/session"
 import { type Settings, SETTINGS_KEY } from "../../src/shared/settings"
-import { stubBrowser } from "./browser"
+import { settle, stubBrowser } from "./browser"
 import { packagedFetch } from "./locales"
 import type { StorageChanges } from "./storage"
 
@@ -18,12 +18,15 @@ export const flushSave = () => vi.advanceTimersByTimeAsync(SAVE_DELAY_MS)
  * its key listener) and its timers are cleared. shared/ext.ts reads the
  * extension API at every call, so a page left running would reach the fake
  * API of a later test: the popup polling its tab, a pending save of the
- * settings page, the tour closing on a key press.
+ * settings page, the tour closing on a key press. Work that waits for no
+ * timer (promises, IndexedDB requests, e.g. a list still loading) then gets
+ * to end while the fake API of its test is still in place, see settle().
  */
 function endPageWithTest(): void {
-  onTestFinished(() => {
+  onTestFinished(async () => {
     dispatchEvent(new Event("pagehide"))
     vi.clearAllTimers()
+    await settle()
   })
 }
 

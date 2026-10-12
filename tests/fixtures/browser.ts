@@ -123,3 +123,11 @@ export function stubBrowser(options: FakeBrowserOptions = {}): FakeBrowser {
   vi.stubGlobal("browser", browser.api)
   return browser
 }
+
+/** Turns of the event loop that work left by a test gets to end in; an IndexedDB request takes one turn. */
+export const SETTLE_TURNS = 50
+
+/** Let work that waits for no timer end: promise chains and IndexedDB requests. */
+export async function settle(turns = SETTLE_TURNS): Promise<void> {
+  for (let turn = 0; turn < turns; turn++) await new Promise<void>((resolve) => setImmediate(resolve))
+}

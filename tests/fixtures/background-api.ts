@@ -1,7 +1,7 @@
 /** Fake WebExtension API for loading the background script (src/background/index.ts). */
 import { onTestFinished, vi } from "vitest"
 import type { BackgroundRequest } from "../../src/shared/messages"
-import { backgroundPort, type BackgroundPort, stubBrowser } from "./browser"
+import { backgroundPort, type BackgroundPort, settle, stubBrowser } from "./browser"
 import { packagedFetch } from "./locales"
 
 export { localeText } from "./locales"
@@ -13,9 +13,10 @@ export type FakePort = BackgroundPort
  * that serves the packaged locale files; other URLs go to `fetchUrl`.
  *
  * The timers of the background script must be fake: they are cleared when
- * the test finishes. shared/ext.ts reads the extension API at every call, so
- * a timer left running, e.g. the delayed write of the translation cache,
- * would write into the storage of a later test.
+ * the test finishes, and work that waits for no timer gets to end (see
+ * settle()). shared/ext.ts reads the extension API at every call, so a timer
+ * left running, e.g. the delayed write of the translation cache, would write
+ * into the storage of a later test.
  */
 export function stubBackgroundApi({
   stored = {},
@@ -31,7 +32,10 @@ export function stubBackgroundApi({
   fetchUrl?: (url: string, init?: RequestInit) => Promise<Response>
 } = {}) {
   if (!vi.isFakeTimers()) throw new Error("stubBackgroundApi() needs fake timers: call useFakeTimers() first")
-  onTestFinished(() => void vi.clearAllTimers())
+  onTestFinished(async () => {
+    vi.clearAllTimers()
+    await settle()
+  })
   const browser = stubBrowser({ stored, tabs, activeTabs, uiLanguage })
   vi.stubGlobal("fetch", packagedFetch(fetchUrl))
   const { api, local, events } = browser
