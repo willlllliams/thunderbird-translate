@@ -7,6 +7,7 @@ import { IDLE_TAB_STATE, type OfflineStatus, type OptionsPlace, optionsPath, typ
 import { $, fillSelect, fillTierSelects, languageOptions, offlineStatus, onTierChange, send, showOfflineHint, sourceLanguageOptions } from "../shared/page"
 import { type DisplayMode, SETTINGS_KEY } from "../shared/settings"
 import { loadSettings, readSettings, updateSettings } from "../shared/settings-store"
+import { REFRESH_AFTER_ACTION_MS, REFRESH_INTERVAL_MS } from "./timing"
 
 async function main(): Promise<void> {
   let settings = await loadSettings()
@@ -134,7 +135,7 @@ async function main(): Promise<void> {
     button.addEventListener("click", async () => {
       if (tabId === undefined) return
       await send({ type, tabId })
-      setTimeout(refresh, 150)
+      setTimeout(refresh, REFRESH_AFTER_ACTION_MS)
     })
   }
 
@@ -145,7 +146,7 @@ async function main(): Promise<void> {
   void refreshOffline()
 
   await refresh()
-  setInterval(refresh, 500)
+  setInterval(refresh, REFRESH_INTERVAL_MS)
 }
 
 void main()

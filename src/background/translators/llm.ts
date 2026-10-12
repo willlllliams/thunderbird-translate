@@ -1,5 +1,6 @@
 import { generateText, type SystemModelMessage } from "ai"
 import { LocalizedError, TimeoutError } from "../../shared/errors"
+import { timeoutSignal } from "../../shared/http"
 import { getPreset } from "../../shared/providers"
 import type { ResolvedProvider } from "../../shared/settings"
 import { createLanguageModel } from "../providers/factory"
@@ -36,7 +37,7 @@ async function callModel(instructions: SystemModelMessage, prompt: string, opts:
   const { id, model, temperature, thinking } = opts.provider
   const reasoning = thinkingOptions(id, model, thinking)
   const sendTemperature = temperature !== null && !reasoning.dropTemperature && !modelRejectsTemperature(id, model)
-  const abortSignal = opts.timeoutMs ? AbortSignal.timeout(opts.timeoutMs) : undefined
+  const abortSignal = opts.timeoutMs ? timeoutSignal(opts.timeoutMs) : undefined
   try {
     const result = await generateText({
       model: createLanguageModel(opts.provider, opts.fetchFn),

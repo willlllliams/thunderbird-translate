@@ -6,6 +6,7 @@
 import { downloadBody, IDLE_TIMEOUT_MS, LIST_TIMEOUT_MS } from "../../shared/download"
 import { LocalizedError, MissingDataError, TimeoutError } from "../../shared/errors"
 import { hashText } from "../../shared/hash"
+import { timeoutSignal } from "../../shared/http"
 import { isChinesePair, normalizeBergamotLang, pairKey } from "../../shared/languages"
 import type { BergamotPairInfo } from "../../shared/messages"
 import { type Catalog, pairNeeds } from "../../shared/offline-needs"
@@ -90,7 +91,7 @@ export class BergamotManager {
 
   private async fetchJson(url: string): Promise<unknown> {
     const timeoutMs = this.deps.listTimeoutMs ?? LIST_TIMEOUT_MS
-    const signal = AbortSignal.timeout(timeoutMs)
+    const signal = timeoutSignal(timeoutMs)
     try {
       const res = await this.deps.fetch(url, { cache: "no-cache", signal })
       if (!res.ok) throw new Error(`${url}: HTTP ${res.status}`)

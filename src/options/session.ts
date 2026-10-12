@@ -1,6 +1,6 @@
 /**
  * Settings as edited on an extension page (settings page, welcome page).
- * Edits are saved 300 ms after the last change, on top of what is in
+ * Edits are saved SAVE_DELAY_MS after the last change, on top of what is in
  * storage, so changes made elsewhere in the meantime survive; changes made
  * elsewhere are taken over, except for the settings the page has changed
  * and not stored yet. A control being edited shows such a change once it
@@ -12,6 +12,9 @@ import { ext } from "../shared/ext"
 import { $ } from "../shared/page"
 import { SETTINGS_KEY, type Settings } from "../shared/settings"
 import { loadSettings, mergeChanges, readSettings, saveChanges } from "../shared/settings-store"
+
+/** Edits are saved this long after the last change, together. */
+export const SAVE_DELAY_MS = 300
 
 /** Any form control of a page: input, select or textarea. */
 export type Control = HTMLInputElement & HTMLSelectElement & HTMLTextAreaElement
@@ -65,11 +68,11 @@ export class SettingsSession {
     this.onRemoteChange(before)
   }
 
-  /** Save soon; changes within 300 ms go into one write. */
+  /** Save soon; changes within SAVE_DELAY_MS go into one write. */
   save(): void {
     this.dirty = true
     if (this.timer) clearTimeout(this.timer)
-    this.timer = setTimeout(() => void this.flush(), 300)
+    this.timer = setTimeout(() => void this.flush(), SAVE_DELAY_MS)
   }
 
   /** Save now what is pending. Resolves with false when the save failed; never rejects. */

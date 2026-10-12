@@ -1,7 +1,7 @@
 /** fetchOk(), Retry-After, retry classification and the concurrency limit of the RequestQueue. */
 import { describe, expect, it, vi } from "vitest"
 import { isRetryableError, RequestQueue } from "../src/background/queue/request-queue"
-import { fetchOk, HttpError, parseRetryAfter } from "../src/shared/http"
+import { fetchOk, HttpError, parseRetryAfter, timeoutSignal } from "../src/shared/http"
 import { llmTranslateSingle } from "../src/background/translators/llm"
 import { NetworkError, TimeoutError } from "../src/shared/errors"
 import { ENGLISH } from "../src/shared/i18n"
@@ -76,6 +76,21 @@ describe("fetchOk", () => {
     try {
       const fetchFn = async () => new Response("", { status: 503, headers: { "Retry-After": "Sun, 11 Oct 2026 12:00:07 GMT" } })
       expect(await fetchOk({ fetchFn: asFetch(fetchFn) }, spec, "X").catch((e) => e.retryAfterMs)).toBe(7000)
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+})
+
+describe("timeoutSignal", () => {
+  it("aborts with a TimeoutError after the given time of the global timers", async () => {
+    vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] })
+    try {
+      const signal = timeoutSignal(1000)
+      await vi.advanceTimersByTimeAsync(999)
+      expect(signal.aborted).toBe(false)
+      await vi.advanceTimersByTimeAsync(1)
+      expect([signal.aborted, (signal.reason as DOMException).name]).toEqual([true, "TimeoutError"])
     } finally {
       vi.useRealTimers()
     }

@@ -3,6 +3,17 @@
 import { type ErrorText, NetworkError, renderErrorText, TimeoutError } from "./errors"
 import { ENGLISH } from "./i18n"
 
+/**
+ * A signal that aborts after `ms` with a DOMException named TimeoutError,
+ * as AbortSignal.timeout() does, but timed by the global setTimeout, which
+ * tests with fake timers control.
+ */
+export function timeoutSignal(ms: number): AbortSignal {
+  const controller = new AbortController()
+  setTimeout(() => controller.abort(new DOMException("The operation timed out.", "TimeoutError")), ms)
+  return controller.signal
+}
+
 export class HttpError extends Error {
   constructor(
     message: string,
@@ -49,7 +60,7 @@ export interface FetchOptions {
  * `timeoutMs`, the body is read before the response is returned.
  */
 export async function fetchOk({ fetchFn, timeoutMs }: FetchOptions, { url, init }: RequestSpec, label: string): Promise<Response> {
-  const signal = timeoutMs ? AbortSignal.timeout(timeoutMs) : undefined
+  const signal = timeoutMs ? timeoutSignal(timeoutMs) : undefined
   let resp: Response
   try {
     resp = await (fetchFn ?? fetch)(url, signal ? { ...init, signal } : init)
