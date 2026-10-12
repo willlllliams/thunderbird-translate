@@ -465,5 +465,10 @@
   "tipBack": "Paso anterior; sus elecciones siguen guardadas",
   "tipSkipStep": "Pasa al siguiente paso; este es opcional",
   "tipNext": "Pasa al siguiente paso; las elecciones ya están guardadas",
-  "tipFinish": "Cierra la guía; la próxima vez empieza desde el principio"
+  "tipFinish": "Cierra la guía; la próxima vez empieza desde el principio",
+
+  "tipNoticeOpen": "Abre la configuración con los elementos que faltan",
+  "tipNoticeMute": "No más avisos para estos pares de idiomas",
+  "tipNoticeClose": "Oculta este aviso para este mensaje",
+  "tipRetryTier": "Haga clic para reintentar los niveles que fallaron"
 }

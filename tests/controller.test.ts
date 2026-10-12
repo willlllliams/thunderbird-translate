@@ -45,6 +45,8 @@ const ok = (text: string): TranslateResponse => ({ ok: true, text })
 const fail = (error: string): TranslateResponse => ({ ok: false, error })
 const AI_FAILED = ENGLISH.t("statusTierFailed", [ENGLISH.t("tierAi")])
 const MT_FAILED = ENGLISH.t("statusTierFailed", [ENGLISH.t("tierMachine")])
+/** Hover text of a fallback label: the reason, then how to retry. */
+const retryable = (reason: string) => `${reason}\n${ENGLISH.t("tipRetryTier")}`
 
 beforeEach(() => {
   document.head.innerHTML = ""
@@ -60,7 +62,7 @@ describe("tier combinations", () => {
       "dictionary + machine, machine fails",
       ["dictionary", "machine"],
       { dictionary: ok("D"), machine: fail("MT down") },
-      { kind: "fallback", text: "D", label: MT_FAILED, title: "MT down" },
+      { kind: "fallback", text: "D", label: MT_FAILED, title: retryable("MT down") },
       { failed: 1, lastError: "MT down" },
     ],
     ["machine + AI, machine fails", ["machine", "ai"], { machine: fail("MT down"), ai: ok("AI") }, { kind: "done", text: "AI" }, { done: 1, failed: 0 }],
@@ -75,7 +77,7 @@ describe("tier combinations", () => {
       "three tiers, dictionary and AI fail",
       ["dictionary", "machine", "ai"],
       { dictionary: fail("no pack"), machine: ok("MT"), ai: fail("AI down") },
-      { kind: "fallback", text: "MT", label: AI_FAILED, title: "AI down" },
+      { kind: "fallback", text: "MT", label: AI_FAILED, title: retryable("AI down") },
       { failed: 1, lastError: "AI down" },
     ],
     ["three tiers, all still running", ["dictionary", "machine", "ai"], {}, { kind: "loading" }, { done: 0, provisional: 0, failed: 0 }],

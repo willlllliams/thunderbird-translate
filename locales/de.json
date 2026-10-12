@@ -465,5 +465,10 @@
   "tipBack": "Vorheriger Schritt; Ihre Auswahl bleibt gespeichert",
   "tipSkipStep": "Weiter zum nächsten Schritt; dieser ist optional",
   "tipNext": "Weiter zum nächsten Schritt; die Auswahl ist schon gespeichert",
-  "tipFinish": "Schließt den Assistenten; er beginnt beim nächsten Mal von vorn"
+  "tipFinish": "Schließt den Assistenten; er beginnt beim nächsten Mal von vorn",
+
+  "tipNoticeOpen": "Öffnet die Einstellungen mit den fehlenden Elementen",
+  "tipNoticeMute": "Keine Hinweise mehr für diese Sprachpaare",
+  "tipNoticeClose": "Blendet diesen Hinweis für diese Nachricht aus",
+  "tipRetryTier": "Klicken, um die fehlgeschlagenen Stufen zu wiederholen"
 }

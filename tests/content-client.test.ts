@@ -248,7 +248,9 @@ describe("connectContent", () => {
     const unknown = ENGLISH.t("errUnknown")
     const [fallback, error] = Array.from(document.querySelectorAll<HTMLElement>("p"))
     expect(fallback.querySelector(".tt-fallback")!.firstChild!.textContent).toBe("早上好")
-    expect(fallback.querySelector<HTMLElement>(".tt-fallback .tt-error")!.title).toBe(unknown)
+    expect(fallback.querySelector<HTMLElement>(".tt-fallback .tt-error")!.title).toBe(`${unknown}\n${ENGLISH.t("tipRetryTier")}`)
+    // The translation around the label carries the reason only: it is not the retry button.
+    expect(fallback.querySelector<HTMLElement>(".tt-fallback")!.title).toBe(unknown)
     expect(error.querySelector<HTMLElement>(".tt-error")!.title).toBe(unknown)
 
     // A retry after the disconnect fails at once instead of waiting forever.

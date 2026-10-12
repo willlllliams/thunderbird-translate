@@ -468,5 +468,10 @@
   "tipBack": "Önceki adım; seçimleriniz kayıtlı kalır",
   "tipSkipStep": "Sonraki adıma geçer; bu adım isteğe bağlı",
   "tipNext": "Sonraki adıma geçer; seçimler zaten kayıtlı",
-  "tipFinish": "Rehberi kapatır; sonraki sefer baştan başlar"
+  "tipFinish": "Rehberi kapatır; sonraki sefer baştan başlar",
+
+  "tipNoticeOpen": "Ayarları eksik öğeler listelenmiş olarak açar",
+  "tipNoticeMute": "Bu dil çiftleri için artık bildirim gösterilmez",
+  "tipNoticeClose": "Bu bildirimi bu ileti için gizler",
+  "tipRetryTier": "Başarısız olan kademeleri yeniden denemek için tıklayın"
 }

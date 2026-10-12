@@ -325,7 +325,7 @@ export class TranslationController {
         mark = { kind: "provisional", label: t(TIER_NAME_KEYS[view.tier]), title: t("statusProvisionalHint", [topName]) }
         break
       case "fallback":
-        mark = { kind: "fallback", label: t("statusTierFailed", [topName]), title: view.error, onRetry: retry }
+        mark = { kind: "fallback", label: t("statusTierFailed", [topName]), title: view.error, onRetry: retry, retryHint: t("tipRetryTier") }
         break
     }
     // Identical output adds nothing in bilingual mode.

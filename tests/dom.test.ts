@@ -393,7 +393,7 @@ describe("controller", () => {
     expect(block.firstChild!.textContent).toBe("MT")
     const marker = block.querySelector<HTMLElement>(".tt-error")!
     expect(marker.textContent).toBe(ENGLISH.t("statusTierFailed", [ENGLISH.t("tierAi")]))
-    expect(marker.title).toBe("OpenAI request failed: HTTP 401")
+    expect(marker.title).toBe(`OpenAI request failed: HTTP 401\n${ENGLISH.t("tipRetryTier")}`)
     await vi.waitFor(() => expect(reports.at(-1)).toMatchObject({ done: 0, provisional: 0, failed: 1, lastError: "OpenAI request failed: HTTP 401" }))
 
     marker.click()

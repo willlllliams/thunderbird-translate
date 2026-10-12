@@ -1,14 +1,16 @@
 // @vitest-environment jsdom
 /**
  * Hover texts (title attributes): every control of the popup, the settings
- * page and the setup guide has one, in the interface language and after a
- * change of it; the texts are short; a label gives its text to its control.
+ * page, the setup guide and the notice inside a message has one, in the
+ * interface language and after a change of it; the texts are short and all
+ * in use; a label gives its text to its control.
  */
 import { readdirSync, readFileSync, statSync } from "node:fs"
 import { join } from "node:path"
 import { IDBFactory } from "fake-indexeddb"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 import { readLocaleSources } from "../scripts/locales.mjs"
+import { MissingNotice } from "../src/content/notice"
 import { ENGLISH } from "../src/shared/i18n"
 import { IDLE_TAB_STATE, type PortReport, type TabState } from "../src/shared/messages"
 import { createDefaultSettings, toPublicSettings } from "../src/shared/settings"
@@ -357,5 +359,24 @@ describe("setup guide", () => {
     expect($("nextStep").title).toBe(sources.ja.tipFinish)
     expect(stepButton(0).title).toBe(sources.ja.tipStep)
     expect($("autoTranslate").title).toBe(sources.ja.tipAutoTranslate)
+  })
+})
+
+describe("inside a message", () => {
+  it("gives every control of the notice about missing downloads a hover text", () => {
+    document.body.innerHTML = "<p>Text</p>"
+    const notice = new MissingNotice({ root: () => document.body, muted: () => [], send: () => {} })
+    notice.begin()
+    notice.add({ service: "dictionary", pair: "ja>zh-Hans", models: ["ja>en"] })
+    notice.end()
+    const panel = document.querySelector<HTMLElement>(".tt-notice")!
+    expect(untitled(panel)).toEqual([])
+    expect(Array.from(panel.querySelectorAll<HTMLElement>("button, input"), (el) => el.title)).toEqual([
+      ENGLISH.t("tipNoticeOpen"),
+      ENGLISH.t("tipNoticeMute"),
+      ENGLISH.t("tipNoticeClose"),
+    ])
+    // The words of the check box show the hover text too.
+    expect(panel.querySelector("label")!.title).toBe(ENGLISH.t("tipNoticeMute"))
   })
 })

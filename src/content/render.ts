@@ -27,12 +27,17 @@ interface UnitDom {
   original: Node[] | null
 }
 
-/** Small label inside a translation; the title explains it, a click handler makes it a retry button. */
+/**
+ * Small label inside a translation; the title explains it, a click handler
+ * makes it a retry button, and `retryHint` then follows the title on the
+ * label itself (not on the translation around it).
+ */
 export interface TranslationMark {
   kind: "provisional" | "fallback"
   label: string
   title: string
   onRetry?: () => void
+  retryHint?: string
 }
 
 export class Renderer {
@@ -110,7 +115,10 @@ export class Renderer {
     node.textContent = text
     node.setAttribute("dir", "auto")
     if (lang) node.setAttribute("lang", lang)
-    if (mark) node.appendChild(this.status(mark.kind === "fallback" ? "tt-error" : "tt-tag", mark.label, mark.title, mark.onRetry))
+    if (mark) {
+      const title = mark.onRetry && mark.retryHint ? `${mark.title}\n${mark.retryHint}` : mark.title
+      node.appendChild(this.status(mark.kind === "fallback" ? "tt-error" : "tt-tag", mark.label, title, mark.onRetry))
+    }
     const s = this.state(unit)
     if (mode === "bilingual") {
       if (mark) node.title = mark.title

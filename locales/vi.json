@@ -465,5 +465,10 @@
   "tipBack": "Về bước trước; các lựa chọn vẫn được lưu",
   "tipSkipStep": "Sang bước tiếp theo; bước này là tùy chọn",
   "tipNext": "Sang bước tiếp theo; các lựa chọn đã được lưu",
-  "tipFinish": "Đóng hướng dẫn; lần sau sẽ bắt đầu lại từ đầu"
+  "tipFinish": "Đóng hướng dẫn; lần sau sẽ bắt đầu lại từ đầu",
+
+  "tipNoticeOpen": "Mở cài đặt kèm danh sách các mục còn thiếu",
+  "tipNoticeMute": "Không thông báo nữa cho các cặp ngôn ngữ này",
+  "tipNoticeClose": "Ẩn thông báo này cho thư này",
+  "tipRetryTier": "Nhấn để thử lại các tầng bị lỗi"
 }

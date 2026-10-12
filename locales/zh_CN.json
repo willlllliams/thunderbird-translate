@@ -465,5 +465,10 @@
   "tipBack": "上一步；已做的选择仍然保存",
   "tipSkipStep": "转到下一步；这一步可以不做",
   "tipNext": "转到下一步；选择已自动保存",
-  "tipFinish": "关闭引导；下次从头开始"
+  "tipFinish": "关闭引导；下次从头开始",
+
+  "tipNoticeOpen": "打开设置，列出缺少的下载项",
+  "tipNoticeMute": "不再为这些语言对显示提醒",
+  "tipNoticeClose": "在此邮件中隐藏这条提醒",
+  "tipRetryTier": "点击重试失败的层级"
 }

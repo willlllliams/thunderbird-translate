@@ -465,5 +465,10 @@
   "tipBack": "Étape précédente ; vos choix restent enregistrés",
   "tipSkipStep": "Passe à l’étape suivante ; celle-ci est facultative",
   "tipNext": "Passe à l’étape suivante ; les choix sont déjà enregistrés",
-  "tipFinish": "Ferme le guide ; il repartira du début la prochaine fois"
+  "tipFinish": "Ferme le guide ; il repartira du début la prochaine fois",
+
+  "tipNoticeOpen": "Ouvre les paramètres avec la liste des éléments manquants",
+  "tipNoticeMute": "Plus de rappels pour ces paires de langues",
+  "tipNoticeClose": "Masque cet avis pour ce message",
+  "tipRetryTier": "Cliquez pour relancer les niveaux en échec"
 }

@@ -17,7 +17,7 @@
  * the other tiers' translations.
  */
 
-import { h } from "../shared/dom"
+import { h, setTitle } from "../shared/dom"
 import type { MissingData } from "../shared/errors"
 import { getI18n, t } from "../shared/i18n"
 import type { BackgroundRequest } from "../shared/messages"
@@ -86,15 +86,17 @@ export class MissingNotice {
     const lines = entries.map((e) => h("li", { text: t(e.service === "dictionary" ? "noticeMissingDictionary" : "noticeMissingBergamot", [i18n.pairName(e.pair), list(e.models)]) }))
     const models = (service: MissingData["service"]) => [...new Set(entries.filter((e) => e.service === service).flatMap((e) => e.models))]
 
-    const open = h("button", { type: "button", text: t("noticeOpenSettings") })
+    const open = h("button", { type: "button", text: t("noticeOpenSettings"), title: t("tipNoticeOpen") })
     open.addEventListener("click", () => {
       const [dictionaries, bergamot] = [models("dictionary"), models("bergamot")]
       this.deps.send({ type: "openOptions", place: { section: dictionaries.length > 0 ? "dictionaries" : "bergamot", dictionaries, bergamot } })
     })
     const mute = h("input", { type: "checkbox" })
     mute.addEventListener("change", () => this.deps.send({ type: "muteOfflinePairs", pairs: entries.map(muteKey), muted: mute.checked }))
-    const close = h("button", { type: "button", text: t("noticeClose") })
+    const close = h("button", { type: "button", text: t("noticeClose"), title: t("tipNoticeClose") })
     close.addEventListener("click", () => this.clear())
+    const muteField = h("label", {}, mute, h("span", { text: t("noticeMute") }))
+    setTitle(muteField, t("tipNoticeMute"))
 
     return h(
       "div",
@@ -102,7 +104,7 @@ export class MissingNotice {
       h("strong", { text: t("noticeMissingTitle") }),
       h("ul", {}, ...lines),
       h("p", { text: t("noticeMissingHint") }),
-      h("div", { className: "tt-notice-actions" }, open, h("label", {}, mute, h("span", { text: t("noticeMute") })), close),
+      h("div", { className: "tt-notice-actions" }, open, muteField, close),
     )
   }
 }

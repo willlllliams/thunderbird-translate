@@ -468,5 +468,10 @@
   "tipBack": "Previous step; your choices stay saved",
   "tipSkipStep": "Goes to the next step; this one is optional",
   "tipNext": "Goes to the next step; choices are already saved",
-  "tipFinish": "Closes the guide; it starts from the top next time"
+  "tipFinish": "Closes the guide; it starts from the top next time",
+
+  "tipNoticeOpen": "Opens the settings with the missing items listed",
+  "tipNoticeMute": "No more notices for these language pairs",
+  "tipNoticeClose": "Hides this notice for this message",
+  "tipRetryTier": "Click to retry the tiers that failed"
 }
