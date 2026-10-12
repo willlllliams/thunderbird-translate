@@ -93,6 +93,9 @@ function dictionaries(texts: string[], options: ListOptions & { fetchFn?: typeof
 }
 
 describe("dictionary list", () => {
+  // Downloads go through gunzip and IndexedDB in real time, which on a busy machine takes longer than the 1 s vi.waitFor() waits by default.
+  const until = <T>(check: () => T | Promise<T>) => vi.waitFor(check, { timeout: 10_000 })
+
   it("says while loading, and when the release has no packs", async () => {
     const d = dictionaries([])
     const loading = d.section.load()
@@ -112,14 +115,14 @@ describe("dictionary list", () => {
     const d = dictionaries([], { fetchFn })
     await d.section.load()
     button(d.rows()[0]!, ENGLISH.t("buttonDownload"))!.click()
-    await vi.waitFor(() => expect(d.rows()[0]!.textContent).toContain(ENGLISH.t("dictDownloading", [0])))
+    await until(() => expect(d.rows()[0]!.textContent).toContain(ENGLISH.t("dictDownloading", [0])))
     expect(button(d.rows()[0]!, ENGLISH.t("buttonDownload"))).toBeUndefined()
     const half = data.byteLength >> 1
     push.enqueue(data.slice(0, half))
-    await vi.waitFor(() => expect(d.rows()[0]!.textContent).toContain(ENGLISH.t("dictDownloading", [Math.round((half / data.byteLength) * 100)])))
+    await until(() => expect(d.rows()[0]!.textContent).toContain(ENGLISH.t("dictDownloading", [Math.round((half / data.byteLength) * 100)])))
     push.enqueue(data.slice(half))
     push.close()
-    await vi.waitFor(() => expect(button(d.rows()[0]!, ENGLISH.t("buttonDelete"))).toBeDefined())
+    await until(() => expect(button(d.rows()[0]!, ENGLISH.t("buttonDelete"))).toBeDefined())
     expect(d.rows()[0]!.textContent).toContain(ENGLISH.t("dictInstalled"))
     expect(requests).toEqual([{ type: "dictionaryChanged" }])
     expect((await d.store.list()).map((p) => p.id)).toEqual(["en>de"])
@@ -132,9 +135,9 @@ describe("dictionary list", () => {
     const d = dictionaries([], { fetchFn })
     await d.section.load()
     button(d.rows()[0]!, ENGLISH.t("buttonDownload"))!.click()
-    await vi.waitFor(() => expect(button(d.rows()[0]!, ENGLISH.t("buttonCancel"))).toBeDefined())
+    await until(() => expect(button(d.rows()[0]!, ENGLISH.t("buttonCancel"))).toBeDefined())
     button(d.rows()[0]!, ENGLISH.t("buttonCancel"))!.click()
-    await vi.waitFor(() => expect(button(d.rows()[0]!, ENGLISH.t("buttonDownload"))).toBeDefined())
+    await until(() => expect(button(d.rows()[0]!, ENGLISH.t("buttonDownload"))).toBeDefined())
     expect(d.rows()[0]!.querySelector(".test-result")).toBeNull()
     expect(requests).toEqual([])
     expect(await d.store.list()).toEqual([])
@@ -145,7 +148,7 @@ describe("dictionary list", () => {
     background({})
     await d.section.load()
     button(d.rows()[0]!, ENGLISH.t("buttonDownload"))!.click()
-    await vi.waitFor(() => expect(d.rows()[0]!.querySelector(".test-result.fail")?.textContent).toBe(ENGLISH.t("errDictionaryChecksum", ["dict-en-de.tsv.gz"])))
+    await until(() => expect(d.rows()[0]!.querySelector(".test-result.fail")?.textContent).toBe(ENGLISH.t("errDictionaryChecksum", ["dict-en-de.tsv.gz"])))
     expect(button(d.rows()[0]!, ENGLISH.t("buttonDownload"))).toBeDefined()
     expect(sendMessage).not.toHaveBeenCalled()
   })
@@ -155,7 +158,7 @@ describe("dictionary list", () => {
     const d = dictionaries([EN_DE])
     await d.section.load()
     button(d.rows()[0]!, ENGLISH.t("buttonDownload"))!.click()
-    await vi.waitFor(() => expect(button(d.rows()[0]!, ENGLISH.t("buttonDelete"))).toBeDefined())
+    await until(() => expect(button(d.rows()[0]!, ENGLISH.t("buttonDelete"))).toBeDefined())
 
     // Another release tag without the pack: the installed pack is still listed.
     const other = dictionaries([FR_EN])
@@ -164,10 +167,10 @@ describe("dictionary list", () => {
     expect(other.names()).toEqual(["English → German (Deutsch)", "French (Français) → English"])
     const remove = vi.spyOn(other.store, "remove").mockRejectedValueOnce(new Error("database locked"))
     button(other.row("English"), ENGLISH.t("buttonDelete"))!.click()
-    await vi.waitFor(() => expect(other.row("English").querySelector(".test-result")?.textContent).toBe("database locked"))
+    await until(() => expect(other.row("English").querySelector(".test-result")?.textContent).toBe("database locked"))
     requests.length = 0
     button(other.row("English"), ENGLISH.t("buttonDelete"))!.click()
-    await vi.waitFor(() => expect(other.rows()).toHaveLength(1))
+    await until(() => expect(other.rows()).toHaveLength(1))
     expect(remove).toHaveBeenCalledTimes(2)
     expect(requests).toEqual([{ type: "dictionaryChanged" }])
   })
@@ -240,7 +243,7 @@ describe("dictionary list", () => {
     const d = dictionaries([EN_DE, DE_EN, FR_EN, EN_JA, tsv("en", "vi", { hello: "xin chào" })])
     await d.section.load()
     button(d.row("German"), ENGLISH.t("buttonDownload"))!.click()
-    await vi.waitFor(() => expect(d.row("German").textContent).toContain(ENGLISH.t("dictInstalled")))
+    await until(() => expect(d.row("German").textContent).toContain(ENGLISH.t("dictInstalled")))
     d.commonButton().click()
     const confirm = d.common.querySelector(".common-confirm")!
     const total = ([EN_DE, FR_EN, EN_JA].map((t) => packEntry(t).bytes).reduce((a, b) => a + b) / 1048576).toFixed(1)
@@ -251,7 +254,7 @@ describe("dictionary list", () => {
     expect(d.common.querySelector(".common-confirm")).toBeNull()
     d.commonButton().click()
     button(d.common.querySelector(".common-confirm")!, ENGLISH.t("buttonConfirmDownload"))!.click()
-    await vi.waitFor(() => expect(d.common.textContent).toContain(ENGLISH.t("commonAllInstalled")))
+    await until(() => expect(d.common.textContent).toContain(ENGLISH.t("commonAllInstalled")))
     expect(d.commonButton().disabled).toBe(true)
     expect((await d.store.list()).map((p) => p.id).sort()).toEqual(["de>en", "en>de", "en>ja", "fr>en"])
     expect(requests.filter((r) => r.type === "dictionaryChanged")).toHaveLength(2)
@@ -269,15 +272,15 @@ describe("dictionary list", () => {
     await d.section.load()
     d.commonButton().click()
     button(d.common.querySelector(".common-confirm")!, ENGLISH.t("buttonConfirmDownload"))!.click()
-    await vi.waitFor(() => expect(waiting).toHaveLength(2))
+    await until(() => expect(waiting).toHaveLength(2))
     await nextTask()
     expect(waiting).toHaveLength(2)
     waiting.shift()!()
     // A finished pack shows as installed while the others are still running, without a word to the background script yet.
-    await vi.waitFor(() => expect(waiting).toHaveLength(2))
+    await until(() => expect(waiting).toHaveLength(2))
     expect(d.rows().filter((li) => li.textContent!.includes(ENGLISH.t("dictInstalled")))).toHaveLength(1)
     expect(requests).toEqual([])
-    await vi.waitFor(() => {
+    await until(() => {
       waiting.splice(0).forEach((resolve) => resolve())
       expect(d.common.textContent).toContain(ENGLISH.t("commonAllInstalled"))
     })
@@ -306,7 +309,7 @@ describe("dictionary list", () => {
     await d.section.load()
     d.commonButton().click()
     button(d.common.querySelector(".common-confirm")!, ENGLISH.t("buttonConfirmDownload"))!.click()
-    await vi.waitFor(() => expect(release.waiting).toHaveLength(2))
+    await until(() => expect(release.waiting).toHaveLength(2))
     expect(release.files).toEqual(["dict-en-de.tsv.gz", "dict-de-en.tsv.gz"])
     const [japanese, french] = [d.row("English → Japanese"), d.row("French")]
     // Before the fix the queued row offered "Download", and clicking it requested the pack a second time.
@@ -319,7 +322,7 @@ describe("dictionary list", () => {
     d.commonButton().click()
     expect(Array.from(d.common.querySelectorAll(".common-confirm li"), (li) => li.textContent!.split(" · ")[0])).toEqual(["French (Français) → English"])
     button(d.common.querySelector(".common-confirm")!, ENGLISH.t("buttonCancel"))!.click()
-    await vi.waitFor(() => {
+    await until(() => {
       release.waiting.splice(0).forEach((resolve) => resolve())
       expect(d.rows().filter((li) => li.textContent!.includes(ENGLISH.t("dictInstalled")))).toHaveLength(3)
     })
@@ -334,12 +337,12 @@ describe("dictionary list", () => {
     await d.section.load()
     expect(d.ticked()).toHaveLength(3)
     const done = d.section.downloadPicked()
-    await vi.waitFor(() => expect(release.waiting).toHaveLength(2))
+    await until(() => expect(release.waiting).toHaveLength(2))
     const queued = d.rows().filter((li) => li.textContent!.includes(ENGLISH.t("dictQueued")))
     expect(queued).toHaveLength(1)
     expect(queued[0]!.querySelector<HTMLInputElement>("input[type=checkbox]")!.disabled).toBe(true)
     expect(d.section.picked()).toEqual([])
-    await vi.waitFor(() => {
+    await until(() => {
       release.waiting.splice(0).forEach((resolve) => resolve())
       expect(release.files).toHaveLength(3)
     })
