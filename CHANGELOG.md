@@ -2,6 +2,14 @@
 
 All notable changes to this project are documented in this file. Versions follow [Semantic Versioning](https://semver.org/).
 
+## 1.12.0
+
+### Added
+
+- Hover texts. Every control of the popup, the settings page and the setup guide shows one short sentence about what it is or what it does when the mouse rests on it: buttons, lists, switches, sliders, color fields, input fields such as the API key, endpoint, model, temperature and timeout, the tier selectors, the service list, the rows and buttons of both offline lists, the prompt editor and its presets, the style controls, the demo and the tour of the tiers. The texts state the facts that matter, for example that a key stays in this profile and goes only to its service. They are written in all 12 interface languages and follow a change of the interface language at once.
+- Inside a message, the buttons and the check box of the notice about missing offline data have hover texts, and the label of a lower translation kept after the highest tier failed adds to the reason that a click retries the failed tiers.
+- A label passes its hover text to its control, which takes it as its accessible description; the filter fields and the release tag of the dictionary packs keep an accessible name of their own.
+
 ## 1.11.0
 
 ### Fixed
