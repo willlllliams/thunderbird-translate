@@ -35,10 +35,7 @@ const stored = (s: Settings) => ({ [SETTINGS_KEY]: structuredClone(s) })
 const settingsWrites = (bg: Awaited<ReturnType<typeof start>>) => bg.api.storage.local.set.mock.calls.filter(([v]) => SETTINGS_KEY in v)
 const request = (text: string): TranslateRequest => ({ text, sourceLang: "auto", targetLang: "zh-CN", tiers: ["machine"] })
 
-/** The test that runs first, whichever it is (sequence.shuffle), loads the background script with all its imports, which can take more than the default 5 s on a busy machine. */
-const LOAD = { timeout: 20_000 }
-
-describe("settings", LOAD, () => {
+describe("settings", () => {
   it("stores the settings of a fresh installation", async () => {
     const bg = await start()
     expect(settingsWrites(bg)).toHaveLength(1)
@@ -121,7 +118,7 @@ describe("settings", LOAD, () => {
   })
 })
 
-describe("content script ports", LOAD, () => {
+describe("content script ports", () => {
   it("sends the settings to a new content script and clears its badge", async () => {
     const bg = await start({ stored: stored(createDefaultSettings()) })
     const port = bg.connect(4)
@@ -156,7 +153,7 @@ describe("content script ports", LOAD, () => {
   })
 })
 
-describe("requests from pages", LOAD, () => {
+describe("requests from pages", () => {
   it("tests a service and describes its failure", async () => {
     const bg = await start({ stored: stored(createDefaultSettings()) })
     const config = { enabled: true, apiKey: "", baseURL: "", model: "" }
@@ -245,7 +242,7 @@ describe("requests from pages", LOAD, () => {
   })
 })
 
-describe("keyboard shortcuts", LOAD, () => {
+describe("keyboard shortcuts", () => {
   it("switches the display mode back and forth and tells the content scripts", async () => {
     const bg = await start({ stored: stored(createDefaultSettings()) })
     const port = bg.connect(4)
@@ -259,7 +256,7 @@ describe("keyboard shortcuts", LOAD, () => {
   })
 })
 
-describe("installation and content scripts", LOAD, () => {
+describe("installation and content scripts", () => {
   it("opens the welcome page after a new installation only", async () => {
     const bg = await start({ stored: stored(createDefaultSettings()) })
     bg.install("update")

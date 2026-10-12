@@ -5,6 +5,9 @@ export default defineConfig({
   test: {
     include: ["tests/**/*.test.ts"],
     environment: "node",
+    // A test that loads the modules of a page or of the background script, or works through IndexedDB, can take more than
+    // the default 5 s on a busy machine (CI runners, several test runs at once); a test that hangs still fails.
+    testTimeout: 20_000,
     // Before every test: globals stubbed with vi.stubGlobal() are restored, spies of vi.spyOn() get their original back.
     unstubGlobals: true,
     restoreMocks: true,
