@@ -13,7 +13,6 @@ import { fakePort } from "./fixtures/content"
 import { jsonResponse, openPage } from "./helpers"
 
 afterEach(() => {
-  vi.unstubAllGlobals()
   vi.resetModules()
 })
 

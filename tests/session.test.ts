@@ -4,7 +4,6 @@ import { afterEach, describe, expect, it, vi } from "vitest"
 import { createDefaultSettings, type Settings, SETTINGS_KEY } from "../src/shared/settings"
 
 afterEach(() => {
-  vi.unstubAllGlobals()
   vi.resetModules()
   vi.useRealTimers()
 })

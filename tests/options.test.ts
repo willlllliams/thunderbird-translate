@@ -9,7 +9,6 @@ import { createDefaultSettings, type Settings } from "../src/shared/settings"
 import { openPage } from "./helpers"
 
 afterEach(() => {
-  vi.unstubAllGlobals()
   vi.resetModules()
 })
 

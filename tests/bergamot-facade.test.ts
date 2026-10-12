@@ -1,6 +1,6 @@
 /** The manager of the background page and the offline tier's adapter, built from the browser APIs (fake ones here). */
 import { IDBFactory } from "fake-indexeddb"
-import { beforeEach, describe, expect, it, vi } from "vitest"
+import { describe, expect, it, vi } from "vitest"
 import type { LocalizedError } from "../src/shared/errors"
 import { sourceDetector } from "../src/shared/lang-detect"
 import { type FakeFile, FakeWorker, fakeServer, triple } from "./fixtures/bergamot"
@@ -37,8 +37,6 @@ const detectByStart = (languages: Record<string, string>, percentage = 95) =>
     const language = Object.entries(languages).find(([start]) => text.startsWith(start))?.[1]
     return { isReliable: Boolean(language), languages: language ? [{ language, percentage }] : [] }
   })
-
-beforeEach(() => vi.unstubAllGlobals())
 
 describe("offline engine of the background page", () => {
   it("lists, installs, translates through the worker script and removes", async () => {

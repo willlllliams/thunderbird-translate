@@ -4,7 +4,6 @@ import { createDefaultSettings, type Settings, SETTINGS_KEY } from "../src/share
 import { mergeChanges } from "../src/shared/settings-store"
 
 afterEach(() => {
-  vi.unstubAllGlobals()
   vi.resetModules()
 })
 

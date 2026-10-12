@@ -13,7 +13,6 @@ import { packEntry, releaseServer, tsv } from "./fixtures/dictionary"
 import { asFetch, jsonResponse } from "./helpers"
 
 afterEach(() => {
-  vi.unstubAllGlobals()
   vi.doUnmock("../src/background/bergamot-admin")
   vi.resetModules()
 })

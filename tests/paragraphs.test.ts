@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 /** Paragraph detection on quotes, tables, lists, code and plain text, and exact restoration after rendering. */
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
+import { beforeEach, describe, expect, it, vi } from "vitest"
 import { collectParagraphs, extractText } from "../src/content/paragraphs"
 import { Renderer } from "../src/content/render"
 import { unwrapPlainText } from "../src/content/text"
@@ -13,9 +13,6 @@ const plain = (body: string) => `<div class="moz-text-plain"><pre class="moz-quo
 
 beforeEach(() => {
   document.body.innerHTML = ""
-})
-afterEach(() => {
-  vi.restoreAllMocks()
 })
 
 describe("paragraph detection", () => {

@@ -255,7 +255,6 @@ describe("checkBaseURL", () => {
 
 describe("settings page", () => {
   afterEach(() => {
-    vi.unstubAllGlobals()
     vi.resetModules()
   })
 

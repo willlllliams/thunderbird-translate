@@ -11,7 +11,6 @@ import { createDefaultSettings } from "../src/shared/settings"
 import { jsonResponse, openPage } from "./helpers"
 
 afterEach(() => {
-  vi.unstubAllGlobals()
   vi.resetModules()
 })
 

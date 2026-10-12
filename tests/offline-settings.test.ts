@@ -19,9 +19,6 @@ const sendMessage = vi.hoisted(() => {
   return fn
 })
 
-// jsdom's Blob has no stream(), which gunzip() uses; Thunderbird's has.
-vi.stubGlobal("Blob", NodeBlob)
-
 const { BergamotSection } = await import("../src/options/bergamot")
 const { DictionarySection } = await import("../src/options/dictionaries")
 const { loadSystemLanguages, recommendedFor } = await import("../src/options/offline-list")
@@ -65,6 +62,8 @@ const unknownError = describeError(undefined, ENGLISH)
 
 beforeEach(() => {
   sendMessage.mockReset()
+  // jsdom's Blob has no stream(), which gunzip() uses; Thunderbird's has. Stubs are undone before every test (vitest.config.ts).
+  vi.stubGlobal("Blob", NodeBlob)
 })
 afterEach(() => vi.useRealTimers())
 

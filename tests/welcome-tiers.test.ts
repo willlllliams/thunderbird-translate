@@ -9,7 +9,6 @@ import { openPage } from "./helpers"
 
 afterEach(() => {
   vi.useRealTimers()
-  vi.unstubAllGlobals()
   vi.resetModules()
 })
 

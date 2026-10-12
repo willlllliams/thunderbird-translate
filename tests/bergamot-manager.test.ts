@@ -10,7 +10,6 @@ import { prepareTexts } from "../src/offline/bergamot/text"
 import { CDN, FakeWorker, makeManager, modelFile, RECORDS_URL, SERVER, triple } from "./fixtures/bergamot"
 
 afterEach(() => {
-  vi.unstubAllGlobals()
   vi.useRealTimers()
 })
 

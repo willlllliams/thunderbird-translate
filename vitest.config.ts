@@ -5,6 +5,9 @@ export default defineConfig({
   test: {
     include: ["tests/**/*.test.ts"],
     environment: "node",
+    // Before every test: globals stubbed with vi.stubGlobal() are restored, spies of vi.spyOn() get their original back.
+    unstubGlobals: true,
+    restoreMocks: true,
     coverage: {
       provider: "v8",
       include: ["src/**/*.ts"],

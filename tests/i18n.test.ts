@@ -457,7 +457,6 @@ describe("localizeDocument", () => {
 
 describe("extension glue", () => {
   afterEach(() => {
-    vi.unstubAllGlobals()
     vi.resetModules()
   })
 
