@@ -1,8 +1,8 @@
 # Changelog
 
-All notable changes to this project are documented in this file. Versions follow [Semantic Versioning](https://semver.org/).
+All notable changes to this project are documented in this file, with the date of each version. It lists what users of the extension notice. The record up to 1.12.0 with the internal changes is kept in [docs/archive/CHANGELOG-full.md](docs/archive/CHANGELOG-full.md). Versions follow [Semantic Versioning](https://semver.org/).
 
-## 1.12.0
+## 1.12.0 - 2026-10-12
 
 ### Added
 
@@ -10,19 +10,19 @@ All notable changes to this project are documented in this file. Versions follow
 - Inside a message, the buttons and the check box of the notice about missing offline data have hover texts, and the label of a lower translation kept after the highest tier failed adds to the reason that a click retries the failed tiers.
 - A label passes its hover text to its control, which takes it as its accessible description; the filter fields and the release tag of the dictionary packs keep an accessible name of their own.
 
-## 1.11.0
+## 1.11.0 - 2026-10-12
 
 ### Fixed
 
 - The background script read the index of the dictionary packs once per release and kept it for as long as Thunderbird ran. The popup, the tier selectors of the settings page and the notice about missing offline data name downloadable packs from this index, so packs published later were not offered until Thunderbird restarted. The index is now read again once it is 6 hours old, as the Bergamot model list already was. After a failed read it is asked for again 10 minutes later at the earliest, and the index read before keeps answering meanwhile.
 
-## 1.10.0
+## 1.10.0 - 2026-10-12
 
 ### Changed
 
 - The extension behaves as in 1.9.1. Internally the source is split into layers that `npm run imports:check` keeps apart in CI, one function decides what goes into the cache key of a translation, the requests to the background script are typed from one table, and the unit tests run on simulated time instead of waiting.
 
-## 1.9.1
+## 1.9.1 - 2026-10-12
 
 ### Fixed
 
@@ -35,10 +35,8 @@ All notable changes to this project are documented in this file. Versions follow
 
 - The tier demo in step 3 of the setup guide labels a provisional result with the name of its tier, such as "Machine translation", as a translated message does. The line under the paragraph still names the tier and the service.
 - README, all 12 languages: "Don't remind me for these languages" in the notice about missing offline data is a check box, not a button. The Simplified Chinese and Korean READMEs quote the interface text of the locale files, "这些语言不再提醒我" and "이 언어들은 다시 알리지 않기".
-- `npm run docs:check` follows GitHub's anchor rules more closely: a repeated heading gets the next free number (headings "A", "A", "A-1" give `a`, `a-1`, `a-1-1`), only decimal digits count as digits, and images in a heading add no text. Unit tests cover these rules. `docs/development.md` lists the check among the CI steps.
-- Tests that depended on real time (download idle timeout, dictionary release after idle time) use simulated timers, and the background script tests allow 20 s for the first load of the script.
 
-## 1.9.0
+## 1.9.0 - 2026-10-12
 
 ### Added
 
@@ -46,13 +44,12 @@ All notable changes to this project are documented in this file. Versions follow
 - Step 2 of the setup guide has every control of the translation style: style, accent color, text color, text opacity and font size ratio. The settings page and the guide build them with the same function (`src/options/style-controls.ts`), and the sample message of the step shows each change at once.
 - Step 3 of the setup guide plays a sample paragraph through the tiers in use with the content script's renderer: the dictionary's word-by-word result at once, machine translation after 0.3 s and the AI translation 1.5 s later. Lower results carry the provisional mark with the name of their service, such as "Bergamot (offline)", and a line under the paragraph names the tier and service shown. Every change of a tier selector and "Replay" play it again; tiers that are not used do not appear. The sentence and its three translations come from the interface language, and nothing is requested. With `prefers-reduced-motion: reduce` the final result appears at once.
 - The first visit of step 3 starts a tour of the three tier selectors: a ring and a shade mark one selector, and a tip explains its tier, with "Next" and "Skip". Choosing a service in the marked selector also moves on; Enter moves on and Esc skips. The tour opens by itself once; the guide stores that it was closed together with its progress, and "Show the tour of the tiers again" under the demo starts it again.
-- `npm run e2e`: the "welcome" run skips the tour of step 3 and checks that the demo ends with the machine translation and, after DeepSeek is chosen for the AI tier, plays again and ends with the AI text.
 
 ### Fixed
 
 - Simplified Chinese and Korean: the button of the notice about missing offline data spoke of one language ("这个语言" / "이 언어"), while the notice is about a language pair and the other languages say "these languages". Both now use the plural.
 
-## 1.8.2
+## 1.8.2 - 2026-10-12
 
 ### Changed
 
@@ -63,13 +60,8 @@ All notable changes to this project are documented in this file. Versions follow
   - `docs/providers.md`: endpoints, SDK packages, default models and key links of every service, provider notes, the thinking parameters and how each service receives the source language.
   - `docs/batching.md`: the batch flow, long paragraphs, request queues, retries and timeouts, how each service merges paragraphs, and the cost estimate.
   - `docs/development.md`: building from source, npm scripts, unit tests and coverage thresholds, the end-to-end runs locally and in CI, project structure, translating the interface, and the release process (CI, nightly, versions).
-- `docs/dictionary-packs.md` describes how the extension downloads, verifies and looks up dictionary packs, in Chinese like the rest of that document.
 
-### Added
-
-- `npm run docs:check` (`scripts/check-doc-links.mjs`) resolves every relative link in the Markdown files of the repository and checks every anchor with GitHub's heading rules.
-
-## 1.8.1
+## 1.8.1 - 2026-10-12
 
 ### Fixed
 
@@ -79,25 +71,18 @@ All notable changes to this project are documented in this file. Versions follow
 - The line under the tier selectors turned red as a whole when one service lacked data, including the statement that another service does not support the languages. Each statement is now an element of its own, and only the statements about missing data are red.
 - With automatic detection, the offline lists labelled and the setup guide ticked a direct dictionary pack between two recommended languages even when neither of them was the target language, which contradicted the rule in the README. A direct pack between two languages other than English is now recommended only when one of them is the target language.
 - When `i18n.getPreferredSystemLanguages()` failed or answered nothing, the offline lists had no system language. The locale of the `Intl` formats now stands in, as in Thunderbird versions without the function. A POSIX locale such as `en-US-posix` counts as English.
-- A Bergamot translation with missing models read the installed models twice, and the dictionary read the installed packs once per paragraph. Both now read them once per language pair and batch.
 
 ### Changed
 
 - README, all 12 languages: the privacy section names when the background script reads the dictionary index and the Bergamot model list (never while translating a message), the section on missing offline data says that nothing counts as missing before the list of the service has been read, and the project structure no longer mentions the demo GIF removed in 1.7.0.
-- `docs/bergamot.md` lists `installedKeys()`, `signature()`, `catalog()`, `knownCatalog()` and the `MissingDataError` of a missing model, and describes the detection of short texts as it works since 1.6.0.
 
-### Removed
-
-- The message `bergamotRequired` and the functions `requiredPairs` and `missingPairs`, which no page used any more; `pairNeeds` in `src/shared/offline-needs.ts` answers the same question for the dictionary and Bergamot.
-
-## 1.8.0
+## 1.8.0 - 2026-10-12
 
 ### Added
 
 - Retranslate. While a message is translated, the popup shows "Retranslate" next to "Show original", and the new shortcut Alt+R does the same (the command `retranslate`; it does nothing while the message is not translated). The message is translated again in the current display mode, and every tier is asked anew: the page forgets the results it kept for the message, the background script reads no cache entry and joins no request still running for the same paragraph, and the new results replace the cached ones. In precise translation the message is analysed again and the new analysis replaces the cached one. Lower tiers show provisional translations as usual, failures are handled as before, the notice about missing offline data keeps its once-per-message rule, and the cached translations of other messages are untouched. The command description and the button are translated into all 12 interface languages, and the shortcut hint of the popup names Alt+R.
-- The end-to-end test translates the HTML and plain-text messages once more from what the page remembers (no request reaches the mock server), then presses Alt+R: every paragraph is asked from all three tiers again although everything is cached, and the new AI translation of the mock server's second answer is shown.
 
-## 1.7.0
+## 1.7.0 - 2026-10-11
 
 ### Added
 
@@ -107,7 +92,6 @@ All notable changes to this project are documented in this file. Versions follow
 - "Download common languages" in both lists downloads the directions to and from English of eight fixed languages (Simplified Chinese, Spanish, French, German, Japanese, Portuguese, Russian, Korean) as far as the catalog has them. It first lists what it would download with the total size; installed directions are left out, and when all are installed the button is disabled and says so.
 - Prompt presets: "Plain (no added rules)" is the first entry of the preset list. Applied to a prompt it removes every rule block that a preset added and keeps the text the user wrote; a prompt that is then the built-in one is stored as empty again.
 - The tier selectors of the popup and the settings page end with "+ Add translation service…". It opens the service list of the settings page filtered to the services of that tier and leaves the selector at its value. The service list has a filter by tier.
-- `docs/promo-video-prompt.md`: the complete prompt for a 20-second promotional video in an isometric 2.5D style, with the changes made to the style template and why (in Chinese).
 
 ### Fixed
 
@@ -116,19 +100,18 @@ All notable changes to this project are documented in this file. Versions follow
 ### Changed
 
 - The "+ Add translation service" link of the popup is replaced by the last entry of each tier selector.
-- One module (`src/shared/offline-needs.ts`) decides what a language pair needs from the dictionary and Bergamot: the direct pack when English is on one side, otherwise the direct dictionary pack when the release offers it, else the two directions through English; Simplified ↔ Traditional Chinese and directions the catalog does not offer are unsupported. The background script, the tier marks and the setup guide use it.
 
 ### Removed
 
 - The demo animation `docs/demo.gif` (5.2 MB) and the image line that showed it at the top of README.md and of the 11 translated READMEs.
 
-## 1.6.2
+## 1.6.2 - 2026-10-11
 
 ### Changed
 
 - Internal simplification: dictionary packs and offline models share one download routine with the idle timeout, the source language of a paragraph is named by one function, and the tests share their stand-ins. Behavior is unchanged.
 
-## 1.6.1
+## 1.6.1 - 2026-10-11
 
 ### Fixed
 
@@ -147,12 +130,7 @@ All notable changes to this project are documented in this file. Versions follow
 - A Bergamot worker that did not answer made every following offline request wait its own 2 minutes, and loading a large model had the same timeout as a translation. Loading a model now has 5 minutes; after two timeouts in a row, offline translations fail at once for one minute with a message saying so.
 - Copies of a built-in prompt in stored settings were cleared when the settings were read but written back only with the next change. The background script now writes migrated settings back at once.
 
-### Changed
-
-- The popup and the keyboard shortcut read the settings once per change instead of twice.
-- Tests: the welcome page tests pass when run alone, file by file and test by test; the cache key test is split into one test per field; new tests for the settings session of the extension pages. The production build fails when a source file of `src/e2e/` ends up in one of its bundles.
-
-## 1.6.0
+## 1.6.0 - 2026-10-11
 
 ### Added
 
@@ -172,19 +150,15 @@ All notable changes to this project are documented in this file. Versions follow
 - The built-in prompts were written into the settings at installation, so improved prompts of a new version never reached anyone. Unchanged prompts are stored as empty; stored copies of the current built-in prompts, or of the one of 1.3 and earlier, are cleared when the settings are read, prompts written by the user stay. The prompt boxes show the built-in text.
 - After one failed save, the settings page and the setup guide saved nothing more, and the setup guide's navigation could stop. A failed save is now shown in place of "Saved" and the next change is saved as usual.
 - An unknown target language in the settings became Simplified Chinese; it now becomes the default target of the interface language.
-- The content script reported its progress for every result, and the background script redrew the badge every time. Reports now go out at most every 100 ms with the last state always sent, and the badge changes only when translation is switched on or off.
 - When Google's batch answer had an unexpected shape, the paragraph-by-paragraph requests bypassed the request queue, its concurrency limit and retries, and one failing paragraph failed all. They now go through the queue and fail one by one.
 - A failed read of the stored cache let the next write replace every stored entry with the few of the session. The read is now tried again, and nothing is written before it succeeded.
 - Changes from the popup and the keyboard shortcut could overwrite each other. They are now written one after the other and merged like the edits of the settings page.
-- Every displayed message made the background script read and compile the messages of the interface language again; they are now kept per language.
 
 ### Changed
 
-- Language detection has one implementation (`src/shared/lang-detect.ts`); the offline engine's own detector is gone. Two installation requests for the same offline model are merged in one place, which shares progress and cancellation.
-- The service tests run on the production path `translateForPage()`; the test-only entry `TranslationService.translate()` is gone.
-- The e2e probe waits for the throttled progress reports.
+- Language detection has one implementation (`src/shared/lang-detect.ts`); the offline engine's own detector is gone.
 
-## 1.5.2
+## 1.5.2 - 2026-10-11
 
 ### Fixed
 
@@ -195,9 +169,8 @@ All notable changes to this project are documented in this file. Versions follow
 - The background script is an ES module, and the AI SDK is a chunk of its own that loads once the AI tier is in use. The script Thunderbird runs at start shrank from 1640 KiB to 54 KiB (plus a 47 KiB shared chunk); in the e2e runs on Thunderbird 156 the background script ran 47 ms after its page started instead of 186 ms, with unchanged times to the first dictionary, Google and AI results.
 - Internal clean-up without change in behaviour: one mapping of language codes to Chinese script tags, one IndexedDB helper, one download reader and SHA-256 for dictionary packs and offline models, the offline engine's errors are plain `LocalizedError`s, the forwarding functions of the offline module are gone, and the popup, settings page and setup guide share the tier selectors.
 - Documentation: the size of an offline model direction is 13 to 48 MB (was given as 24 to 48 MB); the README now says that the settings page reads the lists of dictionary packs and offline models when it opens, and that switching the display mode asks the AI tier again.
-- The coverage gate of CI is 97 % lines and statements, 93 % branches and 96 % functions, lowered after 1.5.1 to leave headroom.
 
-## 1.5.1
+## 1.5.1 - 2026-10-11
 
 ### Fixed
 
@@ -207,14 +180,7 @@ All notable changes to this project are documented in this file. Versions follow
 - `Retry-After` given as an HTTP date was ignored, and so was the `Retry-After` of AI services, whose errors come from the AI SDK. Both now set the wait before the retry (at most 30 seconds, as before).
 - Clearing a number field on the settings page, or typing an invalid number, saved the field's minimum (for example a cache of 0 entries). The field now shows the stored value again and nothing is saved.
 
-### Tests and CI
-
-- Unit tests: 1023, up from 485. New tests cover the background script entry (ports, requests, shortcuts, installation, script registration), the content script client and controller, paragraph detection and exact restoring, the popup and every settings page control, settings migration from every earlier version, the three-way merge between pages, the request queue (Retry-After, backoff, concurrency), the cache, the Bergamot manager and its facade, and the dictionary and Bergamot sections of the settings page.
-- `npm run test:coverage` (vitest with V8 coverage). Lines 91.9 % → 99.9 %, branches 80.9 % → 96.5 %. CI fails below 99 % lines and statements, 96 % branches and 98 % functions. Not measured: `src/offline/bergamot/worker.ts`, which only hands the real wasm to the covered `worker-core.ts`, and `src/e2e/`.
-- `npm run e2e`: an end-to-end test in a real, headless Thunderbird with a temporary profile. A local mock server stands in for Google, an OpenAI-compatible AI service and the dictionary release. A test build (`scripts/build.mjs --e2e`, with hooks from `src/e2e/` that every other build leaves out, checked by the build) sets the tiers to dictionary, Google and AI. For an HTML and a plain-text message it checks the number of paragraphs, the order dictionary → Google → AI for every paragraph, the provisional translations of the lower tiers, the final AI translation, that switching to translation-only asks only the AI tier again with the translation-only prompt, and that restoring gives back the original DOM. It also starts the Bergamot worker, which has to load its wasm before it rejects a request without model files.
-- CI: the build job runs the tests with coverage; a new `e2e` job runs the end-to-end test on Linux with Thunderbird 128.14.0esr, 140.17.0esr, 153.4.0esr and 157.0.1. The nightly pre-release and the versioned release are published only when the build and every e2e run pass.
-
-## 1.5.0
+## 1.5.0 - 2026-10-11
 
 ### Added
 
@@ -222,15 +188,13 @@ All notable changes to this project are documented in this file. Versions follow
 - The offline step lists the dictionary packs and Bergamot directions the chosen languages need, with size, license and attribution, each with a check box, and downloads the ticked ones with progress through "Download selected". For ja → zh-CN it recommends the direct dictionary pack when the release has it, otherwise ja → en and en → zh-Hans, and the Bergamot directions ja → en and en → zh-Hans.
 - The trial in the last step renders a sample email in the page and translates it with the current settings. The page runs a `TranslationController` connected to the background script over the content script Port (`src/content/client.ts`, now shared with the content script), so the paragraph detection, the tiers and the rendering are those of a real message.
 - Prompt presets (`src/shared/prompt-presets.ts`): dialect or regional usage (Cantonese (Hong Kong), Taiwan usage, Sichuanese, British and American English, Brazilian and European Portuguese, Mexican Spanish, Spanish of Spain, Canadian French, Swiss Standard German, offered by target language), difficult words with the original in parentheses, explanations of difficult words at the end of the same paragraph in 〔Note: …〕, and writing style (formal business, casual, plain language for learners, literary). A preset appends a block of English rules under its own heading to the bilingual, translation-only or precise prompt; applying it again replaces the block, different presets add up, and "Restore built-in prompt" removes them. The preset library is part of the prompt editor shared by the settings page and the guide, with the name, description and an example of each preset and variant in the interface language.
-- Tests for the guide (opening on installation only, navigation, skipped and resumed steps, saving, offline recommendations and downloads, service fields, presets, trial) and for the presets (variants by target language, composition, batch parsing of JSON arrays and numbered segments with every preset applied).
 - Interface texts for these features in all 12 languages.
 
 ### Changed
 
-- The settings page's service fields and connection test (`src/options/provider-panel.ts`), prompt editor (`src/options/prompt-editor.ts`) and settings session with delayed saving and merging of changes made elsewhere (`src/options/session.ts`) are separate modules, used by the settings page and the guide. The dictionary and Bergamot lists take their elements as parameters and have a selection mode for the guide.
 - README in all languages: the switch that translates messages when they are opened is no longer called "automatic translation", which in several languages is the name of the machine translation tier ("Tradução automática" in Portuguese, "Traducción automática" in Spanish, "Traduction automatique" in French, 自動翻訳 in Japanese, "автоматический перевод" in Russian). The feature lists say "translate on opening", and the settings tables quote the label of the switch.
 
-## 1.4.0
+## 1.4.0 - 2026-10-11
 
 ### Added
 
@@ -245,9 +209,8 @@ All notable changes to this project are documented in this file. Versions follow
 
 - Settings of 1.3 and earlier are converted: an AI service as current service becomes the AI tier, with the fast service of race translation as machine tier when race translation was on; any other current service becomes the machine tier. A custom system prompt becomes the prompt of both display modes. `activeProviderId`, `race` and `systemPrompt` are removed.
 - Microsoft Translator in free mode calls only `edge.microsoft.com/translate/translatetext`. The token route through `edge.microsoft.com/translate/auth`, which Microsoft retired in July 2026, is removed, so no failed token request is sent every hour.
-- Language detection moved to `src/shared/lang-detect.ts`, shared by the content script, the dictionary and Bergamot.
 
-## 1.3.1
+## 1.3.1 - 2026-10-11
 
 ### Fixed
 
@@ -256,9 +219,10 @@ All notable changes to this project are documented in this file. Versions follow
 
 ### Changed
 
-- Internal cleanup: unused messages, exports, members and build options removed; duplicated code in the translators, the settings, the error descriptions, the popup and settings page, and the tests merged. Settings pushed to a message are applied in the order they arrive. The display-mode shortcut changes the stored settings instead of the background script's copy. No change in behavior otherwise.
+- Internal cleanup: unused messages, exports, members and build options removed; duplicated code in the translators, the settings, the error descriptions, the popup and settings page, and the tests merged.
+- Settings pushed to a message are applied in the order they arrive. The display-mode shortcut changes the stored settings instead of the background script's copy.
 
-## 1.3.0
+## 1.3.0 - 2026-10-11
 
 ### Added
 
@@ -271,7 +235,7 @@ All notable changes to this project are documented in this file. Versions follow
 
 - A change made in the popup while the settings page was open (current service, target language, display mode, automatic translation, race and precise switches) was overwritten by the next save of the settings page. The page now saves only what the user changed there, on top of the settings in storage, and shows changes made elsewhere right away. A field being edited is not touched. The popup shows changes of the display mode and of automatic translation made on the settings page as well.
 
-## 1.2.0
+## 1.2.0 - 2026-10-11
 
 ### Added
 
@@ -285,11 +249,9 @@ All notable changes to this project are documented in this file. Versions follow
 
 - DeepSeek: `deepseek-flash` thinks by default, which also made the API ignore the temperature. Requests now send `thinking: { type: "disabled" }` unless thinking mode is turned on, so the preset temperature 1.3 applies again.
 - Settings saved by 1.1 and earlier are migrated: Google and Microsoft count as added, DeepLX with an endpoint, AI services with a saved key, keyless services (Ollama, LM Studio, custom) whose configuration was changed, and always the current service.
-- Translation requests from the content script go over its Port instead of `runtime.sendMessage`, so the background script can answer twice.
-- The system prompt is passed to the AI SDK as `instructions` (the `system` option is deprecated in AI SDK 7).
 - The "Configured" tag in the provider list was replaced by the two groups.
 
-## 1.1.1
+## 1.1.1 - 2026-10-11
 
 ### Fixed
 
@@ -306,26 +268,23 @@ All notable changes to this project are documented in this file. Versions follow
 - The popup shows the reason of the most recent failure next to the failure count, shortened, with the full text as tooltip.
 - DeepSeek preset: the default model is now `deepseek-flash`, and the suggestions are `deepseek-flash` and `deepseek-v4-pro`. DeepSeek retired `deepseek-chat` and `deepseek-reasoner` on 2026-07-24. Settings that leave the model field empty switch to the new default automatically.
 
-## 1.1.0
+## 1.1.0 - 2026-10-11
 
 ### Added
 
 - Interface in 12 languages: English, Simplified Chinese, Traditional Chinese, Japanese, Korean, French, German, Spanish, Portuguese (Brazil), Russian, Turkish and Vietnamese.
 - "Interface language" option on the settings page. The default follows Thunderbird's language; any of the 12 languages can be chosen explicitly. Open settings pages and popups switch immediately, labels inside messages switch the next time they are drawn.
-- The extension's own i18n runtime, which loads `_locales/<locale>/messages.json` packaged with the extension, substitutes placeholders, formats numbers with `Intl.NumberFormat`, falls back to English for missing keys, and sets `<html lang>` and `dir`.
 - Target language names are shown in the interface language with the language's own name, for example "Japanese (日本語)", using `Intl.DisplayNames`. Prompts for AI services still use English language names.
 - Error messages of the extension (missing endpoint, key or model, unexpected responses, HTTP failures) and the connection test result are shown in the interface language.
 - The toolbar button tooltip and the "translation on" badge follow the interface language.
 - README in 12 languages under `readmes/`.
-- Tests for locale completeness and placeholders, manifest `__MSG_*__` references, language mapping, runtime fallback and the absence of hard-coded interface text.
 
 ### Changed
 
 - On first installation the target language is taken from the interface language (for example Japanese for a Japanese Thunderbird, English for an English one) instead of always Simplified Chinese. Existing settings are kept.
-- Interface text now lives in `locales/<locale>.json`, one file per language with `en.json` as the reference. `npm run build` generates `dist/_locales`; `npm run locales:check` validates the files. `scripts/locales-source.mjs` and `static/_locales` were removed.
 - Provider names keep their brand names untranslated; suffixes such as "(free)" and "(local)" are translated.
 - `README.md` is now the English main document; the Chinese version moved to `readmes/README.zh-CN.md`, and `README.en.md` was removed.
 
-## 1.0.0
+## 1.0.0 - 2026-10-11
 
 - First release: in-place translation of the message body (bilingual or translation-only), free Google and Microsoft translators, DeepLX, 22 AI provider presets, request batching with cache, settings page and popup in English and Simplified Chinese.
