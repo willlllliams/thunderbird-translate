@@ -358,5 +358,23 @@
   "downloadFailed": "Échec de $1 téléchargements ; la liste en indique la cause.",
   "offlineNoMatch": "Aucun élément ne correspond au filtre.",
   "mutedPairEntry": "$1 : $2",
-  "commonConfirmItem": "$1 · $2 Mo"
+  "commonConfirmItem": "$1 · $2 Mo",
+
+  "tipTranslate": "Traduit les paragraphes du message affiché",
+  "tipShowOriginal": "Retire les traductions et affiche le message tel qu’envoyé",
+  "tipProvisional": "Résultats provisoires d’un niveau inférieur, jusqu’à leur remplacement",
+  "tipBilingual": "Affiche la traduction sous chaque paragraphe original",
+  "tipTranslationOnly": "Remplace chaque paragraphe par sa traduction",
+  "tipSourceLang": "Langue du message, ou détectée pour chaque paragraphe",
+  "tipTargetLang": "Langue vers laquelle les messages sont traduits",
+  "tipTierDictionary": "Glose mot à mot immédiate, tirée de dictionnaires hors ligne",
+  "tipTierMachine": "Traduction complète par Google, Microsoft, DeepLX ou Bergamot",
+  "tipTierAi": "Qualité maximale ; la plupart des services d’IA facturent à l’usage",
+  "tipPrecise": "Donne tout le message à l’IA comme contexte ; coûte plus cher",
+  "tipAutoTranslate": "Traduit un message à l’ouverture s’il est dans une autre langue",
+  "tipOpenOptions": "Services, données hors ligne, invites, style et cache",
+  "tipOpenWelcome": "Refait la configuration guidée, étape par étape",
+  "tipShortcuts": "À changer dans Modules complémentaires, « Gérer les raccourcis d’extensions »",
+  "tipOfflineDownload": "Ouvre les listes de téléchargement, filtrées sur ce qui manque",
+  "tipSaved": "Chaque modification est enregistrée automatiquement"
 }

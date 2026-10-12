@@ -358,5 +358,23 @@
   "downloadFailed": "$1 Downloads fehlgeschlagen; die Liste zeigt den Grund.",
   "offlineNoMatch": "Nichts entspricht dem Filter.",
   "mutedPairEntry": "$1: $2",
-  "commonConfirmItem": "$1 · $2 MB"
+  "commonConfirmItem": "$1 · $2 MB",
+
+  "tipTranslate": "Übersetzt die Absätze der angezeigten Nachricht",
+  "tipShowOriginal": "Entfernt die Übersetzungen und zeigt die Nachricht wie gesendet",
+  "tipProvisional": "Vorläufige Ergebnisse einer niedrigeren Stufe, bis sie ersetzt werden",
+  "tipBilingual": "Zeigt die Übersetzung unter jedem Originalabsatz",
+  "tipTranslationOnly": "Ersetzt jeden Absatz durch seine Übersetzung",
+  "tipSourceLang": "Sprache der Nachricht, oder pro Absatz erkannt",
+  "tipTargetLang": "Sprache, in die Nachrichten übersetzt werden",
+  "tipTierDictionary": "Sofortige Wort-für-Wort-Hilfe aus Offline-Wörterbüchern",
+  "tipTierMachine": "Vollständige Übersetzung durch Google, Microsoft, DeepLX oder Bergamot",
+  "tipTierAi": "Beste Qualität; die meisten KI-Dienste rechnen nach Nutzung ab",
+  "tipPrecise": "Gibt der KI die ganze Nachricht als Kontext; kostet mehr",
+  "tipAutoTranslate": "Übersetzt beim Öffnen, wenn die Nachricht in anderer Sprache ist",
+  "tipOpenOptions": "Dienste, Offline-Daten, Prompts, Darstellung und Cache",
+  "tipOpenWelcome": "Führt Schritt für Schritt erneut durch die Einrichtung",
+  "tipShortcuts": "Ändern: Add-ons und Themes, „Tastenkombinationen von Erweiterungen verwalten“",
+  "tipOfflineDownload": "Öffnet die Download-Listen, gefiltert auf das Fehlende",
+  "tipSaved": "Jede Änderung wird automatisch gespeichert"
 }

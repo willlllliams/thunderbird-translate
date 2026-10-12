@@ -21,17 +21,17 @@
     <div class="field">
       <span class="label" data-i18n="labelMode"></span>
       <div class="segmented" role="radiogroup" data-i18n-aria-label="labelMode">
-        <label><input type="radio" name="mode" value="bilingual" /><span data-i18n="modeBilingual"></span></label>
-        <label><input type="radio" name="mode" value="translation-only" /><span data-i18n="modeTranslationOnly"></span></label>
+        <label data-i18n-title="tipBilingual"><input type="radio" name="mode" value="bilingual" /><span data-i18n="modeBilingual"></span></label>
+        <label data-i18n-title="tipTranslationOnly"><input type="radio" name="mode" value="translation-only" /><span data-i18n="modeTranslationOnly"></span></label>
       </div>
     </div>
 
     <div class="languages">
-      <label class="field">
+      <label class="field" data-i18n-title="tipSourceLang">
         <span class="label" data-i18n="labelSourceLang"></span>
         <select id="sourceLang"></select>
       </label>
-      <label class="field">
+      <label class="field" data-i18n-title="tipTargetLang">
         <span class="label" data-i18n="labelTargetLang"></span>
         <select id="targetLang"></select>
       </label>
@@ -40,27 +40,27 @@
 
     <div class="field">
       <span class="label" data-i18n="labelTiers"></span>
-      <label class="tier"><span id="tierLabel-dictionary"></span><select id="tier-dictionary"></select></label>
-      <label class="tier"><span id="tierLabel-machine"></span><select id="tier-machine"></select></label>
-      <label class="tier"><span id="tierLabel-ai"></span><select id="tier-ai"></select></label>
+      <label class="tier" data-i18n-title="tipTierDictionary"><span id="tierLabel-dictionary"></span><select id="tier-dictionary"></select></label>
+      <label class="tier" data-i18n-title="tipTierMachine"><span id="tierLabel-machine"></span><select id="tier-machine"></select></label>
+      <label class="tier" data-i18n-title="tipTierAi"><span id="tierLabel-ai"></span><select id="tier-ai"></select></label>
       <p id="tiersEmpty" class="warning" data-i18n="tiersEmpty" hidden></p>
       <p id="offlineMissing" class="offline-hint" role="status" hidden></p>
     </div>
 
-    <label class="check" id="preciseRow" hidden>
+    <label class="check" id="preciseRow" data-i18n-title="tipPrecise" hidden>
       <input type="checkbox" id="preciseEnabled" />
       <span data-i18n="labelPrecise"></span>
     </label>
 
-    <label class="check">
+    <label class="check" data-i18n-title="tipAutoTranslate">
       <input type="checkbox" id="autoTranslate" />
       <span data-i18n="labelAutoTranslate"></span>
     </label>
 
     <footer>
-      <a href="#" id="openOptions" data-i18n="popupSettings"></a>
-      <a href="#" id="openWelcome" data-i18n="openWelcome"></a>
-      <span class="hint" data-i18n="popupShortcuts"></span>
+      <a href="#" id="openOptions" data-i18n="popupSettings" data-i18n-title="tipOpenOptions"></a>
+      <a href="#" id="openWelcome" data-i18n="openWelcome" data-i18n-title="tipOpenWelcome"></a>
+      <span class="hint" data-i18n="popupShortcuts" data-i18n-title="tipShortcuts"></span>
     </footer>
     <script src="popup.js"></script>
   </body>

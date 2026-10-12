@@ -86,6 +86,7 @@ async function main(): Promise<void> {
     toggle.disabled = !st.connected
     toggle.classList.toggle("active", st.active)
     toggle.textContent = st.active ? t("popupShowOriginal") : t("popupTranslate")
+    toggle.title = st.active ? t("tipShowOriginal") : t("tipTranslate")
     // Retranslating needs a translated message.
     retranslate.hidden = !(st.connected && st.active)
     if (!st.connected) status.textContent = t("popupNotConnected")
@@ -96,6 +97,8 @@ async function main(): Promise<void> {
       if (st.failed > 0) text += ` · ${t("popupFailed", [st.failed])}`
       status.textContent = text
     }
+    // Provisional translations need a word of explanation.
+    status.title = st.active && st.provisional > 0 ? t("tipProvisional") : ""
     // Most recent failure: one shortened line here, the full description as tooltip.
     const error = st.active && st.failed > 0 ? st.lastError?.trim() : ""
     lastError.hidden = !error

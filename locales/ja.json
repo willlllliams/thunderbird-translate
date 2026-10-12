@@ -358,5 +358,23 @@
   "downloadFailed": "$1 件のダウンロードに失敗しました。理由は一覧で確認できます。",
   "offlineNoMatch": "絞り込み条件に一致する項目はありません。",
   "mutedPairEntry": "$1: $2",
-  "commonConfirmItem": "$1 · $2 MB"
+  "commonConfirmItem": "$1 · $2 MB",
+
+  "tipTranslate": "表示中のメッセージの段落を翻訳します",
+  "tipShowOriginal": "訳文を消して、送信されたままの本文に戻します",
+  "tipProvisional": "下位の段階の暫定訳です。後で置き換わります",
+  "tipBilingual": "各段落の下に訳文を表示します",
+  "tipTranslationOnly": "各段落を訳文に置き換えます",
+  "tipSourceLang": "メールの言語、または段落ごとに自動判定",
+  "tipTargetLang": "メッセージの翻訳先の言語",
+  "tipTierDictionary": "オフライン辞書で単語ごとの訳を即時に表示",
+  "tipTierMachine": "Google・Microsoft・DeepLX・Bergamot による全文翻訳",
+  "tipTierAi": "最高品質。多くの AI サービスは従量課金",
+  "tipPrecise": "メッセージ全体を AI に渡します。費用は増えます",
+  "tipAutoTranslate": "他の言語のメッセージを開くと自動で翻訳します",
+  "tipOpenOptions": "サービス、オフラインデータ、プロンプト、スタイル、キャッシュ",
+  "tipOpenWelcome": "セットアップの手順をもう一度たどります",
+  "tipShortcuts": "変更はアドオンマネージャーの「拡張機能のショートカットキーの管理」で",
+  "tipOfflineDownload": "不足分に絞ってダウンロード一覧を開きます",
+  "tipSaved": "変更はすべて自動的に保存されます"
 }

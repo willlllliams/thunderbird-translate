@@ -358,5 +358,23 @@
   "downloadFailed": "Fallaron $1 descargas; la lista indica el motivo.",
   "offlineNoMatch": "Ningún elemento coincide con el filtro.",
   "mutedPairEntry": "$1: $2",
-  "commonConfirmItem": "$1 · $2 MB"
+  "commonConfirmItem": "$1 · $2 MB",
+
+  "tipTranslate": "Traduce los párrafos del mensaje mostrado",
+  "tipShowOriginal": "Quita las traducciones y muestra el mensaje tal como se envió",
+  "tipProvisional": "Resultados provisionales de un nivel inferior hasta su sustitución",
+  "tipBilingual": "Muestra la traducción bajo cada párrafo original",
+  "tipTranslationOnly": "Sustituye cada párrafo por su traducción",
+  "tipSourceLang": "Idioma del correo, o detectado en cada párrafo",
+  "tipTargetLang": "Idioma al que se traducen los mensajes",
+  "tipTierDictionary": "Glosa palabra por palabra al instante con diccionarios sin conexión",
+  "tipTierMachine": "Traducción completa de Google, Microsoft, DeepLX o Bergamot",
+  "tipTierAi": "Mejor calidad; la mayoría de los servicios de IA cobran por uso",
+  "tipPrecise": "Da a la IA todo el mensaje como contexto; cuesta más",
+  "tipAutoTranslate": "Traduce un mensaje al abrirlo si está en otro idioma",
+  "tipOpenOptions": "Servicios, datos sin conexión, prompts, estilo y caché",
+  "tipOpenWelcome": "Repite la configuración guiada, paso a paso",
+  "tipShortcuts": "Cámbielos en «Administrar atajos de extensiones» de Complementos y temas",
+  "tipOfflineDownload": "Abre las listas de descarga, filtradas por lo que falta",
+  "tipSaved": "Cada cambio se guarda automáticamente"
 }

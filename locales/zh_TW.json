@@ -358,5 +358,23 @@
   "downloadFailed": "$1 項下載失敗，原因見清單。",
   "offlineNoMatch": "沒有符合篩選條件的項目。",
   "mutedPairEntry": "$1：$2",
-  "commonConfirmItem": "$1 · $2 MB"
+  "commonConfirmItem": "$1 · $2 MB",
+
+  "tipTranslate": "翻譯目前郵件的各個段落",
+  "tipShowOriginal": "移除譯文，恢復郵件原樣",
+  "tipProvisional": "暫時譯文來自較低層級，稍後會被取代",
+  "tipBilingual": "在每段原文下方顯示譯文",
+  "tipTranslationOnly": "以譯文取代每段原文",
+  "tipSourceLang": "郵件的語言，或逐段自動偵測",
+  "tipTargetLang": "郵件要翻譯成的語言",
+  "tipTierDictionary": "離線辭典逐詞釋義，即時出現",
+  "tipTierMachine": "完整譯文：Google、Microsoft、DeepLX 或 Bergamot",
+  "tipTierAi": "品質最好；多數 AI 服務依用量收費",
+  "tipPrecise": "把整封郵件作為上下文傳給 AI；費用較高",
+  "tipAutoTranslate": "開啟非目標語言的郵件時自動翻譯",
+  "tipOpenOptions": "服務、離線資料、提示詞、樣式與快取",
+  "tipOpenWelcome": "依步驟重新完成設定",
+  "tipShortcuts": "可在附加元件管理員的「管理擴充套件快速鍵」中修改",
+  "tipOfflineDownload": "開啟下載清單，只列出缺少的項目",
+  "tipSaved": "每次變更都會自動儲存"
 }

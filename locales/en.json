@@ -361,5 +361,23 @@
   "downloadFailed": "$1 downloads failed; the list shows why.",
   "offlineNoMatch": "Nothing matches the filter.",
   "mutedPairEntry": "$1: $2",
-  "commonConfirmItem": "$1 · $2 MB"
+  "commonConfirmItem": "$1 · $2 MB",
+
+  "tipTranslate": "Translates the paragraphs of the displayed message",
+  "tipShowOriginal": "Removes the translations and shows the message as sent",
+  "tipProvisional": "Provisional results come from a lower tier until replaced",
+  "tipBilingual": "Shows the translation under each original paragraph",
+  "tipTranslationOnly": "Replaces each paragraph with its translation",
+  "tipSourceLang": "Language of the mail, or detected for each paragraph",
+  "tipTargetLang": "Language that messages are translated into",
+  "tipTierDictionary": "Instant word-by-word gloss from offline dictionaries",
+  "tipTierMachine": "Full translation by Google, Microsoft, DeepLX or Bergamot",
+  "tipTierAi": "Best quality; most AI services charge per use",
+  "tipPrecise": "Gives the AI the whole message as context; costs more",
+  "tipAutoTranslate": "Translates a message on opening if it is in another language",
+  "tipOpenOptions": "Services, offline data, prompts, style and cache",
+  "tipOpenWelcome": "Walks through the setup again, step by step",
+  "tipShortcuts": "Change them under Manage Extension Shortcuts in Add-ons",
+  "tipOfflineDownload": "Opens the download lists, filtered to what is missing",
+  "tipSaved": "Every change is saved automatically"
 }

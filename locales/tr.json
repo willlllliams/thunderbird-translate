@@ -361,5 +361,23 @@
   "downloadFailed": "$1 indirme başarısız oldu; nedeni listede görünür.",
   "offlineNoMatch": "Süzgeçle eşleşen öğe yok.",
   "mutedPairEntry": "$1: $2",
-  "commonConfirmItem": "$1 · $2 MB"
+  "commonConfirmItem": "$1 · $2 MB",
+
+  "tipTranslate": "Görüntülenen iletinin paragraflarını çevirir",
+  "tipShowOriginal": "Çevirileri kaldırır, iletiyi gönderildiği haliyle gösterir",
+  "tipProvisional": "Geçici sonuçlar, değiştirilene dek alt kademeden gelir",
+  "tipBilingual": "Çeviriyi her özgün paragrafın altında gösterir",
+  "tipTranslationOnly": "Her paragrafı çevirisiyle değiştirir",
+  "tipSourceLang": "İletinin dili ya da her paragraf için algılanan dil",
+  "tipTargetLang": "İletilerin çevrileceği dil",
+  "tipTierDictionary": "Çevrimdışı sözlüklerle anında kelime kelime karşılık",
+  "tipTierMachine": "Google, Microsoft, DeepLX veya Bergamot ile tam çeviri",
+  "tipTierAi": "En iyi kalite; çoğu yapay zekâ hizmeti kullanıma göre ücretlendirir",
+  "tipPrecise": "Yapay zekâya iletinin tamamını bağlam olarak verir; daha pahalı",
+  "tipAutoTranslate": "Başka dildeki iletiyi açıldığında çevirir",
+  "tipOpenOptions": "Hizmetler, çevrimdışı veriler, istemler, stil ve önbellek",
+  "tipOpenWelcome": "Kurulumu adım adım yeniden gösterir",
+  "tipShortcuts": "Değiştirme: Eklentiler ve temalar → Uzantı kısayollarını yönet",
+  "tipOfflineDownload": "İndirme listelerini, eksik olanlara göre süzülmüş açar",
+  "tipSaved": "Her değişiklik otomatik kaydedilir"
 }

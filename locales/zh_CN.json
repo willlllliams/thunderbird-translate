@@ -358,5 +358,23 @@
   "downloadFailed": "$1 项下载失败，原因见列表。",
   "offlineNoMatch": "没有符合筛选条件的项目。",
   "mutedPairEntry": "$1：$2",
-  "commonConfirmItem": "$1 · $2 MB"
+  "commonConfirmItem": "$1 · $2 MB",
+
+  "tipTranslate": "翻译当前邮件的各个段落",
+  "tipShowOriginal": "移除译文，恢复邮件原样",
+  "tipProvisional": "临时译文来自较低层级，稍后会被替换",
+  "tipBilingual": "在每段原文下方显示译文",
+  "tipTranslationOnly": "用译文替换每段原文",
+  "tipSourceLang": "邮件的语言，或逐段自动检测",
+  "tipTargetLang": "邮件要翻译成的语言",
+  "tipTierDictionary": "离线词典逐词释义，即时出现",
+  "tipTierMachine": "完整译文：Google、Microsoft、DeepLX 或 Bergamot",
+  "tipTierAi": "质量最好；多数 AI 服务按用量收费",
+  "tipPrecise": "把整封邮件作为上下文发给 AI；费用更高",
+  "tipAutoTranslate": "打开非目标语言的邮件时自动翻译",
+  "tipOpenOptions": "服务、离线数据、提示词、样式与缓存",
+  "tipOpenWelcome": "按步骤重新完成设置",
+  "tipShortcuts": "可在附加组件管理器的“管理扩展快捷键”中修改",
+  "tipOfflineDownload": "打开下载列表，只列出缺少的项",
+  "tipSaved": "每次修改都会自动保存"
 }

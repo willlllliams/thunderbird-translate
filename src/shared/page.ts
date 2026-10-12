@@ -99,6 +99,7 @@ export function showOfflineHint(el: HTMLElement, settings: Settings, offline: Of
   const link = document.createElement("a")
   link.href = "#"
   link.textContent = t("offlineDownload")
+  link.title = t("tipOfflineDownload")
   link.addEventListener("click", (e) => {
     e.preventDefault()
     download({ section: lacking[0] === "dictionary" ? "dictionaries" : "bergamot", dictionaries: terms("dictionary"), bergamot: terms("bergamot") })
@@ -140,7 +141,7 @@ export function onTierChange(tiers: () => TierSettings, apply: (tier: Tier, valu
 export function showSaved(): void {
   const saved = $("saved")
   saved.textContent = t("saved")
-  saved.title = ""
+  saved.title = t("tipSaved")
   saved.classList.remove("error")
   saved.classList.add("show")
   setTimeout(() => saved.classList.contains("error") || saved.classList.remove("show"), 1200)

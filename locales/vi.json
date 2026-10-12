@@ -358,5 +358,23 @@
   "downloadFailed": "$1 mục tải xuống thất bại; lý do hiển thị trong danh sách.",
   "offlineNoMatch": "Không có mục nào khớp với bộ lọc.",
   "mutedPairEntry": "$1: $2",
-  "commonConfirmItem": "$1 · $2 MB"
+  "commonConfirmItem": "$1 · $2 MB",
+
+  "tipTranslate": "Dịch các đoạn của thư đang hiển thị",
+  "tipShowOriginal": "Gỡ bản dịch và hiện thư như lúc được gửi",
+  "tipProvisional": "Kết quả tạm thời từ tầng thấp hơn, sẽ được thay thế",
+  "tipBilingual": "Hiện bản dịch bên dưới từng đoạn gốc",
+  "tipTranslationOnly": "Thay mỗi đoạn bằng bản dịch của nó",
+  "tipSourceLang": "Ngôn ngữ của thư, hoặc tự nhận diện theo từng đoạn",
+  "tipTargetLang": "Ngôn ngữ mà thư được dịch sang",
+  "tipTierDictionary": "Chú giải từng từ tức thì từ từ điển ngoại tuyến",
+  "tipTierMachine": "Dịch toàn văn bằng Google, Microsoft, DeepLX hoặc Bergamot",
+  "tipTierAi": "Chất lượng tốt nhất; đa số dịch vụ AI tính phí theo lượt dùng",
+  "tipPrecise": "Đưa toàn bộ thư cho AI làm ngữ cảnh; tốn kém hơn",
+  "tipAutoTranslate": "Tự dịch thư khi mở nếu thư ở ngôn ngữ khác",
+  "tipOpenOptions": "Dịch vụ, dữ liệu ngoại tuyến, lời nhắc, kiểu hiển thị, bộ nhớ đệm",
+  "tipOpenWelcome": "Hướng dẫn thiết lập lại từng bước một",
+  "tipShortcuts": "Đổi trong \"Quản lý phím tắt tiện ích mở rộng\" của Quản lí tiện ích",
+  "tipOfflineDownload": "Mở danh sách tải xuống, chỉ lọc các mục còn thiếu",
+  "tipSaved": "Mọi thay đổi được lưu tự động"
 }

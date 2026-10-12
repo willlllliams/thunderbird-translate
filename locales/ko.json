@@ -358,5 +358,23 @@
   "downloadFailed": "$1개 항목을 내려받지 못했습니다. 이유는 목록에 표시됩니다.",
   "offlineNoMatch": "필터와 일치하는 항목이 없습니다.",
   "mutedPairEntry": "$1: $2",
-  "commonConfirmItem": "$1 · $2 MB"
+  "commonConfirmItem": "$1 · $2 MB",
+
+  "tipTranslate": "표시 중인 메시지의 단락을 번역합니다",
+  "tipShowOriginal": "번역을 지우고 받은 그대로 보여 줍니다",
+  "tipProvisional": "임시 번역은 하위 단계 결과로, 나중에 교체됩니다",
+  "tipBilingual": "각 원문 단락 아래에 번역을 표시합니다",
+  "tipTranslationOnly": "각 단락을 번역문으로 바꿉니다",
+  "tipSourceLang": "메일의 언어 또는 단락별 자동 감지",
+  "tipTargetLang": "메시지를 번역할 언어",
+  "tipTierDictionary": "오프라인 사전의 즉각적인 단어별 풀이",
+  "tipTierMachine": "Google, Microsoft, DeepLX, Bergamot의 전체 번역",
+  "tipTierAi": "최고 품질, 대부분의 AI 서비스는 사용량만큼 과금",
+  "tipPrecise": "AI에 메시지 전체를 맥락으로 전달, 비용 증가",
+  "tipAutoTranslate": "다른 언어의 메시지를 열면 자동으로 번역합니다",
+  "tipOpenOptions": "서비스, 오프라인 데이터, 프롬프트, 스타일, 캐시",
+  "tipOpenWelcome": "설정 과정을 단계별로 다시 안내합니다",
+  "tipShortcuts": "부가 기능 관리자의 '확장 기능 단축키 관리'에서 변경",
+  "tipOfflineDownload": "누락된 항목만 추려 다운로드 목록을 엽니다",
+  "tipSaved": "모든 변경 사항이 자동으로 저장됩니다"
 }
