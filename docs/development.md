@@ -80,7 +80,9 @@ The unit tests cover these areas:
 - prompt selection and cache keys, and a display mode switch that asks the AI tier again and only re-renders the others;
 - the source language in the requests of every service and in the cache key;
 - dictionary packs: parsing, word splitting and phrase matching, inflected forms, translation through English, missing packs, download with checksum, with an in-memory IndexedDB;
+- the dictionary manager: the index of each release tag with its age limit, failed reads and reloads, listing, installing and removing packs, and the packs stored by version 1.12;
 - the Bergamot service and its model management with a mocked engine;
+- the offline requests of the background script: two installations at a time per service with a queue, a direction two pages ask for installed once, cancelled queued directions never downloaded, the progress notices to the pages at most every 250 ms, the notices to the content scripts, and downloads that go on after the page that asked is closed;
 - precise translation: single request, analysis with batches, failed analysis, cache keys and batches per message, identical prompt prefix with Anthropic cache control;
 - the setup guide: opening only on a new installation, step navigation with skipped steps and resuming, saving of every step, recommended dictionary packs and Bergamot directions and their download, service configuration and connection test, presets on the prompts, the trial translation through the content script modules;
 - the prompt presets: variants by target language, composition with each of the three prompts, replacement of the same preset, batch parsing with all four presets applied to one prompt in both answer formats;
@@ -97,7 +99,7 @@ The production code reaches the test build through the hooks of `src/hooks/`, wh
 
 | Hook | Called by | In the test build |
 | --- | --- | --- |
-| `beforeSettingsRead` (`hooks/background.ts`) | the background script, before it reads its settings | stores the settings of the scenario (the three tiers dictionary / Google / AI on the mock server, or the offline services) and installs the dictionary pack |
+| `beforeSettingsRead` (`hooks/background.ts`) | the background script, before it reads its settings | stores the settings of the scenario (the three tiers dictionary / Google / AI on the mock server, or the offline services) and installs or removes the dictionary packs through the dictionary manager |
 | `releaseFetch`, `bergamotServerUrl` (`hooks/servers.ts`) | the dictionary manager and the Bergamot model list of the background script | the mock server instead of GitHub and Mozilla Remote Settings |
 | `contentProbe` (`hooks/content.ts`) | the content client of a displayed message: its parts, every progress report, every message of the background script | runs the scenario of the run and reports what it saw |
 | `welcomeProbe` (`hooks/welcome.ts`) | the setup guide, once its first step is shown | walks through the tiers and offline steps |
@@ -133,13 +135,13 @@ In CI the job `e2e` of `.github/workflows/release.yml` runs the same command on 
 ```
 src/
   shared/        modules every part uses: settings, provider presets and thinking parameters, prompts, language table and codes, language detection, fetch with classified errors, message types, i18n runtime, DOM helpers
-  offline/       offline data of the background page; catalog-cache.ts keeps the catalogs (dictionary index, Bergamot model list)
-    dictionary/  dictionary packs: format, download, storage, lookup
-    bergamot/    Bergamot engine: model list, download, storage, worker
-  background/    background script: the entry index.ts and the modules it assembles, translation service, batch and request queues, cache, provider factory, translators, offline model administration
+  offline/       offline data of the background page: manager.ts, what the managers of both services have in common; catalog-cache.ts, the catalogs (dictionary index, Bergamot model list); install-registry.ts, the installations of a service, two at a time with a queue
+    dictionary/  dictionary packs: format, download, storage, lookup, and manager.ts, which lists, installs and removes the packs and translates with them
+    bergamot/    Bergamot engine: model list, download, storage, worker, and manager.ts, which lists, installs and removes the models and translates with them
+  background/    background script: the entry index.ts and the modules it assembles (settings-state, tabs, router, offline-admin, offline-status, commands, locale-tables, content-scripts, welcome), translation service, batch and request queues, cache, provider factory, translators
   content/       content script: paragraph detection, rendering, translation state, notice about missing offline data
   popup/         popup
-  options/       settings page and the parts the setup guide shares: translation style controls, service fields, dictionary and Bergamot lists, prompt editor, settings session
+  options/       settings page and the parts the setup guide shares: translation style controls, service fields, dictionary and Bergamot lists (offline-list.ts shows them from the background script), prompt editor, settings session
   welcome/       setup guide: steps and navigation, demo and tour of the tiers step
   hooks/         hooks of the e2e test build, undefined in every other build
   e2e/           code of the e2e test build: the defined hooks (e2e/hooks/) and the probes they run
@@ -150,13 +152,14 @@ vendor/
   bergamot/      Bergamot engine glue script (bergamot-translator.js)
 tools/           dict-build: the pipeline that builds the dictionary packs
 readmes/         translated versions of the README
-docs/            reference and developer documentation
+docs/            reference and developer documentation; archive/ keeps the full changelog up to 1.12.0 and the size analysis of 1.5.2
+promo/           the prompt for the promotional video
 tests/           vitest tests
 e2e/             end-to-end test in a real Thunderbird: runner, mock server, fixture messages
 .github/         workflows: build and release, dictionary packs
 ```
 
-The entry of the background script, `background/index.ts`, only assembles. It creates the settings (`settings-state.ts`), the content scripts by tab with their state and badge (`tabs.ts`), the request handlers and their dispatch (`router.ts`), the keyboard commands (`commands.ts`), what the offline services lack (`offline-status.ts`) and the interface messages for the content scripts (`locale-tables.ts`), and passes each module what it needs from the others as arguments. Then it registers its five listeners (`storage.onChanged`, `runtime.onConnect`, `runtime.onMessage`, `commands.onCommand`, `runtime.onInstalled`) and, after them, the content script (`content-scripts.ts`). Thunderbird hands the event that woke a background page only to the listeners registered in its first run, so no module of the background script awaits anything at the top level or before its listener is registered; `tests/background-entry.test.ts` checks that the five listeners exist when the content script is registered.
+The entry of the background script, `background/index.ts`, only assembles. It creates the dictionary manager (`offline/dictionary/manager.ts`; the Bergamot manager is created on first use), the settings (`settings-state.ts`), the content scripts by tab with their state and badge (`tabs.ts`), the request handlers and their dispatch (`router.ts`, which takes the offline requests from `offline-admin.ts`), the keyboard commands (`commands.ts`), what the offline services lack (`offline-status.ts`) and the interface messages for the content scripts (`locale-tables.ts`), and passes each module what it needs from the others as arguments. Then it registers its five listeners (`storage.onChanged`, `runtime.onConnect`, `runtime.onMessage`, `commands.onCommand`, `runtime.onInstalled`) and, after them, the content script (`content-scripts.ts`). Thunderbird hands the event that woke a background page only to the listeners registered in its first run, so no module of the background script awaits anything at the top level or before its listener is registered; `tests/background-entry.test.ts` checks that the five listeners exist when the content script is registered.
 
 The directories under `src/` are layers. A file may import from its own directory and from the directories listed for it:
 
@@ -168,11 +171,11 @@ The directories under `src/` are layers. A file may import from its own director
 | `background/` | `shared/`, `offline/`, `hooks/` |
 | `content/` | `shared/`, `hooks/` |
 | `popup/` | `shared/` |
-| `options/` | `shared/`, `offline/`, `content/` (the style preview sets the same CSS variables as the translations in a message) |
-| `welcome/` | `shared/`, `offline/`, `content/`, `options/`, `hooks/` |
+| `options/` | `shared/`, `content/` (the style preview sets the same CSS variables as the translations in a message) |
+| `welcome/` | `shared/`, `content/`, `options/`, `hooks/` |
 | `e2e/` | every directory |
 
-No production file imports from `e2e/`. `npm run imports:check` (`scripts/check-imports.mjs`) reads every `import`, `import type`, `export … from`, side-effect and dynamic import of `src/` and fails on an import across these boundaries; CI runs it after the link check.
+No production file imports from `e2e/`. The pages reach dictionary packs and offline models through the background script only, so `options/` and `welcome/` import nothing from `offline/`, and no download or storage code goes into their bundles. `npm run imports:check` (`scripts/check-imports.mjs`) reads every `import`, `import type`, `export … from`, side-effect and dynamic import of `src/` and fails on an import across these boundaries; CI runs it after the link check.
 
 The design of paragraph detection, the batch queue, the prompts and the provider configuration follows [Read Frog](https://github.com/mengxi-ream/read-frog), a browser extension for translating web pages released under GPL-3.0. This project carries these ideas over to Thunderbird's message reader and adapts them to email, for example splitting plain-text mail at blank lines and joining hard-wrapped lines.
 

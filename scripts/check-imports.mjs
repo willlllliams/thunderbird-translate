@@ -16,8 +16,9 @@ export const LAYERS = {
   background: ["shared", "offline", "hooks"],
   content: ["shared", "hooks"],
   popup: ["shared"],
-  options: ["shared", "offline", "content"],
-  welcome: ["shared", "offline", "content", "options", "hooks"],
+  // The pages reach the offline data through the background script only, so no download or storage code goes into them.
+  options: ["shared", "content"],
+  welcome: ["shared", "content", "options", "hooks"],
   e2e: ["shared", "hooks", "offline", "background", "content", "popup", "options", "welcome"],
 }
 

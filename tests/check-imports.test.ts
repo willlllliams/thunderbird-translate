@@ -74,11 +74,11 @@ describe("layer check", () => {
         "src/offline/x.ts": 'import { b } from "../shared/b"',
         "src/background/index.ts": 'import { x } from "../offline/x"\nimport { hook } from "../hooks/hook"',
         "src/hooks/hook.ts": 'import type { X } from "../offline/x"\nexport type { B } from "../shared/b"',
-        "src/options/index.ts": 'import { x } from "../offline/x"\nimport { r } from "../content/render"',
+        "src/options/index.ts": 'import { r } from "../content/render"',
         "src/welcome/index.ts": 'import { o } from "../options/index"',
         "src/e2e/hook.ts": 'import { w } from "../welcome/index"\nimport { p } from "../popup/index"\nimport { h } from "../hooks/hook"',
       },
-      (dir) => expect(checkImports(dir)).toEqual({ problems: [], checked: 13 }),
+      (dir) => expect(checkImports(dir)).toEqual({ problems: [], checked: 12 }),
     )
   })
 
@@ -89,6 +89,7 @@ describe("layer check", () => {
         "src/content/c.ts": 'const dom = () => import("../options/dom")',
         "src/popup/index.ts": 'import "../background/side"\nimport { hook } from "../e2e/hook"',
         "src/offline/o.ts": 'import data from "../../vendor/data.json"',
+        "src/options/o.ts": 'import { DictionaryStore } from "../offline/dictionary/store"',
         "src/tools/t.ts": "export {}",
         "src/background/index.ts": 'import { setUp } from "../e2e/background"',
         "src/hooks/hook.ts": 'import { run } from "../background/run"\nimport type { X } from "../popup/x"',
@@ -100,6 +101,7 @@ describe("layer check", () => {
           "src/hooks/hook.ts:1: hooks may import types only (../background/run)",
           "src/hooks/hook.ts:2: hooks must not import popup (../popup/x)",
           "src/offline/o.ts:1: ../../vendor/data.json is outside src/",
+          "src/options/o.ts:1: options must not import offline (../offline/dictionary/store)",
           "src/popup/index.ts:1: popup must not import background (../background/side)",
           "src/popup/index.ts:2: popup must not import e2e (../e2e/hook)",
           "src/shared/a.ts:3: shared must not import background (../background/x)",
