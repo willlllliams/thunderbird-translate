@@ -11,7 +11,7 @@
 
 import { type ErrorText, LocalizedError, renderErrorText } from "../../shared/errors"
 import { ENGLISH } from "../../shared/i18n"
-import { type FetchOptions, fetchOk, HttpError, type RequestSpec } from "../queue/request-queue"
+import { type FetchOptions, fetchOk, HttpError, type RequestSpec } from "../../shared/http"
 
 export function buildDeepLXRequest(text: string, targetDeepl: string, endpoint: string, token = "", sourceDeepl = "auto"): RequestSpec {
   if (!endpoint) throw new LocalizedError("errEndpointRequired", ["DeepLX"])

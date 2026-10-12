@@ -1,4 +1,3 @@
-import type { BergamotPairInfo } from "../offline/bergamot"
 import type { MissingData } from "./errors"
 import type { OfflineService, OfflineState } from "./offline-needs"
 import type { MessageTable } from "./i18n"
@@ -65,6 +64,22 @@ export type BergamotRequest =
   /** Answer: BergamotProgress. */
   | { type: "bergamotProgress" }
   | { type: "bergamotRemove"; src: string; tgt: string }
+
+/** An offline model pair as the settings page lists it. */
+export interface BergamotPairInfo {
+  src: string
+  tgt: string
+  /** Version offered by Mozilla, or the installed version for pairs no longer offered. */
+  version: string
+  architecture: string
+  /** Download size (compressed). */
+  bytes: number
+  /** Size after decompression. */
+  rawBytes: number
+  installed: boolean
+  /** Installed version when it differs from `version` (an update is available). */
+  installedVersion?: string
+}
 
 export type BergamotResult = { ok: true; pairs?: BergamotPairInfo[] } | { ok: false; error?: string; cancelled?: true }
 

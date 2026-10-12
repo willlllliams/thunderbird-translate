@@ -18,9 +18,7 @@
  * know: there is nothing to download.
  */
 
-import { dictLang } from "../offline/dictionary/format"
-import { normalizeBergamotLang } from "../offline/bergamot/languages"
-import { isChinesePair, languageTag, pairKey } from "./languages"
+import { dictLang, isChinesePair, languageTag, normalizeBergamotLang, pairKey } from "./languages"
 
 export type OfflineService = "dictionary" | "bergamot"
 

@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 import { BatchQueue, groupIntoBatches, joinParts, splitText } from "../src/background/queue/batch-queue"
-import { backoffDelay, HttpError, isRetryableError, RequestQueue } from "../src/background/queue/request-queue"
+import { backoffDelay, isRetryableError, RequestQueue } from "../src/background/queue/request-queue"
+import { HttpError } from "../src/shared/http"
 
 describe("groupIntoBatches", () => {
   const size = (s: string) => s.length

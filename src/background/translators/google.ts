@@ -10,7 +10,7 @@
  */
 
 import { LocalizedError } from "../../shared/errors"
-import { type FetchOptions, fetchOk, type RequestSpec } from "../queue/request-queue"
+import { type FetchOptions, fetchOk, type RequestSpec } from "../../shared/http"
 import { BatchParseError } from "./llm-prompt"
 
 const DEFAULT_BASE = "https://translate.googleapis.com"

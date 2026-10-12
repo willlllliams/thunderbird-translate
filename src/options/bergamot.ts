@@ -8,11 +8,10 @@
  * need, and deleting one of them asks for confirmation.
  */
 
-import type { BergamotPairInfo } from "../offline/bergamot"
 import { describeError } from "../shared/errors"
 import { getI18n, t } from "../shared/i18n"
 import { pairKey } from "../shared/languages"
-import type { BergamotProgress, BergamotResult } from "../shared/messages"
+import type { BergamotPairInfo, BergamotProgress, BergamotResult } from "../shared/messages"
 import { send } from "../shared/page"
 import { button, h } from "../shared/dom"
 import { type ListItem, megabytes, OfflineList, type OfflineListDeps } from "./offline-list"

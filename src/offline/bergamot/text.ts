@@ -7,7 +7,7 @@
  * whitespace-only texts never reach the engine (they break it).
  */
 
-import { normalizeBergamotLang } from "./languages"
+import { normalizeBergamotLang } from "../../shared/languages"
 
 const WHITESPACE = /^(\s*)(.*?)(\s*)$/s
 const FULL_WIDTH_QUOTE = /([。！？])“/g

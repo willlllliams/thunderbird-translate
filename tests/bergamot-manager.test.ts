@@ -2,7 +2,7 @@
 import { IDBFactory } from "fake-indexeddb"
 import { afterEach, describe, expect, it, vi } from "vitest"
 import { BergamotEngine, EngineError } from "../src/offline/bergamot/engine"
-import { normalizeBergamotLang } from "../src/offline/bergamot/languages"
+import { normalizeBergamotLang } from "../src/shared/languages"
 import type { WorkerRequest } from "../src/offline/bergamot/protocol"
 import { compareVersions, type ModelRecord, selectPairs } from "../src/offline/bergamot/records"
 import { BergamotStore, DB_NAME } from "../src/offline/bergamot/store"

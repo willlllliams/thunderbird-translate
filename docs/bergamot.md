@@ -16,7 +16,7 @@ The module in `src/offline/bergamot/` translates plain text on the user's comput
 | `signature()` | `Promise<string>`, a hash of the installed pairs and their versions; part of the cache key of every Bergamot translation, so installing, updating or removing a pair never returns an older translation |
 | `catalog()` | `Promise<Set<string> | null>`, the keys of the pairs Mozilla offers; reads the model list when the copy in memory is older than 6 hours; `null` when the list cannot be read |
 | `knownCatalog()` | `Set<string> | null`, the same keys from the list already in memory, without any request; `null` before the list is read |
-| `normalizeBergamotLang(code)` (`languages.ts`) | the model tag for an application or detector code |
+| `normalizeBergamotLang(code)` (`src/shared/languages.ts`) | the model tag for an application or detector code |
 
 `translate` behaves as follows:
 

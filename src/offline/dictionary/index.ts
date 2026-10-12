@@ -18,9 +18,9 @@
 import { LocalizedError, MissingDataError } from "../../shared/errors"
 import { hashText } from "../../shared/hash"
 import { detectSourceLanguage, type LanguageDetector } from "../../shared/lang-detect"
-import { baseLang, isChinesePair, pairKey } from "../../shared/languages"
+import { baseLang, dictLang, isChinesePair, pairKey } from "../../shared/languages"
 import { type Catalog, type PairNeeds, pairNeeds } from "../../shared/offline-needs"
-import { dictKey, dictLang, type DictPack, gunzip, parsePack } from "./format"
+import { dictKey, type DictPack, gunzip, parsePack } from "./format"
 import { DictionaryStore } from "./store"
 
 const MAX_PHRASE_WORDS = 3

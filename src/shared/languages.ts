@@ -75,3 +75,30 @@ export function appLang(tag: string): string {
 export function pairKey(src: string, tgt: string): string {
   return `${src}>${tgt}`
 }
+
+/** Language codes of the dictionary packs. */
+const DICT_LANGS = ["en", "zh-Hans", "zh-Hant", "ja", "ko", "fr", "de", "es", "pt", "ru", "tr", "vi"]
+
+/** Pack language of a language code of the extension ("zh-CN") or of a detector ("zh", "zh-TW", "pt-BR"); null when no pack has it. */
+export function dictLang(code: string): string | null {
+  const tag = languageTag(code)
+  return DICT_LANGS.includes(tag) ? tag : null
+}
+
+/**
+ * Old and alternative codes and the tag of the Bergamot models in Mozilla
+ * Remote Settings. Models exist only between English and another language,
+ * so a pair without English (ja → zh-Hans) runs through two models: ja → en,
+ * then en → zh-Hans (see shared/offline-needs.ts).
+ */
+const ALIASES: Record<string, string> = { iw: "he", no: "nb", in: "id", fil: "tl", ji: "yi" }
+
+/**
+ * Remote Settings tag for an application or detector code: languageTag()
+ * (zh-CN → zh-Hans, zh-TW → zh-Hant, pt-BR → pt), then iw → he, no → nb,
+ * in → id, fil → tl, ji → yi. "auto" stays "auto"; an empty string stays empty.
+ */
+export function normalizeBergamotLang(code: string): string {
+  const tag = languageTag(code)
+  return ALIASES[tag] ?? tag
+}

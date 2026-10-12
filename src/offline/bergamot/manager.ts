@@ -6,10 +6,10 @@
 import { downloadBody, IDLE_TIMEOUT_MS, LIST_TIMEOUT_MS } from "../../shared/download"
 import { LocalizedError, MissingDataError, TimeoutError } from "../../shared/errors"
 import { hashText } from "../../shared/hash"
-import { isChinesePair, pairKey } from "../../shared/languages"
+import { isChinesePair, normalizeBergamotLang, pairKey } from "../../shared/languages"
+import type { BergamotPairInfo } from "../../shared/messages"
 import { type Catalog, pairNeeds } from "../../shared/offline-needs"
 import { BergamotEngine, type EngineOptions, type WorkerLike } from "./engine"
-import { normalizeBergamotLang } from "./languages"
 import { type ModelFileType, type ModelRecord, type PairFiles, selectPairs } from "./records"
 import type { BergamotStore, StoredFile, StoredPair } from "./store"
 import { prepareTexts } from "./text"
@@ -23,21 +23,6 @@ const RECORDS_TTL_MS = 6 * 60 * 60 * 1000
 /** A model list that could not be read is asked for again after this long at the earliest, as the dictionary index. */
 const RECORDS_RETRY_MS = 10 * 60 * 1000
 const RECORDS_META_KEY = "records"
-
-export interface BergamotPairInfo {
-  src: string
-  tgt: string
-  /** Version offered by Mozilla, or the installed version for pairs no longer offered. */
-  version: string
-  architecture: string
-  /** Download size (compressed). */
-  bytes: number
-  /** Size after decompression. */
-  rawBytes: number
-  installed: boolean
-  /** Installed version when it differs from `version` (an update is available). */
-  installedVersion?: string
-}
 
 export interface ManagerDeps {
   store: BergamotStore

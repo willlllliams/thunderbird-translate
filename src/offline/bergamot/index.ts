@@ -13,8 +13,6 @@ import { BergamotManager } from "./manager"
 import { WORKER_FILE } from "./protocol"
 import { BergamotStore } from "./store"
 
-export type { BergamotPairInfo } from "./manager"
-
 declare const __E2E__: boolean
 declare const __E2E_SERVER__: string
 

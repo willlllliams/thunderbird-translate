@@ -11,16 +11,6 @@
  */
 
 import { LocalizedError } from "../../shared/errors"
-import { languageTag } from "../../shared/languages"
-
-/** Language codes of the packs. */
-const DICT_LANGS = ["en", "zh-Hans", "zh-Hant", "ja", "ko", "fr", "de", "es", "pt", "ru", "tr", "vi"]
-
-/** Pack language of a language code of the extension ("zh-CN") or of a detector ("zh", "zh-TW", "pt-BR"); null when no pack has it. */
-export function dictLang(code: string): string | null {
-  const tag = languageTag(code)
-  return DICT_LANGS.includes(tag) ? tag : null
-}
 
 export function dictKey(text: string, lang: string): string {
   return text.normalize("NFC").toLocaleLowerCase(lang).trim()

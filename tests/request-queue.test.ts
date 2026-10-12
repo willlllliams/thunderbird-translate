@@ -1,6 +1,7 @@
 /** fetchOk(), Retry-After, retry classification and the concurrency limit of the RequestQueue. */
 import { describe, expect, it, vi } from "vitest"
-import { fetchOk, HttpError, isRetryableError, parseRetryAfter, RequestQueue } from "../src/background/queue/request-queue"
+import { isRetryableError, RequestQueue } from "../src/background/queue/request-queue"
+import { fetchOk, HttpError, parseRetryAfter } from "../src/shared/http"
 import { llmTranslateSingle } from "../src/background/translators/llm"
 import { NetworkError, TimeoutError } from "../src/shared/errors"
 import { ENGLISH } from "../src/shared/i18n"

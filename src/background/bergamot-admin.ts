@@ -6,10 +6,9 @@
  */
 
 import { getBergamot } from "../offline/bergamot"
-import { normalizeBergamotLang } from "../offline/bergamot/languages"
 import { describeError } from "../shared/errors"
 import { getI18n } from "../shared/i18n"
-import { pairKey } from "../shared/languages"
+import { normalizeBergamotLang, pairKey } from "../shared/languages"
 import type { BergamotRequest, BergamotResult } from "../shared/messages"
 
 /** Running installations by "src>tgt" (model tags); a second request for the same pair shares the first one's progress, cancellation and result. */

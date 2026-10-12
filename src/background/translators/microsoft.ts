@@ -13,7 +13,7 @@
 
 import { LocalizedError } from "../../shared/errors"
 import { type BatchLimits, groupIntoBatches } from "../queue/batch-queue"
-import { type FetchOptions, fetchOk, type RequestSpec } from "../queue/request-queue"
+import { type FetchOptions, fetchOk, type RequestSpec } from "../../shared/http"
 
 export const MS_EDGE_TRANSLATE_URL = "https://edge.microsoft.com/translate/translatetext"
 
