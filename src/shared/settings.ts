@@ -53,6 +53,8 @@ interface StyleSettings {
   preset: StylePreset
   /** CSS color for border / highlight. */
   color: string
+  /** Colour of the translated text; "" = the colour of the message text. */
+  textColor: string
   /** 0.3 – 1, opacity of the translated text. */
   opacity: number
   /** Font size relative to original, e.g. 0.95. */
@@ -119,12 +121,14 @@ export function createDefaultSettings(uiLang?: string): Settings {
     offlineMutedPairs: [],
     batch: { batchDelayMs: 50, maxCharsPerBatch: 3000, maxItemsPerBatch: 30, concurrency: 4, maxRetries: 3, timeoutSeconds: 60, llmBatchEnabled: true },
     cache: { enabled: true, maxEntries: 5000 },
-    style: { preset: "border", color: "#4c8bf5", opacity: 0.85, fontScale: 1 },
+    style: { preset: "border", color: "#4c8bf5", textColor: "", opacity: 0.85, fontScale: 1 },
   }
 }
 
 /** Offline service and language pair of a muted notice: "dictionary:ja>zh-Hans", "bergamot:ja>zh-Hans". */
 const MUTED_KEY = /^(dictionary|bergamot):[A-Za-z-]{2,12}>[A-Za-z-]{2,12}$/
+
+const isColor = (value: unknown): value is string => typeof value === "string" && /^#[0-9a-f]{3,8}$/i.test(value)
 
 function num(value: unknown, fallback: number, min: number, max: number): number {
   const n = typeof value === "number" ? value : Number(value)
@@ -254,7 +258,9 @@ export function normalizeSettings(stored: unknown, uiLang?: string): Settings {
     },
     style: {
       preset: STYLE_PRESETS.includes(st.preset as StylePreset) ? (st.preset as StylePreset) : d.style.preset,
-      color: typeof st.color === "string" && /^#[0-9a-f]{3,8}$/i.test(st.color) ? st.color : d.style.color,
+      color: isColor(st.color) ? st.color : d.style.color,
+      // Settings saved before 1.9.0 have no text colour: the translation keeps the colour of the message.
+      textColor: isColor(st.textColor) ? st.textColor : "",
       opacity: num(st.opacity, d.style.opacity, 0.3, 1),
       fontScale: num(st.fontScale, d.style.fontScale, 0.7, 1.5),
     },

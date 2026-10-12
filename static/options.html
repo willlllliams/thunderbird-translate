@@ -128,20 +128,7 @@
 
       <section>
         <h2 data-i18n="sectionStyle"></h2>
-        <div class="grid">
-          <label>
-            <span data-i18n="labelStylePreset"></span>
-            <select id="stylePreset">
-              <option value="border" data-i18n="styleBorder"></option>
-              <option value="dashed" data-i18n="styleDashed"></option>
-              <option value="highlight" data-i18n="styleHighlight"></option>
-              <option value="plain" data-i18n="stylePlain"></option>
-            </select>
-          </label>
-          <label><span data-i18n="labelColor"></span><input type="color" id="styleColor" /></label>
-          <label><span data-i18n="labelOpacity"></span><input type="range" id="styleOpacity" min="0.3" max="1" step="0.05" /></label>
-          <label><span data-i18n="labelFontScale"></span><input type="range" id="styleFontScale" min="0.7" max="1.5" step="0.05" /></label>
-        </div>
+        <div id="styleControls" class="grid"></div>
         <div class="preview" id="preview">
           <p>
             <span data-i18n="stylePreviewOriginal"></span>

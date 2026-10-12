@@ -2,8 +2,13 @@
  * End-to-end test probe of the setup guide, compiled only into the e2e build
  * (see src/e2e/background.ts).
  *
- * On the page opened by a "welcome" scenario it goes to the offline step with
- * a click and waits for both lists (dictionary packs and Bergamot models of
+ * On the page opened by the "welcome" scenario it first visits the tiers step:
+ * the tour of the tier selectors opens by itself and is skipped; the demo
+ * ends with the machine translation (dictionary and Bergamot in use), then,
+ * with an AI service chosen, plays again and ends with the AI text; the AI
+ * tier is emptied again.
+ *
+ * Then it goes to the offline step with a click and waits for both lists (dictionary packs and Bergamot models of
  * the mock server: en → zh-Hans and zh-Hans → en).
  * - "welcome" (source language English): "Download selected" downloads the
  *   ticked direction en → zh-Hans of both lists; the probe watches the lists
@@ -131,6 +136,37 @@ async function downloadSelected(report: Record<string, unknown>): Promise<void> 
   report.downloadStatus = $("downloadStatus").textContent === t("downloadDone") ? "done" : $("downloadStatus").textContent
 }
 
+/** A step of the guide, reached through the progress list. */
+async function openStep(id: (typeof STEP_IDS)[number]): Promise<void> {
+  const button = $("stepList").querySelectorAll("button")[STEP_IDS.indexOf(id)]
+  await until(`the ${id} step in the progress list`, () => !button.disabled)
+  button.click()
+  await until(`the ${id} step`, () => !(document.querySelector(`section[data-step="${id}"]`) as HTMLElement).hidden)
+}
+
+/** Tiers step: the tour opens by itself and Skip ends it; the demo ends with the highest tier in use and plays again after a choice. */
+async function tiersStep(report: Record<string, unknown>): Promise<void> {
+  await openStep("tiers")
+  await until("the tour of the tier selectors", () => document.querySelector(".spotlight") !== null)
+  report.tour = { target: document.querySelector(".spotlight select")?.id, text: $("tourText").textContent, focus: document.activeElement?.id }
+  $("tourSkip").click()
+  report.tourAfterSkip = { open: document.querySelector(".spotlight") !== null, tipHidden: $("tourTip").hidden }
+  const final = () => document.querySelector("#tierDemo .tt-translation:not(.tt-provisional)")?.firstChild?.textContent
+  const texts = { machine: t("demoMachine"), ai: t("demoAi") }
+  await until("the final result of the demo", () => final() === texts.machine)
+  const first = final()
+  const ai = $<HTMLSelectElement>("tier-ai")
+  const choose = (value: string) => {
+    ai.value = value
+    ai.dispatchEvent(new Event("change"))
+  }
+  const started = performance.now()
+  choose("deepseek")
+  await until("the AI result of the demo", () => final() === texts.ai)
+  report.demo = { texts, first, final: final(), status: $("demoStatus").textContent, replayMs: Math.round(performance.now() - started) }
+  choose("")
+}
+
 async function welcome(report: Record<string, unknown>): Promise<string[]> {
   const progress = { dictionary: watchProgress($("dictList")), bergamot: watchProgress($("bergamotList")) }
   await downloadSelected(report)
@@ -165,11 +201,8 @@ export async function runWelcomeProbe(scenario: string): Promise<void> {
   try {
     const i18n = ext.i18n as typeof ext.i18n & { getPreferredSystemLanguages?: () => Promise<string[]> }
     report.systemLanguages = i18n.getPreferredSystemLanguages ? await i18n.getPreferredSystemLanguages() : "no getPreferredSystemLanguages()"
-    // Step 4 of the guide, reached through the progress list.
-    const offline = $("stepList").querySelectorAll("button")[STEP_IDS.indexOf("offline")]
-    await until("the offline step in the progress list", () => !offline.disabled)
-    offline.click()
-    await until("the offline step", () => !(document.querySelector('section[data-step="offline"]') as HTMLElement).hidden)
+    if (scenario === "welcome") await tiersStep(report)
+    await openStep("offline")
     await until("both directions in both lists", () => DIRECTIONS.every((id) => row("dictionary", id) && row("bergamot", id)))
     report.offered = screen()
     report.initial = await stored()

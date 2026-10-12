@@ -2,7 +2,8 @@
 
 .tt-translation {
   --tt-color-fallback: #4c8bf5;
-  color: inherit;
+  /* Unset --tt-text-color: the colour is inherited. */
+  color: var(--tt-text-color);
   opacity: var(--tt-opacity, 0.85);
   font-size: calc(1em * var(--tt-scale, 1));
   line-height: 1.55;

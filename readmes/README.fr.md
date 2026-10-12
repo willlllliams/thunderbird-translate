@@ -42,7 +42,7 @@ Thunderbird 128 ou une version ultérieure est nécessaire. La préversion `nigh
 
 ## Démarrage rapide
 
-Après l’installation, le guide de configuration s’ouvre dans un nouvel onglet. Chaque étape pose une seule question : langues, mode d’affichage, service de chaque niveau, téléchargements hors ligne, clés des services et invites. Chaque choix est enregistré immédiatement, et toute étape peut être ignorée. La dernière étape traduit un message d’exemple avec vos paramètres.
+Après l’installation, le guide de configuration s’ouvre dans un nouvel onglet. Chaque étape pose une seule question : langues, mode d’affichage et style de traduction, service de chaque niveau (avec une courte démonstration du résultat), téléchargements hors ligne, clés des services et invites. Chaque choix est enregistré immédiatement, et toute étape peut être ignorée. La dernière étape traduit un message d’exemple avec vos paramètres.
 
 Vous pouvez rouvrir le guide depuis le lien « Guide de configuration » de la fenêtre contextuelle ou depuis le bouton en haut de la page de paramètres. Sans rien modifier, ouvrez un message et appuyez sur Alt+A : Google Translate le traduit.
 

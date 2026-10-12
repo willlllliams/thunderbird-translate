@@ -42,7 +42,7 @@ Thunderbird 128 or later is required. The `nightly` pre-release is an automatic 
 
 ## Quick start
 
-After installation the setup guide opens in a new tab. It asks one question per step: languages, display mode, the service of each tier, offline downloads, service keys and prompts. Every choice is saved at once, and any step can be skipped. The last step translates a sample message with your settings.
+After installation the setup guide opens in a new tab. It asks one question per step: languages, display mode and translation style, the service of each tier (with a short demo of the result), offline downloads, service keys and prompts. Every choice is saved at once, and any step can be skipped. The last step translates a sample message with your settings.
 
 You can open the guide again from the "Setup guide" link in the popup or the button at the top of the settings page. Without changing anything, open a message and press Alt+A: Google Translate translates it.
 

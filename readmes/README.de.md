@@ -42,7 +42,7 @@ Erforderlich ist Thunderbird 128 oder neuer. Das Vorabrelease `nightly` ist ein 
 
 ## Schnellstart
 
-Nach der Installation öffnet sich der Einrichtungsassistent in einem neuen Tab. Jeder Schritt stellt eine Frage: Sprachen, Anzeigemodus, Dienst jeder Stufe, Offline-Downloads, Schlüssel der Dienste und Prompts. Jede Auswahl wird sofort gespeichert, und jeder Schritt lässt sich überspringen. Im letzten Schritt wird eine Beispielnachricht mit den gewählten Einstellungen übersetzt.
+Nach der Installation öffnet sich der Einrichtungsassistent in einem neuen Tab. Jeder Schritt stellt eine Frage: Sprachen, Anzeigemodus und Darstellung der Übersetzung, Dienst jeder Stufe (mit einer kurzen Vorführung des Ergebnisses), Offline-Downloads, Schlüssel der Dienste und Prompts. Jede Auswahl wird sofort gespeichert, und jeder Schritt lässt sich überspringen. Im letzten Schritt wird eine Beispielnachricht mit den gewählten Einstellungen übersetzt.
 
 Den Assistenten öffnet man später über den Link „Einrichtungsassistent“ im Pop-up oder die Schaltfläche oben auf der Einstellungsseite. Ohne jede Einstellung genügt es, eine Nachricht zu öffnen und Alt+A zu drücken: Google Translate übersetzt sie.
 

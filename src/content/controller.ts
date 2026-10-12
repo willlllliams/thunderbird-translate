@@ -354,6 +354,7 @@ export class TranslationController {
       style.id = STYLE_ID
       ;(doc.head ?? doc.documentElement).appendChild(style)
     }
-    style.textContent = `:root{--tt-color:${s.style.color};--tt-opacity:${s.style.opacity};--tt-scale:${s.style.fontScale};}`
+    const text = s.style.textColor ? `--tt-text-color:${s.style.textColor};` : ""
+    style.textContent = `:root{--tt-color:${s.style.color};${text}--tt-opacity:${s.style.opacity};--tt-scale:${s.style.fontScale};}`
   }
 }

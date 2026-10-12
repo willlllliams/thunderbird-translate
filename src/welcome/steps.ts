@@ -24,7 +24,7 @@ export const STEP_TITLE_KEYS: Record<StepId, MessageKey> = {
   finish: "stepFinish",
 }
 
-/** storage.local key of the welcome page's state: { step, finished }. */
+/** storage.local key of the welcome page's state: { step, finished, toured }. */
 export const WELCOME_KEY = "welcome"
 
 export interface WelcomeState {
@@ -32,6 +32,8 @@ export interface WelcomeState {
   step: StepId
   /** The user went through the last step. */
   finished?: boolean
+  /** The tour of the tier selectors on the tiers step was closed; it opens on its own only once. */
+  toured?: boolean
 }
 
 const kindOf = (id: string | null) => (id ? getPreset(id)?.kind : undefined)

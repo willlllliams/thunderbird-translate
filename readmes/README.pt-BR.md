@@ -42,7 +42,7 @@ O Thunderbird Translate é uma extensão do Thunderbird que traduz o corpo da me
 
 ## Início rápido
 
-Após a instalação, o guia de configuração abre em uma nova aba. Cada etapa faz uma única pergunta: idiomas, modo de exibição, o serviço de cada nível, downloads offline, chaves dos serviços e prompts. Cada escolha é salva na hora, e qualquer etapa pode ser pulada. A última etapa traduz uma mensagem de exemplo com as suas configurações.
+Após a instalação, o guia de configuração abre em uma nova aba. Cada etapa faz uma única pergunta: idiomas, modo de exibição e estilo da tradução, o serviço de cada nível (com uma breve demonstração do resultado), downloads offline, chaves dos serviços e prompts. Cada escolha é salva na hora, e qualquer etapa pode ser pulada. A última etapa traduz uma mensagem de exemplo com as suas configurações.
 
 Você pode abrir o guia de novo pelo link "Guia de configuração" no pop-up ou pelo botão no topo da página de configurações. Sem alterar nada, abra uma mensagem e pressione Alt+A: o Google Tradutor a traduz.
 

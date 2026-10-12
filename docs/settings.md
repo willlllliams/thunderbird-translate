@@ -7,6 +7,8 @@ This page describes every setting of Thunderbird Translate and how the extension
 - [What is translated](#what-is-translated)
 - [Settings page](#settings-page)
 - [Setup guide](#setup-guide)
+  - [Demo and tour of the tiers](#demo-and-tour-of-the-tiers)
+  - [Trial](#trial)
 - [Popup](#popup)
 - [Adding and removing services](#adding-and-removing-services)
 - [Translation tiers](#translation-tiers)
@@ -49,7 +51,7 @@ Open the settings page with the "Options" button of this extension in the Add-on
 | Offline translation models (Bergamot) | Every direction of the Bergamot models with size and version, those of the recommended languages first; filter; "Download common languages"; download, update, cancel and delete; the directions the current languages need |
 | Prompts (AI tier) | The preset library; the prompts for bilingual display, translation-only display and precise translation, each with "Restore built-in prompt" |
 | Request batching | Collection window, maximum characters and paragraphs per request, concurrency, retries, request timeout, whether to merge AI requests |
-| Translation style | Left border, dashed left border, highlight or plain; accent color, text opacity, font size ratio; live preview |
+| Translation style | Left border, dashed left border, highlight or plain; accent color, text color, text opacity, font size ratio; live preview |
 | Cache | Cache on or off, maximum cached paragraphs, current number of entries, clear cache |
 
 "Test connection" sends one test sentence with the values currently in the input fields. On success it shows the translation. On failure it shows the error returned by the service, for example an invalid key or an unknown model name.
@@ -65,8 +67,8 @@ Each step asks for one decision and saves it at once. "Back", "Next" and "Skip t
 | Step | Contents | Shown when |
 | --- | --- | --- |
 | 1 Languages | interface language, source language ("Detect automatically" by default), target language | always |
-| 2 Display | bilingual or translation only, with a preview of a sample message in the current translation style | always |
-| 3 Translation tiers | speed, quality, privacy and cost of the dictionary, machine translation and AI tiers; the service of each tier or "Not used", at least one tier with a service | always |
+| 2 Display | bilingual or translation only, and the controls of the translation style, with a preview of a sample message in the current mode and style | always |
+| 3 Translation tiers | speed, quality, privacy and cost of the dictionary, machine translation and AI tiers; the service of each tier or "Not used", at least one tier with a service; a demo of the chosen tiers on a sample paragraph and a tour of the three selectors | always |
 | 4 Offline translation | every dictionary pack and Bergamot direction with size, license and attribution, those of your languages first and ticked; "Download selected" with progress, or "Download common languages" | the dictionary tier is used or the machine tier uses Bergamot |
 | 5 Online machine translation | the fields of the machine translator: nothing to fill in for Google, free or Azure key mode for Microsoft, endpoint and token for DeepLX; "Test connection" | the machine tier uses Google, Microsoft or DeepLX |
 | 6 AI translation | the AI provider, its API key, model, temperature and thinking mode, "Test connection", and the precise translation switch; a note that thinking mode and precise translation make translation slower and more expensive | the AI tier is used |
@@ -75,6 +77,10 @@ Each step asks for one decision and saves it at once. "Back", "Next" and "Skip t
 
 A step that the earlier choices do not need stays in the list, struck through, and the navigation passes over it. Choosing an AI service in step 3, for example, brings steps 6 and 7 back.
 
+The guide uses the same components as the settings page: the translation style controls, the service fields and connection test, the dictionary and Bergamot lists, and the prompt editor with its presets.
+
+Step 2 holds the same style controls as the Translation style section of the settings page, described under [Translation style](#translation-style). Every change redraws the sample message at once and is saved like any other setting.
+
 Step 4 lists every direction of both catalogs, in the order described under [Offline lists](#offline-lists). What is ticked depends on the source language:
 
 - A fixed source language: the directions the pair needs. For Japanese → Simplified Chinese these are the dictionary pack Japanese → Chinese when the release has it, otherwise Japanese → English and English → Chinese, and the Bergamot directions ja → en and en → zh-Hans, since every Bergamot model has English on one side.
@@ -82,9 +88,34 @@ Step 4 lists every direction of both catalogs, in the order described under [Off
 
 "Download selected" is disabled while nothing is ticked, and the line next to it then says "Tick the items to download first.". During the download it shows "Downloading N items…", at the end "Downloads finished." or the number of failed downloads. Each failed row shows its reason. The guide downloads two directions at a time.
 
-"Translate the sample message" in step 8 renders a short email in the page and translates it with the current settings. The email is in the source language when that is English or German, otherwise in English, or in German when the target language is English. The page uses the paragraph detection and rendering of the content script and sends the requests to the background script over the same connection as a displayed message. The result therefore shows what a real message will look like, including the tiers in use.
+### Demo and tour of the tiers
 
-The guide uses the same components as the settings page: the service fields and connection test, the dictionary and Bergamot lists, and the prompt editor with its presets.
+Step 3 plays a sample paragraph through the tiers in use, as a real message would show it. The paragraph is an English email sentence. The three results come from the interface language: a rough word-by-word translation for the dictionary, a correct but stiff one for machine translation and a natural one for AI translation. The English interface shows German results. The demo runs inside the page and sends no request.
+
+The content script's renderer draws the demo in the current display mode and translation style:
+
+1. A loading mark appears under the paragraph.
+2. At once, the dictionary result appears.
+3. After 0.3 s, the machine translation replaces it.
+4. 1.5 s later, the AI translation replaces it.
+
+Only the tiers in use take part, at the same times. Every result below the highest tier in use is provisional: it is in italics, slightly fainter, and carries a label with the name of its service, such as "Bergamot (offline)". The result of the highest tier is drawn as final. The line under the paragraph names the tier and service of the result shown, for example "Tier 3: AI translation · DeepSeek", and is announced by screen readers. When no tier has a service, the line says "At least one tier needs a service.".
+
+The demo plays again from the start after every change of a tier selector and with "Replay". When the system asks for reduced motion (`prefers-reduced-motion: reduce`), the demo shows the final result at once, without the loading mark and the lower tiers. Leaving the step or closing the page stops the demo.
+
+The first visit of step 3 starts a tour of the three tier selectors. A ring and a shade around the page mark one selector, and a tip under it explains the tier:
+
+| Selector | Tip |
+| --- | --- |
+| Tier 1 | the fastest; a rough word-by-word translation from dictionaries, offline |
+| Tier 2 | machine translation; free online services, or Bergamot offline |
+| Tier 3 | AI translation; the best quality, and most services charge for it |
+
+"Next" moves to the next selector, and on the last one "Close" ends the tour. Choosing a service in the marked selector also moves on. "Skip" ends the tour at once. The tip takes the keyboard focus when it opens: Enter moves on, Esc skips, and when the tour ends the focus goes back to where it was. Leaving the step also ends the tour; closing the tab while the tour is open does not, and the tour opens again on the next visit. Once ended, the tour does not open by itself again; the guide stores this in `storage.local` together with the step where it was left. The link "Show the tour of the tiers again" under the demo starts it again. With reduced motion the ring and the shade appear without a transition.
+
+### Trial
+
+"Translate the sample message" in step 8 renders a short email in the page and translates it with the current settings. The email is in the source language when that is English or German, otherwise in English, or in German when the target language is English. The page uses the paragraph detection and rendering of the content script and sends the requests to the background script over the same connection as a displayed message. The result therefore shows what a real message will look like, including the tiers in use.
 
 ## Popup
 
@@ -317,7 +348,8 @@ The Cache section turns the cache on or off (on by default), sets the maximum nu
 The Translation style section sets how translations look in the message:
 
 - Style: left border (default), dashed left border, highlight or plain.
-- Accent color: `#4c8bf5` by default.
+- Accent color: `#4c8bf5` by default. It colors the border or the highlight.
+- Text color: the color of the translated text. By default the translation keeps the color of the message text, and the field shows the color of the page text next to "Same as the message text". Picking a color applies it to every translation; "Restore default" returns to the color of the message. A provisional translation keeps its italics, fainter text and label in any text color.
 - Text opacity: 0.85 by default, 0.3–1.
 - Font size ratio: 1 by default, 0.7–1.5.
 
@@ -338,6 +370,8 @@ When settings from version 1.1 or earlier are loaded, a service counts as added 
 | the services of the tiers | always |
 
 Settings saved by version 1.3 and earlier have no tiers. An AI service as current service becomes tier 3, together with the fast service of race translation as tier 2 when race translation was on. Any other current service becomes tier 2. The dictionary tier starts unused. A custom system prompt saved by version 1.3 or earlier becomes the prompt of both display modes; the precise prompt starts with its built-in text.
+
+Settings saved before version 1.9.0 have no text color; translations keep the color of the message text, as before. A text color that is not a hex color such as `#202124` is ignored in the same way.
 
 ## Privacy details
 

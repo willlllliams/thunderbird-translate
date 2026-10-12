@@ -96,7 +96,7 @@ The service tests run on the production path `translateForPage()`, with the tier
 | `html` | paragraph detection in an HTML message, the order dictionary → Google → AI for every paragraph, provisional and final translations, the switch to translation-only (only the AI tier is asked again), restoring the original DOM, translating again from memory without any request, and Alt+R: every tier is asked again although everything is cached, and the new AI translation is shown |
 | `plain` | the same for a plain-text message with a quote |
 | `missing` | the dictionary and Bergamot tiers with nothing installed: the notice about missing offline data appears, is muted, stays away when translating again, and stays away with Google instead |
-| `welcome` | Thunderbird starts without a message and opens the setup guide; with English as source language the test goes to the offline step, downloads the ticked dictionary pack and Bergamot model from the mock server with progress, checks that both are stored and deletes them again |
+| `welcome` | Thunderbird starts without a message and opens the setup guide; the test skips the tour of the tiers step, waits until the demo shows the machine translation, chooses an AI service and waits for the replayed demo to show the AI text; then, with English as source language, it goes to the offline step, downloads the ticked dictionary pack and Bergamot model from the mock server with progress, checks that both are stored and deletes them again |
 | `welcome-auto` | the same with automatic detection: the recommended directions are labelled and ticked, and the test downloads through "Download common languages" and "Download selected" |
 
 Environment variables:
@@ -118,8 +118,8 @@ src/
   background/    background script: translation service, batch and request queues, cache, provider factory, translators, dictionary, offline model management
   content/       content script: paragraph detection, rendering, language detection, translation state
   popup/         popup
-  options/       settings page and the parts the setup guide shares: service fields, dictionary and Bergamot lists, prompt editor, settings session
-  welcome/       setup guide: steps and navigation
+  options/       settings page and the parts the setup guide shares: translation style controls, service fields, dictionary and Bergamot lists, prompt editor, settings session
+  welcome/       setup guide: steps and navigation, demo and tour of the tiers step
   offline/       Bergamot engine module: model list, download, storage, worker
   shared/        shared settings, provider presets, prompts, language table and detection, message types, i18n runtime
   e2e/           hooks of the e2e test build (left out of every other build)

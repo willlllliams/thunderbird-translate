@@ -13,7 +13,8 @@
 //    nothing installed: the notice about missing offline data appears, is muted,
 //    stays away when translating again, and stays away with Google instead.
 // 5. Two Thunderbirds started without a message open the setup guide
-//    (src/welcome/), where the probe of src/e2e/welcome.ts clicks through to the
+//    (src/welcome/), where the probe of src/e2e/welcome.ts skips the tour of the
+//    tiers step and watches its demo (first run only), then clicks through to the
 //    offline step and downloads dictionary packs and Bergamot models from the
 //    mock server (Remote Settings stand-in): with English as source language
 //    the ticked direction, with automatic detection the recommended directions
@@ -193,6 +194,14 @@ function checkWelcome(ready, report, calls) {
     failures.push(`page at the time: ${JSON.stringify(report.screen)}`)
     return failures
   }
+  if (!auto) {
+    // Tiers step: the tour opens at the first selector with the focus on "Next", and Skip closes it. The demo ends with
+    // the machine translation (dictionary and Bergamot in use) and, after DeepSeek is chosen for the AI tier, with the AI text.
+    expect(report.tour?.target === "tier-dictionary" && report.tour.text && report.tour.focus === "tourNext", "the tour did not open at the first tier selector", report.tour)
+    expect(report.tourAfterSkip?.open === false && report.tourAfterSkip.tipHidden === true, "Skip did not close the tour", report.tourAfterSkip)
+    const demo = report.demo
+    expect(demo?.first === demo?.texts.machine && demo.final === demo.texts.ai && demo.status?.includes("DeepSeek"), "the demo did not end with the highest tier, or did not play again after the choice", demo)
+  }
   const row = (screen, kind, id) => screen?.[kind]?.rows.find((r) => r.id === id)
   const ids = auto ? ["en>zh-Hans", "zh-Hans>en"] : ["en>zh-Hans"]
 
@@ -292,7 +301,8 @@ async function main() {
 ${JSON.stringify(report, null, 2)}`)
           const { dictionary, bergamot } = report.progress ?? {}
           const progress = dictionary ? `progress of the pack ${dictionary.join(", ")} %, of the model ${bergamot?.join(", ")} %; ` : ""
-          console.log(`  ${c.name}: ${progress}stored ${JSON.stringify(report.downloaded?.bergamotRecords)}, then deleted; ${systemLanguages} ${JSON.stringify(report.systemLanguages)}`)
+          const demo = report.demo ? `demo replayed with the AI tier in ${report.demo.replayMs} ms; ` : ""
+          console.log(`  ${c.name}: ${demo}${progress}stored ${JSON.stringify(report.downloaded?.bergamotRecords)}, then deleted; ${systemLanguages} ${JSON.stringify(report.systemLanguages)}`)
         } else if (c.scenario === "missing") {
           failures = checkMissing(c, ready, report, server.calls)
           if (failures.length) failures.push(`report of the content script:\n${JSON.stringify(report, null, 2)}`)

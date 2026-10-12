@@ -142,6 +142,52 @@ main {
   padding-inline-start: 20px;
 }
 
+.demo-status {
+  flex: 1;
+}
+
+/* Tour: ring and shade around a tier selector, tip below. */
+.tour-stop.spotlight {
+  position: relative;
+  z-index: 10;
+  border-radius: 6px;
+  background: Canvas;
+  outline: 3px solid var(--accent);
+  outline-offset: 4px;
+  box-shadow: 0 0 0 4px Canvas, 0 0 0 100vmax rgb(0 0 0 / 0.55);
+}
+
+.tour-tip {
+  position: absolute;
+  top: calc(100% + 12px);
+  inset-inline-start: 0;
+  width: max(100%, 260px);
+  box-sizing: border-box;
+  padding: 10px 12px;
+  border: 1px solid var(--accent);
+  border-radius: 8px;
+  background: Canvas;
+  color: CanvasText;
+}
+
+.tour-stop:last-child .tour-tip {
+  inset-inline: auto 0;
+}
+
+.tour-tip p {
+  margin: 0 0 8px;
+}
+
+.tour-tip .row {
+  justify-content: flex-end;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .tour-stop {
+    transition: box-shadow 0.2s;
+  }
+}
+
 .wizard-nav {
   position: fixed;
   inset-inline: 0;

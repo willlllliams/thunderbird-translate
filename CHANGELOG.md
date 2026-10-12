@@ -2,6 +2,20 @@
 
 All notable changes to this project are documented in this file. Versions follow [Semantic Versioning](https://semver.org/).
 
+## 1.9.0
+
+### Added
+
+- Text color of the translations, in the Translation style section of the settings page. By default the translation keeps the color of the message text, and the field shows the color of the page text next to "Same as the message text"; "Restore default" returns to it. The accent color stays separate and still colors the border or the highlight. A provisional translation keeps its italics, fainter text and label in any text color. Settings saved by earlier versions have no text color and look as before.
+- Step 2 of the setup guide has every control of the translation style: style, accent color, text color, text opacity and font size ratio. The settings page and the guide build them with the same function (`src/options/style-controls.ts`), and the sample message of the step shows each change at once.
+- Step 3 of the setup guide plays a sample paragraph through the tiers in use with the content script's renderer: the dictionary's word-by-word result at once, machine translation after 0.3 s and the AI translation 1.5 s later. Lower results carry the provisional mark with the name of their service, such as "Bergamot (offline)", and a line under the paragraph names the tier and service shown. Every change of a tier selector and "Replay" play it again; tiers that are not used do not appear. The sentence and its three translations come from the interface language, and nothing is requested. With `prefers-reduced-motion: reduce` the final result appears at once.
+- The first visit of step 3 starts a tour of the three tier selectors: a ring and a shade mark one selector, and a tip explains its tier, with "Next" and "Skip". Choosing a service in the marked selector also moves on; Enter moves on and Esc skips. The tour opens by itself once; the guide stores that it was closed together with its progress, and "Show the tour of the tiers again" under the demo starts it again.
+- `npm run e2e`: the "welcome" run skips the tour of step 3 and checks that the demo ends with the machine translation and, after DeepSeek is chosen for the AI tier, plays again and ends with the AI text.
+
+### Fixed
+
+- Simplified Chinese and Korean: the button of the notice about missing offline data spoke of one language ("这个语言" / "이 언어"), while the notice is about a language pair and the other languages say "these languages". Both now use the plural.
+
 ## 1.8.2
 
 ### Changed

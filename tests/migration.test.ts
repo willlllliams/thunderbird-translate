@@ -96,7 +96,8 @@ describe("settings of earlier versions", () => {
     expect(s).toMatchObject({ targetLang: "ja", mode: "translation-only", autoTranslate: true, sourceLang: "auto", uiLanguage: "auto" })
     expect(s.batch).toEqual({ ...batch, timeoutSeconds: 60, llmBatchEnabled: true })
     expect(s.cache).toEqual({ enabled: false, maxEntries: 800 })
-    expect(s.style).toEqual(style)
+    // Before 1.9.0 there was no text colour: the translation keeps the colour of the message.
+    expect(s.style).toEqual({ ...style, textColor: "" })
     expect(s.dictionary.releaseTag).toBe("dicts-v1")
     expect(s.precise.enabled).toBe(false)
     expect(Object.entries(s.providers).filter(([, c]) => c.enabled).map(([id]) => id).sort()).toEqual(["deeplx", "google-free", "microsoft-free", "openai"])
@@ -190,6 +191,10 @@ describe("normalization of each field", () => {
     ["style.color", "#11223344", "#11223344"],
     ["style.color", "#12", "#4c8bf5"],
     ["style.color", "red", "#4c8bf5"],
+    ["style.textColor", "#202124", "#202124"],
+    ["style.textColor", "", ""],
+    ["style.textColor", null, ""],
+    ["style.textColor", "black", ""],
     ["style.opacity", 0, 0.3],
     ["style.opacity", 2, 1],
     ["style.fontScale", 0.1, 0.7],

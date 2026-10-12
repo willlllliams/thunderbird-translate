@@ -145,7 +145,33 @@ describe("batching, style and cache", () => {
     expect(preview.style.getPropertyValue("--tt-color")).toBe("#ff0000")
     expect(preview.style.getPropertyValue("--tt-opacity")).toBe("0.5")
     expect(preview.style.getPropertyValue("--tt-scale")).toBe("1.2")
-    await vi.waitFor(() => expect(page.stored().style).toEqual({ preset: "highlight", color: "#ff0000", opacity: 0.5, fontScale: 1.2 }))
+    await vi.waitFor(() => expect(page.stored().style).toEqual({ preset: "highlight", color: "#ff0000", textColor: "", opacity: 0.5, fontScale: 1.2 }))
+  })
+
+  it("sets the text colour of the translations and restores the colour of the message", async () => {
+    const page = await options()
+    const preview = $("preview")
+    const reset = $<HTMLButtonElement>("styleTextColorReset")
+    // By default the translation has the colour of the message text; the field shows the colour of the page text.
+    expect(preview.style.getPropertyValue("--tt-text-color")).toBe("")
+    expect($<HTMLInputElement>("styleTextColor").value).toBe("#000000")
+    expect([reset.disabled, $("styleTextColorAuto").hidden, $("styleTextColorAuto").textContent]).toEqual([true, false, ENGLISH.t("textColorAuto")])
+    expect(document.querySelector('label:has(#styleTextColor) > span')!.textContent).toBe(ENGLISH.t("labelTextColor"))
+
+    set("styleTextColor", "#202124", "input")
+    expect(preview.style.getPropertyValue("--tt-text-color")).toBe("#202124")
+    expect([reset.disabled, $("styleTextColorAuto").hidden]).toEqual([false, true])
+    await vi.waitFor(() => expect(page.stored().style.textColor).toBe("#202124"))
+
+    reset.click()
+    expect(preview.style.getPropertyValue("--tt-text-color")).toBe("")
+    expect([reset.disabled, $("styleTextColorAuto").hidden]).toEqual([true, false])
+    await vi.waitFor(() => expect(page.stored().style.textColor).toBe(""))
+
+    // Set in another page.
+    page.external((s) => (s.style = { ...s.style, textColor: "#336699" }))
+    expect($<HTMLInputElement>("styleTextColor").value).toBe("#336699")
+    expect(reset.disabled).toBe(false)
   })
 
   it("leaves the field that has the focus alone and ignores other storage areas", async () => {

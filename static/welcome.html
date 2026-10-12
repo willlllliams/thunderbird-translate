@@ -47,6 +47,7 @@
             <span><strong data-i18n="modeTranslationOnly"></strong><span class="hint" data-i18n="welcomeTranslationOnlyHint"></span></span>
           </label>
         </div>
+        <div id="styleControls" class="grid"></div>
         <p class="hint" data-i18n="welcomePreviewLabel"></p>
         <div id="modePreview" class="sample-mail"></div>
       </section>
@@ -93,12 +94,27 @@
           </table>
         </div>
         <div class="grid">
-          <label><span id="tierLabel-dictionary"></span><select id="tier-dictionary"></select></label>
-          <label><span id="tierLabel-machine"></span><select id="tier-machine"></select></label>
-          <label><span id="tierLabel-ai"></span><select id="tier-ai"></select></label>
+          <div class="tour-stop"><label><span id="tierLabel-dictionary"></span><select id="tier-dictionary"></select></label></div>
+          <div class="tour-stop"><label><span id="tierLabel-machine"></span><select id="tier-machine"></select></label></div>
+          <div class="tour-stop"><label><span id="tierLabel-ai"></span><select id="tier-ai"></select></label></div>
         </div>
         <p id="tiersEmpty" class="field-warning" data-i18n="tiersEmpty" hidden></p>
         <p class="hint" data-i18n="welcomeTiersHint"></p>
+        <h3 data-i18n="demoTitle"></h3>
+        <p class="hint" data-i18n="demoHint"></p>
+        <div id="tierDemo" class="sample-mail"></div>
+        <div class="row">
+          <span id="demoStatus" class="demo-status hint" role="status"></span>
+          <button type="button" id="demoReplay" data-i18n="buttonReplay"></button>
+          <a href="#" id="tourAgain" data-i18n="spotlightAgain"></a>
+        </div>
+        <div id="tourTip" class="tour-tip" role="dialog" aria-labelledby="tourText" hidden>
+          <p id="tourText"></p>
+          <div class="row">
+            <button type="button" id="tourSkip" data-i18n="buttonSkip"></button>
+            <button type="button" id="tourNext" class="primary"></button>
+          </div>
+        </div>
       </section>
 
       <section class="step" data-step="offline" hidden>

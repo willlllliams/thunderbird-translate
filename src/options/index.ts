@@ -7,14 +7,15 @@ import { normalizeUiLanguageSetting } from "../shared/locales"
 import type { OfflineStatus, OptionsPlace, PageNotice } from "../shared/messages"
 import { $, fillSelect, fillTierSelects, languageOptions, offlineStatus, onTierChange, send, showOfflineHint, showSaved, showSaveError, sourceLanguageOptions, uiLanguageOptions } from "../shared/page"
 import { getPreset, PROVIDER_PRESETS, providerDisplayName, type ProviderPreset, type Tier, TIER_NAME_KEYS, TIERS, tierOf } from "../shared/providers"
-import { addedProviders, addProvidersInUse, type DisplayMode, enabledTiers, removalBlocker, type Settings, type StylePreset } from "../shared/settings"
+import { addedProviders, addProvidersInUse, type DisplayMode, enabledTiers, removalBlocker, type Settings } from "../shared/settings"
 import { BergamotSection } from "./bergamot"
 import { DictionarySection } from "./dictionaries"
 import { button, h } from "./dom"
 import { loadSystemLanguages, recommendedFor } from "./offline-list"
 import { PromptEditor } from "./prompt-editor"
 import { type PanelState, providerConfig, providerFields, providerTitle, testButton, testResult } from "./provider-panel"
-import { type Control, SettingsSession } from "./session"
+import { SettingsSession } from "./session"
+import { mountStyleControls } from "./style-controls"
 
 let session: SettingsSession
 /** Settings as edited on this page. */
@@ -236,6 +237,7 @@ async function main(): Promise<void> {
     filter: $<HTMLInputElement>("bergamotFilter"),
   })
   prompts = new PromptEditor($("promptEditor"), session)
+  mountStyleControls($("styleControls"), session, applyPreview)
   await Promise.all([loadExtensionI18n(settings.uiLanguage), loadSystemLanguages()])
   // The popup, the notice above a message and the tier selectors link to a place: options.html?dict=…&bergamot=…&tier=…#section.
   const query = new URLSearchParams(location.search)
@@ -319,16 +321,6 @@ async function main(): Promise<void> {
   session.bindNumber("timeoutSeconds", () => b.timeoutSeconds, (v) => (b.timeoutSeconds = v))
   session.bindCheck("llmBatchEnabled", () => b.llmBatchEnabled, (v) => (b.llmBatchEnabled = v))
 
-  // Style
-  const st = settings.style
-  const preview = (change: (el: Control) => void) => (el: Control) => {
-    change(el)
-    applyPreview()
-  }
-  session.bind("stylePreset", "change", (el) => (el.value = st.preset), preview((el) => (st.preset = el.value as StylePreset)))
-  session.bind("styleColor", "input", (el) => (el.value = st.color), preview((el) => (st.color = el.value)))
-  session.bind("styleOpacity", "input", (el) => (el.value = String(st.opacity)), preview((el) => (st.opacity = Number(el.value))))
-  session.bind("styleFontScale", "input", (el) => (el.value = String(st.fontScale)), preview((el) => (st.fontScale = Number(el.value))))
   applyPreview()
 
   // Cache

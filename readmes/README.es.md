@@ -42,7 +42,7 @@ Se requiere Thunderbird 128 o posterior. La versión preliminar `nightly` es una
 
 ## Inicio rápido
 
-Después de la instalación, la guía de configuración se abre en una pestaña nueva. Hace una pregunta por paso: idiomas, modo de visualización, servicio de cada nivel, descargas sin conexión, claves de los servicios y prompts. Cada elección se guarda al instante y se puede omitir cualquier paso. El último paso traduce un mensaje de ejemplo con su configuración.
+Después de la instalación, la guía de configuración se abre en una pestaña nueva. Hace una pregunta por paso: idiomas, modo de visualización y estilo de la traducción, servicio de cada nivel (con una breve demostración del resultado), descargas sin conexión, claves de los servicios y prompts. Cada elección se guarda al instante y se puede omitir cualquier paso. El último paso traduce un mensaje de ejemplo con su configuración.
 
 Puede volver a abrir la guía desde el enlace "Guía de configuración" de la ventana emergente o desde el botón de la parte superior de la página de configuración. Sin cambiar nada, abra un mensaje y pulse Alt+A: Google Translate lo traduce.
 

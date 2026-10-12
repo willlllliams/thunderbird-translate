@@ -25,9 +25,11 @@ import { loadSystemLanguages, recommendedFor } from "../options/offline-list"
 import { PromptEditor } from "../options/prompt-editor"
 import { type PanelState, providerConfig, providerFields, providerTitle, testButton, testResult } from "../options/provider-panel"
 import { SettingsSession } from "../options/session"
+import { mountStyleControls } from "../options/style-controls"
 import { WELCOME_PROBE_PARAM } from "../e2e/marker"
 import { runWelcomeProbe } from "../e2e/welcome"
 import { releaseFetch } from "../e2e/release"
+import { TierDemo, TierTour } from "./demo"
 import { neighbourStep, resumeStep, STEP_IDS, STEP_TITLE_KEYS, type StepId, stepNeeded, TRY_MAIL, trialLanguage, WELCOME_KEY, type WelcomeState } from "./steps"
 
 declare const __DEBUG__: boolean
@@ -40,6 +42,10 @@ let dictionaries: DictionarySection
 let bergamot: BergamotSection
 let prompts: PromptEditor
 let client: ContentClient | null = null
+let demo: TierDemo
+let tour: TierTour
+/** The tour of the tier selectors was closed once; it does not open on its own again. */
+let toured = false
 /** Languages the offline lists were last drawn for; "" before they are loaded. */
 let offlineLanguages = ""
 /** Number of directions "Download selected" is downloading; 0 when it does not run. */
@@ -82,16 +88,18 @@ function renderStepList(): void {
 }
 
 function saveState(state: WelcomeState): Promise<void> {
-  return ext.storage.local.set({ [WELCOME_KEY]: state })
+  return ext.storage.local.set({ [WELCOME_KEY]: toured ? { ...state, toured } : state })
 }
 
 /** Show a step; the settings are saved first and the step is remembered for the next visit. */
 async function go(next: StepId, focus = true): Promise<void> {
+  if (next !== "tiers") leaveTiers()
   step = next
   for (const section of Array.from(document.querySelectorAll<HTMLElement>("section.step"))) section.hidden = section.dataset.step !== next
   renderStepList()
-  enterStep()
+  // Focus first: the tour of the tiers step moves the focus into its tip.
   if (focus) document.querySelector<HTMLElement>(`section[data-step="${next}"] h2`)?.focus()
+  enterStep()
   await Promise.all([session.flush(), saveState({ step: next })])
 }
 
@@ -100,6 +108,10 @@ function enterStep(): void {
   switch (step) {
     case "display":
       return renderModePreview()
+    case "tiers":
+      demo.play(settings)
+      if (!toured) tour.start()
+      return
     case "offline":
       return enterOffline()
     case "machine":
@@ -160,6 +172,15 @@ function setTier(tier: Tier, id: string | null): void {
   fillTierSelects(settings, true)
   renderStepList()
   session.save()
+  if (step !== "tiers") return
+  demo.play(settings)
+  tour.chosen(tier)
+}
+
+/** Leaving the tiers step or the page stops the demo and ends the tour; leaving the page does not count as closing it. */
+function leaveTiers(user = true): void {
+  demo.stop()
+  tour.close(user)
 }
 
 /* ---------- step 4: offline translation ---------- */
@@ -319,6 +340,12 @@ async function main(): Promise<void> {
     filter: $<HTMLInputElement>("bergamotFilter"),
   })
   prompts = new PromptEditor($("promptEditor"), session)
+  mountStyleControls($("styleControls"), session, renderModePreview)
+  demo = new TierDemo($("tierDemo"), $("demoStatus"))
+  tour = new TierTour(() => {
+    toured = true
+    void saveState({ step })
+  })
   await Promise.all([loadExtensionI18n(settings.uiLanguage), loadSystemLanguages()])
 
   // Step 1
@@ -347,6 +374,12 @@ async function main(): Promise<void> {
 
   // Step 3: at least one tier keeps a service.
   onTierChange(() => settings.tiers, setTier)
+  $("demoReplay").addEventListener("click", () => demo.play(settings))
+  $("tourAgain").addEventListener("click", (e) => {
+    e.preventDefault()
+    tour.start()
+  })
+  addEventListener("pagehide", () => leaveTiers(false))
 
   // Step 4
   $("downloadPicked").addEventListener("click", () => void downloadPicked())
@@ -379,7 +412,9 @@ async function main(): Promise<void> {
   $("skipStep").addEventListener("click", forward)
   $("exitGuide").addEventListener("click", () => void exit())
 
-  step = resumeStep((await ext.storage.local.get(WELCOME_KEY))[WELCOME_KEY], settings)
+  const stored = (await ext.storage.local.get(WELCOME_KEY))[WELCOME_KEY] as WelcomeState | undefined
+  toured = stored?.toured === true
+  step = resumeStep(stored, settings)
   applyLanguage()
   await go(step, false)
   if (__DEBUG__) console.info("[thunderbird-translate] welcome page open at step", step)

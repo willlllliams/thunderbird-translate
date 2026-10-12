@@ -188,14 +188,14 @@ describe("settings changes while active", () => {
     expect(translate).toHaveBeenCalledTimes(1)
   })
 
-  it("writes the colour, opacity and size into a style element while active and removes it on stop", async () => {
+  it("writes the colours, opacity and size into a style element while active and removes it on stop", async () => {
     const { c } = await mount("<p>Good morning</p>", publicSettings(), { translate: answering((text) => ok(`ZH:${text}`)) })
     expect(document.getElementById("tt-style-vars")).toBeNull()
     await c.start()
     expect(document.head.querySelector("#tt-style-vars")!.textContent).toBe(":root{--tt-color:#4c8bf5;--tt-opacity:0.85;--tt-scale:1;}")
-    await c.updateSettings(publicSettings({ style: { preset: "border", color: "#ff0000", opacity: 1, fontScale: 1.2 } }))
+    await c.updateSettings(publicSettings({ style: { preset: "border", color: "#ff0000", textColor: "#202124", opacity: 1, fontScale: 1.2 } }))
     expect(document.querySelectorAll("#tt-style-vars")).toHaveLength(1)
-    expect(document.getElementById("tt-style-vars")!.textContent).toBe(":root{--tt-color:#ff0000;--tt-opacity:1;--tt-scale:1.2;}")
+    expect(document.getElementById("tt-style-vars")!.textContent).toBe(":root{--tt-color:#ff0000;--tt-text-color:#202124;--tt-opacity:1;--tt-scale:1.2;}")
     c.stop()
     expect(document.getElementById("tt-style-vars")).toBeNull()
   })

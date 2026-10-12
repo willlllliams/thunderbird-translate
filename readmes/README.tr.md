@@ -42,7 +42,7 @@ Thunderbird 128 veya daha yeni bir sürüm gerekir. `nightly` ön sürümü, en 
 
 ## Hızlı başlangıç
 
-Kurulumdan sonra kurulum rehberi yeni bir sekmede açılır. Her adımda tek bir soru sorar: diller, görünüm modu, her kademenin hizmeti, çevrimdışı indirmeler, hizmet anahtarları ve istemler. Her seçim hemen kaydedilir ve her adım atlanabilir. Son adım, ayarlarınızla örnek bir ileti çevirir.
+Kurulumdan sonra kurulum rehberi yeni bir sekmede açılır. Her adımda tek bir soru sorar: diller, görünüm modu ve çeviri stili, her kademenin hizmeti (sonucun kısa bir gösterimiyle), çevrimdışı indirmeler, hizmet anahtarları ve istemler. Her seçim hemen kaydedilir ve her adım atlanabilir. Son adım, ayarlarınızla örnek bir ileti çevirir.
 
 Rehberi daha sonra açılır penceredeki "Kurulum rehberi" bağlantısından veya ayarlar sayfasının üstündeki düğmeden yeniden açabilirsiniz. Hiçbir şeyi değiştirmeden bir ileti açıp Alt+A'ya basarsanız ileti Google Translate ile çevrilir.
 

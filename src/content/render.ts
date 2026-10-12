@@ -13,9 +13,11 @@
 import type { DisplayMode, Settings, StylePreset } from "../shared/settings"
 import { CLS_STATUS, CLS_TRANSLATION, type Unit } from "./paragraphs"
 
-/** The colour, opacity and size of the translations inside `el`, as CSS variables. */
+/** The colours, opacity and size of the translations inside `el`, as CSS variables; without a text colour they keep the colour of the message. */
 export function setStyleVars(el: HTMLElement, style: Settings["style"]): void {
   el.style.setProperty("--tt-color", style.color)
+  if (style.textColor) el.style.setProperty("--tt-text-color", style.textColor)
+  else el.style.removeProperty("--tt-text-color")
   el.style.setProperty("--tt-opacity", String(style.opacity))
   el.style.setProperty("--tt-scale", String(style.fontScale))
 }

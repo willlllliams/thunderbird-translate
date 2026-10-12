@@ -42,7 +42,7 @@ Cần Thunderbird 128 trở lên. Bản tiền phát hành `nightly` là bản d
 
 ## Bắt đầu nhanh
 
-Sau khi cài đặt, hướng dẫn thiết lập mở trong một thẻ mới. Mỗi bước hỏi một câu: ngôn ngữ, chế độ hiển thị, dịch vụ của từng tầng, dữ liệu tải về cho dịch ngoại tuyến, khóa dịch vụ và lời nhắc. Mọi lựa chọn được lưu ngay, và có thể bỏ qua bất kỳ bước nào. Bước cuối dịch một thư mẫu bằng cài đặt hiện tại.
+Sau khi cài đặt, hướng dẫn thiết lập mở trong một thẻ mới. Mỗi bước hỏi một câu: ngôn ngữ, chế độ hiển thị và kiểu bản dịch, dịch vụ của từng tầng (kèm bản minh họa ngắn về kết quả), dữ liệu tải về cho dịch ngoại tuyến, khóa dịch vụ và lời nhắc. Mọi lựa chọn được lưu ngay, và có thể bỏ qua bất kỳ bước nào. Bước cuối dịch một thư mẫu bằng cài đặt hiện tại.
 
 Bạn có thể mở lại hướng dẫn từ liên kết "Hướng dẫn thiết lập" trong cửa sổ bật lên hoặc nút ở đầu trang cài đặt. Khi chưa đổi gì, hãy mở một thư và nhấn Alt+A: Google Translate sẽ dịch thư đó.
 
