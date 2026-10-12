@@ -2,6 +2,23 @@
 
 All notable changes to this project are documented in this file. Versions follow [Semantic Versioning](https://semver.org/).
 
+## 1.8.2
+
+### Changed
+
+- Documentation only; the extension behaves as in 1.8.1.
+- README, all 12 languages: rewritten for users and cut from about 600 lines to 143. Every README opens with a contents list that links to its sections, and all 12 have the same sections in the same order: features, install, quick start, usage with the shortcut table, the three translation tiers, translation services with the links to get an API key, prompts, privacy, known limitations, documentation, acknowledgements and license. Quoted interface text matches `locales/<language>.json`. The privacy section states when the dictionary index and the Bergamot model records are read.
+- The reference and developer material of the old README moved to English documents in `docs/`:
+  - `docs/settings.md`: every setting, the setup guide, the popup, tiers, source and interface language, the three prompts and the presets, precise translation, batching settings and timeouts, offline services and lists, "Download common languages", missing offline data and muting, retranslation and the cache, translation style, settings from older versions, privacy details and the complete list of known limitations.
+  - `docs/providers.md`: endpoints, SDK packages, default models and key links of every service, provider notes, the thinking parameters and how each service receives the source language.
+  - `docs/batching.md`: the batch flow, long paragraphs, request queues, retries and timeouts, how each service merges paragraphs, and the cost estimate.
+  - `docs/development.md`: building from source, npm scripts, unit tests and coverage thresholds, the end-to-end runs locally and in CI, project structure, translating the interface, and the release process (CI, nightly, versions).
+- `docs/dictionary-packs.md` describes how the extension downloads, verifies and looks up dictionary packs, in Chinese like the rest of that document.
+
+### Added
+
+- `npm run docs:check` (`scripts/check-doc-links.mjs`) resolves every relative link in the Markdown files of the repository and checks every anchor with GitHub's heading rules.
+
 ## 1.8.1
 
 ### Fixed
