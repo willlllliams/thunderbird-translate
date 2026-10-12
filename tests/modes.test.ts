@@ -1,5 +1,5 @@
 /** The three tiers, the prompts, the source language and precise mode in the background translation service. */
-import { describe, expect, it, vi } from "vitest"
+import { afterEach, describe, expect, it, vi } from "vitest"
 import { hashText } from "../src/shared/hash"
 import type { LlmImpl, TranslationService } from "../src/background/service"
 import { type LlmCallOptions, llmAnalyzeMail, llmTranslateBatch, llmTranslateSingle } from "../src/background/translators/llm"
@@ -9,7 +9,9 @@ import type { TranslateRequest, TranslateResponse } from "../src/shared/messages
 import { DEFAULT_PROMPTS } from "../src/shared/prompts"
 import type { Tier } from "../src/shared/providers"
 import { createDefaultSettings, type Settings } from "../src/shared/settings"
-import { anthropicMessage, asFetch, createService, fakeDictionary, jsonResponse, type OneRequest, translateOne } from "./helpers"
+import { anthropicMessage, asFetch, createService, fakeDictionary, jsonResponse, type OneRequest, translateOne, useFakeTimers } from "./helpers"
+
+afterEach(() => vi.useRealTimers())
 
 function deferred() {
   let resolve!: () => void
@@ -342,14 +344,19 @@ describe("precise mode", () => {
   }
 
   it("M4: asks for the analysis again after a failed request", async () => {
+    useFakeTimers()
     const { llm } = fakeLlm(undefined, ANALYSIS)
     // Fails once every batch of the message has asked for it.
     const badRequest = Object.assign(new Error("Bad Request"), { statusCode: 400, isRetryable: false })
     llm.analyze.mockImplementationOnce(() => new Promise((_, reject) => setTimeout(() => reject(badRequest), 30)))
     const { service } = uncached(llm)
-    await translateMail(service)
+    const first = translateMail(service)
+    await vi.runAllTimersAsync()
+    await first
     expect(llm.analyze).toHaveBeenCalledTimes(1)
-    await translateMail(service)
+    const second = translateMail(service)
+    await vi.runAllTimersAsync()
+    await second
     expect(llm.analyze).toHaveBeenCalledTimes(2)
   })
 

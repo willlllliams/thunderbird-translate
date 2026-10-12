@@ -6,7 +6,7 @@ import { llmTranslateSingle } from "../src/background/translators/llm"
 import { NetworkError, TimeoutError } from "../src/shared/errors"
 import { ENGLISH } from "../src/shared/i18n"
 import { resolveProviderConfig } from "../src/shared/settings"
-import { asFetch, chatCompletion } from "./helpers"
+import { asFetch, chatCompletion, useFakeTimers } from "./helpers"
 
 afterEach(() => vi.useRealTimers())
 
@@ -64,11 +64,14 @@ describe("fetchOk", () => {
   })
 
   it("L8: reports a body that does not arrive within the timeout as TimeoutError", async () => {
+    useFakeTimers()
     const fetchFn = async (_url: string, init: RequestInit) =>
       new Response(new ReadableStream({ start: (c) => init.signal!.addEventListener("abort", () => c.error(init.signal!.reason)) }))
-    const error = await fetchOk({ fetchFn: asFetch(fetchFn), timeoutMs: 600 }, spec, "Google")
+    const request = fetchOk({ fetchFn: asFetch(fetchFn), timeoutMs: 600 }, spec, "Google")
       .then((resp) => resp.json())
       .catch((e) => e)
+    await vi.advanceTimersByTimeAsync(600)
+    const error = await request
     expect(error).toBeInstanceOf(TimeoutError)
     expect(error.message).toBe(ENGLISH.t("errTimeout", ["Google", "1"]))
   })

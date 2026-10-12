@@ -3,7 +3,7 @@
  * running side by side, timeouts, failures of single paragraphs, mixed
  * languages in one batch and paragraphs longer than a batch.
  */
-import { describe, expect, it, vi } from "vitest"
+import { afterEach, describe, expect, it, vi } from "vitest"
 
 const offline = vi.hoisted(() => ({
   translate: vi.fn(async (texts: string[], src: string, tgt: string) => texts.map((t) => `[${src}>${tgt}]${t}`)),
@@ -21,7 +21,7 @@ import { createMailContext } from "../src/shared/mail-context"
 import type { TranslateRequest, TranslateResponse } from "../src/shared/messages"
 import type { Tier } from "../src/shared/providers"
 import { createDefaultSettings, type Settings } from "../src/shared/settings"
-import { asFetch, chatCompletion, createService, fakeDictionary, jsonResponse, translateOne } from "./helpers"
+import { asFetch, chatCompletion, createService, fakeDictionary, jsonResponse, translateOne, useFakeTimers } from "./helpers"
 
 /** The texts of the q parameters of a Google request. */
 const queries = (init?: RequestInit) => new URLSearchParams(String(init?.body)).getAll("q")
@@ -169,22 +169,38 @@ describe("installed offline models", () => {
 })
 
 describe("request timeout", () => {
+  afterEach(() => vi.useRealTimers())
+
+  /** The result of `request` once `ms` of simulated time have passed; it must be settled by then. */
+  async function after<T>(ms: number, request: Promise<T>): Promise<T> {
+    let settled = false
+    const result = request.finally(() => (settled = true))
+    await vi.advanceTimersByTimeAsync(ms)
+    expect(settled).toBe(true)
+    return result
+  }
+
+  /** The batch window of createService(). */
+  const WINDOW_MS = 5
+
   it("ends a request without an answer with a timeout error, retries it, and asks again next time", async () => {
+    useFakeTimers()
     const fetchFn = hanging()
     const { service } = setup((s) => {
       s.batch.timeoutSeconds = 0.5
       s.batch.maxRetries = 1
     }, { fetchFn: asFetch(fetchFn) })
-    const error = await translateOne(service, { text: "Hello", providerId: "google-free" }).catch((e: Error) => e.message)
+    const error = await after(WINDOW_MS + 2 * 500, translateOne(service, { text: "Hello", providerId: "google-free" }).catch((e: Error) => e.message))
     expect(error).toContain(ENGLISH.t("errTimeout", ["Google", "1"]))
     expect(error).toContain(ENGLISH.t("hintTimeout"))
     expect(fetchFn).toHaveBeenCalledTimes(2)
     // Nothing stays pending: the next request goes out again and can succeed.
     fetchFn.mockImplementationOnce(echo)
-    expect(await translateOne(service, { text: "Hello", providerId: "google-free" })).toBe("G(Hello)")
+    expect(await after(WINDOW_MS, translateOne(service, { text: "Hello", providerId: "google-free" }))).toBe("G(Hello)")
   })
 
   it.each([0, 3])("H1: applies to AI requests through the AI SDK and sends a timed-out one only once (%i retries)", async (maxRetries) => {
+    useFakeTimers()
     const fetchFn = hanging()
     const { service } = setup(
       (s) => {
@@ -194,23 +210,25 @@ describe("request timeout", () => {
       },
       { fetchFn: asFetch(fetchFn), llm: sdkLlm },
     )
-    const error = await translateOne(service, { text: "Hello", providerId: "openai" }).catch((e: Error) => e.message)
+    const error = await after(WINDOW_MS + 500, translateOne(service, { text: "Hello", providerId: "openai" }).catch((e: Error) => e.message))
     expect(error).toContain(ENGLISH.t("errTimeout", ["OpenAI", "1"]))
     expect(fetchFn).toHaveBeenCalledTimes(1)
   })
 
   it("H1: retries a timed-out machine translation request once and names the whole wait in the error", async () => {
+    useFakeTimers()
     const fetchFn = hanging()
     const { service } = setup((s) => {
       s.batch.timeoutSeconds = 1
       s.batch.maxRetries = 3
     }, { fetchFn: asFetch(fetchFn) })
-    const error = await translateOne(service, { text: "Hello", providerId: "google-free" }).catch((e: Error) => e.message)
+    const error = await after(WINDOW_MS + 2 * 1000, translateOne(service, { text: "Hello", providerId: "google-free" }).catch((e: Error) => e.message))
     expect(fetchFn).toHaveBeenCalledTimes(2)
     expect(error).toContain(ENGLISH.t("errTimeout", ["Google", "2"]))
   })
 
   it("H1: does not retry a timed-out connection test or message analysis", async () => {
+    useFakeTimers()
     // Fails once every batch of the message has asked for the analysis.
     const timeout = () => new Promise<never>((_, reject) => setTimeout(() => reject(new TimeoutError("OpenAI", 60_000)), 30))
     const llm: LlmImpl = { batch: vi.fn(timeout), single: vi.fn(timeout), analyze: vi.fn(timeout) }
@@ -220,12 +238,14 @@ describe("request timeout", () => {
       s.batch.maxCharsPerBatch = 30
       s.batch.maxRetries = 3
     }, { llm })
-    await expect(service.testProvider("openai", { apiKey: "sk-test", baseURL: "", model: "" }, "zh-CN")).rejects.toThrow(ENGLISH.t("errTimeout", ["OpenAI", "60"]))
+    await expect(after(30, service.testProvider("openai", { apiKey: "sk-test", baseURL: "", model: "" }, "zh-CN"))).rejects.toThrow(ENGLISH.t("errTimeout", ["OpenAI", "60"]))
     expect(llm.single).toHaveBeenCalledTimes(1)
     const paragraphs = ["First paragraph of the mail.", "Second paragraph of the mail."]
     const context = createMailContext(paragraphs, [0, 1])
     service.setContext(context)
-    await Promise.all(paragraphs.map((text, index) => translateOne(service, { text, providerId: "openai", context: { id: context.id, index } }).catch(() => "")))
+    const translations = Promise.all(paragraphs.map((text, index) => translateOne(service, { text, providerId: "openai", context: { id: context.id, index } }).catch(() => "")))
+    await vi.runAllTimersAsync()
+    await translations
     expect(llm.analyze).toHaveBeenCalledTimes(1)
   })
 
