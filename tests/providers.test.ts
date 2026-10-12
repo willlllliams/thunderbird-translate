@@ -1,7 +1,7 @@
 import { generateText } from "ai"
 import { describe, expect, it } from "vitest"
 import { buildProviderSettings, createLanguageModel } from "../src/background/providers/factory"
-import { supportsThinkingControl, thinkingOptions } from "../src/background/providers/thinking"
+import { supportsThinkingControl, thinkingOptions } from "../src/shared/thinking"
 import { llmAnalyzeMail, llmTranslateBatch, llmTranslateSingle } from "../src/background/translators/llm"
 import { BatchParseError } from "../src/background/translators/llm-prompt"
 import { PROVIDER_PRESETS } from "../src/shared/providers"

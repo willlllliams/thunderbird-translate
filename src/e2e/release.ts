@@ -1,4 +1,4 @@
-import { releaseUrl } from "../background/dictionary/download"
+import { releaseUrl } from "../offline/dictionary/download"
 
 declare const __E2E_SERVER__: string
 

@@ -9,7 +9,7 @@ import { downloadBody, IDLE_TIMEOUT_MS, LIST_TIMEOUT_MS } from "../../shared/dow
 import { LocalizedError } from "../../shared/errors"
 import { sha256Hex } from "../../shared/hash"
 import { pairKey } from "../../shared/languages"
-import { fetchOk } from "../queue/request-queue"
+import { fetchOk } from "../../background/queue/request-queue"
 import { gunzip, parsePack } from "./format"
 import type { DictionaryStore } from "./store"
 

@@ -2,8 +2,8 @@
 import { IDBFactory } from "fake-indexeddb"
 import { afterEach, describe, expect, it, vi } from "vitest"
 import { CACHE_STORAGE_KEY } from "../src/background/cache"
-import { installPack } from "../src/background/dictionary/download"
-import { DictionaryStore } from "../src/background/dictionary/store"
+import { installPack } from "../src/offline/dictionary/download"
+import { DictionaryStore } from "../src/offline/dictionary/store"
 import { createMailContext } from "../src/shared/mail-context"
 import { IDLE_TAB_STATE, type PortPush, type TranslateRequest } from "../src/shared/messages"
 import { DEFAULT_PROMPTS } from "../src/shared/prompts"
@@ -314,7 +314,7 @@ describe("requests from pages", () => {
   it("reads the dictionary packs again after a change", async () => {
     const bg = stubBackgroundApi({ stored: stored(createDefaultSettings()) })
     vi.resetModules()
-    const invalidate = vi.spyOn((await import("../src/background/dictionary")).Dictionary.prototype, "invalidate")
+    const invalidate = vi.spyOn((await import("../src/offline/dictionary")).Dictionary.prototype, "invalidate")
     await import("../src/background/index")
     expect(await bg.send({ type: "dictionaryChanged" })).toBeUndefined()
     expect(invalidate).toHaveBeenCalledTimes(1)

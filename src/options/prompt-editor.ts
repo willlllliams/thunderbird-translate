@@ -14,7 +14,7 @@ import { fillSelect } from "../shared/page"
 import { applyPreset, availablePresets, getPromptPreset, NO_PRESET, PRESET_EXAMPLE_SOURCE, type PresetOption, presetOptions, type PromptPreset, removePresets } from "../shared/prompt-presets"
 import { DEFAULT_PROMPTS, PROMPT_KINDS, type PromptKind, promptText } from "../shared/prompts"
 import { promptKindFor } from "../shared/settings"
-import { h } from "./dom"
+import { h } from "../shared/dom"
 import type { SettingsSession } from "./session"
 
 const KIND_LABELS: Record<PromptKind, MessageKey> = {

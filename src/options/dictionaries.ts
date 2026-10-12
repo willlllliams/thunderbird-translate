@@ -6,13 +6,13 @@
  * packs again.
  */
 
-import { fetchDictionaryIndex, type IndexedPack, installPack } from "../background/dictionary/download"
-import { DictionaryStore, type InstalledPack } from "../background/dictionary/store"
+import { fetchDictionaryIndex, type IndexedPack, installPack } from "../offline/dictionary/download"
+import { DictionaryStore, type InstalledPack } from "../offline/dictionary/store"
 import { describeError } from "../shared/errors"
 import { getI18n, t } from "../shared/i18n"
 import { pairKey } from "../shared/languages"
 import { send } from "../shared/page"
-import { button, h } from "./dom"
+import { button, h } from "../shared/dom"
 import { type ListItem, megabytes, OfflineList, type OfflineListDeps } from "./offline-list"
 
 /** A row: the index entry when the release has the pack, the stored description when it is installed. */

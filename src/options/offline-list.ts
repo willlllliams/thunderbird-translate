@@ -22,7 +22,7 @@ import { getI18n, type MessageKey, t } from "../shared/i18n"
 import { localeToLanguageTag } from "../shared/locales"
 import { commonDirections, itemSources, type LanguageSource, type OfflineService, orderItems, pairNeeds, recommendedLanguages, serviceLang, type SourcedLanguage } from "../shared/offline-needs"
 import type { Settings } from "../shared/settings"
-import { button, h } from "./dom"
+import { button, h } from "../shared/dom"
 
 /** A direction of a list. */
 export interface ListItem {

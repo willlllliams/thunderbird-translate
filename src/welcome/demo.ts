@@ -17,7 +17,7 @@ import { type MessageKey, t } from "../shared/i18n"
 import { $ } from "../shared/page"
 import { getPreset, providerDisplayName, type Tier, TIER_NAME_KEYS, TIERS } from "../shared/providers"
 import { enabledTiers, type Settings } from "../shared/settings"
-import { h } from "../options/dom"
+import { h } from "../shared/dom"
 
 /** When the result of each tier appears, in ms after the start. */
 export const DEMO_TIMES: Record<Tier, number> = { dictionary: 0, machine: 300, ai: 1800 }

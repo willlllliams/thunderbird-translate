@@ -23,7 +23,7 @@
  * the mock server; the test runner (e2e/run.mjs) makes the assertions.
  */
 
-import { DictionaryStore } from "../background/dictionary/store"
+import { DictionaryStore } from "../offline/dictionary/store"
 import { ext } from "../shared/ext"
 import { t } from "../shared/i18n"
 import type { BergamotResult } from "../shared/messages"

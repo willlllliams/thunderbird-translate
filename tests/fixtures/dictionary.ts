@@ -1,7 +1,7 @@
 /** Dictionary packs as the build tools write them, and a GitHub Releases stand-in serving them. */
 import { gzipSync } from "node:zlib"
 import { vi } from "vitest"
-import type { IndexedPack } from "../../src/background/dictionary/download"
+import type { IndexedPack } from "../../src/offline/dictionary/download"
 import { jsonResponse, sha256Hex } from "../helpers"
 
 /** Pack text: header, `w` entries, `f` forms. */

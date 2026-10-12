@@ -3,14 +3,14 @@
  * shared by the settings page (service panel) and the welcome page.
  */
 
-import { supportsThinkingControl } from "../background/providers/thinking"
+import { supportsThinkingControl } from "../shared/thinking"
 import { describeError } from "../shared/errors"
 import { getI18n, t } from "../shared/i18n"
 import type { TranslateResponse } from "../shared/messages"
 import { send } from "../shared/page"
 import { checkBaseURL, type ProviderPreset, providerDisplayName } from "../shared/providers"
 import { emptyProviderConfig, type ProviderConfig } from "../shared/settings"
-import { button, h } from "./dom"
+import { button, h } from "../shared/dom"
 import type { SettingsSession } from "./session"
 
 /** The service shown and its configuration. */

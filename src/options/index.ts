@@ -10,7 +10,7 @@ import { getPreset, PROVIDER_PRESETS, providerDisplayName, type ProviderPreset, 
 import { addedProviders, addProvidersInUse, type DisplayMode, enabledTiers, removalBlocker, type Settings } from "../shared/settings"
 import { BergamotSection } from "./bergamot"
 import { DictionarySection } from "./dictionaries"
-import { button, h } from "./dom"
+import { button, h } from "../shared/dom"
 import { loadSystemLanguages, recommendedFor } from "./offline-list"
 import { PromptEditor } from "./prompt-editor"
 import { type PanelState, providerConfig, providerFields, providerTitle, testButton, testResult } from "./provider-panel"

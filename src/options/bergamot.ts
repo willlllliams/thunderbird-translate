@@ -14,7 +14,7 @@ import { getI18n, t } from "../shared/i18n"
 import { pairKey } from "../shared/languages"
 import type { BergamotProgress, BergamotResult } from "../shared/messages"
 import { send } from "../shared/page"
-import { button, h } from "./dom"
+import { button, h } from "../shared/dom"
 import { type ListItem, megabytes, OfflineList, type OfflineListDeps } from "./offline-list"
 
 type PairItem = BergamotPairInfo & ListItem

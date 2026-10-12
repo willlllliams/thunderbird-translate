@@ -3,7 +3,7 @@
 import { Blob as NodeBlob } from "node:buffer"
 import { IDBFactory } from "fake-indexeddb"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
-import { DictionaryStore } from "../src/background/dictionary/store"
+import { DictionaryStore } from "../src/offline/dictionary/store"
 import type { BergamotPairInfo } from "../src/offline/bergamot"
 import { describeError } from "../src/shared/errors"
 import { ENGLISH } from "../src/shared/i18n"

@@ -3,7 +3,7 @@ import { LocalizedError, TimeoutError } from "../../shared/errors"
 import { getPreset } from "../../shared/providers"
 import type { ResolvedProvider } from "../../shared/settings"
 import { createLanguageModel } from "../providers/factory"
-import { modelRejectsTemperature, thinkingOptions } from "../providers/thinking"
+import { modelRejectsTemperature, thinkingOptions } from "../../shared/thinking"
 import {
   ANALYSIS_SYSTEM_PROMPT,
   BatchParseError,

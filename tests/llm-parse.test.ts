@@ -10,7 +10,7 @@ import {
   parseBatchOutput,
   repairJsonStrings,
 } from "../src/background/translators/llm-prompt"
-import { modelRejectsTemperature } from "../src/background/providers/thinking"
+import { modelRejectsTemperature } from "../src/shared/thinking"
 import { DEFAULT_PROMPTS, PROMPT_KINDS } from "../src/shared/prompts"
 
 describe("batch prompt", () => {

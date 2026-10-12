@@ -7,7 +7,7 @@
 
 import type { MessageKey } from "../shared/i18n"
 import type { StylePreset } from "../shared/settings"
-import { h } from "./dom"
+import { h } from "../shared/dom"
 import type { Control, SettingsSession } from "./session"
 
 const PRESETS: Record<StylePreset, MessageKey> = { border: "styleBorder", dashed: "styleDashed", highlight: "styleHighlight", plain: "stylePlain" }

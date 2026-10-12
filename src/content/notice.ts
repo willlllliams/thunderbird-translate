@@ -17,7 +17,7 @@
  * the other tiers' translations.
  */
 
-import { h } from "../options/dom"
+import { h } from "../shared/dom"
 import type { MissingData } from "../shared/errors"
 import { getI18n, t } from "../shared/i18n"
 import type { BackgroundRequest } from "../shared/messages"
