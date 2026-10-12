@@ -212,7 +212,15 @@ To add a language:
 2. Add the code to `SUPPORTED_LOCALES` in `src/shared/locales.ts` together with its native name.
 3. Run `npm run locales:check` and `npm test`.
 
-The README exists in the same 12 languages: `README.md` in English and `readmes/README.<code>.md` for the others. All 12 have the same sections in the same order, and their interface terms match the locale files. The documents in `docs/` are in English, except `dictionary-packs.md` and the archived `archive/size-and-structure-1.5.2.md`, which are in Chinese; the prompt for the promotional video, `promo/promo-video-prompt.md`, is in Chinese too. After editing any Markdown file, run `npm run docs:check`: it resolves every relative link and checks every anchor with GitHub's rules (lower case, punctuation removed, spaces turned into `-`, letters, marks and decimal digits of every script kept, images left out, a repeated heading numbered `-1`, `-2`… until its anchor is free). It also checks the paths in code spans: a path whose first part is a directory of the repository, such as `docs/settings.md` or `background/router.ts`, and a bare name of a source file, such as `offline-admin.ts`, must name a file or directory that exists, from the repository root, from the document's directory, from `src/` or as the end of a path of the repository. `CHANGELOG.md` and `docs/archive/` are left out, since they name the files of their time. `tests/doc-facts.test.ts` checks the numbers and names the documents state against the code: the number of AI provider presets in the 12 READMEs and in the package description, the interface languages, and the keyboard shortcuts of the manifest.
+The README exists in the same 12 languages: `README.md` in English and `readmes/README.<code>.md` for the others. All 12 have the same sections in the same order, and their interface terms match the locale files.
+
+The documents in `docs/` are in English, except `dictionary-packs.md` and the archived `archive/size-and-structure-1.5.2.md`, which are in Chinese; the prompt for the promotional video, `promo/promo-video-prompt.md`, is in Chinese too.
+
+After editing any Markdown file, run `npm run docs:check`. It resolves every relative link and checks every anchor with GitHub's rules (lower case, punctuation removed, spaces turned into `-`, letters, marks and decimal digits of every script kept, images left out, a repeated heading numbered `-1`, `-2`… until its anchor is free).
+
+`npm run docs:check` also checks the paths in code spans: a path whose first part is a directory of the repository, such as `docs/settings.md` or `background/router.ts`, and a bare name of a source file, such as `offline-admin.ts`, must name a file or directory that exists, from the repository root, from the document's directory, from `src/` or as the end of a path of the repository. `CHANGELOG.md` and `docs/archive/` are left out, since they name the files of their time.
+
+`tests/doc-facts.test.ts` checks the numbers and names the documents state against the code: the number of AI provider presets in the 12 READMEs and in the package description, the interface languages, and the keyboard shortcuts of the manifest.
 
 ## Release process
 
