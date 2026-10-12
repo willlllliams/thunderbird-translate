@@ -22,6 +22,7 @@ import { SETTINGS_KEY, type Settings, type TierSettings, toPublicSettings } from
 import { readSettings, updateSettings } from "../shared/settings-store"
 import { sourceDetector } from "../shared/lang-detect"
 import { getBergamot } from "../offline/bergamot"
+import { CatalogCache } from "../offline/catalog-cache"
 import { bergamotHandlers } from "./bergamot-admin"
 import { type KeyValueStorage, PersistentCache } from "./cache"
 import { Dictionary } from "../offline/dictionary"
@@ -46,29 +47,21 @@ const cache = new PersistentCache(storage, settings.cache.maxEntries)
 // The dictionary and the offline models name the source language of a paragraph the same way.
 const detect = sourceDetector(ext.i18n)
 
-/** An index that could not be read is asked for again after this long. */
-const CATALOG_RETRY_MS = 10 * 60_000
-/** Pair keys of the dictionary packs of each release tag, read once; null when the index could not be read. */
-const dictionaryCatalogs = new Map<string, Promise<Catalog>>()
-/** The indexes read so far, for translations: they never wait for the network. */
-const dictionaryCatalogsRead = new Map<string, Catalog>()
-function dictionaryCatalog(): Promise<Catalog> {
-  const tag = settings.dictionary.releaseTag
+/** Pair keys of the dictionary packs of each release tag: read again after six hours, after a failed read not before ten minutes. */
+const dictionaryCatalogs = new Map<string, CatalogCache<Set<string>>>()
+function dictionaryCatalogOf(tag: string): CatalogCache<Set<string>> {
   let catalog = dictionaryCatalogs.get(tag)
   if (!catalog) {
-    catalog = fetchDictionaryIndex(tag, releaseFetch).then(
-      (packs) => dictionaryCatalogsRead.set(tag, new Set(packs.map((p) => pairKey(p.src, p.tgt)))).get(tag)!,
-      () => {
-        setTimeout(() => dictionaryCatalogs.delete(tag), CATALOG_RETRY_MS)
-        return null
-      },
-    )
+    catalog = new CatalogCache({ load: async () => new Set((await fetchDictionaryIndex(tag, releaseFetch)).map((p) => pairKey(p.src, p.tgt))) })
     dictionaryCatalogs.set(tag, catalog)
   }
   return catalog
 }
+/** The index of the release in use; null when it cannot be read. */
+const dictionaryCatalog = (): Promise<Catalog> => dictionaryCatalogOf(settings.dictionary.releaseTag).get()
 
-const dictionary = new Dictionary(undefined, { detect, catalog: () => dictionaryCatalogsRead.get(settings.dictionary.releaseTag) ?? null })
+// Translations take the index read so far: they never wait for the network.
+const dictionary = new Dictionary(undefined, { detect, catalog: () => dictionaryCatalogOf(settings.dictionary.releaseTag).peek() })
 
 /** The offline services among the services of `tiers`. */
 const offlineKinds = (tiers: TierSettings) => TIERS.map((tier) => offlineServiceOf(tiers[tier]))

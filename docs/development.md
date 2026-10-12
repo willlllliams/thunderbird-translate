@@ -132,7 +132,7 @@ In CI the job `e2e` of `.github/workflows/release.yml` runs the same command on 
 ```
 src/
   shared/        modules every part uses: settings, provider presets and thinking parameters, prompts, language table and codes, language detection, fetch with classified errors, message types, i18n runtime, DOM helpers
-  offline/       offline data of the background page
+  offline/       offline data of the background page; catalog-cache.ts keeps the catalogs (dictionary index, Bergamot model list)
     dictionary/  dictionary packs: format, download, storage, lookup
     bergamot/    Bergamot engine: model list, download, storage, worker
   background/    background script: translation service, batch and request queues, cache, provider factory, translators, offline model administration

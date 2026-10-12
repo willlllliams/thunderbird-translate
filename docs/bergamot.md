@@ -84,7 +84,7 @@ Rule 5 matters for pairs such as `en → ko`: the Android set (3.1) has separate
 
 On 2026-10-11 the collection held 404 records, and the rules leave 114 direction pairs among 58 languages. A model file is 12 to 45 MB compressed; `en → zh-Hans` downloads 34.5 MiB in total.
 
-The list is kept in memory for 6 hours and saved in IndexedDB. When Mozilla cannot be reached, the saved copy is used. When there is no saved copy, or when the caller forces a refresh (the reload button of the settings page), the call throws `bergamotRecordsFailed`.
+The list is kept in memory for 6 hours and saved in IndexedDB (`CatalogCache` in `src/offline/catalog-cache.ts`, which also keeps the dictionary index of the background script). After a failed read, Mozilla is asked again 10 minutes later at the earliest. When Mozilla cannot be reached, the copy in memory or the saved copy is used. When there is no saved copy, or when the caller forces a refresh (the reload button of the settings page), the call throws `bergamotRecordsFailed`.
 
 While Bergamot is the service of the machine tier, the background script reads the list when it starts and when the settings change, and the popup and the settings page read it through `catalog()` to mark missing models. Translations use only the list already in memory (`knownCatalog()`), so a missing model never makes a translation wait for Mozilla.
 

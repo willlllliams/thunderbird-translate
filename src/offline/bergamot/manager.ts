@@ -10,6 +10,7 @@ import { timeoutSignal } from "../../shared/http"
 import { isChinesePair, normalizeBergamotLang, pairKey } from "../../shared/languages"
 import type { BergamotPairInfo } from "../../shared/messages"
 import { type Catalog, pairNeeds } from "../../shared/offline-needs"
+import { CatalogCache } from "../catalog-cache"
 import { BergamotEngine, type EngineOptions, type WorkerLike } from "./engine"
 import { type ModelFileType, type ModelRecord, type PairFiles, selectPairs } from "./records"
 import type { BergamotStore, StoredFile, StoredPair } from "./store"
@@ -19,10 +20,6 @@ import { verifyModelFile } from "./verify"
 const DEFAULT_SERVER_URL = "https://firefox.settings.services.mozilla.com/v1/"
 const DEFAULT_ATTACHMENTS_BASE = "https://firefox-settings-attachments.cdn.mozilla.net/"
 const MODELS_PATH = "buckets/main/collections/translations-models-v2/records"
-/** The model list is fetched again after this long. */
-const RECORDS_TTL_MS = 6 * 60 * 60 * 1000
-/** A model list that could not be read is asked for again after this long at the earliest, as the dictionary index. */
-const RECORDS_RETRY_MS = 10 * 60 * 1000
 const RECORDS_META_KEY = "records"
 
 export interface ManagerDeps {
@@ -46,6 +43,7 @@ function errorText(error: unknown): string {
 }
 
 interface CachedRecords {
+  /** When the list was read; kept with the saved copy. */
   fetchedAt: number
   attachmentsBase: string
   records: ModelRecord[]
@@ -69,10 +67,8 @@ function slim(r: ModelRecord): ModelRecord {
 
 export class BergamotManager {
   readonly engine: BergamotEngine
-  private records: CachedRecords | null = null
-  private recordsLoading: Promise<CachedRecords> | null = null
-  /** The last failed read of the model list, while no read has succeeded since. */
-  private failure: { at: number; error: LocalizedError } | null = null
+  /** The model list: read again after six hours, after a failed read not before ten minutes, the copy of an earlier session when Mozilla cannot be reached. */
+  private readonly records: CatalogCache<CachedRecords>
   private installed: Promise<string> | null = null
   private readonly serverUrl: string
   private readonly now: () => number
@@ -80,6 +76,11 @@ export class BergamotManager {
   constructor(private readonly deps: ManagerDeps) {
     this.serverUrl = (deps.serverUrl ?? DEFAULT_SERVER_URL).replace(/\/?$/, "/")
     this.now = deps.now ?? Date.now
+    this.records = new CatalogCache({
+      load: () => this.downloadRecords(),
+      fallback: () => this.deps.store.getMeta<CachedRecords>(RECORDS_META_KEY),
+      now: this.now,
+    })
     this.engine = new BergamotEngine({
       ...deps.engine,
       createWorker: deps.createWorker,
@@ -128,29 +129,14 @@ export class BergamotManager {
 
   /**
    * Remote Settings records, from memory, from Mozilla, or from the copy
-   * saved by an earlier session when Mozilla cannot be reached.
+   * saved by an earlier session when Mozilla cannot be reached. A refresh
+   * the user asked for fails when Mozilla cannot be reached.
    */
   async getRecords(forceRefresh = false): Promise<CachedRecords> {
-    // After a failure Mozilla is asked again only after RECORDS_RETRY_MS, unless the user asks for it.
-    const failure = this.failure && this.now() - this.failure.at < RECORDS_RETRY_MS ? this.failure.error : null
-    if (!forceRefresh && this.records && (failure || this.now() - this.records.fetchedAt < RECORDS_TTL_MS)) return this.records
-    if (!forceRefresh && failure) throw failure
-    this.recordsLoading ??= (async () => {
-      try {
-        this.records = await this.downloadRecords()
-        this.failure = null
-        return this.records
-      } catch (e) {
-        const error = new LocalizedError("bergamotRecordsFailed", [], errorText(e))
-        this.failure = { at: this.now(), error }
-        this.records ??= (await this.deps.store.getMeta<CachedRecords>(RECORDS_META_KEY).catch(() => undefined)) ?? null
-        if (this.records && !forceRefresh) return this.records
-        throw error
-      } finally {
-        this.recordsLoading = null
-      }
-    })()
-    return this.recordsLoading
+    const records = await this.records.get(forceRefresh)
+    const { error } = this.records
+    if (records && !(forceRefresh && error !== undefined)) return records
+    throw new LocalizedError("bergamotRecordsFailed", [], errorText(error))
   }
 
   async availablePairs(forceRefresh = false): Promise<Map<string, PairFiles>> {
@@ -333,7 +319,8 @@ export class BergamotManager {
 
   /** Keys of the pairs Mozilla offers in the list already read; null before it is read. Translations use it and never wait for the network. */
   knownCatalog(): Catalog {
-    return this.records && new Set(selectPairs(this.records.records).keys())
+    const records = this.records.peek()
+    return records && new Set(selectPairs(records.records).keys())
   }
 
   /** Translate texts of one language; detecting it is up to the caller (background/translators/bergamot.ts). */
