@@ -453,5 +453,20 @@
   "tipCancelDownload": "Stops this download",
   "tipDownloadCommon": "8 common languages to and from English; asks first",
   "tipConfirmDownload": "Starts downloading the listed items",
-  "tipCancelCommon": "Closes this list without downloading"
+  "tipCancelCommon": "Closes this list without downloading",
+
+  "tipExitGuide": "Closes the guide; next time it resumes at this step",
+  "tipStep": "Jumps to this step",
+  "tipReplay": "Plays the demo again; it sends no request",
+  "tipTourAgain": "Explains the three tier selectors again",
+  "tipTourSkip": "Ends the tour; the link under the demo restarts it",
+  "tipTourNext": "Moves to the next tier selector",
+  "tipTourEnd": "Ends the tour",
+  "tipDownloadPicked": "Downloads every ticked item above",
+  "tipAiService": "The AI provider that tier 3 uses",
+  "tipTryIt": "Translates a sample here, as a real message would be",
+  "tipBack": "Previous step; your choices stay saved",
+  "tipSkipStep": "Goes to the next step; this one is optional",
+  "tipNext": "Goes to the next step; choices are already saved",
+  "tipFinish": "Closes the guide; it starts from the top next time"
 }

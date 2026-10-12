@@ -453,5 +453,20 @@
   "tipCancelDownload": "Bu indirmeyi durdurur",
   "tipDownloadCommon": "İngilizceye ve İngilizceden 8 yaygın dil; önce sorar",
   "tipConfirmDownload": "Listelenen öğeleri indirmeye başlar",
-  "tipCancelCommon": "Bu listeyi indirmeden kapatır"
+  "tipCancelCommon": "Bu listeyi indirmeden kapatır",
+
+  "tipExitGuide": "Rehberi kapatır; sonraki sefer bu adımdan devam eder",
+  "tipStep": "Bu adıma atlar",
+  "tipReplay": "Demoyu yeniden oynatır; istek göndermez",
+  "tipTourAgain": "Üç kademe seçiciyi yeniden açıklar",
+  "tipTourSkip": "Turu bitirir; demonun altındaki bağlantı yeniden başlatır",
+  "tipTourNext": "Sonraki kademe seçiciye geçer",
+  "tipTourEnd": "Turu bitirir",
+  "tipDownloadPicked": "Yukarıda işaretlenen tüm öğeleri indirir",
+  "tipAiService": "3. kademenin kullandığı yapay zekâ sağlayıcısı",
+  "tipTryIt": "Gerçek bir ileti gibi burada bir örneği çevirir",
+  "tipBack": "Önceki adım; seçimleriniz kayıtlı kalır",
+  "tipSkipStep": "Sonraki adıma geçer; bu adım isteğe bağlı",
+  "tipNext": "Sonraki adıma geçer; seçimler zaten kayıtlı",
+  "tipFinish": "Rehberi kapatır; sonraki sefer baştan başlar"
 }

@@ -450,5 +450,20 @@
   "tipCancelDownload": "停止此下载",
   "tipDownloadCommon": "8 种常用语言与英语互译；下载前先确认",
   "tipConfirmDownload": "开始下载列出的项",
-  "tipCancelCommon": "关闭列表，不下载"
+  "tipCancelCommon": "关闭列表，不下载",
+
+  "tipExitGuide": "关闭引导；下次从这一步继续",
+  "tipStep": "跳到这一步",
+  "tipReplay": "重新播放演示；不发送请求",
+  "tipTourAgain": "再次讲解三个层级下拉框",
+  "tipTourSkip": "结束讲解；演示下方的链接可重新开始",
+  "tipTourNext": "转到下一个层级下拉框",
+  "tipTourEnd": "结束讲解",
+  "tipDownloadPicked": "下载上方所有勾选的项",
+  "tipAiService": "层级 3 使用的 AI 服务商",
+  "tipTryIt": "在此翻译示例邮件，过程与真实邮件相同",
+  "tipBack": "上一步；已做的选择仍然保存",
+  "tipSkipStep": "转到下一步；这一步可以不做",
+  "tipNext": "转到下一步；选择已自动保存",
+  "tipFinish": "关闭引导；下次从头开始"
 }

@@ -68,9 +68,8 @@ function renderStepList(): void {
     ...STEP_IDS.map((id, i) => {
       const skipped = !needed.includes(id)
       const label = `${i + 1}. ${t(STEP_TITLE_KEYS[id])}`
-      const button = h("button", { type: "button", text: label, disabled: skipped })
+      const button = h("button", { type: "button", text: label, disabled: skipped, title: t(skipped ? "stepNotNeeded" : "tipStep") })
       if (id === step) button.setAttribute("aria-current", "step")
-      if (skipped) button.title = t("stepNotNeeded")
       button.addEventListener("click", () => void go(id))
       return h("li", { className: skipped ? "skipped" : id === step ? "current" : "" }, button)
     }),
@@ -83,6 +82,7 @@ function renderStepList(): void {
   $<HTMLButtonElement>("prevStep").disabled = neighbourStep(step, settings, -1) === null
   $("skipStep").hidden = last
   $("nextStep").textContent = t(last ? "buttonFinish" : "buttonNext")
+  $("nextStep").title = t(last ? "tipFinish" : "tipNext")
 }
 
 function saveState(state: WelcomeState): Promise<void> {
@@ -263,11 +263,13 @@ async function tryIt(): Promise<void> {
   if (client.controller.active) {
     client.controller.stop()
     button.textContent = t("buttonTryIt")
+    button.title = t("tipTryIt")
     return
   }
   sample.replaceChildren(...paragraphs(TRY_MAIL[trialLanguage(settings)]))
   sample.hidden = false
   button.textContent = t("popupShowOriginal")
+  button.title = t("tipShowOriginal")
   await session.flush()
   await client.ready
   await client.controller.start()
@@ -286,7 +288,10 @@ function applyLanguage(): void {
   prompts.refresh()
   dictionaries.render()
   bergamot.render()
-  if (client?.controller.active) $("tryIt").textContent = t("popupShowOriginal")
+  if (client?.controller.active) {
+    $("tryIt").textContent = t("popupShowOriginal")
+    $("tryIt").title = t("tipShowOriginal")
+  }
   enterStep()
 }
 

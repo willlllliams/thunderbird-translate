@@ -139,7 +139,9 @@ export class TierTour {
     stop.append(this.tip)
     this.tip.hidden = false
     this.text.textContent = t(TOUR_TEXT[TIERS[this.index]])
-    this.nextButton.textContent = t(this.index === TIERS.length - 1 ? "noticeClose" : "buttonNext")
+    const last = this.index === TIERS.length - 1
+    this.nextButton.textContent = t(last ? "noticeClose" : "buttonNext")
+    this.nextButton.title = t(last ? "tipTourEnd" : "tipTourNext")
     stop.scrollIntoView?.({ block: "nearest" })
   }
 }

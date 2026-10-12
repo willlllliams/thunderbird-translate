@@ -450,5 +450,20 @@
   "tipCancelDownload": "Arrête ce téléchargement",
   "tipDownloadCommon": "8 langues courantes vers et depuis l’anglais, après confirmation",
   "tipConfirmDownload": "Lance le téléchargement des éléments listés",
-  "tipCancelCommon": "Ferme cette liste sans rien télécharger"
+  "tipCancelCommon": "Ferme cette liste sans rien télécharger",
+
+  "tipExitGuide": "Ferme le guide ; il reprendra à cette étape la prochaine fois",
+  "tipStep": "Va à cette étape",
+  "tipReplay": "Rejoue la démo ; aucune requête n’est envoyée",
+  "tipTourAgain": "Réexplique les trois sélecteurs de niveau",
+  "tipTourSkip": "Termine la visite ; le lien sous la démo la relance",
+  "tipTourNext": "Passe au sélecteur de niveau suivant",
+  "tipTourEnd": "Termine la visite",
+  "tipDownloadPicked": "Télécharge tous les éléments cochés ci-dessus",
+  "tipAiService": "Le fournisseur d’IA utilisé par le niveau 3",
+  "tipTryIt": "Traduit un exemple ici, comme un vrai message",
+  "tipBack": "Étape précédente ; vos choix restent enregistrés",
+  "tipSkipStep": "Passe à l’étape suivante ; celle-ci est facultative",
+  "tipNext": "Passe à l’étape suivante ; les choix sont déjà enregistrés",
+  "tipFinish": "Ferme le guide ; il repartira du début la prochaine fois"
 }

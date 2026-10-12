@@ -10,8 +10,10 @@ import { IDBFactory } from "fake-indexeddb"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 import { readLocaleSources } from "../scripts/locales.mjs"
 import { ENGLISH } from "../src/shared/i18n"
-import { IDLE_TAB_STATE, type TabState } from "../src/shared/messages"
-import { createDefaultSettings } from "../src/shared/settings"
+import { IDLE_TAB_STATE, type PortReport, type TabState } from "../src/shared/messages"
+import { createDefaultSettings, toPublicSettings } from "../src/shared/settings"
+import { WELCOME_KEY } from "../src/welcome/steps"
+import { pagePort } from "./fixtures/browser"
 import { jsonResponse, openPage, useFakeTimers } from "./helpers"
 
 // Fake timers in every test: a page left open by a test cannot fire its timers into the next one.
@@ -255,5 +257,105 @@ describe("settings page", () => {
     expect(document.querySelector<HTMLElement>("#dictList .dict-meta")!.title).toBe(sources.zh_TW.tipPackMeta)
     expect(document.querySelector<HTMLElement>("#providerList li:not(.group)")!.title).toBe(sources.zh_TW.tipProviderItem)
     expect(untitled()).toEqual([])
+  })
+})
+
+describe("setup guide", () => {
+  const INDEX = {
+    version: 1,
+    packs: [
+      { src: "en", tgt: "zh-Hans", file: "d.tsv.gz", bytes: 700000, rawBytes: 1, entries: 50000, forms: 1, sha256: "f2".repeat(32), source: "ECDICT", license: "MIT", attribution: "ECDICT" },
+      { src: "fr", tgt: "en", file: "e.tsv.gz", bytes: 700000, rawBytes: 1, entries: 50000, forms: 1, sha256: "f2".repeat(32), source: "Wiktionary", license: "CC BY-SA 4.0", attribution: "Wiktionary" },
+    ],
+  }
+  const pair = (src: string, tgt: string) => ({ src, tgt, version: "1", architecture: "base", bytes: 30e6, rawBytes: 1, installed: false })
+  const current = () => document.querySelector<HTMLElement>("section.step:not([hidden])")?.dataset.step
+  const stepButton = (n: number) => document.querySelectorAll<HTMLButtonElement>("#stepList button")[n]
+
+  /** The guide with every step needed: the dictionary, Google and OpenAI in the tiers; the trial answered by a fake port. */
+  async function guide(step = "language") {
+    vi.stubGlobal("indexedDB", new IDBFactory())
+    const s = createDefaultSettings("en")
+    s.targetLang = "zh-CN"
+    s.tiers = { dictionary: "dictionary", machine: "google-free", ai: "openai" }
+    const port = pagePort()
+    port.postMessage.mockImplementation((m: PortReport) => {
+      if (m.type !== "translate") return
+      queueMicrotask(() => {
+        for (const tier of m.request.tiers) port.push({ type: "tier", id: m.id, tier, result: { ok: true, text: `[zh] ${m.request.text}` } })
+        port.push({ type: "done", id: m.id })
+      })
+    })
+    const page = await openPage("welcome", s, {
+      stored: { [WELCOME_KEY]: { step } },
+      connect: () => port,
+      fetchUrl: async () => jsonResponse(INDEX),
+      respond: (req) => (req.type === "bergamotList" ? { ok: true, pairs: [pair("fr", "en"), pair("en", "zh-Hans")] } : req.type === "bergamotProgress" ? {} : undefined),
+    })
+    await vi.waitFor(() => expect(current()).toBe(step))
+    return { page, s, port }
+  }
+
+  it("gives every control of every step a hover text", async () => {
+    await guide()
+    // Walk through the steps with the numbered list: each step draws its own parts on entering.
+    for (let i = 0; i < 8; i++) {
+      stepButton(i).click()
+      await vi.waitFor(() => expect(stepButton(i).getAttribute("aria-current")).toBe("step"))
+      if (current() === "offline") await vi.waitFor(() => expect(document.querySelectorAll("#dictList li, #bergamotList li")).toHaveLength(4))
+      expect(untitled(), current()).toEqual([])
+    }
+    for (const [key, title] of declared()) expect(title, key).toBe(ENGLISH.t(key as never))
+    expect(document.querySelector<HTMLInputElement>("#dictList input[type=checkbox]")!.title).toBe(ENGLISH.t("tipPickItem"))
+    expect($("aiService").title).toBe(ENGLISH.t("tipAiService"))
+    expect($("aiPanel").querySelector<HTMLInputElement>('input[type="password"]')!.title).toBe(ENGLISH.t("tipApiKey"))
+    expect($("dictFilter").getAttribute("aria-label")).toBe(ENGLISH.t("bergamotFilter"))
+    expect(stepButton(0).title).toBe(ENGLISH.t("tipStep"))
+    // The last step finishes the guide.
+    expect($("nextStep").title).toBe(ENGLISH.t("tipFinish"))
+  })
+
+  it("says what Next, the tour and the trial button do in each state", async () => {
+    const { s, port } = await guide("tiers")
+    expect($("nextStep").title).toBe(ENGLISH.t("tipNext"))
+    expect($("tourNext").title).toBe(ENGLISH.t("tipTourNext"))
+    $("tourNext").click()
+    $("tourNext").click()
+    expect($("tourNext").title).toBe(ENGLISH.t("tipTourEnd"))
+    stepButton(7).click()
+    await vi.waitFor(() => expect(current()).toBe("finish"))
+    expect($("tryIt").title).toBe(ENGLISH.t("tipTryIt"))
+    $("tryIt").click()
+    expect($("tryIt").title).toBe(ENGLISH.t("tipShowOriginal"))
+    port.push({ type: "settings", settings: toPublicSettings(s) })
+    await vi.waitFor(() => expect(document.querySelectorAll("#trySample .tt-translation")).toHaveLength(4))
+    $("tryIt").click()
+    expect($("tryIt").title).toBe(ENGLISH.t("tipTryIt"))
+  })
+
+  it("marks a skipped step with the reason", async () => {
+    vi.stubGlobal("indexedDB", new IDBFactory())
+    await openPage("welcome", createDefaultSettings("en"))
+    await vi.waitFor(() => expect(current()).toBe("language"))
+    expect(stepButton(3).disabled).toBe(true)
+    expect(stepButton(3).title).toBe(ENGLISH.t("stepNotNeeded"))
+  })
+
+  it("writes the hover texts in the new interface language, also those drawn by the page", async () => {
+    const { s, port } = await guide("finish")
+    $("tryIt").click()
+    port.push({ type: "settings", settings: toPublicSettings(s) })
+    await vi.waitFor(() => expect(document.querySelectorAll("#trySample .tt-translation")).toHaveLength(4))
+    const ui = $<HTMLSelectElement>("uiLanguage")
+    ui.value = "ja"
+    ui.dispatchEvent(new Event("change"))
+    await vi.waitFor(() => expect(document.documentElement.lang).toBe("ja"))
+    for (const [key, title] of declared()) {
+      if (key !== "tipTryIt") expect(title, key).toBe(sources.ja[key])
+    }
+    expect($("tryIt").title).toBe(sources.ja.tipShowOriginal)
+    expect($("nextStep").title).toBe(sources.ja.tipFinish)
+    expect(stepButton(0).title).toBe(sources.ja.tipStep)
+    expect($("autoTranslate").title).toBe(sources.ja.tipAutoTranslate)
   })
 })

@@ -12,8 +12,8 @@
     <header class="top">
       <img src="icons/icon.svg" alt="" width="32" height="32" />
       <h1 data-i18n="welcomeTitle"></h1>
-      <span id="saved" class="saved" data-i18n="saved"></span>
-      <button type="button" id="exitGuide" data-i18n="buttonExitGuide"></button>
+      <span id="saved" class="saved" data-i18n="saved" data-i18n-title="tipSaved"></span>
+      <button type="button" id="exitGuide" data-i18n="buttonExitGuide" data-i18n-title="tipExitGuide"></button>
     </header>
 
     <nav class="wizard-progress" data-i18n-aria-label="welcomeProgress">
@@ -26,9 +26,9 @@
         <h2 tabindex="-1" data-i18n="stepLanguage"></h2>
         <p data-i18n="welcomeIntro"></p>
         <div class="grid">
-          <label><span data-i18n="labelUiLanguage"></span><select id="uiLanguage"></select></label>
-          <label><span data-i18n="labelSourceLang"></span><select id="sourceLang"></select></label>
-          <label><span data-i18n="labelTargetLang"></span><select id="targetLang"></select></label>
+          <label data-i18n-title="tipUiLanguage"><span data-i18n="labelUiLanguage"></span><select id="uiLanguage"></select></label>
+          <label data-i18n-title="tipSourceLang"><span data-i18n="labelSourceLang"></span><select id="sourceLang"></select></label>
+          <label data-i18n-title="tipTargetLang"><span data-i18n="labelTargetLang"></span><select id="targetLang"></select></label>
         </div>
         <p id="sameLanguage" class="field-warning" data-i18n="hintSameLanguage" hidden></p>
         <p class="hint" data-i18n="welcomeLanguageHint"></p>
@@ -38,11 +38,11 @@
         <h2 tabindex="-1" data-i18n="stepDisplay"></h2>
         <p data-i18n="welcomeDisplayIntro"></p>
         <div class="choices" role="radiogroup" data-i18n-aria-label="labelMode">
-          <label class="choice">
+          <label class="choice" data-i18n-title="tipBilingual">
             <input type="radio" name="mode" value="bilingual" />
             <span><strong data-i18n="modeBilingual"></strong><span class="hint" data-i18n="welcomeBilingualHint"></span></span>
           </label>
-          <label class="choice">
+          <label class="choice" data-i18n-title="tipTranslationOnly">
             <input type="radio" name="mode" value="translation-only" />
             <span><strong data-i18n="modeTranslationOnly"></strong><span class="hint" data-i18n="welcomeTranslationOnlyHint"></span></span>
           </label>
@@ -94,9 +94,9 @@
           </table>
         </div>
         <div class="grid">
-          <div class="tour-stop"><label><span id="tierLabel-dictionary"></span><select id="tier-dictionary"></select></label></div>
-          <div class="tour-stop"><label><span id="tierLabel-machine"></span><select id="tier-machine"></select></label></div>
-          <div class="tour-stop"><label><span id="tierLabel-ai"></span><select id="tier-ai"></select></label></div>
+          <div class="tour-stop"><label data-i18n-title="tipTierDictionary"><span id="tierLabel-dictionary"></span><select id="tier-dictionary"></select></label></div>
+          <div class="tour-stop"><label data-i18n-title="tipTierMachine"><span id="tierLabel-machine"></span><select id="tier-machine"></select></label></div>
+          <div class="tour-stop"><label data-i18n-title="tipTierAi"><span id="tierLabel-ai"></span><select id="tier-ai"></select></label></div>
         </div>
         <p id="tiersEmpty" class="field-warning" data-i18n="tiersEmpty" hidden></p>
         <p class="hint" data-i18n="welcomeTiersHint"></p>
@@ -105,14 +105,14 @@
         <div id="tierDemo" class="sample-mail"></div>
         <div class="row">
           <span id="demoStatus" class="demo-status hint" role="status"></span>
-          <button type="button" id="demoReplay" data-i18n="buttonReplay"></button>
-          <a href="#" id="tourAgain" data-i18n="spotlightAgain"></a>
+          <button type="button" id="demoReplay" data-i18n="buttonReplay" data-i18n-title="tipReplay"></button>
+          <a href="#" id="tourAgain" data-i18n="spotlightAgain" data-i18n-title="tipTourAgain"></a>
         </div>
         <div id="tourTip" class="tour-tip" role="dialog" aria-labelledby="tourText" hidden>
           <p id="tourText"></p>
           <div class="row">
-            <button type="button" id="tourSkip" data-i18n="buttonSkip"></button>
-            <button type="button" id="tourNext" class="primary"></button>
+            <button type="button" id="tourSkip" data-i18n="buttonSkip" data-i18n-title="tipTourSkip"></button>
+            <button type="button" id="tourNext" class="primary" data-i18n-title="tipTourNext"></button>
           </div>
         </div>
       </section>
@@ -125,7 +125,7 @@
           <h3 data-i18n="sectionDictionaries"></h3>
           <p class="hint" data-i18n="dictionaryAttribution"></p>
           <div class="row">
-            <input type="search" id="dictFilter" data-i18n-placeholder="bergamotFilter" spellcheck="false" />
+            <input type="search" id="dictFilter" data-i18n-placeholder="bergamotFilter" data-i18n-aria-label="bergamotFilter" data-i18n-title="tipFilter" spellcheck="false" />
           </div>
           <div id="dictCommon" class="common"></div>
           <p id="dictStatus" class="hint" role="status"></p>
@@ -136,14 +136,14 @@
           <p class="hint" data-i18n="bergamotHint"></p>
           <p id="bergamotNeeded" class="hint"></p>
           <div class="row">
-            <input type="search" id="bergamotFilter" data-i18n-placeholder="bergamotFilter" spellcheck="false" />
+            <input type="search" id="bergamotFilter" data-i18n-placeholder="bergamotFilter" data-i18n-aria-label="bergamotFilter" data-i18n-title="tipFilter" spellcheck="false" />
           </div>
           <div id="bergamotCommon" class="common"></div>
           <p id="bergamotStatus" class="hint" role="status"></p>
           <ul id="bergamotList" class="dict-list"></ul>
         </div>
         <div class="row">
-          <button type="button" id="downloadPicked" class="primary" data-i18n="buttonDownloadSelected"></button>
+          <button type="button" id="downloadPicked" class="primary" data-i18n="buttonDownloadSelected" data-i18n-title="tipDownloadPicked"></button>
           <span id="downloadStatus" role="status"></span>
         </div>
       </section>
@@ -158,10 +158,10 @@
         <h2 tabindex="-1" data-i18n="stepAi"></h2>
         <p data-i18n="welcomeAiIntro"></p>
         <div class="grid">
-          <label><span data-i18n="labelAiService"></span><select id="aiService"></select></label>
+          <label data-i18n-title="tipAiService"><span data-i18n="labelAiService"></span><select id="aiService"></select></label>
         </div>
         <div id="aiPanel" class="provider-panel"></div>
-        <label class="check">
+        <label class="check" data-i18n-title="tipPrecise">
           <input type="checkbox" id="preciseEnabled" />
           <span data-i18n="labelPrecise"></span>
         </label>
@@ -184,22 +184,22 @@
           <li data-i18n="welcomeUseAltA"></li>
           <li data-i18n="welcomeUseAltS"></li>
         </ul>
-        <label class="check">
+        <label class="check" data-i18n-title="tipAutoTranslate">
           <input type="checkbox" id="autoTranslate" />
           <span data-i18n="labelAutoTranslate"></span>
         </label>
         <h3 data-i18n="welcomeTryTitle"></h3>
         <p class="hint" data-i18n="welcomeTryHint"></p>
-        <button type="button" id="tryIt" class="primary" data-i18n="buttonTryIt"></button>
+        <button type="button" id="tryIt" class="primary" data-i18n="buttonTryIt" data-i18n-title="tipTryIt"></button>
         <div id="trySample" class="sample-mail" hidden></div>
-        <p><button type="button" id="openOptions" data-i18n="buttonOpenSettings"></button></p>
+        <p><button type="button" id="openOptions" data-i18n="buttonOpenSettings" data-i18n-title="tipOpenOptions"></button></p>
       </section>
     </main>
 
     <footer class="wizard-nav">
-      <button type="button" id="prevStep" data-i18n="buttonBack"></button>
+      <button type="button" id="prevStep" data-i18n="buttonBack" data-i18n-title="tipBack"></button>
       <span class="spacer"></span>
-      <button type="button" id="skipStep" data-i18n="buttonSkipStep"></button>
+      <button type="button" id="skipStep" data-i18n="buttonSkipStep" data-i18n-title="tipSkipStep"></button>
       <button type="button" id="nextStep" class="primary" data-i18n="buttonNext"></button>
     </footer>
     <script src="welcome.js"></script>

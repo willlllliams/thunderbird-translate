@@ -450,5 +450,20 @@
   "tipCancelDownload": "このダウンロードを中止します",
   "tipDownloadCommon": "英語との間の主要 8 言語。先に確認します",
   "tipConfirmDownload": "一覧の項目のダウンロードを開始します",
-  "tipCancelCommon": "ダウンロードせずにこの一覧を閉じます"
+  "tipCancelCommon": "ダウンロードせずにこの一覧を閉じます",
+
+  "tipExitGuide": "ガイドを閉じます。次回はこの手順から再開",
+  "tipStep": "この手順に移動します",
+  "tipReplay": "デモをもう一度再生します。通信は行いません",
+  "tipTourAgain": "3 つの段階の選択欄をもう一度説明します",
+  "tipTourSkip": "案内を終了。デモ下のリンクから再開できます",
+  "tipTourNext": "次の段階の選択欄へ進みます",
+  "tipTourEnd": "案内を終了します",
+  "tipDownloadPicked": "上でチェックした項目をすべてダウンロード",
+  "tipAiService": "段階 3 が使う AI プロバイダー",
+  "tipTryIt": "実際のメッセージと同じようにサンプルを翻訳",
+  "tipBack": "前の手順へ。選択内容は保存されたまま",
+  "tipSkipStep": "次の手順へ。この手順は任意です",
+  "tipNext": "次の手順へ。選択内容は保存済み",
+  "tipFinish": "ガイドを閉じます。次回は最初から始まります"
 }

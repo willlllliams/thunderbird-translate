@@ -450,5 +450,20 @@
   "tipCancelDownload": "Dừng lần tải xuống này",
   "tipDownloadCommon": "8 ngôn ngữ phổ biến từ và sang tiếng Anh; sẽ hỏi trước",
   "tipConfirmDownload": "Bắt đầu tải các mục trong danh sách",
-  "tipCancelCommon": "Đóng danh sách này mà không tải"
+  "tipCancelCommon": "Đóng danh sách này mà không tải",
+
+  "tipExitGuide": "Đóng hướng dẫn; lần sau tiếp tục từ bước này",
+  "tipStep": "Chuyển đến bước này",
+  "tipReplay": "Phát lại phần demo; không gửi yêu cầu nào",
+  "tipTourAgain": "Giải thích lại ba ô chọn tầng",
+  "tipTourSkip": "Kết thúc phần giới thiệu; liên kết dưới demo sẽ bắt đầu lại",
+  "tipTourNext": "Chuyển sang ô chọn tầng tiếp theo",
+  "tipTourEnd": "Kết thúc phần giới thiệu",
+  "tipDownloadPicked": "Tải mọi mục đã đánh dấu ở trên",
+  "tipAiService": "Nhà cung cấp AI mà tầng 3 sử dụng",
+  "tipTryIt": "Dịch một đoạn mẫu tại đây như với thư thật",
+  "tipBack": "Về bước trước; các lựa chọn vẫn được lưu",
+  "tipSkipStep": "Sang bước tiếp theo; bước này là tùy chọn",
+  "tipNext": "Sang bước tiếp theo; các lựa chọn đã được lưu",
+  "tipFinish": "Đóng hướng dẫn; lần sau sẽ bắt đầu lại từ đầu"
 }
