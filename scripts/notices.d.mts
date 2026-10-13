@@ -17,6 +17,8 @@ export const TEXTS: Record<"apache" | "marian" | "ecdict", { file: string; sourc
 export const CC_BY_SA_URL: string
 export const MPL_URL: string
 export const ECDICT_COPYRIGHT: string
+export const NOTO_COPYRIGHT: string
+export const OFL_URL: string
 export function bundledPackages(inputs: string[]): Map<string, string>
 export function copyrightLine(text: string): string | null
 export function packageNotices(options: { root: string; inputs: string[]; packages?: Record<string, PackageDeclaration> }): PackageNotice[]

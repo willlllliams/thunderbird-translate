@@ -1,6 +1,9 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64">
-  <rect x="2" y="2" width="40" height="40" rx="8" fill="#4c8bf5"/>
-  <path d="M12 34 L22 10 L32 34 M15.5 26 H28.5" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
-  <rect x="22" y="22" width="40" height="40" rx="8" fill="#f5a623" stroke="#fff" stroke-width="2"/>
-  <path d="M31 32 H53 M42 27 V32 M35 38 H49 L37 54 M41 45 L52 54" fill="none" stroke="#fff" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"/>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="128" height="128">
+  <rect x="8" y="8" width="112" height="112" rx="26" fill="#D85A30"/>
+  <rect x="22" y="34" width="84" height="60" rx="8" fill="#FFFFFF"/>
+  <path d="M24 38l40 28 40-28" fill="none" stroke="#D85A30" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
+  <rect x="30" y="74" width="34" height="6" rx="3" fill="#F5C4B3"/>
+  <rect x="30" y="84" width="24" height="6" rx="3" fill="#F5C4B3"/>
+  <circle cx="96" cy="88" r="20" fill="#085041"/>
+  <path d="M100.4 82.45 103.28 83.23Q101.89 87.48 99.62 90.55Q97.35 93.61 94.12 95.68Q90.9 97.74 86.63 99Q86.48 98.66 86.18 98.17Q85.88 97.68 85.55 97.19Q85.21 96.7 84.93 96.38Q89.06 95.35 92.09 93.57Q95.13 91.79 97.18 89.05Q99.24 86.31 100.4 82.45ZM91.43 82.62Q92.63 86.02 94.75 88.75Q96.86 91.48 99.94 93.39Q103.01 95.3 107.07 96.25Q106.76 96.55 106.4 97.02Q106.03 97.49 105.71 97.97Q105.39 98.46 105.18 98.85Q100.92 97.7 97.8 95.59Q94.68 93.47 92.5 90.41Q90.32 87.34 88.85 83.41ZM85.38 81.16H106.63V83.87H85.38ZM93.91 77.88 96.88 77Q97.35 77.82 97.82 78.81Q98.28 79.8 98.47 80.54L95.32 81.52Q95.17 80.8 94.76 79.77Q94.35 78.74 93.91 77.88Z" fill="#FFFFFF"/>
 </svg>

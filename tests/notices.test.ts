@@ -3,7 +3,7 @@ import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "nod
 import { tmpdir } from "node:os"
 import { dirname, join } from "node:path"
 import { describe, expect, it } from "vitest"
-import { bundledPackages, CC_BY_SA_URL, copyrightLine, ECDICT_COPYRIGHT, MPL_URL, PACKAGES, packageNotices, thirdPartyNotices } from "../scripts/notices.mjs"
+import { bundledPackages, CC_BY_SA_URL, copyrightLine, ECDICT_COPYRIGHT, MPL_URL, NOTO_COPYRIGHT, OFL_URL, PACKAGES, packageNotices, thirdPartyNotices } from "../scripts/notices.mjs"
 
 const root = join(__dirname, "..")
 /** One file of every declared package, as esbuild lists the files it read. */
@@ -82,6 +82,19 @@ describe("notices of the repository", () => {
     expect(text).toContain(CC_BY_SA_URL)
     expect(text.replace(/\s+/g, " ")).toContain(`from ECDICT, ${ECDICT_COPYRIGHT} (https://github.com/skywind3000/ECDICT), under the MIT License`)
     expect(text).toContain(`MIT License\n\n${ECDICT_COPYRIGHT}\n\nPermission is hereby granted`)
+  })
+
+  it("credit the glyph of the icons to Noto Sans SC under the SIL Open Font License, for every icon file of the manifest", () => {
+    const flat = text.replace(/\s+/g, " ")
+    expect(flat).toContain(`Noto Sans SC 2.004 at weight 700, ${NOTO_COPYRIGHT}, licensed under the SIL Open Font License 1.1, ${OFL_URL}`)
+    const manifest = JSON.parse(readFileSync(join(root, "static/manifest.json"), "utf8")) as { icons: Record<string, string>; message_display_action: { default_icon: Record<string, string> } }
+    const files = new Set([...Object.values(manifest.icons), ...Object.values(manifest.message_display_action.default_icon)])
+    expect([...files].sort()).toEqual(["icons/icon-16.svg", "icons/icon.svg"])
+    for (const file of files) {
+      expect(flat).toContain(file)
+      // The glyph is a path: the icons need no font.
+      expect(readFileSync(join(root, "static", file), "utf8")).not.toMatch(/<text|font-family/)
+    }
   })
 })
 

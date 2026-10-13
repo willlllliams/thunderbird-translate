@@ -53,6 +53,9 @@ export const CC_BY_SA_URL = "https://creativecommons.org/licenses/by-sa/4.0/"
 export const MPL_URL = "https://mozilla.org/MPL/2.0/"
 /** Copyright line of the ECDICT license (licenses/ECDICT.LICENSE.txt). */
 export const ECDICT_COPYRIGHT = "Copyright (c) 2025 Linwei"
+/** The glyph 文 of the icons: copyright line of Noto Sans SC (its name table) and the address of its license. */
+export const NOTO_COPYRIGHT = "© 2014-2021 Adobe (http://www.adobe.com/), with Reserved Font Name 'Source'"
+export const OFL_URL = "https://openfontlicense.org/open-font-license-official-text/"
 
 /** The npm packages among the files esbuild read (metafile.inputs): name → directory, sorted by name. A file of a nested node_modules/ belongs to the innermost package. */
 export function bundledPackages(inputs) {
@@ -174,7 +177,7 @@ export function thirdPartyNotices({ root, inputs, version, packages = PACKAGES }
   const lines = []
   for (const n of notices) {
     let reference
-    if (apacheTerms(n.text) === canonicalTerms) reference = "the Apache License 2.0 in section 4"
+    if (apacheTerms(n.text) === canonicalTerms) reference = "the Apache License 2.0 in section 5"
     else {
       let block = blocks.find((b) => b.text === n.text)
       if (!block) {
@@ -182,7 +185,7 @@ export function thirdPartyNotices({ root, inputs, version, packages = PACKAGES }
         blocks.push(block)
       }
       block.users.push(n.name)
-      reference = `[${block.label}] in section 4${n.license === "Apache-2.0" ? ", with the Apache License 2.0 that follows it" : ""}`
+      reference = `[${block.label}] in section 5${n.license === "Apache-2.0" ? ", with the Apache License 2.0 that follows it" : ""}`
     }
     lines.push(
       [
@@ -211,7 +214,8 @@ export function thirdPartyNotices({ root, inputs, version, packages = PACKAGES }
       "1. npm packages bundled into the scripts of the extension",
       "2. Bergamot translation engine",
       "3. Dictionary data (downloaded on request, not part of the extension)",
-      "4. License texts",
+      "4. Icon",
+      "5. License texts",
     ].join("\n"),
     RULE,
     `1. npm packages bundled into the scripts of the extension`,
@@ -235,7 +239,12 @@ export function thirdPartyNotices({ root, inputs, version, packages = PACKAGES }
     ),
     ecdict,
     RULE,
-    "4. License texts",
+    "4. Icon",
+    paragraphs(
+      `The character 文 in the icons of the extension (icons/icon.svg, icons/icon-16.svg) is the outline of its glyph in Noto Sans SC 2.004 at weight 700, ${NOTO_COPYRIGHT}, licensed under the SIL Open Font License 1.1, ${OFL_URL}. The icons contain the outline as a path; the font itself is not part of the extension.`,
+    ),
+    RULE,
+    "5. License texts",
     ...blocks.map((b) => `${wrap(`[${b.label}] used by ${b.users.join(", ")}:`)}\n\n${b.text}`),
     `Apache License 2.0 (copied from ${TEXTS.apache.source}):`,
     apache,
