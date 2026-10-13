@@ -117,6 +117,29 @@ describe("dictionary list", () => {
     expect(d.bg.fetch).toHaveBeenCalledTimes(2)
   })
 
+  it("shows the list of the latest release tag: an answer for an earlier tag that comes last is ignored", async () => {
+    useFakeTimers()
+    const answers = new Map<string | undefined, (r: unknown) => void>()
+    background({
+      offlineList: (req) => new Promise((r) => answers.set((req as { tag?: string }).tag, r)),
+      offlineProgress: () => ({}),
+    })
+    const p = panel()
+    let tag = "dicts-v1"
+    const section = new DictionarySection({ tag: () => tag, list: p.list, status: p.status, common: p.common, filter: p.filter, languages: () => ({ source: "de", target: "en" }), recommended: () => [] })
+    const v1 = section.load()
+    tag = "dicts-v2"
+    const v2 = section.load()
+    await nextTask()
+    answers.get("dicts-v2")!({ ok: true, items: [packEntry(DE_EN)] })
+    await v2
+    expect(p.names()).toEqual(["German (Deutsch) → English"])
+    answers.get("dicts-v1")!({ ok: true, items: [packEntry(EN_DE), packEntry(FR_EN)] })
+    await v1
+    expect(p.names()).toEqual(["German (Deutsch) → English"])
+    expect(p.status.textContent).toBe("")
+  })
+
   it("shows why the list could not be loaded, and the installed packs", async () => {
     const d = dictionaries([], { fetchUrl: async () => new Response("Not Found", { status: 404 }) })
     await d.section.load()
@@ -306,7 +329,7 @@ describe("dictionary list", () => {
     return { fetchUrl, waiting, files }
   }
 
-  it("M3: downloads the common languages two at a time in the background script, reads the list once at the end and tells the content scripts once", async () => {
+  it("M3: downloads the common languages two at a time in the background script, reads the list after each one and tells the content scripts once", async () => {
     const release = heldRelease([EN_DE, DE_EN, FR_EN, EN_JA])
     const d = dictionaries([], { fetchUrl: release.fetchUrl })
     await d.section.load()
@@ -321,7 +344,8 @@ describe("dictionary list", () => {
       release.waiting.splice(0).forEach((resolve) => resolve())
       expect(d.common.textContent).toContain(ENGLISH.t("commonAllInstalled"))
     })
-    expect(d.bg.requests.filter((r) => r.type === "offlineList")).toHaveLength(2)
+    // When the section loads, after each of the four installations (offlineDataChanged), and at the end.
+    expect(d.bg.requests.filter((r) => r.type === "offlineList")).toHaveLength(6)
     expect([d.bg.contentScripts.mock.calls.length, d.bg.dataNotices()]).toEqual([1, 4])
   })
 
@@ -505,6 +529,51 @@ describe("offline model list", () => {
     expect(requests.filter((r) => r.type === "offlineList")).toHaveLength(2)
   })
 
+  it("keeps the progress of a notice that came after the snapshot was asked for: a download that ended while the list loaded is not shown at 50%", async () => {
+    let answerList!: (r: unknown) => void
+    background({
+      offlineList: () => new Promise((r) => (answerList = r)),
+      offlineProgress: () => ({ bergamot: { "de>en": { state: "running", done: 1, total: 2 } } }),
+    })
+    const m = models()
+    const loading = m.section.load()
+    await nextTask()
+    // The download ends while the list is still on its way.
+    m.section.receive({ type: "offlineProgress", progress: { bergamot: {} } })
+    answerList({ ok: true, items: [pair("de", "en", { installed: true })] })
+    await loading
+    expect(m.row("German").textContent).toContain(ENGLISH.t("dictInstalled"))
+    expect(m.row("German").textContent).not.toContain(ENGLISH.t("dictDownloading", [50]))
+  })
+
+  it("reads the list again when data changes while its own downloads run, and takes only the answer of the latest read", async () => {
+    const answers: ((r: unknown) => void)[] = []
+    let finish!: (r: unknown) => void
+    const requests = background({
+      offlineList: () => new Promise((r) => answers.push(r)),
+      offlineProgress: () => ({}),
+      offlineInstall: () => new Promise((r) => (finish = r)),
+    })
+    const m = models()
+    const loading = m.section.load()
+    await nextTask()
+    answers.shift()!({ ok: true, items: [pair("de", "en"), pair("en", "fr")] })
+    await loading
+    button(m.row("German"), ENGLISH.t("buttonDownload"))!.click()
+    // Another page installed a direction meanwhile: the list is read again although this page's download runs.
+    m.section.receive({ type: "offlineDataChanged" })
+    m.section.receive({ type: "offlineDataChanged" })
+    await vi.waitFor(() => expect(requests.filter((r) => r.type === "offlineList")).toHaveLength(3))
+    // The later read answers first; the earlier one, answering last, changes nothing.
+    answers.pop()!({ ok: true, items: [pair("de", "en"), pair("en", "fr", { installed: true })] })
+    await vi.waitFor(() => expect(m.row("English").textContent).toContain(ENGLISH.t("dictInstalled")))
+    answers.pop()!({ ok: true, items: [pair("de", "en"), pair("en", "fr")] })
+    await nextTask()
+    expect(m.row("English").textContent).toContain(ENGLISH.t("dictInstalled"))
+    finish([{ ok: true }])
+    await vi.waitFor(() => expect(requests.filter((r) => r.type === "offlineList")).toHaveLength(4))
+  })
+
   it("shows the downloads of another page when it opens, running and queued, and takes a queued one off the queue", async () => {
     const requests = background({
       offlineList: () => ({ ok: true, items: [pair("de", "en"), pair("en", "fr"), pair("ja", "en")] }),
@@ -646,7 +715,7 @@ describe("offline model list", () => {
     return { ...m, bg, waiting, installed, finish }
   }
 
-  it("M3: downloads the common languages two at a time in the background script and reads the list once at the end", async () => {
+  it("M3: downloads the common languages two at a time in the background script and reads the list after each one", async () => {
     const m = heldModels(["en>de", "de>en", "en>fr", "fr>en"])
     await m.section.load()
     m.commonButton().click()
@@ -659,7 +728,8 @@ describe("offline model list", () => {
       expect(m.common.textContent).toContain(ENGLISH.t("commonAllInstalled"))
     })
     expect(m.bg.requests.filter((r) => r.type === "offlineInstall")).toHaveLength(4)
-    expect(m.bg.requests.filter((r) => r.type === "offlineList")).toHaveLength(2)
+    // When the section loads, after each of the four installations (offlineDataChanged), and at the end.
+    expect(m.bg.requests.filter((r) => r.type === "offlineList")).toHaveLength(6)
     expect([m.bg.contentScripts.mock.calls.length, m.bg.dataNotices()]).toEqual([1, 4])
   })
 

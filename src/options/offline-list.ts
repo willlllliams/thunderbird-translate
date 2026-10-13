@@ -28,7 +28,7 @@ import { describeError } from "../shared/errors"
 import { ext } from "../shared/ext"
 import { getI18n, type MessageKey, t } from "../shared/i18n"
 import { pairKey } from "../shared/languages"
-import { type InstallProgress, type OfflineItem, type OfflineResult, type PageNotice, send } from "../shared/messages"
+import { type InstallProgress, type OfflineItem, type OfflineProgress, type OfflineResult, type PageNotice, send } from "../shared/messages"
 import { localeToLanguageTag } from "../shared/locales"
 import { commonDirections, itemSources, type LanguageSource, type OfflineService, orderItems, pairNeeds, recommendedLanguages, serviceLang, type SourcedLanguage } from "../shared/offline-needs"
 import type { Settings } from "../shared/settings"
@@ -116,8 +116,10 @@ export abstract class OfflineList<T extends ListItem> {
   private readonly requested = new Set<string>()
   /** The installations of the service that have not ended, by id, as the background script reported them last. */
   private progress: Record<string, InstallProgress> = {}
-  /** The list was read: notices of changed data read it again. */
-  private loaded = false
+  /** Reads of the list started; only the answer of the latest one is shown. */
+  private reads = 0
+  /** Progress notices received; a snapshot asked for before the latest of them is not newer than it. */
+  private notices = 0
 
   constructor(private readonly base: OfflineListDeps) {}
 
@@ -142,35 +144,48 @@ export abstract class OfflineList<T extends ListItem> {
     this.render()
   }
 
-  /** The list and the installations that have not ended, from the background script. */
+  /**
+   * The list and the installations that have not ended, from the background
+   * script. A read started later wins: the answer of an earlier one, e.g. for
+   * the release tag before it was changed, is dropped. The snapshot of the
+   * installations is taken only when no progress notice came after it was
+   * asked for, since such a notice is at least as new.
+   */
   private async read(refresh = false): Promise<void> {
+    const read = ++this.reads
+    const notices = this.notices
+    let entries: OfflineItem[] = []
+    let listError = ""
+    let snapshot: OfflineProgress | undefined
     try {
       const [r, progress] = await Promise.all([
         send({ type: "offlineList", service: this.service, refresh, tag: this.tag() }),
         send({ type: "offlineProgress" }).catch(() => undefined),
       ])
-      this.entries = r?.ok ? r.items : []
-      this.listError = r?.error ?? ""
-      if (progress) this.progress = progress[this.service] ?? {}
+      entries = r?.ok ? r.items : []
+      listError = r?.error ?? ""
+      snapshot = progress
     } catch (error) {
-      this.entries = []
-      this.listError = describeError(error, getI18n())
+      listError = describeError(error, getI18n())
     }
-    this.loaded = true
+    if (read !== this.reads) return
+    this.entries = entries
+    this.listError = listError
+    if (snapshot && notices === this.notices) this.progress = snapshot[this.service] ?? {}
   }
 
   /**
    * A message to the page: the progress of the installations, or installed
-   * or removed data, after which the list is read again; while downloads of
-   * this page run, it is read once they have ended. Other messages are
-   * ignored.
+   * or removed data, after which the list is read again once it has been
+   * asked for. Other messages are ignored.
    */
   receive(message: unknown): void {
     const notice = message as PageNotice | null | undefined
     if (notice?.type === "offlineProgress") {
+      this.notices++
       this.progress = notice.progress[this.service] ?? {}
       this.render()
-    } else if (notice?.type === "offlineDataChanged" && this.loaded && this.requested.size === 0) {
+    } else if (notice?.type === "offlineDataChanged" && this.reads > 0) {
       void this.read().then(() => this.render())
     }
   }
