@@ -17,7 +17,7 @@ function registry({ ready = Promise.resolve(), translate }: { ready?: Promise<vo
   const { api } = stubBrowser()
   const setContext = vi.fn()
   const translateFn = vi.fn(translate ?? (async (req: TranslateRequest, onTier: (tier: Tier, result: TranslateResponse) => void) => onTier("machine", { ok: true, text: `G(${req.text})` })))
-  const tabs = createTabRegistry({ ready, publicSettings: () => settings, setContext, translate: translateFn })
+  const tabs = createTabRegistry({ ready: () => ready, publicSettings: () => settings, setContext, translate: translateFn })
   /** A content script of `tabId` connects. */
   const connect = (tabId: number | undefined, name?: string) => {
     const port = backgroundPort(tabId, name)
@@ -46,6 +46,27 @@ describe("content script ports", () => {
     settle()
     await vi.waitFor(() => expect(port.posted.at(-1)).toEqual({ type: "done", id: 1 }))
     expect(port.posted[0]).toEqual({ type: "settings", settings })
+  })
+
+  it("ends a translation that fails or whose settings cannot be read with done, and leaves no rejection unhandled", async () => {
+    const unhandled = vi.fn()
+    process.on("unhandledRejection", unhandled)
+    try {
+      const failing = registry({ translate: () => Promise.reject(new Error("service crashed")) })
+      const port = failing.connect(4)
+      port.send({ type: "translate", id: 1, request: request("Hello") })
+      await vi.waitFor(() => expect(port.posted.at(-1)).toEqual({ type: "done", id: 1 }))
+      const unread = registry({ ready: Promise.reject(new Error("storage unavailable")) })
+      const other = unread.connect(5)
+      other.send({ type: "translate", id: 2, request: request("Hello") })
+      await vi.waitFor(() => expect(other.posted).toEqual([{ type: "done", id: 2 }]))
+      expect(unread.translate).not.toHaveBeenCalled()
+      await nextTask()
+      await nextTask()
+      expect(unhandled).not.toHaveBeenCalled()
+    } finally {
+      process.off("unhandledRejection", unhandled)
+    }
   })
 
   it("ignores other ports and ports without a tab", async () => {

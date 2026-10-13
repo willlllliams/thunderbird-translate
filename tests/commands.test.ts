@@ -9,7 +9,7 @@ import { stubBrowser } from "./fixtures/browser"
 function commands(activeTabs: { id?: number }[] = []) {
   const browser = stubBrowser({ stored: { [SETTINGS_KEY]: createDefaultSettings() }, activeTabs })
   const pushed: [number, PortPush][] = []
-  const run = createCommandRunner({ ready: Promise.resolve(), postToTab: (tabId, msg) => void pushed.push([tabId, msg]) })
+  const run = createCommandRunner({ ready: () => Promise.resolve(), postToTab: (tabId, msg) => void pushed.push([tabId, msg]) })
   return { run, pushed, browser }
 }
 
@@ -57,7 +57,8 @@ describe("keyboard commands", () => {
     stubBrowser({ activeTabs: [{ id: 5 }] })
     let settle!: () => void
     const postToTab = vi.fn()
-    const run = createCommandRunner({ ready: new Promise<void>((resolve) => (settle = resolve)), postToTab })
+    const read = new Promise<void>((resolve) => (settle = resolve))
+    const run = createCommandRunner({ ready: () => read, postToTab })
     const done = run("toggle-translation", { id: 4 } as browser.tabs.Tab)
     await Promise.resolve()
     expect(postToTab).not.toHaveBeenCalled()

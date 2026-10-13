@@ -33,7 +33,7 @@ function router(settings: Settings = createDefaultSettings()) {
     cache: { clear: vi.fn(async () => {}), size: vi.fn(async () => 2) },
   }
   const handlers = createHandlers(deps)
-  const send = (req: BackgroundRequest) => createDispatch(handlers, Promise.resolve())(req)
+  const send = (req: BackgroundRequest) => createDispatch(handlers, () => Promise.resolve())(req)
   return { handlers, send, deps, pushed, browser, stored: () => browser.local.data[SETTINGS_KEY] as Settings }
 }
 
@@ -148,7 +148,7 @@ describe("requests from pages", () => {
 
 describe("dispatch", () => {
   it("ignores messages that are not requests and unknown requests", async () => {
-    const dispatch = createDispatch(router().handlers, Promise.resolve())
+    const dispatch = createDispatch(router().handlers, () => Promise.resolve())
     for (const message of [undefined, null, "toggleTab", { type: 1 }]) expect(dispatch(message)).toBeUndefined()
     expect(await dispatch({ type: "somethingElse" })).toBeUndefined()
   })
@@ -168,7 +168,7 @@ describe("dispatch", () => {
       await installed
       const notices = browser.api.runtime.sendMessage.mock.calls.map(([notice]) => notice as { type: string })
       expect(notices.map((n) => n.type)).toEqual(["offlineProgressChanged", "offlineDataChanged"])
-      const dispatch = createDispatch(handlers, Promise.resolve())
+      const dispatch = createDispatch(handlers, () => Promise.resolve())
       for (const notice of notices) expect(dispatch(notice), notice.type).toBeUndefined()
     } finally {
       vi.useRealTimers()
@@ -176,14 +176,15 @@ describe("dispatch", () => {
   })
 
   it("answers nothing to an unknown type, also one named after a property of every object", () => {
-    const dispatch = createDispatch(router().handlers, Promise.resolve())
+    const dispatch = createDispatch(router().handlers, () => Promise.resolve())
     for (const type of ["somethingElse", "toString", "constructor", "hasOwnProperty", "valueOf", "__proto__"]) expect(dispatch({ type })).toBeUndefined()
   })
 
   it("answers once the settings are read", async () => {
     const { handlers, pushed } = router()
     let settle!: () => void
-    const dispatch = createDispatch(handlers, new Promise<void>((resolve) => (settle = resolve)))
+    const read = new Promise<void>((resolve) => (settle = resolve))
+    const dispatch = createDispatch(handlers, () => read)
     const answer = dispatch({ type: "toggleTab", tabId: 4 })
     await Promise.resolve()
     expect(pushed).toEqual([])

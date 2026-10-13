@@ -12,7 +12,7 @@ const TAB_COMMANDS = new Map<string, PortPush>([
 
 export interface CommandDeps {
   /** Settles once the settings are read. */
-  ready: Promise<void>
+  ready: () => Promise<void>
   /** Sends a command to the content scripts of a tab. */
   postToTab: (tabId: number, msg: PortPush) => void
 }
@@ -22,7 +22,7 @@ export type CommandRunner = (command: string, tab?: browser.tabs.Tab) => Promise
 
 export function createCommandRunner({ ready, postToTab }: CommandDeps): CommandRunner {
   return async (command, tab) => {
-    await ready
+    await ready()
     const push = TAB_COMMANDS.get(command)
     if (push) {
       const tabId = tab?.id ?? (await ext.tabs.query({ active: true, currentWindow: true }))[0]?.id

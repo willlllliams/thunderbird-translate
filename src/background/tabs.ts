@@ -14,7 +14,7 @@ import type { PublicSettings } from "../shared/settings"
 
 export interface TabRegistryDeps {
   /** Settles once the settings are read: translations and the first settings of a content script wait for it. */
-  ready: Promise<void>
+  ready: () => Promise<void>
   /** The settings a content script gets. */
   publicSettings: () => PublicSettings
   /** Registers the message of a tab for precise translation. */
@@ -81,8 +81,10 @@ export function createTabRegistry({ ready, publicSettings, setContext, translate
           setContext(msg.context, msg.bypassCache === true)
           break
         case "translate":
-          void ready
+          // A failure of the translation itself, not of a tier (each tier reports its own): the request still ends.
+          void ready()
             .then(() => translate(msg.request, (tier, result) => safePost(port, { type: "tier", id: msg.id, tier, result })))
+            .catch(() => {})
             .finally(() => safePost(port, { type: "done", id: msg.id }))
           break
       }
@@ -96,7 +98,9 @@ export function createTabRegistry({ ready, publicSettings, setContext, translate
         void updateBadge(tabId)
       }
     })
-    void ready.then(() => safePost(port, { type: "settings", settings: publicSettings() }))
+    void ready()
+      .then(() => safePost(port, { type: "settings", settings: publicSettings() }))
+      .catch(() => {})
   }
 
   return {

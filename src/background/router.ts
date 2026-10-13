@@ -66,12 +66,12 @@ export function createHandlers({ tabs, service, localeMessages, offlineManager, 
 }
 
 /** For runtime.onMessage: the answer of the handler of a request, once `ready` settles; undefined (no answer) for anything else. */
-export function createDispatch(handlers: BackgroundHandlers, ready: Promise<void>): (message: unknown) => Promise<unknown> | undefined {
+export function createDispatch(handlers: BackgroundHandlers, ready: () => Promise<void>): (message: unknown) => Promise<unknown> | undefined {
   return (message) => {
     const type = (message as { type?: unknown } | null | undefined)?.type
     // Only own properties: a request named after a property of Object.prototype ("toString") is unknown too.
     if (typeof type !== "string" || !Object.hasOwn(handlers, type)) return undefined
     const handler = handlers[type as keyof BackgroundHandlers] as (req: unknown) => unknown
-    return ready.then(() => handler(message))
+    return ready().then(() => handler(message))
   }
 }
