@@ -156,7 +156,8 @@ licenses/        license texts for THIRD-PARTY-NOTICES.txt: those some npm packa
 scripts/         build, third-party notices and the hook plugin of the e2e build, Bergamot engine download, locale generation and checks, Markdown link check, layer check of src/, live endpoint test
 vendor/
   bergamot/      Bergamot engine: the WebAssembly binary (bergamot-translator.wasm.zst) and its glue script (bergamot-translator.js), as Mozilla publishes them; README.md names their source and hashes
-tools/           dict-build: the pipeline that builds the dictionary packs
+tools/           dict-build: the pipeline that builds the dictionary packs; store-screenshots: the screenshots of the add-on listing
+store/           the add-on listing on addons.thunderbird.net: texts, privacy policy, notes to reviewers (English, with Simplified Chinese versions), screenshots and icons
 readmes/         translated versions of the README
 docs/            reference and developer documentation; archive/ keeps the full changelog up to 1.12.0 and the size analysis of 1.5.2
 promo/           the prompt for the promotional video
@@ -249,6 +250,8 @@ Runs of the same branch or pull request do not overlap. A new push to a pull req
 To check the text of a release before pushing, run `node scripts/release-notes.mjs <version> <file>`.
 
 A version for addons.thunderbird.net (ATN) needs the source code next to the xpi, since the bundles are minified. `npm run source-zip` (`scripts/source-zip.mjs`) writes `web-ext-artifacts/thunderbird-translate-<version>-source.zip`: `src/` without `src/e2e/`, `static/`, `scripts/` without the live endpoint test, `locales/`, `vendor/`, `licenses/`, the package files, `tsconfig.json`, `LICENSE`, [VENDOR.md](../VENDOR.md), which declares the two unmodified files of the Bergamot engine with their upstream addresses, and [SOURCE-BUILD.md](../SOURCE-BUILD.md), which tells the reviewer how to build. Its files are sorted and carry one time stamp, like the entries of the xpi, so `npm ci` and `npm run build` in the unpacked archive give the same xpi byte for byte; `tests/source-zip.test.ts` checks the contents and that the archive is the same when made again.
+
+The texts of the listing, the privacy policy and the notes to reviewers are in `store/`. `node tools/store-screenshots/shoot.mjs` takes the screenshots of the listing again after `npm run build`: it serves `dist/` with a stand-in for the Thunderbird API and renders the pages of the extension in headless Chrome at 1280×800.
 
 The dictionary packs have their own manually triggered workflow, `.github/workflows/dicts.yml`, which publishes to the release `dicts-v1`; see [dictionary-packs.md](dictionary-packs.md#发布).
 
