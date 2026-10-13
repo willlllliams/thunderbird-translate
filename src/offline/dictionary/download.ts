@@ -73,6 +73,8 @@ export async function installPack(pack: IndexedPack, tag: string, store: Diction
   if ((await sha256Hex(data)) !== pack.sha256.toLowerCase()) throw new LocalizedError("errDictionaryChecksum", [pack.file])
   const parsed = parsePack(await gunzip(data))
   if (parsed.src !== pack.src || parsed.tgt !== pack.tgt) throw new LocalizedError("errDictionaryFormat")
+  // Cancelled after the file arrived (during the checks): nothing is stored, and the installation ends as cancelled.
+  signal?.throwIfAborted()
   await store.put(
     {
       id: pairKey(pack.src, pack.tgt),

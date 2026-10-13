@@ -207,6 +207,17 @@ describe("storage, download and the dictionary tier", () => {
     expect(await store.list()).toEqual([expect.objectContaining({ id: "en>de", bytes: data.byteLength, version: "20261011" })])
   })
 
+  it("stores nothing when it is cancelled after the whole file has arrived", async () => {
+    const data = gz(EN_DE)
+    const controller = new AbortController()
+    // A response without a stream: the file arrives in one piece, and the cancellation comes with its progress report.
+    const whole = { ok: true, status: 200, body: null, headers: new Headers(), arrayBuffer: async () => data.slice().buffer } as unknown as Response
+    const store = newStore()
+    const error = await installPack(indexEntry("dict-en-de.tsv.gz"), "t", store, { fetchFn: asFetch(async () => whole), signal: controller.signal, onProgress: () => controller.abort() }).catch((e) => e)
+    expect([error?.name, controller.signal.aborted]).toEqual(["AbortError", true])
+    expect(await store.list()).toEqual([])
+  })
+
   it("rejects a missing file, and a file of another language pair", async () => {
     const store = newStore()
     const missing = await installPack(indexEntry("dict-en-de.tsv.gz", { file: "gone.tsv.gz" }), "t", store, { fetchFn: asFetch(releases) }).catch((e) => e)
