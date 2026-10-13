@@ -50,6 +50,59 @@ describe("import specifiers", () => {
     const text = ['// import a from "./a"', '/* import("./b")', 'import "./c" */', 'const url = "https://example.com" // import "./d"', 'const s = "import of ./e"'].join("\n")
     expect(importsOf(text)).toEqual([])
   })
+
+  it("find a dynamic import whose path is a template literal, and mark one with substitutions as computed", () => {
+    const text = ["const a = () => import(`../offline/a`)", "const b = (name: string) => import(`../offline/${name}/b`)", "const c = `${`${import(`./c`)}`}`"].join("\n")
+    expect(importsOf(text)).toEqual([
+      { spec: "../offline/a", line: 1, typeOnly: false },
+      { spec: "../offline/", line: 2, typeOnly: false, computed: true },
+      { spec: "./c", line: 3, typeOnly: false },
+    ])
+  })
+
+  it("read the code after strings and regular expressions that contain comment or quote characters", () => {
+    const text = [
+      'const glob = "src/*"',
+      'import { a } from "../offline/a"',
+      'const end = "*/"; const url = "http: //x"; import { b } from "../offline/b"',
+      "const quote = /\"/; const slash = /\\/\\//g; import { c } from '../offline/c'",
+      "const ratio = 4 / 2; import { d } from '../offline/d' // /",
+      'const t = `${"}"} //`; import { e } from "../offline/e"',
+    ].join("\n")
+    expect(importsOf(text).map(({ spec, line }) => [spec, line])).toEqual([
+      ["../offline/a", 2],
+      ["../offline/b", 3],
+      ["../offline/c", 4],
+      ["../offline/d", 5],
+      ["../offline/e", 6],
+    ])
+  })
+
+  it("take a default import named type for a value import", () => {
+    const text = [
+      'import type from "./a"',
+      'import type, { b } from "./b"',
+      'import type = require("./c")',
+      'import type from from "./d"',
+      'import type { from } from "./e"',
+      'import { from } from "./f"',
+      'import x = require("./g")',
+    ].join("\n")
+    expect(importsOf(text).map(({ spec, typeOnly }) => [spec, typeOnly])).toEqual([
+      ["./a", false],
+      ["./b", false],
+      ["./c", false],
+      ["./d", true],
+      ["./e", true],
+      ["./f", false],
+      ["./g", false],
+    ])
+  })
+
+  it("leave out import.meta, properties named import and export statements without a path", () => {
+    const text = ['const u = import.meta.url', 'const o = { import: 1 }; o.import; o?.import', "export { u }", "export const v = 1", 'export default "./w"', "export type X = 1"].join("\n")
+    expect(importsOf(text)).toEqual([])
+  })
 })
 
 describe("layer check", () => {
@@ -92,7 +145,8 @@ describe("layer check", () => {
         "src/options/o.ts": 'import { DictionaryStore } from "../offline/dictionary/store"',
         "src/tools/t.ts": "export {}",
         "src/background/index.ts": 'import { setUp } from "../e2e/background"',
-        "src/hooks/hook.ts": 'import { run } from "../background/run"\nimport type { X } from "../popup/x"',
+        "src/hooks/hook.ts": 'import { run } from "../background/run"\nimport type { X } from "../popup/x"\nimport type from "../shared/t"',
+        "src/welcome/w.ts": 'const glob = "*/*"\nconst b = () => import(`../background/b`)\nconst c = (n: string) => import(`../${n}/c`)',
       },
       (dir) =>
         expect(checkImports(dir).problems).toEqual([
@@ -100,6 +154,7 @@ describe("layer check", () => {
           "src/content/c.ts:1: content must not import options (../options/dom)",
           "src/hooks/hook.ts:1: hooks may import types only (../background/run)",
           "src/hooks/hook.ts:2: hooks must not import popup (../popup/x)",
+          "src/hooks/hook.ts:3: hooks may import types only (../shared/t)",
           "src/offline/o.ts:1: ../../vendor/data.json is outside src/",
           "src/options/o.ts:1: options must not import offline (../offline/dictionary/store)",
           "src/popup/index.ts:1: popup must not import background (../background/side)",
@@ -107,6 +162,8 @@ describe("layer check", () => {
           "src/shared/a.ts:3: shared must not import background (../background/x)",
           "src/shared/a.ts:4: shared must not import offline (../offline/y)",
           "src/tools/t.ts: directory src/tools/ belongs to no layer",
+          "src/welcome/w.ts:2: welcome must not import background (../background/b)",
+          "src/welcome/w.ts:3: the path of a dynamic import is computed and cannot be checked (../…)",
         ]),
     )
   })

@@ -1,10 +1,16 @@
 // Checks the layers of src/: every relative import of a source file must point into a directory its layer may use.
-// Import forms: import … from, import type … from, export … from, side-effect import "…", dynamic import("…"),
-// also over several lines. npm packages are not checked; outside src/ only locales/*.json may be imported.
-// The files of src/hooks/ hold no code that runs: they import types only.
-import { existsSync, readdirSync, readFileSync, statSync } from "node:fs"
+// Import forms: import … from, import type … from, export … from, side-effect import "…", import x = require("…"),
+// dynamic import("…") and import(`…`), also over several lines. npm packages are not checked; outside src/ only
+// locales/*.json may be imported. The files of src/hooks/ hold no code that runs: they import types only.
+//
+// The imports are read from the tokens of TypeScript's own scanner (typescript/unstable/ast/scanner, the scanner
+// TypeScript 7 publishes for tools), the way ts.preProcessFile of TypeScript 5 read them: comments, strings,
+// template literals and regular expressions are tokens of their own, so text inside them is never taken for code.
+import { readdirSync, readFileSync, statSync } from "node:fs"
 import { dirname, join, relative, resolve, sep } from "node:path"
 import { fileURLToPath } from "node:url"
+import { SyntaxKind as K } from "typescript/unstable/ast"
+import { createScanner } from "typescript/unstable/ast/scanner"
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "..")
 
@@ -25,33 +31,121 @@ export const LAYERS = {
 /** Layers whose files hold no code that runs: they may import types only (import type, export type). */
 export const TYPE_ONLY_LAYERS = new Set(["hooks"])
 
-/** The source with comments blanked out (newlines kept), so positions and line numbers stay as they are. */
-export function withoutComments(text) {
-  const blank = (s) => s.replace(/[^\n]/g, " ")
-  return text.replace(/\/\*[\s\S]*?\*\//g, blank).replace(/(^|[\s;{}])\/\/[^\n]*/g, (m, lead) => lead + blank(m.slice(lead.length)))
+/** Tokens after which a slash divides; after any other token it starts a regular expression. */
+const EXPRESSION_END = new Set([
+  K.Identifier,
+  K.NumericLiteral,
+  K.BigIntLiteral,
+  K.StringLiteral,
+  K.NoSubstitutionTemplateLiteral,
+  K.TemplateTail,
+  K.RegularExpressionLiteral,
+  K.CloseParenToken,
+  K.CloseBracketToken,
+  K.CloseBraceToken,
+  K.ThisKeyword,
+  K.SuperKeyword,
+  K.TrueKeyword,
+  K.FalseKeyword,
+  K.NullKeyword,
+])
+
+/** The tokens of a source text without comments and white space: kind, the value of a literal, and the start offset. */
+export function tokensOf(text) {
+  const scanner = createScanner(true, 0, text)
+  const tokens = []
+  // The brace depth at which each open template substitution `${ … }` started.
+  const templates = []
+  let depth = 0
+  for (;;) {
+    let kind = scanner.scan()
+    if (kind === K.EndOfFile) break
+    if ((kind === K.SlashToken || kind === K.SlashEqualsToken) && !EXPRESSION_END.has(tokens.at(-1)?.kind)) kind = scanner.reScanSlashToken()
+    if (kind === K.TemplateHead) templates.push(depth)
+    else if (kind === K.OpenBraceToken) depth++
+    else if (kind === K.CloseBraceToken) {
+      if (templates.at(-1) === depth) {
+        kind = scanner.reScanTemplateToken(false)
+        if (kind === K.TemplateTail) templates.pop()
+      } else depth--
+    }
+    tokens.push({ kind, value: scanner.getTokenValue(), start: scanner.getTokenStart() })
+  }
+  return tokens
 }
 
-const IMPORT_PATTERNS = [
-  // import x from, import { a, b } from (also over several lines), import type, import * as, export … from
-  /\b(?:import|export)\s+(?<type>type\s+)?[\w$\s{},*]*?\bfrom\s*(?<q>["'])(?<spec>[^"'\n]+)\k<q>/g,
-  // side-effect import
-  /\bimport\s*(?<q>["'])(?<spec>[^"'\n]+)\k<q>/g,
-  // dynamic import
-  /\bimport\s*\(\s*(?<q>["'])(?<spec>[^"'\n]+)\k<q>\s*\)/g,
-]
+const isString = (token) => token?.kind === K.StringLiteral || token?.kind === K.NoSubstitutionTemplateLiteral
 
-/** The import specifiers of a source text with their line numbers, in the order they appear; typeOnly for import type and export type. */
+/** Tokens of an import clause: names, braces, commas, `*`, `as`, `type`; a `from` ends it only before the path. */
+const inClause = (tokens, j) => {
+  const token = tokens[j]
+  if (!token || token.kind === K.SemicolonToken || token.kind === K.EqualsToken || isString(token)) return false
+  // `import { from } from "…"`, `import from from "…"`: a `from` that is not followed by the path is a name.
+  return token.kind !== K.FromKeyword || !isString(tokens[j + 1])
+}
+
+/**
+ * The import specifiers of a source text with their line numbers, in the order they appear; typeOnly for import type
+ * and export type. A dynamic import whose path is a template literal with substitutions gets computed: true.
+ */
 export function importsOf(text) {
-  const code = withoutComments(text)
-  const found = new Map()
-  for (const pattern of IMPORT_PATTERNS) {
-    for (const m of code.matchAll(pattern)) {
-      const { q, spec, type } = m.groups
-      const at = m.index + m[0].lastIndexOf(q + spec + q)
-      found.set(at, { spec, line: code.slice(0, at).split("\n").length, typeOnly: type !== undefined })
+  const tokens = tokensOf(text)
+  const found = []
+  const add = (token, typeOnly, computed = false) => {
+    const entry = { spec: token.value, line: text.slice(0, token.start).split("\n").length, typeOnly }
+    found.push(computed ? { ...entry, computed } : entry)
+  }
+  for (let i = 0; i < tokens.length; i++) {
+    const { kind } = tokens[i]
+    const previous = tokens[i - 1]?.kind
+    // obj.import, obj?.import
+    if (previous === K.DotToken || previous === K.QuestionDotToken) continue
+    if (kind === K.ImportKeyword) {
+      const next = tokens[i + 1]
+      if (!next || next.kind === K.DotToken) continue
+      if (next.kind === K.OpenParenToken) {
+        const arg = tokens[i + 2]
+        if (isString(arg)) add(arg, false)
+        else if (arg?.kind === K.TemplateHead) add(arg, false, true)
+        continue
+      }
+      let j = i + 1
+      let typeOnly = false
+      if (next.kind === K.TypeKeyword) {
+        // `import type from "…"`, `import type, { a } from "…"` and `import type = require("…")` import a value named type.
+        const after = tokens[j + 1]
+        const namedType = after?.kind === K.CommaToken || after?.kind === K.EqualsToken || (after?.kind === K.FromKeyword && isString(tokens[j + 2]))
+        if (!namedType) {
+          typeOnly = true
+          j++
+        }
+      }
+      if (isString(tokens[j])) {
+        add(tokens[j], typeOnly)
+        continue
+      }
+      while (inClause(tokens, j)) j++
+      if (tokens[j]?.kind === K.FromKeyword) add(tokens[j + 1], typeOnly)
+      else if (tokens[j]?.kind === K.EqualsToken && tokens[j + 1]?.kind === K.RequireKeyword && tokens[j + 2]?.kind === K.OpenParenToken && isString(tokens[j + 3]))
+        add(tokens[j + 3], typeOnly)
+    } else if (kind === K.ExportKeyword) {
+      let j = i + 1
+      let typeOnly = false
+      if (tokens[j]?.kind === K.TypeKeyword) {
+        typeOnly = true
+        j++
+      }
+      if (tokens[j]?.kind === K.AsteriskToken) {
+        j++
+        if (tokens[j]?.kind === K.AsKeyword) j += 2
+      } else if (tokens[j]?.kind === K.OpenBraceToken) {
+        while (j < tokens.length && tokens[j].kind !== K.CloseBraceToken) j++
+        j++
+      } else continue
+      if (tokens[j]?.kind === K.FromKeyword && isString(tokens[j + 1])) add(tokens[j + 1], typeOnly)
     }
   }
-  return [...found.entries()].sort(([a], [b]) => a - b).map(([, v]) => v)
+  return found
 }
 
 function sourceFiles(dir) {
@@ -79,8 +173,12 @@ export function checkImports(dir = root) {
       problems.push(`${name}: directory src/${layer}/ belongs to no layer`)
       continue
     }
-    for (const { spec, line, typeOnly } of importsOf(readFileSync(file, "utf8"))) {
+    for (const { spec, line, typeOnly, computed } of importsOf(readFileSync(file, "utf8"))) {
       const where = `${name}:${line}`
+      if (computed) {
+        problems.push(`${where}: the path of a dynamic import is computed and cannot be checked (${spec}…)`)
+        continue
+      }
       if (TYPE_ONLY_LAYERS.has(layer) && !typeOnly) problems.push(`${where}: ${layer} may import types only (${spec})`)
       if (!spec.startsWith(".")) continue
       checked++
