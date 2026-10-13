@@ -210,8 +210,8 @@ export class BergamotManager implements OfflineManager<BergamotPairInfo> {
 
   private async doInstall(src: string, tgt: string, onProgress?: (done: number, total: number) => void, signal?: AbortSignal): Promise<void> {
     const key = pairKey(src, tgt)
-    const { attachmentsBase } = await this.getRecords()
-    const pair = (await this.availablePairs()).get(key)
+    const { attachmentsBase, records } = await this.getRecords()
+    const pair = selectPairs(records).get(key)
     if (!pair) throw new LocalizedError("bergamotUnsupportedPair", [src, tgt])
     const existing = await this.deps.store.getPair(key).catch(() => undefined)
     if (existing && existing.version === pair.version) {

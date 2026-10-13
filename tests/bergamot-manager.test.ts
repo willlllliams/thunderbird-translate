@@ -177,6 +177,14 @@ describe("installation", () => {
     manager.engine.shutdown()
   })
 
+  it("takes the attachments base and the files of a pair from one read of the model list", async () => {
+    const { manager } = makeManager(triple("en", "fr"))
+    const getRecords = vi.spyOn(manager, "getRecords")
+    await manager.install("en", "fr")
+    expect(getRecords).toHaveBeenCalledTimes(1)
+    manager.engine.shutdown()
+  })
+
   it("treats an unreadable installed pair as not installed", async () => {
     const { manager, store } = makeManager(triple("en", "fr"))
     vi.spyOn(store, "getPair").mockRejectedValueOnce(new Error("broken row"))
