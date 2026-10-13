@@ -17,6 +17,7 @@ describe("source archive", () => {
     }
     expect(files.filter((f) => f.startsWith("src/")).sort()).toEqual(tree("src").filter((f) => !f.startsWith("src/e2e/")).sort())
     expect(files.filter((f) => !/^(src|static|scripts|locales|vendor|licenses)\//.test(f))).toEqual(["LICENSE", "SOURCE-BUILD.md", "VENDOR.md", "package-lock.json", "package.json", "tsconfig.json"])
+    expect(files).not.toContain("scripts/live-test.mjs")
     expect(files).toEqual([...files].sort())
   })
 

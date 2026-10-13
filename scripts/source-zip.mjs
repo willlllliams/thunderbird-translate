@@ -14,6 +14,8 @@ const root = resolve(dirname(fileURLToPath(import.meta.url)), "..")
 /** Directories of the archive, and directories inside them that stay out. */
 export const SOURCE_DIRS = ["src", "static", "scripts", "locales", "vendor", "licenses"]
 export const EXCLUDED_DIRS = ["src/e2e"]
+/** Files inside them that stay out: the test of the real Google and Microsoft endpoints (npm run live-test), which no build runs. */
+export const EXCLUDED_FILES = ["scripts/live-test.mjs"]
 /** Single files of the archive. */
 export const SOURCE_FILES = ["package.json", "package-lock.json", "tsconfig.json", "LICENSE", "SOURCE-BUILD.md", "VENDOR.md"]
 /** Time stamp of every entry, 2026-01-01 00:00: a zip stores local time, so the date is made from local fields (see scripts/build.mjs). */
@@ -26,7 +28,7 @@ function walk(base, dir, files) {
     const rel = `${dir}/${name}`
     if (statSync(join(base, rel)).isDirectory()) {
       if (!EXCLUDED_DIRS.includes(rel)) walk(base, rel, files)
-    } else files.push(rel)
+    } else if (!EXCLUDED_FILES.includes(rel)) files.push(rel)
   }
 }
 
