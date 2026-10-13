@@ -26,9 +26,13 @@ const artifacts = e2e ? join(root, ".cache", "e2e") : join(root, "web-ext-artifa
 const E2E_MARKER = "tt-e2e-hook"
 
 const pkg = JSON.parse(readFileSync(join(root, "package.json"), "utf8"))
+const lock = JSON.parse(readFileSync(join(root, "package-lock.json"), "utf8"))
 const manifest = JSON.parse(readFileSync(join(root, "static", "manifest.json"), "utf8"))
-if (manifest.version !== pkg.version) {
-  console.error(`Version mismatch: manifest ${manifest.version} vs package.json ${pkg.version}`)
+// The version lives in four places: the manifest, package.json and both fields of package-lock.json.
+const versions = { "package.json": pkg.version, "package-lock.json version": lock.version, 'package-lock.json packages[""].version': lock.packages?.[""]?.version }
+const mismatches = Object.entries(versions).filter(([, version]) => version !== manifest.version)
+if (mismatches.length) {
+  console.error(`Version mismatch: manifest ${manifest.version} vs ${mismatches.map(([where, version]) => `${where} ${version}`).join(", ")}`)
   process.exit(1)
 }
 

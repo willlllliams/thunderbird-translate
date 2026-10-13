@@ -226,17 +226,21 @@ After editing any Markdown file, run `npm run docs:check`. It resolves every rel
 
 ## Release process
 
-The version lives in three places, which must agree: `static/manifest.json`, `package.json` and `package-lock.json`. The build reads it from the manifest. Every version has an entry in `CHANGELOG.md`; versions follow [Semantic Versioning](https://semver.org/).
+The version lives in four places, which must agree: `static/manifest.json`, `package.json`, and `version` and `packages[""].version` of `package-lock.json`. The build reads it from the manifest and stops when one of the other three differs. Every version has a section `## <version> - <date>` in `CHANGELOG.md`, which becomes the text of its release; versions follow [Semantic Versioning](https://semver.org/).
 
 The workflow `.github/workflows/release.yml` (named "Build") runs on every push to `main`, on pull requests and on manual dispatch.
 
-1. Job `build`: `npm ci`, `npm run typecheck`, `npm run locales:check`, `npm run docs:check`, `npm run imports:check`, `npm run test:coverage` and `npm run build`. The xpi is uploaded as a build artifact named after the version and the short commit hash, kept for 30 days.
+1. Job `build`: `npm ci`, `npm run typecheck`, `npm run locales:check`, `npm run docs:check`, `npm run imports:check`, `npm run test:coverage` and `npm run build`. The xpi is uploaded as a build artifact named after the version and the short commit hash, kept for 30 days. Then `scripts/release-notes.mjs` writes the section of the version in `CHANGELOG.md` to a file, with relative links pointing to the files at the tag of the version, and uploads it as a second artifact. A version without a section of its own fails here.
 2. Job `e2e`: the end-to-end test against the four Thunderbird versions listed above.
-3. Job `release`, after both succeed and not for pull requests:
+3. Job `release`, after both succeed, on a push to `main` and on manual dispatch (not for pull requests). It is the only job with write access to the repository.
    - On a push, it replaces the `nightly` pre-release with the xpi of this commit, named `thunderbird-translate-<version>-<sha>.xpi`. The nightly build is for testing.
-   - If no release `v<version>` exists yet, it creates one with the xpi, generated release notes, and marks it as the latest release.
+   - If no release `v<version>` exists yet, it creates one with the xpi and that text as its description, and marks it as the latest release. A manual dispatch does the same when the version has no release yet.
 
 A new versioned release therefore appears when a commit with a new version number reaches `main` and passes all checks. Pushing more commits with the same version only updates `nightly`.
+
+Runs of the same branch or pull request do not overlap. A new push to a pull request cancels its running run. On `main` a running run finishes, and a run still waiting gives way to a newer one.
+
+To check the text of a release before pushing, run `node scripts/release-notes.mjs <version> <file>`.
 
 The dictionary packs have their own manually triggered workflow, `.github/workflows/dicts.yml`, which publishes to the release `dicts-v1`; see [dictionary-packs.md](dictionary-packs.md#发布).
 
