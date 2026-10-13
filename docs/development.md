@@ -27,7 +27,8 @@ npm run build
 
 1. It bundles the background script, the content script, the popup, the settings page, the setup guide and the Bergamot worker into `dist/` with esbuild.
 2. It generates `dist/_locales/<language>/messages.json` from the files in `locales/`.
-3. It packs `dist/` into `web-ext-artifacts/thunderbird-translate-<version>.xpi`. Packing uses the pure JavaScript fflate library and needs no system zip command.
+3. It writes `dist/THIRD-PARTY-NOTICES.txt` with `scripts/notices.mjs`: every npm package esbuild bundled, with version, license, copyright line and license text, then the Bergamot engine with the address of its source code, and the licenses of the dictionary data. The packages come from the files esbuild read (its metafile). The build stops when a bundled package is not declared in `scripts/notices.mjs`, a declared one is no longer bundled, a license differs from the declaration, or a license text or copyright line is missing. The texts an npm package lacks are kept in `licenses/` together with their source address, so the build needs no network for them.
+4. It packs `dist/` into `web-ext-artifacts/thunderbird-translate-<version>.xpi`. Packing uses the pure JavaScript fflate library and needs no system zip command.
 
 The background script is an ES module. The AI SDK is a separate chunk under `dist/chunks/` that loads once the AI tier is in use, so Thunderbird starts the extension without it. The first build downloads the pinned Bergamot engine (wasm) from Mozilla into `.cache/`, see [bergamot.md](bergamot.md#build).
 
@@ -147,7 +148,8 @@ src/
   e2e/           code of the e2e test build: the defined hooks (e2e/hooks/) and the probes they run
 locales/         interface text, one JSON file per language; en.json is the reference
 static/          manifest.json, HTML, CSS, SVG icon
-scripts/         build and the hook plugin of the e2e build, Bergamot engine download, locale generation and checks, Markdown link check, layer check of src/, live endpoint test
+licenses/        license texts for THIRD-PARTY-NOTICES.txt: those some npm packages lack, the Apache License 2.0, Marian, ECDICT
+scripts/         build, third-party notices and the hook plugin of the e2e build, Bergamot engine download, locale generation and checks, Markdown link check, layer check of src/, live endpoint test
 vendor/
   bergamot/      Bergamot engine glue script (bergamot-translator.js)
 tools/           dict-build: the pipeline that builds the dictionary packs

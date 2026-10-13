@@ -7,6 +7,7 @@ import { zipSync } from "fflate"
 import { checkLocales, readLocaleSources, writeLocales } from "./locales.mjs"
 import { BERGAMOT_WASM_FILE, ensureBergamotWasm } from "./fetch-bergamot.mjs"
 import { e2eHooks } from "./e2e-hooks.mjs"
+import { thirdPartyNotices } from "./notices.mjs"
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..")
 // --debug: content script starts translating on load and logs progress to the console.
@@ -119,6 +120,14 @@ if (e2e && e2eSources.length === 0) {
 const unreplaced = inputs.filter((input) => input.startsWith("src/hooks/"))
 if (e2e && unreplaced.length) {
   console.error("hooks of src/hooks/ not replaced in the e2e build:", unreplaced)
+  process.exit(1)
+}
+// The npm packages of the bundles with their licenses, the Bergamot engine and the dictionary data; stops on a bundled
+// package that scripts/notices.mjs does not declare, and on a missing license text or copyright line.
+try {
+  writeFileSync(join(dist, "THIRD-PARTY-NOTICES.txt"), thirdPartyNotices({ root, inputs, version: manifest.version }))
+} catch (error) {
+  console.error(error.message)
   process.exit(1)
 }
 const jsOutputs = Object.entries(result.metafile.outputs).filter(([file]) => file.endsWith(".js"))
