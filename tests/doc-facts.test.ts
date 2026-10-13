@@ -1,5 +1,5 @@
 /**
- * Numbers and names the documents state, checked against the code: the number of AI provider presets, the interface
+ * Numbers and names the documents state, checked against the code: the number of AI provider presets, the extension name, the interface
  * languages and the keyboard shortcuts. The 12 READMEs share their structure, so a translated README states a number
  * on the same lines as README.md.
  */
@@ -45,6 +45,18 @@ describe("facts in the documents", () => {
     expect(Number(development.match(/The README exists in the same (\d+) languages/)?.[1])).toBe(languages)
     const table = [...development.matchAll(/^\| `([a-z]{2}(?:_[A-Z]{2})?)` \| /gm)].map((m) => m[1])
     expect(table).toEqual([...SUPPORTED_LOCALES])
+  })
+
+  it("name the extension '<name> for Thunderbird' in every interface language, as the add-on site requires, and title each README with it", () => {
+    const readmeOf = (locale: string) => (locale === "en" ? "README.md" : `readmes/README.${locale.replace("_", "-")}.md`)
+    for (const locale of SUPPORTED_LOCALES) {
+      const name = (JSON.parse(read(`locales/${locale}.json`)) as { extensionName: string }).extensionName
+      // Thunderbird appears once, at the end, after the word for "for" of the language.
+      expect([locale, /^\S.* (for|para|pour|für|для|cho) Thunderbird$/u.test(name), name.split("Thunderbird").length]).toEqual([locale, true, 2])
+      expect([locale, name.startsWith("Thunderbird")]).toEqual([locale, false])
+      expect([locale, read(readmeOf(locale)).split("\n")[0]]).toEqual([locale, `# ${name}`])
+    }
+    expect((JSON.parse(read("locales/en.json")) as { extensionName: string }).extensionName).toBe("Multi Translate for Thunderbird")
   })
 
   it("name the keyboard shortcuts of the manifest, and no other", () => {

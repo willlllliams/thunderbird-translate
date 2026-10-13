@@ -1,5 +1,5 @@
 {
-  "extensionName": "Thunderbird Translate",
+  "extensionName": "Multi-Übersetzer für Thunderbird",
   "extensionDescription": "Übersetzt den Text von E-Mails direkt in der Nachricht: zweisprachig oder nur Übersetzung, mit den kostenlosen Übersetzern von Google/Microsoft und über 20 KI-Anbietern.",
   "actionTitle": "Nachricht übersetzen",
   "commandToggle": "Übersetzen / Original anzeigen",
@@ -39,7 +39,7 @@
   "labelPrecise": "Präzise Übersetzung",
   "popupSettings": "Einstellungen",
   "popupShortcuts": "Tastenkombinationen: Alt+A übersetzen, Alt+S Anzeige umschalten, Alt+R neu übersetzen",
-  "optionsTitle": "Thunderbird Translate – Einstellungen",
+  "optionsTitle": "Multi-Übersetzer für Thunderbird – Einstellungen",
   "sectionGeneral": "Allgemein",
   "labelUiLanguage": "Sprache der Benutzeroberfläche",
   "uiLanguageAuto": "Wie Thunderbird ($1)",
@@ -210,7 +210,7 @@
   "hintModelGeneric": "Das Modell existiert möglicherweise nicht oder ist mit diesem Schlüssel nicht verfügbar. Modellnamen prüfen.",
 
   "openWelcome": "Einrichtungsassistent",
-  "welcomeTitle": "Thunderbird Translate einrichten",
+  "welcomeTitle": "Multi-Übersetzer für Thunderbird einrichten",
   "welcomeProgress": "Schritte des Assistenten",
   "buttonExitGuide": "Assistent beenden",
   "buttonBack": "Zurück",
@@ -272,7 +272,7 @@
   "welcomeAiRequests": "Denkmodus und präzise Übersetzung machen die Übersetzung beide langsamer und teurer. Im Denkmodus erzeugt das Modell bei jeder Anfrage zusätzliche Denk-Tokens. Die präzise Übersetzung sendet benachbarte Absätze als Kontext mit und bei langen Nachrichten eine zusätzliche Analyseanfrage. Die Übersetzung gelingt auch ohne beides gut.",
   "welcomePromptsIntro": "Die KI-Stufe verwendet einen von drei Prompts: Der zweisprachige Prompt bleibt nah am Original, der Prompt für „Nur Übersetzung“ schreibt flüssigen Text, und der Prompt der präzisen Übersetzung hält Begriffe in der ganzen Nachricht einheitlich. Eine Vorlage fügt einem davon Regeln hinzu, etwa eine regionale Variante oder einen Schreibstil. Das Prompt-Feld zeigt den zusammengesetzten Text, den Sie weiter bearbeiten können; „Integrierten Prompt wiederherstellen“ entfernt alle Zusätze.",
   "welcomeFinishIntro": "Die Erweiterung ist bereit. So übersetzen Sie eine Nachricht:",
-  "welcomeUseButton": "Öffnen Sie eine Nachricht und klicken Sie in der Symbolleiste des Nachrichtenkopfs auf die Schaltfläche von Thunderbird Translate. Das Pop-up startet die Übersetzung, zeigt den Fortschritt und enthält die meistgenutzten Schalter.",
+  "welcomeUseButton": "Öffnen Sie eine Nachricht und klicken Sie in der Symbolleiste des Nachrichtenkopfs auf die Schaltfläche von Multi-Übersetzer für Thunderbird. Das Pop-up startet die Übersetzung, zeigt den Fortschritt und enthält die meistgenutzten Schalter.",
   "welcomeUseAltA": "Alt+A übersetzt die angezeigte Nachricht oder zeigt wieder das Original.",
   "welcomeUseAltS": "Alt+S wechselt zwischen zweisprachiger Anzeige und „Nur Übersetzung“.",
   "welcomeTryTitle": "Ausprobieren",

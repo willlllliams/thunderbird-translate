@@ -1,5 +1,5 @@
 {
-  "extensionName": "Thunderbird Translate",
+  "extensionName": "Çoklu Çeviri for Thunderbird",
   "extensionDescription": "E-posta gövdelerini yerinde çevirir: iki dilli veya yalnızca çeviri; ücretsiz Google/Microsoft çevirmenleri ve 20'den fazla yapay zekâ sağlayıcısı.",
   "actionTitle": "İletiyi çevir",
   "commandToggle": "Çevir / özgün metni göster",
@@ -41,7 +41,7 @@
   "popupSettings": "Ayarlar",
   "popupShortcuts": "Kısayollar: Alt+A çevir, Alt+S görünümü değiştir, Alt+R yeniden çevir",
 
-  "optionsTitle": "Thunderbird Translate ayarları",
+  "optionsTitle": "Çoklu Çeviri for Thunderbird ayarları",
   "sectionGeneral": "Genel",
   "labelUiLanguage": "Arayüz dili",
   "uiLanguageAuto": "Thunderbird ile aynı ($1)",
@@ -213,7 +213,7 @@
   "hintModelGeneric": "Model mevcut olmayabilir veya bu anahtarla kullanılamıyor olabilir. Model adını kontrol edin.",
 
   "openWelcome": "Kurulum rehberi",
-  "welcomeTitle": "Thunderbird Translate kurulumu",
+  "welcomeTitle": "Çoklu Çeviri for Thunderbird kurulumu",
   "welcomeProgress": "Rehber adımları",
   "buttonExitGuide": "Rehberden çık",
   "buttonBack": "Geri",
@@ -275,7 +275,7 @@
   "welcomeAiRequests": "Düşünme modu da hassas çeviri de çeviriyi yavaşlatır ve pahalılaştırır. Düşünme modunda model her istekte akıl yürütme belirteçleri üretir. Hassas çeviri komşu paragrafları bağlam olarak gönderir ve uzun iletilerde fazladan bir analiz isteği yapar. Çeviri ikisi olmadan da iyi çalışır.",
   "welcomePromptsIntro": "Yapay zekâ kademesi üç istemden birini kullanır: iki dilli istem özgün metne yakın kalır, yalnızca çeviri istemi akıcı bir metin yazar, hassas çeviri istemi de terimleri ileti boyunca tutarlı tutar. Bir hazır ayar bunlardan birine bölgesel bir dil çeşidi veya yazım üslubu gibi kurallar ekler. İstem kutusu birleşik metni gösterir ve bu metni yine düzenleyebilirsiniz; \"Yerleşik istemi geri yükle\" tüm eklemeleri kaldırır.",
   "welcomeFinishIntro": "Eklenti hazır. Bir iletiyi çevirmek için:",
-  "welcomeUseButton": "Bir ileti açın ve ileti başlığı araç çubuğundaki Thunderbird Translate düğmesine tıklayın. Açılır pencere çeviriyi başlatır, ilerlemeyi gösterir ve en çok kullanılan seçenekleri içerir.",
+  "welcomeUseButton": "Bir ileti açın ve ileti başlığı araç çubuğundaki Çoklu Çeviri for Thunderbird düğmesine tıklayın. Açılır pencere çeviriyi başlatır, ilerlemeyi gösterir ve en çok kullanılan seçenekleri içerir.",
   "welcomeUseAltA": "Alt+A görüntülenen iletiyi çevirir ya da özgün metni yeniden gösterir.",
   "welcomeUseAltS": "Alt+S iki dilli görünüm ile yalnızca çeviri arasında geçiş yapar.",
   "welcomeTryTitle": "Deneyin",

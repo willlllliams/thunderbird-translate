@@ -1,5 +1,5 @@
 {
-  "extensionName": "Thunderbird 邮件翻译",
+  "extensionName": "聚合邮件翻译 for Thunderbird",
   "extensionDescription": "在阅读窗格中翻译邮件正文：双语对照或仅译文，支持免费的谷歌/微软翻译与 20 多个 AI 服务商。",
   "actionTitle": "翻译邮件",
   "commandToggle": "翻译 / 显示原文",
@@ -39,7 +39,7 @@
   "labelPrecise": "精翻",
   "popupSettings": "设置",
   "popupShortcuts": "快捷键：Alt+A 翻译，Alt+S 切换显示方式，Alt+R 重新翻译",
-  "optionsTitle": "Thunderbird 邮件翻译设置",
+  "optionsTitle": "聚合邮件翻译 for Thunderbird设置",
   "sectionGeneral": "常规",
   "labelUiLanguage": "界面语言",
   "uiLanguageAuto": "跟随 Thunderbird（$1）",
@@ -210,7 +210,7 @@
   "hintModelGeneric": "模型可能不存在，或当前密钥无权使用。请检查模型名。",
 
   "openWelcome": "新手引导",
-  "welcomeTitle": "设置 Thunderbird 邮件翻译",
+  "welcomeTitle": "设置 聚合邮件翻译 for Thunderbird",
   "welcomeProgress": "引导步骤",
   "buttonExitGuide": "退出引导",
   "buttonBack": "上一步",
@@ -272,7 +272,7 @@
   "welcomeAiRequests": "思考模式和精翻都会让翻译更慢、费用更高。思考模式让模型在每次请求中额外生成推理内容；精翻会附带相邻段落作为上下文，长邮件还会多发一次全文分析请求。不开这两项，翻译效果也很好。",
   "welcomePromptsIntro": "AI 层级使用三套提示词之一：双语对照提示词贴近原文，仅译文提示词写出通顺的文字，精翻提示词让整封邮件的术语保持一致。预设会向其中一套追加规则，例如地区用语或文风。提示词编辑框显示组合后的文本，你仍可手动修改；“恢复内置提示词”会去掉所有追加内容。",
   "welcomeFinishIntro": "扩展已准备就绪。翻译邮件的方法：",
-  "welcomeUseButton": "打开一封邮件，点击邮件头工具栏中的 Thunderbird 邮件翻译按钮。弹出面板可以开始翻译、显示进度，并提供常用开关。",
+  "welcomeUseButton": "打开一封邮件，点击邮件头工具栏中的 聚合邮件翻译 for Thunderbird按钮。弹出面板可以开始翻译、显示进度，并提供常用开关。",
   "welcomeUseAltA": "Alt+A 翻译当前显示的邮件，再按一次显示原文。",
   "welcomeUseAltS": "Alt+S 在双语对照和仅译文之间切换。",
   "welcomeTryTitle": "试一试",

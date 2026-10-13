@@ -1,5 +1,5 @@
 {
-  "extensionName": "Thunderbird Translate",
+  "extensionName": "Dịch Đa Nguồn cho Thunderbird",
   "extensionDescription": "Dịch nội dung thư ngay tại chỗ: song ngữ hoặc chỉ bản dịch, dịch vụ dịch miễn phí của Google/Microsoft và hơn 20 nhà cung cấp AI.",
   "actionTitle": "Dịch thư",
   "commandToggle": "Dịch / hiện bản gốc",
@@ -39,7 +39,7 @@
   "labelPrecise": "Dịch chính xác",
   "popupSettings": "Cài đặt",
   "popupShortcuts": "Phím tắt: Alt+A dịch, Alt+S chuyển chế độ hiển thị, Alt+R dịch lại",
-  "optionsTitle": "Cài đặt Thunderbird Translate",
+  "optionsTitle": "Cài đặt Dịch Đa Nguồn cho Thunderbird",
   "sectionGeneral": "Chung",
   "labelUiLanguage": "Ngôn ngữ giao diện",
   "uiLanguageAuto": "Theo Thunderbird ($1)",
@@ -210,7 +210,7 @@
   "hintModelGeneric": "Mô hình có thể không tồn tại hoặc không dùng được với khóa này. Hãy kiểm tra tên mô hình.",
 
   "openWelcome": "Hướng dẫn thiết lập",
-  "welcomeTitle": "Thiết lập Thunderbird Translate",
+  "welcomeTitle": "Thiết lập Dịch Đa Nguồn cho Thunderbird",
   "welcomeProgress": "Các bước hướng dẫn",
   "buttonExitGuide": "Thoát hướng dẫn",
   "buttonBack": "Quay lại",
@@ -272,7 +272,7 @@
   "welcomeAiRequests": "Chế độ suy nghĩ và dịch chính xác đều làm việc dịch chậm hơn và tốn kém hơn. Ở chế độ suy nghĩ, mô hình tạo thêm token suy luận trong mỗi yêu cầu. Dịch chính xác gửi kèm các đoạn lân cận làm ngữ cảnh và, với thư dài, thêm một yêu cầu phân tích. Không bật hai tùy chọn này thì việc dịch vẫn tốt.",
   "welcomePromptsIntro": "Tầng AI dùng một trong ba lời nhắc: lời nhắc song ngữ bám sát bản gốc, lời nhắc chỉ bản dịch viết văn trôi chảy, còn lời nhắc dịch chính xác giữ thuật ngữ nhất quán trong cả thư. Một mẫu có sẵn thêm quy tắc vào một trong số đó, ví dụ một biến thể vùng miền hoặc một văn phong. Ô lời nhắc hiển thị văn bản đã ghép và bạn vẫn có thể sửa; \"Khôi phục lời nhắc tích hợp sẵn\" xóa mọi phần đã thêm.",
   "welcomeFinishIntro": "Tiện ích đã sẵn sàng. Để dịch một thư:",
-  "welcomeUseButton": "Mở một thư và bấm nút Thunderbird Translate trên thanh công cụ tiêu đề thư. Cửa sổ bật lên sẽ bắt đầu dịch, hiển thị tiến độ và chứa các công tắc hay dùng nhất.",
+  "welcomeUseButton": "Mở một thư và bấm nút Dịch Đa Nguồn cho Thunderbird trên thanh công cụ tiêu đề thư. Cửa sổ bật lên sẽ bắt đầu dịch, hiển thị tiến độ và chứa các công tắc hay dùng nhất.",
   "welcomeUseAltA": "Alt+A dịch thư đang hiển thị, hoặc hiện lại bản gốc.",
   "welcomeUseAltS": "Alt+S chuyển giữa hiển thị song ngữ và chỉ bản dịch.",
   "welcomeTryTitle": "Dùng thử",

@@ -51,7 +51,7 @@ export function buildProviderSettings(resolved: ResolvedProvider): ProviderSetti
     headers["anthropic-dangerous-direct-browser-access"] = "true"
   }
   if (resolved.id === "openrouter") {
-    headers["X-Title"] = "Thunderbird Translate"
+    headers["X-Title"] = "Multi Translate for Thunderbird"
   }
   return { sdk: preset.sdk, baseURL: resolved.baseURL, apiKey: resolved.apiKey, headers, model: resolved.model }
 }

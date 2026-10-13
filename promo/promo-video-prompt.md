@@ -1,6 +1,6 @@
 # 宣传片提示词：等轴 2.5D「邮城」
 
-本文件是 Thunderbird Translate 宣传片的完整提示词，基于「等轴 2.5D Isometric」风格模板改写。宣传片分两段生成：前半 20 秒用一座微缩城市讲三层翻译的原理，后半 50 秒在同一座城里逐个演示扩展的功能，两段拼接成约 70 秒的成片。
+本文件是 Multi Translate for Thunderbird 宣传片的完整提示词，基于「等轴 2.5D Isometric」风格模板改写。宣传片分两段生成：前半 20 秒用一座微缩城市讲三层翻译的原理，后半 50 秒在同一座城里逐个演示扩展的功能，两段拼接成约 70 秒的成片。
 
 使用方法：新建一个空文件夹，在里面打开能写代码、能执行命令的 AI 助手（本机需要 Node、Chrome 和 ffmpeg），把对应的代码块整段发送。后半部分还需要前半的成片和最后一帧作参考，准备步骤见[后半部分](#后半部分功能街区50-秒)。
 
@@ -39,7 +39,7 @@ HTML: Three.js OrthographicCamera at true isometric angle + soft shadows + AO (t
 (You may choose a better route if it clearly raises quality; say why.)
 
 # Creative seed
-「邮城」—— 一封外文邮件进城，依次经过三层翻译楼，最后变成读得懂的中文。产品：Thunderbird Translate（Thunderbird 邮件翻译扩展）。
+「邮城」—— 一封外文邮件进城，依次经过三层翻译楼，最后变成读得懂的中文。产品：Multi Translate for Thunderbird（聚合邮件翻译 for Thunderbird）。
 
 画面基调
 - 真等轴正交镜头（35.264° 俯角，45° 方位角），无透视。主体是一座悬浮的微缩岛，地块取材于邮件客户端的界面：信封形屋顶、列表条纹道路、开关形状的地块。
@@ -57,7 +57,7 @@ HTML: Three.js OrthographicCamera at true isometric angle + soft shadows + AO (t
 - 14–16.5 s 高潮（约 14.5 s）：信纸从楼顶飞出，平铺在城市广场上，展开成一张大信纸，原文与中文逐行交错出现（双语对照）；一块开关地块翻转，原文行整齐收起，只剩中文（仅译文）；再翻回双语。
 - 16.5–18.5 s 对比：镜头整体平移后拉（不旋转，前中后景 1 : 0.8 : 0.6 视差）。本岛被一圈透明穹顶罩住，词典楼层和机器翻译楼层的灯在穹顶内亮着；只有通往数据中心的那一束光纤穿过穹顶。
 - 18.5–20 s 收尾：露出两座悬浮的岛，标题贴在等轴地面上：
-  主标题「Thunderbird Translate」
+  主标题「Multi Translate for Thunderbird」
   副标题「词典 · 本机翻译 · AI 三层接力」
   结尾保持约 1.2 秒：邮车继续绕城，穹顶内的灯微微闪烁，数据流缓慢脉动。
 
@@ -110,7 +110,7 @@ AE 里可用真 3D 图层+正交相机（无透视）偷懒，Motion Design Scho
   draw any time t on request, captured frame by frame with a headless browser and encoded with ffmpeg (or a Blender script
   that renders a PNG sequence).
 - Assets: only CC0 / public domain / OFL / Apache / free-for-commercial-use. Record each source and licence in CREDITS.md.
-  Use the product name "Thunderbird Translate" as given; do not draw the Thunderbird or Mozilla logos; invent any other
+  Use the product name "Multi Translate for Thunderbird" as given; do not draw the Thunderbird or Mozilla logos; invent any other
   brand names.
 - On-screen text must be correct and natural: idiomatic Chinese, proper CJK punctuation, no typos.
 
@@ -221,7 +221,7 @@ HTML: Three.js OrthographicCamera at true isometric angle + soft shadows + AO (t
 (You may choose a better route if it clearly raises quality; say why.)
 
 # Creative seed
-「功能街区」—— 镜头从前半「邮城」的结尾沿滑轨进岛，一条街上立着 8 块等轴屏幕面板，依次亮起，把扩展的界面一块块演示出来；最后退回两座悬浮岛，标题重新拼起。产品：Thunderbird Translate（Thunderbird 邮件翻译扩展）。本片是 70 秒宣传片的后半部分，前半是 20 秒的「邮城」，两段拼接后连续播放。
+「功能街区」—— 镜头从前半「邮城」的结尾沿滑轨进岛，一条街上立着 8 块等轴屏幕面板，依次亮起，把扩展的界面一块块演示出来；最后退回两座悬浮岛，标题重新拼起。产品：Multi Translate for Thunderbird（聚合邮件翻译 for Thunderbird）。本片是 70 秒宣传片的后半部分，前半是 20 秒的「邮城」，两段拼接后连续播放。
 
 参考文件（在当前文件夹中）
 - part1-last-frame.png：前半的最后一帧。本片第 0 帧必须与它一致：构图、配色、两座岛的位置、标题的字体与位置都相同。
@@ -321,7 +321,7 @@ HTML: Three.js OrthographicCamera at true isometric angle + soft shadows + AO (t
 - 45.7–46.6 s：一个「API 密钥」输入框（圆点）折成一把小钥匙，落进穹顶内的一个小保险柜，柜门关上。地面字幕「密钥只存在本机」。
 - 46.6–47.5 s：地面像前半的邮戳一样盖上「开源免费 · GPL-3.0」。
 - 47.5–48.8 s：镜头整体后拉（前中后景 1 : 0.8 : 0.6 视差），面板依次向地面放平收起；开场翻倒的铺路石重新立起，拼回标题，构图与前半结尾一致：
-  主标题「Thunderbird Translate」
+  主标题「Multi Translate for Thunderbird」
   副标题「词典 · 本机翻译 · AI 三层接力」
   下方一行「在 GitHub 下载」，其下一行等宽小字「willlllliams/thunderbird-translate」
 - 48.8–50 s：保持约 1.2 秒：邮车继续绕城，穹顶内的灯微微闪烁，数据流缓慢脉动，路牌轻轻摇晃。
@@ -340,7 +340,7 @@ HTML: Three.js OrthographicCamera at true isometric angle + soft shadows + AO (t
 - 译文样式：「译文样式」（sectionStyle）「样式」（labelStylePreset）「左侧竖线」（styleBorder）「左侧虚线」（styleDashed）「底色高亮」（styleHighlight）「无装饰」（stylePlain）「强调色」（labelColor）「文字颜色」（labelTextColor）「跟随邮件正文」（textColorAuto）「文字不透明度」（labelOpacity）「字号比例」（labelFontScale）；预览「The quarterly report is attached. Please review it before Friday.」（stylePreviewOriginal）「季度报告已附上，请在周五前审阅。」（stylePreviewTranslation）。
 - 界面语言：「界面语言」（labelUiLanguage）；路牌是 12 种界面语言的自称，与扩展的语言选择列表相同（src/shared/locales.ts 的 LOCALE_NATIVE_NAMES）。
 - 自拟字幕：「8 种常用语言，一键下载」「22 家 AI 服务商」「12 种界面语言」「密钥只存在本机」「开源免费 · GPL-3.0」。
-- 结尾：主标题「Thunderbird Translate」；副标题「词典 · 本机翻译 · AI 三层接力」；「在 GitHub 下载」；「willlllliams/thunderbird-translate」。
+- 结尾：主标题「Multi Translate for Thunderbird」；副标题「词典 · 本机翻译 · AI 三层接力」；「在 GitHub 下载」；「willlllliams/thunderbird-translate」。
 
 声音
 - 沿用前半的拨弦 / FM 马林巴动机，速度、调性和音色与前半相同（从 part1/ 的 cue sheet 读取，没有时从 part1.mp4 的声音测出）。
@@ -386,7 +386,7 @@ AE 里可用真 3D 图层+正交相机（无透视）偷懒，Motion Design Scho
   draw any time t on request, captured frame by frame with a headless browser and encoded with ffmpeg (or a Blender script
   that renders a PNG sequence).
 - Assets: only CC0 / public domain / OFL / Apache / free-for-commercial-use. Record each source and licence in CREDITS.md.
-  Use the product name "Thunderbird Translate" as given; do not draw the Thunderbird or Mozilla logos; invent any other
+  Use the product name "Multi Translate for Thunderbird" as given; do not draw the Thunderbird or Mozilla logos; invent any other
   brand names. Service and site names (Google Translate, Bergamot, DeepSeek, GitHub) appear only as plain text exactly as
   listed in the Creative seed; draw no logo of any service or site.
 - On-screen text must be correct and natural: idiomatic Chinese, proper CJK punctuation, no typos.

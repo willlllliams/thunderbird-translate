@@ -1,5 +1,5 @@
 {
-  "extensionName": "Thunderbird Translate",
+  "extensionName": "マルチ翻訳 for Thunderbird",
   "extensionDescription": "メール本文をその場で翻訳します。対訳表示と訳文のみの表示に対応し、無料の Google/Microsoft 翻訳と 20 以上の AI プロバイダーを利用できます。",
   "actionTitle": "メッセージを翻訳",
   "commandToggle": "翻訳 / 原文を表示",
@@ -39,7 +39,7 @@
   "labelPrecise": "精密翻訳",
   "popupSettings": "設定",
   "popupShortcuts": "ショートカットキー: Alt+A で翻訳、Alt+S で表示方法を切り替え、Alt+R で再翻訳",
-  "optionsTitle": "Thunderbird Translate の設定",
+  "optionsTitle": "マルチ翻訳 for Thunderbird の設定",
   "sectionGeneral": "一般",
   "labelUiLanguage": "表示言語",
   "uiLanguageAuto": "Thunderbird に合わせる（$1）",
@@ -210,7 +210,7 @@
   "hintModelGeneric": "モデルが存在しないか、このキーでは利用できない可能性があります。モデル名を確認してください。",
 
   "openWelcome": "セットアップガイド",
-  "welcomeTitle": "Thunderbird Translate のセットアップ",
+  "welcomeTitle": "マルチ翻訳 for Thunderbird のセットアップ",
   "welcomeProgress": "ガイドの手順",
   "buttonExitGuide": "ガイドを終了",
   "buttonBack": "戻る",
@@ -272,7 +272,7 @@
   "welcomeAiRequests": "思考モードと精密翻訳は、どちらも翻訳を遅く、高くします。思考モードではリクエストごとにモデルが推論用のトークンを生成します。精密翻訳では隣接する段落を文脈として送り、長いメッセージでは全体を分析するリクエストが 1 回増えます。どちらを使わなくても十分に翻訳できます。",
   "welcomePromptsIntro": "AI の段階は 3 つのプロンプトのいずれかを使います。対訳表示用は原文に近く訳し、訳文のみ表示用は自然な文章に仕上げ、精密翻訳用はメッセージ全体で用語をそろえます。プリセットは、地域の言葉づかいや文体などのルールをいずれかのプロンプトに追加します。プロンプト欄には組み合わせたテキストが表示され、そのまま編集できます。「組み込みのプロンプトに戻す」で追加分はすべて消えます。",
   "welcomeFinishIntro": "準備ができました。メッセージを翻訳するには:",
-  "welcomeUseButton": "メッセージを開き、メッセージヘッダーのツールバーにある Thunderbird Translate のボタンをクリックします。ポップアップで翻訳を開始でき、進行状況とよく使うスイッチが表示されます。",
+  "welcomeUseButton": "メッセージを開き、メッセージヘッダーのツールバーにある マルチ翻訳 for Thunderbird のボタンをクリックします。ポップアップで翻訳を開始でき、進行状況とよく使うスイッチが表示されます。",
   "welcomeUseAltA": "Alt+A で表示中のメッセージを翻訳し、もう一度押すと原文に戻ります。",
   "welcomeUseAltS": "Alt+S で対訳表示と訳文のみを切り替えます。",
   "welcomeTryTitle": "試してみる",

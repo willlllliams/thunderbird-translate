@@ -1,5 +1,5 @@
 {
-  "extensionName": "Thunderbird Translate",
+  "extensionName": "Multi Translate for Thunderbird",
   "extensionDescription": "Translate email bodies in place: bilingual or translation-only, free Google/Microsoft translators and 20+ AI providers.",
   "actionTitle": "Translate message",
   "commandToggle": "Translate / show original",
@@ -41,7 +41,7 @@
   "popupSettings": "Settings",
   "popupShortcuts": "Shortcuts: Alt+A translate, Alt+S switch display, Alt+R retranslate",
 
-  "optionsTitle": "Thunderbird Translate settings",
+  "optionsTitle": "Multi Translate for Thunderbird settings",
   "sectionGeneral": "General",
   "labelUiLanguage": "Interface language",
   "uiLanguageAuto": "Follow Thunderbird ($1)",
@@ -213,7 +213,7 @@
   "hintModelGeneric": "The model may not exist or may not be available to this key. Check the model name.",
 
   "openWelcome": "Setup guide",
-  "welcomeTitle": "Set up Thunderbird Translate",
+  "welcomeTitle": "Set up Multi Translate for Thunderbird",
   "welcomeProgress": "Steps of the setup guide",
   "buttonExitGuide": "Exit guide",
   "buttonBack": "Back",
@@ -275,7 +275,7 @@
   "welcomeAiRequests": "Thinking mode and precise translation both make translation slower and more expensive. In thinking mode the model produces reasoning tokens in every request. Precise translation sends the neighbouring paragraphs as context and, for long messages, one extra analysis request. Translation works well without either.",
   "welcomePromptsIntro": "The AI tier uses one of three prompts: the bilingual prompt stays close to the original, the translation-only prompt writes fluent text, and the precise prompt keeps terms consistent across the message. A preset adds rules to one of them, such as a regional variety or a writing style. The prompt box shows the combined text, which you can still edit; “Restore built-in prompt” removes every addition.",
   "welcomeFinishIntro": "The extension is ready. To translate a message:",
-  "welcomeUseButton": "Open a message and click the Thunderbird Translate button in the message header toolbar. The popup starts the translation, shows its progress and holds the most-used switches.",
+  "welcomeUseButton": "Open a message and click the Multi Translate for Thunderbird button in the message header toolbar. The popup starts the translation, shows its progress and holds the most-used switches.",
   "welcomeUseAltA": "Alt+A translates the displayed message, or shows the original again.",
   "welcomeUseAltS": "Alt+S switches between bilingual and translation-only display.",
   "welcomeTryTitle": "Try it",

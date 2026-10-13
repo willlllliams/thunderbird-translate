@@ -203,9 +203,9 @@ export function thirdPartyNotices({ root, inputs, version, packages = PACKAGES }
   const ecdict = readText(root, TEXTS.ecdict.file)
   const { release, revision } = BERGAMOT_WASM
   const sections = [
-    `Thunderbird Translate ${version}: third-party notices`,
+    `Multi Translate for Thunderbird ${version}: third-party notices`,
     paragraphs(
-      "Thunderbird Translate is released under the GNU General Public License, version 3 or later (the file LICENSE). The extension contains the third-party software listed below; each part keeps its own license.",
+      "Multi Translate for Thunderbird is released under the GNU General Public License, version 3 or later (the file LICENSE). The extension contains the third-party software listed below; each part keeps its own license.",
     ),
     [
       "1. npm packages bundled into the scripts of the extension",

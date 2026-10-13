@@ -1,6 +1,6 @@
-# Thunderbird Translate
+# Çoklu Çeviri for Thunderbird
 
-Thunderbird Translate, okuduğunuz iletinin gövdesini doğrudan ileti bölmesinde çeviren bir Thunderbird eklentisidir. Kurulumdan hemen sonra ücretsiz Google Translate ile çalışır.
+Çoklu Çeviri for Thunderbird, okuduğunuz iletinin gövdesini doğrudan ileti bölmesinde çeviren bir Thunderbird eklentisidir. Kurulumdan hemen sonra ücretsiz Google Translate ile çalışır. Sürüm 1.13'e kadar adı Thunderbird Translate idi.
 
 [English](../README.md) | [简体中文](README.zh-CN.md) | [繁體中文](README.zh-TW.md) | [日本語](README.ja.md) | [한국어](README.ko.md) | [Français](README.fr.md) | [Deutsch](README.de.md) | [Español](README.es.md) | [Português (Brasil)](README.pt-BR.md) | [Русский](README.ru.md) | Türkçe | [Tiếng Việt](README.vi.md)
 

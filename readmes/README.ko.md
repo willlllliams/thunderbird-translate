@@ -1,6 +1,6 @@
-# Thunderbird Translate
+# 멀티 번역 for Thunderbird
 
-Thunderbird Translate는 읽고 있는 메시지의 본문을 메시지 창에서 바로 번역하는 Thunderbird 확장 기능이며, 설치 직후 무료 Google 번역으로 바로 사용할 수 있습니다.
+멀티 번역 for Thunderbird는 읽고 있는 메시지의 본문을 메시지 창에서 바로 번역하는 Thunderbird 확장 기능이며, 설치 직후 무료 Google 번역으로 바로 사용할 수 있습니다. 버전 1.13까지의 이름은 Thunderbird Translate입니다.
 
 [English](../README.md) | [简体中文](README.zh-CN.md) | [繁體中文](README.zh-TW.md) | [日本語](README.ja.md) | 한국어 | [Français](README.fr.md) | [Deutsch](README.de.md) | [Español](README.es.md) | [Português (Brasil)](README.pt-BR.md) | [Русский](README.ru.md) | [Türkçe](README.tr.md) | [Tiếng Việt](README.vi.md)
 

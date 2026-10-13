@@ -159,7 +159,7 @@ describe("requests from pages", () => {
     const config = { enabled: true, apiKey: "", baseURL: "", model: "" }
     expect(await bg.send({ type: "testProvider", providerId: "google-free", config, targetLang: "zh-CN" })).toEqual({
       ok: true,
-      text: "G(Hello! This is a connection test from Thunderbird Translate.)",
+      text: "G(Hello! This is a connection test from Multi Translate for Thunderbird.)",
     })
     const failed = (await bg.send({ type: "testProvider", providerId: "openai", config, targetLang: "zh-CN" })) as { ok: boolean; error: string }
     expect(failed.ok).toBe(false)

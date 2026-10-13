@@ -1,6 +1,6 @@
 # Settings and behavior reference
 
-This page describes every setting of Thunderbird Translate and how the extension behaves in detail. The README covers installation and everyday use; this page is the reference behind it.
+This page describes every setting of Multi Translate for Thunderbird and how the extension behaves in detail. The README covers installation and everyday use; this page is the reference behind it.
 
 ## Contents
 

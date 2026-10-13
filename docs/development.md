@@ -1,6 +1,6 @@
 # Development
 
-This page covers building Thunderbird Translate from source, the tests, the layout of the repository, translating the interface, and the release process.
+This page covers building Multi Translate for Thunderbird from source, the tests, the layout of the repository, translating the interface, and the release process.
 
 ## Contents
 

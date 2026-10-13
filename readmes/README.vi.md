@@ -1,6 +1,6 @@
-# Thunderbird Translate
+# Dịch Đa Nguồn cho Thunderbird
 
-Thunderbird Translate là một tiện ích của Thunderbird, dịch nội dung thư bạn đang đọc ngay trong khung hiển thị thư; cài xong là dùng được với Google Translate miễn phí.
+Dịch Đa Nguồn cho Thunderbird là một tiện ích của Thunderbird, dịch nội dung thư bạn đang đọc ngay trong khung hiển thị thư; cài xong là dùng được với Google Translate miễn phí. Đến phiên bản 1.13, tiện ích có tên Thunderbird Translate.
 
 [English](../README.md) | [简体中文](README.zh-CN.md) | [繁體中文](README.zh-TW.md) | [日本語](README.ja.md) | [한국어](README.ko.md) | [Français](README.fr.md) | [Deutsch](README.de.md) | [Español](README.es.md) | [Português (Brasil)](README.pt-BR.md) | [Русский](README.ru.md) | [Türkçe](README.tr.md) | Tiếng Việt
 

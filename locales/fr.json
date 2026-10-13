@@ -1,5 +1,5 @@
 {
-  "extensionName": "Thunderbird Translate",
+  "extensionName": "Multi-traduction pour Thunderbird",
   "extensionDescription": "Traduit le corps des messages sur place : affichage bilingue ou traduction seule, traducteurs Google/Microsoft gratuits et plus de 20 fournisseurs d’IA.",
   "actionTitle": "Traduire le message",
   "commandToggle": "Traduire / afficher l’original",
@@ -39,7 +39,7 @@
   "labelPrecise": "Traduction précise",
   "popupSettings": "Paramètres",
   "popupShortcuts": "Raccourcis : Alt+A pour traduire, Alt+S pour changer d’affichage, Alt+R pour retraduire",
-  "optionsTitle": "Paramètres de Thunderbird Translate",
+  "optionsTitle": "Paramètres de Multi-traduction pour Thunderbird",
   "sectionGeneral": "Général",
   "labelUiLanguage": "Langue de l’interface",
   "uiLanguageAuto": "Suivre Thunderbird ($1)",
@@ -210,7 +210,7 @@
   "hintModelGeneric": "Le modèle n’existe peut-être pas ou n’est pas accessible avec cette clé. Vérifiez le nom du modèle.",
 
   "openWelcome": "Guide de configuration",
-  "welcomeTitle": "Configurer Thunderbird Translate",
+  "welcomeTitle": "Configurer Multi-traduction pour Thunderbird",
   "welcomeProgress": "Étapes du guide",
   "buttonExitGuide": "Quitter le guide",
   "buttonBack": "Précédent",
@@ -272,7 +272,7 @@
   "welcomeAiRequests": "Le mode réflexion et la traduction précise rendent tous deux la traduction plus lente et plus coûteuse. En mode réflexion, le modèle produit des jetons de raisonnement à chaque requête. La traduction précise envoie les paragraphes voisins comme contexte et, pour les longs messages, une requête d’analyse supplémentaire. La traduction fonctionne bien sans l’un ni l’autre.",
   "welcomePromptsIntro": "Le niveau IA utilise l’une de trois invites : l’invite bilingue reste proche de l’original, l’invite « traduction seule » écrit un texte fluide, et l’invite de traduction précise garde les mêmes termes dans tout le message. Un préréglage ajoute des règles à l’une d’elles, par exemple une variante régionale ou un style d’écriture. La zone de l’invite affiche le texte combiné, que vous pouvez encore modifier ; « Rétablir l’invite intégrée » supprime tous les ajouts.",
   "welcomeFinishIntro": "L’extension est prête. Pour traduire un message :",
-  "welcomeUseButton": "Ouvrez un message et cliquez sur le bouton de Thunderbird Translate dans la barre d’outils de l’en-tête du message. La fenêtre contextuelle lance la traduction, affiche sa progression et regroupe les réglages les plus utilisés.",
+  "welcomeUseButton": "Ouvrez un message et cliquez sur le bouton de Multi-traduction pour Thunderbird dans la barre d’outils de l’en-tête du message. La fenêtre contextuelle lance la traduction, affiche sa progression et regroupe les réglages les plus utilisés.",
   "welcomeUseAltA": "Alt+A traduit le message affiché, ou affiche de nouveau l’original.",
   "welcomeUseAltS": "Alt+S bascule entre l’affichage bilingue et la traduction seule.",
   "welcomeTryTitle": "Essayer",

@@ -1,6 +1,6 @@
-# Thunderbird Translate
+# Multi-traduction pour Thunderbird
 
-Thunderbird Translate est une extension Thunderbird qui traduit le corps du message en cours de lecture, directement dans le panneau de lecture. Elle fonctionne dès l’installation avec Google Translate, gratuit.
+Multi-traduction pour Thunderbird est une extension Thunderbird qui traduit le corps du message en cours de lecture, directement dans le panneau de lecture. Elle fonctionne dès l’installation avec Google Translate, gratuit. Jusqu’à la version 1.13, elle s’appelait Thunderbird Translate.
 
 [English](../README.md) | [简体中文](README.zh-CN.md) | [繁體中文](README.zh-TW.md) | [日本語](README.ja.md) | [한국어](README.ko.md) | Français | [Deutsch](README.de.md) | [Español](README.es.md) | [Português (Brasil)](README.pt-BR.md) | [Русский](README.ru.md) | [Türkçe](README.tr.md) | [Tiếng Việt](README.vi.md)
 

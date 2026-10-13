@@ -1,6 +1,6 @@
-# Thunderbird Translate
+# Мультиперевод для Thunderbird
 
-Thunderbird Translate — расширение для Thunderbird, которое переводит текст открытого письма прямо в области просмотра сообщения. Сразу после установки оно работает с бесплатным Google Translate.
+Мультиперевод для Thunderbird — расширение для Thunderbird, которое переводит текст открытого письма прямо в области просмотра сообщения. Сразу после установки оно работает с бесплатным Google Translate. До версии 1.13 расширение называлось Thunderbird Translate.
 
 [English](../README.md) | [简体中文](README.zh-CN.md) | [繁體中文](README.zh-TW.md) | [日本語](README.ja.md) | [한국어](README.ko.md) | [Français](README.fr.md) | [Deutsch](README.de.md) | [Español](README.es.md) | [Português (Brasil)](README.pt-BR.md) | Русский | [Türkçe](README.tr.md) | [Tiếng Việt](README.vi.md)
 

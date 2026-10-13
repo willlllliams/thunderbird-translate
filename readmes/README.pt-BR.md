@@ -1,6 +1,6 @@
-# Thunderbird Translate
+# Multitradutor para Thunderbird
 
-O Thunderbird Translate é uma extensão do Thunderbird que traduz o corpo da mensagem que você está lendo, diretamente no painel de mensagens. Ela funciona logo após a instalação, com o Google Tradutor gratuito.
+O Multitradutor para Thunderbird é uma extensão do Thunderbird que traduz o corpo da mensagem que você está lendo, diretamente no painel de mensagens. Ela funciona logo após a instalação, com o Google Tradutor gratuito. Até a versão 1.13, ela se chamava Thunderbird Translate.
 
 [English](../README.md) | [简体中文](README.zh-CN.md) | [繁體中文](README.zh-TW.md) | [日本語](README.ja.md) | [한국어](README.ko.md) | [Français](README.fr.md) | [Deutsch](README.de.md) | [Español](README.es.md) | Português (Brasil) | [Русский](README.ru.md) | [Türkçe](README.tr.md) | [Tiếng Việt](README.vi.md)
 

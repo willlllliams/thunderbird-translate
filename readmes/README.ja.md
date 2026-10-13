@@ -1,6 +1,6 @@
-# Thunderbird Translate
+# マルチ翻訳 for Thunderbird
 
-Thunderbird Translate は、閲覧中のメッセージ本文をメッセージペイン内でそのまま翻訳する Thunderbird 拡張機能です。インストール後は、無料の Google 翻訳ですぐに使えます。
+マルチ翻訳 for Thunderbird は、閲覧中のメッセージ本文をメッセージペイン内でそのまま翻訳する Thunderbird 拡張機能です。インストール後は、無料の Google 翻訳ですぐに使えます。バージョン 1.13 までの名前は Thunderbird Translate です。
 
 [English](../README.md) | [简体中文](README.zh-CN.md) | [繁體中文](README.zh-TW.md) | 日本語 | [한국어](README.ko.md) | [Français](README.fr.md) | [Deutsch](README.de.md) | [Español](README.es.md) | [Português (Brasil)](README.pt-BR.md) | [Русский](README.ru.md) | [Türkçe](README.tr.md) | [Tiếng Việt](README.vi.md)
 

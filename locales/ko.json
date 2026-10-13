@@ -1,5 +1,5 @@
 {
-  "extensionName": "Thunderbird Translate",
+  "extensionName": "멀티 번역 for Thunderbird",
   "extensionDescription": "메일 본문을 그 자리에서 번역합니다: 이중 언어 또는 번역문만 표시, 무료 Google/Microsoft 번역기와 20개 이상의 AI 제공자를 지원합니다.",
   "actionTitle": "메시지 번역",
   "commandToggle": "번역 / 원문 표시",
@@ -39,7 +39,7 @@
   "labelPrecise": "정밀 번역",
   "popupSettings": "설정",
   "popupShortcuts": "단축키: Alt+A 번역, Alt+S 표시 방식 전환, Alt+R 다시 번역",
-  "optionsTitle": "Thunderbird Translate 설정",
+  "optionsTitle": "멀티 번역 for Thunderbird 설정",
   "sectionGeneral": "일반",
   "labelUiLanguage": "인터페이스 언어",
   "uiLanguageAuto": "Thunderbird 따르기 ($1)",
@@ -210,7 +210,7 @@
   "hintModelGeneric": "모델이 없거나 이 키로 사용할 수 없을 수 있습니다. 모델 이름을 확인하세요.",
 
   "openWelcome": "설정 안내",
-  "welcomeTitle": "Thunderbird Translate 설정",
+  "welcomeTitle": "멀티 번역 for Thunderbird 설정",
   "welcomeProgress": "안내 과정",
   "buttonExitGuide": "안내 종료",
   "buttonBack": "이전",
@@ -272,7 +272,7 @@
   "welcomeAiRequests": "사고 모드와 정밀 번역은 둘 다 번역을 느리고 비싸게 만듭니다. 사고 모드에서는 모델이 요청마다 추론용 토큰을 만듭니다. 정밀 번역은 주변 단락을 문맥으로 함께 보내고, 긴 메시지에서는 전체를 분석하는 요청을 한 번 더 보냅니다. 둘 다 쓰지 않아도 번역은 잘 됩니다.",
   "welcomePromptsIntro": "AI 단계는 세 가지 프롬프트 중 하나를 사용합니다. 이중 언어 프롬프트는 원문에 가깝게, 번역문만 프롬프트는 자연스러운 글로, 정밀 번역 프롬프트는 메시지 전체에서 용어를 일관되게 번역합니다. 프리셋은 지역 말씨나 문체 같은 규칙을 이 중 하나에 추가합니다. 프롬프트 입력란에는 합쳐진 텍스트가 표시되며 직접 고칠 수도 있습니다. '기본 제공 프롬프트로 복원'을 누르면 추가한 내용이 모두 사라집니다.",
   "welcomeFinishIntro": "준비가 끝났습니다. 메시지를 번역하는 방법:",
-  "welcomeUseButton": "메시지를 열고 메시지 헤더 도구 모음에 있는 Thunderbird Translate 버튼을 누르세요. 팝업에서 번역을 시작할 수 있고, 진행 상황과 자주 쓰는 스위치가 표시됩니다.",
+  "welcomeUseButton": "메시지를 열고 메시지 헤더 도구 모음에 있는 멀티 번역 for Thunderbird 버튼을 누르세요. 팝업에서 번역을 시작할 수 있고, 진행 상황과 자주 쓰는 스위치가 표시됩니다.",
   "welcomeUseAltA": "Alt+A를 누르면 표시된 메시지를 번역하고, 다시 누르면 원문을 표시합니다.",
   "welcomeUseAltS": "Alt+S를 누르면 이중 언어 표시와 번역문만 표시를 전환합니다.",
   "welcomeTryTitle": "사용해 보기",

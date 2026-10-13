@@ -1,5 +1,5 @@
 {
-  "extensionName": "Thunderbird 郵件翻譯",
+  "extensionName": "聚合郵件翻譯 for Thunderbird",
   "extensionDescription": "在閱讀窗格中直接翻譯郵件內文：雙語對照或僅譯文，支援免費的 Google／Microsoft 翻譯與 20 多個 AI 服務商。",
   "actionTitle": "翻譯郵件",
   "commandToggle": "翻譯 / 顯示原文",
@@ -39,7 +39,7 @@
   "labelPrecise": "精翻",
   "popupSettings": "設定",
   "popupShortcuts": "快速鍵：Alt+A 翻譯，Alt+S 切換顯示方式，Alt+R 重新翻譯",
-  "optionsTitle": "Thunderbird 郵件翻譯設定",
+  "optionsTitle": "聚合郵件翻譯 for Thunderbird設定",
   "sectionGeneral": "一般",
   "labelUiLanguage": "介面語言",
   "uiLanguageAuto": "跟隨 Thunderbird（$1）",
@@ -210,7 +210,7 @@
   "hintModelGeneric": "模型可能不存在，或目前的金鑰無權使用。請檢查模型名稱。",
 
   "openWelcome": "新手導覽",
-  "welcomeTitle": "設定 Thunderbird 郵件翻譯",
+  "welcomeTitle": "設定 聚合郵件翻譯 for Thunderbird",
   "welcomeProgress": "導覽步驟",
   "buttonExitGuide": "結束導覽",
   "buttonBack": "上一步",
@@ -272,7 +272,7 @@
   "welcomeAiRequests": "思考模式和精翻都會讓翻譯變慢、費用變高。思考模式讓模型在每次請求中額外產生推理內容；精翻會附帶相鄰段落作為上下文，長郵件還會多送一次全文分析請求。不開這兩項，翻譯效果也很好。",
   "welcomePromptsIntro": "AI 層級使用三套提示詞之一：雙語對照提示詞貼近原文，僅譯文提示詞寫出通順的文字，精翻提示詞讓整封郵件的術語保持一致。預設會向其中一套附加規則，例如地區用語或文風。提示詞編輯框顯示組合後的文字，你仍可手動修改；「還原內建提示詞」會移除所有附加內容。",
   "welcomeFinishIntro": "擴充套件已準備就緒。翻譯郵件的方法：",
-  "welcomeUseButton": "開啟一封郵件，點選郵件標頭工具列中的 Thunderbird 郵件翻譯按鈕。彈出面板可以開始翻譯、顯示進度，並提供常用開關。",
+  "welcomeUseButton": "開啟一封郵件，點選郵件標頭工具列中的 聚合郵件翻譯 for Thunderbird按鈕。彈出面板可以開始翻譯、顯示進度，並提供常用開關。",
   "welcomeUseAltA": "Alt+A 翻譯目前顯示的郵件，再按一次顯示原文。",
   "welcomeUseAltS": "Alt+S 在雙語對照和僅譯文之間切換。",
   "welcomeTryTitle": "試試看",

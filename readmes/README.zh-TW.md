@@ -1,6 +1,6 @@
-# Thunderbird 郵件翻譯
+# 聚合郵件翻譯 for Thunderbird
 
-Thunderbird 郵件翻譯（Thunderbird Translate）是一個 Thunderbird 擴充套件，在閱讀窗格中直接翻譯正在閱讀的郵件內文，安裝後用免費的 Google 翻譯即可運作。
+聚合郵件翻譯 for Thunderbird（Multi Translate for Thunderbird）是一個 Thunderbird 擴充套件，在閱讀窗格中直接翻譯正在閱讀的郵件內文，安裝後用免費的 Google 翻譯即可運作。1.13 及以前的版本名為 Thunderbird 郵件翻譯（Thunderbird Translate）。
 
 [English](../README.md) | [简体中文](README.zh-CN.md) | 繁體中文 | [日本語](README.ja.md) | [한국어](README.ko.md) | [Français](README.fr.md) | [Deutsch](README.de.md) | [Español](README.es.md) | [Português (Brasil)](README.pt-BR.md) | [Русский](README.ru.md) | [Türkçe](README.tr.md) | [Tiếng Việt](README.vi.md)
 

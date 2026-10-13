@@ -1,5 +1,5 @@
 {
-  "extensionName": "Thunderbird Translate",
+  "extensionName": "Multitradutor para Thunderbird",
   "extensionDescription": "Traduz o corpo das mensagens no próprio lugar: modo bilíngue ou só tradução, tradutores gratuitos do Google/Microsoft e mais de 20 provedores de IA.",
   "actionTitle": "Traduzir mensagem",
   "commandToggle": "Traduzir / mostrar original",
@@ -39,7 +39,7 @@
   "labelPrecise": "Tradução precisa",
   "popupSettings": "Configurações",
   "popupShortcuts": "Atalhos: Alt+A traduz, Alt+S alterna a exibição, Alt+R traduz de novo",
-  "optionsTitle": "Configurações do Thunderbird Translate",
+  "optionsTitle": "Configurações do Multitradutor para Thunderbird",
   "sectionGeneral": "Geral",
   "labelUiLanguage": "Idioma da interface",
   "uiLanguageAuto": "Seguir o Thunderbird ($1)",
@@ -210,7 +210,7 @@
   "hintModelGeneric": "O modelo pode não existir ou não estar disponível para esta chave. Verifique o nome do modelo.",
 
   "openWelcome": "Guia de configuração",
-  "welcomeTitle": "Configurar o Thunderbird Translate",
+  "welcomeTitle": "Configurar o Multitradutor para Thunderbird",
   "welcomeProgress": "Etapas do guia",
   "buttonExitGuide": "Sair do guia",
   "buttonBack": "Voltar",
@@ -272,7 +272,7 @@
   "welcomeAiRequests": "O modo de raciocínio e a tradução precisa deixam a tradução mais lenta e mais cara. No modo de raciocínio, o modelo gera tokens de raciocínio em cada requisição. A tradução precisa envia os parágrafos vizinhos como contexto e, em mensagens longas, uma requisição extra de análise. A tradução funciona bem sem nenhum dos dois.",
   "welcomePromptsIntro": "O nível de IA usa um de três prompts: o bilíngue fica próximo do original, o de só tradução escreve um texto fluente e o de tradução precisa mantém os mesmos termos na mensagem inteira. Uma predefinição acrescenta regras a um deles, como uma variante regional ou um estilo de escrita. A caixa do prompt mostra o texto combinado, que você ainda pode editar; \"Restaurar prompt embutido\" remove todos os acréscimos.",
   "welcomeFinishIntro": "A extensão está pronta. Para traduzir uma mensagem:",
-  "welcomeUseButton": "Abra uma mensagem e clique no botão do Thunderbird Translate na barra de ferramentas do cabeçalho da mensagem. O pop-up inicia a tradução, mostra o andamento e reúne as opções mais usadas.",
+  "welcomeUseButton": "Abra uma mensagem e clique no botão do Multitradutor para Thunderbird na barra de ferramentas do cabeçalho da mensagem. O pop-up inicia a tradução, mostra o andamento e reúne as opções mais usadas.",
   "welcomeUseAltA": "Alt+A traduz a mensagem exibida ou mostra o original de novo.",
   "welcomeUseAltS": "Alt+S alterna entre a exibição bilíngue e só tradução.",
   "welcomeTryTitle": "Experimente",

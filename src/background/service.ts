@@ -323,7 +323,7 @@ export class TranslationService {
   /** Translate with an unsaved configuration, bypassing cache and batching. */
   async testProvider(providerId: string, config: Omit<ProviderConfig, "enabled">, targetLang: string): Promise<string> {
     const provider = resolveProviderConfig(providerId, config)
-    const sample = "Hello! This is a connection test from Thunderbird Translate."
+    const sample = "Hello! This is a connection test from Multi Translate for Thunderbird."
     const prompt = promptText(this.deps.getSettings().prompts, "bilingual")
     const results = await this.executeBatch([{ text: sample, sourceLang: "auto", targetLang, provider, prompt, variant: "", batchKey: "test", key: "" }])
     const r = results[0]

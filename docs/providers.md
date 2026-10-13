@@ -1,6 +1,6 @@
 # Translation services
 
-This page lists every translation service of Thunderbird Translate with its endpoint, default model, where to get a key, and the parameters the extension sends. The presets live in `src/shared/providers.ts`; the thinking parameters live in `src/shared/thinking.ts`.
+This page lists every translation service of Multi Translate for Thunderbird with its endpoint, default model, where to get a key, and the parameters the extension sends. The presets live in `src/shared/providers.ts`; the thinking parameters live in `src/shared/thinking.ts`.
 
 ## Contents
 

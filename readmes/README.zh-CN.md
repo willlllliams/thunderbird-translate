@@ -1,6 +1,6 @@
-# Thunderbird 邮件翻译
+# 聚合邮件翻译 for Thunderbird
 
-Thunderbird 邮件翻译（Thunderbird Translate）是一个 Thunderbird 扩展，在阅读窗格里直接翻译正在阅读的邮件正文，装好后用免费的谷歌翻译即可工作。
+聚合邮件翻译 for Thunderbird（Multi Translate for Thunderbird）是一个 Thunderbird 扩展，在阅读窗格里直接翻译正在阅读的邮件正文，装好后用免费的谷歌翻译即可工作。1.13 及以前的版本名为 Thunderbird 邮件翻译（Thunderbird Translate）。
 
 [English](../README.md) | 简体中文 | [繁體中文](README.zh-TW.md) | [日本語](README.ja.md) | [한국어](README.ko.md) | [Français](README.fr.md) | [Deutsch](README.de.md) | [Español](README.es.md) | [Português (Brasil)](README.pt-BR.md) | [Русский](README.ru.md) | [Türkçe](README.tr.md) | [Tiếng Việt](README.vi.md)
 

@@ -1,5 +1,5 @@
 {
-  "extensionName": "Thunderbird Translate",
+  "extensionName": "Multitraductor para Thunderbird",
   "extensionDescription": "Traduce el cuerpo de los mensajes en su lugar: modo bilingüe o solo traducción, traductores gratuitos de Google/Microsoft y más de 20 proveedores de IA.",
   "actionTitle": "Traducir mensaje",
   "commandToggle": "Traducir / mostrar original",
@@ -39,7 +39,7 @@
   "labelPrecise": "Traducción precisa",
   "popupSettings": "Configuración",
   "popupShortcuts": "Atajos: Alt+A traducir, Alt+S cambiar visualización, Alt+R volver a traducir",
-  "optionsTitle": "Configuración de Thunderbird Translate",
+  "optionsTitle": "Configuración de Multitraductor para Thunderbird",
   "sectionGeneral": "General",
   "labelUiLanguage": "Idioma de la interfaz",
   "uiLanguageAuto": "Seguir a Thunderbird ($1)",
@@ -210,7 +210,7 @@
   "hintModelGeneric": "Es posible que el modelo no exista o no esté disponible para esta clave. Revise el nombre del modelo.",
 
   "openWelcome": "Guía de configuración",
-  "welcomeTitle": "Configurar Thunderbird Translate",
+  "welcomeTitle": "Configurar Multitraductor para Thunderbird",
   "welcomeProgress": "Pasos de la guía",
   "buttonExitGuide": "Salir de la guía",
   "buttonBack": "Atrás",
@@ -272,7 +272,7 @@
   "welcomeAiRequests": "El modo de razonamiento y la traducción precisa hacen la traducción más lenta y más cara. En el modo de razonamiento, el modelo genera tokens de razonamiento en cada solicitud. La traducción precisa envía los párrafos vecinos como contexto y, en mensajes largos, una solicitud de análisis adicional. La traducción funciona bien sin ninguno de los dos.",
   "welcomePromptsIntro": "El nivel de IA usa uno de tres prompts: el bilingüe se mantiene cerca del original, el de solo traducción escribe un texto fluido y el de traducción precisa mantiene los mismos términos en todo el mensaje. Un preajuste añade reglas a uno de ellos, por ejemplo una variedad regional o un estilo de redacción. El cuadro del prompt muestra el texto combinado, que todavía puede editar; «Restaurar el prompt integrado» elimina todos los añadidos.",
   "welcomeFinishIntro": "La extensión está lista. Para traducir un mensaje:",
-  "welcomeUseButton": "Abra un mensaje y haga clic en el botón de Thunderbird Translate en la barra de herramientas del encabezado del mensaje. La ventana emergente inicia la traducción, muestra el progreso y reúne los ajustes más usados.",
+  "welcomeUseButton": "Abra un mensaje y haga clic en el botón de Multitraductor para Thunderbird en la barra de herramientas del encabezado del mensaje. La ventana emergente inicia la traducción, muestra el progreso y reúne los ajustes más usados.",
   "welcomeUseAltA": "Alt+A traduce el mensaje mostrado o vuelve a mostrar el original.",
   "welcomeUseAltS": "Alt+S cambia entre la visualización bilingüe y solo traducción.",
   "welcomeTryTitle": "Pruébelo",
