@@ -17,7 +17,19 @@ function whenAborted(signal: AbortSignal): Promise<never> {
   return aborted
 }
 
-/** The whole body of a response; `onProgress` gets the number of bytes received so far after every chunk. Reading stops when `signal` aborts. */
+/** The length the response announces for its body; 0 when unknown or when the body is decoded (Content-Encoding), which changes its length. */
+function announcedLength(response: Response): number {
+  const headers = response.headers
+  if (!headers || headers.get("content-encoding")) return 0
+  const length = Number(headers.get("content-length"))
+  return Number.isSafeInteger(length) && length > 0 ? length : 0
+}
+
+/**
+ * The whole body of a response; `onProgress` gets the number of bytes received so far after every chunk. Reading stops
+ * when `signal` aborts. When the response announces its length, the chunks go straight into one buffer of that size,
+ * so a model file of 40 MB needs 40 MB and not twice as much; a body longer than announced is collected in pieces.
+ */
 async function readBody(response: Response, onProgress: (received: number) => void, signal: AbortSignal): Promise<Uint8Array<ArrayBuffer>> {
   const aborted = whenAborted(signal)
   const wait = <T>(promise: Promise<T>) => Promise.race([promise, aborted])
@@ -27,13 +39,20 @@ async function readBody(response: Response, onProgress: (received: number) => vo
     return bytes
   }
   const reader = response.body.getReader()
+  const announced = announcedLength(response)
+  let buffer: Uint8Array<ArrayBuffer> | null = announced ? new Uint8Array(announced) : null
   const chunks: Uint8Array[] = []
   let received = 0
   try {
     for (;;) {
       const { done, value } = await wait(reader.read())
       if (done) break
-      chunks.push(value)
+      if (buffer && received + value.byteLength <= buffer.byteLength) buffer.set(value, received)
+      else {
+        if (buffer) chunks.push(buffer.subarray(0, received))
+        buffer = null
+        chunks.push(value)
+      }
       received += value.byteLength
       onProgress(received)
     }
@@ -41,6 +60,7 @@ async function readBody(response: Response, onProgress: (received: number) => vo
     reader.cancel().catch(() => {})
     throw error
   }
+  if (buffer) return received === buffer.byteLength ? buffer : buffer.slice(0, received)
   const bytes = new Uint8Array(received)
   let offset = 0
   for (const chunk of chunks) {
