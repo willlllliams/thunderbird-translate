@@ -131,6 +131,34 @@ describe("offline lists in the background script", () => {
     expect(notices()).toEqual({ contentScripts: 1, pages: 1 })
   })
 
+  it("queues a new installation with its own tag when the direction asked for is cancelled but still running", async () => {
+    const runs: { tag?: string; signal: AbortSignal; end: (error?: unknown) => void }[] = []
+    // An installation that notices its cancellation only when its download step ends.
+    const install = vi.fn(
+      (_src: string, _tgt: string, _onProgress?: (done: number, total: number) => void, signal?: AbortSignal, options?: { tag?: string }) =>
+        new Promise<void>((resolve, reject) => runs.push({ tag: options?.tag, signal: signal!, end: (error) => (error ? reject(error) : resolve()) })),
+    )
+    const { send } = admin({ dictionary: { install } })
+    const first = send({ type: "offlineInstall", service: "dictionary", pairs: [{ src: "en", tgt: "de" }], tag: "dicts-v1" })
+    await nextTask()
+    await send({ type: "offlineCancel", service: "dictionary", src: "en", tgt: "de" })
+    const second = send({ type: "offlineInstall", service: "dictionary", pairs: [{ src: "en", tgt: "de" }], tag: "dicts-v2" })
+    await nextTask()
+    // The second request does not take the result of the cancelled one; it starts once the first has ended.
+    expect(runs.map((r) => r.tag)).toEqual(["dicts-v1"])
+    expect(send({ type: "offlineProgress" })).toEqual({ dictionary: { "en>de": { state: "queued", done: 0, total: 0 } } })
+    runs[0]!.end(new DOMException("Aborted", "AbortError"))
+    expect(await first).toEqual([{ ok: false, cancelled: true }])
+    await nextTask()
+    expect(runs.map((r) => [r.tag, r.signal.aborted])).toEqual([
+      ["dicts-v1", true],
+      ["dicts-v2", false],
+    ])
+    expect(send({ type: "offlineProgress" })).toEqual({ dictionary: { "en>de": { state: "running", done: 0, total: 0 } } })
+    runs[1]!.end()
+    expect(await second).toEqual([{ ok: true }])
+  })
+
   it("describes a failed installation in the interface language", async () => {
     const { send, notices } = admin({ dictionary: { install: () => Promise.reject(new LocalizedError("dictionaryStorageFailed", [], "disk full")) } })
     expect(await send({ type: "offlineInstall", service: "dictionary", pairs: [{ src: "en", tgt: "de" }] })).toEqual([{ ok: false, error: `${ENGLISH.t("dictionaryStorageFailed")} - disk full` }])

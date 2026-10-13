@@ -4,7 +4,9 @@
  * asked for; the others wait in a queue. A second request for a direction
  * that is queued or running shares the first one's progress, cancellation
  * and result, whichever page sent it. A cancelled direction that waits in
- * the queue is never downloaded.
+ * the queue is never downloaded. A request for a direction that was
+ * cancelled while running, and has not stopped yet, queues a new
+ * installation with its own tag, which starts once the cancelled one ended.
  */
 
 import type { InstallProgress } from "../shared/messages"
@@ -40,7 +42,8 @@ interface Entry extends InstallProgress {
 export class InstallRegistry {
   /** Queued and running installations; the order of the map is the order of the queue. */
   private readonly entries = new Map<string, Entry>()
-  private running = 0
+  /** Pair keys whose run() has not returned, also those cancelled and replaced in `entries`. */
+  private readonly running = new Set<string>()
 
   constructor(private readonly options: InstallRegistryOptions) {}
 
@@ -52,7 +55,9 @@ export class InstallRegistry {
   install(src: string, tgt: string, tag?: string): Promise<InstallOutcome> {
     const key = this.key(src, tgt)
     const found = this.entries.get(key)
-    if (found) return found.outcome
+    if (found && !found.controller.signal.aborted) return found.outcome
+    // Cancelled and still stopping: a new installation takes its place, at the end of the queue.
+    if (found) this.entries.delete(key)
     let settle!: (outcome: InstallOutcome) => void
     const outcome = new Promise<InstallOutcome>((resolve) => (settle = resolve))
     this.entries.set(key, { state: "queued", done: 0, total: 0, src, tgt, tag, controller: new AbortController(), outcome, settle })
@@ -61,17 +66,17 @@ export class InstallRegistry {
     return outcome
   }
 
-  /** Start queued installations while fewer than the limit run. */
+  /** Start queued installations while fewer than the limit run; a direction waits until a cancelled run of it has stopped. */
   private startNext(): void {
     for (const [key, entry] of this.entries) {
-      if (this.running >= (this.options.limit ?? INSTALL_LIMIT)) return
-      if (entry.state === "queued") void this.start(key, entry)
+      if (this.running.size >= (this.options.limit ?? INSTALL_LIMIT)) return
+      if (entry.state === "queued" && !this.running.has(key)) void this.start(key, entry)
     }
   }
 
   private async start(key: string, entry: Entry): Promise<void> {
     entry.state = "running"
-    this.running++
+    this.running.add(key)
     this.options.onChange?.()
     const onProgress = (done: number, total: number) => {
       Object.assign(entry, { done, total })
@@ -84,8 +89,8 @@ export class InstallRegistry {
     } catch (error) {
       outcome = entry.controller.signal.aborted ? { ok: false, cancelled: true } : { ok: false, error }
     }
-    this.running--
-    this.entries.delete(key)
+    this.running.delete(key)
+    if (this.entries.get(key) === entry) this.entries.delete(key)
     this.startNext()
     this.options.onEnd?.(key, outcome)
     this.options.onChange?.()
