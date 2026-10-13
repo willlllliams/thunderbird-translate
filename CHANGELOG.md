@@ -2,6 +2,59 @@
 
 All notable changes to this project are documented in this file, with the date of each version. It lists what users of the extension notice. The record up to 1.12.0 with the internal changes is kept in [docs/archive/CHANGELOG-full.md](docs/archive/CHANGELOG-full.md). Versions follow [Semantic Versioning](https://semver.org/).
 
+## 2.0.0 - 2026-10-13
+
+Version 2.0 brings together everything the extension has gained since 1.0 and renames it to Multi Translate for Thunderbird, the name it has on addons.thunderbird.net. Updating from 1.x keeps your settings, the downloaded dictionary packs and offline models, and the translation cache. It requires Thunderbird 128 or later. The first translation through an online service asks once for your consent, and an endpoint you typed yourself needs your permission once.
+
+### Translating a message
+
+- Translates the message you are reading in place: paragraphs, list items, table cells, headings and quotes of HTML mail, and the paragraphs of plain-text mail.
+- Shows the translation under each paragraph (bilingual) or instead of it (translation only); turning translation off restores the original message.
+- Optional automatic translation of every message that is not in the target language.
+- Three tiers, dictionary, machine translation and AI, are asked at the same time. The fastest result appears first as a provisional translation, the highest tier replaces it, and a tier that failed can be retried with a click on its mark.
+- The source language is detected per paragraph or fixed in the settings; Simplified and Traditional Chinese are told apart.
+- Alt+A translates or restores the message, Alt+S switches the display, Alt+R and "Retranslate" in the popup translate again past the cache.
+
+### Translation services
+
+- Google Translate and Microsoft Translator without an account; Microsoft Translator also with your own Azure Translator key; your DeepLX server.
+- 22 AI presets, among them OpenAI, Anthropic Claude, Google Gemini, DeepSeek, Qwen, local Ollama and LM Studio, and any OpenAI-compatible endpoint.
+- Thinking mode and temperature for each AI service, and "Test connection" with the values on screen.
+
+### Offline translation
+
+- Dictionary packs adapted from Wiktionary and ECDICT, and Mozilla's Bergamot models, the engine of Firefox Translations.
+- Downloads run in the background and go on when the settings page or the setup guide is closed, two at a time per service. Every open page shows the same progress, any of them can cancel a download, and a pack or model is used as soon as it is stored.
+- "Download common languages" fetches the directions between English and eight widely used languages.
+- A notice above a message names the packs or models a translation lacked, with a link to the downloads and a switch that mutes it for those languages; the tier selectors mark an offline service whose data is missing.
+
+### AI translation quality
+
+- Three prompts, for bilingual display, translation only and precise translation, with presets for regional varieties, the original after difficult words, explanations of difficult words, writing styles, and a plain preset that removes them.
+- Precise translation gives the AI service the whole message as context, so names and terms stay consistent.
+- Long paragraphs are split at line breaks or between sentences, paragraphs are batched into few requests, and translations are cached.
+
+### Reliability
+
+- Requests time out after 60 seconds by default, adjustable from 5 to 600 seconds, longer for local models and thinking mode.
+- Failed requests are retried automatically; an AI request that timed out is not, since every attempt is charged.
+- Error messages are in the interface language and suggest what to change.
+
+### Interface
+
+- 12 interface languages: English, Simplified and Traditional Chinese, Japanese, Korean, French, German, Spanish, Portuguese (Brazil), Russian, Turkish and Vietnamese.
+- An eight-step setup guide with a demo and a tour of the tiers and a trial translation of a sample message.
+- Translation style: border, dashed border, highlight or plain, accent color, text color, opacity and font size.
+- A short description appears when the mouse rests on any control.
+
+### Privacy
+
+- API keys stay in your Thunderbird profile and go only to their own service. The extension collects no statistics.
+- Message text goes only to the services you chose. Before it first goes to an online service, a panel above the message names the service and its address and asks; the settings page lists the allowed services and takes them back.
+- The extension connects only to the addresses of its services and of the offline downloads. An endpoint you typed, such as a local Ollama server, needs your permission once ("Allow access" or "Test connection").
+- With only the dictionary and Bergamot in use, no message text leaves your computer.
+- The licenses of all bundled third-party code are listed in THIRD-PARTY-NOTICES.txt inside the extension.
+
 ## 1.13.0 - 2026-10-12
 
 ### Fixed
