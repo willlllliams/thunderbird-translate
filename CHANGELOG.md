@@ -15,7 +15,6 @@ All notable changes to this project are documented in this file, with the date o
 - Every open page shows the same progress of every download, also of a download another page started. A page opened later shows the downloads still running or waiting, and any of these pages can cancel a download.
 - The dictionary list comes from the background script, which keeps the index of each release tag for 6 hours, like the Bergamot list. "Reload list" in the Dictionaries section reads it again at once, and a release tag typed on the page is listed before it is saved.
 - A displayed message forgets the results it keeps once a set of downloads has ended, instead of after every pack.
-- Internally, the dictionary packs have a manager in the background script like the Bergamot models, and both offline lists use one set of requests.
 
 ## 1.12.0 - 2026-10-12
 
@@ -33,9 +32,7 @@ All notable changes to this project are documented in this file, with the date o
 
 ## 1.10.0 - 2026-10-12
 
-### Changed
-
-- The extension behaves as in 1.9.1. Internally the source is split into layers that `npm run imports:check` keeps apart in CI, one function decides what goes into the cache key of a translation, the requests to the background script are typed from one table, and the unit tests run on simulated time instead of waiting.
+No user-visible changes.
 
 ## 1.9.1 - 2026-10-12
 
