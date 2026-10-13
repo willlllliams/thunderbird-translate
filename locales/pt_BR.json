@@ -472,5 +472,11 @@
   "tipNoticeOpen": "Abre as configurações com os itens ausentes listados",
   "tipNoticeMute": "Sem mais avisos para estes pares de idiomas",
   "tipNoticeClose": "Oculta este aviso nesta mensagem",
-  "tipRetryTier": "Clique para tentar de novo os níveis que falharam"
+  "tipRetryTier": "Clique para tentar de novo os níveis que falharam",
+
+  "hostAccessMissing": "A extensão ainda não tem permissão para se conectar a $1.",
+  "buttonAllowHost": "Permitir acesso",
+  "tipAllowHost": "Permite que a extensão se conecte a este endereço",
+  "hintLoopback": "localhost é este computador (endereço de loopback): as requisições para ele não saem do computador.",
+  "errHostPermission": "A extensão ainda não tem permissão para se conectar a $1. Abra este serviço nas configurações e clique em \"Permitir acesso\"."
 }

@@ -472,5 +472,11 @@
   "tipNoticeOpen": "Abre la configuración con los elementos que faltan",
   "tipNoticeMute": "No más avisos para estos pares de idiomas",
   "tipNoticeClose": "Oculta este aviso para este mensaje",
-  "tipRetryTier": "Haga clic para reintentar los niveles que fallaron"
+  "tipRetryTier": "Haga clic para reintentar los niveles que fallaron",
+
+  "hostAccessMissing": "La extensión aún no tiene permiso para conectarse a $1.",
+  "buttonAllowHost": "Permitir acceso",
+  "tipAllowHost": "Permite que la extensión se conecte a esta dirección",
+  "hintLoopback": "localhost es este equipo (dirección de bucle invertido): las solicitudes a esa dirección no salen del equipo.",
+  "errHostPermission": "La extensión aún no tiene permiso para conectarse a $1. Abra este servicio en la configuración y haga clic en «Permitir acceso»."
 }

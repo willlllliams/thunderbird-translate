@@ -13,7 +13,7 @@ import { fetchOk } from "../../shared/http"
 import { gunzip, parsePack } from "./format"
 import type { DictionaryStore } from "./store"
 
-const RELEASES = "https://github.com/willlllliams/thunderbird-translate/releases/download"
+export const RELEASES = "https://github.com/willlllliams/thunderbird-translate/releases/download"
 
 export function releaseUrl(tag: string, file: string): string {
   return `${RELEASES}/${encodeURIComponent(tag)}/${encodeURIComponent(file)}`

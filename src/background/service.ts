@@ -25,7 +25,8 @@
  */
 
 import { getBergamot } from "../offline/bergamot"
-import { describeError, type ErrorContext, type MissingData, missingData } from "../shared/errors"
+import { describeError, type ErrorContext, LocalizedError, type MissingData, missingData } from "../shared/errors"
+import { patternHost, providerOrigin } from "../shared/hosts"
 import { hashText } from "../shared/hash"
 import { ENGLISH, type I18n } from "../shared/i18n"
 import type { LanguageDetector } from "../shared/lang-detect"
@@ -116,6 +117,8 @@ export interface ServiceDeps {
   sleep?: (ms: number) => Promise<void>
   /** Language of error messages; English when absent. */
   i18n?: () => I18n
+  /** Whether the extension may connect to a host (a match pattern such as "https://example.com/*"); every host when absent. */
+  hasOrigin?: (origin: string) => Promise<boolean>
 }
 
 /** What describeError() needs to know about the provider of a failed request. */
@@ -231,6 +234,14 @@ export class TranslationService {
     }
   }
 
+  /** Throws errHostPermission when the extension may not connect to the endpoint of `provider`. */
+  private async checkOrigin(provider: ResolvedProvider): Promise<void> {
+    const origin = providerOrigin(provider)
+    if (!origin || !this.deps.hasOrigin) return
+    const allowed = await this.deps.hasOrigin(origin).catch(() => false)
+    if (!allowed) throw new LocalizedError("errHostPermission", [patternHost(origin)])
+  }
+
   /** The cached result, or the result of the running request for the same paragraph, or a new one. A retranslation always makes a new one, which later requests share. */
   private async run(job: Job): Promise<string> {
     const cached = job.fresh ? undefined : await this.deps.cache.get(job.key)
@@ -308,7 +319,9 @@ export class TranslationService {
     const jobs: [Tier, Job][] = []
     for (const tier of tiers) {
       try {
-        jobs.push([tier, this.job(req, settings.tiers[tier]!, settings, data[tier])])
+        const job = this.job(req, settings.tiers[tier]!, settings, data[tier])
+        await this.checkOrigin(job.provider)
+        jobs.push([tier, job])
       } catch (error) {
         onTier(tier, { ok: false, error: this.errorMessage(error) })
       }
@@ -323,6 +336,7 @@ export class TranslationService {
   /** Translate with an unsaved configuration, bypassing cache and batching. */
   async testProvider(providerId: string, config: Omit<ProviderConfig, "enabled">, targetLang: string): Promise<string> {
     const provider = resolveProviderConfig(providerId, config)
+    await this.checkOrigin(provider)
     const sample = "Hello! This is a connection test from Multi Translate for Thunderbird."
     const prompt = promptText(this.deps.getSettings().prompts, "bilingual")
     const results = await this.executeBatch([{ text: sample, sourceLang: "auto", targetLang, provider, prompt, variant: "", batchKey: "test", key: "" }])

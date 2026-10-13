@@ -40,6 +40,8 @@ rmSync(dist, { recursive: true, force: true })
 mkdirSync(dist, { recursive: true })
 cpSync(join(root, "static"), dist, { recursive: true })
 cpSync(join(root, "LICENSE"), join(dist, "LICENSE"))
+// The test build reaches the mock server on 127.0.0.1 as a host of its manifest; a regular build asks the user for such an address.
+if (e2e) writeFileSync(join(dist, "manifest.json"), `${JSON.stringify({ ...manifest, permissions: [...manifest.permissions, "http://127.0.0.1/*"] }, null, 2)}\n`)
 // Bergamot offline engine: glue script (vendor/) and the pinned, zstd-compressed wasm (downloaded to .cache/).
 cpSync(join(root, "vendor", "bergamot", "bergamot-translator.js"), join(dist, "bergamot-translator.js"))
 cpSync(await ensureBergamotWasm(), join(dist, BERGAMOT_WASM_FILE))

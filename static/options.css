@@ -302,8 +302,26 @@ select.missing option:not(.missing) {
   overflow-wrap: anywhere;
 }
 
-.field-warning[hidden] {
+.field-warning[hidden],
+.host-access[hidden] {
   display: none;
+}
+
+/* An endpoint the extension may not connect to yet: the host and "Allow access". */
+.host-access {
+  --warn: #b06000;
+  border-left: 3px solid var(--warn);
+  border-radius: 4px;
+  padding: 6px 10px;
+  background: color-mix(in srgb, var(--warn) 10%, transparent);
+  font-size: 12px;
+  align-items: center;
+  gap: 8px;
+}
+
+.host-access button {
+  padding: 2px 10px;
+  font-size: 12px;
 }
 
 .field-warning button {
@@ -361,7 +379,8 @@ select.missing option:not(.missing) {
     background: color-mix(in srgb, var(--fail) 12%, transparent);
   }
 
-  .field-warning {
+  .field-warning,
+  .host-access {
     --warn: #fdd663;
   }
 }

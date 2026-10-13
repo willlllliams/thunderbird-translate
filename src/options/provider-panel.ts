@@ -10,6 +10,8 @@ import { send } from "../shared/messages"
 import { checkBaseURL, type ProviderPreset, providerDisplayName } from "../shared/providers"
 import { emptyProviderConfig, type ProviderConfig } from "../shared/settings"
 import { button, h, setTitle } from "../shared/dom"
+import { isLoopback } from "../shared/hosts"
+import { hostAccessLine, requestHostAccess } from "./host-access"
 import type { SettingsSession } from "./session"
 
 /** The service shown and its configuration. */
@@ -65,10 +67,14 @@ function showTestFailure(box: HTMLElement, description: string | undefined): voi
   )
 }
 
-/** Endpoint field with the URL check. */
+/** Endpoint field with the URL check, the note on an address of this computer, and the line asking for access to the endpoint. */
 function endpointField({ p, cfg, session, addWhileTyping }: PanelState, label: string, hint?: string): HTMLElement {
   const baseURL = h("input", { type: "text", value: cfg.baseURL, placeholder: p.defaultBaseURL || "https://…", spellcheck: "false" })
   const warning = h("div", { className: "field-warning", role: "status" })
+  const loopback = h("span", { className: "hint", text: t("hintLoopback") })
+  const access = hostAccessLine(p.id, cfg)
+  const showLoopback = () => (loopback.hidden = !isLoopback(cfg.baseURL || p.defaultBaseURL))
+  showLoopback()
   const validate = () =>
     renderBaseUrlWarning(warning, p, baseURL, () => {
       cfg.baseURL = ""
@@ -79,13 +85,17 @@ function endpointField({ p, cfg, session, addWhileTyping }: PanelState, label: s
   baseURL.addEventListener("input", () => {
     cfg.baseURL = baseURL.value.trim()
     if (p.kind === "deeplx") addWhileTyping(cfg.baseURL)
+    showLoopback()
     session.save()
   })
   // Checked when the value is committed (blur / Enter), not on every keystroke.
-  baseURL.addEventListener("change", validate)
+  baseURL.addEventListener("change", () => {
+    validate()
+    access.refresh()
+  })
   validate()
   const tip = p.kind === "deeplx" ? t("tipDeeplxUrl") : p.defaultBaseURL ? t("tipBaseUrlDefault") : t("tipBaseUrl")
-  return h("div", { className: "field-group" }, field(label, baseURL, tip, hint), warning)
+  return h("div", { className: "field-group" }, field(label, baseURL, tip, hint), loopback, warning, access.el)
 }
 
 /** Key / token field, hidden by default and with a button to show it. */
@@ -213,10 +223,14 @@ export function providerFields(state: PanelState): HTMLElement[] {
 export function testButton({ p, cfg, session }: PanelState, result: HTMLElement): HTMLButtonElement {
   const test = h("button", { type: "button", text: t("buttonTest"), title: t("tipTest") })
   test.addEventListener("click", async () => {
+    // First, while the click is being handled: Thunderbird asks the user only from a user action.
+    const access = requestHostAccess(p.id, cfg)
     result.className = "test-result"
     result.textContent = t("testRunning")
     test.disabled = true
     try {
+      // Without the permission the background script refuses the test and says why.
+      await access
       const r = await send({ type: "testProvider", providerId: p.id, config: { ...cfg }, targetLang: session.settings.targetLang })
       if (r?.ok) {
         result.className = "test-result ok"

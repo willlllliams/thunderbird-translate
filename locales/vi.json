@@ -472,5 +472,11 @@
   "tipNoticeOpen": "Mở cài đặt kèm danh sách các mục còn thiếu",
   "tipNoticeMute": "Không thông báo nữa cho các cặp ngôn ngữ này",
   "tipNoticeClose": "Ẩn thông báo này cho thư này",
-  "tipRetryTier": "Nhấn để thử lại các tầng bị lỗi"
+  "tipRetryTier": "Nhấn để thử lại các tầng bị lỗi",
+
+  "hostAccessMissing": "Tiện ích chưa được phép kết nối tới $1.",
+  "buttonAllowHost": "Cho phép truy cập",
+  "tipAllowHost": "Cho phép tiện ích kết nối tới địa chỉ này",
+  "hintLoopback": "localhost là chính máy tính này (địa chỉ loopback): yêu cầu gửi tới đó không rời khỏi máy.",
+  "errHostPermission": "Tiện ích chưa được phép kết nối tới $1. Hãy mở dịch vụ này trong phần cài đặt và bấm \"Cho phép truy cập\"."
 }

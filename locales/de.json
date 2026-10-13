@@ -472,5 +472,11 @@
   "tipNoticeOpen": "Öffnet die Einstellungen mit den fehlenden Elementen",
   "tipNoticeMute": "Keine Hinweise mehr für diese Sprachpaare",
   "tipNoticeClose": "Blendet diesen Hinweis für diese Nachricht aus",
-  "tipRetryTier": "Klicken, um die fehlgeschlagenen Stufen zu wiederholen"
+  "tipRetryTier": "Klicken, um die fehlgeschlagenen Stufen zu wiederholen",
+
+  "hostAccessMissing": "Die Erweiterung darf sich noch nicht mit $1 verbinden.",
+  "buttonAllowHost": "Zugriff erlauben",
+  "tipAllowHost": "Erlaubt der Erweiterung, sich mit dieser Adresse zu verbinden",
+  "hintLoopback": "localhost ist dieser Computer (Loopback-Adresse): Anfragen dorthin verlassen den Computer nicht.",
+  "errHostPermission": "Die Erweiterung darf sich noch nicht mit $1 verbinden. Öffnen Sie diesen Dienst in den Einstellungen und klicken Sie auf „Zugriff erlauben“."
 }

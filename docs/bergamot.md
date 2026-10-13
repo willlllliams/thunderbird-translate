@@ -69,7 +69,7 @@ Storage works per direction pair. Removing `ja → en` leaves `en → zh-Hans` i
 
 ## Model selection
 
-The list comes from Mozilla Remote Settings, collection `main/translations-models-v2` at `https://firefox.settings.services.mozilla.com/v1/buckets/main/collections/translations-models-v2/records`. The attachment base URL is read from `capabilities.attachments.base_url` of the server root (currently `https://firefox-settings-attachments.cdn.mozilla.net/`). The CDN sends no CORS headers; the extension's `<all_urls>` host permission covers it.
+The list comes from Mozilla Remote Settings, collection `main/translations-models-v2` at `https://firefox.settings.services.mozilla.com/v1/buckets/main/collections/translations-models-v2/records`. The attachment base URL is read from `capabilities.attachments.base_url` of the server root (currently `https://firefox-settings-attachments.cdn.mozilla.net/`). The CDN sends no CORS headers; the host permissions of the manifest name the server and the CDN (`src/shared/hosts.ts`), so the background script reads both.
 
 One file set per direction pair is chosen with the rules Firefox applies:
 

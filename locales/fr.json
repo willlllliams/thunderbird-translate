@@ -472,5 +472,11 @@
   "tipNoticeOpen": "Ouvre les paramètres avec la liste des éléments manquants",
   "tipNoticeMute": "Plus de rappels pour ces paires de langues",
   "tipNoticeClose": "Masque cet avis pour ce message",
-  "tipRetryTier": "Cliquez pour relancer les niveaux en échec"
+  "tipRetryTier": "Cliquez pour relancer les niveaux en échec",
+
+  "hostAccessMissing": "L’extension n’a pas encore le droit de se connecter à $1.",
+  "buttonAllowHost": "Autoriser l’accès",
+  "tipAllowHost": "Autorise l’extension à se connecter à cette adresse",
+  "hintLoopback": "localhost désigne cet ordinateur (adresse de bouclage) : les requêtes vers cette adresse ne quittent pas l’ordinateur.",
+  "errHostPermission": "L’extension n’a pas encore le droit de se connecter à $1. Ouvrez ce service dans les paramètres et cliquez sur « Autoriser l’accès »."
 }

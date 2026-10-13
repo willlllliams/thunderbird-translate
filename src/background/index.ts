@@ -67,7 +67,15 @@ const settings = createSettingsState({
 })
 
 // Badge, button title and error messages use the current i18n instance, set by applyUiLanguage().
-const service = new TranslationService({ getSettings: () => settings.current(), cache, dictionary, detect, i18n: getI18n })
+const service = new TranslationService({
+  getSettings: () => settings.current(),
+  cache,
+  dictionary,
+  detect,
+  i18n: getI18n,
+  // A host of the manifest, or one the user allowed on the settings page or in the setup guide.
+  hasOrigin: (origin) => ext.permissions.contains({ origins: [origin] }),
+})
 
 const tabs = createTabRegistry({
   ready: settings.ready,

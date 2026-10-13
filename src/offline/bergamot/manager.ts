@@ -18,8 +18,8 @@ import type { BergamotStore, StoredFile, StoredPair } from "./store"
 import { prepareTexts } from "./text"
 import { verifyModelFile } from "./verify"
 
-const DEFAULT_SERVER_URL = "https://firefox.settings.services.mozilla.com/v1/"
-const DEFAULT_ATTACHMENTS_BASE = "https://firefox-settings-attachments.cdn.mozilla.net/"
+export const DEFAULT_SERVER_URL = "https://firefox.settings.services.mozilla.com/v1/"
+export const DEFAULT_ATTACHMENTS_BASE = "https://firefox-settings-attachments.cdn.mozilla.net/"
 const MODELS_PATH = "buckets/main/collections/translations-models-v2/records"
 const RECORDS_META_KEY = "records"
 

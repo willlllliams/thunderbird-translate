@@ -475,5 +475,11 @@
   "tipNoticeOpen": "Opens the settings with the missing items listed",
   "tipNoticeMute": "No more notices for these language pairs",
   "tipNoticeClose": "Hides this notice for this message",
-  "tipRetryTier": "Click to retry the tiers that failed"
+  "tipRetryTier": "Click to retry the tiers that failed",
+
+  "hostAccessMissing": "The extension may not connect to $1 yet.",
+  "buttonAllowHost": "Allow access",
+  "tipAllowHost": "Let the extension connect to this address",
+  "hintLoopback": "localhost is this computer (loopback address): requests to it do not leave this computer.",
+  "errHostPermission": "The extension may not connect to $1 yet. Open this service in the settings and click “Allow access”."
 }

@@ -472,5 +472,11 @@
   "tipNoticeOpen": "打开设置，列出缺少的下载项",
   "tipNoticeMute": "不再为这些语言对显示提醒",
   "tipNoticeClose": "在此邮件中隐藏这条提醒",
-  "tipRetryTier": "点击重试失败的层级"
+  "tipRetryTier": "点击重试失败的层级",
+
+  "hostAccessMissing": "扩展尚未获准连接 $1。",
+  "buttonAllowHost": "授权访问",
+  "tipAllowHost": "允许扩展连接这个地址",
+  "hintLoopback": "localhost 指本机（回环地址），发往它的请求不会离开这台电脑。",
+  "errHostPermission": "扩展尚未获准连接 $1。请在设置中打开这个服务，点击“授权访问”。"
 }

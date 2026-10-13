@@ -54,6 +54,7 @@ export async function openPage(
     currentTab = { id: 7 },
     systemLanguages = [],
     bergamot,
+    permissions = {},
   }: {
     uiLanguage?: string
     /** i18n.getPreferredSystemLanguages(); null: a Thunderbird without it. */
@@ -70,6 +71,8 @@ export async function openPage(
     currentTab?: { id?: number }
     /** The Bergamot manager of the background script; one without models by default. */
     bergamot?: OfflineManager<OfflineItem>
+    /** Optional host permissions granted at the start, and the answer of the user to permissions.request(). */
+    permissions?: { granted?: string[]; allowRequest?: boolean }
   } = {},
 ) {
   // The timers of the page must be fake so that they end with the test, see endPageWithTest().
@@ -88,6 +91,7 @@ export async function openPage(
     currentTab,
     tabs,
     activeTabs: tabs,
+    ...permissions,
     respond: (req) => respond?.(req) ?? offline.respond(req) ?? (req.type === "cacheStats" ? { size: 0 } : undefined),
   })
   const close = vi.fn()

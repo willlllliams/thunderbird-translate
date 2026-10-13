@@ -75,6 +75,7 @@ The unit tests cover these areas:
 - paragraph detection with bilingual and translation-only rendering and restoring (in jsdom);
 - request building and response parsing for Google, Microsoft and DeepLX (with a mocked fetch);
 - the request URL and authentication headers of every AI preset, and the thinking parameters of every provider;
+- the host permissions of the manifest: they cover the default endpoint of every preset and the offline downloads and nothing broader, a request to an address without permission is refused, and the settings page asks for a typed endpoint on "Allow access" and before a connection test;
 - the migration of settings to added services, to tiers and to prompts;
 - the tier lists of the popup and the settings page, the refusal of all-empty tiers and the removal protection;
 - the tier rules: lower tier first and replaced, highest tier first with later lower results ignored, highest tier failing with the lower result kept, all tiers failing, unused tiers, cached highest tier;
@@ -96,7 +97,7 @@ The service tests run on the production path `translateForPage()`, with the tier
 
 `npm run e2e` builds a test xpi (`scripts/build.mjs --e2e`) against a local mock server (`e2e/mock-server.mjs`). Every run starts its own headless Thunderbird on a temporary profile with the xpi preinstalled, and the runner stops only the processes it started.
 
-The production code reaches the test build through the hooks of `src/hooks/`, which are undefined. The test build replaces every module of `src/hooks/` with the module of the same name in `src/e2e/hooks/` (the esbuild plugin `scripts/e2e-hooks.mjs`):
+The production code reaches the test build through the hooks of `src/hooks/`, which are undefined. The test build replaces every module of `src/hooks/` with the module of the same name in `src/e2e/hooks/` (the esbuild plugin `scripts/e2e-hooks.mjs`), and its manifest adds the host permission `http://127.0.0.1/*` of the mock server:
 
 | Hook | Called by | In the test build |
 | --- | --- | --- |
@@ -135,7 +136,7 @@ In CI the job `e2e` of `.github/workflows/release.yml` runs the same command on 
 
 ```
 src/
-  shared/        modules every part uses: settings, provider presets and thinking parameters, prompts, language table and codes, language detection, fetch with classified errors, message types, i18n runtime, DOM helpers
+  shared/        modules every part uses: settings, provider presets and thinking parameters, the addresses the extension connects to and their host permissions, prompts, language table and codes, language detection, fetch with classified errors, message types, i18n runtime, DOM helpers
   offline/       offline data of the background page: manager.ts, what the managers of both services have in common; catalog-cache.ts, the catalogs (dictionary index, Bergamot model list); install-registry.ts, the installations of a service, two at a time with a queue
     dictionary/  dictionary packs: format, download, storage, lookup, and manager.ts, which lists, installs and removes the packs and translates with them
     bergamot/    Bergamot engine: model list, download, storage, worker, and manager.ts, which lists, installs and removes the models and translates with them

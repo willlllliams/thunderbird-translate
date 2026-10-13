@@ -537,3 +537,27 @@ describe("errorContext", () => {
     expect(errorContext(p)).toMatchObject(expected)
   })
 })
+
+describe("host permissions", () => {
+  it("send nothing to an endpoint the extension may not connect to, and say which host and what to do", async () => {
+    const fetchFn = vi.fn(async (_url: string, init: RequestInit) => jsonResponse({ code: 200, data: `D(${JSON.parse(String(init.body)).text})` }))
+    const allowed = new Set<string>()
+    const hasOrigin = vi.fn(async (origin: string) => allowed.has(origin))
+    const settings = createDefaultSettings()
+    settings.providers.deeplx.baseURL = "https://deeplx.example/translate"
+    const { service } = createService(settings, { fetchFn: asFetch(fetchFn), hasOrigin })
+    const error = ENGLISH.t("errHostPermission", ["deeplx.example"])
+    await expect(translateOne(service, { text: "a", providerId: "deeplx" })).rejects.toThrow(error)
+    await expect(service.testProvider("deeplx", settings.providers.deeplx, "zh-CN")).rejects.toThrow(error)
+    expect(fetchFn).not.toHaveBeenCalled()
+    expect(hasOrigin).toHaveBeenCalledWith("https://deeplx.example/*")
+    allowed.add("https://deeplx.example/*")
+    expect(await translateOne(service, { text: "a", providerId: "deeplx" })).toBe("D(a)")
+    // A failed check counts as no permission; the offline services need none.
+    hasOrigin.mockRejectedValueOnce(new Error("gone"))
+    await expect(translateOne(service, { text: "b", providerId: "deeplx" })).rejects.toThrow(error)
+    hasOrigin.mockClear()
+    await translateOne(service, { text: "c", providerId: "dictionary" }).catch(() => {})
+    expect(hasOrigin).not.toHaveBeenCalled()
+  })
+})

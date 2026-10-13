@@ -25,6 +25,7 @@ This page describes every setting of Multi Translate for Thunderbird and how the
 - [Retranslate and the cache](#retranslate-and-the-cache)
 - [Translation style](#translation-style)
 - [Settings from older versions](#settings-from-older-versions)
+- [Permissions](#permissions)
 - [Privacy details](#privacy-details)
 - [Known limitations](#known-limitations)
 
@@ -393,6 +394,26 @@ When settings from version 1.1 or earlier are loaded, a service counts as added 
 Settings saved by version 1.3 and earlier have no tiers. An AI service as current service becomes tier 3, together with the fast service of race translation as tier 2 when race translation was on. Any other current service becomes tier 2. The dictionary tier starts unused. A custom system prompt saved by version 1.3 or earlier becomes the prompt of both display modes; the precise prompt starts with its built-in text.
 
 Settings saved before version 1.9.0 have no text color; translations keep the color of the message text, as before. A text color that is not a hex color such as `#202124` is ignored in the same way.
+
+## Permissions
+
+| Permission | What the extension uses it for |
+| --- | --- |
+| `messagesModify` | showing translations inside the displayed message: Thunderbird runs the content script of `messageDisplayScripts` and injects it into a message already on screen only with this permission. The extension changes no stored message. |
+| `sensitiveDataUpload` | sending the paragraphs of a message to the online services of the tiers in use |
+| `storage` | the settings, the translation cache and the state of the setup guide in `storage.local` |
+| `unlimitedStorage` | the dictionary packs and Bergamot models in IndexedDB, 13 to 48 MB per direction, which the browser then neither evicts nor caps |
+| host permissions | the fixed addresses the extension connects to, listed in `src/shared/hosts.ts`: Google Translate, both Microsoft Translator addresses, the default endpoint of every AI preset, Mozilla Remote Settings with its attachment CDN, and the GitHub releases with the two hosts GitHub redirects downloads to |
+
+An address you type needs your permission once: the endpoint of Ollama, LM Studio, DeepLX, Azure OpenAI, a custom OpenAI-compatible service or Azure Translator, and a changed endpoint of any preset. The manifest declares these as optional host permissions (`http://*/*`, `https://*/*`), and the extension asks only for the host of the endpoint:
+
+- While the permission is missing, a line under the endpoint field reads "The extension may not connect to <host> yet." with an "Allow access" button. Thunderbird then shows its own prompt.
+- "Test connection" asks for the permission first, so testing a new endpoint grants it in one step.
+- The permission covers the host with every port and path. The line disappears once it is granted, also when it was granted on another page.
+- A translation through a service without the permission sends nothing and fails with "The extension may not connect to <host> yet. Open this service in the settings and click “Allow access”."
+- The permissions granted this way are listed in the Add-ons Manager under the extension's permissions and can be removed there.
+
+The endpoint field of a local service notes that `localhost` is this computer (the loopback address): requests to it do not leave the computer. Ollama and LM Studio use such an address by default.
 
 ## Privacy details
 

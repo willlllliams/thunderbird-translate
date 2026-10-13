@@ -472,5 +472,11 @@
   "tipNoticeOpen": "不足項目の一覧つきで設定を開きます",
   "tipNoticeMute": "これらの言語ペアの通知を今後表示しない",
   "tipNoticeClose": "このメッセージでは通知を非表示にします",
-  "tipRetryTier": "クリックして失敗した段階を再試行"
+  "tipRetryTier": "クリックして失敗した段階を再試行",
+
+  "hostAccessMissing": "拡張機能はまだ $1 への接続を許可されていません。",
+  "buttonAllowHost": "アクセスを許可",
+  "tipAllowHost": "このアドレスへの接続を拡張機能に許可します",
+  "hintLoopback": "localhost はこのコンピューター自身（ループバックアドレス）です。ここへのリクエストはこのコンピューターの外に出ません。",
+  "errHostPermission": "拡張機能はまだ $1 への接続を許可されていません。設定でこのサービスを開き、「アクセスを許可」をクリックしてください。"
 }

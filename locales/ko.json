@@ -472,5 +472,11 @@
   "tipNoticeOpen": "누락 항목이 나열된 설정을 엽니다",
   "tipNoticeMute": "이 언어 쌍은 더 이상 알리지 않습니다",
   "tipNoticeClose": "이 메시지에서 알림을 숨깁니다",
-  "tipRetryTier": "클릭하여 실패한 단계를 다시 시도"
+  "tipRetryTier": "클릭하여 실패한 단계를 다시 시도",
+
+  "hostAccessMissing": "확장 기능이 아직 $1에 연결할 권한이 없습니다.",
+  "buttonAllowHost": "접근 허용",
+  "tipAllowHost": "확장 기능이 이 주소에 연결하도록 허용합니다",
+  "hintLoopback": "localhost는 이 컴퓨터(루프백 주소)입니다. 이 주소로 보내는 요청은 이 컴퓨터 밖으로 나가지 않습니다.",
+  "errHostPermission": "확장 기능이 아직 $1에 연결할 권한이 없습니다. 설정에서 이 서비스를 열고 '접근 허용'을 누르세요."
 }

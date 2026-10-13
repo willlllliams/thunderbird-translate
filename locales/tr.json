@@ -475,5 +475,11 @@
   "tipNoticeOpen": "Ayarları eksik öğeler listelenmiş olarak açar",
   "tipNoticeMute": "Bu dil çiftleri için artık bildirim gösterilmez",
   "tipNoticeClose": "Bu bildirimi bu ileti için gizler",
-  "tipRetryTier": "Başarısız olan kademeleri yeniden denemek için tıklayın"
+  "tipRetryTier": "Başarısız olan kademeleri yeniden denemek için tıklayın",
+
+  "hostAccessMissing": "Eklentinin henüz $1 adresine bağlanma izni yok.",
+  "buttonAllowHost": "Erişime izin ver",
+  "tipAllowHost": "Eklentinin bu adrese bağlanmasına izin verir",
+  "hintLoopback": "localhost bu bilgisayardır (geri döngü adresi): ona giden istekler bilgisayardan çıkmaz.",
+  "errHostPermission": "Eklentinin henüz $1 adresine bağlanma izni yok. Ayarlarda bu hizmeti açın ve \"Erişime izin ver\" düğmesine tıklayın."
 }

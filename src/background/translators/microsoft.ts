@@ -13,9 +13,10 @@
 
 import { LocalizedError } from "../../shared/errors"
 import { type BatchLimits, groupIntoBatches } from "../queue/batch-queue"
+import { MS_EDGE_TRANSLATE_URL } from "../../shared/hosts"
 import { type FetchOptions, fetchOk, type RequestSpec } from "../../shared/http"
 
-export const MS_EDGE_TRANSLATE_URL = "https://edge.microsoft.com/translate/translatetext"
+export { MS_EDGE_TRANSLATE_URL }
 
 
 /** Azure Translator, key mode. An empty region is valid for a global resource. */

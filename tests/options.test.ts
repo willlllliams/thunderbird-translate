@@ -362,6 +362,98 @@ describe("service panel", () => {
     expect(page.stored().tiers.machine).toBe("microsoft-free")
   })
 
+  describe("access to the endpoint", () => {
+    const line = () => panel().querySelector<HTMLElement>(".host-access")!
+
+    it("asks for an endpoint the user typed with Allow access, and hides the line once it is granted", async () => {
+      const page = await options((s) => (s.providers.deeplx = { enabled: true, apiKey: "", baseURL: "https://deeplx.example/translate", model: "" }))
+      pick("DeepLX")
+      await vi.waitFor(() => expect(line().hidden).toBe(false))
+      expect(line().textContent).toContain(ENGLISH.t("hostAccessMissing", ["deeplx.example"]))
+      expect(button(ENGLISH.t("buttonAllowHost")).title).toBe(ENGLISH.t("tipAllowHost"))
+      button(ENGLISH.t("buttonAllowHost")).click()
+      expect(page.browser.api.permissions.request).toHaveBeenCalledWith({ origins: ["https://deeplx.example/*"] })
+      await vi.waitFor(() => expect(line().hidden).toBe(true))
+      // Another endpoint needs its own permission.
+      fire(input("text"), "https://other.example/translate", "input")
+      fire(input("text"), "https://other.example/translate", "change")
+      await vi.waitFor(() => expect(line().textContent).toContain("other.example"))
+      expect(line().hidden).toBe(false)
+      // Granted elsewhere (another page, the add-ons manager): the line goes.
+      await page.browser.api.permissions.request({ origins: ["https://other.example/*"] })
+      await vi.waitFor(() => expect(line().hidden).toBe(true))
+    })
+
+    it("needs no permission for the default endpoint of a preset, and shows none for an endpoint that is not a URL", async () => {
+      await options((s) => (s.providers.openai.enabled = true))
+      pick("OpenAI")
+      await vi.waitFor(() => expect(line()).not.toBeNull())
+      await vi.advanceTimersByTimeAsync(0)
+      expect(line().hidden).toBe(true)
+      fire(input("text"), "not a url", "change")
+      await vi.advanceTimersByTimeAsync(0)
+      expect(line().hidden).toBe(true)
+    })
+
+    it("keeps the line when the user refuses, and says that localhost is this computer", async () => {
+      const page = await options((s) => (s.providers.ollama.enabled = true), { permissions: { allowRequest: false } })
+      const loopback = () => Array.from(panel().querySelectorAll<HTMLElement>(".hint")).find((el) => el.textContent === ENGLISH.t("hintLoopback"))!
+      pick("Ollama (local)")
+      expect(loopback().hidden).toBe(false)
+      await vi.waitFor(() => expect(line().hidden).toBe(false))
+      expect(line().textContent).toContain(ENGLISH.t("hostAccessMissing", ["localhost"]))
+      button(ENGLISH.t("buttonAllowHost")).click()
+      await vi.waitFor(() => expect(page.browser.api.permissions.request).toHaveBeenCalled())
+      await vi.advanceTimersByTimeAsync(0)
+      expect(line().hidden).toBe(false)
+      pick("OpenAI")
+      expect(loopback().hidden).toBe(true)
+      fire(input("text"), "http://127.0.0.1:8080/v1")
+      expect(loopback().hidden).toBe(false)
+    })
+
+    it("counts a permission API that fails as no access, and forgets the lines of a panel no longer shown", async () => {
+      const page = await options((s) => (s.providers.deeplx = { enabled: true, apiKey: "", baseURL: "https://deeplx.example/translate", model: "" }))
+      const { permissions } = page.browser.api
+      permissions.contains.mockRejectedValue(new Error("gone"))
+      permissions.request.mockImplementation(() => {
+        throw new Error("not from a user action")
+      })
+      pick("DeepLX")
+      await vi.waitFor(() => expect(line().hidden).toBe(false))
+      button(ENGLISH.t("buttonAllowHost")).click()
+      await vi.advanceTimersByTimeAsync(0)
+      expect(line().hidden).toBe(false)
+      const old = line()
+      pick("OpenAI")
+      permissions.contains.mockResolvedValue(true)
+      permissions.onAdded.fire({ origins: ["https://deeplx.example/*"] })
+      await vi.advanceTimersByTimeAsync(0)
+      expect(old.hidden).toBe(false)
+    })
+
+    it("asks for the endpoint first when the connection test is clicked, and tests also when refused", async () => {
+      const order: string[] = []
+      const page = await options((s) => (s.providers.custom = { enabled: true, apiKey: "", baseURL: "https://llm.example/v1", model: "m" }), {
+        permissions: { allowRequest: false },
+        respond: (req) => {
+          if (req.type !== "testProvider") return undefined
+          order.push("test")
+          return { ok: false, error: ENGLISH.t("errHostPermission", ["llm.example"]) }
+        },
+      })
+      page.browser.api.permissions.request.mockImplementation(async () => {
+        order.push("request")
+        return false
+      })
+      pick("Custom OpenAI-compatible")
+      button(ENGLISH.t("buttonTest")).click()
+      expect(order).toEqual(["request"])
+      await vi.waitFor(() => expect(order).toEqual(["request", "test"]))
+      await vi.waitFor(() => expect(panel().querySelector(".test-reason")!.textContent).toBe(ENGLISH.t("errHostPermission", ["llm.example"])))
+    })
+  })
+
   describe("connection test", () => {
     const run = async (respond: (req: BackgroundRequest) => unknown) => {
       await options((s) => (s.providers.openai = { enabled: true, apiKey: "sk-unsaved", baseURL: "", model: "" }), { respond })
