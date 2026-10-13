@@ -9,7 +9,7 @@ import type { LanguageDetector } from "../../shared/lang-detect"
 import { describeError, LocalizedError } from "../../shared/errors"
 import { HttpError } from "../../shared/http"
 import { getI18n } from "../../shared/i18n"
-import { pairKey } from "../../shared/languages"
+import { dictLang, pairKey } from "../../shared/languages"
 import type { DictionaryPackInfo } from "../../shared/messages"
 import type { Catalog } from "../../shared/offline-needs"
 import { CatalogCache } from "../catalog-cache"
@@ -32,6 +32,8 @@ export interface DictionaryManagerDeps {
 }
 
 const keyOf = (pack: { src: string; tgt: string }) => pairKey(pack.src, pack.tgt)
+/** The pair key of a direction in the language codes of the packs ("zh-CN" → "zh-Hans"); a language no pack has stays as it is. */
+const packKey = (src: string, tgt: string) => pairKey(dictLang(src) ?? src, dictLang(tgt) ?? tgt)
 
 /** A failure that a rebuilt release explains: the file has another checksum, or it is gone. */
 const releaseChanged = (error: unknown) => (error instanceof LocalizedError && error.i18nText.key === "errDictionaryChecksum") || (error instanceof HttpError && error.status === 404)
@@ -94,9 +96,10 @@ export class DictionaryManager implements OfflineManager<DictionaryPackInfo> {
     const index = this.index(tag)
     const packs = await index.get()
     if (!packs) throw new LocalizedError("dictIndexFailed", [describeError(index.error, getI18n())])
-    const find = (list: IndexedPack[] | null) => list?.find((p) => keyOf(p) === pairKey(src, tgt))
+    const key = packKey(src, tgt)
+    const find = (list: IndexedPack[] | null) => list?.find((p) => keyOf(p) === key)
     const pack = find(packs)
-    if (!pack) throw new LocalizedError("errDictionaryNoPack", [`${src} → ${tgt}`])
+    if (!pack) throw new LocalizedError("errDictionaryNoPack", [key.replace(">", " → ")])
     const download = (entry: IndexedPack) => installPack(entry, tag, this.store, { fetchFn: this.deps.fetch, onProgress, signal })
     try {
       try {
@@ -114,7 +117,7 @@ export class DictionaryManager implements OfflineManager<DictionaryPackInfo> {
 
   async remove(src: string, tgt: string): Promise<void> {
     try {
-      await this.store.remove(pairKey(src, tgt))
+      await this.store.remove(packKey(src, tgt))
     } finally {
       this.dictionary.invalidate()
     }

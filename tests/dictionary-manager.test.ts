@@ -173,6 +173,15 @@ describe("dictionary manager", () => {
     })
   })
 
+  it("installs and removes a pack named in another spelling of its languages, as the Bergamot models are", async () => {
+    const m = managerFor({ "dicts-v1": [EN_ZH, FR_EN] })
+    await m.manager.install("en", "zh-CN")
+    await m.manager.install("FR", "en-US")
+    expect(await m.manager.installedKeys()).toEqual(new Set(["en>zh-Hans", "fr>en"]))
+    await m.manager.remove("en-GB", "zh")
+    expect(await m.manager.installedKeys()).toEqual(new Set(["fr>en"]))
+  })
+
   it("fails an installation while the index cannot be read", async () => {
     const m = managerFor({ "dicts-v1": [EN_DE] })
     m.state.offline = true
