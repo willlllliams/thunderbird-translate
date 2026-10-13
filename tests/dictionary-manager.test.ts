@@ -117,6 +117,62 @@ describe("dictionary manager", () => {
     expect((await texts(m.manager, ["hello"], "en", "de"))[0]).toMatch(/^! /)
   })
 
+  describe("a release rebuilt while its index is kept", () => {
+    /** A release whose index and files can be replaced: `packs` lists the entries, `files` serves the file names. */
+    function rebuiltRelease(packs: ReturnType<typeof packEntry>[], files: Record<string, string>) {
+      const release = { packs, files, offline: false }
+      const fetch = vi.fn(async (url: string) => {
+        const file = decodeURIComponent(url.split("/").at(-1)!)
+        if (release.offline && file !== "dict-index.json") throw new TypeError("NetworkError when attempting to fetch resource.")
+        if (file === "dict-index.json") return new Response(JSON.stringify({ version: 1, packs: release.packs }))
+        const text = release.files[file]
+        return text === undefined ? new Response("Not Found", { status: 404 }) : new Response(gz(text))
+      })
+      const store = new DictionaryStore(() => new IDBFactory())
+      const manager = new DictionaryManager({ releaseTag: () => "dicts-v1", store, fetch: asFetch(fetch) })
+      const reads = (name: string) => fetch.mock.calls.filter(([url]) => url.endsWith(`/${name}`)).length
+      return { release, manager, store, reads }
+    }
+    const EN_DE_2 = tsv("en", "de", { hello: "servus", world: "Welt" })
+
+    it("installs a pack whose file changed: a checksum error reads the index again once and downloads the new entry", async () => {
+      const r = rebuiltRelease([packEntry(EN_DE)], { "dict-en-de.tsv.gz": EN_DE })
+      await r.manager.list()
+      // The release is rebuilt: same file name, new content and checksum.
+      r.release.packs = [packEntry(EN_DE_2)]
+      r.release.files = { "dict-en-de.tsv.gz": EN_DE_2 }
+      await r.manager.install("en", "de")
+      expect([r.reads("dict-index.json"), r.reads("dict-en-de.tsv.gz")]).toEqual([2, 2])
+      expect(await texts(r.manager, ["hello"], "en", "de")).toEqual(["servus"])
+    })
+
+    it("installs a pack whose file was renamed: a 404 reads the index again once and downloads the new file", async () => {
+      const r = rebuiltRelease([packEntry(EN_DE)], { "dict-en-de.tsv.gz": EN_DE })
+      await r.manager.list()
+      r.release.packs = [packEntry(EN_DE_2, { file: "dict-en-de-2.tsv.gz" })]
+      r.release.files = { "dict-en-de-2.tsv.gz": EN_DE_2 }
+      await r.manager.install("en", "de")
+      expect([r.reads("dict-index.json"), r.reads("dict-en-de.tsv.gz"), r.reads("dict-en-de-2.tsv.gz")]).toEqual([2, 1, 1])
+      expect(await texts(r.manager, ["hello"], "en", "de")).toEqual(["servus"])
+    })
+
+    it("fails when the index read again names the same file and checksum or the new entry fails too, and reads it again only after a checksum error or a 404", async () => {
+      const r = rebuiltRelease([packEntry(EN_DE)], { "dict-en-de.tsv.gz": EN_DE_2 })
+      await expect(r.manager.install("en", "de")).rejects.toThrow(ENGLISH.t("errDictionaryChecksum", ["dict-en-de.tsv.gz"]))
+      expect([r.reads("dict-index.json"), r.reads("dict-en-de.tsv.gz")]).toEqual([2, 1])
+      // The new entry fails as well: no third read of the index.
+      r.release.packs = [packEntry(EN_DE_2)]
+      r.release.files = {}
+      await expect(r.manager.install("en", "de")).rejects.toThrow("HTTP 404")
+      expect(r.reads("dict-index.json")).toBe(3)
+      // A network failure is no sign of a rebuilt release.
+      r.release.offline = true
+      await expect(r.manager.install("en", "de")).rejects.toThrow("NetworkError")
+      expect(r.reads("dict-index.json")).toBe(3)
+      expect(await r.manager.installedKeys()).toEqual(new Set())
+    })
+  })
+
   it("fails an installation while the index cannot be read", async () => {
     const m = managerFor({ "dicts-v1": [EN_DE] })
     m.state.offline = true

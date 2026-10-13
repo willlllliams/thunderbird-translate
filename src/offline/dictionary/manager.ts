@@ -7,6 +7,7 @@
 
 import type { LanguageDetector } from "../../shared/lang-detect"
 import { describeError, LocalizedError } from "../../shared/errors"
+import { HttpError } from "../../shared/http"
 import { getI18n } from "../../shared/i18n"
 import { pairKey } from "../../shared/languages"
 import type { DictionaryPackInfo } from "../../shared/messages"
@@ -31,6 +32,9 @@ export interface DictionaryManagerDeps {
 }
 
 const keyOf = (pack: { src: string; tgt: string }) => pairKey(pack.src, pack.tgt)
+
+/** A failure that a rebuilt release explains: the file has another checksum, or it is gone. */
+const releaseChanged = (error: unknown) => (error instanceof LocalizedError && error.i18nText.key === "errDictionaryChecksum") || (error instanceof HttpError && error.status === 404)
 
 export class DictionaryManager implements OfflineManager<DictionaryPackInfo> {
   readonly service = "dictionary"
@@ -79,15 +83,30 @@ export class DictionaryManager implements OfflineManager<DictionaryPackInfo> {
     return new Set((await this.store.list()).map((p: InstalledPack) => p.id))
   }
 
-  /** Download the pack of the index of `tag` (the settings' by default), check and store it; translations use it at once. */
+  /**
+   * Download the pack of the index of `tag` (the settings' by default), check
+   * and store it; translations use it at once. The index is kept for hours,
+   * and the release may be rebuilt meanwhile: when the file fails its
+   * checksum or is not found, the index is read again once, and a changed
+   * entry (another checksum or file) is downloaded instead.
+   */
   async install(src: string, tgt: string, onProgress?: (done: number, total: number) => void, signal?: AbortSignal, { tag = this.deps.releaseTag() }: Pick<ListOptions, "tag"> = {}): Promise<void> {
     const index = this.index(tag)
     const packs = await index.get()
     if (!packs) throw new LocalizedError("dictIndexFailed", [describeError(index.error, getI18n())])
-    const pack = packs.find((p) => keyOf(p) === pairKey(src, tgt))
+    const find = (list: IndexedPack[] | null) => list?.find((p) => keyOf(p) === pairKey(src, tgt))
+    const pack = find(packs)
     if (!pack) throw new LocalizedError("errDictionaryNoPack", [`${src} → ${tgt}`])
+    const download = (entry: IndexedPack) => installPack(entry, tag, this.store, { fetchFn: this.deps.fetch, onProgress, signal })
     try {
-      await installPack(pack, tag, this.store, { fetchFn: this.deps.fetch, onProgress, signal })
+      try {
+        await download(pack)
+      } catch (error) {
+        if (signal?.aborted || !releaseChanged(error)) throw error
+        const fresh = find(await index.get(true))
+        if (!fresh || (fresh.sha256 === pack.sha256 && fresh.file === pack.file)) throw error
+        await download(fresh)
+      }
     } finally {
       this.dictionary.invalidate()
     }
