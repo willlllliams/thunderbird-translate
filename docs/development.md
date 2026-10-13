@@ -30,7 +30,7 @@ npm run build
 3. It writes `dist/THIRD-PARTY-NOTICES.txt` with `scripts/notices.mjs`: every npm package esbuild bundled, with version, license, copyright line and license text, then the Bergamot engine with the address of its source code, the licenses of the dictionary data, and the source of the character 文 in the icons, the outline of its glyph in Noto Sans SC (SIL Open Font License 1.1). The packages come from the files esbuild read (its metafile). The build stops when a bundled package is not declared in `scripts/notices.mjs`, a declared one is no longer bundled, a license differs from the declaration, or a license text or copyright line is missing. The texts an npm package lacks are kept in `licenses/` together with their source address, so the build needs no network for them.
 4. It packs `dist/` into `web-ext-artifacts/thunderbird-translate-<version>.xpi`. Packing uses the pure JavaScript fflate library and needs no system zip command.
 
-The background script is an ES module. The AI SDK is a separate chunk under `dist/chunks/` that loads once the AI tier is in use, so Thunderbird starts the extension without it. The first build downloads the pinned Bergamot engine (wasm) from Mozilla into `.cache/`, see [bergamot.md](bergamot.md#build).
+The background script is an ES module. The AI SDK is a separate chunk under `dist/chunks/` that loads once the AI tier is in use, so Thunderbird starts the extension without it. The pinned Bergamot engine (wasm) is part of the repository in `vendor/bergamot/`, and the license texts in `licenses/`, so `npm ci` followed by `npm run build` needs no network beyond the npm registry, see [bergamot.md](bergamot.md#build).
 
 During development you can load the extension without packing it. In Thunderbird open Tools → Developer Tools → Debug Add-ons, click "Load Temporary Add-on" and select `dist/manifest.json`.
 
@@ -51,7 +51,7 @@ During development you can load the extension without packing it. In Thunderbird
 | `npm run imports:check` | checks the imports of `src/` against the layers in [Project structure](#project-structure) |
 | `npm run e2e` | end-to-end test in a headless Thunderbird against a local mock server |
 | `npm run live-test` | calls the real Google and Microsoft endpoints through the extension's own modules, with and without a source language |
-| `npm run fetch:bergamot` | downloads the pinned Bergamot engine into `.cache/` |
+| `npm run fetch:bergamot` | checks the vendored Bergamot engine; without it, downloads the pinned engine into `.cache/` |
 
 ## Unit tests and coverage
 
@@ -154,7 +154,7 @@ static/          manifest.json, HTML, CSS, the icons: icons/icon.svg for 64 px a
 licenses/        license texts for THIRD-PARTY-NOTICES.txt: those some npm packages lack, the Apache License 2.0, Marian, ECDICT
 scripts/         build, third-party notices and the hook plugin of the e2e build, Bergamot engine download, locale generation and checks, Markdown link check, layer check of src/, live endpoint test
 vendor/
-  bergamot/      Bergamot engine glue script (bergamot-translator.js)
+  bergamot/      Bergamot engine: the WebAssembly binary (bergamot-translator.wasm.zst) and its glue script (bergamot-translator.js), as Mozilla publishes them; README.md names their source and hashes
 tools/           dict-build: the pipeline that builds the dictionary packs
 readmes/         translated versions of the README
 docs/            reference and developer documentation; archive/ keeps the full changelog up to 1.12.0 and the size analysis of 1.5.2

@@ -1,3 +1,5 @@
 * text=auto eol=lf
 *.svg text eol=lf
 *.gif binary
+*.zst binary
+*.png binary

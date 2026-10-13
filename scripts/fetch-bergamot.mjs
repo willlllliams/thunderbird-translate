@@ -1,10 +1,12 @@
-// Fetch the Bergamot translation engine (WebAssembly, zstd-compressed) that the
-// extension ships, verify it against pinned hashes and cache it in .cache/.
+// The Bergamot translation engine (WebAssembly, zstd-compressed) that the
+// extension ships, checked against pinned hashes.
 //
-// Source: Mozilla Remote Settings, collection main/translations-wasm-v2, the
-// record Firefox and Thunderbird use with bergamot-translator.js v0.6.0+eea6e5a8
-// (vendor/bergamot/). The file stays compressed in the xpi; the worker
-// decompresses it with fzstd at run time.
+// The repository keeps the file in vendor/bergamot/ (see vendor/bergamot/README.md),
+// so a build needs no network. Only when that file is missing is it downloaded
+// from its source and cached in .cache/: Mozilla Remote Settings, collection
+// main/translations-wasm-v2, the record Firefox and Thunderbird use with
+// bergamot-translator.js v0.6.0+eea6e5a8 (vendor/bergamot/). The file stays
+// compressed in the xpi; the worker decompresses it with fzstd at run time.
 //
 // Usage: node scripts/fetch-bergamot.mjs   (npm run build calls ensureBergamotWasm())
 import { createHash } from "node:crypto"
@@ -35,6 +37,8 @@ export const BERGAMOT_WASM_FILE = "bergamot-translator.wasm.zst"
 
 const SERVER = "https://firefox.settings.services.mozilla.com/v1/"
 const FALLBACK_ATTACHMENTS = "https://firefox-settings-attachments.cdn.mozilla.net/"
+/** The copy in the repository. */
+export const VENDOR_WASM = join(root, "vendor", "bergamot", BERGAMOT_WASM_FILE)
 const cacheDir = join(root, ".cache", "bergamot")
 const cacheFile = join(cacheDir, BERGAMOT_WASM_FILE)
 
@@ -63,8 +67,16 @@ async function attachmentsBase() {
   return FALLBACK_ATTACHMENTS
 }
 
-/** Path of the verified .wasm.zst in .cache/, downloading it on first use. */
-export async function ensureBergamotWasm() {
+/**
+ * Path of the verified .wasm.zst: the copy in vendor/bergamot/, which must match the pinned hashes; without it the
+ * copy in .cache/, downloaded on first use.
+ */
+export async function ensureBergamotWasm(vendorFile = VENDOR_WASM) {
+  if (existsSync(vendorFile)) {
+    verifyBergamotWasm(readFileSync(vendorFile))
+    return vendorFile
+  }
+  console.warn(`bergamot: ${vendorFile} is missing, using the download cache`)
   if (existsSync(cacheFile)) {
     try {
       verifyBergamotWasm(readFileSync(cacheFile))

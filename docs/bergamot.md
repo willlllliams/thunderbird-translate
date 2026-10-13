@@ -142,7 +142,7 @@ Worker messages are defined in `protocol.ts`. Each request carries an id, the wo
 
 ## Build
 
-`scripts/fetch-bergamot.mjs` downloads the engine during `npm run build` (or on its own with `npm run fetch:bergamot`), checks it and caches it in `.cache/bergamot/`. The build copies it unchanged into the xpi together with `vendor/bergamot/bergamot-translator.js`. Later builds use the cache when its hash still matches.
+The repository keeps the engine in `vendor/bergamot/bergamot-translator.wasm.zst`, next to its glue `vendor/bergamot/bergamot-translator.js`, so a build needs no network. `npm run build` checks the binary against the hashes pinned in `scripts/fetch-bergamot.mjs` and stops when they differ, then copies both files unchanged into the xpi. Only when the vendored binary is missing does `scripts/fetch-bergamot.mjs` download it from Mozilla (also on its own with `npm run fetch:bergamot`), check it the same way and cache it in `.cache/bergamot/`.
 
 | Item | Value |
 | --- | --- |
@@ -153,7 +153,7 @@ Worker messages are defined in `protocol.ts`. Each request carries an id, the wo
 | sha256 (wasm, 4,960,506 bytes) | `f38ef807636a7c994afedaab7ff8ffe0d590d21897f05139f747b80fd7bbe926` |
 | License | MPL-2.0 |
 
-The glue script and the binary must come from the same build. `vendor/bergamot/README.md` records where the glue comes from. To move to a newer engine, replace the glue and update the pinned values in `scripts/fetch-bergamot.mjs` in the same change.
+The glue script and the binary must come from the same build. `vendor/bergamot/README.md` records the source, version, revision, hashes and license of both. To move to a newer engine, replace both files and update the pinned values in `scripts/fetch-bergamot.mjs` and that page in the same change.
 
 ## Permissions and content security policy
 
