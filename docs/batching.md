@@ -57,7 +57,7 @@ A request whose answer, body included, has not arrived after the request timeout
 
 | Service | Timeout | After a timeout |
 | --- | --- | --- |
-| Google, Microsoft, DeepLX | the request timeout of the settings | one more attempt; the error names the time of both attempts, for example "no answer within 120 s" |
+| Google, Microsoft, DeepLX | the request timeout of the settings | one more attempt, when the number of retries is at least 1; the error names the time of both attempts, for example "no answer within 120 s" |
 | AI services, including the analysis of precise translation and "Test connection" | the request timeout; three times as long for Ollama, LM Studio and any model with thinking mode on | no further attempt, because a model that was too slow once is too slow again and every attempt is charged; the error names the time waited, for example "no answer within 180 s" |
 
 Every timeout error comes with a hint to raise the timeout.
@@ -74,7 +74,9 @@ The offline Bergamot engine terminates its worker when a translation does not an
 | DeepLX | one paragraph per request; the paragraphs of a batch are requested concurrently |
 | AI providers | the paragraphs are numbered and put into one message; the model is asked to return a JSON array of the same length |
 
-With automatic detection, Bergamot detects the language of each paragraph and translates the paragraphs of each language together. A paragraph too short for the detector (fewer than 12 letters) takes the language found most often in the batch, else English.
+The services other than AI cap a batch regardless of the settings, for example DeepLX at 50 paragraphs and Microsoft with an Azure key at 1000 paragraphs and 50000 characters; the full table is in [settings.md](settings.md#request-batching-and-timeouts).
+
+With automatic detection, Bergamot detects the language of each paragraph and translates the paragraphs of each language together. The browser's detector is asked from 12 letters on; its answer counts when it is reliable and covers at least 60 % of the text. A paragraph it does not place, a shorter one included, is named by its script and, in Latin script, by English stop words. A paragraph that none of these place takes the language found most often in the batch, else English. The dictionary detects the same way, but treats a paragraph it cannot place as English.
 
 When a Google answer has an unexpected shape, the batch is requested again one paragraph per request through the same request queue, with its concurrency limit and retries. A failure then affects its paragraph only.
 

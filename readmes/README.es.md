@@ -124,11 +124,13 @@ La lista completa está en [docs/settings.md](../docs/settings.md#known-limitati
 
 ## Documentación
 
-Los documentos siguientes están en inglés.
+Los documentos siguientes están en inglés, salvo dictionary-packs.md, que está en chino.
 
 - [docs/settings.md](../docs/settings.md): cada ajuste, las listas sin conexión, los avisos de datos ausentes y la caché.
 - [docs/providers.md](../docs/providers.md): puntos de conexión, modelos predeterminados y parámetros de razonamiento de cada servicio.
 - [docs/batching.md](../docs/batching.md): cómo se combinan los párrafos en solicitudes, los tiempos de espera y los costes.
+- [docs/bergamot.md](../docs/bergamot.md): el motor sin conexión Bergamot, la elección y el almacenamiento de sus modelos y su compilación.
+- [docs/dictionary-packs.md](../docs/dictionary-packs.md): fuentes de datos, formato y compilación de los paquetes de diccionario (en chino).
 - [docs/development.md](../docs/development.md): compilar desde el código fuente, pruebas, estructura del proyecto, traducir la interfaz y el proceso de publicación.
 
 ## Agradecimientos

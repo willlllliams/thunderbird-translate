@@ -112,7 +112,7 @@
   "labelRetries": "Yeniden deneme sayısı (429 / 5xx / ağ / zaman aşımı)",
   "labelTimeout": "İstek zaman aşımı (saniye)",
   "labelLlmBatch": "Paragrafları tek bir yapay zekâ isteğinde birleştir",
-  "batchHint": "Ücretsiz hizmetler, bu değerlerden bağımsız olarak bir isteği 5000 karakter ve 100 paragrafla sınırlar. Bir isteğe sığmayan uzun paragraf, mümkünse satır sonlarından, değilse cümle sınırlarından bölünerek parça parça çevrilir. Zaman aşımı süresinde yanıt almayan istek bir kez yeniden denenir; yapay zekâ isteği yeniden denenmez, yerel modeller (Ollama, LM Studio) ve düşünme modundaki modeller zaman aşımının üç katı süre alır.",
+  "batchHint": "Yapay zekâ dışındaki hizmetler, bu değerlerden bağımsız olarak bir isteği sınırlar: Google, Microsoft (ücretsiz) ve Bergamot 100 paragraf ve 5000 karakterle, DeepLX 50 paragraf ve 5000 karakterle, sözlük 100 paragraf ve 50000 karakterle, Azure anahtarlı Microsoft 1000 paragraf ve 50000 karakterle. Bir isteğe sığmayan uzun paragraf, mümkünse satır sonlarından, değilse cümle sınırlarından bölünerek parça parça çevrilir. Zaman aşımı süresinde yanıt almayan istek, yeniden deneme sayısı içinde bir kez yeniden denenir; yapay zekâ isteği zaman aşımından sonra yeniden denenmez, yerel modeller (Ollama, LM Studio) ve düşünme modundaki modeller zaman aşımının üç katı süre alır.",
   "labelStylePreset": "Stil",
   "styleBorder": "Sol kenarlık",
   "styleDashed": "Kesikli sol kenarlık",

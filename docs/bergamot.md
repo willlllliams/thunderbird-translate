@@ -26,7 +26,7 @@ The module in `src/offline/bergamot/` translates plain text on the user's comput
 - Input is plain text. The engine also has an HTML mode, but it misplaces tags in Chinese, Japanese and Korean output, so the module does not use it.
 - Simplified ↔ Traditional Chinese throws `errChineseVariants`: through English their words would come back as glosses.
 - When a needed pair is not installed, the call throws `bergamotModelMissing` and names the missing pairs. It reads the installed pairs once and sends no request to Mozilla. With the model list in memory and the pairs offered by Mozilla, the error is a `MissingDataError` (`src/shared/errors.ts`): its field `missing` names the service, the language pair and the pairs to download, and the content script builds its notice about missing offline data from it. Before the list is read, the error carries no `missing` field. A pair that Mozilla does not offer throws `bergamotUnsupportedPair`.
-- A worker that does not answer a request within 2 minutes is terminated, the call fails with `bergamotEngineFailed`, and the next call starts a fresh worker.
+- A worker that does not answer a request within 2 minutes is terminated, the call fails with `bergamotEngineFailed`, and the next call starts a fresh worker. Loading a model into the worker has 5 minutes. After two timeouts in a row every call fails at once with `bergamotEnginePaused` for 1 minute, instead of waiting for its own timeout; then the engine is tried again.
 
 `BergamotPairInfo` has these fields:
 
@@ -102,9 +102,9 @@ The IndexedDB database `tt-bergamot` has three object stores:
 
 | Store | Key | Content |
 | --- | --- | --- |
-| `pairs` | `"src>tgt"` | version, architecture, sizes and the file list (type, name, both hashes, both sizes) |
-| `files` | sha256 of the compressed file | the compressed bytes as downloaded |
-| `meta` | name | the cached model list |
+| `pairs` | key path `key`, the pair `"src>tgt"` | version, architecture, sizes and the file list (type, name, both hashes, both sizes) |
+| `files` | key path `hash`, the sha256 of the compressed file | the compressed bytes as downloaded |
+| `meta` | key path `key`, the name of the entry (`records`) | the cached model list |
 
 Files are stored compressed and decompressed in the worker when a pair is loaded, which costs about 0.3 s for a 45 MB model. Removing a pair deletes the files no other pair lists. Reinstalling a pair at a newer version replaces its files in the same way. The `unlimitedStorage` permission keeps the browser from evicting the data and from capping it.
 
@@ -173,6 +173,8 @@ The module throws `LocalizedError` with the keys below, so `describeError` shows
 | `bergamotChecksumMismatch` | The downloaded model file $1 is damaged (checksum mismatch). Try the installation again. | `$1` file name; detail: expected and actual hash |
 | `bergamotStorageFailed` | Could not save or read the offline models in the extension storage. | none; detail: the IndexedDB error |
 | `bergamotEngineFailed` | The offline translation engine failed. | none; detail: the engine message |
+| `bergamotEnginePaused` | The offline translation engine did not answer twice in a row. Offline translation pauses for $1 s; try again afterwards. | `$1` seconds left of the pause |
+| `errChineseVariants` | This service does not translate between Simplified and Traditional Chinese. | none; the dictionary throws it too |
 
 ## Measurements
 

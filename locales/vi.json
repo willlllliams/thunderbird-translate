@@ -110,7 +110,7 @@
   "labelRetries": "Số lần thử lại (429 / 5xx / mạng / hết thời gian chờ)",
   "labelTimeout": "Thời gian chờ mỗi yêu cầu (giây)",
   "labelLlmBatch": "Gộp các đoạn vào một yêu cầu AI",
-  "batchHint": "Dịch vụ miễn phí luôn giới hạn mỗi yêu cầu ở 5000 ký tự và 100 đoạn, bất kể các giá trị này. Đoạn dài hơn mức một yêu cầu cho phép được dịch từng phần, tách tại chỗ xuống dòng khi có thể, nếu không thì theo ranh giới câu. Yêu cầu không có phản hồi trong thời gian chờ được thử lại một lần; yêu cầu AI không được thử lại, còn mô hình cục bộ (Ollama, LM Studio) và mô hình ở chế độ suy nghĩ có thời gian chờ gấp ba.",
+  "batchHint": "Các dịch vụ không phải AI luôn giới hạn mỗi yêu cầu, bất kể các giá trị này: Google, Microsoft (miễn phí) và Bergamot ở 100 đoạn và 5000 ký tự, DeepLX ở 50 đoạn và 5000 ký tự, từ điển ở 100 đoạn và 50000 ký tự, Microsoft dùng khóa Azure ở 1000 đoạn và 50000 ký tự. Đoạn dài hơn mức một yêu cầu cho phép được dịch từng phần, tách tại chỗ xuống dòng khi có thể, nếu không thì theo ranh giới câu. Yêu cầu không có phản hồi trong thời gian chờ được thử lại một lần, trong phạm vi số lần thử lại; yêu cầu AI không được thử lại sau khi hết thời gian chờ, còn mô hình cục bộ (Ollama, LM Studio) và mô hình ở chế độ suy nghĩ có thời gian chờ gấp ba.",
   "labelStylePreset": "Kiểu",
   "styleBorder": "Viền trái",
   "styleDashed": "Viền trái nét đứt",

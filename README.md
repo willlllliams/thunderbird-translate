@@ -124,11 +124,13 @@ The complete list is in [docs/settings.md](docs/settings.md#known-limitations).
 
 ## Documentation
 
-The documents below are in English.
+The documents below are in English, except dictionary-packs.md, which is in Chinese.
 
 - [docs/settings.md](docs/settings.md): every setting, offline lists, missing-data notices and the cache.
 - [docs/providers.md](docs/providers.md): endpoints, default models and thinking parameters of every service.
 - [docs/batching.md](docs/batching.md): how paragraphs are merged into requests, timeouts and costs.
+- [docs/bergamot.md](docs/bergamot.md): the Bergamot offline engine, the choice and storage of its models, and its build.
+- [docs/dictionary-packs.md](docs/dictionary-packs.md): data sources, format and build of the dictionary packs (in Chinese).
 - [docs/development.md](docs/development.md): building from source, tests, project structure, translating the interface and the release process.
 
 ## Acknowledgements

@@ -124,11 +124,13 @@ AI 層級使用三套提示詞之一：雙語對照（貼近原文）、僅譯�
 
 ## 文件
 
-以下文件為英文。
+以下文件為英文，只有 dictionary-packs.md 為中文。
 
 - [docs/settings.md](../docs/settings.md)：全部設定項目、離線清單、缺少離線資料的提醒和快取。
 - [docs/providers.md](../docs/providers.md)：各服務的端點、預設模型和思考參數。
 - [docs/batching.md](../docs/batching.md)：段落如何合併成請求、逾時和費用。
+- [docs/bergamot.md](../docs/bergamot.md)：離線引擎 Bergamot、模型的選擇與儲存、建置。
+- [docs/dictionary-packs.md](../docs/dictionary-packs.md)：詞典包的資料來源、格式和建置。
 - [docs/development.md](../docs/development.md)：從原始碼建置、測試、專案結構、翻譯介面文字和發行流程。
 
 ## 致謝

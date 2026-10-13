@@ -124,11 +124,13 @@ AI 层级使用三套提示词之一：双语对照（贴近原文）、仅译�
 
 ## 文档
 
-以下文档为英文。
+以下文档为英文，只有 dictionary-packs.md 为中文。
 
 - [docs/settings.md](../docs/settings.md)：全部设置项、离线列表、缺少离线数据的提醒和缓存。
 - [docs/providers.md](../docs/providers.md)：各服务的接口地址、默认模型和思考参数。
 - [docs/batching.md](../docs/batching.md)：段落如何合并成请求、超时和费用。
+- [docs/bergamot.md](../docs/bergamot.md)：离线引擎 Bergamot、模型的选择与存储、构建。
+- [docs/dictionary-packs.md](../docs/dictionary-packs.md)：词典包的数据来源、格式和构建。
 - [docs/development.md](../docs/development.md)：从源码构建、测试、项目结构、翻译界面文字和发布流程。
 
 ## 致谢

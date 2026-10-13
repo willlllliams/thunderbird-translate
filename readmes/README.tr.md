@@ -124,11 +124,13 @@ Tam liste [docs/settings.md](../docs/settings.md#known-limitations) dosyasındad
 
 ## Belgeler
 
-Aşağıdaki belgeler İngilizcedir.
+Aşağıdaki belgeler İngilizcedir; yalnızca dictionary-packs.md Çincedir.
 
 - [docs/settings.md](../docs/settings.md): her ayar, çevrimdışı listeler, eksik veri bildirimleri ve önbellek.
 - [docs/providers.md](../docs/providers.md): her hizmetin uç noktaları, varsayılan modelleri ve düşünme parametreleri.
 - [docs/batching.md](../docs/batching.md): paragrafların isteklerde nasıl birleştirildiği, zaman aşımları ve maliyetler.
+- [docs/bergamot.md](../docs/bergamot.md): çevrimdışı Bergamot motoru, modellerinin seçimi ve saklanması, derlenmesi.
+- [docs/dictionary-packs.md](../docs/dictionary-packs.md): sözlük paketlerinin veri kaynakları, biçimi ve derlenmesi (Çince).
 - [docs/development.md](../docs/development.md): kaynaktan derleme, testler, proje yapısı, arayüzün çevrilmesi ve sürüm süreci.
 
 ## Teşekkürler

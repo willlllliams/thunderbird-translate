@@ -124,11 +124,13 @@ Danh sách đầy đủ nằm trong [docs/settings.md](../docs/settings.md#known
 
 ## Tài liệu
 
-Các tài liệu dưới đây viết bằng tiếng Anh.
+Các tài liệu dưới đây viết bằng tiếng Anh, riêng dictionary-packs.md viết bằng tiếng Trung.
 
 - [docs/settings.md](../docs/settings.md): mọi cài đặt, danh sách ngoại tuyến, thông báo thiếu dữ liệu và bộ nhớ đệm.
 - [docs/providers.md](../docs/providers.md): endpoint, mô hình mặc định và tham số suy nghĩ của từng dịch vụ.
 - [docs/batching.md](../docs/batching.md): cách gộp đoạn thành yêu cầu, thời gian chờ và chi phí.
+- [docs/bergamot.md](../docs/bergamot.md): bộ máy dịch ngoại tuyến Bergamot, cách chọn và lưu mô hình, quy trình build.
+- [docs/dictionary-packs.md](../docs/dictionary-packs.md): nguồn dữ liệu, định dạng và cách tạo các gói từ điển (tiếng Trung).
 - [docs/development.md](../docs/development.md): build từ mã nguồn, kiểm thử, cấu trúc dự án, dịch giao diện và quy trình phát hành.
 
 ## Ghi công

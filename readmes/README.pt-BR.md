@@ -124,11 +124,13 @@ A lista completa está em [docs/settings.md](../docs/settings.md#known-limitatio
 
 ## Documentação
 
-Os documentos abaixo estão em inglês.
+Os documentos abaixo estão em inglês, exceto dictionary-packs.md, que está em chinês.
 
 - [docs/settings.md](../docs/settings.md): todas as configurações, listas offline, avisos de dados ausentes e o cache.
 - [docs/providers.md](../docs/providers.md): endpoints, modelos padrão e parâmetros de raciocínio de cada serviço.
 - [docs/batching.md](../docs/batching.md): como os parágrafos são agrupados em requisições, tempos limite e custos.
+- [docs/bergamot.md](../docs/bergamot.md): o mecanismo offline Bergamot, a escolha e o armazenamento dos modelos e o build.
+- [docs/dictionary-packs.md](../docs/dictionary-packs.md): fontes de dados, formato e geração dos pacotes de dicionário (em chinês).
 - [docs/development.md](../docs/development.md): compilar a partir do código-fonte, testes, estrutura do projeto, tradução da interface e processo de release.
 
 ## Agradecimentos

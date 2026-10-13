@@ -110,7 +110,7 @@
   "labelRetries": "Reintentos (429 / 5xx / red / tiempo de espera)",
   "labelTimeout": "Tiempo de espera por solicitud (segundos)",
   "labelLlmBatch": "Combinar párrafos en una sola solicitud de IA",
-  "batchHint": "Los servicios gratuitos limitan cada solicitud a 5000 caracteres y 100 párrafos, independientemente de estos valores. Un párrafo más largo de lo que admite una solicitud se traduce por partes, cortadas en los saltos de línea cuando es posible y, si no, entre oraciones. Una solicitud sin respuesta dentro del tiempo de espera se reintenta una vez; una solicitud de IA no se reintenta, y los modelos locales (Ollama, LM Studio) y los modelos en modo de razonamiento tienen el triple del tiempo de espera.",
+  "batchHint": "Los servicios distintos de la IA limitan cada solicitud independientemente de estos valores: Google, Microsoft (gratuito) y Bergamot a 100 párrafos y 5000 caracteres, DeepLX a 50 párrafos y 5000 caracteres, el diccionario a 100 párrafos y 50000 caracteres, Microsoft con clave de Azure a 1000 párrafos y 50000 caracteres. Un párrafo más largo de lo que admite una solicitud se traduce por partes, cortadas en los saltos de línea cuando es posible y, si no, entre oraciones. Una solicitud sin respuesta dentro del tiempo de espera se reintenta una vez, dentro del número de reintentos; una solicitud de IA no se reintenta tras agotar el tiempo de espera, y los modelos locales (Ollama, LM Studio) y los modelos en modo de razonamiento tienen el triple del tiempo de espera.",
   "labelStylePreset": "Estilo",
   "styleBorder": "Borde izquierdo",
   "styleDashed": "Borde izquierdo discontinuo",

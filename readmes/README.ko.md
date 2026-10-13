@@ -124,11 +124,13 @@ AI 단계는 세 가지 프롬프트 중 하나를 사용합니다. 이중 언�
 
 ## 문서
 
-아래 문서는 영어로 작성되어 있습니다.
+아래 문서는 영어로 작성되어 있으며, dictionary-packs.md만 중국어로 작성되어 있습니다.
 
 - [docs/settings.md](../docs/settings.md): 모든 설정 항목, 오프라인 목록, 누락된 데이터 안내, 캐시.
 - [docs/providers.md](../docs/providers.md): 모든 서비스의 엔드포인트, 기본 모델, 사고 모드 매개변수.
 - [docs/batching.md](../docs/batching.md): 단락을 요청으로 병합하는 방법, 제한 시간, 비용.
+- [docs/bergamot.md](../docs/bergamot.md): 오프라인 엔진 Bergamot, 모델 선택과 저장, 빌드.
+- [docs/dictionary-packs.md](../docs/dictionary-packs.md): 사전 팩의 데이터 출처, 형식, 빌드(중국어).
 - [docs/development.md](../docs/development.md): 소스에서 빌드, 테스트, 프로젝트 구조, 인터페이스 번역, 릴리스 절차.
 
 ## 감사의 말

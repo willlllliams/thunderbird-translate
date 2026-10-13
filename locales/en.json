@@ -112,7 +112,7 @@
   "labelRetries": "Retries (429 / 5xx / network / timeout)",
   "labelTimeout": "Request timeout (seconds)",
   "labelLlmBatch": "Merge paragraphs into one AI request",
-  "batchHint": "Free services cap a request at 5000 characters and 100 paragraphs regardless of these values. A paragraph longer than one request allows is translated in pieces, cut at line breaks where possible, else at sentence boundaries. A request without an answer within the timeout is retried once; an AI request is not retried, and local models (Ollama, LM Studio) and models in thinking mode get three times the timeout.",
+  "batchHint": "The services other than AI cap a request regardless of these values: Google, Microsoft (free) and Bergamot at 100 paragraphs and 5000 characters, DeepLX at 50 paragraphs and 5000 characters, the dictionary at 100 paragraphs and 50000 characters, Microsoft with an Azure key at 1000 paragraphs and 50000 characters. A paragraph longer than one request allows is translated in pieces, cut at line breaks where possible, else at sentence boundaries. A request without an answer within the timeout is retried once, within the number of retries; an AI request is not retried after a timeout, and local models (Ollama, LM Studio) and models in thinking mode get three times the timeout.",
   "labelStylePreset": "Style",
   "styleBorder": "Left border",
   "styleDashed": "Dashed left border",

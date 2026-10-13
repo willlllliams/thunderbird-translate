@@ -257,7 +257,7 @@ The flow depends on the size of the paragraphs to translate:
 2. Otherwise one extra request first analyzes the whole message. It returns a summary of two to three sentences, a glossary of names, products and other proper nouns with the translation to use, and the tone and form of address.
 3. Every request then starts with the same prefix: the system prompt, the analysis and, for messages up to about 8,000 characters, the full text. After the prefix come the paragraphs of the batch, each with the paragraph before and after it as reference that is not translated.
 
-If the analysis answer cannot be read, translation goes on without it, and the message is not analyzed again. If the analysis request fails (network error, timeout, HTTP error), translation also goes on without it, and the next translation of the message asks again.
+If the analysis answer cannot be read, translation goes on without it, and the message is not analyzed again. If the analysis request fails (network error, timeout, HTTP error), translation also goes on without it, and the next batch of the same translation asks again.
 
 The prefix is identical, character for character, for every request of one message, so providers that cache repeated prompt prefixes can serve it from their cache. For Anthropic the prefix is marked with `cacheControl: { type: "ephemeral" }`. Prompt caching is up to the provider: Anthropic caches only prefixes above a minimum length that depends on the model, and shorter prefixes are sent and billed normally.
 
@@ -273,9 +273,24 @@ Translations made in precise mode are cached under a key that contains the messa
 | Max characters per request | 3000 | 200–50000 | a batch is sent before the next paragraph would exceed it; longer paragraphs are split |
 | Max paragraphs per request | 30 | 1–200 | a batch is sent when it holds this many paragraphs |
 | Concurrent requests | 4 | 1–20 | concurrent requests per service |
-| Retries (429 / 5xx / network / timeout) | 3 | 0–10 | retries with exponential backoff |
+| Retries (429 / 5xx / network / timeout) | 3 | 0–10 | retries with exponential backoff; a timeout is retried at most once, and an AI request that timed out is not retried |
 | Request timeout (seconds) | 60 | 5–600 | time for the complete answer; three times as long for Ollama, LM Studio and any model with thinking mode on |
 | Merge paragraphs into one AI request | on | | off sends one paragraph per AI request |
+
+The services other than AI cap a request regardless of these values; a request takes the smaller of the setting and the cap:
+
+| Service | Paragraphs per request | Characters per request |
+| --- | --- | --- |
+| Dictionary | 100 | 50000 |
+| Bergamot | 100 | 5000 |
+| Google Translate | 100 | 5000 |
+| Microsoft Translator, free | 100 | 5000 |
+| Microsoft Translator, Azure key | 1000 | 50000 |
+| DeepLX | 50 (sent one paragraph per request) | 5000 |
+
+The AI services follow the settings alone.
+
+A request that gets no complete answer within the timeout counts as failed. The services other than AI retry it once, within the number of retries. An AI request is not retried after a timeout: a model that was too slow once is usually too slow again, and every attempt is charged. Other failures (HTTP 429, 5xx, network errors) are retried with exponential backoff up to the number of retries, for AI services too.
 
 [batching.md](batching.md) describes the batch queue, how each service merges paragraphs, what happens after a timeout, and the cost estimate.
 
@@ -407,8 +422,8 @@ Settings saved before version 1.9.0 have no text color; translations keep the co
 - The thinking switch works by matching model names, see [providers.md](providers.md#thinking-mode).
 - Every tier in use sends its own requests. With the AI tier and the machine tier both in use, each message also costs requests to the machine translator.
 - Dictionary translation is a word-by-word gloss: it keeps the word order of the source and does not inflect. Words outside the packs stay untranslated.
-- The sample message of the setup guide is in English, or in German when the target language is English. With a fixed source language other than these two, the trial still sends that source language with the English text.
+- The sample message of the setup guide exists in English and in German only, see [Trial](#trial). With a fixed source language other than these two, the message is in English (in German when the target language is English), and the trial still sends the fixed source language with it.
 - Alt+A pressed while the setup guide is the active tab translates or restores the sample message; the label of the trial button then does not follow.
-- With automatic detection, Bergamot gives a paragraph too short for the detector (fewer than 12 letters) the most frequent language of its batch. A short paragraph in another language than its neighbours is therefore translated as theirs.
+- With automatic detection, the dictionary and Bergamot ask the browser's detector only from 12 letters on. A shorter paragraph is named by its script (kana, Hangul, Chinese characters…) or, in Latin script, by English stop words. A short Latin-script paragraph that is not English therefore cannot be placed: Bergamot gives it the most frequent language of its batch, else English, and the dictionary treats it as English. A short paragraph in another language than its neighbours is then translated as theirs, and its error names no data to download.
 - Simplified and Traditional Chinese are told apart by a table of 83 frequent characters. A paragraph that uses none of them counts as already in either Chinese target.
 - The dictionary and Bergamot do not convert between Simplified and Traditional Chinese. With one of them as the only tier in use, a paragraph in the other standard stays untranslated.

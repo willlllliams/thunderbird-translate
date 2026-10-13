@@ -124,11 +124,13 @@ La liste complète se trouve dans [docs/settings.md](../docs/settings.md#known-l
 
 ## Documentation
 
-Les documents ci-dessous sont en anglais.
+Les documents ci-dessous sont en anglais, sauf dictionary-packs.md, qui est en chinois.
 
 - [docs/settings.md](../docs/settings.md) : chaque paramètre, les listes hors ligne, les avis de données manquantes et le cache.
 - [docs/providers.md](../docs/providers.md) : adresses d’API, modèles par défaut et paramètres de réflexion de chaque service.
 - [docs/batching.md](../docs/batching.md) : comment les paragraphes sont regroupés en requêtes, délais d’attente et coûts.
+- [docs/bergamot.md](../docs/bergamot.md) : le moteur hors ligne Bergamot, le choix et le stockage de ses modèles et sa compilation.
+- [docs/dictionary-packs.md](../docs/dictionary-packs.md) : sources des données, format et construction des paquets de dictionnaire (en chinois).
 - [docs/development.md](../docs/development.md) : compilation depuis les sources, tests, structure du projet, traduction de l’interface et processus de publication.
 
 ## Remerciements

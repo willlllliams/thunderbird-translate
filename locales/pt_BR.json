@@ -110,7 +110,7 @@
   "labelRetries": "Novas tentativas (429 / 5xx / rede / tempo esgotado)",
   "labelTimeout": "Tempo limite por requisição (segundos)",
   "labelLlmBatch": "Juntar parágrafos em uma única requisição de IA",
-  "batchHint": "Os serviços gratuitos limitam cada requisição a 5000 caracteres e 100 parágrafos, independentemente destes valores. Um parágrafo maior do que uma requisição comporta é traduzido em partes, cortadas nas quebras de linha quando possível e, senão, entre frases. Uma requisição sem resposta dentro do tempo limite é repetida uma vez; uma requisição de IA não é repetida, e modelos locais (Ollama, LM Studio) e modelos no modo de raciocínio recebem o triplo do tempo limite.",
+  "batchHint": "Os serviços que não são de IA limitam cada requisição independentemente destes valores: Google, Microsoft (gratuito) e Bergamot a 100 parágrafos e 5000 caracteres, DeepLX a 50 parágrafos e 5000 caracteres, o dicionário a 100 parágrafos e 50000 caracteres, Microsoft com chave do Azure a 1000 parágrafos e 50000 caracteres. Um parágrafo maior do que uma requisição comporta é traduzido em partes, cortadas nas quebras de linha quando possível e, senão, entre frases. Uma requisição sem resposta dentro do tempo limite é repetida uma vez, dentro do número de tentativas; uma requisição de IA não é repetida após esgotar o tempo limite, e modelos locais (Ollama, LM Studio) e modelos no modo de raciocínio recebem o triplo do tempo limite.",
   "labelStylePreset": "Estilo",
   "styleBorder": "Borda esquerda",
   "styleDashed": "Borda esquerda tracejada",

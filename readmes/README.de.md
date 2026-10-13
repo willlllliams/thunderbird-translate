@@ -124,11 +124,13 @@ Die vollständige Liste steht in [docs/settings.md](../docs/settings.md#known-li
 
 ## Dokumentation
 
-Die folgenden Dokumente sind auf Englisch.
+Die folgenden Dokumente sind auf Englisch, außer dictionary-packs.md, das auf Chinesisch ist.
 
 - [docs/settings.md](../docs/settings.md): alle Einstellungen, Offline-Listen, Hinweise bei fehlenden Daten und der Cache.
 - [docs/providers.md](../docs/providers.md): Adressen, Standardmodelle und Denk-Parameter aller Dienste.
 - [docs/batching.md](../docs/batching.md): wie Absätze zu Anfragen zusammengefasst werden, Zeitlimits und Kosten.
+- [docs/bergamot.md](../docs/bergamot.md): die Offline-Engine Bergamot, Auswahl und Speicherung ihrer Modelle und ihr Build.
+- [docs/dictionary-packs.md](../docs/dictionary-packs.md): Datenquellen, Format und Erstellung der Wörterbuchpakete (auf Chinesisch).
 - [docs/development.md](../docs/development.md): Erstellen aus dem Quellcode, Tests, Projektstruktur, Übersetzen der Benutzeroberfläche und Release-Prozess.
 
 ## Danksagung

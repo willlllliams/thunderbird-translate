@@ -9,7 +9,7 @@
  * cannot stop thinking). Providers without an entry have no thinking control.
  *
  * Pure data and no SDK imports, so the settings page can ask which providers
- * offer the switch. README.md lists the values with their sources (section "Thinking mode").
+ * offer the switch. docs/providers.md lists the values with their sources (section "Thinking mode").
  */
 
 import type { JSONValue } from "ai"

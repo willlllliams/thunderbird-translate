@@ -110,7 +110,7 @@
   "labelRetries": "Nouvelles tentatives (429 / 5xx / réseau / délai dépassé)",
   "labelTimeout": "Délai d’attente par requête (secondes)",
   "labelLlmBatch": "Fusionner les paragraphes en une seule requête d’IA",
-  "batchHint": "Les services gratuits limitent une requête à 5 000 caractères et 100 paragraphes, quelles que soient ces valeurs. Un paragraphe plus long que ce qu’admet une requête est traduit par morceaux, coupés aux sauts de ligne quand c’est possible, sinon entre les phrases. Une requête sans réponse dans le délai est relancée une fois ; une requête d’IA n’est pas relancée, et les modèles locaux (Ollama, LM Studio) et les modèles en mode réflexion disposent du triple du délai.",
+  "batchHint": "Les services autres que l’IA limitent une requête quelles que soient ces valeurs : Google, Microsoft (gratuit) et Bergamot à 100 paragraphes et 5 000 caractères, DeepLX à 50 paragraphes et 5 000 caractères, le dictionnaire à 100 paragraphes et 50 000 caractères, Microsoft avec une clé Azure à 1 000 paragraphes et 50 000 caractères. Un paragraphe plus long que ce qu’admet une requête est traduit par morceaux, coupés aux sauts de ligne quand c’est possible, sinon entre les phrases. Une requête sans réponse dans le délai est relancée une fois, dans la limite des tentatives ; une requête d’IA n’est pas relancée après un dépassement du délai, et les modèles locaux (Ollama, LM Studio) et les modèles en mode réflexion disposent du triple du délai.",
   "labelStylePreset": "Style",
   "styleBorder": "Bordure gauche",
   "styleDashed": "Bordure gauche en tirets",

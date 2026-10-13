@@ -124,11 +124,13 @@ AI の段階は、3 つのプロンプトのいずれかを使います。対訳
 
 ## ドキュメント
 
-以下のドキュメントは英語です。
+以下のドキュメントは英語です。dictionary-packs.md のみ中国語です。
 
 - [docs/settings.md](../docs/settings.md)（英語）: すべての設定項目、オフラインの一覧、データ不足の通知、キャッシュ。
 - [docs/providers.md](../docs/providers.md)（英語）: 各サービスのエンドポイント、既定のモデル、思考モードのパラメーター。
 - [docs/batching.md](../docs/batching.md)（英語）: 段落をリクエストにまとめる方法、タイムアウト、費用。
+- [docs/bergamot.md](../docs/bergamot.md)（英語）: オフラインエンジン Bergamot、モデルの選び方と保存方法、ビルド。
+- [docs/dictionary-packs.md](../docs/dictionary-packs.md)（中国語）: 辞書パックのデータソース、形式、作成手順。
 - [docs/development.md](../docs/development.md)（英語）: ソースからのビルド、テスト、プロジェクト構成、インターフェースの翻訳、リリースの手順。
 
 ## 謝辞

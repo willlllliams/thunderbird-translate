@@ -216,7 +216,7 @@ To add a language:
 2. Add the code to `SUPPORTED_LOCALES` in `src/shared/locales.ts` together with its native name.
 3. Run `npm run locales:check` and `npm test`.
 
-The README exists in the same 12 languages: `README.md` in English and `readmes/README.<code>.md` for the others. All 12 have the same sections in the same order, and their interface terms match the locale files.
+The README exists in the same 12 languages: `README.md` in English and `readmes/README.<language>.md` for the others, with the language code written with a hyphen (`README.zh-CN.md`, `README.pt-BR.md`). All 12 have the same sections in the same order, and their interface terms match the locale files.
 
 The documents in `docs/` are in English, except `dictionary-packs.md` and the archived `archive/size-and-structure-1.5.2.md`, which are in Chinese; the prompt for the promotional video, `promo/promo-video-prompt.md`, is in Chinese too.
 
@@ -238,7 +238,7 @@ The workflow `.github/workflows/release.yml` (named "Build") runs on every push 
    - On a push, it replaces the `nightly` pre-release with the xpi of this commit, named `thunderbird-translate-<version>-<sha>.xpi`. The nightly build is for testing.
    - If no release `v<version>` exists yet, it creates one with the xpi and that text as its description, and marks it as the latest release. A manual dispatch does the same when the version has no release yet.
 
-A new versioned release therefore appears when a commit with a new version number reaches `main` and passes all checks. Pushing more commits with the same version only updates `nightly`.
+A new versioned release therefore appears when a commit with a new version number reaches `main` and passes all checks. Pushing more commits with the same version only updates `nightly`. A manual dispatch (`workflow_dispatch`) runs the job `release` as well, on the branch it is started from, and creates the release of a version that has none yet.
 
 Runs of the same branch or pull request do not overlap. A new push to a pull request cancels its running run. On `main` a running run finishes, and a run still waiting gives way to a newer one.
 

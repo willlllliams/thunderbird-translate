@@ -110,7 +110,7 @@
   "labelRetries": "Wiederholungsversuche (429 / 5xx / Netzwerk / Zeitlimit)",
   "labelTimeout": "Zeitlimit pro Anfrage (Sekunden)",
   "labelLlmBatch": "Absätze in einer KI-Anfrage zusammenfassen",
-  "batchHint": "Kostenlose Dienste begrenzen eine Anfrage unabhängig von diesen Werten auf 5000 Zeichen und 100 Absätze. Ein Absatz, der länger ist, als eine Anfrage erlaubt, wird in Teilen übersetzt, geteilt möglichst an Zeilenumbrüchen, sonst an Satzgrenzen. Eine Anfrage ohne Antwort innerhalb des Zeitlimits wird einmal wiederholt; eine KI-Anfrage wird nicht wiederholt, und lokale Modelle (Ollama, LM Studio) sowie Modelle im Denkmodus erhalten das Dreifache des Zeitlimits.",
+  "batchHint": "Die Dienste außer KI begrenzen eine Anfrage unabhängig von diesen Werten: Google, Microsoft (kostenlos) und Bergamot auf 100 Absätze und 5000 Zeichen, DeepLX auf 50 Absätze und 5000 Zeichen, das Wörterbuch auf 100 Absätze und 50000 Zeichen, Microsoft mit Azure-Schlüssel auf 1000 Absätze und 50000 Zeichen. Ein Absatz, der länger ist, als eine Anfrage erlaubt, wird in Teilen übersetzt, geteilt möglichst an Zeilenumbrüchen, sonst an Satzgrenzen. Eine Anfrage ohne Antwort innerhalb des Zeitlimits wird im Rahmen der Wiederholungen einmal wiederholt; eine KI-Anfrage wird nach Ablauf des Zeitlimits nicht wiederholt, und lokale Modelle (Ollama, LM Studio) sowie Modelle im Denkmodus erhalten das Dreifache des Zeitlimits.",
   "labelStylePreset": "Stil",
   "styleBorder": "Linie links",
   "styleDashed": "Gestrichelte Linie links",

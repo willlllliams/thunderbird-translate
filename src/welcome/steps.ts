@@ -70,7 +70,7 @@ export function resumeStep(stored: unknown, settings: Pick<Settings, "tiers">): 
   return stepNeeded(step, settings) ? step : (neighbourStep(step, settings, 1) ?? STEP_IDS[0])
 }
 
-/** Message of the trial, in English, or in German when the target language is English. */
+/** Message of the trial, in English and in German; trialLanguage() picks one. */
 export const TRY_MAIL: Record<"en" | "de", string[]> = {
   en: [
     "Hi Anna,",
