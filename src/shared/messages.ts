@@ -64,7 +64,7 @@ export type PageNotice =
   /** Dictionary packs or offline models were installed or removed. */
   | { type: "offlineDataChanged" }
   /** The installations that have not ended, after a change, at most every 250 ms. */
-  | { type: "offlineProgress"; progress: OfflineProgress }
+  | { type: "offlineProgressChanged"; progress: OfflineProgress }
 
 /** State of the offline services in use (dictionary tier, Bergamot in the machine tier). */
 export type OfflineStatus = Partial<Record<OfflineService, OfflineState>>

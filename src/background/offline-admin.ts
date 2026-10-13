@@ -7,7 +7,7 @@
  * their service; each service has its manager (offline/manager.ts) and its
  * installations, two at a time (offline/install-registry.ts).
  *
- * The pages hear of the progress of every installation (offlineProgress, at
+ * The pages hear of the progress of every installation (offlineProgressChanged, at
  * most every 250 ms) and of every installation that ended and every removal
  * (offlineDataChanged). The content scripts forget their results once the
  * installations of a service have all ended, and after every removal.
@@ -47,7 +47,7 @@ export function offlineHandlers({ manager, contentScripts, pages }: OfflineAdmin
   const progressChanged = () => {
     progressTimer ??= setTimeout(() => {
       progressTimer = null
-      pages({ type: "offlineProgress", progress: progress() })
+      pages({ type: "offlineProgressChanged", progress: progress() })
     }, PROGRESS_INTERVAL_MS)
   }
   const registry = (service: OfflineService): InstallRegistry => {

@@ -181,7 +181,7 @@ export abstract class OfflineList<T extends ListItem> {
    */
   receive(message: unknown): void {
     const notice = message as PageNotice | null | undefined
-    if (notice?.type === "offlineProgress") {
+    if (notice?.type === "offlineProgressChanged") {
       this.notices++
       this.progress = notice.progress[this.service] ?? {}
       this.render()

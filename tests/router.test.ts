@@ -1,5 +1,6 @@
 /** The requests to the background script (background/router.ts): one handler per request type and the dispatch of runtime.onMessage. */
 import { beforeEach, describe, expect, it, vi } from "vitest"
+import { PROGRESS_INTERVAL_MS } from "../src/background/offline-admin"
 import { createDispatch, createHandlers } from "../src/background/router"
 import { LocalizedError } from "../src/shared/errors"
 import { ENGLISH } from "../src/shared/i18n"
@@ -7,6 +8,7 @@ import { type BackgroundRequest, IDLE_TAB_STATE, type PortPush, type RequestType
 import { createDefaultSettings, type Settings, SETTINGS_KEY } from "../src/shared/settings"
 import { stubBrowser } from "./fixtures/browser"
 import { bergamotStandIn } from "./fixtures/offline"
+import { useFakeTimers } from "./helpers"
 
 /** The managers of the offline services. */
 let bergamot = bergamotStandIn()
@@ -149,6 +151,28 @@ describe("dispatch", () => {
     const dispatch = createDispatch(router().handlers, Promise.resolve())
     for (const message of [undefined, null, "toggleTab", { type: 1 }]) expect(dispatch(message)).toBeUndefined()
     expect(await dispatch({ type: "somethingElse" })).toBeUndefined()
+  })
+
+  it("takes no notice of the background script to the pages for a request: their types differ", async () => {
+    useFakeTimers()
+    try {
+      const { handlers, send, browser } = router()
+      let finish!: () => void
+      vi.mocked(bergamot.install).mockImplementationOnce(async (_src, _tgt, onProgress) => {
+        onProgress?.(1, 2)
+        await new Promise<void>((resolve) => (finish = resolve))
+      })
+      const installed = send({ type: "offlineInstall", service: "bergamot", pairs: [{ src: "en", tgt: "de" }] })
+      await vi.advanceTimersByTimeAsync(PROGRESS_INTERVAL_MS)
+      finish()
+      await installed
+      const notices = browser.api.runtime.sendMessage.mock.calls.map(([notice]) => notice as { type: string })
+      expect(notices.map((n) => n.type)).toEqual(["offlineProgressChanged", "offlineDataChanged"])
+      const dispatch = createDispatch(handlers, Promise.resolve())
+      for (const notice of notices) expect(dispatch(notice), notice.type).toBeUndefined()
+    } finally {
+      vi.useRealTimers()
+    }
   })
 
   it("answers nothing to an unknown type, also one named after a property of every object", () => {

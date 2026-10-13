@@ -514,10 +514,10 @@ describe("offline model list", () => {
     button(m.rows()[0]!, ENGLISH.t("buttonDownload"))!.click()
     // Asked for and not reported yet: waiting for its turn.
     expect(m.rows()[0]!.textContent).toContain(ENGLISH.t("dictQueued"))
-    m.section.receive({ type: "offlineProgress", progress: { bergamot: { "de>en": { state: "running", done: 3, total: 4 } } } })
+    m.section.receive({ type: "offlineProgressChanged", progress: { bergamot: { "de>en": { state: "running", done: 3, total: 4 } } } })
     expect(m.rows()[0]!.textContent).toContain(ENGLISH.t("dictDownloading", [75]))
     // Notices of other services and other messages leave the row as it is.
-    m.section.receive({ type: "offlineProgress", progress: { dictionary: {} } })
+    m.section.receive({ type: "offlineProgressChanged", progress: { dictionary: {} } })
     m.section.receive({ type: "somethingElse" })
     m.section.receive(undefined)
     expect(m.rows()[0]!.textContent).toContain(ENGLISH.t("dictQueued"))
@@ -539,7 +539,7 @@ describe("offline model list", () => {
     const loading = m.section.load()
     await nextTask()
     // The download ends while the list is still on its way.
-    m.section.receive({ type: "offlineProgress", progress: { bergamot: {} } })
+    m.section.receive({ type: "offlineProgressChanged", progress: { bergamot: {} } })
     answerList({ ok: true, items: [pair("de", "en", { installed: true })] })
     await loading
     expect(m.row("German").textContent).toContain(ENGLISH.t("dictInstalled"))

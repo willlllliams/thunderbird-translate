@@ -34,7 +34,7 @@ function admin(over: { bergamot?: Parameters<typeof bergamotStandIn>[1]; diction
   const handlers = offlineHandlers({ manager: (service) => managers[service], contentScripts, pages })
   const send = (req: BackgroundRequest) => (handlers[req.type as keyof typeof handlers] as (r: BackgroundRequest) => unknown)(req)
   const notices = () => ({ contentScripts: contentScripts.mock.calls.length, pages: pages.mock.calls.filter(([n]) => n.type === "offlineDataChanged").length })
-  const broadcasts = () => pages.mock.calls.flatMap(([n]) => (n.type === "offlineProgress" ? [n.progress] : []))
+  const broadcasts = () => pages.mock.calls.flatMap(([n]) => (n.type === "offlineProgressChanged" ? [n.progress] : []))
   return { handlers, send, notices, broadcasts, managers }
 }
 

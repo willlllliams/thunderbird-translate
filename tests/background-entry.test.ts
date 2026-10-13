@@ -341,7 +341,7 @@ describe("offline data in the background script", () => {
     expect(bg.api.runtime.sendMessage.mock.calls.filter(([m]) => (m as { type?: string }).type === "offlineDataChanged")).toHaveLength(4)
     // The pages follow the progress, at most every 250 ms; the last notice has nothing left.
     await vi.advanceTimersByTimeAsync(250)
-    const progress = bg.api.runtime.sendMessage.mock.calls.flatMap(([m]) => ((m as { type?: string }).type === "offlineProgress" ? [(m as unknown as { progress: unknown }).progress] : []))
+    const progress = bg.api.runtime.sendMessage.mock.calls.flatMap(([m]) => ((m as { type?: string }).type === "offlineProgressChanged" ? [(m as unknown as { progress: unknown }).progress] : []))
     expect(progress.length).toBeGreaterThan(0)
     expect(progress.at(-1)).toEqual({ dictionary: {} })
   })
