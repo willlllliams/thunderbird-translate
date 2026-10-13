@@ -15,7 +15,7 @@ const root = resolve(dirname(fileURLToPath(import.meta.url)), "..")
 export const SOURCE_DIRS = ["src", "static", "scripts", "locales", "vendor", "licenses"]
 export const EXCLUDED_DIRS = ["src/e2e"]
 /** Single files of the archive. */
-export const SOURCE_FILES = ["package.json", "package-lock.json", "tsconfig.json", "LICENSE", "SOURCE-BUILD.md"]
+export const SOURCE_FILES = ["package.json", "package-lock.json", "tsconfig.json", "LICENSE", "SOURCE-BUILD.md", "VENDOR.md"]
 /** Time stamp of every entry, 2026-01-01 00:00: a zip stores local time, so the date is made from local fields (see scripts/build.mjs). */
 export const SOURCE_MTIME = new Date(2026, 0, 1)
 

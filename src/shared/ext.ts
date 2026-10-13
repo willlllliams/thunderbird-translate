@@ -19,7 +19,7 @@ interface ThunderbirdExtras {
   }
 }
 
-type Ext = typeof browser & ThunderbirdExtras
+export type Ext = typeof browser & ThunderbirdExtras
 
 const g = globalThis as unknown as { messenger?: Ext; browser?: Ext }
 

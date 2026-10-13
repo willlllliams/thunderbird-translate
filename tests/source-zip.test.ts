@@ -16,7 +16,7 @@ describe("source archive", () => {
       expect(files).toContain(file)
     }
     expect(files.filter((f) => f.startsWith("src/")).sort()).toEqual(tree("src").filter((f) => !f.startsWith("src/e2e/")).sort())
-    expect(files.filter((f) => !/^(src|static|scripts|locales|vendor|licenses)\//.test(f))).toEqual(["LICENSE", "SOURCE-BUILD.md", "package-lock.json", "package.json", "tsconfig.json"])
+    expect(files.filter((f) => !/^(src|static|scripts|locales|vendor|licenses)\//.test(f))).toEqual(["LICENSE", "SOURCE-BUILD.md", "VENDOR.md", "package-lock.json", "package.json", "tsconfig.json"])
     expect(files).toEqual([...files].sort())
   })
 
