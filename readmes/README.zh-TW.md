@@ -135,8 +135,8 @@ AI 層級使用三套提示詞之一：雙語對照（貼近原文）、僅譯�
 
 - [Read Frog](https://github.com/mengxi-ream/read-frog)（GPL-3.0）：段落辨識、批次處理佇列、提示詞和服務商組態的設計。
 - [Mozilla Bergamot](https://browser.mt/)：離線翻譯引擎和 Firefox Translations 模型（MPL-2.0）。
-- [Wiktionary](https://en.wiktionary.org/)（© Wiktionary contributors，CC BY-SA 4.0），由 [wiktextract](https://github.com/tatuylonen/wiktextract) 擷取、[kaikki.org](https://kaikki.org/) 發布：辭典資料。
-- skywind3000 的 [ECDICT](https://github.com/skywind3000/ECDICT)（MIT 授權）：英語 → 簡體中文辭典資料。
+- [Wiktionary](https://en.wiktionary.org/)（© Wiktionary contributors）：除英語 → 簡體中文外的辭典包改編（擷取、篩選、裁剪）自 Wiktionary，資料由 [wiktextract](https://github.com/tatuylonen/wiktextract) 擷取、[kaikki.org](https://kaikki.org/) 發布，授權為 CC BY-SA 4.0（<https://creativecommons.org/licenses/by-sa/4.0/>）。
+- [ECDICT](https://github.com/skywind3000/ECDICT)，Copyright (c) 2025 Linwei，MIT 授權：英語 → 簡體中文辭典包改編（擷取、篩選、裁剪）自 ECDICT。
 
 ## 授權條款
 

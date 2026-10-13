@@ -135,8 +135,8 @@ AI 단계는 세 가지 프롬프트 중 하나를 사용합니다. 이중 언�
 
 - [Read Frog](https://github.com/mengxi-ream/read-frog)(GPL-3.0): 단락 감지, 일괄 처리 대기열, 프롬프트, 제공자 구성의 설계.
 - [Mozilla Bergamot](https://browser.mt/): 오프라인 엔진과 Firefox Translations 모델(MPL-2.0).
-- [Wiktionary](https://en.wiktionary.org/)(© Wiktionary contributors, CC BY-SA 4.0): [wiktextract](https://github.com/tatuylonen/wiktextract)가 추출하고 [kaikki.org](https://kaikki.org/)가 배포한 사전 데이터.
-- skywind3000의 [ECDICT](https://github.com/skywind3000/ECDICT)(MIT License): 영어 → 중국어 간체 사전 데이터.
+- [Wiktionary](https://en.wiktionary.org/)(© Wiktionary contributors): 영어 → 중국어 간체를 제외한 사전 팩은 [wiktextract](https://github.com/tatuylonen/wiktextract)가 추출하고 [kaikki.org](https://kaikki.org/)가 배포한 Wiktionary 데이터를 변형(추출, 필터링, 축소)한 것이며, 라이선스는 CC BY-SA 4.0(<https://creativecommons.org/licenses/by-sa/4.0/>)입니다.
+- [ECDICT](https://github.com/skywind3000/ECDICT)(Copyright (c) 2025 Linwei, MIT License): 영어 → 중국어 간체 사전 팩은 ECDICT를 변형(추출, 필터링, 축소)한 것입니다.
 
 ## 라이선스
 

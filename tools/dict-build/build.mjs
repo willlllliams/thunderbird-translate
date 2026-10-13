@@ -33,14 +33,16 @@ import {
 
 const SCRIPT_DIR = path.dirname(fileURLToPath(import.meta.url));
 
+// Written into dict-index.json; the packs are adaptations of the sources, as the attribution says.
 const WIKTIONARY = {
   license: 'CC-BY-SA-4.0',
   attribution:
-    'Wiktionary contributors (https://en.wiktionary.org/), extracted by wiktextract and published by kaikki.org (https://kaikki.org/); CC BY-SA 4.0',
+    'Adapted (extracted, filtered and trimmed) from Wiktionary by Wiktionary contributors (https://www.wiktionary.org/), extracted by wiktextract and published by kaikki.org (https://kaikki.org/); CC BY-SA 4.0 (https://creativecommons.org/licenses/by-sa/4.0/)',
 };
 const ECDICT = {
   license: 'MIT',
-  attribution: 'ECDICT by skywind3000 (https://github.com/skywind3000/ECDICT); MIT License',
+  attribution:
+    'Adapted (extracted, filtered and trimmed) from ECDICT (https://github.com/skywind3000/ECDICT), Copyright (c) 2025 Linwei; MIT License',
 };
 
 // ---------------------------------------------------------------- arguments

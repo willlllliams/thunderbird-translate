@@ -135,8 +135,8 @@ Los documentos siguientes están en inglés.
 
 - [Read Frog](https://github.com/mengxi-ream/read-frog) (GPL-3.0): el diseño de la detección de párrafos, la cola de lotes, los prompts y la configuración de proveedores.
 - [Mozilla Bergamot](https://browser.mt/): el motor sin conexión y los modelos de Firefox Translations (MPL-2.0).
-- [Wiktionary](https://en.wiktionary.org/) (© Wiktionary contributors, CC BY-SA 4.0), extraído con [wiktextract](https://github.com/tatuylonen/wiktextract) y publicado por [kaikki.org](https://kaikki.org/): datos del diccionario.
-- [ECDICT](https://github.com/skywind3000/ECDICT) de skywind3000 (licencia MIT): datos del diccionario inglés → chino simplificado.
+- [Wiktionary](https://en.wiktionary.org/) (© Wiktionary contributors): los paquetes de diccionario, salvo inglés → chino simplificado, están adaptados (extraídos, filtrados y recortados) de Wiktionary, extraído con [wiktextract](https://github.com/tatuylonen/wiktextract) y publicado por [kaikki.org](https://kaikki.org/); licencia CC BY-SA 4.0 (<https://creativecommons.org/licenses/by-sa/4.0/>).
+- [ECDICT](https://github.com/skywind3000/ECDICT), Copyright (c) 2025 Linwei, licencia MIT: el paquete de diccionario inglés → chino simplificado está adaptado (extraído, filtrado y recortado) de él.
 
 ## Licencia
 

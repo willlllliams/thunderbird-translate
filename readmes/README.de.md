@@ -135,8 +135,8 @@ Die folgenden Dokumente sind auf Englisch.
 
 - [Read Frog](https://github.com/mengxi-ream/read-frog) (GPL-3.0): Entwurf der Absatzerkennung, der Batch-Warteschlange, der Prompts und der Anbieterkonfiguration.
 - [Mozilla Bergamot](https://browser.mt/): die Offline-Engine und die Modelle von Firefox Translations (MPL-2.0).
-- [Wiktionary](https://en.wiktionary.org/) (© Wiktionary contributors, CC BY-SA 4.0), extrahiert mit [wiktextract](https://github.com/tatuylonen/wiktextract) und veröffentlicht von [kaikki.org](https://kaikki.org/): Wörterbuchdaten.
-- [ECDICT](https://github.com/skywind3000/ECDICT) von skywind3000 (MIT-Lizenz): Wörterbuchdaten Englisch → vereinfachtes Chinesisch.
+- [Wiktionary](https://en.wiktionary.org/) (© Wiktionary contributors): Die Wörterbuchpakete außer Englisch → vereinfachtes Chinesisch sind aus Wiktionary bearbeitet (extrahiert, gefiltert und gekürzt), extrahiert mit [wiktextract](https://github.com/tatuylonen/wiktextract) und veröffentlicht von [kaikki.org](https://kaikki.org/); Lizenz CC BY-SA 4.0 (<https://creativecommons.org/licenses/by-sa/4.0/>).
+- [ECDICT](https://github.com/skywind3000/ECDICT), Copyright (c) 2025 Linwei, MIT-Lizenz: Das Wörterbuchpaket Englisch → vereinfachtes Chinesisch ist daraus bearbeitet (extrahiert, gefiltert und gekürzt).
 
 ## Lizenz
 

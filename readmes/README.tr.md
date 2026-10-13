@@ -135,8 +135,8 @@ Aşağıdaki belgeler İngilizcedir.
 
 - [Read Frog](https://github.com/mengxi-ream/read-frog) (GPL-3.0): paragraf algılama, istek kuyruğu, istemler ve sağlayıcı yapılandırmasının tasarımı.
 - [Mozilla Bergamot](https://browser.mt/): çevrimdışı motor ve Firefox Translations modelleri (MPL-2.0).
-- [Wiktionary](https://en.wiktionary.org/) (© Wiktionary contributors, CC BY-SA 4.0), [wiktextract](https://github.com/tatuylonen/wiktextract) ile çıkarılmış ve [kaikki.org](https://kaikki.org/) tarafından yayımlanmıştır: sözlük verileri.
-- skywind3000'in [ECDICT](https://github.com/skywind3000/ECDICT) projesi (MIT Lisansı): İngilizce → Basitleştirilmiş Çince sözlük verileri.
+- [Wiktionary](https://en.wiktionary.org/) (© Wiktionary contributors): İngilizce → Basitleştirilmiş Çince dışındaki sözlük paketleri, [wiktextract](https://github.com/tatuylonen/wiktextract) ile çıkarılıp [kaikki.org](https://kaikki.org/) tarafından yayımlanan Wiktionary verilerinden uyarlanmıştır (çıkarılmış, süzülmüş ve kısaltılmış); lisans CC BY-SA 4.0 (<https://creativecommons.org/licenses/by-sa/4.0/>).
+- [ECDICT](https://github.com/skywind3000/ECDICT), Copyright (c) 2025 Linwei, MIT Lisansı: İngilizce → Basitleştirilmiş Çince sözlük paketi ECDICT'ten uyarlanmıştır (çıkarılmış, süzülmüş ve kısaltılmış).
 
 ## Lisans
 

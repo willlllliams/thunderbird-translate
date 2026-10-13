@@ -135,8 +135,8 @@ Thunderbird Translate — расширение для Thunderbird, которо�
 
 - [Read Frog](https://github.com/mengxi-ream/read-frog) (GPL-3.0): устройство определения абзацев, очередь пакетной обработки, промпты и конфигурация провайдеров.
 - [Mozilla Bergamot](https://browser.mt/): офлайн-движок и модели Firefox Translations (MPL-2.0).
-- [Wiktionary](https://en.wiktionary.org/) (© Wiktionary contributors, CC BY-SA 4.0), извлечённый с помощью [wiktextract](https://github.com/tatuylonen/wiktextract) и опубликованный [kaikki.org](https://kaikki.org/): данные словарей.
-- [ECDICT](https://github.com/skywind3000/ECDICT) автора skywind3000 (лицензия MIT): данные словаря английский → китайский (упрощённый).
+- [Wiktionary](https://en.wiktionary.org/) (© Wiktionary contributors): словарные пакеты, кроме пакета английский → китайский (упрощённый), адаптированы (извлечены, отфильтрованы и сокращены) из Wiktionary, извлечённого с помощью [wiktextract](https://github.com/tatuylonen/wiktextract) и опубликованного [kaikki.org](https://kaikki.org/); лицензия CC BY-SA 4.0 (<https://creativecommons.org/licenses/by-sa/4.0/>).
+- [ECDICT](https://github.com/skywind3000/ECDICT), Copyright (c) 2025 Linwei, лицензия MIT: пакет английский → китайский (упрощённый) адаптирован (извлечён, отфильтрован и сокращён) из него.
 
 ## Лицензия
 

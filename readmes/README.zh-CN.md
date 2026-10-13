@@ -135,8 +135,8 @@ AI 层级使用三套提示词之一：双语对照（贴近原文）、仅译�
 
 - [Read Frog](https://github.com/mengxi-ream/read-frog)（GPL-3.0）：段落识别、批处理队列、提示词和服务商配置的设计。
 - [Mozilla Bergamot](https://browser.mt/)：离线翻译引擎和 Firefox Translations 模型（MPL-2.0）。
-- [Wiktionary](https://en.wiktionary.org/)（© Wiktionary contributors，CC BY-SA 4.0），由 [wiktextract](https://github.com/tatuylonen/wiktextract) 抽取、[kaikki.org](https://kaikki.org/) 发布：词典数据。
-- skywind3000 的 [ECDICT](https://github.com/skywind3000/ECDICT)（MIT 许可证）：英语 → 简体中文词典数据。
+- [Wiktionary](https://en.wiktionary.org/)（© Wiktionary contributors）：除英语 → 简体中文外的词典包改编（抽取、过滤、裁剪）自 Wiktionary，数据由 [wiktextract](https://github.com/tatuylonen/wiktextract) 抽取、[kaikki.org](https://kaikki.org/) 发布，许可证为 CC BY-SA 4.0（<https://creativecommons.org/licenses/by-sa/4.0/>）。
+- [ECDICT](https://github.com/skywind3000/ECDICT)，Copyright (c) 2025 Linwei，MIT 许可证：英语 → 简体中文词典包改编（抽取、过滤、裁剪）自 ECDICT。
 
 ## 许可证
 

@@ -13,7 +13,7 @@ import {
   loadI18n,
   type MessageKey,
 } from "../src/shared/i18n"
-import { localizeDocument } from "../src/shared/i18n-dom"
+import { linkedText, localizeDocument, MESSAGE_LINKS } from "../src/shared/i18n-dom"
 import {
   isUiLocale,
   LOCALE_NATIVE_NAMES,
@@ -352,7 +352,11 @@ describe("no hard-coded interface text", () => {
         expect(copy.documentElement.lang).toBe("ja")
         expect(copy.documentElement.dir).toBe("ltr")
         for (const el of Array.from(copy.querySelectorAll<HTMLElement>("[data-i18n]"))) {
-          expect(el.textContent).toBe(sources.ja[el.dataset.i18n!])
+          const key = el.dataset.i18n! as MessageKey
+          // The substitutions of a message with links are the names of the links.
+          const names = (MESSAGE_LINKS[key] ?? []).map((link) => link.name)
+          expect(el.textContent).toBe(formatMessage(sources.ja[key], names))
+          expect(Array.from(el.querySelectorAll("a"), (a) => a.textContent)).toEqual(names)
         }
       })
     })
@@ -453,6 +457,36 @@ describe("localizeDocument", () => {
     expect(doc.querySelector("button")!.getAttribute("aria-label")).toBe(sources.ja.buttonTest)
     localizeDocument(new I18n("en", { saved: "Saved" }), doc)
     expect(doc.documentElement.lang).toBe("en")
+  })
+
+  it("puts the license links into the dictionary attribution, with their hover text, in every language", () => {
+    const doc = new DOMParser().parseFromString('<p data-i18n="dictionaryAttribution"></p>', "text/html")
+    for (const locale of Object.keys(sources) as UiLocale[]) {
+      localizeDocument(i18nFor(locale), doc)
+      const p = doc.querySelector("p")!
+      const links = Array.from(p.querySelectorAll("a"), (a) => [a.textContent, a.href, a.target, a.rel, a.title])
+      expect(links, locale).toEqual([
+        ["CC BY-SA 4.0", "https://creativecommons.org/licenses/by-sa/4.0/", "_blank", "noopener noreferrer", sources[locale].tipLicenseText],
+        ["MIT", "https://github.com/skywind3000/ECDICT/blob/master/LICENSE", "_blank", "noopener noreferrer", sources[locale].tipLicenseText],
+      ])
+      expect(p.textContent, locale).toContain("Wiktionary")
+      expect(p.textContent, locale).toContain("Copyright (c) 2025 Linwei")
+    }
+  })
+
+  it("builds the text around the links as text nodes: markup in a message stays text", () => {
+    const i18n = new I18n("en", { dictionaryAttribution: '<img src=x onerror="alert(1)"> $1 & <b>$2</b>', tipLicenseText: "Opens" })
+    const nodes = linkedText("dictionaryAttribution", [{ name: "<i>L</i>", href: "https://example.com/l" }, { name: "M", href: "https://example.com/m" }], i18n, document)
+    expect(nodes.map((n) => [n.nodeName, n.textContent])).toEqual([
+      ["#text", '<img src=x onerror="alert(1)"> '],
+      ["A", "<i>L</i>"],
+      ["#text", " & <b>"],
+      ["A", "M"],
+      ["#text", "</b>"],
+    ])
+    const p = document.createElement("p")
+    p.append(...nodes)
+    expect(p.querySelectorAll("img, b, i")).toHaveLength(0)
   })
 
   it("gives the title of a <label> to its control as well, and a later control title wins", () => {

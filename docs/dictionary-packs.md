@@ -15,10 +15,12 @@
 
 kaikki.org 按语言提供 English Wiktionary 版本的抽取结果。`<Language>` 依次取 English、Chinese、Japanese、Korean、French、German、Spanish、Portuguese、Russian、Turkish、Vietnamese。zh-Hans 与 zh-Hant 共用 Chinese 文件。本文写作时各文件的 `Last-Modified` 为 2026-10-03，kaikki.org 大约每周更新一次。
 
-数据包的署名如下。发布页和索引文件带上对应署名，扩展在设置页“词典”部分的每个数据包旁显示它：
+数据包是对数据源的改编：构建过程从中抽取词条、过滤并裁剪。署名如实写明这一点。发布页和索引文件带上对应署名（`tools/dict-build/build.mjs` 的 `WIKTIONARY`、`ECDICT` 常量），扩展在设置页“词典”部分的每个数据包旁显示它：
 
-- Wiktionary contributors（via kaikki.org / wiktextract），CC BY-SA 4.0。
-- ECDICT by skywind3000，MIT License。
+- Adapted (extracted, filtered and trimmed) from Wiktionary by Wiktionary contributors (https://www.wiktionary.org/), extracted by wiktextract and published by kaikki.org (https://kaikki.org/); CC BY-SA 4.0 (https://creativecommons.org/licenses/by-sa/4.0/)。
+- Adapted (extracted, filtered and trimmed) from ECDICT (https://github.com/skywind3000/ECDICT), Copyright (c) 2025 Linwei; MIT License。
+
+设置页与安装向导的词典部分上方另有一段总署名（界面文案 `dictionaryAttribution`），其中的许可证名 CC BY-SA 4.0 和 MIT 是指向许可证全文的链接。ECDICT 的 MIT 许可证全文收在扩展的 `THIRD-PARTY-NOTICES.txt` 中（来源文件 `licenses/ECDICT.LICENSE.txt`）。
 
 CC BY-SA 的相同方式共享条款作用于由 Wiktionary 派生的数据包，这些包以 CC BY-SA 4.0 发布。数据包是运行时下载的独立数据文件，与扩展代码分开分发。
 
@@ -83,7 +85,7 @@ lookup(key):
       "sha256": "f27666420e7024968506ede40740da1c1d5be916e555ecb0a12d4089bb7a334f",
       "source": "ECDICT",
       "license": "MIT",
-      "attribution": "ECDICT by skywind3000 (https://github.com/skywind3000/ECDICT); MIT License"
+      "attribution": "Adapted (extracted, filtered and trimmed) from ECDICT (https://github.com/skywind3000/ECDICT), Copyright (c) 2025 Linwei; MIT License"
     }
   ]
 }

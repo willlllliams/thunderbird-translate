@@ -97,8 +97,8 @@ jobs:
             Format and build rules: docs/dictionary-packs.md.
 
             Sources and licenses:
-            - Wiktionary contributors, via kaikki.org / wiktextract (CC BY-SA 4.0): all packs except dict-en-zh-Hans.
-            - ECDICT by skywind3000 (MIT): dict-en-zh-Hans.
+            - All packs except dict-en-zh-Hans: adapted (extracted, filtered and trimmed) from Wiktionary (Wiktionary contributors, https://www.wiktionary.org/), extracted by wiktextract and published by kaikki.org; CC BY-SA 4.0 (https://creativecommons.org/licenses/by-sa/4.0/).
+            - dict-en-zh-Hans: adapted (extracted, filtered and trimmed) from ECDICT (https://github.com/skywind3000/ECDICT), Copyright (c) 2025 Linwei; MIT License.
           files: |
             ${{ runner.temp }}/dicts/dict-*.tsv.gz
             ${{ runner.temp }}/dicts/dict-index.json

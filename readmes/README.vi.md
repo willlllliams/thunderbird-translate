@@ -135,8 +135,8 @@ Các tài liệu dưới đây viết bằng tiếng Anh.
 
 - [Read Frog](https://github.com/mengxi-ream/read-frog) (GPL-3.0): thiết kế việc nhận diện đoạn, hàng đợi gộp lô, lời nhắc và cấu hình nhà cung cấp.
 - [Mozilla Bergamot](https://browser.mt/): engine dịch ngoại tuyến và các mô hình Firefox Translations (MPL-2.0).
-- [Wiktionary](https://en.wiktionary.org/) (© Wiktionary contributors, CC BY-SA 4.0), được [wiktextract](https://github.com/tatuylonen/wiktextract) trích xuất và [kaikki.org](https://kaikki.org/) phát hành: dữ liệu từ điển.
-- [ECDICT](https://github.com/skywind3000/ECDICT) của skywind3000 (Giấy phép MIT): dữ liệu từ điển Anh → Trung giản thể.
+- [Wiktionary](https://en.wiktionary.org/) (© Wiktionary contributors): các gói từ điển, trừ Anh → Trung giản thể, được phỏng theo (trích xuất, lọc và cắt gọn) Wiktionary do [wiktextract](https://github.com/tatuylonen/wiktextract) trích xuất và [kaikki.org](https://kaikki.org/) phát hành; giấy phép CC BY-SA 4.0 (<https://creativecommons.org/licenses/by-sa/4.0/>).
+- [ECDICT](https://github.com/skywind3000/ECDICT), Copyright (c) 2025 Linwei, Giấy phép MIT: gói từ điển Anh → Trung giản thể được phỏng theo (trích xuất, lọc và cắt gọn) ECDICT.
 
 ## Giấy phép
 

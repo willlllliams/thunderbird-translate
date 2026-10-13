@@ -135,8 +135,8 @@ AI の段階は、3 つのプロンプトのいずれかを使います。対訳
 
 - [Read Frog](https://github.com/mengxi-ream/read-frog)（GPL-3.0）: 段落の検出、バッチキュー、プロンプト、プロバイダー設定の設計。
 - [Mozilla Bergamot](https://browser.mt/): オフラインの翻訳エンジンと Firefox Translations のモデル（MPL-2.0）。
-- [Wiktionary](https://en.wiktionary.org/)（© Wiktionary contributors、CC BY-SA 4.0）を [wiktextract](https://github.com/tatuylonen/wiktextract) が抽出し、[kaikki.org](https://kaikki.org/) が公開したもの: 辞書データ。
-- skywind3000 の [ECDICT](https://github.com/skywind3000/ECDICT)（MIT ライセンス）: 英語 → 簡体字中国語の辞書データ。
+- [Wiktionary](https://en.wiktionary.org/)（© Wiktionary contributors）: 英語 → 簡体字中国語以外の辞書パックは、[wiktextract](https://github.com/tatuylonen/wiktextract) が抽出し [kaikki.org](https://kaikki.org/) が公開した Wiktionary のデータを改変（抽出・絞り込み・削減）したものです。ライセンスは CC BY-SA 4.0（<https://creativecommons.org/licenses/by-sa/4.0/>）です。
+- [ECDICT](https://github.com/skywind3000/ECDICT)（Copyright (c) 2025 Linwei、MIT ライセンス）: 英語 → 簡体字中国語の辞書パックは ECDICT を改変（抽出・絞り込み・削減）したものです。
 
 ## ライセンス
 

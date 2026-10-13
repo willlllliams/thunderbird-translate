@@ -135,8 +135,8 @@ The documents below are in English.
 
 - [Read Frog](https://github.com/mengxi-ream/read-frog) (GPL-3.0): the design of paragraph detection, the batch queue, the prompts and the provider configuration.
 - [Mozilla Bergamot](https://browser.mt/): the offline engine and the Firefox Translations models (MPL-2.0).
-- [Wiktionary](https://en.wiktionary.org/) (© Wiktionary contributors, CC BY-SA 4.0), extracted by [wiktextract](https://github.com/tatuylonen/wiktextract) and published by [kaikki.org](https://kaikki.org/): dictionary data.
-- [ECDICT](https://github.com/skywind3000/ECDICT) by skywind3000 (MIT License): English → Simplified Chinese dictionary data.
+- [Wiktionary](https://en.wiktionary.org/) (© Wiktionary contributors): the dictionary packs other than English → Simplified Chinese are adapted (extracted, filtered and trimmed) from Wiktionary as extracted by [wiktextract](https://github.com/tatuylonen/wiktextract) and published by [kaikki.org](https://kaikki.org/); license CC BY-SA 4.0 (<https://creativecommons.org/licenses/by-sa/4.0/>).
+- [ECDICT](https://github.com/skywind3000/ECDICT), Copyright (c) 2025 Linwei, MIT License: the English → Simplified Chinese dictionary pack is adapted (extracted, filtered and trimmed) from it.
 
 ## License
 
