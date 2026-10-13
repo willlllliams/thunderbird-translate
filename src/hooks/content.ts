@@ -9,6 +9,7 @@
  * so an effect of expr would happen in the test build only.
  */
 
+import type { ConsentPanel } from "../content/consent"
 import type { TranslationController } from "../content/controller"
 import type { MissingNotice } from "../content/notice"
 import type { PortPush, TabState } from "../shared/messages"
@@ -20,6 +21,8 @@ export interface ContentProbeParts {
   root: () => HTMLElement | null
   controller: TranslationController
   notice: MissingNotice | undefined
+  /** The panel that asks before message text first goes to an online service. */
+  consent: ConsentPanel | undefined
   /** Settles once the first settings are applied. */
   ready: Promise<void>
 }

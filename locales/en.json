@@ -481,5 +481,22 @@
   "buttonAllowHost": "Allow access",
   "tipAllowHost": "Let the extension connect to this address",
   "hintLoopback": "localhost is this computer (loopback address): requests to it do not leave this computer.",
-  "errHostPermission": "The extension may not connect to $1 yet. Open this service in the settings and click “Allow access”."
+  "errHostPermission": "The extension may not connect to $1 yet. Open this service in the settings and click “Allow access”.",
+
+  "consentTitle": "Send this message to an online service?",
+  "consentBody": "To translate it, the paragraphs of this message go to the service below. The offline tiers send nothing.",
+  "consentBodyPrecise": "To translate it, the paragraphs of this message go to the service below; with precise translation, the whole message also goes to the AI service as context. The offline tiers send nothing.",
+  "consentService": "$1: $2",
+  "consentKey": "An API key you saved goes only to its own service. The extension asks once per service; the settings page lists the services you allowed.",
+  "consentAllow": "Allow and translate",
+  "consentCancel": "Cancel",
+  "tipConsentAllow": "Allow these services and translate the message",
+  "tipConsentCancel": "Send nothing and leave the message as it is",
+  "errConsentRequired": "$1 has not been allowed to receive message text yet. Translate the message again and choose “Allow and translate”.",
+  "consentListTitle": "Online services allowed to receive message text",
+  "consentListHint": "Before the text of a message first goes to an online service, a panel above the message asks once. After a service is revoked, it asks again.",
+  "consentListNone": "None yet.",
+  "buttonRevokeConsent": "Revoke",
+  "tipRevokeConsent": "Ask again before sending message text to this service",
+  "welcomeConsentNote": "Before the text of a message first goes to an online service, a panel above the message asks once per service. With only the offline tiers, no text leaves Thunderbird and nothing is asked."
 }

@@ -478,5 +478,22 @@
   "buttonAllowHost": "Permitir acceso",
   "tipAllowHost": "Permite que la extensión se conecte a esta dirección",
   "hintLoopback": "localhost es este equipo (dirección de bucle invertido): las solicitudes a esa dirección no salen del equipo.",
-  "errHostPermission": "La extensión aún no tiene permiso para conectarse a $1. Abra este servicio en la configuración y haga clic en «Permitir acceso»."
+  "errHostPermission": "La extensión aún no tiene permiso para conectarse a $1. Abra este servicio en la configuración y haga clic en «Permitir acceso».",
+
+  "consentTitle": "¿Enviar este mensaje a un servicio en línea?",
+  "consentBody": "Para traducirlo, los párrafos de este mensaje se envían al servicio de abajo. Los niveles sin conexión no envían nada.",
+  "consentBodyPrecise": "Para traducirlo, los párrafos de este mensaje se envían al servicio de abajo; con la traducción precisa, el mensaje completo también se envía al servicio de IA como contexto. Los niveles sin conexión no envían nada.",
+  "consentService": "$1: $2",
+  "consentKey": "Una clave de API guardada solo se envía a su propio servicio. La extensión pregunta una vez por servicio; la página de configuración muestra los servicios permitidos.",
+  "consentAllow": "Permitir y traducir",
+  "consentCancel": "Cancelar",
+  "tipConsentAllow": "Permite estos servicios y traduce el mensaje",
+  "tipConsentCancel": "No envía nada y deja el mensaje como está",
+  "errConsentRequired": "$1 aún no tiene permiso para recibir el texto de los mensajes. Traduzca el mensaje de nuevo y elija «Permitir y traducir».",
+  "consentListTitle": "Servicios en línea que pueden recibir el texto de los mensajes",
+  "consentListHint": "Antes de que el texto de un mensaje vaya por primera vez a un servicio en línea, un panel sobre el mensaje lo pregunta una vez. Tras revocar un servicio, vuelve a preguntar.",
+  "consentListNone": "Ninguno por ahora.",
+  "buttonRevokeConsent": "Revocar",
+  "tipRevokeConsent": "Vuelve a preguntar antes de enviar texto a este servicio",
+  "welcomeConsentNote": "Antes de que el texto de un mensaje vaya por primera vez a un servicio en línea, un panel sobre el mensaje lo pregunta una vez por servicio. Con solo los niveles sin conexión, ningún texto sale de Thunderbird y no se pregunta nada."
 }

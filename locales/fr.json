@@ -478,5 +478,22 @@
   "buttonAllowHost": "Autoriser l’accès",
   "tipAllowHost": "Autorise l’extension à se connecter à cette adresse",
   "hintLoopback": "localhost désigne cet ordinateur (adresse de bouclage) : les requêtes vers cette adresse ne quittent pas l’ordinateur.",
-  "errHostPermission": "L’extension n’a pas encore le droit de se connecter à $1. Ouvrez ce service dans les paramètres et cliquez sur « Autoriser l’accès »."
+  "errHostPermission": "L’extension n’a pas encore le droit de se connecter à $1. Ouvrez ce service dans les paramètres et cliquez sur « Autoriser l’accès ».",
+
+  "consentTitle": "Envoyer ce message à un service en ligne ?",
+  "consentBody": "Pour le traduire, les paragraphes de ce message sont envoyés au service ci-dessous. Les niveaux hors ligne n’envoient rien.",
+  "consentBodyPrecise": "Pour le traduire, les paragraphes de ce message sont envoyés au service ci-dessous ; avec la traduction précise, le message entier est aussi envoyé au service d’IA comme contexte. Les niveaux hors ligne n’envoient rien.",
+  "consentService": "$1 : $2",
+  "consentKey": "Une clé d’API enregistrée n’est envoyée qu’à son propre service. L’extension demande une fois par service ; la page de paramètres liste les services autorisés.",
+  "consentAllow": "Autoriser et traduire",
+  "consentCancel": "Annuler",
+  "tipConsentAllow": "Autorise ces services et traduit le message",
+  "tipConsentCancel": "N’envoie rien et laisse le message tel quel",
+  "errConsentRequired": "$1 n’a pas encore été autorisé à recevoir le texte des messages. Traduisez de nouveau le message et choisissez « Autoriser et traduire ».",
+  "consentListTitle": "Services en ligne autorisés à recevoir le texte des messages",
+  "consentListHint": "Avant que le texte d’un message parte pour la première fois vers un service en ligne, un panneau au-dessus du message le demande une fois. Après la révocation d’un service, il le demande de nouveau.",
+  "consentListNone": "Aucun pour l’instant.",
+  "buttonRevokeConsent": "Révoquer",
+  "tipRevokeConsent": "Redemande avant d’envoyer du texte à ce service",
+  "welcomeConsentNote": "Avant que le texte d’un message parte pour la première fois vers un service en ligne, un panneau au-dessus du message le demande une fois par service. Avec les seuls niveaux hors ligne, aucun texte ne quitte Thunderbird et rien n’est demandé."
 }

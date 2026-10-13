@@ -478,5 +478,22 @@
   "buttonAllowHost": "授權存取",
   "tipAllowHost": "允許擴充套件連線到這個位址",
   "hintLoopback": "localhost 指本機（回送位址），送往它的請求不會離開這台電腦。",
-  "errHostPermission": "擴充套件尚未獲准連線到 $1。請在設定中開啟這個服務，點選「授權存取」。"
+  "errHostPermission": "擴充套件尚未獲准連線到 $1。請在設定中開啟這個服務，點選「授權存取」。",
+
+  "consentTitle": "要把這封郵件傳送給線上服務嗎？",
+  "consentBody": "翻譯時，這封郵件的段落會傳送給下列服務。離線層級不會傳送任何內容。",
+  "consentBodyPrecise": "翻譯時，這封郵件的段落會傳送給下列服務；開啟精翻時，整封郵件還會作為上下文傳送給 AI 服務。離線層級不會傳送任何內容。",
+  "consentService": "$1：$2",
+  "consentKey": "你儲存的 API 金鑰只會傳送給它所屬的服務。每個服務只詢問一次，設定頁面列出了你允許的服務。",
+  "consentAllow": "允許並翻譯",
+  "consentCancel": "取消",
+  "tipConsentAllow": "允許這些服務並翻譯這封郵件",
+  "tipConsentCancel": "不傳送任何內容，郵件保持原樣",
+  "errConsentRequired": "$1 尚未獲准接收郵件文字。請再次翻譯這封郵件，並選擇「允許並翻譯」。",
+  "consentListTitle": "已獲准接收郵件文字的線上服務",
+  "consentListHint": "郵件文字第一次傳送給某個線上服務之前，郵件上方的面板會詢問一次。撤銷某個服務後，會再次詢問。",
+  "consentListNone": "暫無。",
+  "buttonRevokeConsent": "撤銷",
+  "tipRevokeConsent": "傳送郵件文字給這個服務前重新詢問",
+  "welcomeConsentNote": "郵件文字第一次傳送給某個線上服務之前，郵件上方的面板會就每個服務詢問一次。只使用離線層級時，文字不會離開 Thunderbird，也不會詢問。"
 }

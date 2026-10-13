@@ -105,6 +105,8 @@ As predefinições acrescentam regras a um prompt: uma variante regional, como o
 ## Privacidade
 
 - O texto da mensagem vai apenas aos serviços dos níveis em uso. O dicionário e o Bergamot traduzem no seu computador.
+- Antes que o texto de uma mensagem vá pela primeira vez a um serviço on-line, um painel acima da mensagem mostra o serviço e o endereço e pergunta uma vez por serviço. Nada é enviado antes de clicar em "Permitir e traduzir"; a página de configurações lista os serviços permitidos e permite revogá-los. Só com o dicionário e o Bergamot, nada é perguntado.
+- Um endereço que você digita (Ollama, LM Studio, DeepLX, um serviço personalizado, um endereço alterado) precisa de permissão de conexão, dada uma vez com "Permitir acesso" ou "Testar conexão" nas configurações.
 - As chaves de API ficam guardadas apenas no seu perfil do Thunderbird e são enviadas apenas ao endpoint do próprio serviço.
 - Duas listas vêm da rede, sem nenhum texto de mensagem: o índice de pacotes de dicionário das releases deste repositório no GitHub e os registros dos modelos Bergamot da Mozilla. A página de configurações e o guia de configuração as leem para mostrar as listas offline. Enquanto o dicionário ou o Bergamot está selecionado em um nível, elas também são lidas quando o Thunderbird inicia, quando as configurações mudam e quando o pop-up abre. Traduzir uma mensagem nunca as lê.
 - Pacotes e modelos só são baixados quando você clica em um botão de download. A extensão não coleta estatísticas.

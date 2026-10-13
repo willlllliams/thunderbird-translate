@@ -478,5 +478,22 @@
   "buttonAllowHost": "Cho phép truy cập",
   "tipAllowHost": "Cho phép tiện ích kết nối tới địa chỉ này",
   "hintLoopback": "localhost là chính máy tính này (địa chỉ loopback): yêu cầu gửi tới đó không rời khỏi máy.",
-  "errHostPermission": "Tiện ích chưa được phép kết nối tới $1. Hãy mở dịch vụ này trong phần cài đặt và bấm \"Cho phép truy cập\"."
+  "errHostPermission": "Tiện ích chưa được phép kết nối tới $1. Hãy mở dịch vụ này trong phần cài đặt và bấm \"Cho phép truy cập\".",
+
+  "consentTitle": "Gửi thư này đến dịch vụ trực tuyến?",
+  "consentBody": "Để dịch, các đoạn của thư này được gửi đến dịch vụ dưới đây. Các tầng ngoại tuyến không gửi gì.",
+  "consentBodyPrecise": "Để dịch, các đoạn của thư này được gửi đến dịch vụ dưới đây; với dịch chính xác, toàn bộ thư cũng được gửi đến dịch vụ AI làm ngữ cảnh. Các tầng ngoại tuyến không gửi gì.",
+  "consentService": "$1: $2",
+  "consentKey": "Khóa API đã lưu chỉ được gửi đến đúng dịch vụ của nó. Tiện ích chỉ hỏi một lần cho mỗi dịch vụ; trang cài đặt liệt kê các dịch vụ đã được cho phép.",
+  "consentAllow": "Cho phép và dịch",
+  "consentCancel": "Hủy",
+  "tipConsentAllow": "Cho phép các dịch vụ này và dịch thư",
+  "tipConsentCancel": "Không gửi gì và giữ nguyên thư",
+  "errConsentRequired": "$1 chưa được phép nhận nội dung thư. Hãy dịch lại thư và chọn \"Cho phép và dịch\".",
+  "consentListTitle": "Các dịch vụ trực tuyến được phép nhận nội dung thư",
+  "consentListHint": "Trước khi nội dung thư lần đầu được gửi đến một dịch vụ trực tuyến, bảng phía trên thư sẽ hỏi một lần. Sau khi thu hồi một dịch vụ, bảng sẽ hỏi lại.",
+  "consentListNone": "Chưa có.",
+  "buttonRevokeConsent": "Thu hồi",
+  "tipRevokeConsent": "Hỏi lại trước khi gửi nội dung thư đến dịch vụ này",
+  "welcomeConsentNote": "Trước khi nội dung thư lần đầu được gửi đến một dịch vụ trực tuyến, bảng phía trên thư sẽ hỏi một lần cho mỗi dịch vụ. Nếu chỉ dùng các tầng ngoại tuyến, không có văn bản nào rời khỏi Thunderbird và không có câu hỏi nào."
 }

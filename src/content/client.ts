@@ -12,6 +12,7 @@ import type { UiLanguageSetting } from "../shared/locales"
 import { CONTENT_PORT_NAME, isPortPush, type LocaleMessages, type PortReport, send, type TranslateResponse } from "../shared/messages"
 import type { Tier } from "../shared/providers"
 import type { ContentProbe } from "../hooks/content"
+import { ConsentPanel } from "./consent"
 import { TranslationController } from "./controller"
 import { MissingNotice } from "./notice"
 
@@ -57,8 +58,24 @@ export function connectContent({ root, contentScript = false, probe }: ClientOpt
       })
     : undefined
 
+  // Only for a displayed message: the extension pages translate their own sample text.
+  const consentPanel = contentScript ? new ConsentPanel({ root }) : undefined
+  const consent = consentPanel && {
+    ask: async (needs: Parameters<ConsentPanel["ask"]>[0], precise: boolean) => {
+      if (!(await consentPanel.ask(needs, precise))) return false
+      try {
+        await send({ type: "grantConsent", ids: needs.map((need) => need.id) })
+        return true
+      } catch {
+        return false
+      }
+    },
+    clear: () => consentPanel.clear(),
+  }
+
   const controller = new TranslationController({
     notice,
+    consent,
     root,
     translate: (request, onTier) =>
       new Promise((resolve) => {
@@ -84,7 +101,7 @@ export function connectContent({ root, contentScript = false, probe }: ClientOpt
 
   let markReady!: () => void
   const ready = new Promise<void>((resolve) => (markReady = resolve))
-  probe?.attach({ contentScript, root, controller, notice, ready })
+  probe?.attach({ contentScript, root, controller, notice, consent: consentPanel, ready })
   let firstSettings = true
   let uiLanguage: UiLanguageSetting | null = null
   // Settings are applied in the order they arrive, each once its labels are loaded.

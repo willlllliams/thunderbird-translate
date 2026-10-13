@@ -478,5 +478,22 @@
   "buttonAllowHost": "접근 허용",
   "tipAllowHost": "확장 기능이 이 주소에 연결하도록 허용합니다",
   "hintLoopback": "localhost는 이 컴퓨터(루프백 주소)입니다. 이 주소로 보내는 요청은 이 컴퓨터 밖으로 나가지 않습니다.",
-  "errHostPermission": "확장 기능이 아직 $1에 연결할 권한이 없습니다. 설정에서 이 서비스를 열고 '접근 허용'을 누르세요."
+  "errHostPermission": "확장 기능이 아직 $1에 연결할 권한이 없습니다. 설정에서 이 서비스를 열고 '접근 허용'을 누르세요.",
+
+  "consentTitle": "이 메시지를 온라인 서비스로 보낼까요?",
+  "consentBody": "번역을 위해 이 메시지의 단락을 아래 서비스로 보냅니다. 오프라인 단계는 아무것도 보내지 않습니다.",
+  "consentBodyPrecise": "번역을 위해 이 메시지의 단락을 아래 서비스로 보냅니다. 정밀 번역에서는 메시지 전체도 문맥으로 AI 서비스에 보냅니다. 오프라인 단계는 아무것도 보내지 않습니다.",
+  "consentService": "$1: $2",
+  "consentKey": "저장한 API 키는 해당 서비스로만 보내집니다. 서비스마다 한 번만 묻고, 허용한 서비스는 설정 페이지에 나열됩니다.",
+  "consentAllow": "허용하고 번역",
+  "consentCancel": "취소",
+  "tipConsentAllow": "이 서비스들을 허용하고 메시지를 번역합니다",
+  "tipConsentCancel": "아무것도 보내지 않고 메시지를 그대로 둡니다",
+  "errConsentRequired": "$1은(는) 아직 메시지 본문을 받도록 허용되지 않았습니다. 메시지를 다시 번역하고 '허용하고 번역'을 선택하세요.",
+  "consentListTitle": "메시지 본문을 받도록 허용한 온라인 서비스",
+  "consentListHint": "메시지 본문을 온라인 서비스로 처음 보내기 전에 메시지 위의 패널이 한 번 묻습니다. 허용을 취소한 서비스는 다시 묻습니다.",
+  "consentListNone": "아직 없습니다.",
+  "buttonRevokeConsent": "허용 취소",
+  "tipRevokeConsent": "이 서비스로 본문을 보내기 전에 다시 묻습니다",
+  "welcomeConsentNote": "메시지 본문을 온라인 서비스로 처음 보내기 전에 메시지 위의 패널이 서비스마다 한 번 묻습니다. 오프라인 단계만 사용하면 본문이 Thunderbird 밖으로 나가지 않고 묻지도 않습니다."
 }

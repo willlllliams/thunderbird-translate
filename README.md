@@ -105,6 +105,8 @@ Presets add rules to a prompt: a regional variety such as British English or Tai
 ## Privacy
 
 - Message text goes only to the services of the tiers in use. The dictionary and Bergamot translate on your computer.
+- Before the text of a message first goes to an online service, a panel above the message names the service and its address and asks once per service. Nothing is sent until you click “Allow and translate”; the settings page lists the allowed services and takes them back. With only the dictionary and Bergamot, nothing is asked.
+- An endpoint you type (Ollama, LM Studio, DeepLX, a custom service, a changed endpoint) needs your permission to connect, given once with “Allow access” or “Test connection” in the settings.
 - API keys are stored only in your Thunderbird profile and are sent only to the endpoint of their own service.
 - Two lists come from the network, without any message text: the dictionary pack index from this repository's GitHub releases and the Bergamot model records from Mozilla. The settings page and the setup guide read them to show the offline lists. While the dictionary or Bergamot is selected in a tier, they are also read when Thunderbird starts, when the settings change and when the popup opens. Translating a message never reads them.
 - Packs and models are downloaded only when you click a download button. The extension collects no statistics.

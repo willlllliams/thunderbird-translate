@@ -23,6 +23,10 @@
  * background's cache (and, in precise mode, its analysis of the message).
  * A paragraph that an offline tier could not translate for lack of a
  * dictionary pack or offline model is reported to the notice (notice.ts).
+ * Before the text of the message first goes to an online service the user
+ * has not allowed yet, start() asks through the consent panel (consent.ts)
+ * and translates nothing until the user allows it; this holds for automatic
+ * translation and retranslation as well.
  */
 
 import { describeError, type MissingData } from "../shared/errors"
@@ -31,7 +35,7 @@ import { isInTargetLanguage, type LanguageDetector } from "../shared/lang-detect
 import { createMailContext, type MailContext } from "../shared/mail-context"
 import type { TabState, TranslateRequest, TranslateResponse } from "../shared/messages"
 import { type Tier, TIER_NAME_KEYS, TIERS } from "../shared/providers"
-import type { PublicSettings } from "../shared/settings"
+import type { ConsentNeed, PublicSettings } from "../shared/settings"
 import { type Collected, collectParagraphs, extractText, type Unit } from "./paragraphs"
 import { Renderer, type TranslationMark } from "./render"
 import { hasTranslatableText } from "./text"
@@ -46,6 +50,11 @@ export interface ControllerDeps {
   report?: (state: Omit<TabState, "connected">) => void
   /** Told when a translation starts and when every paragraph has its answers, of each paragraph without a dictionary pack or offline model, and when the translation stops. */
   notice?: { begin(): void; add(missing: MissingData): void; end(): void; clear(again?: boolean): void }
+  /**
+   * Asks the user before message text first goes to the online services `needs`; resolves true once they are allowed
+   * (and recorded by the background script). Without it nothing is asked: the extension pages translate their own sample.
+   */
+  consent?: { ask(needs: ConsentNeed[], precise: boolean): Promise<boolean>; clear(): void }
 }
 
 /** What one tier has for one paragraph. */
@@ -79,6 +88,8 @@ export class TranslationController {
   /** The running translation is a retranslation: its requests pass the background's cache. */
   private bypassCache = false
   private lastError = ""
+  /** Online services allowed in the consent panel of this message, before the settings that record them arrive. */
+  private allowed = new Set<string>()
   private reportTimer: ReturnType<typeof setTimeout> | null = null
   private reportPending = false
 
@@ -128,6 +139,12 @@ export class TranslationController {
       return
     }
     const changed = TIERS.filter((tier) => prev.signatures[tier] !== next.signatures[tier])
+    // A tier now uses an online service the user has not allowed yet: translate again from the start, which asks first.
+    if (changed.length > 0 && this.consentNeeds(next).length > 0) {
+      this.stop()
+      await this.start()
+      return
+    }
     for (const state of this.results.values()) for (const tier of changed) delete state[tier]
     if (changed.length > 0 || prev.mode !== next.mode || prev.style.preset !== next.style.preset) this.rerender()
     if (changed.length > 0) {
@@ -166,10 +183,24 @@ export class TranslationController {
     else await this.start()
   }
 
+  /** The online services of `s` that still need the user's consent. */
+  private consentNeeds(s: PublicSettings): ConsentNeed[] {
+    return this.deps.consent ? s.consent.filter((need) => !this.allowed.has(need.id)) : []
+  }
+
   async start(bypassCache = false): Promise<void> {
-    const s = this.settings
+    let s = this.settings
+    if (this.active || !s || !this.deps.root()) return
+    const needs = this.consentNeeds(s)
+    if (needs.length > 0) {
+      if (!(await this.deps.consent!.ask(needs, s.precise))) return
+      for (const need of needs) this.allowed.add(need.id)
+      // The settings may have changed while the panel was open.
+      s = this.settings!
+      if (this.active || this.consentNeeds(s).length > 0) return
+    }
     const root = this.deps.root()
-    if (this.active || !s || !root) return
+    if (!root) return
     this.active = true
     this.bypassCache = bypassCache
     const session = ++this.session
@@ -199,6 +230,7 @@ export class TranslationController {
 
   /** `again`: a retranslation follows. */
   stop(again = false): void {
+    this.deps.consent?.clear()
     this.session++
     this.active = false
     this.renderer?.clearAll()

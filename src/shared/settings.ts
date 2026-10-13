@@ -1,5 +1,6 @@
 import { LocalizedError } from "./errors"
 import { hashText } from "./hash"
+import { patternHost, providerOrigin } from "./hosts"
 import { appLang, LANGUAGES, languageTag } from "./languages"
 import { normalizeUiLanguageSetting, type UiLanguageSetting } from "./locales"
 import { DEFAULT_PROMPTS, PROMPT_KINDS, type PromptKind, promptText } from "./prompts"
@@ -82,6 +83,11 @@ export interface Settings {
   dictionary: { releaseTag: string }
   /** Offline service and language pair ("dictionary:ja>zh-Hans", "bergamot:ja>zh-Hans") for which a message shows no notice about missing dictionary packs or offline models. */
   offlineMutedPairs: string[]
+  /**
+   * Online services the user allowed to receive the text of messages, by id. A content script asks once per service
+   * before it first sends message text there; the settings page lists them and takes them back.
+   */
+  onlineConsent: string[]
   batch: BatchSettings
   cache: { enabled: boolean; maxEntries: number }
   style: StyleSettings
@@ -119,6 +125,7 @@ export function createDefaultSettings(uiLang?: string): Settings {
     precise: { enabled: false },
     dictionary: { releaseTag: DEFAULT_DICT_TAG },
     offlineMutedPairs: [],
+    onlineConsent: [],
     batch: { batchDelayMs: 50, maxCharsPerBatch: 3000, maxItemsPerBatch: 30, concurrency: 4, maxRetries: 3, timeoutSeconds: 60, llmBatchEnabled: true },
     cache: { enabled: true, maxEntries: 5000 },
     style: { preset: "border", color: "#4c8bf5", textColor: "", opacity: 0.85, fontScale: 1 },
@@ -243,6 +250,7 @@ export function normalizeSettings(stored: unknown, uiLang?: string): Settings {
     precise: { enabled: s.precise?.enabled === true },
     dictionary: { releaseTag: tag || d.dictionary.releaseTag },
     offlineMutedPairs: Array.isArray(s.offlineMutedPairs) ? [...new Set(s.offlineMutedPairs.filter((p): p is string => typeof p === "string" && MUTED_KEY.test(p)))] : [],
+    onlineConsent: Array.isArray(s.onlineConsent) ? [...new Set(s.onlineConsent.filter((id): id is string => typeof id === "string" && isOnlineService(id)))] : [],
     batch: {
       batchDelayMs: num(b.batchDelayMs, d.batch.batchDelayMs, 0, 2000),
       maxCharsPerBatch: num(b.maxCharsPerBatch, d.batch.maxCharsPerBatch, 200, 50000),
@@ -385,7 +393,32 @@ export function resultInputs(settings: Settings, providerId: string): ResultInpu
   return { provider, kind, prompt, parts }
 }
 
-/** Settings that content scripts may see. Never contains API keys, nor endpoints, which may hold a token. */
+/** Whether a service sends text over the network: every service except the dictionary and Bergamot. */
+export function isOnlineService(providerId: string): boolean {
+  const kind = getPreset(providerId)?.kind
+  return kind !== undefined && kind !== "dictionary" && kind !== "bergamot"
+}
+
+/** An online service of a tier in use that the user has not allowed yet to receive message text: its id and the host it sends to. */
+export interface ConsentNeed {
+  id: string
+  /** Host of the endpoint, without path or credentials; empty when the endpoint is not a URL. */
+  host: string
+}
+
+/** The online services of the tiers in use that need the user's consent before message text goes to them, lowest tier first. */
+export function consentNeeds(settings: Settings): ConsentNeed[] {
+  const needs: ConsentNeed[] = []
+  for (const tier of enabledTiers(settings.tiers)) {
+    const id = settings.tiers[tier]!
+    if (!isOnlineService(id) || settings.onlineConsent.includes(id)) continue
+    const origin = providerOrigin(resolveProvider(settings, id))
+    needs.push({ id, host: origin ? patternHost(origin) : "" })
+  }
+  return needs
+}
+
+/** Settings that content scripts may see. Never contains API keys, nor endpoints, which may hold a token; only the host of a service that awaits consent. */
 export interface PublicSettings {
   uiLanguage: UiLanguageSetting
   sourceLang: string
@@ -405,6 +438,8 @@ export interface PublicSettings {
   precise: boolean
   style: StyleSettings
   offlineMutedPairs: string[]
+  /** The online services that need consent before the message text goes to them, with their hosts (consentNeeds()). */
+  consent: ConsentNeed[]
 }
 
 export function toPublicSettings(settings: Settings): PublicSettings {
@@ -424,5 +459,6 @@ export function toPublicSettings(settings: Settings): PublicSettings {
     precise: settings.precise.enabled && settings.tiers.ai !== null,
     style: settings.style,
     offlineMutedPairs: settings.offlineMutedPairs,
+    consent: consentNeeds(settings),
   }
 }

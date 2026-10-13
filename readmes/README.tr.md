@@ -105,6 +105,8 @@ Hazır ayarlar isteme kural ekler: Britanya İngilizcesi veya Tayvan kullanımı
 ## Gizlilik
 
 - İleti metni yalnızca kullanılan kademelerin hizmetlerine gider. Sözlük ve Bergamot bilgisayarınızda çeviri yapar.
+- Bir iletinin metni bir çevrimiçi hizmete ilk kez gitmeden önce iletinin üstündeki bir panel hizmeti ve adresini gösterir ve her hizmet için bir kez sorar. "İzin ver ve çevir" düğmesine tıklanana kadar hiçbir şey gönderilmez; ayarlar sayfası izin verilen hizmetleri listeler ve izni geri almayı sağlar. Yalnızca sözlük ve Bergamot kullanılırsa hiçbir şey sorulmaz.
+- Elle girilen bir adres (Ollama, LM Studio, DeepLX, özel bir hizmet, değiştirilmiş bir adres) bağlantı için bir kez izin ister; izin ayarlarda "Erişime izin ver" veya "Bağlantıyı test et" ile verilir.
 - API anahtarları yalnızca Thunderbird profilinizde saklanır ve yalnızca kendi hizmetlerinin uç noktasına gönderilir.
 - İki liste, hiçbir ileti metni içermeden ağdan gelir: bu deponun GitHub sürümlerindeki sözlük paketi dizini ve Mozilla'nın Bergamot model kayıtları. Ayarlar sayfası ve kurulum rehberi, çevrimdışı listeleri göstermek için bunları okur. Bir kademede sözlük veya Bergamot seçiliyken Thunderbird başlarken, ayarlar değişirken ve açılır pencere açılırken de okunurlar. Bir iletiyi çevirmek bunları hiçbir zaman okumaz.
 - Paketler ve modeller yalnızca bir indirme düğmesine tıkladığınızda indirilir. Eklenti hiçbir istatistik toplamaz.

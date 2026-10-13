@@ -105,6 +105,8 @@ Các mẫu có sẵn thêm quy tắc vào lời nhắc: biến thể vùng miề
 ## Quyền riêng tư
 
 - Văn bản thư chỉ đến các dịch vụ của những tầng đang dùng. Từ điển và Bergamot dịch ngay trên máy của bạn.
+- Trước khi nội dung thư lần đầu được gửi đến một dịch vụ trực tuyến, bảng phía trên thư nêu tên dịch vụ và địa chỉ của nó, rồi hỏi một lần cho mỗi dịch vụ. Không có gì được gửi trước khi bạn bấm "Cho phép và dịch"; trang cài đặt liệt kê các dịch vụ đã cho phép và cho phép thu hồi. Nếu chỉ dùng từ điển và Bergamot thì không có câu hỏi nào.
+- Địa chỉ bạn tự nhập (Ollama, LM Studio, DeepLX, dịch vụ tùy chỉnh, địa chỉ đã đổi) cần được cấp quyền kết nối một lần, bằng nút "Cho phép truy cập" hoặc "Kiểm tra kết nối" trong phần cài đặt.
 - Khóa API chỉ được lưu trong hồ sơ Thunderbird của bạn và chỉ được gửi đến endpoint của chính dịch vụ đó.
 - Hai danh sách lấy từ mạng, không kèm văn bản thư nào: chỉ mục gói từ điển từ các bản phát hành GitHub của kho mã này và các bản ghi mô hình Bergamot từ Mozilla. Trang cài đặt và hướng dẫn thiết lập đọc chúng để hiển thị danh sách ngoại tuyến. Khi từ điển hoặc Bergamot được chọn ở một tầng, chúng cũng được đọc lúc Thunderbird khởi động, khi cài đặt thay đổi và khi mở cửa sổ bật lên. Dịch một thư không bao giờ đọc chúng.
 - Gói và mô hình chỉ được tải khi bạn nhấn nút tải xuống. Tiện ích không thu thập số liệu thống kê.

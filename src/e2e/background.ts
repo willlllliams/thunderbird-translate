@@ -134,8 +134,10 @@ export async function setUpE2e({ storage, dictionary, runCommand }: E2eDeps): Pr
     settings.providers.custom = { enabled: true, apiKey: "e2e-test-key", baseURL: `${__E2E_SERVER__}/v1`, model: "e2e-model" }
     settings.providers.dictionary = { ...settings.providers.dictionary, enabled: true }
     if (offline) settings.providers.bergamot = { ...settings.providers.bergamot, enabled: true }
+    // The user allowed Google and the AI service in the consent panel of an earlier message; the "consent" run starts without.
+    settings.onlineConsent = scenario === "consent" ? [] : ["google-free", "custom"]
     // The earlier runs share the profile: Google and the AI service have to answer this run themselves, not the cache.
-    if (scenario === "missing" || scenario.startsWith("auto")) settings.cache.enabled = false
+    if (scenario === "missing" || scenario.startsWith("auto") || scenario === "consent") settings.cache.enabled = false
     await storage.set(SETTINGS_KEY, settings)
     if (offline) await uninstallDictionary(dictionary)
     if (welcome) {

@@ -81,7 +81,7 @@ const tabs = createTabRegistry({
   ready: settings.ready,
   publicSettings: () => toPublicSettings(settings.current()),
   setContext: (context, bypassCache) => service.setContext(context, bypassCache),
-  translate: (request, onTier) => service.translateForPage(request, onTier),
+  translate: (request, onTier, options) => service.translateForPage(request, onTier, options),
 })
 
 async function applyUiLanguage(uiLanguage: string): Promise<void> {
@@ -100,7 +100,16 @@ async function applyUiLanguage(uiLanguage: string): Promise<void> {
 
 const commandRunner = createCommandRunner({ ready: settings.ready, postToTab: tabs.postToTab })
 
-const handlers = createHandlers({ tabs, service, localeMessages: createLocaleTables(uiLang), offlineManager, offlineStatus: offline.status, cache })
+const handlers = createHandlers({
+  tabs,
+  service,
+  localeMessages: createLocaleTables(uiLang),
+  offlineManager,
+  offlineStatus: offline.status,
+  cache,
+  // Written by a request: take the settings over at once, before the storage event arrives, so the next translation sees them.
+  adoptSettings: (stored) => settings.adopt(stored),
+})
 
 /* ---------- listeners: all of them in this first run ---------- */
 

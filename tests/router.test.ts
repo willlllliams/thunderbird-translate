@@ -37,6 +37,7 @@ function router(settings: Settings = createDefaultSettings()) {
     offlineManager: () => bergamot,
     offlineStatus: vi.fn(async () => ({})),
     cache: { clear: vi.fn(async () => {}), size: vi.fn(async () => 2) },
+    adoptSettings: vi.fn((_stored: unknown) => {}),
   }
   const handlers = createHandlers(deps)
   const send = (req: BackgroundRequest) => createDispatch(handlers, () => Promise.resolve())(req, PAGE)
@@ -122,6 +123,16 @@ describe("requests from pages", () => {
     expect(stored().offlineMutedPairs).toEqual(["dictionary:ja>zh-Hans"])
   })
 
+  it("records the online services a content script was allowed to use, takes the settings over at once, and answers nothing", async () => {
+    const s = createDefaultSettings()
+    s.onlineConsent = ["google-free"]
+    const { handlers, deps, stored } = router(s)
+    const dispatch = createDispatch(handlers, () => Promise.resolve())
+    expect(await dispatch({ type: "grantConsent", ids: ["openai", "google-free", "dictionary", "nope"] }, CONTENT)).toBeUndefined()
+    expect(stored().onlineConsent).toEqual(["google-free", "openai"])
+    expect(deps.adoptSettings).toHaveBeenCalledWith(expect.objectContaining({ onlineConsent: ["google-free", "openai"] }))
+  })
+
   it("counts and clears the translation cache", async () => {
     const { send, deps } = router()
     expect(await send({ type: "cacheStats" })).toEqual({ size: 2 })
@@ -141,6 +152,7 @@ describe("requests from pages", () => {
       getLocaleMessages: true,
       openOptions: true,
       muteOfflinePairs: true,
+      grantConsent: true,
       offlineStatus: true,
       offlineList: true,
       offlineInstall: true,
@@ -210,7 +222,7 @@ describe("dispatch", () => {
       for (const [, type] of readFileSync(join(dir, file), "utf8").matchAll(/\btype: "(\w+)"/g)) if (Object.hasOwn(router().handlers, type!)) sent.add(type!)
     }
     expect([...sent].sort()).toEqual([...CONTENT_REQUESTS].sort())
-    expect([...CONTENT_REQUESTS].sort()).toEqual(["getLocaleMessages", "muteOfflinePairs", "openOptions"])
+    expect([...CONTENT_REQUESTS].sort()).toEqual(["getLocaleMessages", "grantConsent", "muteOfflinePairs", "openOptions"])
   })
 
   it("answers nothing to an unknown type, also one named after a property of every object", () => {

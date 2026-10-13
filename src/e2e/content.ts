@@ -12,6 +12,9 @@
  * In the "missing" scenario (no pack or model installed) it reads the notice
  * about missing offline data instead, mutes it, translates again, then
  * switches to Google without the dictionary and translates once more.
+ * In the "consent" scenario (no online service allowed yet) it starts the
+ * translation, which shows the consent panel and requests nothing; after a
+ * while it clicks "Allow and translate" and waits for the translation.
  * In the "auto" scenario (automatic translation on) it starts nothing and
  * waits until automatic translation has translated every paragraph; in
  * "auto-skip" (a message in the target language) it waits a fixed time and
@@ -127,6 +130,27 @@ export function createContentProbe(): ContentProbe {
     report.google = { state: last, notice: noticeShown(), entries: entries(), shown: snapshot(root()!) }
   }
 
+  /** The "consent" scenario: nothing goes out before "Allow and translate", everything after it. */
+  async function consent(report: Record<string, unknown>): Promise<void> {
+    const { controller } = parts!
+    void controller.start()
+    await until("the consent panel", () => parts!.consent?.shown === true)
+    // Time for a request that must not go out.
+    await new Promise((r) => setTimeout(r, 1500))
+    const panel = document.querySelector<HTMLElement>(".tt-consent")!
+    report.panel = {
+      first: panel === root()?.firstElementChild,
+      services: Array.from(panel.querySelectorAll("li"), (li) => li.textContent),
+      buttons: Array.from(panel.querySelectorAll("button"), (b) => b.textContent),
+    }
+    report.beforeAllow = { tierResults: events.length, active: controller.active, shown: snapshot(root()!).length }
+    report.allowedAt = Date.now()
+    panel.querySelector<HTMLButtonElement>("button")!.click()
+    await until("the final progress report", () => last !== null && last.total > 0 && last.done + last.failed === last.total)
+    await until("the settings with the consent recorded", () => settings?.consent.length === 0)
+    report.translated = { state: last, active: controller.active, shown: snapshot(root()!), panelLeft: document.querySelector(".tt-consent") !== null }
+  }
+
   /** The "auto" scenario: automatic translation translates every paragraph; the probe only waits. */
   async function auto(report: Record<string, unknown>, body: HTMLElement): Promise<void> {
     await until("the final progress report of the automatic translation", () => last !== null && last.total > 0 && last.done + last.failed === last.total)
@@ -147,9 +171,9 @@ export function createContentProbe(): ContentProbe {
     try {
       if (!body) throw new Error("no message body")
       const scenario = await send({ e2e: "scenario" })
-      if (scenario === "missing" || scenario === "auto" || scenario === "auto-skip") {
+      if (scenario === "missing" || scenario === "auto" || scenario === "auto-skip" || scenario === "consent") {
         report.scenario = scenario
-        await (scenario === "missing" ? missing(report) : scenario === "auto" ? auto(report, body) : autoSkip(report))
+        await (scenario === "missing" ? missing(report) : scenario === "auto" ? auto(report, body) : scenario === "consent" ? consent(report) : autoSkip(report))
         await send({ e2e: "report", report })
         return
       }

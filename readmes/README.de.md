@@ -105,6 +105,8 @@ Vorlagen fügen einem Prompt Regeln hinzu: eine regionale Variante wie britische
 ## Datenschutz
 
 - Der Nachrichtentext geht nur an die Dienste der verwendeten Stufen. Das Wörterbuch und Bergamot übersetzen auf dem eigenen Computer.
+- Bevor der Text einer Nachricht zum ersten Mal an einen Online-Dienst geht, nennt ein Feld über der Nachricht den Dienst und seine Adresse und fragt einmal pro Dienst nach. Vor einem Klick auf „Erlauben und übersetzen“ wird nichts gesendet; die Einstellungsseite listet die erlaubten Dienste auf und kann die Erlaubnis widerrufen. Mit Wörterbuch und Bergamot allein wird nichts gefragt.
+- Eine selbst eingetragene Adresse (Ollama, LM Studio, DeepLX, ein eigener Dienst, eine geänderte Adresse) braucht einmal die Erlaubnis zur Verbindung, erteilt mit „Zugriff erlauben“ oder „Verbindung testen“ in den Einstellungen.
 - API-Schlüssel werden nur im eigenen Thunderbird-Profil gespeichert und nur an die Adresse des jeweiligen Dienstes gesendet.
 - Zwei Listen kommen aus dem Netz, ohne jeden Nachrichtentext: der Index der Wörterbuchpakete aus den GitHub-Releases dieses Repositorys und die Bergamot-Modelleinträge von Mozilla. Die Einstellungsseite und der Einrichtungsassistent lesen sie, um die Offline-Listen anzuzeigen. Ist in einer Stufe das Wörterbuch oder Bergamot gewählt, werden sie auch beim Start von Thunderbird, bei Änderungen der Einstellungen und beim Öffnen des Pop-ups gelesen. Beim Übersetzen einer Nachricht werden sie nie gelesen.
 - Pakete und Modelle werden nur heruntergeladen, wenn man auf eine Download-Schaltfläche klickt. Die Erweiterung sammelt keine Statistiken.

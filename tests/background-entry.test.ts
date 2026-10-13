@@ -32,6 +32,8 @@ async function start(options: Parameters<typeof stubBackgroundApi>[0] = {}) {
 }
 
 const stored = (s: Settings) => ({ [SETTINGS_KEY]: structuredClone(s) })
+/** The default settings after the user allowed Google Translate in the consent panel. */
+const allowed = () => Object.assign(createDefaultSettings(), { onlineConsent: ["google-free"] })
 const settingsWrites = (bg: Awaited<ReturnType<typeof start>>) => bg.api.storage.local.set.mock.calls.filter(([v]) => SETTINGS_KEY in v)
 const request = (text: string): TranslateRequest => ({ text, sourceLang: "auto", targetLang: "zh-CN", tiers: ["machine"] })
 
@@ -101,7 +103,7 @@ describe("settings", () => {
   })
 
   it("applies the cache setting of a change", async () => {
-    const bg = await start({ stored: stored(createDefaultSettings()) })
+    const bg = await start({ stored: stored(allowed()) })
     const port = bg.connect(1)
     const translate = async (id: number) => {
       port.send({ type: "translate", id, request: request("Hello") })
@@ -110,7 +112,7 @@ describe("settings", () => {
     await translate(1)
     await translate(2)
     expect(google).toHaveBeenCalledTimes(1)
-    const s = createDefaultSettings()
+    const s = allowed()
     s.cache.enabled = false
     bg.storageChanged({ [SETTINGS_KEY]: { newValue: s } }, "local")
     await translate(3)
@@ -128,7 +130,7 @@ describe("content script ports", () => {
   })
 
   it("translates a paragraph: one report per tier, then done", async () => {
-    const bg = await start({ stored: stored(createDefaultSettings()) })
+    const bg = await start({ stored: stored(allowed()) })
     const port = bg.connect(4)
     port.send({ type: "translate", id: 7, request: request("Hello") })
     await vi.waitFor(() => expect(port.posted.at(-1)).toEqual({ type: "done", id: 7 }))
@@ -136,6 +138,30 @@ describe("content script ports", () => {
       { type: "tier", id: 7, tier: "machine", result: { ok: true, text: "G(Hello)" } },
       { type: "done", id: 7 },
     ])
+  })
+
+  it("sends nothing to an online service the user has not allowed, and translates at once after the consent panel", async () => {
+    const bg = await start({ stored: stored(createDefaultSettings()) })
+    const port = bg.connect(4)
+    await vi.waitFor(() => expect(port.posted[0]).toMatchObject({ type: "settings", settings: { consent: [{ id: "google-free", host: "translate.googleapis.com" }] } }))
+    port.send({ type: "translate", id: 1, request: request("Hello") })
+    await vi.waitFor(() => expect(port.posted.at(-1)).toEqual({ type: "done", id: 1 }))
+    expect(port.posted.at(-2)).toEqual({ type: "tier", id: 1, tier: "machine", result: { ok: false, error: localeText("en", "errConsentRequired").replace("$1", "Google Translate (free)") } })
+    expect(google).not.toHaveBeenCalled()
+    // The content script of the message records the consent; the next request goes out before the storage event arrives.
+    expect(await bg.send({ type: "grantConsent", ids: ["google-free"] }, { tab: { id: 4 } })).toBeUndefined()
+    expect((bg.local[SETTINGS_KEY] as Settings).onlineConsent).toEqual(["google-free"])
+    port.send({ type: "translate", id: 2, request: request("Hello") })
+    await vi.waitFor(() => expect(port.posted.at(-1)).toEqual({ type: "done", id: 2 }))
+    expect(port.posted.at(-2)).toEqual({ type: "tier", id: 2, tier: "machine", result: { ok: true, text: "G(Hello)" } })
+  })
+
+  it("translates the sample message of an extension page without consent: it is no message of the user", async () => {
+    const bg = await start({ stored: stored(createDefaultSettings()) })
+    const page = bg.connect(5, undefined, "moz-extension://test/welcome.html")
+    page.send({ type: "translate", id: 1, request: request("Hello") })
+    await vi.waitFor(() => expect(page.posted.at(-1)).toEqual({ type: "done", id: 1 }))
+    expect(page.posted.at(-2)).toEqual({ type: "tier", id: 1, tier: "machine", result: { ok: true, text: "G(Hello)" } })
   })
 
   it("registers the message for precise mode, for a retranslation with a new analysis", async () => {

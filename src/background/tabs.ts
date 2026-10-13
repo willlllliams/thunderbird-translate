@@ -19,8 +19,8 @@ export interface TabRegistryDeps {
   publicSettings: () => PublicSettings
   /** Registers the message of a tab for precise translation. */
   setContext: (context: MailContext, bypassCache: boolean) => void
-  /** Translates one paragraph and reports each tier. */
-  translate: (request: TranslateRequest, onTier: (tier: Tier, result: TranslateResponse) => void) => Promise<void>
+  /** Translates one paragraph and reports each tier; `sample`: the request comes from a page of the extension (the trial of the setup guide), not from a message. */
+  translate: (request: TranslateRequest, onTier: (tier: Tier, result: TranslateResponse) => void, options: { sample: boolean }) => Promise<void>
 }
 
 export interface TabRegistry {
@@ -62,6 +62,8 @@ export function createTabRegistry({ ready, publicSettings, setContext, translate
     if (port.name !== CONTENT_PORT_NAME) return
     const tabId = port.sender?.tab?.id
     if (tabId === undefined) return
+    // A page of the extension translates its own sample message; a content script, the message on screen.
+    const sample = typeof port.sender?.url === "string" && port.sender.url.startsWith(ext.runtime.getURL(""))
     if (!ports.has(tabId)) ports.set(tabId, new Set())
     ports.get(tabId)!.add(port)
     tabStates.set(tabId, { ...IDLE_TAB_STATE, connected: true })
@@ -83,7 +85,7 @@ export function createTabRegistry({ ready, publicSettings, setContext, translate
         case "translate":
           // A failure of the translation itself, not of a tier (each tier reports its own): the request still ends.
           void ready()
-            .then(() => translate(msg.request, (tier, result) => safePost(port, { type: "tier", id: msg.id, tier, result })))
+            .then(() => translate(msg.request, (tier, result) => safePost(port, { type: "tier", id: msg.id, tier, result }), { sample }))
             .catch(() => {})
             .finally(() => safePost(port, { type: "done", id: msg.id }))
           break

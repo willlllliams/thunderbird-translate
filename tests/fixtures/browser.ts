@@ -6,13 +6,13 @@ import { fakeEvent } from "./events"
 import { fakeStorageArea, type StorageAreaOptions, type StorageChanges } from "./storage"
 
 /** A content script's Port as the background script sees it: `send` delivers a report of the content script, `posted` lists what the background pushed. */
-export function backgroundPort(tabId: number | undefined, name = CONTENT_PORT_NAME) {
+export function backgroundPort(tabId: number | undefined, name = CONTENT_PORT_NAME, url?: string) {
   const onMessage = fakeEvent<[unknown]>()
   const onDisconnect = fakeEvent<[]>()
   const posted: PortPush[] = []
   return {
     name,
-    sender: tabId === undefined ? {} : { tab: { id: tabId } },
+    sender: tabId === undefined ? {} : { tab: { id: tabId }, ...(url ? { url } : {}) },
     posted,
     // A Port copies what it carries.
     postMessage: (msg: PortPush) => void posted.push(structuredClone(msg)),

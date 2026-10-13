@@ -478,5 +478,22 @@
   "buttonAllowHost": "Permitir acesso",
   "tipAllowHost": "Permite que a extensão se conecte a este endereço",
   "hintLoopback": "localhost é este computador (endereço de loopback): as requisições para ele não saem do computador.",
-  "errHostPermission": "A extensão ainda não tem permissão para se conectar a $1. Abra este serviço nas configurações e clique em \"Permitir acesso\"."
+  "errHostPermission": "A extensão ainda não tem permissão para se conectar a $1. Abra este serviço nas configurações e clique em \"Permitir acesso\".",
+
+  "consentTitle": "Enviar esta mensagem a um serviço on-line?",
+  "consentBody": "Para traduzi-la, os parágrafos desta mensagem vão para o serviço abaixo. Os níveis offline não enviam nada.",
+  "consentBodyPrecise": "Para traduzi-la, os parágrafos desta mensagem vão para o serviço abaixo; com a tradução precisa, a mensagem inteira também vai para o serviço de IA como contexto. Os níveis offline não enviam nada.",
+  "consentService": "$1: $2",
+  "consentKey": "Uma chave de API salva só vai para o próprio serviço. A extensão pergunta uma vez por serviço; a página de configurações lista os serviços permitidos.",
+  "consentAllow": "Permitir e traduzir",
+  "consentCancel": "Cancelar",
+  "tipConsentAllow": "Permite estes serviços e traduz a mensagem",
+  "tipConsentCancel": "Não envia nada e deixa a mensagem como está",
+  "errConsentRequired": "$1 ainda não tem permissão para receber o texto das mensagens. Traduza a mensagem de novo e escolha \"Permitir e traduzir\".",
+  "consentListTitle": "Serviços on-line que podem receber o texto das mensagens",
+  "consentListHint": "Antes que o texto de uma mensagem vá pela primeira vez a um serviço on-line, um painel acima da mensagem pergunta uma vez. Depois de revogar um serviço, ele pergunta de novo.",
+  "consentListNone": "Nenhum por enquanto.",
+  "buttonRevokeConsent": "Revogar",
+  "tipRevokeConsent": "Pergunta de novo antes de enviar texto a este serviço",
+  "welcomeConsentNote": "Antes que o texto de uma mensagem vá pela primeira vez a um serviço on-line, um painel acima da mensagem pergunta uma vez por serviço. Só com os níveis offline, nenhum texto sai do Thunderbird e nada é perguntado."
 }

@@ -4,8 +4,8 @@ import { vi } from "vitest"
 import { type KeyValueStorage, PersistentCache } from "../src/background/cache"
 import { type ServiceDeps, TranslationService } from "../src/background/service"
 import type { TranslateRequest, TranslateResponse } from "../src/shared/messages"
-import { getPreset, tierOf } from "../src/shared/providers"
-import type { Settings } from "../src/shared/settings"
+import { getPreset, PROVIDER_PRESETS, tierOf } from "../src/shared/providers"
+import { isOnlineService, type Settings } from "../src/shared/settings"
 
 /**
  * Fake setTimeout and setInterval (and Date with `now`). setImmediate stays
@@ -68,9 +68,16 @@ export function fakeDictionary(gate?: Promise<void>) {
 
 const serviceSettings = new WeakMap<TranslationService, Settings>()
 
-/** Translation service over `settings`: 5 ms batch window, in-memory cache, retries without waiting. */
-export function createService(settings: Settings, deps: Partial<ServiceDeps> = {}) {
+/** Every online service, allowed to receive message text: what a user has after answering the consent panel once per service. */
+export const ALL_CONSENT = PROVIDER_PRESETS.map((p) => p.id).filter(isOnlineService)
+
+/**
+ * Translation service over `settings`: 5 ms batch window, in-memory cache, retries without waiting. Every online service
+ * is allowed to receive message text unless `consent` is false (the tests of the consent itself).
+ */
+export function createService(settings: Settings, deps: Partial<ServiceDeps> = {}, { consent = true }: { consent?: boolean } = {}) {
   settings.batch.batchDelayMs = 5
+  if (consent) settings.onlineConsent = [...ALL_CONSENT]
   const cache = deps.cache ?? new PersistentCache(memoryStorage(), 100, 10)
   const service = new TranslationService({ getSettings: () => settings, sleep: async () => {}, ...deps, cache })
   serviceSettings.set(service, settings)

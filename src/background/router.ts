@@ -9,7 +9,7 @@ import { describeError } from "../shared/errors"
 import { ext } from "../shared/ext"
 import { getI18n } from "../shared/i18n"
 import { type BackgroundHandlers, type LocaleMessages, type OfflineStatus, optionsPath, type PageNotice, type RequestType } from "../shared/messages"
-import type { TierSettings } from "../shared/settings"
+import { isOnlineService, type TierSettings } from "../shared/settings"
 import { updateSettings } from "../shared/settings-store"
 import type { OfflineManager } from "../offline/manager"
 import type { OfflineItem } from "../shared/messages"
@@ -29,9 +29,11 @@ export interface RouterDeps {
   /** What the offline services among `tiers` lack for the languages. */
   offlineStatus: (sourceLang: string, targetLang: string, tiers: TierSettings) => Promise<OfflineStatus>
   cache: Pick<PersistentCache, "clear" | "size">
+  /** Settings a request has just written, taken over before their storage event arrives. */
+  adoptSettings?: (stored: unknown) => void
 }
 
-export function createHandlers({ tabs, service, localeMessages, offlineManager, offlineStatus, cache }: RouterDeps): BackgroundHandlers {
+export function createHandlers({ tabs, service, localeMessages, offlineManager, offlineStatus, cache, adoptSettings }: RouterDeps): BackgroundHandlers {
   /** A notice to the extension pages; without an open page it goes nowhere. */
   const toPages = (notice: PageNotice) => void ext.runtime.sendMessage(notice).catch(() => {})
   return {
@@ -58,6 +60,14 @@ export function createHandlers({ tabs, service, localeMessages, offlineManager, 
         }
         s.offlineMutedPairs = [...muted]
       })),
+    // The user allowed online services to receive the text of messages, in the panel above a message. Only online
+    // services are recorded; nothing goes back.
+    grantConsent: async (req) => {
+      const stored = await updateSettings((s) => {
+        s.onlineConsent = [...new Set([...s.onlineConsent, ...req.ids.filter((id) => typeof id === "string" && isOnlineService(id))])]
+      })
+      adoptSettings?.(stored)
+    },
     // Dictionary packs or offline models changed: content scripts forget their results, pages show the new state.
     ...offlineHandlers({ manager: offlineManager, contentScripts: () => tabs.broadcast({ type: "offlineDataChanged" }), pages: toPages }),
     clearCache: () => cache.clear(),
@@ -70,7 +80,7 @@ export function createHandlers({ tabs, service, localeMessages, offlineManager, 
  * runs inside a displayed message, next to its content, so it gets nothing
  * else: no settings, keys, cache or offline data.
  */
-export const CONTENT_REQUESTS: ReadonlySet<RequestType> = new Set<RequestType>(["getLocaleMessages", "openOptions", "muteOfflinePairs"])
+export const CONTENT_REQUESTS: ReadonlySet<RequestType> = new Set<RequestType>(["getLocaleMessages", "openOptions", "muteOfflinePairs", "grantConsent"])
 
 /** Whether a message comes from a page of the extension (popup, settings page, setup guide); a content script has the address of its message. */
 function fromExtensionPage(sender: browser.runtime.MessageSender | undefined): boolean {

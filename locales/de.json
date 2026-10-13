@@ -478,5 +478,22 @@
   "buttonAllowHost": "Zugriff erlauben",
   "tipAllowHost": "Erlaubt der Erweiterung, sich mit dieser Adresse zu verbinden",
   "hintLoopback": "localhost ist dieser Computer (Loopback-Adresse): Anfragen dorthin verlassen den Computer nicht.",
-  "errHostPermission": "Die Erweiterung darf sich noch nicht mit $1 verbinden. Öffnen Sie diesen Dienst in den Einstellungen und klicken Sie auf „Zugriff erlauben“."
+  "errHostPermission": "Die Erweiterung darf sich noch nicht mit $1 verbinden. Öffnen Sie diesen Dienst in den Einstellungen und klicken Sie auf „Zugriff erlauben“.",
+
+  "consentTitle": "Diese Nachricht an einen Online-Dienst senden?",
+  "consentBody": "Zum Übersetzen gehen die Absätze dieser Nachricht an den folgenden Dienst. Die Offline-Stufen senden nichts.",
+  "consentBodyPrecise": "Zum Übersetzen gehen die Absätze dieser Nachricht an den folgenden Dienst; bei der präzisen Übersetzung geht außerdem die ganze Nachricht als Kontext an den KI-Dienst. Die Offline-Stufen senden nichts.",
+  "consentService": "$1: $2",
+  "consentKey": "Ein gespeicherter API-Schlüssel geht nur an seinen eigenen Dienst. Die Erweiterung fragt einmal pro Dienst; die Einstellungsseite listet die erlaubten Dienste auf.",
+  "consentAllow": "Erlauben und übersetzen",
+  "consentCancel": "Abbrechen",
+  "tipConsentAllow": "Erlaubt diese Dienste und übersetzt die Nachricht",
+  "tipConsentCancel": "Sendet nichts und lässt die Nachricht unverändert",
+  "errConsentRequired": "$1 darf den Text von Nachrichten noch nicht erhalten. Übersetzen Sie die Nachricht erneut und wählen Sie „Erlauben und übersetzen“.",
+  "consentListTitle": "Online-Dienste, die den Text von Nachrichten erhalten dürfen",
+  "consentListHint": "Bevor der Text einer Nachricht zum ersten Mal an einen Online-Dienst geht, fragt ein Feld über der Nachricht einmal nach. Nach dem Widerruf fragt es für diesen Dienst erneut.",
+  "consentListNone": "Noch keiner.",
+  "buttonRevokeConsent": "Widerrufen",
+  "tipRevokeConsent": "Fragt erneut, bevor Text an diesen Dienst geht",
+  "welcomeConsentNote": "Bevor der Text einer Nachricht zum ersten Mal an einen Online-Dienst geht, fragt ein Feld über der Nachricht einmal pro Dienst nach. Mit den Offline-Stufen allein verlässt kein Text Thunderbird, und es wird nichts gefragt."
 }

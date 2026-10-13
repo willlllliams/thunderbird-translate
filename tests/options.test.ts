@@ -494,3 +494,23 @@ describe("service panel", () => {
     })
   })
 })
+
+describe("online services allowed to receive message text", () => {
+  it("lists them with a button that takes the consent back, and says when there is none", async () => {
+    const page = await options((s) => (s.onlineConsent = ["google-free", "openai"]))
+    const items = () => Array.from($("consentList").querySelectorAll("li"))
+    expect(items().map((li) => li.querySelector("span")?.textContent)).toEqual(["Google Translate (free)", "OpenAI"])
+    const revoke = items()[1].querySelector("button")!
+    expect([revoke.textContent, revoke.title]).toEqual([ENGLISH.t("buttonRevokeConsent"), ENGLISH.t("tipRevokeConsent")])
+    revoke.click()
+    await flushSave()
+    expect(page.stored().onlineConsent).toEqual(["google-free"])
+    items()[0].querySelector("button")!.click()
+    await flushSave()
+    expect(page.stored().onlineConsent).toEqual([])
+    expect(items().map((li) => li.textContent)).toEqual([ENGLISH.t("consentListNone")])
+    // Allowed in a message meanwhile: the list follows.
+    page.external((s) => (s.onlineConsent = ["deeplx", "gone"]))
+    await vi.waitFor(() => expect(items().map((li) => li.querySelector("span")?.textContent)).toEqual(["DeepLX"]))
+  })
+})

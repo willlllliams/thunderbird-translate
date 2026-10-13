@@ -4,7 +4,9 @@ import { getPreset } from "../src/shared/providers"
 import {
   addedByDefault,
   addedProviders,
+  consentNeeds,
   createDefaultSettings,
+  isOnlineService,
   normalizeSettings,
   promptKindFor,
   type ProviderConfig,
@@ -210,15 +212,25 @@ describe("public settings", () => {
     expect(toPublicSettings(s).signatures.ai).not.toBe(b.signatures.ai)
   })
 
-  it("hold no key, token or endpoint that may carry one, in any field", () => {
+  it("hold no key, token or endpoint that may carry one, in any field; only the host of a service awaiting consent", () => {
     const s = createDefaultSettings()
     s.tiers = { dictionary: null, machine: "deeplx", ai: "openai" }
     s.providers.deeplx = { enabled: true, apiKey: "dlx-token-7f3a", baseURL: "https://api.deeplx.org/u7Rk29xQpL4mZ8vT1nW5/translate?token=dlx-query-9c1e", model: "" }
     s.providers.openai = { enabled: true, apiKey: "sk-live-4b8d", baseURL: "https://proxy.example/v1?key=sk-query-2e6f", model: "gpt-x" }
-    const secrets = ["dlx-token-7f3a", "u7Rk29xQpL4mZ8vT1nW5", "dlx-query-9c1e", "sk-live-4b8d", "sk-query-2e6f", "api.deeplx.org", "proxy.example"]
+    const secrets = ["dlx-token-7f3a", "u7Rk29xQpL4mZ8vT1nW5", "dlx-query-9c1e", "sk-live-4b8d", "sk-query-2e6f"]
+    const hosts = ["api.deeplx.org", "proxy.example"]
     const leaves = (v: unknown): string[] => (v && typeof v === "object" ? Object.values(v).flatMap(leaves) : [String(v)])
     const pub = toPublicSettings(s)
     for (const value of [...leaves(pub), ...Object.keys(pub.signatures)]) for (const secret of secrets) expect(value).not.toContain(secret)
+    // The consent panel names the host a service sends to, nothing else of its endpoint.
+    expect(pub.consent).toEqual([
+      { id: "deeplx", host: "api.deeplx.org" },
+      { id: "openai", host: "proxy.example" },
+    ])
+    const { consent, ...rest } = pub
+    for (const value of [...leaves(rest), ...Object.keys(pub.signatures)]) for (const host of hosts) expect(value).not.toContain(host)
+    s.onlineConsent = ["deeplx", "openai"]
+    expect(toPublicSettings(s).consent).toEqual([])
     // Another endpoint still changes the signature, so the page asks the tier again.
     s.providers.deeplx.baseURL = "https://other.example/translate"
     expect(toPublicSettings(s).signatures.machine).not.toBe(pub.signatures.machine)
@@ -243,5 +255,25 @@ describe("muted notices about missing offline data", () => {
     expect(normalizeSettings({ offlineMutedPairs: "dictionary:ja>zh-Hans" }).offlineMutedPairs).toEqual([])
     expect(createDefaultSettings().offlineMutedPairs).toEqual([])
     expect(toPublicSettings(s).offlineMutedPairs).toEqual(["dictionary:ja>zh-Hans", "bergamot:de>en"])
+  })
+})
+
+describe("consent to online services", () => {
+  it("keeps the ids of online services once each, and asks for the online tiers in use only", () => {
+    expect(normalizeSettings({ onlineConsent: ["openai", "openai", "dictionary", "bergamot", "nope", 3] }).onlineConsent).toEqual(["openai"])
+    expect(normalizeSettings({ onlineConsent: "openai" }).onlineConsent).toEqual([])
+    expect(createDefaultSettings().onlineConsent).toEqual([])
+    const s = createDefaultSettings()
+    s.tiers = { dictionary: "dictionary", machine: "bergamot", ai: null }
+    expect(consentNeeds(s)).toEqual([])
+    s.tiers = { dictionary: "dictionary", machine: "microsoft-free", ai: "ollama" }
+    expect(consentNeeds(s)).toEqual([
+      { id: "microsoft-free", host: "edge.microsoft.com" },
+      { id: "ollama", host: "localhost" },
+    ])
+    s.onlineConsent = ["microsoft-free"]
+    s.tiers.ai = "custom"
+    expect(consentNeeds(s)).toEqual([{ id: "custom", host: "" }])
+    expect([isOnlineService("google-free"), isOnlineService("dictionary"), isOnlineService("bergamot"), isOnlineService("nope")]).toEqual([true, false, false, false])
   })
 })

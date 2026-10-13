@@ -34,8 +34,8 @@ import { getLanguage } from "../shared/languages"
 import type { MailContext } from "../shared/mail-context"
 import type { TranslateRequest, TranslateResponse } from "../shared/messages"
 import { promptText } from "../shared/prompts"
-import { getPreset, type Tier, TIERS } from "../shared/providers"
-import { type ProviderConfig, type ResolvedProvider, resolveProviderConfig, resultInputs, type Settings } from "../shared/settings"
+import { getPreset, providerDisplayName, type Tier, TIERS } from "../shared/providers"
+import { isOnlineService, type ProviderConfig, type ResolvedProvider, resolveProviderConfig, resultInputs, type Settings } from "../shared/settings"
 import { cacheKey, LruCache, type PersistentCache } from "./cache"
 import { Dictionary } from "../offline/dictionary"
 import { type BatchLimits, BatchQueue, joinParts, splitText } from "./queue/batch-queue"
@@ -305,9 +305,12 @@ export class TranslationService {
    * Translation of a paragraph on screen: every requested tier that has a
    * service runs at once and reports its result through onTier as soon as it
    * is there. When the highest of these tiers has its result in the cache,
-   * only that result is reported.
+   * only that result is reported. An online service the user has not
+   * allowed to receive message text (Settings.onlineConsent) gets nothing,
+   * and its tier fails with errConsentRequired; `sample`: the text is the
+   * built-in sample of an extension page, not a message, and needs no consent.
    */
-  async translateForPage(req: TranslateRequest, onTier: (tier: Tier, result: TranslateResponse) => void): Promise<void> {
+  async translateForPage(req: TranslateRequest, onTier: (tier: Tier, result: TranslateResponse) => void, { sample = false }: { sample?: boolean } = {}): Promise<void> {
     const settings = this.deps.getSettings()
     const tiers = TIERS.filter((tier) => settings.tiers[tier] && req.tiers.includes(tier))
     const data: Partial<Record<Tier, OfflineData>> = {}
@@ -319,7 +322,9 @@ export class TranslationService {
     const jobs: [Tier, Job][] = []
     for (const tier of tiers) {
       try {
-        const job = this.job(req, settings.tiers[tier]!, settings, data[tier])
+        const id = settings.tiers[tier]!
+        if (!sample && isOnlineService(id) && !settings.onlineConsent.includes(id)) throw new LocalizedError("errConsentRequired", [providerDisplayName(getPreset(id)!, this.deps.i18n?.() ?? ENGLISH)])
+        const job = this.job(req, id, settings, data[tier])
         await this.checkOrigin(job.provider)
         jobs.push([tier, job])
       } catch (error) {

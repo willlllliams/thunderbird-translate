@@ -70,12 +70,32 @@ function renderMuted(): void {
   $<HTMLButtonElement>("clearMuted").disabled = entries.length === 0
 }
 
+/** The online services allowed to receive message text, each with a button that takes the consent back. */
+function renderConsent(): void {
+  const items = settings.onlineConsent.map((id) => {
+    const preset = getPreset(id)
+    const revoke = button(
+      t("buttonRevokeConsent"),
+      () => {
+        settings.onlineConsent = settings.onlineConsent.filter((other) => other !== id)
+        renderConsent()
+        session.save()
+      },
+      false,
+      t("tipRevokeConsent"),
+    )
+    return h("li", { className: "row" }, h("span", { text: preset ? providerDisplayName(preset) : id }), revoke)
+  })
+  $("consentList").replaceChildren(...(items.length > 0 ? items : [h("li", { className: "hint", text: t("consentListNone") })]))
+}
+
 /** Changes made elsewhere were taken over: redraw what depends on them. */
 function remoteChanged(before: Settings): void {
   const providerState = (s: Settings) => JSON.stringify([s.providers, s.tiers])
   applyPreview()
   if (settings.uiLanguage !== before.uiLanguage) return void changeUiLanguage(settings.uiLanguage)
   renderMuted()
+  renderConsent()
   const languages = (s: Settings) => JSON.stringify([s.sourceLang, s.targetLang, s.tiers])
   if (languages(settings) !== languages(before)) void refreshOffline()
   if (providerState(settings) === providerState(before)) return
@@ -195,6 +215,7 @@ function applyLanguage(): void {
   fillSelect($<HTMLSelectElement>("providerTierFilter"), [new Option(t("providerFilterAll"), ""), ...TIERS.map((tier) => new Option(t(TIER_NAME_KEYS[tier]), tier))], providerTier)
   fillTiers()
   renderMuted()
+  renderConsent()
   renderProviderList()
   renderProviderPanel()
   dictionaries.render()

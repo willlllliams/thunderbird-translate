@@ -42,9 +42,9 @@ export function stubBackgroundApi({
   return {
     api,
     local: local.data,
-    /** Connect a content script of `tabId`. */
-    connect(tabId: number | undefined, name?: string) {
-      const port = backgroundPort(tabId, name)
+    /** Connect a content script of `tabId`, or with `url` a page of the extension in that tab. */
+    connect(tabId: number | undefined, name?: string, url?: string) {
+      const port = backgroundPort(tabId, name, url)
       events.connect.fire(port)
       return port
     },

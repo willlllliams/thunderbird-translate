@@ -481,5 +481,22 @@
   "buttonAllowHost": "Erişime izin ver",
   "tipAllowHost": "Eklentinin bu adrese bağlanmasına izin verir",
   "hintLoopback": "localhost bu bilgisayardır (geri döngü adresi): ona giden istekler bilgisayardan çıkmaz.",
-  "errHostPermission": "Eklentinin henüz $1 adresine bağlanma izni yok. Ayarlarda bu hizmeti açın ve \"Erişime izin ver\" düğmesine tıklayın."
+  "errHostPermission": "Eklentinin henüz $1 adresine bağlanma izni yok. Ayarlarda bu hizmeti açın ve \"Erişime izin ver\" düğmesine tıklayın.",
+
+  "consentTitle": "Bu ileti çevrimiçi bir hizmete gönderilsin mi?",
+  "consentBody": "Çevirmek için bu iletinin paragrafları aşağıdaki hizmete gönderilir. Çevrimdışı kademeler hiçbir şey göndermez.",
+  "consentBodyPrecise": "Çevirmek için bu iletinin paragrafları aşağıdaki hizmete gönderilir; hassas çeviride iletinin tamamı da bağlam olarak yapay zekâ hizmetine gider. Çevrimdışı kademeler hiçbir şey göndermez.",
+  "consentService": "$1: $2",
+  "consentKey": "Kaydedilen API anahtarı yalnızca kendi hizmetine gider. Eklenti her hizmet için bir kez sorar; izin verilen hizmetler ayarlar sayfasında listelenir.",
+  "consentAllow": "İzin ver ve çevir",
+  "consentCancel": "İptal",
+  "tipConsentAllow": "Bu hizmetlere izin verir ve iletiyi çevirir",
+  "tipConsentCancel": "Hiçbir şey göndermez, iletiyi olduğu gibi bırakır",
+  "errConsentRequired": "$1 için henüz ileti metni alma izni verilmedi. İletiyi yeniden çevirin ve \"İzin ver ve çevir\" seçeneğini seçin.",
+  "consentListTitle": "İleti metnini almasına izin verilen çevrimiçi hizmetler",
+  "consentListHint": "Bir iletinin metni bir çevrimiçi hizmete ilk kez gitmeden önce iletinin üstündeki bir panel bir kez sorar. Bir hizmetin izni geri alınınca yeniden sorar.",
+  "consentListNone": "Henüz yok.",
+  "buttonRevokeConsent": "Geri al",
+  "tipRevokeConsent": "Bu hizmete metin göndermeden önce yeniden sorar",
+  "welcomeConsentNote": "Bir iletinin metni bir çevrimiçi hizmete ilk kez gitmeden önce iletinin üstündeki bir panel her hizmet için bir kez sorar. Yalnızca çevrimdışı kademeler kullanılırsa hiçbir metin Thunderbird'ün dışına çıkmaz ve hiçbir şey sorulmaz."
 }

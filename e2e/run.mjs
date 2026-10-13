@@ -17,7 +17,10 @@
 // 5. The "missing" run opens a message with the dictionary and Bergamot tiers and
 //    nothing installed: the notice about missing offline data appears, is muted,
 //    stays away when translating again, and stays away with Google instead.
-// 6. Two Thunderbirds started without a message open the setup guide
+// 6. The "consent" run opens the HTML message with no online service allowed:
+//    the consent panel appears, nothing reaches the mock server before
+//    "Allow and translate", and the message is translated after it.
+// 7. Two Thunderbirds started without a message open the setup guide
 //    (src/welcome/), where the probe of src/e2e/welcome.ts skips the tour of the
 //    tiers step and watches its demo (first run only), then clicks through to the
 //    offline step and downloads dictionary packs and Bergamot models from the
@@ -57,6 +60,8 @@ const SCENARIOS = [
   // Simplified Chinese except for one English line, which a started translation would request.
   { name: "auto-skip", eml: "zh.eml", scenario: "auto-skip" },
   { name: "missing", eml: "html.eml", scenario: "missing", paragraphs: 7 },
+  // No online service allowed yet: the consent panel, no request before "Allow and translate", the translation after it.
+  { name: "consent", eml: "html.eml", scenario: "consent", paragraphs: 7 },
   { name: "welcome", scenario: "welcome" },
   { name: "welcome-auto", scenario: "welcome-auto" },
 ]
@@ -204,6 +209,30 @@ function checkAutoSkip(ready, report, calls) {
   expect(report.events?.length === 0, "a paragraph was requested", report.events)
   const requested = calls.filter((x) => x.type === "google" || x.type === "ai")
   expect(requested.length === 0, "a service was requested", requested)
+  return failures
+}
+
+/** Check the report of the "consent" run: nothing is sent before the user allows it; returns the failures. */
+function checkConsent(c, ready, report, calls) {
+  const failures = []
+  const expect = (ok, message, detail) => {
+    if (!ok) failures.push(detail === undefined ? message : `${message}: ${JSON.stringify(detail)}`)
+  }
+  expect(!ready.error && ready.scenario === "consent", "setup of the consent scenario failed", ready)
+  if (report.error) return [...failures, `content script: ${report.error}`]
+  const panel = report.panel
+  expect(panel?.first === true, "the consent panel is not above the message", panel)
+  expect(panel?.services?.length === 2 && panel.services[0].startsWith("Google") && panel.services[1].includes("127.0.0.1"), "the panel does not name Google and the AI service with its host", panel?.services)
+  expect(panel?.buttons?.length === 2, "the panel needs two buttons", panel?.buttons)
+  expect(report.beforeAllow?.tierResults === 0 && report.beforeAllow.active === false && report.beforeAllow.shown === 0, "something was translated before the consent", report.beforeAllow)
+  const online = calls.filter((x) => x.type === "google" || x.type === "ai")
+  const early = online.filter((x) => x.at < report.allowedAt)
+  expect(early.length === 0, "a service was requested before the consent", early)
+  expect(online.some((x) => x.type === "google") && online.some((x) => x.type === "ai"), "Google and the AI service were not both requested after the consent", online)
+  const translated = report.translated
+  expect(translated?.active === true && translated.state?.done === c.paragraphs && translated.state.failed === 0, `expected ${c.paragraphs} translated paragraphs after the consent`, translated?.state)
+  expect(translated?.panelLeft === false, "the consent panel stayed on screen")
+  for (const s of translated?.shown ?? []) expect(s.mark === null && s.text.startsWith("[AI bilingual] "), "final translation is not the AI translation", s)
   return failures
 }
 
@@ -369,6 +398,11 @@ ${JSON.stringify(report, null, 2)}`)
           failures = checkAutoSkip(ready, report, server.calls)
           if (failures.length) failures.push(`report of the content script:\n${JSON.stringify(report, null, 2)}`)
           console.log(`  ${c.name}: after ${report.skipped?.waitedMs ?? "?"} ms ${report.events?.length ?? "?"} tier results, ${server.calls.filter((x) => x.type === "google" || x.type === "ai").length} requests; ${systemLanguages}`)
+        } else if (c.scenario === "consent") {
+          failures = checkConsent(c, ready, report, server.calls)
+          if (failures.length) failures.push(`report of the content script:\n${JSON.stringify(report, null, 2)}`)
+          const online = server.calls.filter((x) => x.type === "google" || x.type === "ai")
+          console.log(`  ${c.name}: panel ${JSON.stringify(report.panel?.services)}; ${online.filter((x) => x.at < report.allowedAt).length} requests before "Allow and translate", ${online.length} after; ${report.translated?.state?.done ?? "?"} paragraphs translated; ${systemLanguages}`)
         } else if (c.scenario === "missing") {
           failures = checkMissing(c, ready, report, server.calls)
           if (failures.length) failures.push(`report of the content script:\n${JSON.stringify(report, null, 2)}`)

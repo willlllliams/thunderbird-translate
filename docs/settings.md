@@ -12,6 +12,7 @@ This page describes every setting of Multi Translate for Thunderbird and how the
 - [Popup](#popup)
 - [Adding and removing services](#adding-and-removing-services)
 - [Translation tiers](#translation-tiers)
+- [Consent before online translation](#consent-before-online-translation)
 - [Source language](#source-language)
 - [Interface language](#interface-language)
 - [Prompts](#prompts)
@@ -48,7 +49,7 @@ Resting the mouse on any control of the settings page, the popup or the setup gu
 | Section | Contents |
 | --- | --- |
 | General | Interface language, source language, target language, default display mode, the switch "Automatically translate messages not in the target language" |
-| Translation tiers | The service of each tier or "Not used", with the mark of an offline service that lacks data; precise translation; the muted notices about missing offline data, with "Remind me again" |
+| Translation tiers | The service of each tier or "Not used", with the mark of an offline service that lacks data; precise translation; the muted notices about missing offline data, with "Remind me again"; the online services allowed to receive message text, each with "Revoke" |
 | Translation services | Services in two groups, "Added" and "Available to add", filtered by tier; endpoint, API key, model, temperature and thinking mode of each service; "Test connection", "Add", "Use this service" and "Remove" buttons |
 | Dictionaries | Every pack of the release with size, license and attribution, those of the recommended languages first; filter; "Download common languages"; download and delete; release tag of the packs (advanced) |
 | Offline translation models (Bergamot) | Every direction of the Bergamot models with size and version, those of the recommended languages first; filter; "Download common languages"; download, update, cancel and delete; the directions the current languages need |
@@ -71,7 +72,7 @@ Each step asks for one decision and saves it at once. "Back", "Next" and "Skip t
 | --- | --- | --- |
 | 1 Languages | interface language, source language ("Detect automatically" by default), target language | always |
 | 2 Display | bilingual or translation only, and the controls of the translation style, with a preview of a sample message in the current mode and style | always |
-| 3 Translation tiers | speed, quality, privacy and cost of the dictionary, machine translation and AI tiers; the service of each tier or "Not used", at least one tier with a service; a demo of the chosen tiers on a sample paragraph and a tour of the three selectors | always |
+| 3 Translation tiers | speed, quality, privacy and cost of the dictionary, machine translation and AI tiers; the service of each tier or "Not used", at least one tier with a service; a note that the first online translation asks once per service; a demo of the chosen tiers on a sample paragraph and a tour of the three selectors | always |
 | 4 Offline translation | every dictionary pack and Bergamot direction with size, license and attribution, those of your languages first and ticked; "Download selected" with progress, or "Download common languages" | the dictionary tier is used or the machine tier uses Bergamot |
 | 5 Online machine translation | the fields of the machine translator: nothing to fill in for Google, free or Azure key mode for Microsoft, endpoint and token for DeepLX; "Test connection" | the machine tier uses Google, Microsoft or DeepLX |
 | 6 AI translation | the AI provider, its API key, model, temperature and thinking mode, "Test connection", and the precise translation switch; a note that thinking mode and precise translation make translation slower and more expensive | the AI tier is used |
@@ -170,6 +171,22 @@ Every paragraph goes to all tiers in use at the same time. Each tier uses the no
 | The highest tier's translation is already cached | that translation at once; the lower tiers are not asked |
 
 Switching the display mode re-renders the dictionary and machine translations as they are. The AI tier uses one prompt per display mode, so it is asked again with the prompt of the new mode. A translation already cached for that prompt comes back without a request. The popup counts final translations as translated and lower-tier translations as provisional.
+
+## Consent before online translation
+
+Before the text of a message first goes to an online service, the extension asks once per service. The online services are Google Translate, Microsoft Translator, DeepLX and every AI service; the dictionary and Bergamot translate on the computer and need no consent.
+
+When a translation starts (the toolbar button, Alt+A, automatic translation, Retranslate) and a tier in use has an online service that is not allowed yet, a panel appears above the message instead of the translation:
+
+- It names each such service with the host its requests go to, for example "Google Translate (free): translate.googleapis.com".
+- It says that the paragraphs of the message go to these services, with precise translation also the whole message as context of the AI service, and that a saved API key goes only to its own service.
+- "Allow and translate" records the services in the settings and translates the message. "Cancel" leaves the message as it is and sends nothing.
+
+Until a service is allowed, no request reaches it: the background script refuses a request for it as well and reports "<service> has not been allowed to receive message text yet. Translate the message again and choose “Allow and translate”.". A tier changed to a service not allowed yet, while a message is translated, makes the panel appear again.
+
+The allowed services are listed in the Translation tiers section of the settings page, each with "Revoke"; after a revocation the panel asks again. The sample message of the setup guide is built into the extension and is no mail of yours, so its trial translation asks nothing.
+
+Settings of version 1.x hold no consent: after the update to 2.0 the first translation with an online service asks once.
 
 ## Source language
 
@@ -424,7 +441,8 @@ The endpoint field of a local service notes that `localhost` is this computer (t
   - URL path segments that look like a token (20 or more characters with letters and digits);
   - user names and passwords in URLs;
   - URL parameters whose names contain key, token, auth, secret, sig, pass, credential or session.
-- Message text is sent only to the services of the tiers in use. The dictionary and Bergamot translate on your computer and send no text anywhere.
+- Message text is sent only to the services of the tiers in use, and to an online service only after you allowed it, see [Consent before online translation](#consent-before-online-translation). The dictionary and Bergamot translate on your computer and send no text anywhere.
+- The extension connects only to the hosts of its manifest and to the endpoints you allowed, see [Permissions](#permissions).
 - Two lists come from the network, without any message text: the list of dictionary packs from this repository's GitHub releases and the list of Bergamot models from Mozilla. The background script reads them and keeps the copy it read; the settings page and the setup guide show the offline lists from that copy.
 - The background script reads a list when a page shows it and, while the dictionary or Bergamot is the service of a tier, when Thunderbird starts, when the settings change, and when the popup or the settings page asks what is missing. It reads either list again once the copy in memory is older than 6 hours (the dictionary list per release tag). After a failed read, either list is read again 10 minutes later at the earliest; until then it answers with the copy in memory, and the Bergamot list also with the copy saved by an earlier session, if there is one. "Reload list" in either offline section of the settings page reads its list at once. Translating a message reads neither list, also when a pack or model is missing.
 - The packs and models themselves are downloaded only when you click "Download" or one of the download buttons. The extension collects no statistics and contacts no other network address.

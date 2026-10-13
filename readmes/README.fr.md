@@ -105,6 +105,8 @@ Les préréglages ajoutent des règles à une invite : une variante régionale c
 ## Confidentialité
 
 - Le texte des messages va uniquement aux services des niveaux utilisés. Le dictionnaire et Bergamot traduisent sur votre ordinateur.
+- Avant que le texte d’un message parte pour la première fois vers un service en ligne, un panneau au-dessus du message nomme le service et son adresse et demande une fois par service. Rien n’est envoyé avant un clic sur « Autoriser et traduire » ; la page de paramètres liste les services autorisés et permet de les révoquer. Avec le dictionnaire et Bergamot seuls, rien n’est demandé.
+- Une adresse que vous saisissez (Ollama, LM Studio, DeepLX, un service personnalisé, une adresse modifiée) demande une autorisation de connexion, donnée une fois avec « Autoriser l’accès » ou « Tester la connexion » dans les paramètres.
 - Les clés d’API sont stockées uniquement dans votre profil Thunderbird et ne sont envoyées qu’à l’adresse de leur propre service.
 - Deux listes proviennent du réseau, sans aucun texte de message : l’index des paquets de dictionnaires, tiré des releases GitHub de ce dépôt, et les enregistrements des modèles Bergamot, tirés de Mozilla. La page de paramètres et le guide de configuration les lisent pour afficher les listes hors ligne. Tant que le dictionnaire ou Bergamot est sélectionné dans un niveau, elles sont aussi lues au démarrage de Thunderbird, lors d’un changement de paramètres et à l’ouverture de la fenêtre contextuelle. La traduction d’un message ne les lit jamais.
 - Les paquets et les modèles ne sont téléchargés que lorsque vous cliquez sur un bouton de téléchargement. L’extension ne collecte aucune statistique.
