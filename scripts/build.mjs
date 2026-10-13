@@ -152,7 +152,9 @@ const walk = (dir) => {
 }
 walk(dist)
 if (!files["manifest.json"]) throw new Error("manifest.json missing from dist")
-const zip = zipSync(files, { level: 9, mtime: new Date("2026-01-01T00:00:00Z") })
+// A zip stores the local time of its entries (fflate reads the hours of a Date in the time zone of the machine): a date
+// made from local fields gives every entry 2026-01-01 00:00 in every time zone, so the xpi is the same everywhere.
+const zip = zipSync(files, { level: 9, mtime: new Date(2026, 0, 1) })
 if (!existsSync(artifacts)) mkdirSync(artifacts, { recursive: true })
 const out = join(artifacts, `thunderbird-translate-${manifest.version}${e2e ? "-e2e" : debug ? "-debug" : ""}.xpi`)
 writeFileSync(out, zip)

@@ -51,6 +51,7 @@ During development you can load the extension without packing it. In Thunderbird
 | `npm run imports:check` | checks the imports of `src/` against the layers in [Project structure](#project-structure) |
 | `npm run e2e` | end-to-end test in a headless Thunderbird against a local mock server |
 | `npm run live-test` | calls the real Google and Microsoft endpoints through the extension's own modules, with and without a source language |
+| `npm run source-zip` | packs the source archive for addons.thunderbird.net, see [Release process](#release-process) |
 | `npm run fetch:bergamot` | checks the vendored Bergamot engine; without it, downloads the pinned engine into `.cache/` |
 
 ## Unit tests and coverage
@@ -246,6 +247,8 @@ A new versioned release therefore appears when a commit with a new version numbe
 Runs of the same branch or pull request do not overlap. A new push to a pull request cancels its running run. On `main` a running run finishes, and a run still waiting gives way to a newer one.
 
 To check the text of a release before pushing, run `node scripts/release-notes.mjs <version> <file>`.
+
+A version for addons.thunderbird.net (ATN) needs the source code next to the xpi, since the bundles are minified. `npm run source-zip` (`scripts/source-zip.mjs`) writes `web-ext-artifacts/thunderbird-translate-<version>-source.zip`: `src/` without `src/e2e/`, `static/`, `scripts/`, `locales/`, `vendor/`, `licenses/`, the package files, `tsconfig.json`, `LICENSE` and [SOURCE-BUILD.md](../SOURCE-BUILD.md), which tells the reviewer how to build. Its files are sorted and carry one time stamp, like the entries of the xpi, so `npm ci` and `npm run build` in the unpacked archive give the same xpi byte for byte; `tests/source-zip.test.ts` checks the contents and that the archive is the same when made again.
 
 The dictionary packs have their own manually triggered workflow, `.github/workflows/dicts.yml`, which publishes to the release `dicts-v1`; see [dictionary-packs.md](dictionary-packs.md#发布).
 

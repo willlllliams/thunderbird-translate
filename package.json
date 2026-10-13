@@ -20,7 +20,8 @@
     "imports:check": "node scripts/check-imports.mjs",
     "fetch:bergamot": "node scripts/fetch-bergamot.mjs",
     "test:coverage": "vitest run --coverage",
-    "e2e": "node e2e/run.mjs"
+    "e2e": "node e2e/run.mjs",
+    "source-zip": "node scripts/source-zip.mjs"
   },
   "dependencies": {
     "@ai-sdk/alibaba": "^2.0.65",
