@@ -481,8 +481,8 @@
   "errHostPermission": "Tiện ích chưa được phép kết nối tới $1. Hãy mở dịch vụ này trong phần cài đặt và bấm \"Cho phép truy cập\".",
 
   "consentTitle": "Gửi thư này đến dịch vụ trực tuyến?",
-  "consentBody": "Để dịch, các đoạn của thư này được gửi đến dịch vụ dưới đây. Các tầng ngoại tuyến không gửi gì.",
-  "consentBodyPrecise": "Để dịch, các đoạn của thư này được gửi đến dịch vụ dưới đây; với dịch chính xác, toàn bộ thư cũng được gửi đến dịch vụ AI làm ngữ cảnh. Các tầng ngoại tuyến không gửi gì.",
+  "consentBody": "Để dịch, các đoạn của thư này được gửi đến các dịch vụ dưới đây. Các tầng ngoại tuyến không gửi gì.",
+  "consentBodyPrecise": "Để dịch, các đoạn của thư này được gửi đến các dịch vụ dưới đây; với dịch chính xác, toàn bộ thư cũng được gửi đến dịch vụ AI làm ngữ cảnh. Các tầng ngoại tuyến không gửi gì.",
   "consentService": "$1: $2",
   "consentKey": "Khóa API đã lưu chỉ được gửi đến đúng dịch vụ của nó. Tiện ích chỉ hỏi một lần cho mỗi dịch vụ; trang cài đặt liệt kê các dịch vụ đã được cho phép.",
   "consentAllow": "Cho phép và dịch",

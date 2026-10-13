@@ -484,8 +484,8 @@
   "errHostPermission": "The extension may not connect to $1 yet. Open this service in the settings and click “Allow access”.",
 
   "consentTitle": "Send this message to an online service?",
-  "consentBody": "To translate it, the paragraphs of this message go to the service below. The offline tiers send nothing.",
-  "consentBodyPrecise": "To translate it, the paragraphs of this message go to the service below; with precise translation, the whole message also goes to the AI service as context. The offline tiers send nothing.",
+  "consentBody": "To translate it, the paragraphs of this message go to the services below. The offline tiers send nothing.",
+  "consentBodyPrecise": "To translate it, the paragraphs of this message go to the services below; with precise translation, the whole message also goes to the AI service as context. The offline tiers send nothing.",
   "consentService": "$1: $2",
   "consentKey": "An API key you saved goes only to its own service. The extension asks once per service; the settings page lists the services you allowed.",
   "consentAllow": "Allow and translate",

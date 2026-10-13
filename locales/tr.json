@@ -484,8 +484,8 @@
   "errHostPermission": "Eklentinin henüz $1 adresine bağlanma izni yok. Ayarlarda bu hizmeti açın ve \"Erişime izin ver\" düğmesine tıklayın.",
 
   "consentTitle": "Bu ileti çevrimiçi bir hizmete gönderilsin mi?",
-  "consentBody": "Çevirmek için bu iletinin paragrafları aşağıdaki hizmete gönderilir. Çevrimdışı kademeler hiçbir şey göndermez.",
-  "consentBodyPrecise": "Çevirmek için bu iletinin paragrafları aşağıdaki hizmete gönderilir; hassas çeviride iletinin tamamı da bağlam olarak yapay zekâ hizmetine gider. Çevrimdışı kademeler hiçbir şey göndermez.",
+  "consentBody": "Çevirmek için bu iletinin paragrafları aşağıdaki hizmetlere gönderilir. Çevrimdışı kademeler hiçbir şey göndermez.",
+  "consentBodyPrecise": "Çevirmek için bu iletinin paragrafları aşağıdaki hizmetlere gönderilir; hassas çeviride iletinin tamamı da bağlam olarak yapay zekâ hizmetine gider. Çevrimdışı kademeler hiçbir şey göndermez.",
   "consentService": "$1: $2",
   "consentKey": "Kaydedilen API anahtarı yalnızca kendi hizmetine gider. Eklenti her hizmet için bir kez sorar; izin verilen hizmetler ayarlar sayfasında listelenir.",
   "consentAllow": "İzin ver ve çevir",

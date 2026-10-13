@@ -481,8 +481,8 @@
   "errHostPermission": "Die Erweiterung darf sich noch nicht mit $1 verbinden. Öffnen Sie diesen Dienst in den Einstellungen und klicken Sie auf „Zugriff erlauben“.",
 
   "consentTitle": "Diese Nachricht an einen Online-Dienst senden?",
-  "consentBody": "Zum Übersetzen gehen die Absätze dieser Nachricht an den folgenden Dienst. Die Offline-Stufen senden nichts.",
-  "consentBodyPrecise": "Zum Übersetzen gehen die Absätze dieser Nachricht an den folgenden Dienst; bei der präzisen Übersetzung geht außerdem die ganze Nachricht als Kontext an den KI-Dienst. Die Offline-Stufen senden nichts.",
+  "consentBody": "Zum Übersetzen gehen die Absätze dieser Nachricht an die folgenden Dienste. Die Offline-Stufen senden nichts.",
+  "consentBodyPrecise": "Zum Übersetzen gehen die Absätze dieser Nachricht an die folgenden Dienste; bei der präzisen Übersetzung geht außerdem die ganze Nachricht als Kontext an den KI-Dienst. Die Offline-Stufen senden nichts.",
   "consentService": "$1: $2",
   "consentKey": "Ein gespeicherter API-Schlüssel geht nur an seinen eigenen Dienst. Die Erweiterung fragt einmal pro Dienst; die Einstellungsseite listet die erlaubten Dienste auf.",
   "consentAllow": "Erlauben und übersetzen",

@@ -481,8 +481,8 @@
   "errHostPermission": "La extensión aún no tiene permiso para conectarse a $1. Abra este servicio en la configuración y haga clic en «Permitir acceso».",
 
   "consentTitle": "¿Enviar este mensaje a un servicio en línea?",
-  "consentBody": "Para traducirlo, los párrafos de este mensaje se envían al servicio de abajo. Los niveles sin conexión no envían nada.",
-  "consentBodyPrecise": "Para traducirlo, los párrafos de este mensaje se envían al servicio de abajo; con la traducción precisa, el mensaje completo también se envía al servicio de IA como contexto. Los niveles sin conexión no envían nada.",
+  "consentBody": "Para traducirlo, los párrafos de este mensaje se envían a los servicios de abajo. Los niveles sin conexión no envían nada.",
+  "consentBodyPrecise": "Para traducirlo, los párrafos de este mensaje se envían a los servicios de abajo; con la traducción precisa, el mensaje completo también se envía al servicio de IA como contexto. Los niveles sin conexión no envían nada.",
   "consentService": "$1: $2",
   "consentKey": "Una clave de API guardada solo se envía a su propio servicio. La extensión pregunta una vez por servicio; la página de configuración muestra los servicios permitidos.",
   "consentAllow": "Permitir y traducir",

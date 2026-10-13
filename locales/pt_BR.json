@@ -481,8 +481,8 @@
   "errHostPermission": "A extensão ainda não tem permissão para se conectar a $1. Abra este serviço nas configurações e clique em \"Permitir acesso\".",
 
   "consentTitle": "Enviar esta mensagem a um serviço on-line?",
-  "consentBody": "Para traduzi-la, os parágrafos desta mensagem vão para o serviço abaixo. Os níveis offline não enviam nada.",
-  "consentBodyPrecise": "Para traduzi-la, os parágrafos desta mensagem vão para o serviço abaixo; com a tradução precisa, a mensagem inteira também vai para o serviço de IA como contexto. Os níveis offline não enviam nada.",
+  "consentBody": "Para traduzi-la, os parágrafos desta mensagem vão para os serviços abaixo. Os níveis offline não enviam nada.",
+  "consentBodyPrecise": "Para traduzi-la, os parágrafos desta mensagem vão para os serviços abaixo; com a tradução precisa, a mensagem inteira também vai para o serviço de IA como contexto. Os níveis offline não enviam nada.",
   "consentService": "$1: $2",
   "consentKey": "Uma chave de API salva só vai para o próprio serviço. A extensão pergunta uma vez por serviço; a página de configurações lista os serviços permitidos.",
   "consentAllow": "Permitir e traduzir",

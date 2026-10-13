@@ -481,8 +481,8 @@
   "errHostPermission": "L’extension n’a pas encore le droit de se connecter à $1. Ouvrez ce service dans les paramètres et cliquez sur « Autoriser l’accès ».",
 
   "consentTitle": "Envoyer ce message à un service en ligne ?",
-  "consentBody": "Pour le traduire, les paragraphes de ce message sont envoyés au service ci-dessous. Les niveaux hors ligne n’envoient rien.",
-  "consentBodyPrecise": "Pour le traduire, les paragraphes de ce message sont envoyés au service ci-dessous ; avec la traduction précise, le message entier est aussi envoyé au service d’IA comme contexte. Les niveaux hors ligne n’envoient rien.",
+  "consentBody": "Pour le traduire, les paragraphes de ce message sont envoyés aux services ci-dessous. Les niveaux hors ligne n’envoient rien.",
+  "consentBodyPrecise": "Pour le traduire, les paragraphes de ce message sont envoyés aux services ci-dessous ; avec la traduction précise, le message entier est aussi envoyé au service d’IA comme contexte. Les niveaux hors ligne n’envoient rien.",
   "consentService": "$1 : $2",
   "consentKey": "Une clé d’API enregistrée n’est envoyée qu’à son propre service. L’extension demande une fois par service ; la page de paramètres liste les services autorisés.",
   "consentAllow": "Autoriser et traduire",
