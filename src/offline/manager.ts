@@ -31,8 +31,6 @@ export interface OfflineManager<T = unknown> {
   list(options?: ListOptions): Promise<OfflineListing<T>>
   /** Pair keys the service offers ("en>zh-Hans"), read again when old; null when the catalog cannot be read. */
   catalog(): Promise<Catalog>
-  /** Pair keys of the catalog already read, without reading: translations never wait for the network. Null before it is read. */
-  knownCatalog(): Catalog
   /** Pair keys of the installed directions. */
   installedKeys(): Promise<Set<string>>
   /** Download and store a direction; `onProgress` gets the bytes received and the total. */

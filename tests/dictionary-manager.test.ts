@@ -117,6 +117,33 @@ describe("dictionary manager", () => {
     expect((await texts(m.manager, ["hello"], "en", "de"))[0]).toMatch(/^! /)
   })
 
+  it("reads again only the pack an installation stored; a failed or cancelled installation keeps the packs in memory", async () => {
+    const m = managerFor({ "dicts-v1": [EN_DE, FR_EN] })
+    await m.manager.install("en", "de")
+    const data = vi.spyOn(m.store, "data")
+    const reads = () => data.mock.calls.map(([id]) => id)
+    expect(await texts(m.manager, ["hello"], "en", "de")).toEqual(["hallo"])
+    expect(reads()).toEqual(["en>de"])
+    m.state.offline = true
+    await expect(m.manager.install("fr", "en")).rejects.toThrow("NetworkError")
+    m.state.offline = false
+    const cancel = new AbortController()
+    cancel.abort(new DOMException("cancelled", "AbortError"))
+    await expect(m.manager.install("fr", "en", undefined, cancel.signal)).rejects.toThrow("cancelled")
+    expect(await texts(m.manager, ["hello"], "en", "de")).toEqual(["hallo"])
+    expect(reads()).toEqual(["en>de"])
+    // Installing fr>en drops fr>en only; en>de stays in memory, and the signature is worked out again.
+    const before = await m.manager.signature()
+    await m.manager.install("fr", "en")
+    expect(await m.manager.signature()).not.toBe(before)
+    expect(await texts(m.manager, ["hello"], "en", "de")).toEqual(["hallo"])
+    expect(reads()).toEqual(["en>de"])
+    // Installing en>de again reads it again.
+    await m.manager.install("en", "de")
+    expect(await texts(m.manager, ["hello"], "en", "de")).toEqual(["hallo"])
+    expect(reads()).toEqual(["en>de", "en>de"])
+  })
+
   describe("a release rebuilt while its index is kept", () => {
     /** A release whose index and files can be replaced: `packs` lists the entries, `files` serves the file names. */
     function rebuiltRelease(packs: ReturnType<typeof packEntry>[], files: Record<string, string>) {

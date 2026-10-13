@@ -115,9 +115,13 @@ export class Dictionary {
     private readonly opts: DictionaryOptions = {},
   ) {}
 
-  /** Packs were installed or deleted: read them again on next use. */
-  invalidate(): void {
-    this.packs.clear()
+  /**
+   * Packs were installed or deleted: the pack `id` ("en>zh-Hans"), or all packs
+   * without it, is read again on next use; the signature is worked out again.
+   */
+  invalidate(id?: string): void {
+    if (id === undefined) this.packs.clear()
+    else this.packs.delete(id)
     this.installed = null
   }
 

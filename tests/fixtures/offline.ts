@@ -19,7 +19,6 @@ export function bergamotStandIn(pairs: BergamotPairInfo[] = [], over: Partial<Of
     service: "bergamot",
     list: async () => ({ items: pairs }),
     catalog: async () => new Set(pairs.map((p) => `${p.src}>${p.tgt}`)),
-    knownCatalog: () => null,
     installedKeys: async () => new Set(pairs.filter((p) => p.installed).map((p) => `${p.src}>${p.tgt}`)),
     install: async () => {},
     remove: async () => {},

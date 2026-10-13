@@ -16,7 +16,7 @@ import { CatalogCache } from "../catalog-cache"
 import type { ListOptions, OfflineListing, OfflineManager } from "../manager"
 import { fetchDictionaryIndex, type IndexedPack, installPack } from "./download"
 import { Dictionary } from "./index"
-import { DictionaryStore, type InstalledPack } from "./store"
+import { DictionaryStore } from "./store"
 
 export interface DictionaryManagerDeps {
   /** The release tag of the settings. */
@@ -81,8 +81,8 @@ export class DictionaryManager implements OfflineManager<DictionaryPackInfo> {
     return index && new Set(index.map(keyOf))
   }
 
-  async installedKeys(): Promise<Set<string>> {
-    return new Set((await this.store.list()).map((p: InstalledPack) => p.id))
+  installedKeys(): Promise<Set<string>> {
+    return this.dictionary.installedIds()
   }
 
   /**
@@ -90,7 +90,9 @@ export class DictionaryManager implements OfflineManager<DictionaryPackInfo> {
    * and store it; translations use it at once. The index is kept for hours,
    * and the release may be rebuilt meanwhile: when the file fails its
    * checksum or is not found, the index is read again once, and a changed
-   * entry (another checksum or file) is downloaded instead.
+   * entry (another checksum or file) is downloaded instead. Only a stored
+   * pack is read again by the translations: a failed or cancelled
+   * installation keeps every pack they have in memory.
    */
   async install(src: string, tgt: string, onProgress?: (done: number, total: number) => void, signal?: AbortSignal, { tag = this.deps.releaseTag() }: Pick<ListOptions, "tag"> = {}): Promise<void> {
     const index = this.index(tag)
@@ -102,24 +104,22 @@ export class DictionaryManager implements OfflineManager<DictionaryPackInfo> {
     if (!pack) throw new LocalizedError("errDictionaryNoPack", [key.replace(">", " → ")])
     const download = (entry: IndexedPack) => installPack(entry, tag, this.store, { fetchFn: this.deps.fetch, onProgress, signal })
     try {
-      try {
-        await download(pack)
-      } catch (error) {
-        if (signal?.aborted || !releaseChanged(error)) throw error
-        const fresh = find(await index.get(true))
-        if (!fresh || (fresh.sha256 === pack.sha256 && fresh.file === pack.file)) throw error
-        await download(fresh)
-      }
-    } finally {
-      this.dictionary.invalidate()
+      await download(pack)
+    } catch (error) {
+      if (signal?.aborted || !releaseChanged(error)) throw error
+      const fresh = find(await index.get(true))
+      if (!fresh || (fresh.sha256 === pack.sha256 && fresh.file === pack.file)) throw error
+      await download(fresh)
     }
+    this.dictionary.invalidate(key)
   }
 
   async remove(src: string, tgt: string): Promise<void> {
+    const key = packKey(src, tgt)
     try {
-      await this.store.remove(packKey(src, tgt))
+      await this.store.remove(key)
     } finally {
-      this.dictionary.invalidate()
+      this.dictionary.invalidate(key)
     }
   }
 
