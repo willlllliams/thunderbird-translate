@@ -29,7 +29,7 @@ The cache key consists of the provider, the model, the source and target languag
 - for the dictionary and Bergamot, the installed packs or models and their versions;
 - in precise mode, the message.
 
-Changing any of these never returns a translation made with the old setting. When the same text is already being translated, later requests share the same result. A request that failed or timed out is dropped, and the next request starts a new one. "Retranslate" (Alt+R) skips both the cache and requests still running, see [settings.md](settings.md#retranslate-and-the-cache).
+Changing any of these never returns a translation made with the old setting. A dictionary or Bergamot translation is cached only if the installed packs or models are the same when it ends as when it started; a pack or model installed or removed in between could already have been used. When the same text is already being translated, later requests share the same result. A request that failed or timed out is dropped, and the next request starts a new one. "Retranslate" (Alt+R) skips both the cache and requests still running, see [settings.md](settings.md#retranslate-and-the-cache).
 
 A batch group is defined by provider, model, endpoint, source language and target language. AI services are also grouped by prompt, thinking switch and temperature, Microsoft Translator by free or key mode, and in precise mode by message. Batches never mix paragraphs of different groups.
 

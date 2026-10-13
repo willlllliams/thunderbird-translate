@@ -248,4 +248,34 @@ describe("cache keys of the translation service", () => {
     await ask()
     expect(dictionary.translate).toHaveBeenCalledTimes(2)
   })
+
+  it("store no dictionary result when the installed packs changed while it was translated", async () => {
+    const settings = createDefaultSettings()
+    settings.tiers.dictionary = "dictionary"
+    let packs = "none"
+    let release!: () => void
+    const dictionary = fakeDictionary(new Promise<void>((resolve) => (release = resolve)))
+    dictionary.signature.mockImplementation(async () => packs)
+    const { service } = createService(settings, { dictionary })
+    const ask = () => translateOne(service, { text: "Hello", providerId: "dictionary" })
+    const first = ask()
+    await vi.waitFor(() => expect(dictionary.translate).toHaveBeenCalledTimes(1))
+    // A pack is installed while the batch runs, which may already use it: the result is not stored under the key of no packs.
+    packs = "en>zh-Hans@1"
+    release()
+    expect(await first).toBe("D(Hello)")
+    // The pack is removed again: the paragraph is translated again, not answered from the cache.
+    packs = "none"
+    await ask()
+    expect(dictionary.translate).toHaveBeenCalledTimes(2)
+    // That result started and ended with the same packs and is kept.
+    await ask()
+    expect(dictionary.translate).toHaveBeenCalledTimes(2)
+    // A signature that cannot be read at the end does not match the one read at the start.
+    packs = "en>zh-Hans@2"
+    dictionary.signature.mockImplementationOnce(async () => packs).mockImplementationOnce(async () => Promise.reject(new Error("idb")))
+    await ask()
+    await ask()
+    expect(dictionary.translate).toHaveBeenCalledTimes(4)
+  })
 })

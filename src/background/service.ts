@@ -18,7 +18,10 @@
  * request answers, the new results replace the cached ones, and in precise
  * mode the message is analysed again. Only the request that started last for
  * a paragraph or an analysis writes the cache, so an older answer arriving
- * late does not replace a retranslation.
+ * late does not replace a retranslation. A dictionary or Bergamot result is
+ * cached only when the installed packs or models are still those it started
+ * with: a pack installed or removed meanwhile would otherwise leave a result
+ * of the old data under the key of the new data.
  */
 
 import { getBergamot } from "../offline/bergamot"
@@ -62,6 +65,14 @@ interface Job {
   mail?: { context: MailContext; index: number }
   /** Retranslation: neither the cache nor a running request answers; the result replaces the cached one. */
   fresh?: boolean
+  /** Dictionary and Bergamot: the signature of the installed data when the job started, and how to read it again. */
+  data?: OfflineData
+}
+
+/** The installed data an offline service translates with, as part of the cache key. */
+interface OfflineData {
+  signature: string
+  current: () => Promise<string>
 }
 
 /** Hard caps for the free and local services, applied on top of the user's batch settings. Microsoft with a key has its own caps. */
@@ -198,12 +209,12 @@ export class TranslationService {
     if (fresh) this.freshContexts.set(context.id, true)
   }
 
-  /** The work of one tier for one paragraph. `data`: signature of the dictionary packs or offline models the service translates with. */
-  private job(req: TranslateRequest, providerId: string, settings: Settings, data: string): Job {
+  /** The work of one tier for one paragraph. `data`: the dictionary packs or offline models the service translates with. */
+  private job(req: TranslateRequest, providerId: string, settings: Settings, data?: OfflineData): Job {
     const { provider, kind, prompt, parts } = resultInputs(settings, providerId)
     const context = kind === "precise" && req.context ? this.contexts.get(req.context.id) : undefined
     // Everything besides the text that shapes the result keeps cache entries and batches apart.
-    const variant = hashText([...parts, data].join("\n"))
+    const variant = hashText([...parts, data?.signature ?? ""].join("\n"))
     const sig = context ? `${variant}:${context.id}` : variant
     return {
       text: req.text,
@@ -216,6 +227,7 @@ export class TranslationService {
       batchKey: [providerId, provider.model, req.sourceLang, req.targetLang, sig].join("|"),
       ...(context && req.context ? { mail: { context, index: req.context.index } } : {}),
       ...(req.bypassCache ? { fresh: true } : {}),
+      ...(data ? { data } : {}),
     }
   }
 
@@ -225,7 +237,7 @@ export class TranslationService {
     if (cached !== undefined) return cached
     let running = job.fresh ? undefined : this.inflight.get(job.key)
     if (!running) {
-      const started: Promise<string> = this.latest(job.key, () => this.translateParts(job), (text) => this.deps.cache.set(job.key, text)).finally(() => {
+      const started: Promise<string> = this.latest(job.key, () => this.translateParts(job), (text) => this.store(job, text)).finally(() => {
         if (this.inflight.get(job.key) === started) this.inflight.delete(job.key)
       })
       this.inflight.set(job.key, (running = started))
@@ -244,6 +256,12 @@ export class TranslationService {
     } finally {
       if (this.writers.get(key) === self) this.writers.delete(key)
     }
+  }
+
+  /** Cache a result, unless the installed data of an offline service changed while it was translated. */
+  private async store(job: Job, text: string): Promise<void> {
+    if (job.data && (await job.data.current().catch(() => "")) !== job.data.signature) return
+    await this.deps.cache.set(job.key, text)
   }
 
   /** The paragraph in pieces within the batch limit, translated and put together again. */
@@ -281,16 +299,16 @@ export class TranslationService {
   async translateForPage(req: TranslateRequest, onTier: (tier: Tier, result: TranslateResponse) => void): Promise<void> {
     const settings = this.deps.getSettings()
     const tiers = TIERS.filter((tier) => settings.tiers[tier] && req.tiers.includes(tier))
-    const data: Partial<Record<Tier, string>> = {}
+    const data: Partial<Record<Tier, OfflineData>> = {}
     for (const tier of tiers) {
       const kind = getPreset(settings.tiers[tier]!)?.kind
-      if (kind === "dictionary") data[tier] = await this.dictionary.signature().catch(() => "")
-      if (kind === "bergamot") data[tier] = await getBergamot().signature().catch(() => "")
+      const current = kind === "dictionary" ? () => this.dictionary.signature() : kind === "bergamot" ? () => getBergamot().signature() : undefined
+      if (current) data[tier] = { signature: await current().catch(() => ""), current }
     }
     const jobs: [Tier, Job][] = []
     for (const tier of tiers) {
       try {
-        jobs.push([tier, this.job(req, settings.tiers[tier]!, settings, data[tier] ?? "")])
+        jobs.push([tier, this.job(req, settings.tiers[tier]!, settings, data[tier])])
       } catch (error) {
         onTier(tier, { ok: false, error: this.errorMessage(error) })
       }

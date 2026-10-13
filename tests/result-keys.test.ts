@@ -14,7 +14,7 @@ import golden from "./fixtures/result-keys.json"
 import { createService } from "./helpers"
 
 /** The job of one tier for one paragraph; TranslationService.job() is private, the keys it builds are what this file pins. */
-type JobOf = { job(req: TranslateRequest, providerId: string, settings: Settings, data: string): { key: string; batchKey: string } }
+type JobOf = { job(req: TranslateRequest, providerId: string, settings: Settings, data?: { signature: string; current: () => Promise<string> }): { key: string; batchKey: string } }
 
 const MAIL = createMailContext(["Hello world", "Second paragraph"], [0, 1])
 const request = (): TranslateRequest => ({ text: "Hello world", sourceLang: "en", targetLang: "zh-CN", tiers: [...TIERS] })
@@ -68,7 +68,7 @@ function keysOf(name: string, data: string): Record<string, [string, string]> {
   service.setContext(MAIL)
   const jobs = service as unknown as JobOf
   return Object.fromEntries(TIERS.map((tier) => {
-    const job = jobs.job(req, settings.tiers[tier]!, settings, data)
+    const job = jobs.job(req, settings.tiers[tier]!, settings, { signature: data, current: async () => data })
     return [tier, [job.key, job.batchKey]]
   }))
 }
