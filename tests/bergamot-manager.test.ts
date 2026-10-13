@@ -35,6 +35,16 @@ describe("model list", () => {
     }
   })
 
+  it("leaves no timer of the list timeout behind, whether the list arrives or not", async () => {
+    useFakeTimers()
+    const { manager, server } = makeManager(triple("en", "fr"), { listTimeoutMs: 60_000 })
+    await manager.getRecords()
+    expect(vi.getTimerCount()).toBe(0)
+    server.setOffline(true)
+    await manager.getRecords(true).catch(() => {})
+    expect(vi.getTimerCount()).toBe(0)
+  })
+
   it("rejects a list without a data array", async () => {
     const { manager, server } = makeManager([])
     server.mock.mockImplementation(async (input) => (String(input) === RECORDS_URL ? Response.json({ records: [] }) : Response.json({})))

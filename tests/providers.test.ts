@@ -1,12 +1,12 @@
 import { generateText } from "ai"
-import { describe, expect, it } from "vitest"
+import { describe, expect, it, vi } from "vitest"
 import { buildProviderSettings, createLanguageModel } from "../src/background/providers/factory"
 import { supportsThinkingControl, thinkingOptions } from "../src/shared/thinking"
 import { llmAnalyzeMail, llmTranslateBatch, llmTranslateSingle } from "../src/background/translators/llm"
 import { BatchParseError } from "../src/background/translators/llm-prompt"
 import { PROVIDER_PRESETS } from "../src/shared/providers"
 import { createDefaultSettings, resolveProvider, resolveProviderConfig } from "../src/shared/settings"
-import { anthropicMessage, chatCompletion, jsonResponse } from "./helpers"
+import { anthropicMessage, chatCompletion, jsonResponse, useFakeTimers } from "./helpers"
 
 const LLM_PRESETS = PROVIDER_PRESETS.filter((p) => p.kind === "llm")
 
@@ -265,6 +265,20 @@ describe("LLM calls", () => {
     expect(body.temperature).toBeUndefined()
     await llmTranslateSingle({ text: "Hello" }, opts({ ...configFor("anthropic"), model: "claude-haiku-4-5", temperature: 0.3 }, fetchFn))
     expect(body.temperature).toBe(0.3)
+  })
+
+  it("leaves no timer behind a request with a timeout, answered or failed", async () => {
+    useFakeTimers()
+    try {
+      const { fetchFn } = recorder()
+      await llmTranslateSingle({ text: "Hello" }, { ...opts(configFor("openai"), fetchFn), timeoutMs: 60_000 })
+      expect(vi.getTimerCount()).toBe(0)
+      const failing = (async () => new Response("down", { status: 500 })) as unknown as typeof fetch
+      await llmTranslateSingle({ text: "Hello" }, { ...opts(configFor("openai"), failing), timeoutMs: 60_000 }).catch(() => {})
+      expect(vi.getTimerCount()).toBe(0)
+    } finally {
+      vi.useRealTimers()
+    }
   })
 
   it("rejects an empty answer", async () => {

@@ -94,13 +94,15 @@ export class BergamotManager implements OfflineManager<BergamotPairInfo> {
 
   private async fetchJson(url: string): Promise<unknown> {
     const timeoutMs = this.deps.listTimeoutMs ?? LIST_TIMEOUT_MS
-    const signal = timeoutSignal(timeoutMs)
+    const { signal, clear } = timeoutSignal(timeoutMs)
     try {
       const res = await this.deps.fetch(url, { cache: "no-cache", signal })
       if (!res.ok) throw new Error(`${url}: HTTP ${res.status}`)
       return await res.json()
     } catch (e) {
       throw signal.aborted ? new TimeoutError("Mozilla Remote Settings", timeoutMs) : e
+    } finally {
+      clear()
     }
   }
 

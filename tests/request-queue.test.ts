@@ -88,10 +88,37 @@ describe("fetchOk", () => {
 })
 
 describe("timeoutSignal", () => {
+  it("clear() stops the timer: the signal never aborts and no timer is left", async () => {
+    useFakeTimers()
+    try {
+      const { signal, clear } = timeoutSignal(1000)
+      expect(vi.getTimerCount()).toBe(1)
+      clear()
+      expect(vi.getTimerCount()).toBe(0)
+      await vi.advanceTimersByTimeAsync(2000)
+      expect(signal.aborted).toBe(false)
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it("leaves no timer behind a request with a timeout, whether it succeeds, fails or cannot connect", async () => {
+    useFakeTimers()
+    try {
+      const answers = [async () => Response.json({ a: 1 }), async () => new Response("down", { status: 503 }), async () => Promise.reject(new TypeError("NetworkError"))]
+      for (const answer of answers) {
+        await fetchOk({ fetchFn: asFetch(answer), timeoutMs: 60_000 }, spec, "X").catch(() => {})
+        expect(vi.getTimerCount()).toBe(0)
+      }
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
   it("aborts with a TimeoutError after the given time of the global timers", async () => {
     useFakeTimers()
     try {
-      const signal = timeoutSignal(1000)
+      const { signal } = timeoutSignal(1000)
       await vi.advanceTimersByTimeAsync(999)
       expect(signal.aborted).toBe(false)
       await vi.advanceTimersByTimeAsync(1)

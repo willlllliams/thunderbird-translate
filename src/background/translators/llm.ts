@@ -37,7 +37,8 @@ async function callModel(instructions: SystemModelMessage, prompt: string, opts:
   const { id, model, temperature, thinking } = opts.provider
   const reasoning = thinkingOptions(id, model, thinking)
   const sendTemperature = temperature !== null && !reasoning.dropTemperature && !modelRejectsTemperature(id, model)
-  const abortSignal = opts.timeoutMs ? timeoutSignal(opts.timeoutMs) : undefined
+  const timeout = opts.timeoutMs ? timeoutSignal(opts.timeoutMs) : undefined
+  const abortSignal = timeout?.signal
   try {
     const result = await generateText({
       model: createLanguageModel(opts.provider, opts.fetchFn),
@@ -53,6 +54,8 @@ async function callModel(instructions: SystemModelMessage, prompt: string, opts:
   } catch (error) {
     if (abortSignal?.aborted) throw new TimeoutError(getPreset(id)?.name ?? id, opts.timeoutMs!)
     throw error
+  } finally {
+    timeout?.clear()
   }
 }
 

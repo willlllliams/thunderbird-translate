@@ -6,12 +6,13 @@ import { ENGLISH } from "./i18n"
 /**
  * A signal that aborts after `ms` with a DOMException named TimeoutError,
  * as AbortSignal.timeout() does, but timed by the global setTimeout, which
- * tests with fake timers control.
+ * tests with fake timers control. `clear()` stops the timer once the work
+ * has ended, so no timer outlives its request.
  */
-export function timeoutSignal(ms: number): AbortSignal {
+export function timeoutSignal(ms: number): { signal: AbortSignal; clear: () => void } {
   const controller = new AbortController()
-  setTimeout(() => controller.abort(new DOMException("The operation timed out.", "TimeoutError")), ms)
-  return controller.signal
+  const timer = setTimeout(() => controller.abort(new DOMException("The operation timed out.", "TimeoutError")), ms)
+  return { signal: controller.signal, clear: () => clearTimeout(timer) }
 }
 
 export class HttpError extends Error {
@@ -60,7 +61,8 @@ export interface FetchOptions {
  * `timeoutMs`, the body is read before the response is returned.
  */
 export async function fetchOk({ fetchFn, timeoutMs }: FetchOptions, { url, init }: RequestSpec, label: string): Promise<Response> {
-  const signal = timeoutMs ? timeoutSignal(timeoutMs) : undefined
+  const timeout = timeoutMs ? timeoutSignal(timeoutMs) : undefined
+  const signal = timeout?.signal
   let resp: Response
   try {
     resp = await (fetchFn ?? fetch)(url, signal ? { ...init, signal } : init)
@@ -72,6 +74,8 @@ export async function fetchOk({ fetchFn, timeoutMs }: FetchOptions, { url, init 
     }
   } catch (error) {
     throw signal?.aborted ? new TimeoutError(label, timeoutMs!) : new NetworkError(url, error)
+  } finally {
+    timeout?.clear()
   }
   if (resp.ok) return resp
   const body = await resp.text().catch(() => "")
