@@ -1,7 +1,9 @@
 /** The requests to the background script (background/router.ts): one handler per request type and the dispatch of runtime.onMessage. */
+import { readdirSync, readFileSync } from "node:fs"
+import { join } from "node:path"
 import { beforeEach, describe, expect, it, vi } from "vitest"
 import { PROGRESS_INTERVAL_MS } from "../src/background/offline-admin"
-import { createDispatch, createHandlers } from "../src/background/router"
+import { CONTENT_REQUESTS, createDispatch, createHandlers } from "../src/background/router"
 import { LocalizedError } from "../src/shared/errors"
 import { ENGLISH } from "../src/shared/i18n"
 import { type BackgroundRequest, IDLE_TAB_STATE, type PortPush, type RequestType } from "../src/shared/messages"
@@ -9,6 +11,10 @@ import { createDefaultSettings, type Settings, SETTINGS_KEY } from "../src/share
 import { stubBrowser } from "./fixtures/browser"
 import { bergamotStandIn } from "./fixtures/offline"
 import { useFakeTimers } from "./helpers"
+
+/** Senders of runtime.onMessage: a page of the extension, and the content script in a displayed message. */
+const PAGE = { url: "moz-extension://test/options.html" }
+const CONTENT = { url: "imap://mail.example.com:993/fetch%3EUID%3E/INBOX%3E42", tab: { id: 4 } } as browser.runtime.MessageSender
 
 /** The managers of the offline services. */
 let bergamot = bergamotStandIn()
@@ -33,7 +39,7 @@ function router(settings: Settings = createDefaultSettings()) {
     cache: { clear: vi.fn(async () => {}), size: vi.fn(async () => 2) },
   }
   const handlers = createHandlers(deps)
-  const send = (req: BackgroundRequest) => createDispatch(handlers, () => Promise.resolve())(req)
+  const send = (req: BackgroundRequest) => createDispatch(handlers, () => Promise.resolve())(req, PAGE)
   return { handlers, send, deps, pushed, browser, stored: () => browser.local.data[SETTINGS_KEY] as Settings }
 }
 
@@ -149,8 +155,8 @@ describe("requests from pages", () => {
 describe("dispatch", () => {
   it("ignores messages that are not requests and unknown requests", async () => {
     const dispatch = createDispatch(router().handlers, () => Promise.resolve())
-    for (const message of [undefined, null, "toggleTab", { type: 1 }]) expect(dispatch(message)).toBeUndefined()
-    expect(await dispatch({ type: "somethingElse" })).toBeUndefined()
+    for (const message of [undefined, null, "toggleTab", { type: 1 }]) expect(dispatch(message, PAGE)).toBeUndefined()
+    expect(await dispatch({ type: "somethingElse" }, PAGE)).toBeUndefined()
   })
 
   it("takes no notice of the background script to the pages for a request: their types differ", async () => {
@@ -169,15 +175,47 @@ describe("dispatch", () => {
       const notices = browser.api.runtime.sendMessage.mock.calls.map(([notice]) => notice as { type: string })
       expect(notices.map((n) => n.type)).toEqual(["offlineProgressChanged", "offlineDataChanged"])
       const dispatch = createDispatch(handlers, () => Promise.resolve())
-      for (const notice of notices) expect(dispatch(notice), notice.type).toBeUndefined()
+      for (const notice of notices) expect(dispatch(notice, PAGE), notice.type).toBeUndefined()
     } finally {
       vi.useRealTimers()
     }
   })
 
+  it("answers a content script only the requests the content script sends; the pages get every request", async () => {
+    const { handlers, deps } = router()
+    const dispatch = createDispatch(handlers, () => Promise.resolve())
+    const requests: BackgroundRequest[] = [
+      { type: "clearCache" },
+      { type: "cacheStats" },
+      { type: "testProvider", providerId: "google-free", config: { enabled: true, apiKey: "", baseURL: "", model: "" }, targetLang: "de" },
+      { type: "offlineRemove", service: "bergamot", src: "en", tgt: "de" },
+      { type: "offlineInstall", service: "bergamot", pairs: [{ src: "en", tgt: "de" }] },
+      { type: "toggleTab", tabId: 9 },
+      { type: "offlineStatus", sourceLang: "auto", targetLang: "de", tiers: createDefaultSettings().tiers },
+    ]
+    for (const sender of [CONTENT, undefined, {}, { url: "https://example.com/" }, { url: "moz-extension://other/options.html" }] as (browser.runtime.MessageSender | undefined)[]) {
+      for (const req of requests) expect(dispatch(req, sender), `${req.type} from ${JSON.stringify(sender)}`).toBeUndefined()
+    }
+    expect([deps.cache.clear, deps.service.testProvider, bergamot.remove, bergamot.install, deps.offlineStatus].map((f) => vi.mocked(f).mock.calls.length)).toEqual([0, 0, 0, 0, 0])
+    expect(await dispatch({ type: "getLocaleMessages", uiLanguage: "de" }, CONTENT)).toEqual({ locale: "de", messages: {} })
+    expect(await dispatch({ type: "muteOfflinePairs", pairs: ["dictionary:ja>en"], muted: true }, CONTENT)).toBeUndefined()
+    expect(deps.localeMessages).toHaveBeenCalledTimes(1)
+    expect(await dispatch({ type: "cacheStats" }, PAGE)).toEqual({ size: 2 })
+  })
+
+  it("lets content scripts send exactly the request types that src/content/ sends", () => {
+    const dir = join(__dirname, "..", "src", "content")
+    const sent = new Set<string>()
+    for (const file of readdirSync(dir)) {
+      for (const [, type] of readFileSync(join(dir, file), "utf8").matchAll(/\btype: "(\w+)"/g)) if (Object.hasOwn(router().handlers, type!)) sent.add(type!)
+    }
+    expect([...sent].sort()).toEqual([...CONTENT_REQUESTS].sort())
+    expect([...CONTENT_REQUESTS].sort()).toEqual(["getLocaleMessages", "muteOfflinePairs", "openOptions"])
+  })
+
   it("answers nothing to an unknown type, also one named after a property of every object", () => {
     const dispatch = createDispatch(router().handlers, () => Promise.resolve())
-    for (const type of ["somethingElse", "toString", "constructor", "hasOwnProperty", "valueOf", "__proto__"]) expect(dispatch({ type })).toBeUndefined()
+    for (const type of ["somethingElse", "toString", "constructor", "hasOwnProperty", "valueOf", "__proto__"]) expect(dispatch({ type }, PAGE)).toBeUndefined()
   })
 
   it("answers once the settings are read", async () => {
@@ -185,7 +223,7 @@ describe("dispatch", () => {
     let settle!: () => void
     const read = new Promise<void>((resolve) => (settle = resolve))
     const dispatch = createDispatch(handlers, () => read)
-    const answer = dispatch({ type: "toggleTab", tabId: 4 })
+    const answer = dispatch({ type: "toggleTab", tabId: 4 }, PAGE)
     await Promise.resolve()
     expect(pushed).toEqual([])
     settle()

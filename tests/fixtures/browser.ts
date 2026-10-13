@@ -74,7 +74,8 @@ export function fakeBrowser({
   const local = fakeStorageArea(stored, { ...storage, onChanged: storageChanged })
   const events = {
     connect: fakeEvent<[unknown]>(),
-    message: fakeEvent<[unknown]>(),
+    /** runtime.onMessage: the message and its sender. */
+    message: fakeEvent<[unknown, unknown?]>(),
     installed: fakeEvent<[{ reason: string }]>(),
     command: fakeEvent<[string, { id?: number }?]>(),
   }

@@ -48,8 +48,8 @@ export function stubBackgroundApi({
       events.connect.fire(port)
       return port
     },
-    /** runtime.sendMessage from a page; the background's answer. */
-    send: (req: BackgroundRequest | unknown) => events.message.listeners[0](req) as Promise<unknown> | undefined,
+    /** runtime.sendMessage from the settings page, or from `sender`; the background's answer. */
+    send: (req: BackgroundRequest | unknown, sender: unknown = { url: "moz-extension://test/options.html" }) => events.message.listeners[0](req, sender) as Promise<unknown> | undefined,
     command: (name: string, tab?: { id?: number }) => events.command.listeners[0](name, tab) as Promise<void>,
     install: (reason: string) => events.installed.fire({ reason }),
     /** Another page or the content script changes storage. */
