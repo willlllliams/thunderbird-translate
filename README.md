@@ -4,6 +4,8 @@ Multi Translate for Thunderbird is a Thunderbird extension that translates the b
 
 English | [简体中文](readmes/README.zh-CN.md) | [繁體中文](readmes/README.zh-TW.md) | [日本語](readmes/README.ja.md) | [한국어](readmes/README.ko.md) | [Français](readmes/README.fr.md) | [Deutsch](readmes/README.de.md) | [Español](readmes/README.es.md) | [Português (Brasil)](readmes/README.pt-BR.md) | [Русский](readmes/README.ru.md) | [Türkçe](readmes/README.tr.md) | [Tiếng Việt](readmes/README.vi.md)
 
+![Dictionary, machine translation and AI translation arriving in turn](docs/media/tiers-en.gif)
+
 ## Contents
 
 - [Features](#features)

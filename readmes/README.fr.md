@@ -4,6 +4,8 @@ Multi-traduction pour Thunderbird est une extension Thunderbird qui traduit le c
 
 [English](../README.md) | [简体中文](README.zh-CN.md) | [繁體中文](README.zh-TW.md) | [日本語](README.ja.md) | [한국어](README.ko.md) | Français | [Deutsch](README.de.md) | [Español](README.es.md) | [Português (Brasil)](README.pt-BR.md) | [Русский](README.ru.md) | [Türkçe](README.tr.md) | [Tiếng Việt](README.vi.md)
 
+![Dictionnaire, traduction automatique et traduction par l’IA arrivent l’une après l’autre](../docs/media/tiers-en.gif)
+
 ## Sommaire
 
 - [Fonctionnalités](#fonctionnalités)

@@ -4,6 +4,8 @@
 
 [English](../README.md) | 简体中文 | [繁體中文](README.zh-TW.md) | [日本語](README.ja.md) | [한국어](README.ko.md) | [Français](README.fr.md) | [Deutsch](README.de.md) | [Español](README.es.md) | [Português (Brasil)](README.pt-BR.md) | [Русский](README.ru.md) | [Türkçe](README.tr.md) | [Tiếng Việt](README.vi.md)
 
+![词典、机器翻译与 AI 翻译的译文依次出现](../docs/media/tiers-zh-CN.gif)
+
 ## 目录
 
 - [功能](#功能)

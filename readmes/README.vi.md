@@ -4,6 +4,8 @@ Dịch Đa Nguồn cho Thunderbird là một tiện ích của Thunderbird, dị
 
 [English](../README.md) | [简体中文](README.zh-CN.md) | [繁體中文](README.zh-TW.md) | [日本語](README.ja.md) | [한국어](README.ko.md) | [Français](README.fr.md) | [Deutsch](README.de.md) | [Español](README.es.md) | [Português (Brasil)](README.pt-BR.md) | [Русский](README.ru.md) | [Türkçe](README.tr.md) | Tiếng Việt
 
+![Bản dịch từ điển, dịch máy và dịch bằng AI lần lượt xuất hiện](../docs/media/tiers-en.gif)
+
 ## Mục lục
 
 - [Tính năng](#tính-năng)

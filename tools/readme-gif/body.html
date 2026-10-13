@@ -1,0 +1,40 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>Message</title>
+    <link rel="stylesheet" href="/content.css" />
+    <style>
+      body {
+        margin: 0;
+        padding: 16px 28px;
+        font: 16px/1.5 "Segoe UI", system-ui, sans-serif;
+        color: #1f2328;
+        background: #fff;
+      }
+      p {
+        margin: 0 0 12px;
+      }
+    </style>
+    <script src="/__gif/samples.js"></script>
+    <script src="/__gif/stub.js"></script>
+  </head>
+  <body>
+    <script>
+      // The paragraphs of the sample message, then the content script of the extension.
+      const sample = README_GIF_SAMPLES[new URLSearchParams(location.search).get("variant") || "en"]
+      document.documentElement.lang = sample.messageLang
+      for (const { text } of sample.paragraphs) {
+        const p = document.createElement("p")
+        text.split("\n").forEach((line, i) => {
+          if (i > 0) p.append(document.createElement("br"))
+          p.append(line)
+        })
+        document.body.append(p)
+      }
+      const script = document.createElement("script")
+      script.src = "/content.js"
+      document.body.append(script)
+    </script>
+  </body>
+</html>

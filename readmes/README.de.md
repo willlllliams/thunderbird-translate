@@ -4,6 +4,8 @@ Multi-Übersetzer für Thunderbird ist eine Erweiterung für Thunderbird, die de
 
 [English](../README.md) | [简体中文](README.zh-CN.md) | [繁體中文](README.zh-TW.md) | [日本語](README.ja.md) | [한국어](README.ko.md) | [Français](README.fr.md) | Deutsch | [Español](README.es.md) | [Português (Brasil)](README.pt-BR.md) | [Русский](README.ru.md) | [Türkçe](README.tr.md) | [Tiếng Việt](README.vi.md)
 
+![Wörterbuch, maschinelle Übersetzung und KI-Übersetzung erscheinen nacheinander](../docs/media/tiers-en.gif)
+
 ## Inhalt
 
 - [Funktionen](#funktionen)

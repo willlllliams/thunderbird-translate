@@ -1,0 +1,244 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>README animation</title>
+    <style>
+      html,
+      body {
+        margin: 0;
+        height: 100%;
+        background: #fff;
+        font: 14px/1.4 "Segoe UI", system-ui, sans-serif;
+        color: #1f2328;
+      }
+      .stage {
+        position: absolute;
+        inset: 0;
+        display: flex;
+        flex-direction: column;
+      }
+      .caption {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        height: 44px;
+        padding: 0 18px;
+        background: #eef3fc;
+        border-bottom: 1px solid #d5def0;
+        font-size: 14px;
+        white-space: nowrap;
+      }
+      .pill {
+        padding: 3px 10px;
+        border: 1px solid #b9c7e4;
+        border-radius: 999px;
+        background: #fff;
+        color: #4b5563;
+      }
+      .pill.now {
+        border-color: #3b78e7;
+        background: #3b78e7;
+        color: #fff;
+        font-weight: 600;
+      }
+      .pill.past {
+        color: #8a94a3;
+        border-color: #d5dbe5;
+        background: #f6f8fb;
+      }
+      .arrow {
+        color: #9aa5b8;
+      }
+      .say {
+        margin-left: 10px;
+        color: #1f3b6e;
+        font-weight: 600;
+      }
+      .header {
+        padding: 12px 24px 10px;
+        border-bottom: 1px solid #d8dbe0;
+        background: #f7f8fa;
+        position: relative;
+      }
+      .subject {
+        font-size: 18px;
+        font-weight: 600;
+        margin-bottom: 4px;
+      }
+      .line {
+        color: #4b5563;
+        font-size: 13px;
+      }
+      .line b {
+        display: inline-block;
+        min-width: 52px;
+        font-weight: 600;
+        color: #6b7280;
+      }
+      .toolbar {
+        position: absolute;
+        right: 18px;
+        top: 12px;
+        display: flex;
+        gap: 6px;
+      }
+      .toolbar span {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        padding: 4px 10px;
+        border: 1px solid #d0d4da;
+        border-radius: 6px;
+        background: #fff;
+        color: #374151;
+        font-size: 13px;
+      }
+      .toolbar span.on {
+        border-color: #4c8bf5;
+        box-shadow: 0 0 0 2px color-mix(in srgb, #4c8bf5 25%, transparent);
+      }
+      .toolbar img {
+        width: 16px;
+        height: 16px;
+      }
+      iframe.body {
+        flex: 1;
+        border: 0;
+        width: 100%;
+      }
+      iframe.popup {
+        position: absolute;
+        right: 18px;
+        top: 86px;
+        width: 330px;
+        height: 520px;
+        border: 1px solid #c9ced6;
+        border-radius: 8px;
+        background: #fff;
+        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.18);
+      }
+      .mark {
+        position: absolute;
+        border: 2px solid #3b78e7;
+        border-radius: 8px;
+        box-shadow: 0 0 0 4px color-mix(in srgb, #3b78e7 18%, transparent);
+        pointer-events: none;
+      }
+      [hidden] {
+        display: none !important;
+      }
+    </style>
+    <script src="/__gif/samples.js"></script>
+  </head>
+  <body>
+    <div class="stage">
+      <div class="caption"><span class="pill" id="pill-dictionary"></span><span class="arrow">→</span><span class="pill" id="pill-machine"></span><span class="arrow">→</span><span class="pill" id="pill-ai"></span><span class="say" id="say"></span></div>
+      <div class="header">
+        <div class="subject" id="subject"></div>
+        <div class="line"><b id="labelFrom"></b> <span id="from"></span></div>
+        <div class="line"><b id="labelDate"></b> <span id="date"></span></div>
+        <div class="toolbar"><span id="reply"></span><span id="forward"></span><span id="button"><img src="/icons/icon-16.svg" alt="" /><span id="action" style="all: unset"></span></span></div>
+      </div>
+      <iframe class="body" id="body"></iframe>
+    </div>
+    <iframe class="popup" id="popup"></iframe>
+    <div class="mark" id="mark" hidden></div>
+    <script>
+      const variant = new URLSearchParams(location.search).get("variant") || "en"
+      const sample = README_GIF_SAMPLES[variant]
+      const $ = (id) => document.getElementById(id)
+      const TIERS = ["dictionary", "machine", "ai"]
+      const NAME_KEYS = { dictionary: "tierDictionary", machine: "tierMachine", ai: "tierAi" }
+
+      // The timeline in seconds: the popup with the three tiers, then the answers of the tiers; the machine and AI
+      // answers reach the paragraphs one after another, STAGGER apart; the last state stays until the loop restarts.
+      const START = 1.6
+      const MACHINE = 3.0
+      const AI = 5.2
+      const STAGGER = 0.2
+      const DURATION = 9.0
+
+      document.documentElement.lang = sample.targetLang
+      for (const key of ["subject", "from", "date", "labelFrom", "labelDate", "reply", "forward"]) $(key).textContent = sample.header[key]
+      $("body").src = `/__gif/body.html?variant=${variant}`
+      $("popup").src = `/popup.html?variant=${variant}`
+
+      let messages = null
+      const t = (key, ...args) => messages[key].replace(/\$(\d)/g, (_, n) => String(args[n - 1]))
+      fetch(`/__locales/${sample.locale}.json`)
+        .then((r) => r.json())
+        .then((m) => {
+          messages = m
+          $("action").textContent = t("actionTitle")
+          TIERS.forEach((tier, i) => ($(`pill-${tier}`).textContent = t("tierLabel", i + 1, t(NAME_KEYS[tier]))))
+        })
+
+      const popupDoc = () => $("popup").contentDocument
+      const bodyDoc = () => $("body").contentDocument
+      /** The service of a tier as the popup names it. */
+      const service = (tier) => popupDoc().getElementById(`tier-${tier}`).selectedOptions[0].textContent.trim()
+
+      /** The tier whose answer a paragraph shows at time `s`, or null before the translation starts. */
+      function shown(i, s) {
+        if (s >= AI + i * STAGGER) return "ai"
+        if (s >= MACHINE + i * STAGGER) return "machine"
+        if (s >= START) return "dictionary"
+        return null
+      }
+
+      window.stage = {
+        duration: DURATION,
+        /** Whether the extension's pages have loaded and drawn what the first frame needs. */
+        ready() {
+          const popup = popupDoc()
+          const tiersFilled = TIERS.every((tier) => popup?.getElementById(`tier-${tier}`)?.selectedOptions[0])
+          const status = popup?.getElementById("status")?.textContent.trim()
+          return Boolean(messages && tiersFilled && status && $("body").contentWindow.__gif?.connected)
+        },
+        /** Put the stage in its state at time `s`; the stage only moves forward. */
+        at(s) {
+          const phase = s < START ? "intro" : s < MACHINE ? "dictionary" : s < AI ? "machine" : "ai"
+          const intro = phase === "intro"
+          $("popup").hidden = !intro
+          $("button").classList.toggle("on", intro)
+          TIERS.forEach((tier, i) => {
+            const pill = $(`pill-${tier}`)
+            const at = TIERS.indexOf(phase)
+            pill.classList.toggle("now", i === at)
+            pill.classList.toggle("past", at >= 0 && i < at)
+          })
+          $("say").textContent = intro ? sample.captions.intro : sample.captions[phase].replace("$1", service(phase))
+          // The three tiers of the popup, marked.
+          const mark = $("mark")
+          mark.hidden = !intro
+          if (intro) {
+            const field = popupDoc().getElementById("tier-dictionary").closest(".field")
+            const box = field.getBoundingClientRect()
+            const frame = $("popup").getBoundingClientRect()
+            const pad = 6
+            Object.assign(mark.style, { left: `${frame.left + 1 + box.left - pad}px`, top: `${frame.top + 1 + box.top - pad}px`, width: `${box.width + 2 * pad}px`, height: `${box.height + 2 * pad}px` })
+          }
+          const gif = $("body").contentWindow.__gif
+          if (s >= START) gif.start()
+          sample.paragraphs.forEach((_, i) => {
+            const tier = shown(i, s)
+            for (const lower of TIERS.slice(0, tier ? TIERS.indexOf(tier) + 1 : 0)) gif.release(lower, i)
+          })
+        },
+        /** Whether every paragraph shows the answer the time `s` asks for. */
+        settled(s) {
+          const ps = bodyDoc().querySelectorAll("body > p")
+          return sample.paragraphs.every((p, i) => {
+            const tier = shown(i, s)
+            const node = ps[i].querySelector(".tt-translation")
+            if (!tier) return !node && !ps[i].querySelector(".tt-status")
+            if (!node || !node.textContent.startsWith(p[tier])) return false
+            const tag = node.querySelector(".tt-tag")
+            return tier === "ai" ? !node.classList.contains("tt-provisional") && !tag : node.classList.contains("tt-provisional") && tag?.textContent === t(NAME_KEYS[tier])
+          })
+        },
+      }
+    </script>
+  </body>
+</html>

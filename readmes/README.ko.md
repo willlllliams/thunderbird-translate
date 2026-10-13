@@ -4,6 +4,8 @@
 
 [English](../README.md) | [简体中文](README.zh-CN.md) | [繁體中文](README.zh-TW.md) | [日本語](README.ja.md) | 한국어 | [Français](README.fr.md) | [Deutsch](README.de.md) | [Español](README.es.md) | [Português (Brasil)](README.pt-BR.md) | [Русский](README.ru.md) | [Türkçe](README.tr.md) | [Tiếng Việt](README.vi.md)
 
+![사전, 기계 번역, AI 번역이 차례로 표시된다](../docs/media/tiers-en.gif)
+
 ## 목차
 
 - [기능](#기능)
