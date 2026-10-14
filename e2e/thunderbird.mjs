@@ -53,12 +53,58 @@ const PREFS = {
   "browser.dom.window.dump.enabled": true,
 }
 
-/** A fresh profile holding the xpi as extensions/<id>.xpi. */
-export function createProfile(xpi, extensionId) {
+/** The account "Local Folders", whose folders are the mbox files in Mail/Local Folders/ of the profile. */
+const LOCAL_FOLDERS = {
+  "mail.accountmanager.accounts": "account1",
+  "mail.accountmanager.localfoldersserver": "server1",
+  "mail.account.account1.server": "server1",
+  "mail.server.server1.type": "none",
+  "mail.server.server1.hostname": "Local Folders",
+  "mail.server.server1.name": "Local Folders",
+  "mail.server.server1.userName": "nobody",
+  "mail.server.server1.directory-rel": "[ProfD]Mail/Local Folders",
+  "mail.server.server1.storeContractID": "@mozilla.org/msgstore/berkeleystore;1",
+  // The table view of the message list, which shows the columns of add-ons (the cards view does not).
+  "mail.threadpane.listview": 1,
+}
+
+/** A header value: ASCII as it is, anything else as an RFC 2047 encoded word. */
+const headerText = (text) => (/^[\x20-\x7e]*$/.test(text) ? text : `=?UTF-8?B?${Buffer.from(text, "utf8").toString("base64")}?=`)
+
+/** An mbox file of plain-text messages: { from, subject, date, body } each. */
+export function mbox(messages) {
+  return messages
+    .map(({ from, subject, date, body }, i) => {
+      const headers = [
+        `From: ${headerText(from)}`,
+        "To: Bob Stone <bob@example.com>",
+        `Subject: ${headerText(subject)}`,
+        `Date: ${new Date(date).toUTCString().replace("GMT", "+0000")}`,
+        `Message-ID: <tt-e2e-folder-${i}-${Date.parse(date)}@example.com>`,
+        "MIME-Version: 1.0",
+        "Content-Type: text/plain; charset=UTF-8",
+        "Content-Transfer-Encoding: 8bit",
+      ]
+      return `From - ${new Date(date).toUTCString()}\n${headers.join("\n")}\n\n${body}\n\n`
+    })
+    .join("")
+}
+
+/**
+ * A fresh profile holding the xpi as extensions/<id>.xpi. With `folders` ({ name: mbox text }), the profile has the
+ * account "Local Folders" with these folders, and the message list shows the table view.
+ */
+export function createProfile(xpi, extensionId, { folders } = {}) {
   const dir = mkdtempSync(join(tmpdir(), "tt-e2e-profile-"))
   mkdirSync(join(dir, "extensions"))
   writeFileSync(join(dir, "extensions", `${extensionId}.xpi`), xpi)
-  writeFileSync(join(dir, "user.js"), Object.entries(PREFS).map(([k, v]) => `user_pref(${JSON.stringify(k)}, ${JSON.stringify(v)});`).join("\n") + "\n")
+  const prefs = { ...PREFS, ...(folders ? LOCAL_FOLDERS : {}) }
+  writeFileSync(join(dir, "user.js"), Object.entries(prefs).map(([k, v]) => `user_pref(${JSON.stringify(k)}, ${JSON.stringify(v)});`).join("\n") + "\n")
+  if (folders) {
+    const local = join(dir, "Mail", "Local Folders")
+    mkdirSync(local, { recursive: true })
+    for (const [name, text] of Object.entries(folders)) writeFileSync(join(local, name), text)
+  }
   return dir
 }
 

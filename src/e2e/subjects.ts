@@ -3,7 +3,7 @@
  * into the e2e build (see src/e2e/background.ts, scenario "subjects").
  *
  * The background script shows the local folder "Foreign" in the mail tab
- * and opens the page with ?tab=<mail tab>&e2e=subjects. No online service is
+ * and opens the page in a window of its own with ?tab=<mail tab>&e2e=subjects. No online service is
  * allowed yet, so the page first shows the consent panel; the probe waits,
  * checks that nothing was translated, and clicks "Allow and translate".
  * Then it waits until every subject not in the target language has its final
@@ -14,6 +14,7 @@
  */
 
 import { ext, type MessageList } from "../shared/ext"
+import { t } from "../shared/i18n"
 import type { SubjectsProbeParts } from "../hooks/subjects"
 import type { E2eMessage } from "./background"
 import { E2E_MARKER } from "./marker"
@@ -54,14 +55,16 @@ function rows() {
   })
 }
 
-/** Every row is translated by the AI tier, except those in the target language. */
-const allFinal = () => {
+/** `count` rows show the final translation of the AI tier, and no row is still loading or provisional. */
+const allFinal = (count: number) => () => {
   const shown = rows()
-  return shown.length > 0 && shown.every((r) => !r.loading && (r.translation === null || (r.mark === null && r.translation.startsWith("[AI "))))
+  const final = shown.filter((r) => r.mark === null && r.translation?.startsWith("[AI "))
+  return final.length === count && shown.every((r) => !r.loading && r.mark === null)
 }
 
 export async function runSubjectsProbe({ client, tabId }: SubjectsProbeParts): Promise<void> {
   const report: Record<string, unknown> = { hook: E2E_MARKER, tabId }
+  void ext.runtime.sendMessage({ e2e: "log", message: `page of translated subjects on ${location.href}` } satisfies E2eMessage)
   try {
     if (tabId === undefined) throw new Error("the page has no mail tab")
     await until("the consent panel", () => document.querySelector(".tt-consent") !== null)
@@ -69,14 +72,15 @@ export async function runSubjectsProbe({ client, tabId }: SubjectsProbeParts): P
     await sleep(1500)
     const panel = document.querySelector<HTMLElement>(".tt-consent")!
     report.panel = {
-      title: panel.querySelector("strong")?.textContent,
+      titleOfSubjects: panel.querySelector("strong")?.textContent === t("consentSubjectsTitle"),
       services: Array.from(panel.querySelectorAll("li"), (li) => li.textContent),
       buttons: Array.from(panel.querySelectorAll("button"), (b) => b.textContent),
     }
     report.beforeAllow = { translations: document.querySelectorAll(".tt-translation").length, rows: rows().length }
     report.allowedAt = Date.now()
     panel.querySelector<HTMLButtonElement>("button")!.click()
-    await until("the final translations of the folder Foreign", allFinal)
+    // Six subjects, one of them in the target language.
+    await until("the final translations of the folder Foreign", allFinal(5))
     report.first = { rows: rows(), status: document.getElementById("status")?.textContent, active: client.controller.active }
 
     // A click selects the message in the mail tab.
@@ -94,8 +98,21 @@ export async function runSubjectsProbe({ client, tabId }: SubjectsProbeParts): P
     // Another folder in the mail tab: the page lists and translates its messages.
     const [second] = await api().folders.query({ name: "Second" })
     if (!second) throw new Error("no folder Second")
-    await api().mailTabs.update(tabId, { displayedFolder: second })
-    await until("the subjects of the folder Second", () => rows().length === 2 && allFinal())
+    // Thunderbird reads the new mbox file of the folder when it first shows it, and may fail the first attempt.
+    const until2 = performance.now() + TIMEOUT_MS
+    const attempts: string[] = []
+    for (;;) {
+      try {
+        await api().mailTabs.update(tabId, { displayedFolder: second })
+        break
+      } catch (error) {
+        attempts.push(String(error))
+        if (performance.now() > until2) throw new Error(`mailTabs.update: ${attempts.join("; ")}`)
+        await sleep(500)
+      }
+    }
+    report.folderAttempts = attempts.length
+    await until("the subjects of the folder Second", () => rows().length === 2 && allFinal(2)())
     report.second = { rows: rows() }
   } catch (error) {
     report.error = error instanceof Error ? `${error.message}\n${error.stack}` : String(error)

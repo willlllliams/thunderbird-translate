@@ -21,6 +21,10 @@
  * - "missing": the two offline services without any pack or model, so the
  *   content script's probe sees the notice about missing data; it can switch
  *   to Google without the dictionary ({ e2e: "settings", useGoogle }).
+ * - "subjects": the three tiers with no online service allowed yet, on a
+ *   profile with the local folders "Foreign" and "Second"; the hook shows
+ *   "Foreign" in the mail tab and opens the page of translated subjects for
+ *   that tab, whose probe (src/e2e/subjects.ts) runs the test.
  * Every ready report says whether i18n.getPreferredSystemLanguages() exists.
  */
 
@@ -83,6 +87,54 @@ function probeBergamotWorker(): Promise<string> {
   })
 }
 
+/** The mail APIs the "subjects" scenario uses besides those of the extension. */
+interface MailApi {
+  mailTabs: {
+    query(info: object): Promise<{ id: number }[]>
+    update(tabId: number, properties: { displayedFolder: unknown }): Promise<unknown>
+    getListedMessages(tabId: number): Promise<{ id: string | null; messages: unknown[] }>
+  }
+  folders: { query(info: { name: string }): Promise<unknown[]> }
+  messages: { abortList(id: string): Promise<void> }
+}
+
+/**
+ * Show the local folder `name` in the first mail tab and wait until its message list holds `count` messages:
+ * Thunderbird reads a new mbox file into its index when the folder is first shown. Resolves with the id of the tab.
+ */
+async function showFolder(name: string, count: number): Promise<number> {
+  const api = browser as unknown as MailApi
+  const deadline = Date.now() + 60_000
+  /** The result of `call`, or its error with the name of the step. */
+  const step = async <T>(what: string, call: () => Promise<T>): Promise<T> => {
+    try {
+      return await call()
+    } catch (error) {
+      throw new Error(`${what}: ${error instanceof Error ? error.message : error}`)
+    }
+  }
+  // The main window may still be loading when the background script starts: try again until it answers.
+  let last = ""
+  for (;;) {
+    try {
+      const [tab] = await step("mailTabs.query", () => api.mailTabs.query({}))
+      const [folder] = await step("folders.query", () => api.folders.query({ name }))
+      last = `tab ${tab?.id}, folder ${JSON.stringify(folder)}`
+      if (tab && folder) {
+        await step("mailTabs.update", () => api.mailTabs.update(tab.id, { displayedFolder: folder }))
+        const list = await step("mailTabs.getListedMessages", () => api.mailTabs.getListedMessages(tab.id))
+        if (list.id !== null) await api.messages.abortList(list.id)
+        last = `${last}, ${list.messages.length} messages`
+        if (list.messages.length === count) return tab.id
+      }
+    } catch (error) {
+      last = String(error)
+    }
+    if (Date.now() > deadline) throw new Error(`the folder ${name} does not list ${count} messages: ${last}`)
+    await new Promise((r) => setTimeout(r, 500))
+  }
+}
+
 /** Remove every installed pack, so that the setup guide has packs to download. */
 async function uninstallDictionary(dictionary: DictionaryManager): Promise<void> {
   for (const key of await dictionary.installedKeys()) {
@@ -134,8 +186,8 @@ export async function setUpE2e({ storage, dictionary, runCommand }: E2eDeps): Pr
     settings.providers.custom = { enabled: true, apiKey: "e2e-test-key", baseURL: `${__E2E_SERVER__}/v1`, model: "e2e-model" }
     settings.providers.dictionary = { ...settings.providers.dictionary, enabled: true }
     if (offline) settings.providers.bergamot = { ...settings.providers.bergamot, enabled: true }
-    // The user allowed Google and the AI service in the consent panel of an earlier message; the "consent" run starts without.
-    settings.onlineConsent = scenario === "consent" ? [] : ["google-free", "custom"]
+    // The user allowed Google and the AI service in the consent panel of an earlier message; the "consent" and "subjects" runs start without.
+    settings.onlineConsent = scenario === "consent" || scenario === "subjects" ? [] : ["google-free", "custom"]
     // The earlier runs share the profile: Google and the AI service have to answer this run themselves, not the cache.
     if (scenario === "missing" || scenario.startsWith("auto") || scenario === "consent") settings.cache.enabled = false
     await storage.set(SETTINGS_KEY, settings)
@@ -149,6 +201,15 @@ export async function setUpE2e({ storage, dictionary, runCommand }: E2eDeps): Pr
     }
     if (offline) {
       await post("/ready", { scenario, systemLanguagesApi, version: ext.runtime.getManifest().version })
+      return
+    }
+    if (scenario === "subjects") {
+      const packs = await installDictionary(dictionary)
+      const tabId = await showFolder("Foreign", 6)
+      await post("/ready", { scenario, packs, tabId, systemLanguagesApi, version: ext.runtime.getManifest().version })
+      // In a window of its own, as "Open in a window" opens it: the mail tab stays the active tab of the main window.
+      const url = ext.runtime.getURL(`subjects.html?tab=${tabId}&${WELCOME_PROBE_PARAM}=subjects`)
+      ext.windows.create({ type: "popup", url, width: 960, height: 640 }).catch((error) => post("/log", { message: `cannot open the page of translated subjects: ${error}` }))
       return
     }
     const packs = await installDictionary(dictionary)

@@ -20,7 +20,12 @@
 // 6. The "consent" run opens the HTML message with no online service allowed:
 //    the consent panel appears, nothing reaches the mock server before
 //    "Allow and translate", and the message is translated after it.
-// 7. Two Thunderbirds started without a message open the setup guide
+// 7. The "subjects" run starts on a profile with the local folders "Foreign"
+//    and "Second": the page of translated subjects lists the folder shown in
+//    the mail tab, asks before the subjects go to Google and the AI service,
+//    translates them, selects a clicked message in the mail tab and follows
+//    the mail tab to the other folder.
+// 8. Two Thunderbirds started without a message open the setup guide
 //    (src/welcome/), where the probe of src/e2e/welcome.ts skips the tour of the
 //    tiers step and watches its demo (first run only), then clicks through to the
 //    offline step and downloads dictionary packs and Bergamot models from the
@@ -35,12 +40,31 @@ import { mkdirSync, readFileSync } from "node:fs"
 import { dirname, join } from "node:path"
 import { fileURLToPath } from "node:url"
 import { startMockServer } from "./mock-server.mjs"
-import { createProfile, findThunderbird, launch, removeProfile, stop, thunderbirdVersion } from "./thunderbird.mjs"
+import { createProfile, findThunderbird, launch, mbox, removeProfile, stop, thunderbirdVersion } from "./thunderbird.mjs"
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..")
 const fixtures = join(root, "e2e", "fixtures")
 const work = join(root, ".cache", "e2e")
 const STEP_TIMEOUT_MS = Number(process.env.E2E_TIMEOUT_MS) || 180_000
+
+/** The subjects of the fixture messages, which the line above the body translates. */
+const SUBJECTS = { "html.eml": "Quarterly report and the client meeting", "plain.eml": "The meeting has been moved" }
+
+/** The local folders of the "subjects" run: foreign subjects, one in the target language (Simplified Chinese), one with a forward prefix. */
+const FOLDERS = {
+  Foreign: [
+    { from: "Anna Schmidt <anna@example.de>", subject: "Angebot für die neue Druckmaschine", date: "2026-10-01T08:00:00Z", body: "Guten Tag, anbei unser Angebot." },
+    { from: "Claire Martin <claire@example.fr>", subject: "Réunion de lundi reportée à mardi", date: "2026-10-02T08:00:00Z", body: "Bonjour, la réunion est reportée." },
+    { from: "Diego López <diego@example.es>", subject: "Factura del mes de septiembre", date: "2026-10-03T08:00:00Z", body: "Hola, adjunto la factura." },
+    { from: "Li Wei <li.wei@example.com>", subject: "下周的会议安排", date: "2026-10-04T08:00:00Z", body: "你好，这是下周的安排。" },
+    { from: "Alice Walker <alice@example.com>", subject: "Fwd: Quarterly report and the client meeting", date: "2026-10-05T08:00:00Z", body: "Please see below." },
+    { from: "Sato Hanako <hanako@example.jp>", subject: "来週の打ち合わせについて", date: "2026-10-06T08:00:00Z", body: "お疲れさまです。" },
+  ],
+  Second: [
+    { from: "Anna Schmidt <anna@example.de>", subject: "Neue Preise ab Januar", date: "2026-10-07T08:00:00Z", body: "Guten Tag." },
+    { from: "Claire Martin <claire@example.fr>", subject: "Invitation au séminaire de novembre", date: "2026-10-08T08:00:00Z", body: "Bonjour." },
+  ],
+}
 
 /** The fixture messages and the paragraphs the extension must find in them. */
 const CASES = [
@@ -62,6 +86,8 @@ const SCENARIOS = [
   { name: "missing", eml: "html.eml", scenario: "missing", paragraphs: 7 },
   // No online service allowed yet: the consent panel, no request before "Allow and translate", the translation after it.
   { name: "consent", eml: "html.eml", scenario: "consent", paragraphs: 7 },
+  // The page of translated subjects on a profile with local folders.
+  { name: "subjects", scenario: "subjects", profile: "folders" },
   { name: "welcome", scenario: "welcome" },
   { name: "welcome-auto", scenario: "welcome-auto" },
 ]
@@ -87,21 +113,27 @@ function check(c, ready, report, calls) {
     return failures
   }
   const original = words(report.originalText ?? "")
+  // The paragraphs and the line with the subject.
+  const units = c.paragraphs + 1
+  const subject = SUBJECTS[c.eml]
 
   // Paragraphs and the final AI translations in bilingual mode.
   const translated = report.translated
-  expect(translated?.state?.total === c.paragraphs, `expected ${c.paragraphs} paragraphs`, translated?.state)
-  expect(translated?.state?.done === c.paragraphs && translated.state.failed === 0, "not every paragraph has the AI translation", translated?.state)
+  expect(translated?.state?.total === units, `expected ${c.paragraphs} paragraphs and the subject`, translated?.state)
+  expect(translated?.state?.done === units && translated.state.failed === 0, "not every paragraph has the AI translation", translated?.state)
   expect(translated?.shown?.length === c.paragraphs, `expected ${c.paragraphs} translations on screen`, translated?.shown?.length)
   for (const s of translated?.shown ?? []) {
     const ok = s.mode === "bilingual" && s.mark === null && s.text.startsWith("[AI bilingual] ") && original.includes(words(s.text.slice(15)).slice(0, 40))
     expect(ok, "final bilingual translation is not the AI translation of a paragraph", s)
   }
+  // The subject in a line above the body, with its AI translation under it.
+  const line = translated?.subject
+  expect(line?.first === true && line.mode === "bilingual" && line.mark === null && line.translation === `[AI bilingual] ${subject}` && line.text.startsWith(subject), "the subject line above the body does not show the subject and its AI translation", line)
 
   // Tier order per paragraph request: dictionary, then Google, then AI.
   const first = report.events.filter((e) => e.phase === "translate")
   const byRequest = Map.groupBy(first, (e) => e.id)
-  expect(byRequest.size === c.paragraphs, `expected ${c.paragraphs} paragraph requests`, byRequest.size)
+  expect(byRequest.size === units, `expected ${units} requests, one per paragraph and the subject`, byRequest.size)
   for (const [id, events] of byRequest) {
     const order = events.map((e) => e.tier)
     expect(JSON.stringify(order) === JSON.stringify(TIER_ORDER), `request ${id}: tiers arrived as ${order.join(", ")}`)
@@ -115,12 +147,14 @@ function check(c, ready, report, calls) {
 
   // Translation-only: only the AI tier is requested again, with the translation-only prompt.
   const second = report.events.filter((e) => e.phase === "mode")
-  expect(second.length === c.paragraphs && second.every((e) => e.tier === "ai" && e.ok), "after the mode switch only the AI tier must answer, once per paragraph", second.map((e) => `${e.tier}:${e.ok}`))
+  expect(second.length === units && second.every((e) => e.tier === "ai" && e.ok), "after the mode switch only the AI tier must answer, once per paragraph and for the subject", second.map((e) => `${e.tier}:${e.ok}`))
   const only = report.translationOnly
   expect(only?.shown?.length === c.paragraphs, "translation-only: wrong number of translations", only?.shown?.length)
   for (const s of only?.shown ?? []) {
     expect(s.mode === "only" && s.mark === null && s.text.startsWith("[AI translation-only] "), "translation-only shows something other than the AI translation", s)
   }
+  const onlyLine = only?.subject
+  expect(onlyLine?.mode === "only" && onlyLine.translation === `[AI translation-only] ${subject}` && onlyLine.text === onlyLine.translation, "translation-only: the subject line shows something other than the translation alone", onlyLine)
 
   // Requests the mock server saw, split at the mode switch and at the retranslation.
   const switchAt = calls.findIndex((x) => x.type === "mark" && x.command === "toggle-display-mode")
@@ -147,12 +181,13 @@ function check(c, ready, report, calls) {
   const cachedAt = calls.findLastIndex((x, i) => i < retranslateAt && x.type === "mark" && x.command === "toggle-translation")
   expect(cachedAt > switchAt && !calls.slice(cachedAt, retranslateAt).some((x) => x.type === "google" || x.type === "ai"), "translating again requested a service", calls.slice(cachedAt, retranslateAt))
   expect(report.events.every((e) => e.phase !== "cached"), "translating again asked the background", report.events.filter((e) => e.phase === "cached"))
-  expect(report.cached?.state?.done === c.paragraphs && report.cached.shown?.every((s) => s.mode === "only" && s.text.startsWith("[AI translation-only] ")), "translating again does not show the remembered AI translations", report.cached)
+  expect(report.cached?.state?.done === units && report.cached.shown?.every((s) => s.mode === "only" && s.text.startsWith("[AI translation-only] ")), "translating again does not show the remembered AI translations", report.cached)
+  expect(report.cached?.subject?.translation === `[AI translation-only] ${subject}`, "translating again does not show the remembered translation of the subject", report.cached?.subject)
 
   // Retranslation: every tier answers again for every paragraph, in tier order, with provisional results on the way.
   const third = report.events.filter((e) => e.phase === "retranslate")
   const thirdByRequest = Map.groupBy(third, (e) => e.id)
-  expect(thirdByRequest.size === c.paragraphs, `retranslation: expected ${c.paragraphs} paragraph requests`, thirdByRequest.size)
+  expect(thirdByRequest.size === units, `retranslation: expected ${units} requests`, thirdByRequest.size)
   for (const [id, events] of thirdByRequest) {
     expect(JSON.stringify(events.map((e) => e.tier)) === JSON.stringify(TIER_ORDER) && events.every((e) => e.ok), `retranslation request ${id}: tiers arrived as ${events.map((e) => `${e.tier}:${e.ok}`).join(", ")}`)
   }
@@ -160,10 +195,11 @@ function check(c, ready, report, calls) {
   expect(retranslated.some((x) => x.type === "google"), "retranslation: Google was not requested again", retranslated)
   expect(ai(retranslated).length > 0 && ai(retranslated).every((x) => x.mode === "translation-only"), "retranslation: AI requests must use the translation-only prompt of the current mode", ai(retranslated))
   const again = report.retranslated
-  expect(again?.state?.done === c.paragraphs && again.state.failed === 0 && again.shown?.length === c.paragraphs, "retranslation: not every paragraph has the AI translation", again?.state)
+  expect(again?.state?.done === units && again.state.failed === 0 && again.shown?.length === c.paragraphs, "retranslation: not every paragraph has the AI translation", again?.state)
   for (const s of again?.shown ?? []) {
     expect(s.mode === "only" && s.mark === null && /^\[AI translation-only #\d+\] /.test(s.text), "retranslation shows something other than the new AI translation", s)
   }
+  expect(/^\[AI translation-only #\d+\] /.test(again?.subject?.translation ?? ""), "retranslation: the subject line shows something other than the new AI translation", again?.subject)
   return failures
 }
 
@@ -177,14 +213,16 @@ function checkAuto(c, ready, report, calls) {
   if (report.error) return [...failures, `content script: ${report.error}`]
   const translated = report.translated
   expect(translated?.active === true, "the message is not translated", translated)
-  expect(translated?.state?.total === c.paragraphs && translated.state.done === c.paragraphs && translated.state.failed === 0, `expected ${c.paragraphs} translated paragraphs`, translated?.state)
+  const units = c.paragraphs + 1
+  expect(translated?.state?.total === units && translated.state.done === units && translated.state.failed === 0, `expected ${c.paragraphs} translated paragraphs and the subject`, translated?.state)
+  expect(translated?.subject?.translation === `[AI bilingual] ${SUBJECTS[c.eml]}`, "automatic translation did not translate the subject", translated?.subject)
   expect(translated?.shown?.length === c.paragraphs, `expected ${c.paragraphs} translations on screen`, translated?.shown?.length)
   for (const s of translated?.shown ?? []) {
     expect(s.mode === "bilingual" && s.mark === null && s.text.startsWith("[AI bilingual] "), "final translation is not the AI translation", s)
   }
   // Every paragraph went through the three tiers in order: nothing came from the cache.
   const byRequest = Map.groupBy(report.events, (e) => e.id)
-  expect(byRequest.size === c.paragraphs, `expected ${c.paragraphs} paragraph requests`, byRequest.size)
+  expect(byRequest.size === units, `expected ${units} requests`, byRequest.size)
   for (const [id, events] of byRequest) {
     expect(JSON.stringify(events.map((e) => e.tier)) === JSON.stringify(TIER_ORDER) && events.every((e) => e.ok), `request ${id}: tiers arrived as ${events.map((e) => `${e.tier}:${e.ok}`).join(", ")}`)
   }
@@ -230,9 +268,42 @@ function checkConsent(c, ready, report, calls) {
   expect(early.length === 0, "a service was requested before the consent", early)
   expect(online.some((x) => x.type === "google") && online.some((x) => x.type === "ai"), "Google and the AI service were not both requested after the consent", online)
   const translated = report.translated
-  expect(translated?.active === true && translated.state?.done === c.paragraphs && translated.state.failed === 0, `expected ${c.paragraphs} translated paragraphs after the consent`, translated?.state)
+  expect(translated?.active === true && translated.state?.done === c.paragraphs + 1 && translated.state.failed === 0, `expected ${c.paragraphs} translated paragraphs and the subject after the consent`, translated?.state)
   expect(translated?.panelLeft === false, "the consent panel stayed on screen")
   for (const s of translated?.shown ?? []) expect(s.mark === null && s.text.startsWith("[AI bilingual] "), "final translation is not the AI translation", s)
+  return failures
+}
+
+/** Check the report of the "subjects" run: the page of translated subjects on the local folders; returns the failures. */
+function checkSubjects(ready, report, calls) {
+  const failures = []
+  const expect = (ok, message, detail) => {
+    if (!ok) failures.push(detail === undefined ? message : `${message}: ${JSON.stringify(detail)}`)
+  }
+  expect(!ready.error && ready.scenario === "subjects" && Number.isInteger(ready.tabId), "setup of the subjects scenario failed", ready)
+  if (report.error) return [...failures, `page of translated subjects: ${report.error}`]
+  // Nothing goes out before "Allow and translate"; the panel speaks of subjects and names both services.
+  const panel = report.panel
+  expect(panel?.titleOfSubjects === true && panel.services?.length === 2 && panel.services[0].startsWith("Google") && panel.services[1].includes("127.0.0.1"), "the consent panel of the page does not name the subjects, Google and the AI service", panel)
+  expect(report.beforeAllow?.translations === 0, "a subject was translated before the consent", report.beforeAllow)
+  const online = calls.filter((x) => x.type === "google" || x.type === "ai")
+  expect(!online.some((x) => x.at < report.allowedAt), "a service was requested before the consent", online.filter((x) => x.at < report.allowedAt))
+  // Every subject of "Foreign": the AI translation, without the prefix; the Chinese one left alone.
+  const rows = report.first?.rows ?? []
+  const subjects = FOLDERS.Foreign.map((m) => m.subject)
+  expect(rows.length === subjects.length && subjects.every((s) => rows.some((r) => r.subject === s)), "the page does not list the subjects of the folder Foreign", rows.map((r) => r.subject))
+  for (const row of rows) {
+    const text = row.subject.replace(/^Fwd: /, "")
+    if (row.subject === "下周的会议安排") expect(row.translation === null, "a subject in the target language was translated", row)
+    else expect(row.translation === `[AI bilingual] ${text}` && row.mark === null, "a subject does not show its AI translation", row)
+  }
+  // Few requests: the subjects are batched.
+  const ai = online.filter((x) => x.type === "ai")
+  expect(ai.length > 0 && ai.length < rows.length - 1, "the subjects were not batched into fewer AI requests than subjects", ai)
+  expect(report.selected?.selected?.length === 1 && report.selected.selected[0] === report.selected.clicked && report.selected.marked === true, "a click did not select the message of the row in the mail tab", report.selected)
+  const second = report.second?.rows ?? []
+  expect(JSON.stringify(second.map((r) => r.subject).sort()) === JSON.stringify(FOLDERS.Second.map((m) => m.subject).sort()), "the page did not follow the mail tab to the folder Second", second)
+  for (const row of second) expect(row.translation === `[AI bilingual] ${row.subject}`, "a subject of the folder Second does not show its AI translation", row)
   return failures
 }
 
@@ -248,7 +319,8 @@ function checkMissing(c, ready, report, calls) {
 
   // Both offline tiers lack en -> zh-Hans: one notice above the message with a line for each; every paragraph is failed.
   const first = report.first
-  expect(first?.state?.total === c.paragraphs && first.state.failed === c.paragraphs, `expected ${c.paragraphs} failed paragraphs`, first?.state)
+  const units = c.paragraphs + 1
+  expect(first?.state?.total === units && first.state.failed === units, `expected ${c.paragraphs} failed paragraphs and a failed subject`, first?.state)
   expect(first?.notice?.lines?.length === 2 && first.notice.first === true, "expected the notice above the message with two lines", first?.notice)
   expect(JSON.stringify(first?.entries) === JSON.stringify(both), "the notice lists the wrong entries", first?.entries)
 
@@ -260,7 +332,7 @@ function checkMissing(c, ready, report, calls) {
   // Google without the dictionary (mutes cleared): no offline tier, no notice, every paragraph translated by Google.
   const google = report.google
   expect(google?.notice === null && google.entries?.length === 0, "a notice or entries with Google and no dictionary", google)
-  expect(google?.state?.done === c.paragraphs && google.state.failed === 0, "not every paragraph has the Google translation", google?.state)
+  expect(google?.state?.done === units && google.state.failed === 0, "not every paragraph has the Google translation", google?.state)
   expect(google?.shown?.every((s) => s.text.startsWith("[G] ")), "a paragraph shows something other than the Google translation", google?.shown?.slice(0, 3))
   expect(calls.some((x) => x.type === "google"), "Google was not requested")
   return failures
@@ -361,8 +433,11 @@ async function main() {
   execFileSync(process.execPath, [join(root, "scripts", "build.mjs"), "--e2e", server.url], { cwd: root, stdio: ["ignore", "ignore", "inherit"] })
   const manifest = JSON.parse(readFileSync(join(work, "dist", "manifest.json"), "utf8"))
   const xpi = readFileSync(join(work, `thunderbird-translate-${manifest.version}-e2e.xpi`))
-  const profile = createProfile(xpi, manifest.browser_specific_settings.gecko.id)
-  console.log(`profile: ${profile}`)
+  const id = manifest.browser_specific_settings.gecko.id
+  // The runs share a profile; the "subjects" run has one of its own with local folders.
+  const profiles = { plain: createProfile(xpi, id) }
+  const profileFor = (name) => (profiles[name] ??= createProfile(xpi, id, { folders: Object.fromEntries(Object.entries(FOLDERS).map(([folder, messages]) => [folder, mbox(messages)])) }))
+  console.log(`profile: ${profiles.plain}`)
 
   // E2E_ONLY=name,name runs some of the runs only.
   const runs = [...CASES, ...SCENARIOS].filter((c) => !process.env.E2E_ONLY || process.env.E2E_ONLY.split(",").includes(c.name))
@@ -374,12 +449,15 @@ async function main() {
       extensionLog.length = 0
       const logFile = join(work, `thunderbird-${c.name}.log`)
       const started = Date.now()
+      const profile = profileFor(c.profile ?? "plain")
       const tb = launch(bin, profile, c.eml && join(fixtures, c.eml), logFile)
       let failures
       try {
         // A Thunderbird that fails to start (missing libraries, crash) ends the wait early.
         const crashed = tb.exited.then((code) => (code ? Promise.reject(new Error(`Thunderbird exited with code ${code}`)) : new Promise(() => {})))
         const ready = await Promise.race([server.next("/ready", STEP_TIMEOUT_MS), crashed])
+        // A failed set-up sends no report: say why at once.
+        if (ready.error) throw new Error(`setup of the run failed: ${ready.error}`)
         const report = await Promise.race([server.next("/report", STEP_TIMEOUT_MS), crashed])
         const systemLanguages = `getPreferredSystemLanguages: ${ready.systemLanguagesApi ? "present" : "missing"}`
         if (c.scenario?.startsWith("welcome")) {
@@ -403,6 +481,11 @@ ${JSON.stringify(report, null, 2)}`)
           if (failures.length) failures.push(`report of the content script:\n${JSON.stringify(report, null, 2)}`)
           const online = server.calls.filter((x) => x.type === "google" || x.type === "ai")
           console.log(`  ${c.name}: panel ${JSON.stringify(report.panel?.services)}; ${online.filter((x) => x.at < report.allowedAt).length} requests before "Allow and translate", ${online.length} after; ${report.translated?.state?.done ?? "?"} paragraphs translated; ${systemLanguages}`)
+        } else if (c.scenario === "subjects") {
+          failures = checkSubjects(ready, report, server.calls)
+          if (failures.length) failures.push(`report of the page:\n${JSON.stringify(report, null, 2)}`)
+          const online = server.calls.filter((x) => x.type === "google" || x.type === "ai")
+          console.log(`  ${c.name}: ${report.first?.rows?.length ?? "?"} subjects of Foreign, then ${report.second?.rows?.length ?? "?"} of Second; ${online.filter((x) => x.type === "google").length} Google and ${online.filter((x) => x.type === "ai").length} AI requests; selected ${JSON.stringify(report.selected?.selected)}`)
         } else if (c.scenario === "missing") {
           failures = checkMissing(c, ready, report, server.calls)
           if (failures.length) failures.push(`report of the content script:\n${JSON.stringify(report, null, 2)}`)
@@ -412,7 +495,7 @@ ${JSON.stringify(report, null, 2)}`)
           if (failures.length) failures.push(`message body as displayed:\n${report.originalHtml}`)
           const firstRequest = report.events?.filter((e) => e.phase === "translate" && e.id === report.events[0].id).map((e) => `${e.tier} ${e.at} ms`)
           const retranslated = report.retranslated?.shown?.[0]?.text?.slice(0, 40)
-          console.log(`  ${c.name}: ${report.translated?.state?.total ?? "?"} paragraphs; first paragraph: ${firstRequest?.join(" → ")}; retranslated: ${retranslated}; Bergamot worker: ${ready.bergamotWorker}; ${systemLanguages}`)
+          console.log(`  ${c.name}: ${report.translated?.state?.total ?? "?"} units; first paragraph: ${firstRequest?.join(" → ")}; subject: ${JSON.stringify(report.translated?.subject?.translation)}; document title: ${JSON.stringify(report.documentTitle)}; retranslated: ${retranslated}; Bergamot worker: ${ready.bergamotWorker}; ${systemLanguages}`)
         }
       } catch (error) {
         failures = [String(error.message ?? error)]
@@ -432,7 +515,7 @@ ${JSON.stringify(report, null, 2)}`)
       }
     }
   } finally {
-    removeProfile(profile)
+    for (const profile of Object.values(profiles)) removeProfile(profile)
     await server.close()
   }
   console.log(failed === 0 ? `e2e: all ${runs.length} runs passed` : `e2e: ${failed} of ${runs.length} runs failed`)
