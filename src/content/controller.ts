@@ -27,6 +27,11 @@
  * has not allowed yet, start() asks through the consent panel (consent.ts)
  * and translates nothing until the user allows it; this holds for automatic
  * translation and retranslation as well.
+ * With the subject switch on, start() also asks for the subject of the
+ * message (the content script cannot see the header) and, unless it is
+ * already in the target language, puts it in a line above the body. That
+ * line is one more unit, translated like a paragraph through the same tiers,
+ * cache and consent rules, and removed by stop().
  */
 
 import { describeError, type MissingData } from "../shared/errors"
@@ -36,7 +41,8 @@ import { createMailContext, type MailContext } from "../shared/mail-context"
 import type { TabState, TranslateRequest, TranslateResponse } from "../shared/messages"
 import { type Tier, TIER_NAME_KEYS, TIERS } from "../shared/providers"
 import type { ConsentNeed, PublicSettings } from "../shared/settings"
-import { type Collected, collectParagraphs, extractText, type Unit } from "./paragraphs"
+import { splitSubject } from "../shared/subject"
+import { CLS_SUBJECT, type Collected, collectParagraphs, extractText, type Unit } from "./paragraphs"
 import { Renderer, type TranslationMark } from "./render"
 import { hasTranslatableText } from "./text"
 
@@ -55,6 +61,8 @@ export interface ControllerDeps {
    * (and recorded by the background script). Without it nothing is asked: the extension pages translate their own sample.
    */
   consent?: { ask(needs: ConsentNeed[], precise: boolean): Promise<boolean>; clear(): void }
+  /** The subject of the message on screen, null without one; without it no subject line is shown (the extension pages). */
+  subject?: () => Promise<string | null>
 }
 
 /** What one tier has for one paragraph. */
@@ -80,6 +88,8 @@ export class TranslationController {
   private session = 0
   private collected: Collected | null = null
   private units: Unit[] = []
+  /** The line above the body with the subject, while the message is translated. */
+  private subjectLine: HTMLElement | null = null
   private context: MailContext | null = null
   private results = new Map<Unit, Partial<Record<Tier, TierState>>>()
   private renderer: Renderer | null = null
@@ -133,7 +143,7 @@ export class TranslationController {
     this.settings = next
     this.applyStyleVars()
     if (!this.active || !prev) return
-    if (prev.targetLang !== next.targetLang || prev.sourceLang !== next.sourceLang || prev.precise !== next.precise) {
+    if (prev.targetLang !== next.targetLang || prev.sourceLang !== next.sourceLang || prev.precise !== next.precise || prev.translateSubject !== next.translateSubject) {
       this.stop()
       await this.start()
       return
@@ -210,6 +220,8 @@ export class TranslationController {
     this.collected = collectParagraphs(root)
 
     const all = this.collected.units
+    // The subject comes from the background script and is translated beside the paragraphs, which do not wait for it.
+    const subject = this.subjectToTranslate(s)
     const inTarget = await Promise.all(all.map((unit) => isInTargetLanguage(unit.text, s.targetLang, this.deps.detect, s.sourceLang)))
     // Stopped or restarted while the language was detected.
     if (session !== this.session) return
@@ -224,8 +236,41 @@ export class TranslationController {
       this.deps.setContext?.(this.context, bypassCache)
     }
     this.report()
+    const subjectDone = subject.then((parts) => {
+      if (!parts || session !== this.session) return
+      const unit = this.showSubject(root, parts.prefix, parts.text)
+      this.units = [unit, ...this.units]
+      return this.translateUnit(unit, session)
+    })
     await Promise.all(candidates.map((unit) => this.translateUnit(unit, session)))
     if (session === this.session) this.deps.notice?.end()
+    await subjectDone
+  }
+
+  /** The subject to put above the body: its prefixes and the text to translate; null when it is off, missing or already in the target language. */
+  private async subjectToTranslate(s: PublicSettings): Promise<{ prefix: string; text: string } | null> {
+    if (!s.translateSubject || !this.deps.subject) return null
+    const subject = await this.deps.subject().catch(() => null)
+    if (!subject) return null
+    const parts = splitSubject(subject)
+    if (!hasTranslatableText(parts.text)) return null
+    return (await isInTargetLanguage(parts.text, s.targetLang, this.deps.detect, s.sourceLang)) ? null : parts
+  }
+
+  /** The line with the subject at the top of the body; its text is the unit, the prefixes stay outside it. */
+  private showSubject(root: HTMLElement, prefix: string, text: string): Unit {
+    const doc = root.ownerDocument
+    const line = doc.createElement("div")
+    line.className = CLS_SUBJECT
+    line.setAttribute("dir", "auto")
+    const el = doc.createElement("span")
+    el.className = `${CLS_SUBJECT}-text`
+    el.textContent = text
+    if (prefix) line.append(Object.assign(doc.createElement("span"), { className: `${CLS_SUBJECT}-prefix`, textContent: prefix }))
+    line.append(el)
+    root.prepend(line)
+    this.subjectLine = line
+    return { id: 0, el, text, pre: false }
   }
 
   /** `again`: a retranslation follows. */
@@ -234,6 +279,8 @@ export class TranslationController {
     this.session++
     this.active = false
     this.renderer?.clearAll()
+    this.subjectLine?.remove()
+    this.subjectLine = null
     this.collected?.restore()
     this.collected = null
     this.renderer = null

@@ -13,9 +13,9 @@ const hostPermissions = manifest.permissions.filter((p) => p.includes("://"))
 const resolved = (id: string, over: Partial<ReturnType<typeof emptyProviderConfig>> = {}) => resolveProviderConfig(id, { ...emptyProviderConfig(), ...over })
 
 describe("host permissions of the manifest", () => {
-  it("list the fixed hosts and nothing broader, and leave out tabs, messagesRead and <all_urls>", () => {
+  it("list the fixed hosts and nothing broader, and leave out tabs and <all_urls>", () => {
     expect(hostPermissions).toEqual([...FIXED_HOSTS])
-    expect(manifest.permissions.filter((p) => !p.includes("://"))).toEqual(["messagesModify", "sensitiveDataUpload", "storage", "unlimitedStorage"])
+    expect(manifest.permissions.filter((p) => !p.includes("://"))).toEqual(["messagesModify", "messagesRead", "sensitiveDataUpload", "storage", "unlimitedStorage"])
     for (const host of hostPermissions) expect(host).toMatch(/^https:\/\/[a-z0-9.-]+\.[a-z]+\/\*$/)
     expect(manifest.optional_permissions).toEqual([...OPTIONAL_HOSTS])
   })

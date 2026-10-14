@@ -388,8 +388,8 @@ describe("no hard-coded interface text", () => {
   })
 
   it("TypeScript sources contain no CJK text outside the name tables", () => {
-    // Product names, language self-names, script detection and the examples inside prompt rules are data, not interface text.
-    const allowed = ["providers.ts", "languages.ts", "locales.ts", "lang-detect.ts", "prompt-presets.ts"]
+    // Product names, language self-names, script detection, the examples inside prompt rules and the reply prefixes of subjects are data, not interface text.
+    const allowed = ["providers.ts", "languages.ts", "locales.ts", "lang-detect.ts", "prompt-presets.ts", "subject.ts"]
     const hits = sourceFiles
       .filter((f) => !allowed.some((a) => f.endsWith(a)))
       .filter((f) => /[぀-ヿ㐀-鿿가-힯]/.test(code(f)))

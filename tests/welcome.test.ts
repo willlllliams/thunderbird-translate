@@ -551,12 +551,14 @@ describe("welcome page", () => {
     expect(document.querySelector('#aiPanel input[type="password"]')).toBe(key)
   })
 
-  it("saves the switch of the last step and opens the settings page", async () => {
+  it("saves the switches of the last step and opens the settings page", async () => {
     const page = await openPage("welcome", settings(), { stored: { [WELCOME_KEY]: { step: "finish" } } })
     await vi.waitFor(() => expect(current()).toBe("finish"))
+    expect($<HTMLInputElement>("translateSubject").checked).toBe(true)
     $<HTMLInputElement>("autoTranslate").click()
+    $<HTMLInputElement>("translateSubject").click()
     await flushSave()
-    expect(page.stored().autoTranslate).toBe(true)
+    expect(page.stored()).toMatchObject({ autoTranslate: true, translateSubject: false })
     $("openOptions").click()
     expect(page.openOptionsPage).toHaveBeenCalledTimes(1)
   })

@@ -18,6 +18,7 @@ import { createLocaleTables } from "./locale-tables"
 import { createOfflineStatus } from "./offline-status"
 import { createDispatch, createHandlers } from "./router"
 import { createSettingsState } from "./settings-state"
+import { displayedSubject } from "./subject"
 import { createTabRegistry } from "./tabs"
 import { getBergamot } from "../offline/bergamot"
 import { DictionaryManager } from "../offline/dictionary/manager"
@@ -82,6 +83,7 @@ const tabs = createTabRegistry({
   publicSettings: () => toPublicSettings(settings.current()),
   setContext: (context, bypassCache) => service.setContext(context, bypassCache),
   translate: (request, onTier, options) => service.translateForPage(request, onTier, options),
+  subject: displayedSubject,
 })
 
 async function applyUiLanguage(uiLanguage: string): Promise<void> {

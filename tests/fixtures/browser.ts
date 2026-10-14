@@ -12,7 +12,7 @@ export function backgroundPort(tabId: number | undefined, name = CONTENT_PORT_NA
   const posted: PortPush[] = []
   return {
     name,
-    sender: tabId === undefined ? {} : { tab: { id: tabId }, ...(url ? { url } : {}) },
+    sender: { ...(tabId === undefined ? {} : { tab: { id: tabId } }), ...(url ? { url } : {}) },
     posted,
     // A Port copies what it carries.
     postMessage: (msg: PortPush) => void posted.push(structuredClone(msg)),

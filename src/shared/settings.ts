@@ -73,6 +73,8 @@ export interface Settings {
   targetLang: string
   mode: DisplayMode
   autoTranslate: boolean
+  /** Translate the subject of a message with its body, shown in a line above the body. */
+  translateSubject: boolean
   tiers: TierSettings
   providers: Record<string, ProviderConfig>
   /** System prompts of the AI tier; `{{to}}` is the target language. Empty = default. */
@@ -119,6 +121,7 @@ export function createDefaultSettings(uiLang?: string): Settings {
     targetLang: defaultTargetLang(uiLang),
     mode: "bilingual",
     autoTranslate: false,
+    translateSubject: true,
     tiers: { ...DEFAULT_TIERS },
     providers,
     prompts: { bilingual: "", translationOnly: "", precise: "" },
@@ -244,6 +247,8 @@ export function normalizeSettings(stored: unknown, uiLang?: string): Settings {
     targetLang: LANGUAGES.some((l) => l.code === s.targetLang) ? (s.targetLang as string) : d.targetLang,
     mode: s.mode === "translation-only" ? "translation-only" : "bilingual",
     autoTranslate: s.autoTranslate === true,
+    // On unless switched off: settings saved before 2.1.0 have no such field.
+    translateSubject: s.translateSubject !== false,
     tiers: normalizeTiers(s),
     providers,
     prompts: normalizePrompts(s),
@@ -425,6 +430,8 @@ export interface PublicSettings {
   targetLang: string
   mode: DisplayMode
   autoTranslate: boolean
+  /** The content script translates the subject of the message as well, in a line above the body. */
+  translateSubject: boolean
   /** Tiers in use, lowest first. */
   tiers: Tier[]
   /**
@@ -454,6 +461,7 @@ export function toPublicSettings(settings: Settings): PublicSettings {
     targetLang: settings.targetLang,
     mode: settings.mode,
     autoTranslate: settings.autoTranslate,
+    translateSubject: settings.translateSubject,
     tiers: enabledTiers(settings.tiers),
     signatures,
     precise: settings.precise.enabled && settings.tiers.ai !== null,

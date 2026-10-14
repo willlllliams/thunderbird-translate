@@ -94,6 +94,18 @@
   cursor: help;
 }
 
+/* The subject of the message in a line above the body, with its translation (controller.ts). */
+.tt-subject {
+  margin: 0 0 1em;
+  padding-bottom: 0.4em;
+  border-bottom: 1px solid color-mix(in srgb, currentColor 20%, transparent);
+  font: 600 1.15em/1.4 system-ui, sans-serif;
+}
+
+.tt-subject .tt-translation.tt-bilingual {
+  margin-bottom: 0;
+}
+
 /* Notice above the message: an offline tier lacks a dictionary pack or model (notice.ts). */
 .tt-notice {
   margin: 0 0 1em;

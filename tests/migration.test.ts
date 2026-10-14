@@ -202,6 +202,10 @@ describe("normalization of each field", () => {
     ["mode", "translation-only", "translation-only"],
     ["mode", "side-by-side", "bilingual"],
     ["autoTranslate", "true", false],
+    // On for settings saved before 2.1.0, which have no such field, and for anything but false.
+    ["translateSubject", undefined, true],
+    ["translateSubject", "false", true],
+    ["translateSubject", false, false],
     ["precise.enabled", 1, false],
     ["dictionary.releaseTag", "  dicts-v2 ", "dicts-v2"],
     ["dictionary.releaseTag", "  ", "dicts-v1"],

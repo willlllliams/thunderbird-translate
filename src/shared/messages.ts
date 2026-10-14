@@ -200,6 +200,8 @@ export type PortPush =
   | { type: "tier"; id: number; tier: Tier; result: TranslateResponse }
   /** Request `id` is complete; tiers that did not report were not asked. */
   | { type: "done"; id: number }
+  /** Answer to the subject request `id`: the subject of the message displayed in the tab, null when there is none. */
+  | { type: "subject"; id: number; subject: string | null }
   /** Dictionary packs or offline models were installed or removed: results received before may be outdated. Pages get the same notice (PageNotice). */
   | { type: "offlineDataChanged" }
 
@@ -209,8 +211,12 @@ export type PortReport =
   /** bypassCache: retranslation, the analysis of the message is made again. */
   | { type: "context"; context: MailContext; bypassCache?: boolean }
   | { type: "translate"; id: number; request: TranslateRequest }
+  /** The subject of the message displayed in the tab of the content script; answered with a "subject" push of the same id. */
+  | { type: "subject"; id: number }
 
 export const CONTENT_PORT_NAME = "tt-content"
+/** The Port of the page of translated subjects (subjects.html): its requests carry subjects of real messages, so the consent rules apply. */
+export const SUBJECTS_PORT_NAME = "tt-subjects"
 
 /** A test for messages of the given types, told apart by their type field; the other fields come from the extension itself and are not checked. */
 function ofTypes<T extends { type: string }>(types: Record<T["type"], true>) {
@@ -219,7 +225,7 @@ function ofTypes<T extends { type: string }>(types: Record<T["type"], true>) {
 }
 
 /** A push of the background script, as the content script receives it over the Port. */
-export const isPortPush = /* @__PURE__ */ ofTypes<PortPush>({ settings: true, toggle: true, retranslate: true, tier: true, done: true, offlineDataChanged: true })
+export const isPortPush = /* @__PURE__ */ ofTypes<PortPush>({ settings: true, toggle: true, retranslate: true, tier: true, done: true, subject: true, offlineDataChanged: true })
 
 /** A report of a content script, as the background script receives it over the Port. */
-export const isPortReport = /* @__PURE__ */ ofTypes<PortReport>({ state: true, context: true, translate: true })
+export const isPortReport = /* @__PURE__ */ ofTypes<PortReport>({ state: true, context: true, translate: true, subject: true })

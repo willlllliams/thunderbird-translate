@@ -397,6 +397,7 @@ async function main(): Promise<void> {
 
   // Step 8
   session.bindCheck("autoTranslate", () => settings.autoTranslate, (v) => (settings.autoTranslate = v))
+  session.bindCheck("translateSubject", () => settings.translateSubject, (v) => (settings.translateSubject = v))
   $("tryIt").addEventListener("click", () => void tryIt())
   $("openOptions").addEventListener("click", () => void ext.runtime.openOptionsPage())
 

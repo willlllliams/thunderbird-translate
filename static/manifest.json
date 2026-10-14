@@ -45,6 +45,7 @@
   },
   "permissions": [
     "messagesModify",
+    "messagesRead",
     "sensitiveDataUpload",
     "storage",
     "unlimitedStorage",

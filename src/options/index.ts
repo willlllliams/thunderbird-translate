@@ -294,6 +294,7 @@ async function main(): Promise<void> {
   })
   session.bind("mode", "change", (el) => (el.value = settings.mode), (el) => (settings.mode = el.value as DisplayMode))
   session.bindCheck("autoTranslate", () => settings.autoTranslate, (v) => (settings.autoTranslate = v))
+  session.bindCheck("translateSubject", () => settings.translateSubject, (v) => (settings.translateSubject = v))
 
   // Tiers; "+ Add translation service…" shows the services of the tier.
   onTierChange(

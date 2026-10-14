@@ -34,14 +34,16 @@ async function options(change: (s: Settings) => void = () => {}, opts: Parameter
 }
 
 describe("general settings", () => {
-  it("saves source language, display mode and automatic translation, and warns about equal languages", async () => {
+  it("saves source language, display mode, automatic translation and the subject switch, and warns about equal languages", async () => {
     const page = await options()
     set("sourceLang", "en")
     expect($("sameLanguage").hidden).toBe(false)
     set("mode", "translation-only")
     $<HTMLInputElement>("autoTranslate").click()
+    expect($<HTMLInputElement>("translateSubject").checked).toBe(true)
+    $<HTMLInputElement>("translateSubject").click()
     await flushSave()
-    expect(page.stored()).toMatchObject({ sourceLang: "en", mode: "translation-only", autoTranslate: true })
+    expect(page.stored()).toMatchObject({ sourceLang: "en", mode: "translation-only", autoTranslate: true, translateSubject: false })
     set("sourceLang", "auto")
     expect($("sameLanguage").hidden).toBe(true)
   })

@@ -431,3 +431,72 @@ describe("lifecycle", () => {
     expect(reports).toHaveLength(count)
   })
 })
+
+describe("subject line", () => {
+  const line = () => document.querySelector<HTMLElement>(".tt-subject")
+
+  it("puts the subject above the body, translates its text without the prefixes and removes it on stop", async () => {
+    const translate = answering((text) => ok(`T:${text}`))
+    const subject = vi.fn(async () => "Re: Fwd: Budget for the next quarter")
+    const { c, reports, original } = await mount("<p>Good morning</p>", publicSettings(), { translate, subject })
+    await c.start()
+    expect(document.body.firstElementChild).toBe(line())
+    expect(line()!.querySelector(".tt-subject-prefix")!.textContent).toBe("Re: Fwd: ")
+    // Bilingual: the subject, then its translation.
+    expect(line()!.querySelector(".tt-subject-text")!.firstChild!.textContent).toBe("Budget for the next quarter")
+    expect(line()!.querySelector(".tt-translation.tt-bilingual")!.textContent).toBe("T:Budget for the next quarter")
+    expect(translate.mock.calls.map(([req]) => req.text)).toEqual(["Good morning", "Budget for the next quarter"])
+    await vi.waitFor(() => expect(reports.at(-1)).toMatchObject({ total: 2, done: 2 }))
+    c.stop()
+    expect(line()).toBeNull()
+    expect(document.body.innerHTML).toBe(original)
+  })
+
+  it("shows only the prefixes and the translation in translation-only mode", async () => {
+    const translate = answering((text) => ok(`T:${text}`))
+    const { c } = await mount("<p>Good morning</p>", publicSettings({ mode: "translation-only" }), { translate, subject: async () => "AW: Meeting" })
+    await c.start()
+    expect(line()!.textContent).toBe("AW: T:Meeting")
+  })
+
+  it.each<[string, Partial<PublicSettings>, (() => Promise<string | null>) | undefined]>([
+    ["the switch is off", { translateSubject: false }, async () => "Budget"],
+    ["the page has no subject to ask for", {}, undefined],
+    ["the message has no subject", {}, async () => null],
+    ["the subject cannot be read", {}, () => Promise.reject(new Error("no message"))],
+    ["the subject is only prefixes and numbers", {}, async () => "Re: 2026-10-14"],
+    ["the subject is already in the target language", {}, async () => "回复：下个季度的预算"],
+  ])("adds no line when %s", async (_name, over, subject) => {
+    const translate = answering((text) => ok(`T:${text}`))
+    const { c } = await mount("<p>Good morning</p>", publicSettings(over), { translate, ...(subject ? { subject: vi.fn(subject) } : {}) })
+    await c.start()
+    expect(line()).toBeNull()
+    expect(translate.mock.calls.map(([req]) => req.text)).toEqual(["Good morning"])
+  })
+
+  it("starts again when the switch changes while the message is translated", async () => {
+    const translate = answering((text) => ok(`T:${text}`))
+    const subject = vi.fn(async () => "Budget")
+    const { c } = await mount("<p>Good morning</p>", publicSettings({ translateSubject: false }), { translate, subject })
+    await c.start()
+    expect(line()).toBeNull()
+    await c.updateSettings(publicSettings({ translateSubject: true }))
+    expect(line()!.textContent).toContain("T:Budget")
+    await c.updateSettings(publicSettings({ translateSubject: false }))
+    expect(line()).toBeNull()
+    expect(c.active).toBe(true)
+    expect(subject).toHaveBeenCalledTimes(1)
+  })
+
+  it("does not show a subject that arrives after stop", async () => {
+    let answer!: (subject: string) => void
+    const translate = answering((text) => ok(`T:${text}`))
+    const { c, original } = await mount("<p>Good morning</p>", publicSettings(), { translate, subject: () => new Promise((resolve) => (answer = resolve)) })
+    const started = c.start()
+    c.stop()
+    answer("Budget")
+    await started
+    expect(document.body.innerHTML).toBe(original)
+    expect(translate).not.toHaveBeenCalled()
+  })
+})

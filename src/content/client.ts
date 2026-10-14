@@ -48,6 +48,8 @@ export function connectContent({ root, contentScript = false, probe }: ClientOpt
 
   /** Translation requests that are not complete yet, with the tiers that have not answered. */
   const pending = new Map<number, { resolve: () => void; onTier: (tier: Tier, result: TranslateResponse) => void; tiers: Set<Tier> }>()
+  /** Subject requests without an answer yet. */
+  const subjects = new Map<number, (subject: string | null) => void>()
   let nextId = 0
   let mutedPairs: string[] = []
   const notice = contentScript
@@ -84,6 +86,15 @@ export function connectContent({ root, contentScript = false, probe }: ClientOpt
         post({ type: "translate", id, request })
       }),
     setContext: (context, bypassCache) => post({ type: "context", context, ...(bypassCache ? { bypassCache } : {}) }),
+    // Only a displayed message has a subject; the background script reads it from the header of the message in the tab.
+    subject: contentScript
+      ? () =>
+          new Promise<string | null>((resolve) => {
+            const id = ++nextId
+            subjects.set(id, resolve)
+            post({ type: "subject", id })
+          })
+      : undefined,
     detect: browserDetector(ext.i18n),
     report: (state) => {
       if (__DEBUG__) {
@@ -135,6 +146,9 @@ export function connectContent({ root, contentScript = false, probe }: ClientOpt
     } else if (msg.type === "done") {
       pending.get(msg.id)?.resolve()
       pending.delete(msg.id)
+    } else if (msg.type === "subject") {
+      subjects.get(msg.id)?.(typeof msg.subject === "string" ? msg.subject : null)
+      subjects.delete(msg.id)
     }
     probe?.push(msg)
   })
@@ -145,6 +159,8 @@ export function connectContent({ root, contentScript = false, probe }: ClientOpt
       resolve()
     }
     pending.clear()
+    for (const resolve of subjects.values()) resolve(null)
+    subjects.clear()
   })
   return { controller, ready }
 }

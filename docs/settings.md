@@ -5,6 +5,7 @@ This page describes every setting of Multi Translate for Thunderbird and how the
 ## Contents
 
 - [What is translated](#what-is-translated)
+  - [The subject](#the-subject)
 - [Settings page](#settings-page)
 - [Setup guide](#setup-guide)
   - [Demo and tour of the tiers](#demo-and-tour-of-the-tiers)
@@ -40,6 +41,19 @@ The content script looks for paragraph-level content in the message body:
 
 Code, paragraphs already in the target language, numbers, bare links and whitespace are skipped. Bilingual mode inserts a translation block under the original. Translation-only mode replaces the original with the translation; the original is kept in memory and put back when translation is turned off.
 
+### The subject
+
+With "Translate the subject as well" on (the default), the subject of the message is translated together with the body. It appears in a line at the top of the body:
+
+- in bilingual mode the subject, then its translation under it;
+- in translation-only mode the translation alone.
+
+Reply and forward prefixes such as "Re:", "Fwd:", "AW:" or "回复：" stay as they are, and only the rest is translated. "Re: Budget" and "Budget" therefore share one translation. A subject already in the target language gets no line, and neither does a subject made only of prefixes, numbers or links.
+
+The subject line goes through the same tiers as a paragraph: a lower tier shows a provisional translation, the highest tier replaces it, and a failed tier can be retried with a click on its mark. It uses the cache and the consent rules of the body, and the popup counts it as one more paragraph. Turning translation off removes the line.
+
+The content script runs inside the body of the message and cannot see the header. The background script reads the subject of the message on screen with `messageDisplay.getDisplayedMessage()`, which needs the `messagesRead` permission, and hands it to the content script. The paragraphs do not wait for the subject: the line appears once the subject has arrived.
+
 ## Settings page
 
 Open the settings page with the "Options" button of this extension in the Add-ons Manager. Settings are saved automatically. "Saved" appears in the top right corner once they are written. When a save fails, the error appears in its place and the change goes with the next save. The "Setup guide" button next to it opens the setup guide.
@@ -48,7 +62,7 @@ Resting the mouse on any control of the settings page, the popup or the setup gu
 
 | Section | Contents |
 | --- | --- |
-| General | Interface language, source language, target language, default display mode, the switch "Automatically translate messages not in the target language" |
+| General | Interface language, source language, target language, default display mode, the switches "Automatically translate messages not in the target language" and "Translate the subject as well" |
 | Translation tiers | The service of each tier or "Not used", with the mark of an offline service that lacks data; precise translation; the muted notices about missing offline data, with "Remind me again"; the online services allowed to receive message text, each with "Revoke" |
 | Translation services | Services in two groups, "Added" and "Available to add", filtered by tier; endpoint, API key, model, temperature and thinking mode of each service; "Test connection", "Add", "Use this service" and "Remove" buttons |
 | Dictionaries | Every pack of the release with size, license and attribution, those of the recommended languages first; filter; "Download common languages"; download and delete; release tag of the packs (advanced) |
@@ -77,7 +91,7 @@ Each step asks for one decision and saves it at once. "Back", "Next" and "Skip t
 | 5 Online machine translation | the fields of the machine translator: nothing to fill in for Google, free or Azure key mode for Microsoft, endpoint and token for DeepLX; "Test connection" | the machine tier uses Google, Microsoft or DeepLX |
 | 6 AI translation | the AI provider, its API key, model, temperature and thinking mode, "Test connection", and the precise translation switch; a note that thinking mode and precise translation make translation slower and more expensive | the AI tier is used |
 | 7 Prompts | the three prompts and the preset library | the AI tier is used |
-| 8 Done | how to translate (toolbar button, Alt+A, Alt+S), the switch "Automatically translate messages not in the target language", and "Translate the sample message" | always |
+| 8 Done | how to translate (toolbar button, Alt+A, Alt+S), the switches "Automatically translate messages not in the target language" and "Translate the subject as well" with a note on how the subject is shown, and "Translate the sample message" | always |
 
 A step that the earlier choices do not need stays in the list, struck through, and the navigation passes over it. Choosing an AI service in step 3, for example, brings steps 6 and 7 back.
 
@@ -417,6 +431,7 @@ Settings saved before version 1.9.0 have no text color; translations keep the co
 | Permission | What the extension uses it for |
 | --- | --- |
 | `messagesModify` | showing translations inside the displayed message: Thunderbird runs the content script of `messageDisplayScripts` and injects it into a message already on screen only with this permission. The extension changes no stored message. |
+| `messagesRead` | reading the subject of the displayed message for the line above the body (`messageDisplay.getDisplayedMessage()`). The extension reads no message body this way and stores no header. |
 | `sensitiveDataUpload` | sending the paragraphs of a message to the online services of the tiers in use |
 | `storage` | the settings, the translation cache and the state of the setup guide in `storage.local` |
 | `unlimitedStorage` | the dictionary packs and Bergamot models in IndexedDB, 13 to 48 MB per direction, which the browser then neither evicts nor caps |
@@ -441,7 +456,7 @@ The endpoint field of a local service notes that `localhost` is this computer (t
   - URL path segments that look like a token (20 or more characters with letters and digits);
   - user names and passwords in URLs;
   - URL parameters whose names contain key, token, auth, secret, sig, pass, credential or session.
-- Message text is sent only to the services of the tiers in use, and to an online service only after you allowed it, see [Consent before online translation](#consent-before-online-translation). The dictionary and Bergamot translate on your computer and send no text anywhere.
+- Message text is sent only to the services of the tiers in use, and to an online service only after you allowed it, see [Consent before online translation](#consent-before-online-translation). This includes the subject of a displayed message, which goes to the same services under the same consent. The dictionary and Bergamot translate on your computer and send no text anywhere.
 - The extension connects only to the hosts of its manifest and to the endpoints you allowed, see [Permissions](#permissions).
 - Two lists come from the network, without any message text: the list of dictionary packs from this repository's GitHub releases and the list of Bergamot models from Mozilla. The background script reads them and keeps the copy it read; the settings page and the setup guide show the offline lists from that copy.
 - The background script reads a list when a page shows it and, while the dictionary or Bergamot is the service of a tier, when Thunderbird starts, when the settings change, and when the popup or the settings page asks what is missing. It reads either list again once the copy in memory is older than 6 hours (the dictionary list per release tag). After a failed read, either list is read again 10 minutes later at the earliest; until then it answers with the copy in memory, and the Bergamot list also with the copy saved by an earlier session, if there is one. "Reload list" in either offline section of the settings page reads its list at once. Translating a message reads neither list, also when a pack or model is missing.

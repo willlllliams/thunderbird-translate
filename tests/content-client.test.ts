@@ -208,9 +208,59 @@ describe("connectContent", () => {
     const client = connectContent({ root: () => document.body, contentScript: true })
     settingsPush(publicSettings({ autoTranslate: true, targetLang: "fr" }))
     await client.ready
-    await client.controller.toggle()
+    const toggled = client.controller.toggle()
+    // The subject is in the target language too.
+    await vi.waitFor(() => expect(port.posted("subject")).toHaveLength(1))
+    port.push({ type: "subject", id: port.posted("subject")[0].id, subject: "Réunion de l'équipe demain matin" })
+    await toggled
     expect(port.posted("translate")).toEqual([])
+    expect(document.querySelector(".tt-subject")).toBeNull()
     expect(lastState()).toMatchObject({ active: true, total: 0 })
+  })
+
+  it("content script: asks the background for the subject and translates it in a line above the body", async () => {
+    sendMessage.mockResolvedValue({ locale: "en", messages: {} })
+    const client = connectContent({ root: () => document.body, contentScript: true })
+    settingsPush(publicSettings())
+    await client.ready
+    const toggled = client.controller.toggle()
+    await vi.waitFor(() => expect(port.posted("subject")).toHaveLength(1))
+    const { id } = port.posted("subject")[0]
+    // An answer to another request changes nothing.
+    port.push({ type: "subject", id: id + 100, subject: "Wrong" })
+    port.push({ type: "subject", id, subject: "Fwd: Quarterly report" })
+    await vi.waitFor(() => expect(port.posted("translate")).toHaveLength(2))
+    const request = port.posted("translate").find((r) => r.request.text === "Quarterly report")!
+    port.push({ type: "tier", id: request.id, tier: "machine", result: { ok: true, text: "季度报告" } })
+    port.push({ type: "done", id: request.id })
+    const other = port.posted("translate").find((r) => r !== request)!
+    port.push({ type: "done", id: other.id })
+    await toggled
+    expect(document.body.firstElementChild!.textContent).toBe("Fwd: Quarterly report季度报告")
+  })
+
+  it("content script: a subject request still open when the background goes away ends without a subject", async () => {
+    sendMessage.mockResolvedValue({ locale: "en", messages: {} })
+    const client = connectContent({ root: () => document.body, contentScript: true })
+    settingsPush(publicSettings())
+    await client.ready
+    const toggled = client.controller.toggle()
+    await vi.waitFor(() => expect(port.posted("subject")).toHaveLength(1))
+    port.postMessage.mockImplementation(() => {
+      throw new Error("Attempt to postMessage on disconnected port")
+    })
+    port.disconnect()
+    await toggled
+    expect(document.querySelector(".tt-subject")).toBeNull()
+  })
+
+  it("extension pages ask for no subject", async () => {
+    const client = connectContent({ root: () => document.body })
+    settingsPush(publicSettings())
+    await client.ready
+    void client.controller.start()
+    await vi.waitFor(() => expect(port.posted("translate")).toHaveLength(1))
+    expect(port.posted("subject")).toEqual([])
   })
 
   it("posts the message context in precise mode, marked on a retranslation pushed by the background", async () => {

@@ -2,13 +2,16 @@
  * The content scripts connected to the background script, by tab: their
  * Ports, the translation state each tab reports, the badge of the header
  * button that shows whether a tab is translated, and the messages to one
- * tab or to every content script.
+ * tab or to every content script. The page of translated subjects
+ * (subjects.html) connects the same way under its own Port name; it has no
+ * tab state and no badge, and its subjects come from real messages, so the
+ * consent rules apply to them.
  */
 
 import { ext } from "../shared/ext"
 import { t } from "../shared/i18n"
 import type { MailContext } from "../shared/mail-context"
-import { CONTENT_PORT_NAME, IDLE_TAB_STATE, isPortReport, type PortPush, type TabState, type TranslateRequest, type TranslateResponse } from "../shared/messages"
+import { CONTENT_PORT_NAME, IDLE_TAB_STATE, isPortReport, type PortPush, type PortReport, SUBJECTS_PORT_NAME, type TabState, type TranslateRequest, type TranslateResponse } from "../shared/messages"
 import type { Tier } from "../shared/providers"
 import type { PublicSettings } from "../shared/settings"
 
@@ -21,6 +24,8 @@ export interface TabRegistryDeps {
   setContext: (context: MailContext, bypassCache: boolean) => void
   /** Translates one paragraph and reports each tier; `sample`: the request comes from a page of the extension (the trial of the setup guide), not from a message. */
   translate: (request: TranslateRequest, onTier: (tier: Tier, result: TranslateResponse) => void, options: { sample: boolean }) => Promise<void>
+  /** The subject of the message displayed in a tab; null when there is none or it cannot be read. */
+  subject: (tabId: number) => Promise<string | null>
 }
 
 export interface TabRegistry {
@@ -30,7 +35,7 @@ export interface TabRegistry {
   stateOf(tabId: number): TabState
   /** A message to the content scripts of one tab: toggle or retranslate. */
   postToTab(tabId: number, msg: PortPush): void
-  /** A message to every content script. */
+  /** A message to every content script and to the pages of translated subjects. */
   broadcast(msg: PortPush): void
   /** Draws the badge of every connected tab again, e.g. in a new interface language. */
   redrawBadges(): void
@@ -44,9 +49,11 @@ function safePost(port: browser.runtime.Port, msg: PortPush): void {
   }
 }
 
-export function createTabRegistry({ ready, publicSettings, setContext, translate }: TabRegistryDeps): TabRegistry {
+export function createTabRegistry({ ready, publicSettings, setContext, translate, subject }: TabRegistryDeps): TabRegistry {
   const ports = new Map<number, Set<browser.runtime.Port>>()
   const tabStates = new Map<number, TabState>()
+  /** The Ports of the pages of translated subjects. */
+  const subjectPages = new Set<browser.runtime.Port>()
 
   async function updateBadge(tabId: number): Promise<void> {
     const active = tabStates.get(tabId)?.active
@@ -58,12 +65,46 @@ export function createTabRegistry({ ready, publicSettings, setContext, translate
     }
   }
 
+  /** The requests every Port may send: translations, the message as context, the subject of its tab. */
+  function serve(port: browser.runtime.Port, msg: PortReport, sample: boolean, tabId: number | undefined): void {
+    switch (msg.type) {
+      case "context":
+        setContext(msg.context, msg.bypassCache === true)
+        break
+      case "translate":
+        // A failure of the translation itself, not of a tier (each tier reports its own): the request still ends.
+        void ready()
+          .then(() => translate(msg.request, (tier, result) => safePost(port, { type: "tier", id: msg.id, tier, result }), { sample }))
+          .catch(() => {})
+          .finally(() => safePost(port, { type: "done", id: msg.id }))
+        break
+      case "subject":
+        // Only a content script has a message on screen; a page of the extension has no subject to ask for.
+        void (sample || tabId === undefined ? Promise.resolve(null) : subject(tabId).catch(() => null)).then((text) => safePost(port, { type: "subject", id: msg.id, subject: text }))
+        break
+    }
+  }
+
+  /** The page of translated subjects: no tab state and no badge; the subjects are those of real messages. */
+  function connectSubjectsPage(port: browser.runtime.Port): void {
+    subjectPages.add(port)
+    port.onMessage.addListener((msg) => {
+      if (isPortReport(msg) && msg.type !== "state") serve(port, msg, false, undefined)
+    })
+    port.onDisconnect.addListener(() => subjectPages.delete(port))
+    void ready()
+      .then(() => safePost(port, { type: "settings", settings: publicSettings() }))
+      .catch(() => {})
+  }
+
   function connect(port: browser.runtime.Port): void {
+    const fromPage = typeof port.sender?.url === "string" && port.sender.url.startsWith(ext.runtime.getURL(""))
+    if (port.name === SUBJECTS_PORT_NAME && fromPage) return connectSubjectsPage(port)
     if (port.name !== CONTENT_PORT_NAME) return
     const tabId = port.sender?.tab?.id
     if (tabId === undefined) return
     // A page of the extension translates its own sample message; a content script, the message on screen.
-    const sample = typeof port.sender?.url === "string" && port.sender.url.startsWith(ext.runtime.getURL(""))
+    const sample = fromPage
     if (!ports.has(tabId)) ports.set(tabId, new Set())
     ports.get(tabId)!.add(port)
     tabStates.set(tabId, { ...IDLE_TAB_STATE, connected: true })
@@ -71,25 +112,11 @@ export function createTabRegistry({ ready, publicSettings, setContext, translate
 
     port.onMessage.addListener((msg) => {
       if (!isPortReport(msg)) return
-      switch (msg.type) {
-        case "state": {
-          const wasActive = tabStates.get(tabId)?.active
-          tabStates.set(tabId, { connected: true, ...msg.state })
-          // Progress reports come many times a second; the badge only shows whether the tab is translated.
-          if (msg.state.active !== wasActive) void updateBadge(tabId)
-          break
-        }
-        case "context":
-          setContext(msg.context, msg.bypassCache === true)
-          break
-        case "translate":
-          // A failure of the translation itself, not of a tier (each tier reports its own): the request still ends.
-          void ready()
-            .then(() => translate(msg.request, (tier, result) => safePost(port, { type: "tier", id: msg.id, tier, result }), { sample }))
-            .catch(() => {})
-            .finally(() => safePost(port, { type: "done", id: msg.id }))
-          break
-      }
+      if (msg.type !== "state") return serve(port, msg, sample, tabId)
+      const wasActive = tabStates.get(tabId)?.active
+      tabStates.set(tabId, { connected: true, ...msg.state })
+      // Progress reports come many times a second; the badge only shows whether the tab is translated.
+      if (msg.state.active !== wasActive) void updateBadge(tabId)
     })
     port.onDisconnect.addListener(() => {
       const set = ports.get(tabId)
@@ -113,6 +140,7 @@ export function createTabRegistry({ ready, publicSettings, setContext, translate
     },
     broadcast(msg) {
       for (const set of ports.values()) for (const port of set) safePost(port, msg)
+      for (const port of subjectPages) safePost(port, msg)
     },
     redrawBadges() {
       for (const tabId of tabStates.keys()) void updateBadge(tabId)
