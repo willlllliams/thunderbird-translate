@@ -20,6 +20,11 @@
     "scripts": ["background.js"],
     "type": "module"
   },
+  "browser_action": {
+    "default_popup": "subjects.html",
+    "default_title": "__MSG_subjectsTitle__",
+    "default_icon": { "16": "icons/icon-16.svg", "32": "icons/icon-16.svg" }
+  },
   "message_display_action": {
     "default_popup": "popup.html",
     "default_title": "__MSG_actionTitle__",
@@ -44,6 +49,7 @@
     }
   },
   "permissions": [
+    "accountsRead",
     "messagesModify",
     "messagesRead",
     "sensitiveDataUpload",

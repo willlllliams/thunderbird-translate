@@ -97,6 +97,7 @@ describe("locale files", () => {
       readFileSync(join(root, "static", "options.html"), "utf8"),
       readFileSync(join(root, "static", "popup.html"), "utf8"),
       readFileSync(join(root, "static", "welcome.html"), "utf8"),
+      readFileSync(join(root, "static", "subjects.html"), "utf8"),
     ].join("\n")
     const unused = enKeys.filter((k) => !new RegExp(`["_]${k}["_]`).test(corpus))
     expect(unused).toEqual([])
@@ -313,7 +314,7 @@ function listFiles(dir: string, ext: string): string[] {
 }
 
 describe("no hard-coded interface text", () => {
-  for (const page of ["popup.html", "options.html", "welcome.html"]) {
+  for (const page of ["popup.html", "options.html", "welcome.html", "subjects.html"]) {
     describe(page, () => {
       const doc = new DOMParser().parseFromString(readFileSync(join(root, "static", page), "utf8"), "text/html")
 

@@ -42,7 +42,7 @@ function endPageWithTest(): void {
  * empty cache.
  */
 export async function openPage(
-  page: "popup" | "options" | "welcome",
+  page: "popup" | "options" | "welcome" | "subjects",
   settings: Settings,
   {
     uiLanguage = "en-US",
@@ -55,6 +55,7 @@ export async function openPage(
     systemLanguages = [],
     bergamot,
     permissions = {},
+    api: extra = {},
   }: {
     uiLanguage?: string
     /** i18n.getPreferredSystemLanguages(); null: a Thunderbird without it. */
@@ -73,6 +74,8 @@ export async function openPage(
     bergamot?: OfflineManager<OfflineItem>
     /** Optional host permissions granted at the start, and the answer of the user to permissions.request(). */
     permissions?: { granted?: string[]; allowRequest?: boolean }
+    /** More namespaces of the extension API, e.g. the mail APIs of tests/fixtures/mail.ts. */
+    api?: object
   } = {},
 ) {
   // The timers of the page must be fake so that they end with the test, see endPageWithTest().
@@ -94,10 +97,16 @@ export async function openPage(
     ...permissions,
     respond: (req) => respond?.(req) ?? offline.respond(req) ?? (req.type === "cacheStats" ? { size: 0 } : undefined),
   })
+  Object.assign(browser.api, extra)
   const close = vi.fn()
   vi.stubGlobal("close", close)
   vi.stubGlobal("fetch", packagedFetch(fetchUrl))
-  const modules = { popup: () => import("../../src/popup/index"), options: () => import("../../src/options/index"), welcome: () => import("../../src/welcome/index") }
+  const modules = {
+    popup: () => import("../../src/popup/index"),
+    options: () => import("../../src/options/index"),
+    welcome: () => import("../../src/welcome/index"),
+    subjects: () => import("../../src/subjects/index"),
+  }
   // The script of a page runs when it is imported: a new module registry runs it again, with new module state (settings store, interface language).
   vi.resetModules()
   await modules[page]()

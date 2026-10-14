@@ -40,7 +40,7 @@ import { isInTargetLanguage, type LanguageDetector } from "../shared/lang-detect
 import { createMailContext, type MailContext } from "../shared/mail-context"
 import type { TabState, TranslateRequest, TranslateResponse } from "../shared/messages"
 import { type Tier, TIER_NAME_KEYS, TIERS } from "../shared/providers"
-import type { ConsentNeed, PublicSettings } from "../shared/settings"
+import type { ConsentNeed, DisplayMode, PublicSettings } from "../shared/settings"
 import { splitSubject } from "../shared/subject"
 import { CLS_SUBJECT, type Collected, collectParagraphs, extractText, type Unit } from "./paragraphs"
 import { Renderer, type TranslationMark } from "./render"
@@ -63,6 +63,10 @@ export interface ControllerDeps {
   consent?: { ask(needs: ConsentNeed[], precise: boolean): Promise<boolean>; clear(): void }
   /** The subject of the message on screen, null without one; without it no subject line is shown (the extension pages). */
   subject?: () => Promise<string | null>
+  /** The units to translate under the root; the paragraphs of a message by default. The page of translated subjects gives one cell per subject. */
+  collect?: (root: HTMLElement) => Collected
+  /** A display mode of its own instead of the one of the settings: the page of translated subjects shows the translations in their own column. */
+  mode?: DisplayMode
 }
 
 /** What one tier has for one paragraph. */
@@ -217,7 +221,7 @@ export class TranslationController {
     this.renderer = new Renderer(root.ownerDocument)
     this.renderer.stylePreset = s.style.preset
     this.applyStyleVars()
-    this.collected = collectParagraphs(root)
+    this.collected = (this.deps.collect ?? collectParagraphs)(root)
 
     const all = this.collected.units
     // The subject comes from the background script and is translated beside the paragraphs, which do not wait for it.
@@ -414,7 +418,7 @@ export class TranslationController {
       else this.renderer.clear(unit)
       return
     }
-    this.renderer.showTranslation(unit, view.text, s.mode, s.targetLang, mark)
+    this.renderer.showTranslation(unit, view.text, this.deps.mode ?? s.mode, s.targetLang, mark)
   }
 
   private rerender(): void {

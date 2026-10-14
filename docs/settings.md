@@ -11,6 +11,7 @@ This page describes every setting of Multi Translate for Thunderbird and how the
   - [Demo and tour of the tiers](#demo-and-tour-of-the-tiers)
   - [Trial](#trial)
 - [Popup](#popup)
+- [Translated subjects](#translated-subjects)
 - [Adding and removing services](#adding-and-removing-services)
 - [Translation tiers](#translation-tiers)
 - [Consent before online translation](#consent-before-online-translation)
@@ -53,6 +54,8 @@ Reply and forward prefixes such as "Re:", "Fwd:", "AW:" or "回复：" stay as t
 The subject line goes through the same tiers as a paragraph: a lower tier shows a provisional translation, the highest tier replaces it, and a failed tier can be retried with a click on its mark. It uses the cache and the consent rules of the body, and the popup counts it as one more paragraph. Turning translation off removes the line.
 
 The content script runs inside the body of the message and cannot see the header. The background script reads the subject of the message on screen with `messageDisplay.getDisplayedMessage()`, which needs the `messagesRead` permission, and hands it to the content script. The paragraphs do not wait for the subject: the line appears once the subject has arrived.
+
+The subjects of a whole folder are translated on their own page, see [Translated subjects](#translated-subjects).
 
 ## Settings page
 
@@ -153,6 +156,24 @@ The popup shows the progress, for example "Translated 8 of 12". Paragraphs that 
 Changing the display mode or the target language while a message is translated re-renders the page without reopening the message. In translation-only mode, hovering over a translation shows the original text in a tooltip.
 
 The shortcuts Alt+A, Alt+S and Alt+R can be changed under "Manage Extension Shortcuts" in the gear menu of the Add-ons Manager. Alt+A pressed while the setup guide is the active tab translates or restores its sample message.
+
+## Translated subjects
+
+The "Translated subjects" button in the main toolbar of Thunderbird opens a page with the messages of the folder shown in the mail tab. Each row has the sender, the date, the subject and the translated subject. The page follows the mail tab of its window.
+
+- It lists the first 100 messages in the order of the message list. "Show more" adds the next 100.
+- The translated subjects go through the tiers in use like the paragraphs of a message: a lower tier appears first as a provisional translation, in italics with the label of its tier, and the highest tier replaces it. Hovering over a translation shows the subject.
+- Reply and forward prefixes stay as they are, and a subject already in the target language leaves its translation cell empty.
+- Clicking a row, or pressing Enter on it, selects its message in the mail tab, which shows it.
+- When the mail tab shows another folder, the page reads the new list at once. When messages arrive, are deleted or are moved, it reads the list again half a second after the last change and keeps as many rows as it showed.
+- "Open in a window" opens the page in a window of its own. That window follows the mail tab the page was opened from and stays open while you read messages in the main window.
+- The line under the title counts the listed messages, and a second line shows the translation progress, for example "Translated 37 of 80".
+
+The page sends the subjects to the background script, which merges them into batches as it does with paragraphs: one request carries many subjects, up to the limits under [Request batching and timeouts](#request-batching-and-timeouts). Subjects already in the cache are not requested again, and the page remembers what it translated while it is open, so "Show more" and a reload request only new subjects. With only the dictionary and Bergamot in use, nothing leaves the computer.
+
+The consent rules of a message apply. Before subjects first go to an online service that is not allowed yet, the page shows the consent panel above the list. The panel names each service with its host, says that the listed subjects go to these services, and offers "Allow and translate" and "Cancel". A service allowed here is allowed for messages as well, and the other way round.
+
+Thunderbird hands a message list over in pages of its own size, 100 messages by default. The page reads further pages as needed and stops reading a list it no longer needs.
 
 ## Adding and removing services
 
@@ -431,7 +452,8 @@ Settings saved before version 1.9.0 have no text color; translations keep the co
 | Permission | What the extension uses it for |
 | --- | --- |
 | `messagesModify` | showing translations inside the displayed message: Thunderbird runs the content script of `messageDisplayScripts` and injects it into a message already on screen only with this permission. The extension changes no stored message. |
-| `messagesRead` | reading the subject of the displayed message for the line above the body (`messageDisplay.getDisplayedMessage()`). The extension reads no message body this way and stores no header. |
+| `messagesRead` | reading subjects: the subject of the displayed message for the line above the body (`messageDisplay.getDisplayedMessage()`), and the sender, date and subject of the messages listed in a mail tab for the page of translated subjects (`mailTabs.getListedMessages()`, `messages.continueList()`, `messages.abortList()`), read again after new, deleted and moved messages. The extension reads no message body this way and stores no header. |
+| `accountsRead` | the page of translated subjects: Thunderbird requires it for `mailTabs.setSelectedMessages()`, which selects the message of a clicked row, and for `mailTabs.onDisplayedFolderChanged`, which tells the page that the mail tab shows another folder. The extension reads no account settings. |
 | `sensitiveDataUpload` | sending the paragraphs of a message to the online services of the tiers in use |
 | `storage` | the settings, the translation cache and the state of the setup guide in `storage.local` |
 | `unlimitedStorage` | the dictionary packs and Bergamot models in IndexedDB, 13 to 48 MB per direction, which the browser then neither evicts nor caps |
@@ -456,7 +478,7 @@ The endpoint field of a local service notes that `localhost` is this computer (t
   - URL path segments that look like a token (20 or more characters with letters and digits);
   - user names and passwords in URLs;
   - URL parameters whose names contain key, token, auth, secret, sig, pass, credential or session.
-- Message text is sent only to the services of the tiers in use, and to an online service only after you allowed it, see [Consent before online translation](#consent-before-online-translation). This includes the subject of a displayed message, which goes to the same services under the same consent. The dictionary and Bergamot translate on your computer and send no text anywhere.
+- Message text is sent only to the services of the tiers in use, and to an online service only after you allowed it, see [Consent before online translation](#consent-before-online-translation). This includes the subjects: the subject of a displayed message and the subjects on the page of translated subjects go to the same services under the same consent. The dictionary and Bergamot translate on your computer and send no text anywhere.
 - The extension connects only to the hosts of its manifest and to the endpoints you allowed, see [Permissions](#permissions).
 - Two lists come from the network, without any message text: the list of dictionary packs from this repository's GitHub releases and the list of Bergamot models from Mozilla. The background script reads them and keeps the copy it read; the settings page and the setup guide show the offline lists from that copy.
 - The background script reads a list when a page shows it and, while the dictionary or Bergamot is the service of a tier, when Thunderbird starts, when the settings change, and when the popup or the settings page asks what is missing. It reads either list again once the copy in memory is older than 6 hours (the dictionary list per release tag). After a failed read, either list is read again 10 minutes later at the earliest; until then it answers with the copy in memory, and the Bergamot list also with the copy saved by an earlier session, if there is one. "Reload list" in either offline section of the settings page reads its list at once. Translating a message reads neither list, also when a pack or model is missing.

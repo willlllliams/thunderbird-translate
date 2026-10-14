@@ -14,7 +14,7 @@ const source = (...path: string[]) => readFileSync(join(root, "src", ...path), "
 
 describe("hooks", () => {
   it("exist", () => {
-    expect(names).toEqual(["background.ts", "content.ts", "servers.ts", "welcome.ts"])
+    expect(names).toEqual(["background.ts", "content.ts", "servers.ts", "subjects.ts", "welcome.ts"])
   })
 
   it.each(names)("%s: every export is undefined", (name) => {

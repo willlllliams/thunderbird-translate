@@ -1,6 +1,7 @@
 /**
  * Panel above a message that asks before its text first goes to an online
- * service. The background script names the online services of the tiers in
+ * service; the page of translated subjects shows the same panel above its
+ * list, with a title and first sentence about the subjects. The background script names the online services of the tiers in
  * use that the user has not allowed yet, with the host each sends to
  * (PublicSettings.consent); the panel lists them, says what is sent (the
  * paragraphs, or the whole message with precise translation) and that an
@@ -19,6 +20,8 @@ export const CLS_CONSENT = "tt-consent"
 
 export interface ConsentDeps {
   root: () => HTMLElement | null
+  /** The page of translated subjects: the title and first sentence name the subjects instead of the paragraphs of a message. */
+  subjects?: boolean
 }
 
 export class ConsentPanel {
@@ -72,11 +75,13 @@ export class ConsentPanel {
     })
     const allow = button(t("consentAllow"), () => this.settle(true), true, t("tipConsentAllow"))
     const cancel = button(t("consentCancel"), () => this.settle(false), false, t("tipConsentCancel"))
+    const title = t(this.deps.subjects ? "consentSubjectsTitle" : "consentTitle")
+    const body = t(this.deps.subjects ? "consentSubjectsBody" : precise ? "consentBodyPrecise" : "consentBody")
     return h(
       "div",
-      { className: `${CLS_NOTICE} ${CLS_CONSENT}`, role: "region", "aria-label": t("consentTitle"), lang: i18n.lang, dir: i18n.dir },
-      h("strong", { text: t("consentTitle") }),
-      h("p", { text: t(precise ? "consentBodyPrecise" : "consentBody") }),
+      { className: `${CLS_NOTICE} ${CLS_CONSENT}`, role: "region", "aria-label": title, lang: i18n.lang, dir: i18n.dir },
+      h("strong", { text: title }),
+      h("p", { text: body }),
       h("ul", {}, ...services),
       h("p", { text: t("consentKey") }),
       h("div", { className: "tt-notice-actions" }, allow, cancel),

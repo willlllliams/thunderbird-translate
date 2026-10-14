@@ -25,7 +25,7 @@ npm run build
 
 `npm run build` does the following:
 
-1. It bundles the background script, the content script, the popup, the settings page, the setup guide and the Bergamot worker into `dist/` with esbuild.
+1. It bundles the background script, the content script, the popup, the settings page, the setup guide, the page of translated subjects and the Bergamot worker into `dist/` with esbuild.
 2. It generates `dist/_locales/<language>/messages.json` from the files in `locales/`.
 3. It writes `dist/THIRD-PARTY-NOTICES.txt` with `scripts/notices.mjs`: every npm package esbuild bundled, with version, license, copyright line and license text, then the Bergamot engine with the address of its source code, the licenses of the dictionary data, and the source of the character 文 in the icons, the outline of its glyph in Noto Sans SC (SIL Open Font License 1.1). The packages come from the files esbuild read (its metafile). The build stops when a bundled package is not declared in `scripts/notices.mjs`, a declared one is no longer bundled, a license differs from the declaration, or a license text or copyright line is missing. The texts an npm package lacks are kept in `licenses/` together with their source address, so the build needs no network for them.
 4. It packs `dist/` into `web-ext-artifacts/thunderbird-translate-<version>.xpi`. Packing uses the pure JavaScript fflate library and needs no system zip command.
@@ -88,6 +88,8 @@ The unit tests cover these areas:
 - the offline requests of the background script: two installations at a time per service with a queue, a direction two pages ask for installed once, cancelled queued directions never downloaded, the progress notices to the pages at most every 250 ms, the notices to the content scripts, and downloads that go on after the page that asked is closed;
 - precise translation: single request, analysis with batches, failed analysis, cache keys and batches per message, identical prompt prefix with Anthropic cache control;
 - the consent before online translation: the panel with each service and its host, no request before "Allow and translate", automatic translation and retranslation asking too, a tier changed to a service not allowed yet, the background script refusing a request without consent and translating at once after it, the sample of the setup guide needing none, and the list with "Revoke" on the settings page;
+- the subject of a message: the request over the Port answered from the message of the tab, the line above the body with its prefixes, bilingual and translation-only, left out when the switch is off, when the subject is missing or already in the target language, and removed on stop; the reply and forward prefixes of many mail programs;
+- the page of translated subjects: the first 100 messages read over several pages of the list and "Show more", sender and date, a subject in the target language left alone, lower tiers replaced by the highest, a click or Enter selecting the message, the reload after a change of folder and, half a second after the last one, after new, deleted or moved messages, a list that arrives late dropped and aborted, the window of its own, the consent panel with the title of the subjects, and the background script serving the page under its own Port name with the consent rules of messages;
 - the setup guide: opening only on a new installation, step navigation with skipped steps and resuming, saving of every step, recommended dictionary packs and Bergamot directions and their download, service configuration and connection test, presets on the prompts, the trial translation through the content script modules;
 - the prompt presets: variants by target language, composition with each of the three prompts, replacement of the same preset, batch parsing with all four presets applied to one prompt in both answer formats;
 - the hover texts: every control of the popup, the settings page, the setup guide and the notice above a message has one, also after a change of the interface language, and each is at most 60 characters in English;
@@ -107,6 +109,7 @@ The production code reaches the test build through the hooks of `src/hooks/`, wh
 | `releaseFetch`, `bergamotServerUrl` (`hooks/servers.ts`) | the dictionary manager and the Bergamot model list of the background script | the mock server instead of GitHub and Mozilla Remote Settings |
 | `contentProbe` (`hooks/content.ts`) | the content client of a displayed message: its parts (with the notice and the consent panel), every progress report, every message of the background script | runs the scenario of the run and reports what it saw |
 | `welcomeProbe` (`hooks/welcome.ts`) | the setup guide, once its first step is shown | walks through the tiers and offline steps |
+| `subjectsProbe` (`hooks/subjects.ts`) | the page of translated subjects, before it reads the list | allows the services in the consent panel, waits for the translations, clicks a row and shows another folder in the mail tab |
 
 A hook is called as `hook?.(args)`, which does not evaluate `args` when the hook is undefined; its arguments are therefore values already computed or references to objects. The content client decides on automatic translation in the test build as in every other build; the probe only follows it.
 
@@ -148,6 +151,7 @@ src/
   popup/         popup
   options/       settings page and the parts the setup guide shares: translation style controls, service fields, dictionary and Bergamot lists (offline-list.ts shows them from the background script), prompt editor, settings session
   welcome/       setup guide: steps and navigation, demo and tour of the tiers step
+  subjects/      page of translated subjects (popup of the main toolbar button): the message list of a mail tab, page by page, translated with the controller of the content script
   hooks/         hooks of the e2e test build, undefined in every other build
   e2e/           code of the e2e test build: the defined hooks (e2e/hooks/) and the probes they run
 locales/         interface text, one JSON file per language; en.json is the reference
@@ -175,13 +179,14 @@ The directories under `src/` are layers. A file may import from its own director
 | Directory | May import from |
 | --- | --- |
 | `shared/` | npm packages and `locales/*.json` only |
-| `hooks/` | types only (`import type`, `export type`), from `shared/`, `offline/`, `background/`, `content/`, `welcome/` |
+| `hooks/` | types only (`import type`, `export type`), from `shared/`, `offline/`, `background/`, `content/`, `welcome/`, `subjects/` |
 | `offline/` | `shared/`, `hooks/` |
 | `background/` | `shared/`, `offline/`, `hooks/` |
 | `content/` | `shared/`, `hooks/` |
 | `popup/` | `shared/` |
 | `options/` | `shared/`, `content/` (the style preview sets the same CSS variables as the translations in a message) |
 | `welcome/` | `shared/`, `content/`, `options/`, `hooks/` |
+| `subjects/` | `shared/`, `content/` (the translation controller, renderer and consent panel), `hooks/` |
 | `e2e/` | every directory |
 
 No production file imports from `e2e/`. The pages reach dictionary packs and offline models through the background script only, so `options/` and `welcome/` import nothing from `offline/`, and no download or storage code goes into their bundles. `npm run imports:check` (`scripts/check-imports.mjs`) reads every `import`, `import type`, `export … from`, `import … = require(…)`, side-effect and dynamic import of `src/` and fails on an import across these boundaries; CI runs it after the link check. It reads the imports from the tokens of TypeScript's scanner, so text in comments, strings, template literals and regular expressions never counts as code, a dynamic import with a template literal path is checked like one with a quoted path, and a dynamic import whose path is computed fails the check. A default import named `type` (`import type from "…"`) counts as a value import.

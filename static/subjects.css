@@ -1,0 +1,114 @@
+/* The page of translated subjects: the popup of the main toolbar button, or a window of its own. */
+:root {
+  color-scheme: light dark;
+  --accent: #4c8bf5;
+  --border: color-mix(in srgb, currentColor 18%, transparent);
+  --muted: color-mix(in srgb, currentColor 60%, transparent);
+}
+
+body {
+  min-width: 720px;
+  max-width: 100vw;
+  margin: 0;
+  padding: 10px 12px;
+  font: 13px/1.4 system-ui, sans-serif;
+}
+
+header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+h1 {
+  flex: 1;
+  margin: 0;
+  font-size: 15px;
+}
+
+button {
+  padding: 4px 10px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+
+button[hidden] {
+  display: none;
+}
+
+.status,
+.progress {
+  margin: 6px 0;
+  color: var(--muted);
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  table-layout: fixed;
+}
+
+table[hidden] {
+  display: none;
+}
+
+th,
+td {
+  padding: 4px 6px;
+  border-bottom: 1px solid var(--border);
+  text-align: start;
+  vertical-align: top;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+th {
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+th.from {
+  width: 18%;
+}
+
+th.date {
+  width: 14%;
+}
+
+td.from,
+td.date {
+  white-space: nowrap;
+  color: var(--muted);
+}
+
+tbody tr {
+  cursor: pointer;
+}
+
+tbody tr:hover,
+tbody tr:focus-visible {
+  background: color-mix(in srgb, var(--accent) 10%, transparent);
+  outline: none;
+}
+
+tbody tr[aria-selected="true"] {
+  background: color-mix(in srgb, var(--accent) 22%, transparent);
+}
+
+td.translated .prefix {
+  color: var(--muted);
+}
+
+.more {
+  margin: 8px 0 0;
+  text-align: center;
+}
+
+/* The consent panel above the list (content/consent.ts). */
+#list > .tt-consent {
+  margin-bottom: 8px;
+}

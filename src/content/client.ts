@@ -9,11 +9,11 @@ import { ext } from "../shared/ext"
 import { ENGLISH, getI18n, I18n, setI18n } from "../shared/i18n"
 import { browserDetector } from "../shared/lang-detect"
 import type { UiLanguageSetting } from "../shared/locales"
-import { CONTENT_PORT_NAME, isPortPush, type LocaleMessages, type PortReport, send, type TranslateResponse } from "../shared/messages"
+import { CONTENT_PORT_NAME, isPortPush, type LocaleMessages, type PortReport, send, SUBJECTS_PORT_NAME, type TabState, type TranslateResponse } from "../shared/messages"
 import type { Tier } from "../shared/providers"
 import type { ContentProbe } from "../hooks/content"
 import { ConsentPanel } from "./consent"
-import { TranslationController } from "./controller"
+import { type ControllerDeps, TranslationController } from "./controller"
 import { MissingNotice } from "./notice"
 
 declare const __DEBUG__: boolean
@@ -24,6 +24,14 @@ export interface ClientOptions {
   contentScript?: boolean
   /** Follows the client (test build, see hooks/content.ts). */
   probe?: ContentProbe
+  /**
+   * The page of translated subjects: it connects under its own Port name, so that the background script applies the
+   * consent rules of real messages; asks through the consent panel (with the title of the subjects) before subjects
+   * first go to an online service; and translates the units of `collect` in display mode `mode`.
+   */
+  subjects?: { collect: NonNullable<ControllerDeps["collect"]>; mode: NonNullable<ControllerDeps["mode"]> }
+  /** Gets every progress report of the controller, as the background script does; the page of translated subjects shows it. */
+  onState?: (state: Omit<TabState, "connected">) => void
 }
 
 export interface ContentClient {
@@ -42,14 +50,14 @@ async function loadLabels(uiLanguage: UiLanguageSetting): Promise<void> {
   }
 }
 
-export function connectContent({ root, contentScript = false, probe }: ClientOptions): ContentClient {
-  const port = ext.runtime.connect({ name: CONTENT_PORT_NAME })
+export function connectContent({ root, contentScript = false, probe, subjects, onState }: ClientOptions): ContentClient {
+  const port = ext.runtime.connect({ name: subjects ? SUBJECTS_PORT_NAME : CONTENT_PORT_NAME })
   const post = (msg: PortReport) => port.postMessage(msg)
 
   /** Translation requests that are not complete yet, with the tiers that have not answered. */
   const pending = new Map<number, { resolve: () => void; onTier: (tier: Tier, result: TranslateResponse) => void; tiers: Set<Tier> }>()
   /** Subject requests without an answer yet. */
-  const subjects = new Map<number, (subject: string | null) => void>()
+  const subjectRequests = new Map<number, (subject: string | null) => void>()
   let nextId = 0
   let mutedPairs: string[] = []
   const notice = contentScript
@@ -60,8 +68,8 @@ export function connectContent({ root, contentScript = false, probe }: ClientOpt
       })
     : undefined
 
-  // Only for a displayed message: the extension pages translate their own sample text.
-  const consentPanel = contentScript ? new ConsentPanel({ root }) : undefined
+  // For a displayed message and for the subjects of a folder; the other extension pages translate their own sample text.
+  const consentPanel = contentScript || subjects ? new ConsentPanel({ root, subjects: Boolean(subjects) }) : undefined
   const consent = consentPanel && {
     ask: async (needs: Parameters<ConsentPanel["ask"]>[0], precise: boolean) => {
       if (!(await consentPanel.ask(needs, precise))) return false
@@ -79,6 +87,7 @@ export function connectContent({ root, contentScript = false, probe }: ClientOpt
     notice,
     consent,
     root,
+    ...(subjects ? { collect: subjects.collect, mode: subjects.mode } : {}),
     translate: (request, onTier) =>
       new Promise((resolve) => {
         const id = ++nextId
@@ -91,7 +100,7 @@ export function connectContent({ root, contentScript = false, probe }: ClientOpt
       ? () =>
           new Promise<string | null>((resolve) => {
             const id = ++nextId
-            subjects.set(id, resolve)
+            subjectRequests.set(id, resolve)
             post({ type: "subject", id })
           })
       : undefined,
@@ -102,6 +111,7 @@ export function connectContent({ root, contentScript = false, probe }: ClientOpt
         console.info("[thunderbird-translate] state", JSON.stringify(state), first.slice(0, 80))
       }
       probe?.state(state)
+      onState?.(state)
       try {
         post({ type: "state", state })
       } catch {
@@ -147,8 +157,8 @@ export function connectContent({ root, contentScript = false, probe }: ClientOpt
       pending.get(msg.id)?.resolve()
       pending.delete(msg.id)
     } else if (msg.type === "subject") {
-      subjects.get(msg.id)?.(typeof msg.subject === "string" ? msg.subject : null)
-      subjects.delete(msg.id)
+      subjectRequests.get(msg.id)?.(typeof msg.subject === "string" ? msg.subject : null)
+      subjectRequests.delete(msg.id)
     }
     probe?.push(msg)
   })
@@ -159,8 +169,8 @@ export function connectContent({ root, contentScript = false, probe }: ClientOpt
       resolve()
     }
     pending.clear()
-    for (const resolve of subjects.values()) resolve(null)
-    subjects.clear()
+    for (const resolve of subjectRequests.values()) resolve(null)
+    subjectRequests.clear()
   })
   return { controller, ready }
 }

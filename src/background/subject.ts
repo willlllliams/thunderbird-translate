@@ -8,13 +8,9 @@
  * code sees which API it uses.
  */
 
-import type { Ext } from "../shared/ext"
-
 /** The subject of the message on screen in `tabId`; null without a message or with an empty subject. */
 export async function displayedSubject(tabId: number): Promise<string | null> {
-  // Thunderbird's own namespace, which the types of the WebExtension API leave out.
-  const thunderbird = browser as unknown as Pick<Ext, "messageDisplay">
-  const message = await thunderbird.messageDisplay.getDisplayedMessage(tabId)
+  const message = await browser.messageDisplay.getDisplayedMessage(tabId)
   const subject = message?.subject
   return typeof subject === "string" && subject.trim() ? subject : null
 }
