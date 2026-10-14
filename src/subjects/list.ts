@@ -13,6 +13,8 @@ import type { MessageHeader, MessageList } from "../shared/ext"
 export const PAGE_SIZE = 100
 /** After messages arrived, were deleted or moved, the list is read again once this long has passed without another change. */
 export const RELOAD_DELAY_MS = 500
+/** After a change of folder, and after the page opens, the list is read again after these delays: a folder fills its list while Thunderbird reads or downloads its messages. */
+export const SETTLE_DELAYS_MS = [1000, 3000]
 /** Class of the cell that receives the translated subject. */
 export const CLS_CELL = "subject-translation"
 
@@ -71,6 +73,9 @@ export class Listing {
     if (list.id !== null) void browser.messages.abortList(list.id).catch(() => {})
   }
 }
+
+/** What tells two lists apart for the page: the ids and subjects of their messages, in order. */
+export const rowKey = (messages: MessageHeader[]) => JSON.stringify(messages.map((m) => [m.id, m.subject]))
 
 /** The cells of the translated subjects as units for the translation controller; the rows put back nothing on restore. */
 export function collectCells(root: HTMLElement): Collected {

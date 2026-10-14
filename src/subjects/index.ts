@@ -36,7 +36,7 @@ import { SETTINGS_KEY } from "../shared/settings"
 import { loadSettings, readSettings } from "../shared/settings-store"
 import { splitSubject } from "../shared/subject"
 import { subjectsProbe } from "../hooks/subjects"
-import { CLS_CELL, collectCells, Listing, PAGE_SIZE, RELOAD_DELAY_MS, senderName } from "./list"
+import { CLS_CELL, collectCells, Listing, PAGE_SIZE, RELOAD_DELAY_MS, rowKey, senderName, SETTLE_DELAYS_MS } from "./list"
 
 /** Size of the window of "Open in a window". */
 const WINDOW_SIZE = { width: 960, height: 640 }
@@ -140,9 +140,12 @@ async function main(): Promise<void> {
   }
 
   /** Read the list of the mail tab again, keeping at least as many messages as are shown. */
+  /** Read the list of the mail tab again, keeping at least as many messages as are shown; the rows are drawn again only when the list changed. */
   async function reload(): Promise<void> {
     if (tabId === undefined || Number.isNaN(tabId)) return showStatus()
     const run = ++generation
+    const before = rowKey(listing.shown)
+    const hadError = error
     try {
       await listing.load(tabId, Math.max(PAGE_SIZE, listing.shown.length), () => run === generation)
       if (run !== generation) return
@@ -152,7 +155,18 @@ async function main(): Promise<void> {
       listing.shown = []
       error = describeError(e, getI18n())
     }
+    if (rowKey(listing.shown) === before && error === hadError && rows.childElementCount === listing.shown.length) return showStatus()
     await render()
+  }
+
+  /**
+   * A folder that is shown for the first time, or whose messages are still being downloaded, fills its message list
+   * after the change of folder, and no event says when. The list is read again SETTLE_DELAYS_MS after the change.
+   */
+  let settleTimers: ReturnType<typeof setTimeout>[] = []
+  function settle(): void {
+    for (const timer of settleTimers) clearTimeout(timer)
+    settleTimers = SETTLE_DELAYS_MS.map((delay) => setTimeout(() => void reload(), delay))
   }
 
   more.addEventListener("click", async () => {
@@ -179,7 +193,9 @@ async function main(): Promise<void> {
     reloadTimer = setTimeout(() => void reload(), RELOAD_DELAY_MS)
   }
   const onFolder = (tab: { id?: number }) => {
-    if (tab.id === tabId) void reload()
+    if (tab.id !== tabId) return
+    void reload()
+    settle()
   }
   browser.mailTabs.onDisplayedFolderChanged.addListener(onFolder)
   browser.messages.onNewMailReceived.addListener(reloadSoon)
@@ -187,6 +203,7 @@ async function main(): Promise<void> {
   browser.messages.onMoved.addListener(reloadSoon)
   addEventListener("pagehide", () => {
     clearTimeout(reloadTimer)
+    for (const timer of settleTimers) clearTimeout(timer)
     listing.abort()
     browser.mailTabs.onDisplayedFolderChanged.removeListener(onFolder)
     browser.messages.onNewMailReceived.removeListener(reloadSoon)
@@ -209,6 +226,7 @@ async function main(): Promise<void> {
   // Test build (npm run e2e): the probe reads the rows and clicks one.
   subjectsProbe?.({ client, tabId, reload })
   await reload()
+  settle()
 }
 
 void main()

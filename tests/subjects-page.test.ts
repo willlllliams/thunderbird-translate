@@ -6,7 +6,7 @@
  * messages, the consent panel and the window of its own.
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
-import { PAGE_SIZE, RELOAD_DELAY_MS, senderName } from "../src/subjects/list"
+import { PAGE_SIZE, RELOAD_DELAY_MS, senderName, SETTLE_DELAYS_MS } from "../src/subjects/list"
 import { ENGLISH } from "../src/shared/i18n"
 import { type PortReport, SUBJECTS_PORT_NAME, type TranslateResponse } from "../src/shared/messages"
 import type { Tier } from "../src/shared/providers"
@@ -181,6 +181,28 @@ describe("following the mail tab", () => {
     mail.show("Archive")
     await vi.waitFor(() => expect(rows().map((r) => r.cells[2].textContent)).toEqual(["Subject 10", "Subject 11"]))
     await vi.waitFor(() => expect(translated(rows()[1])?.textContent).toBe("T(Subject 11)"))
+  })
+
+  it("reads the list again after a change of folder, while Thunderbird still fills it, and draws the rows only when they changed", async () => {
+    const folders: Record<string, ReturnType<typeof messages>> = { Inbox: messages(2), Archive: [] }
+    const { mail, port } = await subjectsPage({ folders })
+    await vi.waitFor(() => expect(rows()).toHaveLength(2))
+    await vi.advanceTimersByTimeAsync(SETTLE_DELAYS_MS.at(-1)!)
+    const drawn = rows()[0]
+    mail.show("Archive")
+    await vi.waitFor(() => expect($("status").textContent).toBe(ENGLISH.t("subjectsEmpty")))
+    // The folder is read in the meantime.
+    folders.Archive = messages(3, 40)
+    await vi.advanceTimersByTimeAsync(SETTLE_DELAYS_MS[0])
+    await vi.waitFor(() => expect(rows().map((r) => r.cells[2].textContent)).toEqual(["Subject 40", "Subject 41", "Subject 42"]))
+    const requests = requested(port).length
+    const first = rows()[0]
+    await vi.advanceTimersByTimeAsync(SETTLE_DELAYS_MS.at(-1)!)
+    expect(mail.api.mailTabs.getListedMessages).toHaveBeenCalledTimes(SETTLE_DELAYS_MS.length * 2 + 2)
+    // The same list again: the rows stay as they are, and nothing is requested.
+    expect(rows()[0]).toBe(first)
+    expect(requested(port)).toHaveLength(requests)
+    expect(drawn.isConnected).toBe(false)
   })
 
   it("reads the list again once the messages stopped changing", async () => {

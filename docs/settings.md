@@ -165,7 +165,7 @@ The "Translated subjects" button in the main toolbar of Thunderbird opens a page
 - The translated subjects go through the tiers in use like the paragraphs of a message: a lower tier appears first as a provisional translation, in italics with the label of its tier, and the highest tier replaces it. Hovering over a translation shows the subject.
 - Reply and forward prefixes stay as they are, and a subject already in the target language leaves its translation cell empty.
 - Clicking a row, or pressing Enter on it, selects its message in the mail tab, which shows it.
-- When the mail tab shows another folder, the page reads the new list at once. When messages arrive, are deleted or are moved, it reads the list again half a second after the last change and keeps as many rows as it showed.
+- When the mail tab shows another folder, the page reads the new list at once and again one and three seconds later: a folder fills its list while Thunderbird reads its file for the first time or downloads its messages, and no event announces the end. When messages arrive, are deleted or are moved, it reads the list again half a second after the last change and keeps as many rows as it showed. A list that has not changed leaves the rows as they are.
 - "Open in a window" opens the page in a window of its own. That window follows the mail tab the page was opened from and stays open while you read messages in the main window.
 - The line under the title counts the listed messages, and a second line shows the translation progress, for example "Translated 37 of 80".
 
