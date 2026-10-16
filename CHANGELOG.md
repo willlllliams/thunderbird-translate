@@ -2,6 +2,33 @@
 
 All notable changes to this project are documented in this file, with the date of each version. It lists what users of the extension notice. The record up to 1.12.0 with the internal changes is kept in [docs/archive/CHANGELOG-full.md](docs/archive/CHANGELOG-full.md). Versions follow [Semantic Versioning](https://semver.org/).
 
+## 2.1.0 - 2026-10-14
+
+Version 2.1 translates subjects: of the message you read, and of a whole folder on a page of its own. An experimental build, published on GitHub only, also shows them in a column of the message list.
+
+### Subjects
+
+- The subject of a message is translated with its body and shown in a line above the body: the subject with its translation under it in bilingual display, the translation alone in translation-only display. It goes through the same tiers as a paragraph, with a provisional result first.
+- Reply and forward prefixes such as "Re:" and "Fwd:" stay as they are, and a subject already in the target language is left alone.
+- "Translate the subject as well" on the settings page and in the last step of the setup guide turns this off. It is on by default.
+
+### Page of translated subjects
+
+- The "Translated subjects" button in the main toolbar lists the messages of the folder shown in the mail tab: sender, date, subject and the translated subject, the first 100 messages and 100 more with "Show more".
+- A click on a row shows that message in the mail tab. The page follows the mail tab to another folder and reads the list again when messages arrive, are deleted or are moved.
+- "Open in a window" keeps the list open beside the main window.
+- The subjects are batched into few requests and taken from the cache when they were translated before. With only the dictionary and Bergamot, nothing leaves the computer; before subjects first go to an online service, the page asks with the same consent panel as a message.
+
+### Experimental build
+
+- `multi-translate-experimental-2.1.0.xpi`, attached to the release on GitHub, adds a column "Translated subject" to the message list, filled for the first 100 messages of the folder on screen. It needs the table view of the message list.
+- The column uses an internal interface of Thunderbird through a WebExtension Experiment and may stop working with a later Thunderbird version. The build has its own add-on id and is not on addons.thunderbird.net; install either it or the regular build, not both. [docs/experimental.md](docs/experimental.md) describes installation, differences and risks.
+
+### Permissions
+
+- "Read your email messages" (`messagesRead`) is back: the extension reads the subject of the message on screen, and the sender, date and subject of the messages listed in a folder for the page of translated subjects. It reads no message body this way and stores none of it.
+- "See your mail accounts and their folders" (`accountsRead`) is new: Thunderbird requires it to select a message from the page and to tell the page that the mail tab shows another folder. The extension reads no account settings.
+
 ## 2.0.0 - 2026-10-13
 
 Version 2.0 brings together everything the extension has gained since 1.0 and renames it to Multi Translate for Thunderbird, the name it has on addons.thunderbird.net. Updating from 1.x keeps your settings, the downloaded dictionary packs and offline models, and the translation cache. It requires Thunderbird 128 or later. The first translation through an online service asks once for your consent, and an endpoint you typed yourself needs your permission once.

@@ -56,7 +56,7 @@ Ollama 和 LM Studio 是运行在用户自己电脑上的 AI 服务器。它们�
 
 ## webext-linter
 
-用 thunderbird/webext-linter 2.3.2 检查 xpi，并用 `--sca-root` 指向解压后的源代码包。剩余项目及说明：
+用 thunderbird/webext-linter 2.3.2 检查 2.1.0 的 xpi，并用 `--sca-root` 指向解压后的源代码包（审核 schema 为 Thunderbird 158.0.1）。它把 `messagesRead` 和 `accountsRead` 对应到各自的调用（`messageDisplay.getDisplayedMessage`、`mailTabs.getListedMessages`、`mailTabs.setSelectedMessages`、`mailTabs.onDisplayedFolderChanged`、`messages.continueList`、`messages.abortList` 和三个 `messages` 事件），两项都判为通过。剩余项目与 2.0.0 相同：
 
 - sync-xhr（`bergamot-translator.js` 第 63、70 行）：Mozilla 原版胶水脚本中 Emscripten 文件加载器的两个同步 `XMLHttpRequest`。扩展不会执行到它们：worker 自行读取 wasm，并以 `wasmBinary` 传给 `loadBergamot()`（`src/offline/bergamot/worker.ts`、`worker-core.ts`），胶水脚本因此跳过加载器。这个文件已在 `VENDOR.md` 中声明；在源代码审核模式下，linter 只从源代码包读取 vendoring 声明，所以把 xpi 中的副本当作自写代码扫描。
 - 第三方来源无法自动审计（info）：胶水脚本没有发布在 npm 上，来源是 Firefox 仓库的固定提交，sha256 一致。
