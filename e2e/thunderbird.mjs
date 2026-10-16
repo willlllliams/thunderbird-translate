@@ -64,9 +64,13 @@ const LOCAL_FOLDERS = {
   "mail.server.server1.userName": "nobody",
   "mail.server.server1.directory-rel": "[ProfD]Mail/Local Folders",
   "mail.server.server1.storeContractID": "@mozilla.org/msgstore/berkeleystore;1",
-  // The table view of the message list, which shows the columns of add-ons (the cards view does not).
+  // The table view of the message list, which shows the columns of add-ons (the cards view does not), in Thunderbird
+  // 140 and later; Thunderbird 128 keeps the view in the XUL store instead (TABLE_VIEW_XULSTORE).
   "mail.threadpane.listview": 1,
 }
+
+/** The table view of the message list in Thunderbird 128, which reads it from xulstore.json, not from a preference. */
+const TABLE_VIEW_XULSTORE = { "chrome://messenger/content/messenger.xhtml": { threadPane: { view: "table" } } }
 
 /** A header value: ASCII as it is, anything else as an RFC 2047 encoded word. */
 const headerText = (text) => (/^[\x20-\x7e]*$/.test(text) ? text : `=?UTF-8?B?${Buffer.from(text, "utf8").toString("base64")}?=`)
@@ -102,6 +106,7 @@ export function createProfile(xpi, extensionId, { folders } = {}) {
   const prefs = { ...PREFS, ...(folders ? LOCAL_FOLDERS : {}) }
   writeFileSync(join(dir, "user.js"), Object.entries(prefs).map(([k, v]) => `user_pref(${JSON.stringify(k)}, ${JSON.stringify(v)});`).join("\n") + "\n")
   if (folders) {
+    writeFileSync(join(dir, "xulstore.json"), JSON.stringify(TABLE_VIEW_XULSTORE))
     const local = join(dir, "Mail", "Local Folders")
     mkdirSync(local, { recursive: true })
     for (const [name, text] of Object.entries(folders)) writeFileSync(join(local, name), text)

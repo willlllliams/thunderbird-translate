@@ -156,7 +156,9 @@ var translatedColumn = class extends ExtensionCommon.ExtensionAPI {
           return {
             registered: registered(threadPaneColumns()),
             visible: Boolean(column && !column.hidden),
-            tableView: Services.prefs.getIntPref("mail.threadpane.listview", 0) === 1,
+            // What the message list shows, whichever setting chose it: the preference mail.threadpane.listview
+            // (Thunderbird 140 and later) or the XUL store (128). Only the table view has columns.
+            tableView: pane.threadTree.getAttribute("rows") === "thread-row",
             translations: translations.size,
             rows: list,
           }

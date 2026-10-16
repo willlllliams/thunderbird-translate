@@ -284,7 +284,11 @@ function experiment({ modules = ["chrome://messenger/content/ThreadPaneColumns.m
   const column = { id: "multiTranslateSubjectCol", hidden: true }
   const pane = {
     threadPane: { columns: [column], persistColumnStates: vi.fn(), updateColumns: vi.fn() },
-    threadTree: { reset: vi.fn(), getRowAtIndex: (index: number) => (index === 0 ? { querySelector: () => ({ textContent: "on screen" }) } : null) },
+    threadTree: {
+      reset: vi.fn(),
+      getAttribute: (name: string) => (name === "rows" ? "thread-row" : null),
+      getRowAtIndex: (index: number) => (index === 0 ? { querySelector: () => ({ textContent: "on screen" }) } : null),
+    },
     gDBView: {
       rowCount: rows.length,
       getMsgHdrAt: (index: number) => ({ mime2DecodedSubject: rows[index] }),
@@ -304,7 +308,6 @@ function experiment({ modules = ["chrome://messenger/content/ThreadPaneColumns.m
     Services: {
       wm: { getEnumerator: () => [{ gTabmail: { tabInfo: [{ chromeBrowser: { contentWindow: pane } }, { chromeBrowser: null }] } }, {}] },
       obs: { notifyObservers: (_subject: unknown, topic: string) => void observers.push(topic) },
-      prefs: { getIntPref: () => 1 },
     },
     console: { error: vi.fn() },
   }
