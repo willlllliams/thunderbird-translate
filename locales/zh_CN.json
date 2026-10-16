@@ -50,6 +50,7 @@
   "subjectsShownMore": "已列出邮件：$1。点击“显示更多”列出后续邮件。",
   "subjectsMore": "显示更多",
   "subjectsReadFailed": "无法读取邮件列表：$1",
+  "subjectsProgress": "已翻译标题：$1 / $2",
   "labelPrecise": "精翻",
   "popupSettings": "设置",
   "popupShortcuts": "快捷键：Alt+A 翻译，Alt+S 切换显示方式，Alt+R 重新翻译",

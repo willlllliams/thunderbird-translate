@@ -50,6 +50,7 @@
   "subjectsShownMore": "已列出郵件：$1。點選「顯示更多」列出後續郵件。",
   "subjectsMore": "顯示更多",
   "subjectsReadFailed": "無法讀取郵件清單：$1",
+  "subjectsProgress": "已翻譯主旨：$1 / $2",
   "labelPrecise": "精翻",
   "popupSettings": "設定",
   "popupShortcuts": "快速鍵：Alt+A 翻譯，Alt+S 切換顯示方式，Alt+R 重新翻譯",

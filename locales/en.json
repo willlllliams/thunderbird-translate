@@ -51,6 +51,7 @@
   "subjectsShownMore": "Messages listed: $1. “Show more” lists the next ones.",
   "subjectsMore": "Show more",
   "subjectsReadFailed": "The message list cannot be read: $1",
+  "subjectsProgress": "Subjects translated: $1 of $2",
   "labelPrecise": "Precise translation",
   "popupSettings": "Settings",
   "popupShortcuts": "Shortcuts: Alt+A translate, Alt+S switch display, Alt+R retranslate",

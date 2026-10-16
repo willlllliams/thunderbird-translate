@@ -50,6 +50,7 @@
   "subjectsShownMore": "Mensajes mostrados: $1. «Mostrar más» muestra los siguientes.",
   "subjectsMore": "Mostrar más",
   "subjectsReadFailed": "No se puede leer la lista de mensajes: $1",
+  "subjectsProgress": "Asuntos traducidos: $1 de $2",
   "labelPrecise": "Traducción precisa",
   "popupSettings": "Configuración",
   "popupShortcuts": "Atajos: Alt+A traducir, Alt+S cambiar visualización, Alt+R volver a traducir",

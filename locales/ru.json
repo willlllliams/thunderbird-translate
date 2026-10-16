@@ -50,6 +50,7 @@
   "subjectsShownMore": "Показано писем: $1. Кнопка «Показать ещё» добавляет следующие.",
   "subjectsMore": "Показать ещё",
   "subjectsReadFailed": "Не удалось прочитать список писем: $1",
+  "subjectsProgress": "Переведено тем: $1 из $2",
   "labelPrecise": "Точный перевод",
   "popupSettings": "Настройки",
   "popupShortcuts": "Сочетания клавиш: Alt+A — перевод, Alt+S — смена отображения, Alt+R — перевести заново",

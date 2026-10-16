@@ -51,6 +51,7 @@
   "subjectsShownMore": "Listelenen ileti: $1. “Daha fazla göster” sonrakileri listeler.",
   "subjectsMore": "Daha fazla göster",
   "subjectsReadFailed": "İleti listesi okunamıyor: $1",
+  "subjectsProgress": "Çevrilen konular: $1 / $2",
   "labelPrecise": "Hassas çeviri",
   "popupSettings": "Ayarlar",
   "popupShortcuts": "Kısayollar: Alt+A çevir, Alt+S görünümü değiştir, Alt+R yeniden çevir",

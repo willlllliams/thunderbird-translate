@@ -50,6 +50,7 @@
   "subjectsShownMore": "表示中のメッセージ: $1 件。「さらに表示」で続きを一覧表示します。",
   "subjectsMore": "さらに表示",
   "subjectsReadFailed": "メッセージ一覧を読み込めません: $1",
+  "subjectsProgress": "翻訳済みの件名: $1 / $2",
   "labelPrecise": "精密翻訳",
   "popupSettings": "設定",
   "popupShortcuts": "ショートカットキー: Alt+A で翻訳、Alt+S で表示方法を切り替え、Alt+R で再翻訳",

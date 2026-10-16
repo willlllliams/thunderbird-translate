@@ -20,9 +20,9 @@ export const CLS_CELL = "subject-translation"
 
 /** The name of a sender ("Alice Walker <alice@example.com>" → "Alice Walker"), else the address. */
 export function senderName(author: string): string {
-  const match = /^\s*"?([^"<]*?)"?\s*<([^>]+)>\s*$/.exec(author)
+  const match = /^(.*?)\s*<([^<>]+)>\s*$/.exec(author)
   if (!match) return author.trim()
-  return match[1].trim() || match[2].trim()
+  return match[1].trim().replace(/^"(.*)"$/, "$1").trim() || match[2].trim()
 }
 
 /** The messages of the message list of a mail tab, read page by page. */

@@ -50,6 +50,7 @@
   "subjectsShownMore": "Số thư đã liệt kê: $1. “Xem thêm” liệt kê các thư tiếp theo.",
   "subjectsMore": "Xem thêm",
   "subjectsReadFailed": "Không đọc được danh sách thư: $1",
+  "subjectsProgress": "Tiêu đề đã dịch: $1 trên $2",
   "labelPrecise": "Dịch chính xác",
   "popupSettings": "Cài đặt",
   "popupShortcuts": "Phím tắt: Alt+A dịch, Alt+S chuyển chế độ hiển thị, Alt+R dịch lại",

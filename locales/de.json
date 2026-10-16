@@ -50,6 +50,7 @@
   "subjectsShownMore": "Aufgelistete Nachrichten: $1. „Mehr anzeigen“ listet die nächsten auf.",
   "subjectsMore": "Mehr anzeigen",
   "subjectsReadFailed": "Die Nachrichtenliste kann nicht gelesen werden: $1",
+  "subjectsProgress": "Übersetzte Betreffs: $1 von $2",
   "labelPrecise": "Präzise Übersetzung",
   "popupSettings": "Einstellungen",
   "popupShortcuts": "Tastenkombinationen: Alt+A übersetzen, Alt+S Anzeige umschalten, Alt+R neu übersetzen",

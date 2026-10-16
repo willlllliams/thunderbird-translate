@@ -50,6 +50,7 @@
   "subjectsShownMore": "나열된 메시지: $1개. “더 보기”를 누르면 다음 메시지가 나열됩니다.",
   "subjectsMore": "더 보기",
   "subjectsReadFailed": "메시지 목록을 읽을 수 없습니다: $1",
+  "subjectsProgress": "번역된 제목: $2개 중 $1개",
   "labelPrecise": "정밀 번역",
   "popupSettings": "설정",
   "popupShortcuts": "단축키: Alt+A 번역, Alt+S 표시 방식 전환, Alt+R 다시 번역",

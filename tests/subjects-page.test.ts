@@ -73,6 +73,7 @@ describe("senderName", () => {
   it.each([
     ["Alice Walker <alice@example.com>", "Alice Walker"],
     ['"Walker, Alice" <alice@example.com>', "Walker, Alice"],
+    ['"Diego López <diego@example.es>" <diego@example.es>', "Diego López <diego@example.es>"],
     ["<alice@example.com>", "alice@example.com"],
     ["alice@example.com", "alice@example.com"],
   ])("%s → %s", (author, name) => expect(senderName(author)).toBe(name))
@@ -90,7 +91,8 @@ describe("the list", () => {
     await vi.waitFor(() => expect(translated(rows()[99])?.textContent).toBe("T(Subject 100)"))
     expect(requested(port)).toHaveLength(PAGE_SIZE)
     expect($("status").textContent).toBe(ENGLISH.t("subjectsShownMore", [100]))
-    await vi.waitFor(() => expect($("progress").textContent).toBe(ENGLISH.t("popupProgress", [100, 100])))
+    // Once every subject has its translation, the progress line goes.
+    await vi.waitFor(() => expect($("progress").hidden).toBe(true))
 
     $("more").click()
     await vi.waitFor(() => expect(rows()).toHaveLength(200))
@@ -131,6 +133,8 @@ describe("the list", () => {
     port.push({ type: "tier", id, tier: "dictionary", result: { ok: true, text: "D(Budget)" } })
     await vi.waitFor(() => expect(translated(rows()[0])?.classList.contains("tt-provisional")).toBe(true))
     expect(translated(rows()[0])!.firstChild!.textContent).toBe("D(Budget)")
+    await vi.waitFor(() => expect($("progress").textContent).toBe(ENGLISH.t("subjectsProgress", [0, 1])))
+    expect($("progress").hidden).toBe(false)
     expect(translated(rows()[0])!.title).toBe("Budget")
     port.push({ type: "tier", id, tier: "machine", result: { ok: true, text: "G(Budget)" } })
     port.push({ type: "done", id })

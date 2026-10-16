@@ -79,9 +79,10 @@ async function main(): Promise<void> {
     else if (listing.shown.length === 0) status.textContent = t("subjectsEmpty")
     else status.textContent = t(listing.hasMore ? "subjectsShownMore" : "subjectsShown", [listing.shown.length])
     status.title = error
+    // While subjects are being translated: how many have their final translation.
     const state = lastState
-    progress.hidden = !state?.active || state.total === 0
-    if (state && !progress.hidden) progress.textContent = state.provisional > 0 ? t("popupProgressProvisional", [state.done, state.total, state.provisional]) : t("popupProgress", [state.done, state.total])
+    progress.hidden = !state?.active || state.total === 0 || state.done + state.failed === state.total
+    if (state && !progress.hidden) progress.textContent = t("subjectsProgress", [state.done, state.total])
   }
 
   async function select(row: HTMLTableRowElement): Promise<void> {
