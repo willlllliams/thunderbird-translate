@@ -1,0 +1,15 @@
+[
+  {
+    "namespace": "e2eCapture",
+    "description": "Screenshots of Thunderbird's windows for the end-to-end test build; no other build contains it.",
+    "functions": [
+      {
+        "name": "window",
+        "type": "function",
+        "async": true,
+        "description": "A PNG image (data URL) of the most recent window of the given type, e.g. mail:3pane, mail:messageWindow or mail:extensionPopup.",
+        "parameters": [{ "name": "windowType", "type": "string" }]
+      }
+    ]
+  }
+]

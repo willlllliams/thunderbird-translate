@@ -49,13 +49,24 @@ cpSync(join(root, "static"), dist, { recursive: true })
 cpSync(join(root, "LICENSE"), join(dist, "LICENSE"))
 // The test build reaches the mock server on 127.0.0.1 as a host of its manifest; a regular build asks the user for such an address.
 // The experimental build takes its id, its name and its experiment API from src/experiments/manifest.json.
+// The test builds also carry the experiment e2eCapture (src/e2e/capture/), which takes the screenshots of the e2e runs.
+const overlay = experimental ? JSON.parse(readFileSync(join(EXPERIMENTS, "manifest.json"), "utf8")) : {}
 const built = {
   ...manifest,
-  ...(experimental ? JSON.parse(readFileSync(join(EXPERIMENTS, "manifest.json"), "utf8")) : {}),
+  ...overlay,
   ...(e2e ? { permissions: [...manifest.permissions, "http://127.0.0.1/*"] } : {}),
+  ...(e2e
+    ? {
+        experiment_apis: {
+          ...overlay.experiment_apis,
+          e2eCapture: { schema: "e2e/capture/schema.json", parent: { scopes: ["addon_parent"], paths: [["e2eCapture"]], script: "e2e/capture/implementation.js" } },
+        },
+      }
+    : {}),
 }
 if (e2e || experimental) writeFileSync(join(dist, "manifest.json"), `${JSON.stringify(built, null, 2)}\n`)
 for (const file of experimental ? EXPERIMENT_FILES : []) cpSync(join(EXPERIMENTS, file), join(dist, "experiments", file))
+if (e2e) cpSync(join(root, "src", "e2e", "capture"), join(dist, "e2e", "capture"), { recursive: true })
 // Bergamot offline engine: glue script (vendor/) and the pinned, zstd-compressed wasm (downloaded to .cache/).
 cpSync(join(root, "vendor", "bergamot", "bergamot-translator.js"), join(dist, "bergamot-translator.js"))
 cpSync(await ensureBergamotWasm(), join(dist, BERGAMOT_WASM_FILE))
@@ -156,12 +167,20 @@ const experimentProblems = experimental
   ? [
       ...(experimentSources.includes("src/experiments/background.ts") ? [] : ["the background script of the experimental build was not bundled"]),
       ...(built.experiment_apis?.translatedColumn ? [] : ["the manifest has no experiment_apis"]),
+      ...Object.keys(built.experiment_apis ?? {})
+        .filter((name) => name !== "translatedColumn" && !(e2e && name === "e2eCapture"))
+        .map((name) => `the experiment ${name} in the manifest of the experimental build`),
+      ...(e2e ? [] : shipped(join(dist, "e2e")).map((file) => `e2e/${file} in the experimental build`)),
       ...EXPERIMENT_FILES.filter((file) => !existsSync(join(dist, "experiments", file))).map((file) => `experiments/${file} is missing`),
     ]
   : [
       ...experimentSources.map((input) => `${input} in a regular build`),
-      ...(JSON.parse(readFileSync(join(dist, "manifest.json"), "utf8")).experiment_apis ? ["experiment_apis in the manifest of a regular build"] : []),
+      // The test build carries only the experiment of its screenshots; a build for users carries none.
+      ...Object.keys(JSON.parse(readFileSync(join(dist, "manifest.json"), "utf8")).experiment_apis ?? {})
+        .filter((name) => !(e2e && name === "e2eCapture"))
+        .map((name) => `the experiment ${name} in the manifest of a regular build`),
       ...shipped(join(dist, "experiments")).map((file) => `experiments/${file} in a regular build`),
+      ...(e2e ? [] : shipped(join(dist, "e2e")).map((file) => `e2e/${file} in a regular build`)),
     ]
 if (experimentProblems.length) {
   console.error(experimentProblems.join("\n"))

@@ -25,6 +25,11 @@
  *   profile with the local folders "Foreign" and "Second"; the hook shows
  *   "Foreign" in the mail tab and opens the page of translated subjects for
  *   that tab, whose probe (src/e2e/subjects.ts) runs the test.
+ * - "column" (experimental build): the three tiers, allowed, on the same
+ *   kind of profile; the hook shows "Foreign" in the mail tab and reads the
+ *   column "Translated subject" through the experiment API until the
+ *   translations arrive, then reports what the column showed before and
+ *   after.
  * Every ready report says whether i18n.getPreferredSystemLanguages() exists.
  */
 
@@ -49,12 +54,25 @@ export type E2eMessage =
   | { e2e: "scenario" }
   /** Answer: the muted notices of the settings, after switching to Google without the dictionary when asked. */
   | { e2e: "settings"; useGoogle?: boolean }
+  /** A screenshot of the most recent window of a type (experiment e2eCapture), saved by the mock server as <name>.png. */
+  | { e2e: "screenshot"; name: string; windowType: string }
 
 async function post(path: string, body: unknown): Promise<void> {
   try {
     await fetch(`${__E2E_SERVER__}${path}`, { method: "POST", headers: { "Content-Type": "text/plain" }, body: JSON.stringify(body) })
   } catch (error) {
     console.error(`[${E2E_MARKER}] cannot reach the mock server`, error)
+  }
+}
+
+/** Take a screenshot of the most recent window of `windowType` with the experiment of the test build and hand it to the mock server; a failure goes to the log. */
+async function screenshot(name: string, windowType: string): Promise<void> {
+  const capture = (browser as unknown as { e2eCapture?: { window(windowType: string): Promise<string> } }).e2eCapture
+  try {
+    if (!capture) throw new Error("the experiment e2eCapture is missing")
+    await post("/screenshot", { name, dataUrl: await capture.window(windowType) })
+  } catch (error) {
+    await post("/log", { message: `screenshot ${name}: ${error}` })
   }
 }
 
@@ -135,6 +153,48 @@ async function showFolder(name: string, count: number): Promise<number> {
   }
 }
 
+/** What the experiment API of the experimental build tells about the column in a mail tab (translated-column/schema.json). */
+interface ColumnState {
+  registered: boolean
+  visible: boolean
+  tableView: boolean
+  translations: number
+  rows: { subject: string; text: string; cell: string | null }[]
+}
+
+/**
+ * The "column" run: the column in the mail tab `tabId` right away, then once five of the six subjects of the folder
+ * show their AI translation in the column and on screen (the sixth is in the target language).
+ */
+async function watchColumn(tabId: number): Promise<Record<string, unknown>> {
+  const api = (browser as unknown as { translatedColumn?: { inspect(tabId: number, rows: number): Promise<ColumnState> } }).translatedColumn
+  if (!api) return { error: "the experiment API translatedColumn is missing" }
+  const report: Record<string, unknown> = { scenario: "column" }
+  try {
+    // The background script adds the column once its settings are read, after this hook.
+    const start = Date.now()
+    do report.first = await api.inspect(tabId, 10)
+    while (!(report.first as ColumnState).registered && Date.now() - start < 30_000 && (await new Promise((r) => setTimeout(r, 100))) === undefined)
+    const deadline = Date.now() + 60_000
+    let state: ColumnState
+    for (;;) {
+      state = await api.inspect(tabId, 10)
+      const done = state.rows.filter((row) => row.text.includes("[AI ") && row.cell === row.text)
+      if (done.length >= 5 || Date.now() > deadline) break
+      await new Promise((r) => setTimeout(r, 250))
+    }
+    report.final = state
+    report.waitedMs = Date.now() - start
+    // The setup guide opened after the installation: the mail tab comes to the front for the screenshot.
+    await ext.tabs.update(tabId, { active: true })
+    await new Promise((r) => setTimeout(r, 500))
+    await screenshot("column", "mail:3pane")
+  } catch (error) {
+    report.error = error instanceof Error ? `${error.message}\n${error.stack}` : String(error)
+  }
+  return report
+}
+
 /** Remove every installed pack, so that the setup guide has packs to download. */
 async function uninstallDictionary(dictionary: DictionaryManager): Promise<void> {
   for (const key of await dictionary.installedKeys()) {
@@ -159,6 +219,7 @@ export async function setUpE2e({ storage, dictionary, runCommand }: E2eDeps): Pr
     if (msg.e2e === "command") return post("/mark", { command: msg.command }).then(() => runCommand(msg.command, sender.tab))
     if (msg.e2e === "report") return post("/report", { ...(msg.report as object), userAgent: navigator.userAgent })
     if (msg.e2e === "scenario") return Promise.resolve(scenario)
+    if (msg.e2e === "screenshot") return screenshot(msg.name, msg.windowType)
     if (msg.e2e === "settings") {
       return updateSettings((s) => {
         if (!msg.useGoogle) return
@@ -188,6 +249,7 @@ export async function setUpE2e({ storage, dictionary, runCommand }: E2eDeps): Pr
     if (offline) settings.providers.bergamot = { ...settings.providers.bergamot, enabled: true }
     // The user allowed Google and the AI service in the consent panel of an earlier message; the "consent" and "subjects" runs start without.
     settings.onlineConsent = scenario === "consent" || scenario === "subjects" ? [] : ["google-free", "custom"]
+    // The column of the experimental build translates what the earlier runs of its profile cached: none.
     // The earlier runs share the profile: Google and the AI service have to answer this run themselves, not the cache.
     if (scenario === "missing" || scenario.startsWith("auto") || scenario === "consent") settings.cache.enabled = false
     await storage.set(SETTINGS_KEY, settings)
@@ -201,6 +263,14 @@ export async function setUpE2e({ storage, dictionary, runCommand }: E2eDeps): Pr
     }
     if (offline) {
       await post("/ready", { scenario, systemLanguagesApi, version: ext.runtime.getManifest().version })
+      return
+    }
+    if (scenario === "column") {
+      const packs = await installDictionary(dictionary)
+      const tabId = await showFolder("Foreign", 6)
+      await post("/ready", { scenario, packs, tabId, systemLanguagesApi, version: ext.runtime.getManifest().version, id: ext.runtime.id, name: ext.runtime.getManifest().name })
+      // Not awaited: the settings, and with them the column, wait for this hook to end.
+      void watchColumn(tabId).then((report) => post("/report", report))
       return
     }
     if (scenario === "subjects") {

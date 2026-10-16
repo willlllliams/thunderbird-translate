@@ -76,7 +76,8 @@ export function mbox(messages) {
   return messages
     .map(({ from, subject, date, body }, i) => {
       const headers = [
-        `From: ${headerText(from)}`,
+        // Only the name is encoded; the address stays as it is.
+        `From: ${from.replace(/^(.*?) </, (_, name) => `${headerText(name)} <`)}`,
         "To: Bob Stone <bob@example.com>",
         `Subject: ${headerText(subject)}`,
         `Date: ${new Date(date).toUTCString().replace("GMT", "+0000")}`,

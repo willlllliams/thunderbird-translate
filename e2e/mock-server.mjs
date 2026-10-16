@@ -8,7 +8,7 @@
 // - what the extension reports: /ready, /mark, /log, /report, and which scenario to run: /scenario
 // Answers are delayed so that the tiers arrive in a fixed order: dictionary, Google, AI.
 import { createHash } from "node:crypto"
-import { readFileSync } from "node:fs"
+import { mkdirSync, readFileSync, writeFileSync } from "node:fs"
 import { createServer } from "node:http"
 import { join } from "node:path"
 import { gzipSync, zstdCompressSync } from "node:zlib"
@@ -108,7 +108,7 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms))
  * Start the server on 127.0.0.1 and a free port. `calls` lists, in order, the
  * Google and AI requests, the dictionary downloads and the command marks.
  */
-export async function startMockServer({ fixtures, googleDelayMs = 300, aiDelayMs = 1500, chunkDelayMs = 250, log = () => {} }) {
+export async function startMockServer({ fixtures, screenshots, googleDelayMs = 300, aiDelayMs = 1500, chunkDelayMs = 250, log = () => {} }) {
   const release = dictionaryRelease(fixtures)
   const bergamot = bergamotModels()
   /** What the extension is asked to do (GET /scenario); set by the runner before each launch. */
@@ -208,6 +208,15 @@ export async function startMockServer({ fixtures, googleDelayMs = 300, aiDelayMs
         if (!data) return send(res, 404, "not found", "text/plain")
         calls.push({ type: "bergamot", what: location, at: Date.now() })
         return sendInChunks(res, data, "application/octet-stream")
+      }
+      // A screenshot of the test build (experiment e2eCapture): saved as <screenshots>/<name>.png.
+      if (req.method === "POST" && url.pathname === "/screenshot") {
+        const { name, dataUrl } = JSON.parse(raw)
+        if (!screenshots || !/^[\w-]+$/.test(name) || !String(dataUrl).startsWith("data:image/png;base64,")) return send(res, 400, "bad screenshot", "text/plain")
+        mkdirSync(screenshots, { recursive: true })
+        writeFileSync(join(screenshots, `${name}.png`), Buffer.from(dataUrl.slice(dataUrl.indexOf(",") + 1), "base64"))
+        log(`screenshot ${name}.png`)
+        return send(res, 200, "ok", "text/plain")
       }
       if (req.method === "POST" && ["/ready", "/mark", "/log", "/report"].includes(url.pathname)) {
         const body = JSON.parse(raw || "null")

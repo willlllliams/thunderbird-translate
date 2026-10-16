@@ -203,6 +203,9 @@ export function createContentProbe(): ContentProbe {
       await until("the final progress report", () => last !== null && last.total > 0 && last.done + last.failed === last.total)
       await until("the translated subject", () => subjectLine()?.translation?.startsWith("[AI ") === true)
       report.translated = { state: last, shown: snapshot(body), subject: subjectLine() }
+      // The message window with the header and the translated body, the subject line on top.
+      const fixture = location.href.includes("plain") ? "plain" : "html"
+      await send({ e2e: "screenshot", name: `subject-line-${fixture}-bilingual`, windowType: "mail:messageWindow" })
 
       phase = "mode"
       await send({ e2e: "command", command: "toggle-display-mode" })
@@ -211,6 +214,7 @@ export function createContentProbe(): ContentProbe {
         return shown.length > 0 && shown.every((s) => s.mode === "only" && !s.mark) && last !== null && last.total > 0 && last.done === last.total
       })
       report.translationOnly = { state: last, shown: snapshot(body), subject: subjectLine() }
+      await send({ e2e: "screenshot", name: `subject-line-${fixture}-translation-only`, windowType: "mail:messageWindow" })
 
       phase = "restore"
       await send({ e2e: "command", command: "toggle-translation" })
