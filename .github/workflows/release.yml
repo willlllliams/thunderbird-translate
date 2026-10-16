@@ -38,6 +38,8 @@ jobs:
       # Unit tests with the coverage thresholds of vitest.config.ts.
       - run: npm run test:coverage
       - run: npm run build
+      # The experimental build with the column "Translated subject" (docs/experimental.md), published on GitHub only.
+      - run: npm run build:experimental
 
       - name: Read version
         id: version
@@ -45,11 +47,13 @@ jobs:
           echo "version=$(node -p "require('./static/manifest.json').version")" >> "$GITHUB_OUTPUT"
           echo "sha=$(git rev-parse --short HEAD)" >> "$GITHUB_OUTPUT"
 
+      # Both builds: thunderbird-translate-<version>.xpi and multi-translate-experimental-<version>.xpi.
       - name: Upload build artifact
         uses: actions/upload-artifact@v4
         with:
           name: thunderbird-translate-${{ steps.version.outputs.version }}-${{ steps.version.outputs.sha }}
           path: web-ext-artifacts/*.xpi
+          if-no-files-found: error
           retention-days: 30
 
       # The section of this version in CHANGELOG.md; fails when it has none.
@@ -103,7 +107,18 @@ jobs:
           test -x "$RUNNER_TEMP/thunderbird/thunderbird"
           echo "THUNDERBIRD_BIN=$RUNNER_TEMP/thunderbird/thunderbird" >> "$GITHUB_ENV"
 
+      # The runs include "column", which runs the experimental build in this Thunderbird version.
       - run: npm run e2e
+
+      # The screenshots the test build took: the subject line, the page of translated subjects, the column.
+      - name: Upload screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: e2e-screenshots-${{ matrix.thunderbird }}
+          path: .cache/e2e/screenshots/*.png
+          if-no-files-found: ignore
+          retention-days: 14
 
   release:
     needs: [build, e2e]
@@ -133,9 +148,11 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           file="web-ext-artifacts/thunderbird-translate-$VERSION-$SHA.xpi"
+          experimental="web-ext-artifacts/multi-translate-experimental-$VERSION-$SHA.xpi"
           cp "web-ext-artifacts/thunderbird-translate-$VERSION.xpi" "$file"
+          cp "web-ext-artifacts/multi-translate-experimental-$VERSION.xpi" "$experimental"
           gh release delete nightly --cleanup-tag --yes --repo "$GITHUB_REPOSITORY" || true
-          gh release create nightly "$file" --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" \
+          gh release create nightly "$file" "$experimental" --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" \
             --prerelease --title "Nightly ($SHA)" \
             --notes "Automatic build of commit $GITHUB_SHA. For testing; use the latest versioned release for daily use."
 
@@ -160,5 +177,8 @@ jobs:
           body_path: release-notes/release-notes.md
           generate_release_notes: false
           make_latest: true
-          files: web-ext-artifacts/thunderbird-translate-${{ needs.build.outputs.version }}.xpi
+          # The regular build, and the experimental build with the column (docs/experimental.md).
+          files: |
+            web-ext-artifacts/thunderbird-translate-${{ needs.build.outputs.version }}.xpi
+            web-ext-artifacts/multi-translate-experimental-${{ needs.build.outputs.version }}.xpi
           fail_on_unmatched_files: true

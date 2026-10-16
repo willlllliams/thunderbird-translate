@@ -251,11 +251,11 @@ The version lives in four places, which must agree: `static/manifest.json`, `pac
 
 The workflow `.github/workflows/release.yml` (named "Build") runs on every push to `main`, on pull requests and on manual dispatch.
 
-1. Job `build`: `npm ci`, `npm run typecheck`, `npm run locales:check`, `npm run docs:check`, `npm run imports:check`, `npm run test:coverage` and `npm run build`. The xpi is uploaded as a build artifact named after the version and the short commit hash, kept for 30 days. Then `scripts/release-notes.mjs` writes the section of the version in `CHANGELOG.md` to a file, with relative links pointing to the files at the tag of the version, and uploads it as a second artifact. A version without a section of its own fails here.
-2. Job `e2e`: the end-to-end test against the four Thunderbird versions listed above.
+1. Job `build`: `npm ci`, `npm run typecheck`, `npm run locales:check`, `npm run docs:check`, `npm run imports:check`, `npm run test:coverage`, `npm run build` and `npm run build:experimental`. Both xpi files are uploaded as one build artifact named after the version and the short commit hash, kept for 30 days. Then `scripts/release-notes.mjs` writes the section of the version in `CHANGELOG.md` to a file, with relative links pointing to the files at the tag of the version, and uploads it as a second artifact. A version without a section of its own fails here.
+2. Job `e2e`: the end-to-end test against the four Thunderbird versions listed above; its run `column` tests the experimental build in each of them. The screenshots of every version are uploaded as an artifact, kept for 14 days.
 3. Job `release`, after both succeed, on a push to `main` and on manual dispatch (not for pull requests). It is the only job with write access to the repository.
-   - On a push, it replaces the `nightly` pre-release with the xpi of this commit, named `thunderbird-translate-<version>-<sha>.xpi`. The nightly build is for testing.
-   - If no release `v<version>` exists yet, it creates one with the xpi and that text as its description, and marks it as the latest release. A manual dispatch does the same when the version has no release yet.
+   - On a push, it replaces the `nightly` pre-release with the two xpi files of this commit, named `thunderbird-translate-<version>-<sha>.xpi` and `multi-translate-experimental-<version>-<sha>.xpi`. The nightly build is for testing.
+   - If no release `v<version>` exists yet, it creates one with both xpi files, `thunderbird-translate-<version>.xpi` and `multi-translate-experimental-<version>.xpi`, and that text as its description, and marks it as the latest release. A manual dispatch does the same when the version has no release yet.
 
 A new versioned release therefore appears when a commit with a new version number reaches `main` and passes all checks. Pushing more commits with the same version only updates `nightly`. A manual dispatch (`workflow_dispatch`) runs the job `release` as well, on the branch it is started from, and creates the release of a version that has none yet.
 
