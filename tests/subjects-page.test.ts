@@ -112,6 +112,10 @@ describe("the list", () => {
     dispatchEvent(new Event("pagehide"))
     expect(mail.api.messages.abortList).toHaveBeenCalledWith("list-1")
     expect(mail.open.size).toBe(0)
+    expect(mail.api.mailTabs.onDisplayedFolderChanged.listeners).toHaveLength(0)
+    // A page that is gone does not hear a later pagehide of the same window, which another page may cause.
+    vi.stubGlobal("browser", {})
+    expect(() => dispatchEvent(new Event("pagehide"))).not.toThrow()
   })
 
   it("translates the subject without its prefixes and leaves a subject in the target language alone", async () => {

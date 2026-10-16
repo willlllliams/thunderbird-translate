@@ -202,6 +202,7 @@ async function main(): Promise<void> {
   browser.messages.onNewMailReceived.addListener(reloadSoon)
   browser.messages.onDeleted.addListener(reloadSoon)
   browser.messages.onMoved.addListener(reloadSoon)
+  // The page goes once: its listeners and timers go with it.
   addEventListener("pagehide", () => {
     clearTimeout(reloadTimer)
     for (const timer of settleTimers) clearTimeout(timer)
@@ -210,7 +211,7 @@ async function main(): Promise<void> {
     browser.messages.onNewMailReceived.removeListener(reloadSoon)
     browser.messages.onDeleted.removeListener(reloadSoon)
     browser.messages.onMoved.removeListener(reloadSoon)
-  })
+  }, { once: true })
 
   // A new interface language: the labels of the page and of its rows.
   ext.storage.onChanged.addListener((changes, area) => {
