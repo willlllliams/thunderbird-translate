@@ -23,7 +23,7 @@
 
 ## Özellikler
 
-- HTML iletilerdeki paragrafları, liste öğelerini, tablo hücrelerini, başlıkları ve alıntıları; düz metin iletilerde ise boş satırlarla ayrılmış paragrafları çevirir. Kod, sayılar, çıplak bağlantılar ve zaten hedef dilde olan paragraflar atlanır.
+- HTML iletilerdeki paragrafları, liste öğelerini, tablo hücrelerini, başlıkları ve alıntıları; düz metin iletilerde ise boş satırlarla ayrılmış paragrafları çevirir. Kod, sayılar, çıplak bağlantılar ve zaten hedef dilde olan paragraflar atlanır. Konu da çevrilir ve gövdenin üstündeki bir satırda gösterilir ("Konuyu da çevir", varsayılan olarak açık).
 - İki görünüm modu: iki dilli (çeviri her özgün paragrafın altında) veya yalnızca çeviri. Çeviri kapatıldığında özgün ileti olduğu gibi geri gelir.
 - Üç çeviri kademesi aynı anda çalışır: çevrimdışı sözlük, makine çevirisi ve yapay zekâ hizmeti. En hızlı sonuç önce görünür, en yüksek kademenin sonucu gelince onun yerini alır.
 - Hesap gerektirmeyen ücretsiz hizmetler: Google Translate (varsayılan) ve Microsoft Translator.
@@ -40,7 +40,7 @@
 2. Thunderbird'de Araçlar → Eklentiler ve temalar'ı açın (sağ üst köşedeki ≡ menüsünde de bulunur).
 3. Eklenti listesinin üstündeki dişli simgesine tıklayın, "Dosyadan eklenti yükle…" seçeneğini seçin, xpi dosyasını seçip onaylayın.
 
-Thunderbird 128 veya daha yeni bir sürüm gerekir. `nightly` ön sürümü, en son commit'in otomatik derlemesidir ve test amaçlıdır.
+Thunderbird 128 veya daha yeni bir sürüm gerekir. `nightly` ön sürümü, en son commit'in otomatik derlemesidir ve test amaçlıdır. Deneysel sürüm `multi-translate-experimental-<version>.xpi`, ileti listesine ayrıca "Çevrilmiş konu" sütununu ekler; Thunderbird'ün iç arayüzüne dayanır ve iki sürümden yalnızca biri yüklenebilir ([docs/experimental.md](../docs/experimental.md), İngilizce).
 
 ## Hızlı başlangıç
 
@@ -65,7 +65,7 @@ Bir ileti açın ve ileti başlığı araç çubuğundaki "İletiyi çevir" dü�
 
 Kısayollar, Eklenti yöneticisinin dişli menüsündeki "Eklenti kısayollarını yönet" bölümünden değiştirilebilir.
 
-İki dilli modda her çeviri kendi özgün paragrafının altına konur. Yalnızca çeviri modunda çeviri özgün metnin yerini alır; özgün metni görmek için çevirinin üzerine gelin.
+İki dilli modda her çeviri kendi özgün paragrafının altına konur. Yalnızca çeviri modunda çeviri özgün metnin yerini alır; özgün metni görmek için çevirinin üzerine gelin. Ana araç çubuğundaki "Çevrilmiş konular" düğmesi geçerli klasördeki iletileri çevrilmiş konularıyla listeler; bir satıra tıklamak iletiyi gösterir.
 
 Diğer tüm ayarlar, Eklenti yöneticisinde eklentinin "Seçenekler" düğmesiyle açılan ayarlar sayfasındadır. Değişiklikler otomatik kaydedilir; fareyle bir denetimin üzerine gelindiğinde ne işe yaradığı görünür. Her ayar [docs/settings.md](../docs/settings.md) dosyasında (İngilizce) açıklanmıştır.
 
@@ -106,7 +106,7 @@ Hazır ayarlar isteme kural ekler: Britanya İngilizcesi veya Tayvan kullanımı
 
 ## Gizlilik
 
-- İleti metni yalnızca kullanılan kademelerin hizmetlerine gider. Sözlük ve Bergamot bilgisayarınızda çeviri yapar.
+- İleti metni yalnızca kullanılan kademelerin hizmetlerine gider. Sözlük ve Bergamot bilgisayarınızda çeviri yapar. İletilerin konuları da aynı kurala uyar.
 - Bir iletinin metni bir çevrimiçi hizmete ilk kez gitmeden önce iletinin üstündeki bir panel hizmeti ve adresini gösterir ve her hizmet için bir kez sorar. "İzin ver ve çevir" düğmesine tıklanana kadar hiçbir şey gönderilmez; ayarlar sayfası izin verilen hizmetleri listeler ve izni geri almayı sağlar. Yalnızca sözlük ve Bergamot kullanılırsa hiçbir şey sorulmaz.
 - Elle girilen bir adres (Ollama, LM Studio, DeepLX, özel bir hizmet, değiştirilmiş bir adres) bağlantı için bir kez izin ister; izin ayarlarda "Erişime izin ver" veya "Bağlantıyı test et" ile verilir.
 - API anahtarları yalnızca Thunderbird profilinizde saklanır ve yalnızca kendi hizmetlerinin uç noktasına gönderilir.
@@ -136,6 +136,7 @@ Aşağıdaki belgeler İngilizcedir; yalnızca dictionary-packs.md Çincedir.
 - [docs/bergamot.md](../docs/bergamot.md): çevrimdışı Bergamot motoru, modellerinin seçimi ve saklanması, derlenmesi.
 - [docs/dictionary-packs.md](../docs/dictionary-packs.md): sözlük paketlerinin veri kaynakları, biçimi ve derlenmesi (Çince).
 - [docs/development.md](../docs/development.md): kaynaktan derleme, testler, proje yapısı, arayüzün çevrilmesi ve sürüm süreci.
+- [docs/experimental.md](../docs/experimental.md): "Çevrilmiş konu" sütunlu deneysel sürüm, kurulumu ve riskleri.
 
 ## Teşekkürler
 

@@ -175,6 +175,8 @@ The consent rules of a message apply. Before subjects first go to an online serv
 
 Thunderbird hands a message list over in pages of its own size, 100 messages by default. The page reads further pages as needed and stops reading a list it no longer needs.
 
+The experimental build shows the translated subjects in a column of the message list itself, see [experimental.md](experimental.md).
+
 ## Adding and removing services
 
 The side list of the translation services section has two groups. "Added" holds the services that appear in the service lists of the popup and of the settings page. "Available to add" holds all others. Selecting a service shows its configuration and buttons:

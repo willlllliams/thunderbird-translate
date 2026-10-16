@@ -23,7 +23,7 @@ Multi-Übersetzer für Thunderbird ist eine Erweiterung für Thunderbird, die de
 
 ## Funktionen
 
-- Übersetzt Absätze, Listeneinträge, Tabellenzellen, Überschriften und Zitate von HTML-Nachrichten sowie durch Leerzeilen getrennte Absätze von Nur-Text-Nachrichten. Code, Zahlen, nackte Links und Absätze, die bereits in der Zielsprache verfasst sind, werden übersprungen.
+- Übersetzt Absätze, Listeneinträge, Tabellenzellen, Überschriften und Zitate von HTML-Nachrichten sowie durch Leerzeilen getrennte Absätze von Nur-Text-Nachrichten. Code, Zahlen, nackte Links und Absätze, die bereits in der Zielsprache verfasst sind, werden übersprungen. Auch der Betreff wird übersetzt, in einer Zeile über dem Nachrichtentext („Auch den Betreff übersetzen“, standardmäßig an).
 - Zwei Anzeigemodi: zweisprachig (die Übersetzung unter jedem Originalabsatz) oder nur Übersetzung. Wird die Übersetzung ausgeschaltet, steht die Nachricht wieder exakt im Original da.
 - Drei Übersetzungsstufen arbeiten gleichzeitig: ein Offline-Wörterbuch, ein maschineller Übersetzer und ein KI-Dienst. Das schnellste Ergebnis erscheint zuerst, das der höchsten Stufe ersetzt es.
 - Kostenlose Dienste ohne Konto: Google Translate (Standard) und Microsoft Translator.
@@ -40,7 +40,7 @@ Multi-Übersetzer für Thunderbird ist eine Erweiterung für Thunderbird, die de
 2. In Thunderbird Extras → Add-ons und Themes öffnen (auch über das Menü ≡ oben rechts erreichbar).
 3. Auf das Zahnradsymbol über der Liste der Erweiterungen klicken, „Add-on aus Datei installieren…“ wählen, die xpi-Datei auswählen und bestätigen.
 
-Erforderlich ist Thunderbird 128 oder neuer. Das Vorabrelease `nightly` ist ein automatischer Build des jeweils neuesten Commits und für Tests gedacht.
+Erforderlich ist Thunderbird 128 oder neuer. Das Vorabrelease `nightly` ist ein automatischer Build des jeweils neuesten Commits und für Tests gedacht. Die experimentelle Version `multi-translate-experimental-<version>.xpi` fügt der Nachrichtenliste zusätzlich eine Spalte „Übersetzter Betreff“ hinzu; sie hängt von einer internen Schnittstelle von Thunderbird ab, und nur eine der beiden Versionen kann installiert sein ([docs/experimental.md](../docs/experimental.md), auf Englisch).
 
 ## Schnellstart
 
@@ -65,7 +65,7 @@ Eine Nachricht öffnen und in der Symbolleiste des Nachrichtenkopfs auf „Nachr
 
 Die Tastenkombinationen lassen sich im Zahnradmenü der Add-ons-Verwaltung unter „Tastenkombinationen für Erweiterungen verwalten“ ändern.
 
-Der zweisprachige Modus setzt jede Übersetzung unter ihren Originalabsatz. Der Modus „Nur Übersetzung“ ersetzt das Original; fährt man mit der Maus über eine Übersetzung, erscheint der Originaltext.
+Der zweisprachige Modus setzt jede Übersetzung unter ihren Originalabsatz. Der Modus „Nur Übersetzung“ ersetzt das Original; fährt man mit der Maus über eine Übersetzung, erscheint der Originaltext. Die Schaltfläche „Übersetzte Betreffs“ in der Hauptsymbolleiste listet die Nachrichten des aktuellen Ordners mit ihren übersetzten Betreffs auf; ein Klick auf eine Zeile zeigt die Nachricht an.
 
 Alle weiteren Einstellungen liegen auf der Einstellungsseite, die sich über die Schaltfläche „Einstellungen“ der Erweiterung in der Add-ons-Verwaltung öffnet. Änderungen werden automatisch gespeichert, und beim Zeigen mit der Maus auf ein Bedienelement erscheint, was es tut. Jede Einstellung ist in [docs/settings.md](../docs/settings.md) (auf Englisch) beschrieben.
 
@@ -106,7 +106,7 @@ Vorlagen fügen einem Prompt Regeln hinzu: eine regionale Variante wie britische
 
 ## Datenschutz
 
-- Der Nachrichtentext geht nur an die Dienste der verwendeten Stufen. Das Wörterbuch und Bergamot übersetzen auf dem eigenen Computer.
+- Der Nachrichtentext geht nur an die Dienste der verwendeten Stufen. Das Wörterbuch und Bergamot übersetzen auf dem eigenen Computer. Für die Betreffs der Nachrichten gilt dieselbe Regel.
 - Bevor der Text einer Nachricht zum ersten Mal an einen Online-Dienst geht, nennt ein Feld über der Nachricht den Dienst und seine Adresse und fragt einmal pro Dienst nach. Vor einem Klick auf „Erlauben und übersetzen“ wird nichts gesendet; die Einstellungsseite listet die erlaubten Dienste auf und kann die Erlaubnis widerrufen. Mit Wörterbuch und Bergamot allein wird nichts gefragt.
 - Eine selbst eingetragene Adresse (Ollama, LM Studio, DeepLX, ein eigener Dienst, eine geänderte Adresse) braucht einmal die Erlaubnis zur Verbindung, erteilt mit „Zugriff erlauben“ oder „Verbindung testen“ in den Einstellungen.
 - API-Schlüssel werden nur im eigenen Thunderbird-Profil gespeichert und nur an die Adresse des jeweiligen Dienstes gesendet.
@@ -136,6 +136,7 @@ Die folgenden Dokumente sind auf Englisch, außer dictionary-packs.md, das auf C
 - [docs/bergamot.md](../docs/bergamot.md): die Offline-Engine Bergamot, Auswahl und Speicherung ihrer Modelle und ihr Build.
 - [docs/dictionary-packs.md](../docs/dictionary-packs.md): Datenquellen, Format und Erstellung der Wörterbuchpakete (auf Chinesisch).
 - [docs/development.md](../docs/development.md): Erstellen aus dem Quellcode, Tests, Projektstruktur, Übersetzen der Benutzeroberfläche und Release-Prozess.
+- [docs/experimental.md](../docs/experimental.md): die experimentelle Version mit der Spalte „Übersetzter Betreff“, ihre Installation und ihre Risiken.
 
 ## Danksagung
 

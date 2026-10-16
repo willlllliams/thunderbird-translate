@@ -23,7 +23,7 @@ Multi-traduction pour Thunderbird est une extension Thunderbird qui traduit le c
 
 ## Fonctionnalités
 
-- Traduction des paragraphes, éléments de liste, cellules de tableau, titres et citations des messages HTML, ainsi que des paragraphes séparés par une ligne vide dans les messages en texte brut. Le code, les nombres, les liens nus et les paragraphes déjà dans la langue cible sont ignorés.
+- Traduction des paragraphes, éléments de liste, cellules de tableau, titres et citations des messages HTML, ainsi que des paragraphes séparés par une ligne vide dans les messages en texte brut. Le code, les nombres, les liens nus et les paragraphes déjà dans la langue cible sont ignorés. L’objet est traduit lui aussi, sur une ligne au-dessus du corps du message (« Traduire aussi l’objet », activé par défaut).
 - Deux modes d’affichage : bilingue (la traduction sous chaque paragraphe original) ou traduction seule. Désactiver la traduction restaure exactement le message original.
 - Trois niveaux de traduction fonctionnent en même temps : un dictionnaire hors ligne, un traducteur automatique et un service d’IA. Le résultat le plus rapide s’affiche en premier, puis celui du niveau le plus élevé le remplace.
 - Services gratuits sans compte : Google Translate (par défaut) et Microsoft Translator.
@@ -40,7 +40,7 @@ Multi-traduction pour Thunderbird est une extension Thunderbird qui traduit le c
 2. Dans Thunderbird, ouvrez Outils → Modules complémentaires et thèmes (aussi accessible depuis le menu ≡ en haut à droite).
 3. Cliquez sur l’icône d’engrenage au-dessus de la liste des extensions, choisissez « Installer un module depuis un fichier… », sélectionnez le fichier xpi et confirmez.
 
-Thunderbird 128 ou une version ultérieure est nécessaire. La préversion `nightly` est une compilation automatique du dernier commit, destinée aux tests.
+Thunderbird 128 ou une version ultérieure est nécessaire. La préversion `nightly` est une compilation automatique du dernier commit, destinée aux tests. La version expérimentale `multi-translate-experimental-<version>.xpi` ajoute en plus une colonne « Objet traduit » à la liste des messages ; elle dépend d’une interface interne de Thunderbird, et une seule des deux versions peut être installée ([docs/experimental.md](../docs/experimental.md), en anglais).
 
 ## Démarrage rapide
 
@@ -65,7 +65,7 @@ Ouvrez un message et cliquez sur le bouton « Traduire le message » de la barre
 
 Les raccourcis se modifient via « Gérer les raccourcis d’extensions » dans le menu d’engrenage du gestionnaire de modules complémentaires.
 
-Le mode bilingue place chaque traduction sous son paragraphe original. Le mode traduction seule remplace l’original ; survolez une traduction pour voir le texte original.
+Le mode bilingue place chaque traduction sous son paragraphe original. Le mode traduction seule remplace l’original ; survolez une traduction pour voir le texte original. Le bouton « Objets traduits » de la barre d’outils principale liste les messages du dossier courant avec leurs objets traduits ; un clic sur une ligne affiche le message.
 
 Tous les autres paramètres se trouvent sur la page de paramètres : le bouton « Options » de l’extension dans le gestionnaire de modules complémentaires. Les modifications sont enregistrées automatiquement, et le survol d’un contrôle affiche ce qu’il fait. Chaque paramètre est décrit dans [docs/settings.md](../docs/settings.md) (en anglais).
 
@@ -106,7 +106,7 @@ Les préréglages ajoutent des règles à une invite : une variante régionale c
 
 ## Confidentialité
 
-- Le texte des messages va uniquement aux services des niveaux utilisés. Le dictionnaire et Bergamot traduisent sur votre ordinateur.
+- Le texte des messages va uniquement aux services des niveaux utilisés. Le dictionnaire et Bergamot traduisent sur votre ordinateur. Les objets des messages suivent la même règle.
 - Avant que le texte d’un message parte pour la première fois vers un service en ligne, un panneau au-dessus du message nomme le service et son adresse et demande une fois par service. Rien n’est envoyé avant un clic sur « Autoriser et traduire » ; la page de paramètres liste les services autorisés et permet de les révoquer. Avec le dictionnaire et Bergamot seuls, rien n’est demandé.
 - Une adresse que vous saisissez (Ollama, LM Studio, DeepLX, un service personnalisé, une adresse modifiée) demande une autorisation de connexion, donnée une fois avec « Autoriser l’accès » ou « Tester la connexion » dans les paramètres.
 - Les clés d’API sont stockées uniquement dans votre profil Thunderbird et ne sont envoyées qu’à l’adresse de leur propre service.
@@ -136,6 +136,7 @@ Les documents ci-dessous sont en anglais, sauf dictionary-packs.md, qui est en c
 - [docs/bergamot.md](../docs/bergamot.md) : le moteur hors ligne Bergamot, le choix et le stockage de ses modèles et sa compilation.
 - [docs/dictionary-packs.md](../docs/dictionary-packs.md) : sources des données, format et construction des paquets de dictionnaire (en chinois).
 - [docs/development.md](../docs/development.md) : compilation depuis les sources, tests, structure du projet, traduction de l’interface et processus de publication.
+- [docs/experimental.md](../docs/experimental.md) : la version expérimentale avec la colonne « Objet traduit », son installation et ses risques.
 
 ## Remerciements
 

@@ -23,7 +23,7 @@ English | [简体中文](readmes/README.zh-CN.md) | [繁體中文](readmes/READM
 
 ## Features
 
-- Translates paragraphs, list items, table cells, headings and quotes of HTML mail, and blank-line separated paragraphs of plain-text mail. Code, numbers, bare links and paragraphs already in the target language are skipped.
+- Translates paragraphs, list items, table cells, headings and quotes of HTML mail, and blank-line separated paragraphs of plain-text mail. Code, numbers, bare links and paragraphs already in the target language are skipped. The subject is translated too, in a line above the body ("Translate the subject as well", on by default).
 - Two display modes: bilingual (the translation under each original paragraph) or translation only. Turning translation off restores the original message exactly.
 - Three translation tiers run at the same time: an offline dictionary, a machine translator and an AI service. The fastest result appears first, and the highest tier replaces it.
 - Free services without an account: Google Translate (the default) and Microsoft Translator.
@@ -40,7 +40,7 @@ English | [简体中文](readmes/README.zh-CN.md) | [繁體中文](readmes/READM
 2. In Thunderbird, open Tools → Add-ons and Themes (also in the ≡ menu in the top right corner).
 3. Click the gear icon above the extension list, choose "Install Add-on From File", select the xpi file and confirm.
 
-Thunderbird 128 or later is required. The `nightly` pre-release is an automatic build of the latest commit, meant for testing.
+Thunderbird 128 or later is required. The `nightly` pre-release is an automatic build of the latest commit, meant for testing. The experimental build `multi-translate-experimental-<version>.xpi` also adds a column "Translated subject" to the message list; it depends on an internal interface of Thunderbird, and only one of the two builds can be installed ([docs/experimental.md](docs/experimental.md)).
 
 ## Quick start
 
@@ -65,7 +65,7 @@ Open a message and click the "Translate message" button in the message header to
 
 The shortcuts can be changed under "Manage Extension Shortcuts" in the gear menu of the Add-ons Manager.
 
-Bilingual mode puts each translation under its original paragraph. Translation-only mode replaces the original; hover over a translation to see the original text.
+Bilingual mode puts each translation under its original paragraph. Translation-only mode replaces the original; hover over a translation to see the original text. The "Translated subjects" button in the main toolbar lists the messages of the current folder with their translated subjects; clicking a row shows the message.
 
 All other settings are on the settings page: the "Options" button of the extension in the Add-ons Manager. Changes are saved automatically, and hovering over a control shows what it does. Every setting is described in [docs/settings.md](docs/settings.md).
 
@@ -106,7 +106,7 @@ Presets add rules to a prompt: a regional variety such as British English or Tai
 
 ## Privacy
 
-- Message text goes only to the services of the tiers in use. The dictionary and Bergamot translate on your computer.
+- Message text goes only to the services of the tiers in use. The dictionary and Bergamot translate on your computer. The subjects of messages follow the same rule.
 - Before the text of a message first goes to an online service, a panel above the message names the service and its address and asks once per service. Nothing is sent until you click “Allow and translate”; the settings page lists the allowed services and takes them back. With only the dictionary and Bergamot, nothing is asked.
 - An endpoint you type (Ollama, LM Studio, DeepLX, a custom service, a changed endpoint) needs your permission to connect, given once with “Allow access” or “Test connection” in the settings.
 - API keys are stored only in your Thunderbird profile and are sent only to the endpoint of their own service.
@@ -136,6 +136,7 @@ The documents below are in English, except dictionary-packs.md, which is in Chin
 - [docs/bergamot.md](docs/bergamot.md): the Bergamot offline engine, the choice and storage of its models, and its build.
 - [docs/dictionary-packs.md](docs/dictionary-packs.md): data sources, format and build of the dictionary packs (in Chinese).
 - [docs/development.md](docs/development.md): building from source, tests, project structure, translating the interface and the release process.
+- [docs/experimental.md](docs/experimental.md): the experimental build with the column "Translated subject", its installation and its risks.
 
 ## Acknowledgements
 

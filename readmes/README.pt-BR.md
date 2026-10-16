@@ -23,7 +23,7 @@ O Multitradutor para Thunderbird é uma extensão do Thunderbird que traduz o co
 
 ## Recursos
 
-- Traduz parágrafos, itens de lista, células de tabela, títulos e citações de mensagens HTML, e parágrafos separados por linhas em branco em mensagens de texto simples. Código, números, links soltos e parágrafos que já estão no idioma de destino são ignorados.
+- Traduz parágrafos, itens de lista, células de tabela, títulos e citações de mensagens HTML, e parágrafos separados por linhas em branco em mensagens de texto simples. Código, números, links soltos e parágrafos que já estão no idioma de destino são ignorados. O assunto também é traduzido, em uma linha acima do corpo da mensagem ("Traduzir também o assunto", ativado por padrão).
 - Dois modos de exibição: bilíngue (a tradução abaixo de cada parágrafo original) ou só tradução. Ao desativar a tradução, a mensagem original é restaurada exatamente como era.
 - Três níveis de tradução funcionam ao mesmo tempo: um dicionário offline, um tradutor automático e um serviço de IA. O resultado mais rápido aparece primeiro, e o do nível mais alto o substitui.
 - Serviços gratuitos sem conta: Google Tradutor (o padrão) e Microsoft Translator.
@@ -40,7 +40,7 @@ O Multitradutor para Thunderbird é uma extensão do Thunderbird que traduz o co
 2. No Thunderbird, abra Ferramentas → Extensões e temas (também acessível pelo menu ≡ no canto superior direito).
 3. Clique no ícone de engrenagem acima da lista de extensões, escolha "Instalar extensão de arquivo", selecione o arquivo xpi e confirme.
 
-É necessário o Thunderbird 128 ou posterior. A pré-versão `nightly` é um build automático do commit mais recente, destinado a testes.
+É necessário o Thunderbird 128 ou posterior. A pré-versão `nightly` é um build automático do commit mais recente, destinado a testes. A versão experimental `multi-translate-experimental-<version>.xpi` acrescenta ainda uma coluna "Assunto traduzido" à lista de mensagens; ela depende de uma interface interna do Thunderbird, e só uma das duas versões pode ser instalada ([docs/experimental.md](../docs/experimental.md), em inglês).
 
 ## Início rápido
 
@@ -65,7 +65,7 @@ Abra uma mensagem e clique no botão "Traduzir mensagem" na barra de ferramentas
 
 Os atalhos podem ser alterados em "Gerenciar atalhos de extensões", no menu de engrenagem do Gerenciador de extensões.
 
-O modo bilíngue coloca cada tradução abaixo do parágrafo original. O modo só tradução substitui o original; passe o mouse sobre uma tradução para ver o texto original.
+O modo bilíngue coloca cada tradução abaixo do parágrafo original. O modo só tradução substitui o original; passe o mouse sobre uma tradução para ver o texto original. O botão "Assuntos traduzidos" da barra de ferramentas principal lista as mensagens da pasta atual com os assuntos traduzidos; um clique em uma linha mostra a mensagem.
 
 Todas as outras configurações ficam na página de configurações: o botão "Opções" da extensão no Gerenciador de extensões. As alterações são salvas automaticamente, e passar o mouse sobre um controle mostra o que ele faz. Cada configuração é descrita em [docs/settings.md](../docs/settings.md) (em inglês).
 
@@ -106,7 +106,7 @@ As predefinições acrescentam regras a um prompt: uma variante regional, como o
 
 ## Privacidade
 
-- O texto da mensagem vai apenas aos serviços dos níveis em uso. O dicionário e o Bergamot traduzem no seu computador.
+- O texto da mensagem vai apenas aos serviços dos níveis em uso. O dicionário e o Bergamot traduzem no seu computador. Os assuntos das mensagens seguem a mesma regra.
 - Antes que o texto de uma mensagem vá pela primeira vez a um serviço on-line, um painel acima da mensagem mostra o serviço e o endereço e pergunta uma vez por serviço. Nada é enviado antes de clicar em "Permitir e traduzir"; a página de configurações lista os serviços permitidos e permite revogá-los. Só com o dicionário e o Bergamot, nada é perguntado.
 - Um endereço que você digita (Ollama, LM Studio, DeepLX, um serviço personalizado, um endereço alterado) precisa de permissão de conexão, dada uma vez com "Permitir acesso" ou "Testar conexão" nas configurações.
 - As chaves de API ficam guardadas apenas no seu perfil do Thunderbird e são enviadas apenas ao endpoint do próprio serviço.
@@ -136,6 +136,7 @@ Os documentos abaixo estão em inglês, exceto dictionary-packs.md, que está em
 - [docs/bergamot.md](../docs/bergamot.md): o mecanismo offline Bergamot, a escolha e o armazenamento dos modelos e o build.
 - [docs/dictionary-packs.md](../docs/dictionary-packs.md): fontes de dados, formato e geração dos pacotes de dicionário (em chinês).
 - [docs/development.md](../docs/development.md): compilar a partir do código-fonte, testes, estrutura do projeto, tradução da interface e processo de release.
+- [docs/experimental.md](../docs/experimental.md): a versão experimental com a coluna "Assunto traduzido", sua instalação e seus riscos.
 
 ## Agradecimentos
 
