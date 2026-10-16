@@ -9,19 +9,22 @@
 1. 在测试配置文件中安装 xpi。新手引导会在标签页中打开；点击“退出引导”即可关闭，默认设置可以直接使用。
 2. 打开一封非英文邮件，例如正文为这段德语的邮件：“Könnten wir die Abnahme auf Donnerstag, 15 Uhr, verschieben? Am Mittwoch bin ich auf einer Messe in Hamburg.”
 3. 按 Alt+A，或点击邮件头工具栏中的“翻译邮件”，再点“翻译此邮件”。文字发往谷歌翻译（默认服务）之前，邮件上方会出现询问面板。点击“允许并翻译”后，英文译文显示在每个段落下方。
-4. Alt+S 切换到仅译文；再按 Alt+A 恢复原邮件。工具栏按钮的弹出面板提供同样的开关。
-5. 离线翻译：在设置页（附加组件管理器中的“选项”）为第 1 层选择“词典（离线）”，在“词典”部分下载德语 → 英语词典包（2.0 MB，来自本项目的 GitHub Releases），再翻译一次。词典结果先显示，随后被谷歌翻译的结果替换。
+4. Alt+S 切换到仅译文；再按 Alt+A 恢复原邮件。工具栏按钮的弹出面板提供同样的开关。邮件标题的译文显示在正文上方的一行中。
+5. 文件夹的标题：显示某个文件夹时，点击主工具栏中的“标题翻译”。页面列出各封邮件及其标题译文；点击一行即在邮件标签页中选中这封邮件。
+6. 离线翻译：在设置页（附加组件管理器中的“选项”）为第 1 层选择“词典（离线）”，在“词典”部分下载德语 → 英语词典包（2.0 MB，来自本项目的 GitHub Releases），再翻译一次。词典结果先显示，随后被谷歌翻译的结果替换。
 
 AI 服务需要审核员自己的 API 密钥；扩展的其他部分都不依赖 AI 服务。
 
 ## 源代码与构建
 
-xpi 中的脚本由 esbuild 打包并压缩，因此随提交附上源代码包。包内的 `SOURCE-BUILD.md` 写明步骤：Node.js 24.21.0 和 npm 11.19.0（Ubuntu 24.04 或 Windows），依次运行 `npm ci`、`npm run build`。产物 `web-ext-artifacts/thunderbird-translate-<version>.xpi` 与提交的 xpi 逐字节相同，可用 `sha256sum` 核对。`npm ci` 之后构建不需要联网：Bergamot 引擎随源代码包提供，构建时按固定的 sha256 校验。源代码包不含测试、文档和端到端测试构建的代码（`src/e2e/`），常规构建从不读取这些文件。
+xpi 中的脚本由 esbuild 打包并压缩，因此随提交附上源代码包。包内的 `SOURCE-BUILD.md` 写明步骤：Node.js 24.21.0 和 npm 11.19.0（Ubuntu 24.04 或 Windows），依次运行 `npm ci`、`npm run build`。产物 `web-ext-artifacts/thunderbird-translate-<version>.xpi` 与提交的 xpi 逐字节相同，可用 `sha256sum` 核对。`npm ci` 之后构建不需要联网：Bergamot 引擎随源代码包提供，构建时按固定的 sha256 校验。源代码包不含测试、文档、端到端测试构建的代码（`src/e2e/`）和实验版的代码（`src/experiments/`，只在 GitHub 发布，使用另一个附加组件 ID），常规构建都不读取这些文件；其中任一目录的文件或 `experiment_apis` 条目进入常规构建时，构建会中止。
 
 ## 权限
 
 | 权限 | 用途 |
 | --- | --- |
+| `messagesRead` | 标题：内容脚本运行在邮件正文中，看不到邮件头，所以后台脚本用 `messageDisplay.getDisplayedMessage()`（`src/background/subject.ts`）读取当前显示邮件的标题，供正文上方的标题译文使用。标题翻译页面（`src/subjects/`，即 `browser_action` 的弹出页）用 `mailTabs.getListedMessages()`、`messages.continueList()` 和 `messages.abortList()` 列出邮件标签页中的邮件，并在 `messages.onNewMailReceived`、`onDeleted` 和 `onMoved` 时重新读取列表。只显示发件人、日期和标题；不借此读取邮件正文，也不保存任何内容。 |
+| `accountsRead` | 仅用于标题翻译页面：Thunderbird 要求 `mailTabs.setSelectedMessages()`（点击一行即在邮件标签页中显示该邮件）、`mailTabs.onDisplayedFolderChanged`（页面跟随文件夹切换）和上面三个 `messages` 事件具备这项权限。不读取任何账户或文件夹数据。 |
 | `messagesModify` | 后台脚本用 `messageDisplayScripts.register()`（`src/background/content-scripts.ts`）在显示的邮件中显示译文，并用 `tabs.executeScript()`/`insertCSS()` 把同一脚本注入扩展启动时已经打开的邮件。Thunderbird 只在有这项权限时允许这两种操作（没有它时 `messenger.messageDisplayScripts` 不存在，已在 Thunderbird 156 中验证）。扩展不修改任何已保存的邮件。 |
 | `sensitiveDataUpload` | 显示的邮件文字会发往用户选定的翻译服务；第一次发往每个在线服务之前，用户在邮件上方的面板中确认 |
 | `storage` | 设置、翻译缓存和新手引导的状态，保存在 `storage.local` 中（通过 `src/shared/ext.ts` 的封装调用，所以 linter 看不到这些调用） |
@@ -29,7 +32,7 @@ xpi 中的脚本由 esbuild 打包并压缩，因此随提交附上源代码包�
 | 主机权限 | 只列出各服务的固定地址：谷歌翻译、微软翻译的两个地址、18 个 AI 预设的默认接口地址、Mozilla Remote Settings 及其附件 CDN（Bergamot 模型），以及 GitHub 和它的两个发布下载主机（词典包）。列表在 `src/shared/hosts.ts` 中，单元测试保证它与清单和预设一致。 |
 | 可选的 `http://*/*`、`https://*/*` | 用户填写的接口地址（Ollama、LM Studio、DeepLX、Azure、自定义 OpenAI 兼容服务）。用户点击“授权访问”或“测试连接”时，设置页用 `permissions.request()` 只申请这一个主机；没有权限的主机，后台脚本拒绝发送。 |
 
-早期版本的 `messagesRead`、`tabs` 和 `<all_urls>` 权限已删除。
+2.0 版删除了 `messagesRead`、`tabs` 和 `<all_urls>`；2.1 版为翻译标题重新需要 `messagesRead`，并为标题翻译页面需要 `accountsRead`。`tabs` 和 `<all_urls>` 仍然不用。
 
 ## 第三方代码
 

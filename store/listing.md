@@ -17,13 +17,15 @@ Translate the message you are reading, in place: bilingual or translation only. 
 ## Description
 
 ```text
-Your message text goes only to the translation services you choose. Google Translate, Microsoft Translator, DeepLX and the AI services receive the paragraphs of the message you translate (with precise translation, the whole message as context), and the extension asks once per service before it sends anything there. The offline dictionary and the offline Bergamot models translate on your computer and send nothing. API keys stay in your Thunderbird profile and go only to their own service. The extension collects no statistics.
+Your message text goes only to the translation services you choose. Google Translate, Microsoft Translator, DeepLX and the AI services receive the paragraphs and the subject of the message you translate (with precise translation, the whole message as context) and the subjects you translate on the page of translated subjects, and the extension asks once per service before it sends anything there. The offline dictionary and the offline Bergamot models translate on your computer and send nothing. API keys stay in your Thunderbird profile and go only to their own service. The extension collects no statistics.
 
 Multi Translate for Thunderbird translates the body of the message you are reading, directly in the message pane. It works right after installation with the free Google Translate, and you can add offline translation and AI services when you want them.
 
 What it does
 - Translates paragraphs, list items, table cells, headings and quotes of HTML mail, and the paragraphs of plain-text mail. Code, numbers, bare links and paragraphs already in your language are skipped.
 - Shows the translation under each paragraph (bilingual) or in place of it (translation only). Turning translation off restores the original message exactly.
+- Translates the subject too, in a line above the body.
+- The "Translated subjects" button in the main toolbar lists the messages of the current folder with their translated subjects; a click on a row shows the message.
 - Runs up to three tiers at the same time: an offline dictionary, a machine translator and an AI service. The fastest result appears first as a provisional translation, and the highest tier replaces it. A tier that fails can be retried with a click.
 - Machine translation without an account: Google Translate and Microsoft Translator (also with your own Azure Translator key), or your DeepLX server.
 - Offline translation: dictionary packs built from Wiktionary and ECDICT, and Mozilla's Bergamot models, the engine of Firefox Translations. Downloads run in the background, and a pack or model is used as soon as it is stored.

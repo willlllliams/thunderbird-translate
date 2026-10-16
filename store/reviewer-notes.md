@@ -13,19 +13,22 @@ Multi Translate for Thunderbird translates the body of the displayed message in 
 1. Install the xpi in a test profile. The setup guide opens in a tab; "Exit guide" closes it, and the defaults work.
 2. Open a message that is not in English, for example one with this German text: "Könnten wir die Abnahme auf Donnerstag, 15 Uhr, verschieben? Am Mittwoch bin ich auf einer Messe in Hamburg."
 3. Press Alt+A, or click "Translate message" in the message header toolbar and then "Translate this message". A panel above the message asks before the text goes to Google Translate (the default service). Click "Allow and translate": the English translation appears under each paragraph.
-4. Alt+S switches to translation only; Alt+A again restores the original message. The popup of the toolbar button shows the same switches.
-5. Offline translation: in the settings ("Options" in the Add-ons Manager), choose "Dictionary (offline)" for tier 1 and download the pack German → English under Dictionaries (2.0 MB from the GitHub releases of the project), then translate again. The dictionary result appears first and is replaced by Google's.
+4. Alt+S switches to translation only; Alt+A again restores the original message. The popup of the toolbar button shows the same switches. The subject of the message appears translated in a line above the body.
+5. Subjects of a folder: click "Translated subjects" in the main toolbar while a folder is shown. The page lists the messages with their translated subjects; a click on a row selects the message in the mail tab.
+6. Offline translation: in the settings ("Options" in the Add-ons Manager), choose "Dictionary (offline)" for tier 1 and download the pack German → English under Dictionaries (2.0 MB from the GitHub releases of the project), then translate again. The dictionary result appears first and is replaced by Google's.
 
 The AI services need the reviewer's own API key; nothing else in the extension depends on them.
 
 ### Source code and build
 
-The xpi contains bundles made with esbuild (minified), so the source code archive is attached. `SOURCE-BUILD.md` in the archive gives the steps: Node.js 24.21.0 and npm 11.19.0 (Ubuntu 24.04 or Windows), `npm ci`, `npm run build`. The result is `web-ext-artifacts/thunderbird-translate-<version>.xpi`; it is identical byte for byte to the submitted xpi, which `sha256sum` confirms. After `npm ci` the build needs no network: the Bergamot engine is part of the archive and is checked against pinned sha256 hashes. The archive leaves out the tests, the documentation and the code of the end-to-end test build (`src/e2e/`), which the regular build never reads.
+The xpi contains bundles made with esbuild (minified), so the source code archive is attached. `SOURCE-BUILD.md` in the archive gives the steps: Node.js 24.21.0 and npm 11.19.0 (Ubuntu 24.04 or Windows), `npm ci`, `npm run build`. The result is `web-ext-artifacts/thunderbird-translate-<version>.xpi`; it is identical byte for byte to the submitted xpi, which `sha256sum` confirms. After `npm ci` the build needs no network: the Bergamot engine is part of the archive and is checked against pinned sha256 hashes. The archive leaves out the tests, the documentation, the code of the end-to-end test build (`src/e2e/`) and the code of the experimental build (`src/experiments/`, published on GitHub only with its own add-on id), none of which the regular build reads; the build stops if a file of either directory or an `experiment_apis` entry gets into it.
 
 ### Permissions
 
 | Permission | Why |
 | --- | --- |
+| `messagesRead` | subjects: `messageDisplay.getDisplayedMessage()` (`src/background/subject.ts`) reads the subject of the displayed message for the translated line above the body, since the content script runs inside the body and cannot see the header. The page of translated subjects (`src/subjects/`, the popup of `browser_action`) lists the messages of the mail tab with `mailTabs.getListedMessages()`, `messages.continueList()` and `messages.abortList()`, and reads the list again on `messages.onNewMailReceived`, `onDeleted` and `onMoved`. Only sender, date and subject are shown; no message body is read this way, nothing is stored. |
+| `accountsRead` | the page of translated subjects only: Thunderbird requires it for `mailTabs.setSelectedMessages()` (a click on a row shows that message in the mail tab), for `mailTabs.onDisplayedFolderChanged` (the page follows the folder) and for the three `messages` events above. No account or folder data is read. |
 | `messagesModify` | `messageDisplayScripts.register()` (background, `src/background/content-scripts.ts`) shows the translations inside the displayed message, and `tabs.executeScript()`/`insertCSS()` add the same script to a message already open when the extension starts. Thunderbird allows both only with this permission (without it `messenger.messageDisplayScripts` is undefined; tested in Thunderbird 156). No stored message is changed. |
 | `sensitiveDataUpload` | the text of the displayed message goes to the translation services the user chose; before the first transfer to each online service the user confirms it in a panel above the message |
 | `storage` | settings, translation cache and the state of the setup guide in `storage.local` (through the wrapper in `src/shared/ext.ts`, which is why the linter does not see the calls) |
@@ -33,7 +36,7 @@ The xpi contains bundles made with esbuild (minified), so the source code archiv
 | host permissions | only the fixed addresses of the services: Google Translate, the two Microsoft Translator addresses, the default endpoints of 18 AI presets, Mozilla Remote Settings and its attachment CDN (Bergamot models), and GitHub with its two release download hosts (dictionary packs). The list is in `src/shared/hosts.ts`; a unit test keeps it equal to the manifest and to the presets. |
 | optional `http://*/*`, `https://*/*` | an endpoint the user types (Ollama, LM Studio, DeepLX, Azure, a custom OpenAI-compatible service). The settings page asks for the single host with `permissions.request()` when the user clicks "Allow access" or "Test connection"; the background script refuses to send to a host without permission. |
 
-The permissions `messagesRead`, `tabs` and `<all_urls>` of earlier versions were removed.
+Version 2.0 had removed `messagesRead` together with `tabs` and `<all_urls>`; 2.1 needs `messagesRead` again for the subjects, and `accountsRead` for the page of translated subjects. `tabs` and `<all_urls>` stay removed.
 
 ### Third-party code
 
