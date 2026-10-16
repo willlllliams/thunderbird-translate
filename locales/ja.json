@@ -1,5 +1,6 @@
 {
   "extensionName": "マルチ翻訳 for Thunderbird",
+  "extensionNameExperimental": "マルチ翻訳 for Thunderbird（実験版）",
   "extensionDescription": "メール本文をその場で翻訳します。対訳表示と訳文のみの表示に対応し、無料の Google/Microsoft 翻訳と 20 以上の AI プロバイダーを利用できます。",
   "actionTitle": "メッセージを翻訳",
   "commandToggle": "翻訳 / 原文を表示",
@@ -51,6 +52,7 @@
   "subjectsMore": "さらに表示",
   "subjectsReadFailed": "メッセージ一覧を読み込めません: $1",
   "subjectsProgress": "翻訳済みの件名: $1 / $2",
+  "columnTranslatedSubject": "件名の訳文",
   "labelPrecise": "精密翻訳",
   "popupSettings": "設定",
   "popupShortcuts": "ショートカットキー: Alt+A で翻訳、Alt+S で表示方法を切り替え、Alt+R で再翻訳",

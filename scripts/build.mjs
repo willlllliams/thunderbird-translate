@@ -1,4 +1,6 @@
 // Build dist/ with esbuild and pack web-ext-artifacts/thunderbird-translate-<version>.xpi with fflate.
+// --experimental: the experimental build, with its own add-on id and the experiment API of the column "Translated
+// subject" (src/experiments/), packed as web-ext-artifacts/multi-translate-experimental-<version>.xpi.
 import { cpSync, existsSync, mkdirSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs"
 import { dirname, join, relative, sep } from "node:path"
 import { fileURLToPath } from "node:url"
@@ -21,9 +23,14 @@ if (e2eIndex !== -1 && !/^http:\/\/127\.0\.0\.1:\d+$/.test(e2eServer ?? "")) {
   process.exit(1)
 }
 const e2e = e2eIndex !== -1
-const dist = e2e ? join(root, ".cache", "e2e", "dist") : join(root, "dist")
-const artifacts = e2e ? join(root, ".cache", "e2e") : join(root, "web-ext-artifacts")
+const experimental = process.argv.includes("--experimental")
+const variant = `${e2e ? "e2e" : ""}${e2e && experimental ? "-" : ""}${experimental ? "experimental" : ""}`
+const dist = variant ? join(root, ".cache", variant, "dist") : join(root, "dist")
+const artifacts = variant && e2e ? join(root, ".cache", variant) : join(root, "web-ext-artifacts")
 const E2E_MARKER = "tt-e2e-hook"
+/** The sources only the experimental build reads: its background script, the manifest fields it adds and the experiment API. */
+const EXPERIMENTS = join(root, "src", "experiments")
+const EXPERIMENT_FILES = ["translated-column/schema.json", "translated-column/implementation.js"]
 
 const pkg = JSON.parse(readFileSync(join(root, "package.json"), "utf8"))
 const lock = JSON.parse(readFileSync(join(root, "package-lock.json"), "utf8"))
@@ -41,7 +48,14 @@ mkdirSync(dist, { recursive: true })
 cpSync(join(root, "static"), dist, { recursive: true })
 cpSync(join(root, "LICENSE"), join(dist, "LICENSE"))
 // The test build reaches the mock server on 127.0.0.1 as a host of its manifest; a regular build asks the user for such an address.
-if (e2e) writeFileSync(join(dist, "manifest.json"), `${JSON.stringify({ ...manifest, permissions: [...manifest.permissions, "http://127.0.0.1/*"] }, null, 2)}\n`)
+// The experimental build takes its id, its name and its experiment API from src/experiments/manifest.json.
+const built = {
+  ...manifest,
+  ...(experimental ? JSON.parse(readFileSync(join(EXPERIMENTS, "manifest.json"), "utf8")) : {}),
+  ...(e2e ? { permissions: [...manifest.permissions, "http://127.0.0.1/*"] } : {}),
+}
+if (e2e || experimental) writeFileSync(join(dist, "manifest.json"), `${JSON.stringify(built, null, 2)}\n`)
+for (const file of experimental ? EXPERIMENT_FILES : []) cpSync(join(EXPERIMENTS, file), join(dist, "experiments", file))
 // Bergamot offline engine: glue script (vendor/) and the pinned, zstd-compressed wasm (downloaded to .cache/).
 cpSync(join(root, "vendor", "bergamot", "bergamot-translator.js"), join(dist, "bergamot-translator.js"))
 cpSync(await ensureBergamotWasm(), join(dist, BERGAMOT_WASM_FILE))
@@ -80,7 +94,13 @@ const options = {
 // The background script is an ES module ("type": "module" in the manifest), so the packages of the AI SDK
 // become chunks that load with the first AI request. Content script, pages and worker stay classic scripts.
 const builds = await Promise.all([
-  esbuild.build({ ...options, entryPoints: { background: "src/background/index.ts" }, format: "esm", splitting: true, chunkNames: "chunks/[name]-[hash]" }),
+  esbuild.build({
+    ...options,
+    entryPoints: { background: experimental ? "src/experiments/background.ts" : "src/background/index.ts" },
+    format: "esm",
+    splitting: true,
+    chunkNames: "chunks/[name]-[hash]",
+  }),
   esbuild.build({
     ...options,
     entryPoints: {
@@ -129,6 +149,24 @@ if (e2e && unreplaced.length) {
   console.error("hooks of src/hooks/ not replaced in the e2e build:", unreplaced)
   process.exit(1)
 }
+// Guard: only the experimental build reads src/experiments/ and carries the experiment API, in its manifest and as files.
+const experimentSources = inputs.filter((input) => input.startsWith("src/experiments/"))
+const shipped = (dir) => (existsSync(dir) ? readdirSync(dir, { recursive: true }).map(String) : [])
+const experimentProblems = experimental
+  ? [
+      ...(experimentSources.includes("src/experiments/background.ts") ? [] : ["the background script of the experimental build was not bundled"]),
+      ...(built.experiment_apis?.translatedColumn ? [] : ["the manifest has no experiment_apis"]),
+      ...EXPERIMENT_FILES.filter((file) => !existsSync(join(dist, "experiments", file))).map((file) => `experiments/${file} is missing`),
+    ]
+  : [
+      ...experimentSources.map((input) => `${input} in a regular build`),
+      ...(JSON.parse(readFileSync(join(dist, "manifest.json"), "utf8")).experiment_apis ? ["experiment_apis in the manifest of a regular build"] : []),
+      ...shipped(join(dist, "experiments")).map((file) => `experiments/${file} in a regular build`),
+    ]
+if (experimentProblems.length) {
+  console.error(experimentProblems.join("\n"))
+  process.exit(1)
+}
 // The npm packages of the bundles with their licenses, the Bergamot engine and the dictionary data; stops on a bundled
 // package that scripts/notices.mjs does not declare, and on a missing license text or copyright line.
 try {
@@ -157,6 +195,7 @@ if (!files["manifest.json"]) throw new Error("manifest.json missing from dist")
 // made from local fields gives every entry 2026-01-01 00:00 in every time zone, so the xpi is the same everywhere.
 const zip = zipSync(files, { level: 9, mtime: new Date(2026, 0, 1) })
 if (!existsSync(artifacts)) mkdirSync(artifacts, { recursive: true })
-const out = join(artifacts, `thunderbird-translate-${manifest.version}${e2e ? "-e2e" : debug ? "-debug" : ""}.xpi`)
+const name = experimental ? "multi-translate-experimental" : "thunderbird-translate"
+const out = join(artifacts, `${name}-${manifest.version}${e2e ? "-e2e" : debug ? "-debug" : ""}.xpi`)
 writeFileSync(out, zip)
 console.log(`packed ${relative(root, out)} (${(zip.length / 1024).toFixed(0)} KiB, ${Object.keys(files).length} files)`)

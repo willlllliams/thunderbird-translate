@@ -28,7 +28,14 @@ export const LAYERS = {
   // The page of translated subjects translates its cells with the controller of the content script.
   subjects: ["shared", "content", "hooks"],
   e2e: ["shared", "hooks", "offline", "background", "content", "popup", "options", "welcome", "subjects"],
+  // The experimental build: its background script (experiments/background.ts) runs the background script of every
+  // build and adds the column of the experiment API. No other layer lists it, so only the entry of that build, which
+  // scripts/build.mjs --experimental bundles, reads anything of it.
+  experiments: ["shared", "background", "offline", "content", "hooks"],
 }
+
+/** Layers that only the entry of a build variant reads, with that entry; no other layer may import them. */
+export const VARIANT_LAYERS = { experiments: "src/experiments/background.ts" }
 
 /** Layers whose files hold no code that runs: they may import types only (import type, export type). */
 export const TYPE_ONLY_LAYERS = new Set(["hooks"])
@@ -167,6 +174,9 @@ export function checkImports(dir = root) {
   const src = join(dir, "src")
   const problems = []
   let checked = 0
+  for (const [variant, entry] of Object.entries(VARIANT_LAYERS)) {
+    for (const [layer, allowed] of Object.entries(LAYERS)) if (layer !== variant && allowed.includes(variant)) problems.push(`layer ${layer} may import ${variant}/, which only ${entry} may read`)
+  }
   for (const file of sourceFiles(src)) {
     const name = posix(relative(dir, file))
     const layer = posix(relative(src, file)).split("/")[0]

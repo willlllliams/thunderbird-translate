@@ -12,6 +12,8 @@ declare namespace browser.messageDisplay {
 
 /** The message list of a mail tab. */
 declare namespace browser.mailTabs {
+  function query(queryInfo: { active?: boolean; currentWindow?: boolean }): Promise<import("./ext").MailTab[]>
+  function get(tabId: number): Promise<import("./ext").MailTab>
   function getCurrent(): Promise<import("./ext").MailTab | undefined>
   /** Needs the messagesRead permission. */
   function getListedMessages(tabId: number): Promise<import("./ext").MessageList>

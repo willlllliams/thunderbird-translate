@@ -1,5 +1,6 @@
 {
   "extensionName": "Multi-Übersetzer für Thunderbird",
+  "extensionNameExperimental": "Multi-Übersetzer für Thunderbird (experimentell)",
   "extensionDescription": "Übersetzt den Text von E-Mails direkt in der Nachricht: zweisprachig oder nur Übersetzung, mit den kostenlosen Übersetzern von Google/Microsoft und über 20 KI-Anbietern.",
   "actionTitle": "Nachricht übersetzen",
   "commandToggle": "Übersetzen / Original anzeigen",
@@ -51,6 +52,7 @@
   "subjectsMore": "Mehr anzeigen",
   "subjectsReadFailed": "Die Nachrichtenliste kann nicht gelesen werden: $1",
   "subjectsProgress": "Übersetzte Betreffs: $1 von $2",
+  "columnTranslatedSubject": "Übersetzter Betreff",
   "labelPrecise": "Präzise Übersetzung",
   "popupSettings": "Einstellungen",
   "popupShortcuts": "Tastenkombinationen: Alt+A übersetzen, Alt+S Anzeige umschalten, Alt+R neu übersetzen",

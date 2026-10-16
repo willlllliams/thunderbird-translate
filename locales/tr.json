@@ -1,5 +1,6 @@
 {
   "extensionName": "Çoklu Çeviri for Thunderbird",
+  "extensionNameExperimental": "Çoklu Çeviri for Thunderbird (deneysel)",
   "extensionDescription": "E-posta gövdelerini yerinde çevirir: iki dilli veya yalnızca çeviri; ücretsiz Google/Microsoft çevirmenleri ve 20'den fazla yapay zekâ sağlayıcısı.",
   "actionTitle": "İletiyi çevir",
   "commandToggle": "Çevir / özgün metni göster",
@@ -52,6 +53,7 @@
   "subjectsMore": "Daha fazla göster",
   "subjectsReadFailed": "İleti listesi okunamıyor: $1",
   "subjectsProgress": "Çevrilen konular: $1 / $2",
+  "columnTranslatedSubject": "Çevrilmiş konu",
   "labelPrecise": "Hassas çeviri",
   "popupSettings": "Ayarlar",
   "popupShortcuts": "Kısayollar: Alt+A çevir, Alt+S görünümü değiştir, Alt+R yeniden çevir",

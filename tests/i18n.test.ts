@@ -98,6 +98,8 @@ describe("locale files", () => {
       readFileSync(join(root, "static", "popup.html"), "utf8"),
       readFileSync(join(root, "static", "welcome.html"), "utf8"),
       readFileSync(join(root, "static", "subjects.html"), "utf8"),
+      // The manifest fields of the experimental build (npm run build:experimental).
+      readFileSync(join(root, "src", "experiments", "manifest.json"), "utf8"),
     ].join("\n")
     const unused = enKeys.filter((k) => !new RegExp(`["_]${k}["_]`).test(corpus))
     expect(unused).toEqual([])
@@ -119,8 +121,10 @@ describe("manifest", () => {
     for (const f of fields) expect(f).toMatch(/^__MSG_\w+__$/)
   })
 
-  it("references only existing keys", () => {
-    const refs = [...JSON.stringify(manifest).matchAll(/__MSG_(\w+)__/g)].map((m) => m[1])
+  it("references only existing keys, also in the fields of the experimental build", () => {
+    const experimental = JSON.parse(readFileSync(join(root, "src", "experiments", "manifest.json"), "utf8"))
+    const refs = [...JSON.stringify([manifest, experimental]).matchAll(/__MSG_(\w+)__/g)].map((m) => m[1])
+    expect(refs).toContain("extensionNameExperimental")
     expect(refs.length).toBeGreaterThanOrEqual(5)
     for (const locale of SUPPORTED_LOCALES) {
       for (const key of refs) expect(sources[locale][key], `${locale}:${key}`).toBeTruthy()

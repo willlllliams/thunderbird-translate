@@ -1,0 +1,19 @@
+{
+  "name": "__MSG_extensionNameExperimental__",
+  "browser_specific_settings": {
+    "gecko": {
+      "id": "thunderbird-translate-experimental@willlllliams.github.io",
+      "strict_min_version": "128.0"
+    }
+  },
+  "experiment_apis": {
+    "translatedColumn": {
+      "schema": "experiments/translated-column/schema.json",
+      "parent": {
+        "scopes": ["addon_parent"],
+        "paths": [["translatedColumn"]],
+        "script": "experiments/translated-column/implementation.js"
+      }
+    }
+  }
+}

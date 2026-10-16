@@ -130,3 +130,6 @@ ext.runtime.onInstalled.addListener((details) => {
 
 // After every listener: a content script that starts right away finds the background ready to answer.
 void registerContentScripts()
+
+/** The parts the background script of the experimental build (src/experiments/background.ts) builds on. */
+export const backgroundParts = { service, settings }

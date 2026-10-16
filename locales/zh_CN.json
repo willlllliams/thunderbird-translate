@@ -1,5 +1,6 @@
 {
   "extensionName": "聚合邮件翻译 for Thunderbird",
+  "extensionNameExperimental": "聚合邮件翻译 for Thunderbird（实验版）",
   "extensionDescription": "在阅读窗格中翻译邮件正文：双语对照或仅译文，支持免费的谷歌/微软翻译与 20 多个 AI 服务商。",
   "actionTitle": "翻译邮件",
   "commandToggle": "翻译 / 显示原文",
@@ -51,6 +52,7 @@
   "subjectsMore": "显示更多",
   "subjectsReadFailed": "无法读取邮件列表：$1",
   "subjectsProgress": "已翻译标题：$1 / $2",
+  "columnTranslatedSubject": "标题译文",
   "labelPrecise": "精翻",
   "popupSettings": "设置",
   "popupShortcuts": "快捷键：Alt+A 翻译，Alt+S 切换显示方式，Alt+R 重新翻译",

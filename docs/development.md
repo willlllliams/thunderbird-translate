@@ -34,6 +34,8 @@ The background script is an ES module. The AI SDK is a separate chunk under `dis
 
 During development you can load the extension without packing it. In Thunderbird open Tools → Developer Tools → Debug Add-ons, click "Load Temporary Add-on" and select `dist/manifest.json`.
 
+`npm run build:experimental` produces the experimental build, `web-ext-artifacts/multi-translate-experimental-<version>.xpi`, from the same sources. Its manifest takes the add-on id, the name and the experiment API from `src/experiments/manifest.json`, its background script is `src/experiments/background.ts`, and it carries the files of the experiment API under `experiments/`. [experimental.md](experimental.md) describes the build for users. `scripts/build.mjs` checks both builds: a regular build reads no file of `src/experiments/`, and neither its manifest nor its files contain the experiment; the experimental build bundles its background script and carries the manifest entry and both files of the experiment.
+
 `npm run build:debug` produces a debug xpi (`thunderbird-translate-<version>-debug.xpi`). It starts translating as soon as a message is opened and writes progress to the console, for checking the whole flow in a real Thunderbird.
 
 ## npm scripts
@@ -42,6 +44,7 @@ During development you can load the extension without packing it. In Thunderbird
 | --- | --- |
 | `npm run build` | production build and xpi |
 | `npm run build:debug` | debug build, see above |
+| `npm run build:experimental` | experimental build with the column "Translated subject", see above |
 | `npm test` | vitest unit tests |
 | `npm run test:watch` | vitest in watch mode |
 | `npm run test:coverage` | unit tests with coverage; fails below the thresholds in `vitest.config.ts` |
@@ -153,6 +156,7 @@ src/
   options/       settings page and the parts the setup guide shares: translation style controls, service fields, dictionary and Bergamot lists (offline-list.ts shows them from the background script), prompt editor, settings session
   welcome/       setup guide: steps and navigation, demo and tour of the tiers step
   subjects/      page of translated subjects (popup of the main toolbar button): the message list of a mail tab, page by page, translated with the controller of the content script
+  experiments/   the experimental build only: its background script, the column sync (column.ts), the manifest fields it adds, and the experiment API translatedColumn (translated-column/: schema.json and the parent implementation)
   hooks/         hooks of the e2e test build, undefined in every other build
   e2e/           code of the e2e test build: the defined hooks (e2e/hooks/) and the probes they run
 locales/         interface text, one JSON file per language; en.json is the reference
@@ -188,6 +192,7 @@ The directories under `src/` are layers. A file may import from its own director
 | `options/` | `shared/`, `content/` (the style preview sets the same CSS variables as the translations in a message) |
 | `welcome/` | `shared/`, `content/`, `options/`, `hooks/` |
 | `subjects/` | `shared/`, `content/` (the translation controller, renderer and consent panel), `hooks/` |
+| `experiments/` | `shared/`, `background/`, `offline/`, `content/`, `hooks/`; no other layer imports it, so only the entry of the experimental build, `src/experiments/background.ts`, reads it (`VARIANT_LAYERS`) |
 | `e2e/` | every directory |
 
 No production file imports from `e2e/`. The pages reach dictionary packs and offline models through the background script only, so `options/` and `welcome/` import nothing from `offline/`, and no download or storage code goes into their bundles. `npm run imports:check` (`scripts/check-imports.mjs`) reads every `import`, `import type`, `export … from`, `import … = require(…)`, side-effect and dynamic import of `src/` and fails on an import across these boundaries; CI runs it after the link check. It reads the imports from the tokens of TypeScript's scanner, so text in comments, strings, template literals and regular expressions never counts as code, a dynamic import with a template literal path is checked like one with a quoted path, and a dynamic import whose path is computed fails the check. A default import named `type` (`import type from "…"`) counts as a value import.
