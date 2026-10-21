@@ -84,8 +84,8 @@ export async function runSubjectsProbe({ client, tabId }: SubjectsProbeParts): P
     // Six subjects, one of them in the target language.
     await until("the final translations of the folder Foreign", allFinal(5))
     report.first = { rows: rows(), status: document.getElementById("status")?.textContent, active: client.controller.active }
-    // The last progress report follows within 100 ms.
-    await sleep(500)
+    // The last progress report follows within 100 ms and hides the progress line.
+    await until("the progress line hidden", () => document.getElementById("progress")?.hidden === true)
     await ext.runtime.sendMessage({ e2e: "screenshot", name: "subjects-page", windowType: "mail:extensionPopup" } satisfies E2eMessage)
 
     // A click selects the message in the mail tab.
