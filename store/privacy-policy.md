@@ -10,7 +10,7 @@ Multi Translate for Thunderbird translates the messages you read in Thunderbird.
 
 ### What is sent, and to whom
 
-The extension sends message text only when you translate a message: with the buttons of the popup, the keyboard shortcuts Alt+A and Alt+R, or automatic translation if you turned it on. It then sends the text of the message's paragraphs, and its subject while "Translate the subject as well" is on (the default), to the services of the translation tiers you chose. The page of translated subjects, which the "Translated subjects" button of the main toolbar opens, sends the subjects of the messages it lists, up to 100 at first and 100 more with "Show more", to the same services:
+The extension sends message text only when you translate a message or change a setting that changes a translation (the display mode, the languages, the services): with the buttons of the popup, the keyboard shortcuts Alt+A, Alt+S and Alt+R, or automatic translation if you turned it on. It then sends the text of the message's paragraphs, and its subject while "Translate the subject as well" is on (the default), to the services of the translation tiers you chose. The page of translated subjects, which the "Translated subjects" button of the main toolbar opens, sends the subjects of the messages it lists, up to 100 at first and 100 more with "Show more", to the same services:
 
 | Service | Where the text goes |
 | --- | --- |
@@ -44,7 +44,7 @@ Two lists and the offline data come from the network, without any message text:
 - the list of dictionary packs and the packs themselves, from the GitHub releases of the project (github.com, which redirects downloads to release-assets.githubusercontent.com or objects.githubusercontent.com);
 - the list of Bergamot translation models and the model files, from Mozilla (firefox.settings.services.mozilla.com and firefox-settings-attachments.cdn.mozilla.net).
 
-The extension reads the lists when the settings page or the setup guide shows them and, while the dictionary or Bergamot is the service of a tier, when Thunderbird starts and when the settings change. Packs and models are downloaded only when you click a download button. Like every download, these requests show the server your IP address and the file asked for.
+The extension reads the lists when the settings page or the setup guide shows them and, while the dictionary or Bergamot is the service of a tier, when Thunderbird starts, when the settings change and when the popup opens. Packs and models are downloaded only when you click a download button. Like every download, these requests show the server your IP address and the file asked for.
 
 ### What is stored on your computer
 
