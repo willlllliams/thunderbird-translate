@@ -1,10 +1,10 @@
 // The sample messages of the README animations (record.mjs), one per variant: a made-up email with made-up names
-// and example.com addresses, the translation each tier gives for its subject and for every paragraph, and the words
-// of the caption line.
+// and example.com addresses, the translation each tier gives for every paragraph, and the words of the caption line.
+// The subject is that of the message header, which the extension does not translate.
 // The dictionary lines are the output of the real dictionary tier (translateText() of src/offline/dictionary) with the
 // packs dict-de-en and dict-en-zh-Hans of the release dicts-v1; the zh-TW line is that output in traditional characters.
 // The AI lines are Markdown, as AI services write it: the content script shows the list and the bold date of the
-// third paragraph formatted, and the subject line as plain text. The dictionary and Google Translate lines keep the
+// third paragraph formatted. The dictionary and Google Translate lines keep the
 // "- " in front of the list items as characters, as those services do.
 // Caption texts: $1 stands for the service of the tier as the popup names it.
 ;(() => {
@@ -32,16 +32,10 @@
       messageLang: "de",
       header: { subject: DE.subject, from: "Katrin Vogel <katrin.vogel@example.com>", date: "Tue, 13 Oct 2026 09:12", labelFrom: "From", labelDate: "Date", reply: "Reply", forward: "Forward" },
       captions: {
-        intro: "Subject and paragraphs go to three tiers at once",
+        intro: "The paragraphs go to three tiers at once",
         dictionary: "$1: word for word, right away",
         machine: "$1 replaces the dictionary text",
         ai: "$1 writes the final translation in Markdown",
-      },
-      subject: {
-        text: DE.subject,
-        dictionary: "project northern lights – at the base for the Abnahme",
-        machine: "Project Northern Lights – documents for the acceptance",
-        ai: "Project Nordlicht – documents for the sign-off",
       },
       paragraphs: [
         { text: DE.greeting, dictionary: "hello together,", machine: "Hello everyone,", ai: "Hi all," },
@@ -67,12 +61,11 @@
       messageLang: "en",
       header: { subject: EN.subject, from: "Kate Miller <kate.miller@example.com>", date: "2026/10/13 09:12", labelFrom: "发件人", labelDate: "日期", reply: "回复", forward: "转发" },
       captions: {
-        intro: "标题和每个段落同时交给三个层级翻译",
+        intro: "每个段落同时交给三个层级翻译",
         dictionary: "$1：逐词直译，立即显示",
         machine: "$1：替换词典译文",
         ai: "$1：给出最终译文，按 Markdown 格式显示",
       },
-      subject: { text: EN.subject, dictionary: "计划Northlight –文档为那检讨", machine: "Northlight 项目 – 审核文件", ai: "Northlight 项目：评审材料" },
       paragraphs: [
         { text: EN.greeting, dictionary: "喂每个人,", machine: "大家好，", ai: "大家好：" },
         {
@@ -97,12 +90,11 @@
       messageLang: "en",
       header: { subject: EN.subject, from: "Kate Miller <kate.miller@example.com>", date: "2026/10/13 09:12", labelFrom: "寄件者", labelDate: "日期", reply: "回覆", forward: "轉寄" },
       captions: {
-        intro: "主旨和每個段落同時交給三個層級翻譯",
+        intro: "每個段落同時交給三個層級翻譯",
         dictionary: "$1：逐詞直譯，立即顯示",
         machine: "$1：取代辭典譯文",
         ai: "$1：產生最終譯文，依 Markdown 格式顯示",
       },
-      subject: { text: EN.subject, dictionary: "計劃Northlight –文檔為那檢討", machine: "Northlight 專案 – 審核文件", ai: "Northlight 專案：評審資料" },
       paragraphs: [
         { text: EN.greeting, dictionary: "喂每個人,", machine: "大家好，", ai: "大家好：" },
         {

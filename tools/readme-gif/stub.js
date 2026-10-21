@@ -1,17 +1,15 @@
 // A stand-in for Thunderbird's WebExtension API for the README animations (record.mjs), loaded after samples.js and
 // before the scripts of the extension's pages. It follows tools/store-screenshots/stub.js, with two differences: the
 // variant (?variant=en|zh-CN|zh-TW) picks the interface language and the sample message, and nothing happens by
-// itself. The stage starts the translation and releases each tier's answer for the subject and for each paragraph
-// through window.__gif, so that every frame shows a state chosen by the timeline of the stage, not by the timers of
-// the browser. The content script asks for the subject of the message as it does in Thunderbird, and gets the
-// subject of the sample.
+// itself. The stage starts the translation and releases each tier's answer for each paragraph through window.__gif,
+// so that every frame shows a state chosen by the timeline of the stage, not by the timers of the browser.
 ;(() => {
   const params = new URLSearchParams(location.search)
   const sample = globalThis.README_GIF_SAMPLES[params.get("variant") || "en"]
   const origin = location.origin
   const tiers = ["dictionary", "machine", "ai"]
-  /** What the content script translates: the subject line first, then the paragraphs of the message. */
-  const units = [sample.subject, ...sample.paragraphs]
+  /** What the content script translates: the paragraphs of the message. */
+  const units = sample.paragraphs
 
   const settings = {
     uiLanguage: sample.locale,
@@ -19,7 +17,6 @@
     targetLang: sample.targetLang,
     mode: "bilingual",
     autoTranslate: false,
-    translateSubject: true,
     renderMarkdown: true,
     tiers: { dictionary: "dictionary", machine: "google-free", ai: "deepseek" },
     providers: {
@@ -58,7 +55,7 @@
     }
   }
 
-  /** The index of a unit of the sample (0 the subject, then the paragraphs), from the text the content script sends. */
+  /** The index of a paragraph of the sample, from the text the content script sends. */
   const indexOf = (text) => units.findIndex((p) => p.text.trim() === text.trim())
 
   /** Answers the stage has released ("tier:index") and requests that wait for them. */
@@ -88,11 +85,6 @@
       onDisconnect: listeners(),
       disconnect() {},
       postMessage(msg) {
-        // The background script reads the subject from the header of the message on screen.
-        if (msg.type === "subject") {
-          queueMicrotask(() => port.onMessage.fire({ type: "subject", id: msg.id, subject: sample.header.subject }))
-          return
-        }
         if (msg.type !== "translate") return
         const index = indexOf(msg.request.text)
         if (index < 0) throw new Error(`not a unit of the sample: ${msg.request.text}`)
@@ -109,7 +101,6 @@
           targetLang: sample.targetLang,
           mode: "bilingual",
           autoTranslate: false,
-          translateSubject: true,
           renderMarkdown: true,
           tiers,
           signatures: Object.fromEntries(tiers.map((tier) => [tier, tier])),
@@ -117,6 +108,8 @@
           style: { preset: "border", color: "#4c8bf5", textColor: "", opacity: 0.85, fontScale: 1 },
           offlineMutedPairs: [],
           consent: [],
+          summary: { available: false, inlineButton: false, auto: "off", collapsed: false, consent: null },
+          image: { mode: "off", sources: { inline: true, attachments: true }, maxPerMessage: 5, minSide: 100, minArea: 40000, maxAspect: 8, skipSignature: true, collapsed: false, showUsage: true, consent: null, confirmEachMessage: false, maxLongEdge: 1568, format: "image/jpeg", glossary: false, signature: "" },
         },
       })
       gif.connected = true
@@ -124,7 +117,7 @@
     return port
   }
 
-  /** What the stage drives: start() is the click on the toolbar button, release() one tier's answer for one unit (0 the subject, then the paragraphs). */
+  /** What the stage drives: start() is the click on the toolbar button, release() one tier's answer for one paragraph. */
   const gif = {
     connected: false,
     started: false,
