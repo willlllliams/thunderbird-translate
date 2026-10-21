@@ -34,7 +34,13 @@ const joined = (...parts: string[]) => parts.filter(Boolean).join(" · ")
 function partLines(summary: MailSummary): [MessageKey, { strong?: string; text: string; title?: string }[]][] {
   return [
     ["summaryPartSummary", summary.summary.map((text) => ({ text }))],
-    ["summaryPartActions", summary.actions.map((a) => ({ strong: who(a.who), text: a.due || a.dueText ? `${a.task} (${t("summaryDue", [joined(a.due, a.dueText)])})` : a.task, title: a.quote }))],
+    [
+      "summaryPartActions",
+      summary.actions.map((a) => {
+        const task = a.due || a.dueText ? `${a.task} (${t("summaryDue", [joined(a.due, a.dueText)])})` : a.task
+        return { strong: who(a.who), text: a.unverified ? `${task} · ${t("summaryUnverified")}` : task, title: a.unverified ? t("tipSummaryUnverified") : a.quote }
+      }),
+    ],
     ["summaryPartQuestions", summary.questions.map((q) => ({ strong: q.from, text: q.question }))],
     ["summaryPartDates", summary.dates.map((d) => ({ text: joined(d.what, d.when, d.where) }))],
   ]

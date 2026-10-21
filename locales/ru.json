@@ -575,6 +575,8 @@
   "tipSummaryCopy": "Скопировать сводку как текст Markdown",
   "summaryCopied": "Скопировано",
   "summaryCopyFailed": "Не удалось скопировать",
+  "summaryUnverified": "нет в письме",
+  "tipSummaryUnverified": "Слов, на которые сервис сослался для этой задачи, нет в письме. Сверьте её с письмом: скрытая в письме инструкция может заставить сервис выдумать задачи.",
   "summaryRegenerate": "Создать заново",
   "tipSummaryRegenerate": "Снова спросить службу, минуя кэш",
   "tipSummaryClose": "Убрать сводку из сообщения",

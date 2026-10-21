@@ -13,6 +13,8 @@ export interface SummaryAction {
   dueText: string
   /** At most 120 characters of the original. */
   quote: string
+  /** The quote of the model was not in the message: the item may come from an instruction hidden in it. */
+  unverified?: boolean
 }
 
 export interface SummaryQuestion {

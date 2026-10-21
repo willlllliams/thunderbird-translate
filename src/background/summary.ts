@@ -34,10 +34,13 @@ export function buildSummarySystem(template: string, targetLanguage: string, par
 
 const attribute = (value: string) => value.replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/</g, "&lt;")
 
-/** The user message: the message with its sender, date and subject; with precise translation, the glossary of its analysis. */
+/**
+ * The user message: the message with its sender, date and subject; with precise translation, the glossary of its
+ * analysis. A closing tag inside the message is broken, so the message cannot end the email early for the model.
+ */
 export function buildSummaryPrompt(text: string, header: MailHeader | null, glossary: MailAnalysis["glossary"] = []): string {
   const attrs = header ? ` from="${attribute(header.author)}" date="${attribute(header.date)}" subject="${attribute(header.subject)}"` : ""
-  const email = `<email${attrs}>\n${text}\n</email>`
+  const email = `<email${attrs}>\n${text.replace(/<\/(email)/gi, "<\\/$1")}\n</email>`
   if (glossary.length === 0) return email
   return `${email}\n\nWrite these names and terms as the translation of the email does:\n${glossary.map((g) => `- ${g.source} → ${g.target}`).join("\n")}`
 }
@@ -57,9 +60,15 @@ const text = (value: unknown) => (typeof value === "string" ? value.trim() : "")
  * are dropped, an entry without its main field (task, question, what) is
  * left out, a date that is not ISO is left empty, each list is cut to
  * MAX_SUMMARY_ITEMS, and the parts not asked for stay empty. Null when the
- * answer holds no object with any of the four lists.
+ * answer holds no object with any of the four lists. With the `source` text
+ * of the message, a to-do whose quote is not in it, spaces aside, loses the
+ * quote and is marked unverified: an instruction hidden in the message may
+ * have made it up.
  */
-export function parseSummary(raw: string, parts: readonly SummaryPart[] = SUMMARY_PARTS): MailSummary | null {
+export function parseSummary(raw: string, parts: readonly SummaryPart[] = SUMMARY_PARTS, source?: string): MailSummary | null {
+  const squeeze = (value: string) => value.replace(/\s+/g, " ").trim().toLowerCase()
+  const original = source === undefined ? null : squeeze(source)
+  const verified = (quote: string) => original === null || !quote || original.includes(squeeze(quote))
   const o = parseJsonObject(raw)
   if (!o || !SUMMARY_PARTS.some((part) => part in o)) return null
   const list = <T>(part: SummaryPart, read: (item: Record<string, unknown> | string) => T | null): T[] => {
@@ -73,7 +82,10 @@ export function parseSummary(raw: string, parts: readonly SummaryPart[] = SUMMAR
     summary: list("summary", (item) => (typeof item === "string" ? item.trim() : "") || null),
     actions: list("actions", (item) => {
       const task = field(item, "task")
-      return task ? { who: field(item, "who"), task, due: isoDate(field(item, "due")), dueText: field(item, "due_text"), quote: field(item, "quote").slice(0, MAX_QUOTE) } : null
+      if (!task) return null
+      const quote = field(item, "quote").slice(0, MAX_QUOTE)
+      const action = { who: field(item, "who"), task, due: isoDate(field(item, "due")), dueText: field(item, "due_text"), quote }
+      return verified(quote) ? action : { ...action, quote: "", unverified: true }
     }),
     questions: list("questions", (item) => {
       const question = field(item, "question")

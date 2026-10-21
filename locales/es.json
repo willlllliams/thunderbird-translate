@@ -575,6 +575,8 @@
   "tipSummaryCopy": "Copiar el resumen como texto Markdown",
   "summaryCopied": "Copiado",
   "summaryCopyFailed": "No se pudo copiar",
+  "summaryUnverified": "no aparece en el mensaje",
+  "tipSummaryUnverified": "Las palabras que el servicio dio para esta tarea no están en el mensaje. Compruébela con el mensaje: una instrucción oculta en un mensaje puede hacer que un servicio invente tareas.",
   "summaryRegenerate": "Volver a generar",
   "tipSummaryRegenerate": "Preguntar de nuevo al servicio, sin la caché",
   "tipSummaryClose": "Quitar el resumen del mensaje",

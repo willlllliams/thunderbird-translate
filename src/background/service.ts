@@ -462,7 +462,7 @@ export class TranslationService {
           this.assertConsent(id)
           return this.llm.summarize(prompt, opts)
         }))
-      const summary = parseSummary(raw, parts)
+      const summary = parseSummary(raw, parts, text)
       if (summary && cached === undefined) await this.deps.cache.set(key, raw)
       return { ok: true, service, summary, raw }
     } catch (error) {

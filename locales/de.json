@@ -575,6 +575,8 @@
   "tipSummaryCopy": "Die Zusammenfassung als Markdown-Text kopieren",
   "summaryCopied": "Kopiert",
   "summaryCopyFailed": "Kopieren fehlgeschlagen",
+  "summaryUnverified": "nicht in der Nachricht gefunden",
+  "tipSummaryUnverified": "Die Worte, die der Dienst für diese Aufgabe angab, stehen nicht in der Nachricht. Prüfen Sie sie anhand der Nachricht: Eine in einer Nachricht versteckte Anweisung kann einen Dienst Aufgaben erfinden lassen.",
   "summaryRegenerate": "Neu erstellen",
   "tipSummaryRegenerate": "Den Dienst erneut fragen, am Cache vorbei",
   "tipSummaryClose": "Die Zusammenfassung aus der Nachricht entfernen",

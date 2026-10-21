@@ -575,6 +575,8 @@
   "tipSummaryCopy": "把摘要复制为 Markdown 文本",
   "summaryCopied": "已复制",
   "summaryCopyFailed": "复制失败",
+  "summaryUnverified": "原文中未找到",
+  "tipSummaryUnverified": "服务给出的这条待办所依据的原话不在邮件里。请对照邮件核实：邮件中隐藏的指令可能让服务编造待办。",
   "summaryRegenerate": "重新生成",
   "tipSummaryRegenerate": "跳过缓存，重新请求服务",
   "tipSummaryClose": "从邮件中移除摘要",

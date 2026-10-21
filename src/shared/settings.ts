@@ -3,7 +3,7 @@ import { hashText } from "./hash"
 import { patternHost, providerOrigin } from "./hosts"
 import { appLang, LANGUAGES, languageTag } from "./languages"
 import { normalizeUiLanguageSetting, type UiLanguageSetting } from "./locales"
-import { DEFAULT_PROMPTS, PROMPT_NAMES, type PromptKind, type PromptName, promptText } from "./prompts"
+import { DEFAULT_PROMPTS, PROMPT_NAMES, type PromptKind, type PromptName, promptText, REPLACED_PROMPTS } from "./prompts"
 import { DEFAULT_PROVIDER_ID, getPreset, isAiProvider, PROVIDER_PRESETS, type ProviderPreset, type Tier, TIERS, tierOf } from "./providers"
 import { type UploadFormat, uploadFormat, type VisionSupport, visionSupport } from "./vision"
 
@@ -379,7 +379,7 @@ function normalizeTiers(stored: Partial<Settings> & LegacySettings): TierSetting
  * included: a stored copy of one of them is not the user's own prompt. A
  * release that changes DEFAULT_PROMPTS adds the prompts it replaces here.
  */
-const isBuiltInPrompt = (kind: PromptName, text: string) => [PROMPT_1_0, DEFAULT_PROMPTS[kind]].includes(text.trim())
+const isBuiltInPrompt = (kind: PromptName, text: string) => [PROMPT_1_0, ...(REPLACED_PROMPTS[kind] ?? []), DEFAULT_PROMPTS[kind]].includes(text.trim())
 
 /**
  * Prompts from stored settings; empty stands for the built-in prompt, so a

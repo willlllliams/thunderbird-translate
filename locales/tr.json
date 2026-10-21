@@ -578,6 +578,8 @@
   "tipSummaryCopy": "Özeti Markdown metni olarak kopyala",
   "summaryCopied": "Kopyalandı",
   "summaryCopyFailed": "Kopyalanamadı",
+  "summaryUnverified": "iletide bulunamadı",
+  "tipSummaryUnverified": "Hizmetin bu yapılacak iş için verdiği sözcükler iletide yok. İletiyle karşılaştırın: iletide gizlenmiş bir talimat bir hizmete yapılacak iş uydurtabilir.",
   "summaryRegenerate": "Yeniden oluştur",
   "tipSummaryRegenerate": "Önbelleği atlayarak hizmete yeniden sor",
   "tipSummaryClose": "Özeti iletiden kaldır",

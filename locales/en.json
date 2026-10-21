@@ -578,6 +578,8 @@
   "tipSummaryCopy": "Copy the summary as Markdown text",
   "summaryCopied": "Copied",
   "summaryCopyFailed": "Copying failed",
+  "summaryUnverified": "not found in the message",
+  "tipSummaryUnverified": "The words the service gave for this to-do are not in the message. Check it against the message: an instruction hidden in a message can make a service invent to-dos.",
   "summaryRegenerate": "Regenerate",
   "tipSummaryRegenerate": "Ask the service again, past the cache",
   "tipSummaryClose": "Remove the summary from the message",
