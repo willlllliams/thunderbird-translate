@@ -308,6 +308,28 @@ describe("connectContent", () => {
     await vi.waitFor(() => expect(error.querySelector<HTMLElement>(".tt-error")?.title).toMatch(/\S/))
     expect(() => client.controller.stop()).not.toThrow()
   })
+
+  it("after a disconnect fails every paragraph at once, the subject and the context too, and start() ends", async () => {
+    sendMessage.mockResolvedValue({ locale: "en", messages: {} })
+    document.body.innerHTML = "<p>Good morning</p><p>See you later</p>"
+    const states: unknown[] = []
+    const client = connectContent({ root: () => document.body, contentScript: true, onState: (state) => states.push(state) })
+    settingsPush(tieredSettings(["machine"], { precise: true }))
+    await client.ready
+    port.postMessage.mockImplementation(() => {
+      throw new Error("Attempt to postMessage on disconnected port")
+    })
+    port.disconnect()
+    await client.controller.start()
+    expect(Array.from(document.querySelectorAll<HTMLElement>("p .tt-error"), (e) => e.title)).toEqual([ENGLISH.t("errUnknown"), ENGLISH.t("errUnknown")])
+    expect(document.querySelector(".tt-subject")).toBeNull()
+    await vi.waitFor(() => expect(states.at(-1)).toEqual({ active: true, total: 2, done: 0, provisional: 0, failed: 2, lastError: ENGLISH.t("errUnknown") }))
+    // Nothing was left waiting: a second disconnect settles no request.
+    const reported = states.length
+    port.disconnect()
+    await nextTask()
+    expect(states).toHaveLength(reported)
+  })
 })
 
 describe("content script entry", () => {

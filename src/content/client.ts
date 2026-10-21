@@ -52,10 +52,23 @@ async function loadLabels(uiLanguage: UiLanguageSetting): Promise<void> {
 
 export function connectContent({ root, contentScript = false, probe, subjects, onState }: ClientOptions): ContentClient {
   const port = ext.runtime.connect({ name: subjects ? SUBJECTS_PORT_NAME : CONTENT_PORT_NAME })
-  const post = (msg: PortReport) => port.postMessage(msg)
+  /** False when the background went away (extension reloaded): the Port then throws. */
+  const post = (msg: PortReport): boolean => {
+    try {
+      port.postMessage(msg)
+      return true
+    } catch {
+      return false
+    }
+  }
 
+  type PendingRequest = { resolve: () => void; onTier: (tier: Tier, result: TranslateResponse) => void; tiers: Set<Tier> }
   /** Translation requests that are not complete yet, with the tiers that have not answered. */
-  const pending = new Map<number, { resolve: () => void; onTier: (tier: Tier, result: TranslateResponse) => void; tiers: Set<Tier> }>()
+  const pending = new Map<number, PendingRequest>()
+  const fail = ({ resolve, onTier, tiers }: PendingRequest) => {
+    for (const tier of tiers) onTier(tier, { ok: false, error: getI18n().t("errUnknown") })
+    resolve()
+  }
   /** Subject requests without an answer yet. */
   const subjectRequests = new Map<number, (subject: string | null) => void>()
   let nextId = 0
@@ -91,17 +104,18 @@ export function connectContent({ root, contentScript = false, probe, subjects, o
     translate: (request, onTier) =>
       new Promise((resolve) => {
         const id = ++nextId
-        pending.set(id, { resolve, onTier, tiers: new Set(request.tiers) })
-        post({ type: "translate", id, request })
+        const entry = { resolve, onTier, tiers: new Set(request.tiers) }
+        if (post({ type: "translate", id, request })) pending.set(id, entry)
+        else fail(entry)
       }),
-    setContext: (context, bypassCache) => post({ type: "context", context, ...(bypassCache ? { bypassCache } : {}) }),
+    setContext: (context, bypassCache) => void post({ type: "context", context, ...(bypassCache ? { bypassCache } : {}) }),
     // Only a displayed message has a subject; the background script reads it from the header of the message in the tab.
     subject: contentScript
       ? () =>
           new Promise<string | null>((resolve) => {
             const id = ++nextId
-            subjectRequests.set(id, resolve)
-            post({ type: "subject", id })
+            if (post({ type: "subject", id })) subjectRequests.set(id, resolve)
+            else resolve(null)
           })
       : undefined,
     detect: browserDetector(ext.i18n),
@@ -112,11 +126,7 @@ export function connectContent({ root, contentScript = false, probe, subjects, o
       }
       probe?.state(state)
       onState?.(state)
-      try {
-        post({ type: "state", state })
-      } catch {
-        // Background restarted; nothing to report to.
-      }
+      post({ type: "state", state })
     },
   })
 
@@ -164,10 +174,7 @@ export function connectContent({ root, contentScript = false, probe, subjects, o
   })
   // The background went away (extension reloaded): settle what is still waiting.
   port.onDisconnect.addListener(() => {
-    for (const { resolve, onTier, tiers } of pending.values()) {
-      for (const tier of tiers) onTier(tier, { ok: false, error: getI18n().t("errUnknown") })
-      resolve()
-    }
+    for (const request of pending.values()) fail(request)
     pending.clear()
     for (const resolve of subjectRequests.values()) resolve(null)
     subjectRequests.clear()
