@@ -70,6 +70,33 @@ describe("LRU cache", () => {
 })
 
 describe("TranslationService with Google", () => {
+  it("R1: a page that asks for a paragraph whose request was dropped gets a request of its own", async () => {
+    let release!: () => void
+    const gate = new Promise<void>((r) => (release = r))
+    const fetchFn = vi.fn(async (_url: string, init: RequestInit) => {
+      const qs = new URLSearchParams(String(init.body)).getAll("q")
+      if (qs.includes("Blocker")) await gate
+      return jsonResponse(qs.map((q) => [`ZH(${q})`, "en"]))
+    })
+    const { service } = setup((s) => (s.batch.concurrency = 1), { fetchFn })
+    const ask = (text: string, signal: AbortSignal) => {
+      let result: TranslateResponse | undefined
+      return service.translateForPage({ text, sourceLang: "auto", targetLang: "zh-CN", tiers: ["machine"] }, (_tier, r) => (result = r), { signal }).then(() => result!)
+    }
+    const blocker = ask("Blocker", new AbortController().signal)
+    await until(() => expect(fetchFn).toHaveBeenCalledTimes(1))
+    const [a, b] = [new AbortController(), new AbortController()]
+    const first = ask("P", a.signal)
+    await new Promise((r) => setTimeout(r, 20))
+    a.abort()
+    const second = ask("P", b.signal)
+    release()
+    await blocker
+    expect(await second).toEqual({ ok: true, text: "ZH(P)" })
+    expect((await first).ok).toBe(false)
+    expect(fetchFn.mock.calls.filter(([, init]) => new URLSearchParams(String(init.body)).getAll("q").includes("P"))).toHaveLength(1)
+  })
+
   it("B7: names an endpoint that is no URL, without a request and without retries", async () => {
     const fetchFn = vi.fn(async () => jsonResponse({ code: 200, data: "Hallo" }))
     const sleep = vi.fn(async () => {})

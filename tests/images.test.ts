@@ -470,6 +470,24 @@ describe("the limits of a message", () => {
     expect(s.read).toHaveBeenCalledTimes(4)
   })
 
+  it("R2: the images a retranslation aborted give back their count to their own translation, not to the new one", async () => {
+    let hold = true
+    const s = service({
+      settings: settingsWithImages((x) => ((x.image.maxPerMessage = 2), (x.image.concurrency = 4))),
+      deps: { part: async (_m, part) => fileOf(part) },
+      answer: (_image, _text, opts) =>
+        hold ? new Promise((_, reject) => opts.abortSignal?.addEventListener("abort", () => reject(opts.abortSignal!.reason))) : Promise.resolve({ text: TABLE, truncated: false }),
+    })
+    const old = [s.ask({ source: { part: "4.1" } }), s.ask({ source: { part: "4.2" } })]
+    await until(() => expect(s.read).toHaveBeenCalledTimes(2))
+    hold = false
+    expect((await s.ask({ source: { part: "4.3" }, round: 2, fresh: true })).status).toBe("done")
+    expect((await Promise.all(old)).map((a) => a.status)).toEqual(["error", "error"])
+    expect((await s.ask({ source: { part: "4.4" }, round: 2, fresh: true })).status).toBe("done")
+    expect(await s.ask({ source: { part: "4.5" }, round: 2, fresh: true })).toEqual({ status: "skipped", reason: ENGLISH.t("imageLimitCount", [2]) })
+    expect(s.read).toHaveBeenCalledTimes(4)
+  })
+
   it("M2: an image on its way when the content script draws again goes once", async () => {
     let release!: () => void
     const gate = new Promise<void>((resolve) => (release = resolve))

@@ -311,6 +311,8 @@ export class TranslationService {
     const cached = job.fresh ? undefined : await this.deps.cache.get(job.key)
     if (cached !== undefined) return cached
     let running = job.fresh ? undefined : this.inflight.get(job.key)
+    // A request whose pages all went away fails; a page that asks now gets a request of its own.
+    if (running?.controller.signal.aborted) running = undefined
     if (!running) {
       const controller = new AbortController()
       const entry: Running = { promise: Promise.resolve(""), waiting: 0, controller }

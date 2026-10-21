@@ -238,6 +238,15 @@ interface Digest {
   pixels: number | null
 }
 
+/** What went out for a message until a retranslation: images, bytes, and the requests by cache key on their way. */
+interface Ledger {
+  uploads: number
+  bytes: number
+  running: Map<string, Promise<ImageResponse>>
+}
+
+const newLedger = (): Ledger => ({ uploads: 0, bytes: 0, running: new Map() })
+
 /**
  * A content script, that is one displayed message: the message it was opened for, the consent it sent last, which
  * its image requests wait for, the services allowed for its message alone, its latest round, and what went out for
@@ -250,9 +259,8 @@ interface Session {
   consent: Promise<void>
   allowed: Set<string>
   round: number
-  uploads: number
-  bytes: number
-  running: Map<string, Promise<ImageResponse>>
+  /** Replaced by a retranslation: a request of the translation before it gives back what it counted to its own ledger. */
+  ledger: Ledger
   digests: Map<string, Promise<Digest | null>>
   /** Aborted when the content script goes away or translates the message again: what still waits is not sent. */
   controller: AbortController
@@ -325,9 +333,7 @@ export class ImageService {
       consent: Promise.resolve(),
       allowed: new Set(),
       round: -1,
-      uploads: 0,
-      bytes: 0,
-      running: new Map(),
+      ledger: newLedger(),
       digests: new Map(),
       controller: new AbortController(),
     })
@@ -459,7 +465,7 @@ export class ImageService {
       // A retranslation counts the limits of the message again, and what the earlier rounds still wait for is not sent.
       if (req.fresh) {
         session.controller.abort()
-        Object.assign(session, { uploads: 0, bytes: 0, running: new Map(), controller: new AbortController() })
+        Object.assign(session, { ledger: newLedger(), controller: new AbortController() })
       }
     }
     const id = status.id
@@ -493,13 +499,14 @@ export class ImageService {
       await this.checkOrigin(provider)
       const cached = req.fresh ? undefined : await this.deps.cache.get(key)
       if (cached !== undefined) return this.answer(cached, service, true)
-      const running = session.running.get(key)
+      const ledger = session.ledger
+      const running = ledger.running.get(key)
       if (running) return await running
-      const started = this.send(req, { session, settings, provider, key, systemPrompt, format, context, service, animated: digest.animated })
-      session.running.set(key, started)
+      const started = this.send(req, { session, ledger, settings, provider, key, systemPrompt, format, context, service, animated: digest.animated })
+      ledger.running.set(key, started)
       // Only a request on its way is shared: copies of the image that come later find the answer in the cache, and an
       // image left out may go once another one failed.
-      const done = () => void (session.running.get(key) === started && session.running.delete(key))
+      const done = () => void (ledger.running.get(key) === started && ledger.running.delete(key))
       void started.then(done, done)
       return await started
     } catch (error) {
@@ -518,22 +525,22 @@ export class ImageService {
   /** Prepare the image within the limits of the message and of one image, send it, cache the answer. */
   private async send(
     req: ImageRequest,
-    job: { session: Session; settings: Settings; provider: ResolvedProvider; key: string; systemPrompt: string; format: string; context: string; service: string; animated: boolean },
+    job: { session: Session; ledger: Ledger; settings: Settings; provider: ResolvedProvider; key: string; systemPrompt: string; format: string; context: string; service: string; animated: boolean },
   ): Promise<ImageResponse> {
-    const { session, settings, provider } = job
+    const { session, ledger, settings, provider } = job
     const s = settings.image
     const signal = session.controller.signal
-    if (session.uploads >= s.maxPerMessage) return this.skipped("imageLimitCount", [s.maxPerMessage])
+    if (ledger.uploads >= s.maxPerMessage) return this.skipped("imageLimitCount", [s.maxPerMessage])
     const original = await this.reads.run(() => this.bytesOf(session, req)).catch(() => null)
     if (!original) return this.skipped("imageUnreadable")
     const upload = await this.decoding.run(() => (signal.aborted ? Promise.reject(aborted()) : this.prepare(original, job.format, s)))
     if (!upload) return this.skipped("imageUnreadable")
     if (upload === "large") return this.skipped("imageTooLarge", [s.maxImageKB])
     // Counted before the answer: the images of a message go out at the same time.
-    if (session.uploads >= s.maxPerMessage) return this.skipped("imageLimitCount", [s.maxPerMessage])
-    if (session.bytes + upload.bytes.length > s.maxMessageMB * 1024 * 1024) return this.skipped("imageLimitBytes", [s.maxMessageMB])
-    session.uploads++
-    session.bytes += upload.bytes.length
+    if (ledger.uploads >= s.maxPerMessage) return this.skipped("imageLimitCount", [s.maxPerMessage])
+    if (ledger.bytes + upload.bytes.length > s.maxMessageMB * 1024 * 1024) return this.skipped("imageLimitBytes", [s.maxMessageMB])
+    ledger.uploads++
+    ledger.bytes += upload.bytes.length
     const glossary = job.context ? await this.deps.glossary(job.context).catch(() => []) : []
     const text = buildImageUserText(req.index, getLanguage(settings.targetLang).english, glossary)
     const options = imageDetailOptions(provider.id, s.detail)
@@ -548,9 +555,9 @@ export class ImageService {
       return this.answer(stored, job.service, false, answer.usage)
     } catch (error) {
       // A failed request may be tried again within the limits.
-      session.uploads--
-      session.bytes -= upload.bytes.length
-      if (session.running.get(job.key)) session.running.delete(job.key)
+      ledger.uploads--
+      ledger.bytes -= upload.bytes.length
+      ledger.running.delete(job.key)
       throw error
     }
   }
