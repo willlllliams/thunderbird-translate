@@ -250,7 +250,7 @@ export async function setUpE2e({ storage, dictionary, runCommand }: E2eDeps): Pr
     scenario = await (await fetch(`${__E2E_SERVER__}/scenario`)).text()
     const welcome = scenario.startsWith("welcome")
     const offline = welcome || scenario === "missing"
-    const settings = scenarioSettings(await storage.get(SETTINGS_KEY), scenario, __E2E_SERVER__)
+    const settings = scenarioSettings(scenario, __E2E_SERVER__)
     await storage.set(SETTINGS_KEY, settings)
     if (offline) await uninstallDictionary(dictionary)
     if (welcome) {

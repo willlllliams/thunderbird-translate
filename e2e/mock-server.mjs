@@ -53,7 +53,7 @@ export function imageCall(messages) {
 export const SUMMARY_ANSWER = `\`\`\`json
 ${JSON.stringify({
   summary: ["Anna asks to move the client meeting."],
-  actions: [{ who: "me", task: "Confirm the new date", due: "2026-10-23", due_text: "by Thursday", quote: "Could we move the meeting?" }],
+  actions: [{ who: "me", task: "Confirm the new date", due: "2026-10-23", due_text: "by Thursday", quote: "The meeting with the client has been moved to Thursday morning" }],
   questions: [{ from: "Anna", question: "Does Thursday work for you?" }],
   dates: [{ what: "Client meeting", when: "2026-10-23 15:00", where: "Room 4" }],
 })}
@@ -217,8 +217,14 @@ export async function startMockServer({ fixtures, screenshots, googleDelayMs = 3
     else posted.set(path, [...(posted.get(path) ?? []), body])
   }
 
-  const send = (res, status, body, type = "application/json") => {
-    res.writeHead(status, { "Content-Type": type, "Access-Control-Allow-Origin": "*" })
+  /**
+   * DeepL, Baidu, Youdao and Caiyun send no CORS headers, as DeepL does (docs/providers.md): their answers reach the
+   * background script through its host permission alone, as in a real Thunderbird.
+   */
+  const withoutCors = (path) => /^\/(?:deepl|baidu|youdao|caiyun)(?:\/|$)/.test(path)
+
+  const send = (res, status, body, type = "application/json", cors = true) => {
+    res.writeHead(status, { "Content-Type": type, ...(cors ? { "Access-Control-Allow-Origin": "*" } : {}) })
     res.end(typeof body === "string" || Buffer.isBuffer(body) ? body : JSON.stringify(body))
   }
 
@@ -240,7 +246,7 @@ export async function startMockServer({ fixtures, screenshots, googleDelayMs = 3
     const raw = Buffer.concat(chunks).toString("utf8")
     try {
       if (req.method === "OPTIONS") {
-        res.writeHead(204, { "Access-Control-Allow-Origin": "*", "Access-Control-Allow-Headers": "*", "Access-Control-Allow-Methods": "GET, POST" })
+        res.writeHead(204, withoutCors(url.pathname) ? {} : { "Access-Control-Allow-Origin": "*", "Access-Control-Allow-Headers": "*", "Access-Control-Allow-Methods": "GET, POST" })
         return res.end()
       }
       if (url.pathname === "/google/translate_a/t" || url.pathname === "/google/translate_a/single") {
@@ -277,14 +283,14 @@ export async function startMockServer({ fixtures, screenshots, googleDelayMs = 3
       }
       if (req.method === "GET" && url.pathname === "/deepl/v2/usage") {
         calls.push({ type: "mt", service: "deepl", usage: true, auth: req.headers.authorization === `DeepL-Auth-Key ${MACHINE_KEYS.deepl}`, at: Date.now() })
-        return send(res, 200, { character_count: 1234, character_limit: 500000 })
+        return send(res, 200, { character_count: 1234, character_limit: 500000 }, "application/json", false)
       }
       const machine = req.method === "POST" ? machineCall(url.pathname, req.headers, raw) : null
       if (machine) {
         calls.push({ type: "mt", ...machine, count: machine.texts.length, texts: undefined, at: Date.now() })
         await sleep(googleDelayMs)
         const [status, body] = machineAnswer(machine)
-        return send(res, status, body)
+        return send(res, status, body, "application/json", false)
       }
       if (req.method === "GET" && url.pathname === "/releases/dict-index.json") {
         calls.push({ type: "download", file: "dict-index.json", at: Date.now() })

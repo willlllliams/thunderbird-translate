@@ -525,16 +525,16 @@ describe("the content script", () => {
     port.push({ type: "settings", settings: publicSettings() })
     await client.ready
     port.push({ type: "summarize" })
-    await new Promise((r) => setTimeout(r, 0))
-    expect(port.posted("summary")).toEqual([])
+    // No positive event follows: a bounded wait covers the asynchronous steps before a request.
+    await expect(until(() => expect(port.posted("summary")).not.toEqual([]), 300)).rejects.toThrow()
     port.push({ type: "settings", settings: summaryOn({ consent: { id: "openai", host: "api.openai.com" } }) })
     port.push({ type: "summarize" })
     await until(() => expect(document.querySelector(".tt-consent")).not.toBeNull())
     expect(document.querySelector(".tt-consent")!.textContent).toContain(ENGLISH.t("consentBodyPrecise"))
-    const [allow, cancel] = Array.from(document.querySelectorAll<HTMLButtonElement>(".tt-consent button"))
+    const [, cancel] = Array.from(document.querySelectorAll<HTMLButtonElement>(".tt-consent button"))
     cancel.click()
-    await new Promise((r) => setTimeout(r, 0))
-    expect(port.posted("summary")).toEqual([])
+    await until(() => expect(document.querySelector(".tt-consent")).toBeNull())
+    await expect(until(() => expect(port.posted("summary")).not.toEqual([]), 300)).rejects.toThrow()
     port.push({ type: "summarize" })
     await until(() => expect(document.querySelector(".tt-consent")).not.toBeNull())
     document.querySelector<HTMLButtonElement>(".tt-consent button")!.click()
@@ -544,7 +544,6 @@ describe("the content script", () => {
     port.push({ type: "summarize" })
     await until(() => expect(port.posted("summary")).toHaveLength(2))
     expect(document.querySelector(".tt-consent")).toBeNull()
-    expect(allow).toBeDefined()
   })
 
   it("shows the Summary button while the message is translated, when the settings ask for it", async () => {
@@ -571,8 +570,7 @@ describe("the content script", () => {
     port.push({ type: "settings", settings: summaryOn() })
     await client.ready
     port.push({ type: "summarize" })
-    await new Promise((r) => setTimeout(r, 0))
-    expect(port.posted("summary")).toEqual([])
+    await expect(until(() => expect(port.posted("summary")).not.toEqual([]), 300)).rejects.toThrow()
   })
 })
 

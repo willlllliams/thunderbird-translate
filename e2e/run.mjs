@@ -358,9 +358,10 @@ function checkSummary(ready, report, calls) {
     ["Dates and meetings", ["Client meeting · 2026-10-23 15:00 · Room 4"]],
   ]
   expect(JSON.stringify(parts) === JSON.stringify(expected), "the panel does not show the four parts of the summary", parts)
-  expect(first?.parts?.[1]?.lines?.[0]?.title === "Could we move the meeting?", "the to-do does not show its quote as hover text", first?.parts?.[1])
-  // The message with its header went out once before "Regenerate"; the cache answered the second request.
-  expect(summaries.filter((x) => x.at < report.cachedAt).length === 1, "the second request of the same summary was not answered by the cache", summaries)
+  // The quote is words of the message: the to-do is not marked as unverified.
+  expect(first?.parts?.[1]?.lines?.[0]?.title === "The meeting with the client has been moved to Thursday morning", "the to-do does not show its quote as hover text", first?.parts?.[1])
+  // The message with its header went out once before "Regenerate", whenever the second command arrived; the cache answered it.
+  expect(summaries.filter((x) => x.at < report.regenerateAt).length === 1, "the second request of the same summary was not answered by the cache", summaries)
   expect(summaries.length === 2, "Regenerate did not ask the AI service again", summaries)
   expect(summaries.every((x) => x.maxTokens === 800 && x.model === "e2e-model" && x.user?.startsWith("<email from=")), "a summary request carries the wrong limit, model or message", summaries)
   expect(JSON.stringify((report.regenerated?.parts ?? []).map((p) => p.heading)) === JSON.stringify(expected.map(([h]) => h)), "the regenerated summary does not show the four parts", report.regenerated)

@@ -20,15 +20,18 @@ const RUNS = ["message", "message", "auto", "auto-skip", "missing", "consent", .
 
 /** The settings of each run, each read from what the run before it stored. */
 function storedRuns() {
-  let stored: unknown = createDefaultSettings("en")
-  return RUNS.map((scenario) => {
-    const settings = scenarioSettings(stored, scenario, SERVER)
-    stored = structuredClone(settings)
-    return [scenario, settings] as const
-  })
+  return RUNS.map((scenario) => [scenario, scenarioSettings(scenario, SERVER)] as const)
 }
 
 describe("settings of the e2e runs", () => {
+  it("I3: start from the defaults, whatever an earlier run of the profile left", () => {
+    for (const scenario of RUNS) {
+      const s = scenarioSettings(scenario, SERVER)
+      const d = createDefaultSettings()
+      expect([scenario, s.offlineMutedPairs, s.summary, s.style, s.batch, s.translateSubject, s.renderMarkdown, s.prompts]).toEqual([scenario, d.offlineMutedPairs, d.summary, d.style, d.batch, d.translateSubject, d.renderMarkdown, d.prompts])
+    }
+  })
+
   it("switch the cache back on after the runs that turn it off", () => {
     expect(storedRuns().map(([scenario, s]) => [scenario, s.cache.enabled])).toEqual(
       RUNS.map((scenario) => [scenario, !["auto", "auto-skip", "missing", "consent", "image-auto", "image-switch"].includes(scenario) && !scenario.startsWith("machine-")]),
@@ -80,7 +83,7 @@ describe("settings of the e2e runs", () => {
   })
 
   it("point the machine translators at the mock server with the keys it checks", () => {
-    const s = scenarioSettings(undefined, "machine-baidu", SERVER)
+    const s = scenarioSettings("machine-baidu", SERVER)
     expect(s.tiers).toEqual({ dictionary: null, machine: "baidu", ai: null })
     expect(s.providers.baidu).toMatchObject({ enabled: true, baseURL: `${SERVER}/baidu`, appId: "e2e-baidu-app", apiKey: "e2e-baidu-key" })
     expect(s.onlineConsent).toEqual(["google-free@127.0.0.1", "custom@127.0.0.1", "baidu@127.0.0.1"])
