@@ -102,6 +102,19 @@ const options = {
   define: { "process.env.NODE_ENV": '"production"', __DEBUG__: String(debug), __E2E_SERVER__: JSON.stringify(e2eServer) },
   plugins: e2e ? [e2eHooks(root)] : [],
 }
+/**
+ * The English table (locales/en.json) as an empty object: only the background script bundles it. A page reads
+ * _locales/en/messages.json when it loads its language, and the content script gets its tables, English included,
+ * from the background script (src/shared/i18n.ts). This keeps one copy of the English texts out of every page.
+ */
+const englishOutside = {
+  name: "english-outside",
+  setup(build) {
+    build.onResolve({ filter: /locales[\\/]en\.json$/ }, () => ({ path: "en.json", namespace: "english-outside" }))
+    build.onLoad({ filter: /.*/, namespace: "english-outside" }, () => ({ contents: "export default {}", loader: "js" }))
+  },
+}
+
 // The background script is an ES module ("type": "module" in the manifest), so the packages of the AI SDK
 // become chunks that load with the first AI request. Content script, pages and worker stay classic scripts.
 const builds = await Promise.all([
@@ -123,9 +136,17 @@ const builds = await Promise.all([
       "bergamot-worker": "src/offline/bergamot/worker.ts",
     },
     format: "iife",
+    plugins: [...options.plugins, englishOutside],
   }),
 ])
 const result = { metafile: { inputs: Object.assign({}, ...builds.map((b) => b.metafile.inputs)), outputs: Object.assign({}, ...builds.map((b) => b.metafile.outputs)) } }
+
+// Guard: the English table is in the background script alone.
+const english = Object.entries(builds[1].metafile.outputs).filter(([, output]) => Object.keys(output.inputs).some((input) => input.endsWith("locales/en.json")))
+if (english.length) {
+  console.error("The English table in a page or the content script:", english.map(([file]) => file))
+  process.exit(1)
+}
 
 // Guard: a Node built-in in a bundle means it would fail inside Thunderbird.
 const nodeImports = Object.keys(result.metafile.inputs).filter((p) => p.startsWith("node:") || /^(fs|path|crypto|stream|http|https|zlib|os)$/.test(p))

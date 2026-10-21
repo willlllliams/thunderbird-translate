@@ -1,7 +1,7 @@
 /** WebExtension glue for the i18n runtime (extension pages and background). */
 
 import { ext } from "./ext"
-import { type I18n, loadI18n, setI18n } from "./i18n"
+import { compileMessagesJson, EN_MESSAGES, type I18n, loadI18n, setI18n, useEnglishMessages } from "./i18n"
 import type { UiLocale } from "./locales"
 
 /** Thunderbird's UI language, e.g. "de" or "zh-TW". */
@@ -20,8 +20,24 @@ export async function fetchPackagedMessages(locale: UiLocale): Promise<unknown> 
   return resp.json()
 }
 
-/** Load the locale for a setting value and make it the current instance. */
+/** The English table of a page, read once from the packaged file when the bundle came without it. */
+let english: Promise<void> | null = null
+
+function ensureEnglish(): Promise<void> {
+  if (Object.keys(EN_MESSAGES).length > 0) return Promise.resolve()
+  english ??= fetchPackagedMessages("en").then(
+    (json) => useEnglishMessages(compileMessagesJson(json)),
+    () => {
+      // Without the file the keys show; the next load tries again.
+      english = null
+    },
+  )
+  return english
+}
+
+/** Load the locale for a setting value and make it the current instance, with the English table as its fallback. */
 export async function loadExtensionI18n(setting: unknown): Promise<I18n> {
+  await ensureEnglish()
   const i18n = await loadI18n(setting, thunderbirdUiLanguage(), fetchPackagedMessages)
   setI18n(i18n)
   return i18n

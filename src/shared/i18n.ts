@@ -5,7 +5,12 @@
  * switch at run time, so the popup, the settings page, the content script and
  * the background use this instead. Messages come from the extension's own
  * `_locales/<locale>/messages.json` (generated from locales/*.json at build
- * time); English is bundled and serves as the fallback for missing keys.
+ * time); English serves as the fallback for missing keys. Only the
+ * background script bundles the English table: the build gives the pages
+ * and the content script an empty one (scripts/build.mjs), which a page
+ * fills from `_locales/en/messages.json` when it loads its language
+ * (i18n-ext.ts), and the content script gets its tables from the background
+ * script with the English texts in them.
  */
 
 import enSource from "../../locales/en.json"
@@ -18,6 +23,11 @@ export type MessageTable = Partial<Record<string, string>>
 export type Substitution = string | number
 
 export const EN_MESSAGES: MessageTable = enSource
+
+/** Fill the English table of a bundle that has an empty one; nothing changes where it is complete. */
+export function useEnglishMessages(table: MessageTable): void {
+  Object.assign(EN_MESSAGES, table)
+}
 
 export function formatMessage(template: string, subs: readonly string[] = []): string {
   return template.replace(/\$(\$|[1-9])/g, (_, g: string) => (g === "$" ? "$" : (subs[Number(g) - 1] ?? "")))

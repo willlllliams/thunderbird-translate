@@ -531,6 +531,23 @@ describe("extension glue", () => {
     expect(fetch).toHaveBeenCalledWith("moz-extension://test/_locales/zh_TW/messages.json")
   })
 
+  it("X1: a page whose bundle has no English table reads the packaged one once, as the fallback of its language", async () => {
+    const { ext, i18n } = await glue(() => "de", packagedFetch())
+    const table = i18n.EN_MESSAGES as Record<string, string>
+    const saved = { ...table }
+    for (const key of Object.keys(table)) delete table[key]
+    try {
+      const loaded = await ext.loadExtensionI18n("auto")
+      expect(loaded.locale).toBe("de")
+      expect(i18n.ENGLISH.t("popupSettings")).toBe(sources.en.popupSettings)
+      expect(new i18n.I18n("de", {}).t("popupSettings")).toBe(sources.en.popupSettings)
+      await ext.loadExtensionI18n("ja")
+      expect(vi.mocked(fetch).mock.calls.filter(([url]) => String(url).endsWith("/_locales/en/messages.json"))).toHaveLength(1)
+    } finally {
+      Object.assign(table, saved)
+    }
+  })
+
   it("U24: follows the interface language one load after the other, draws only the latest, and nothing for the same", async () => {
     const slow = packagedFetch()
     const { ext, i18n } = await glue(() => "en", async (url: string) => (url.includes("/de/") ? new Promise((r) => setTimeout(() => r(slow(url)), 20)) : slow(url)))

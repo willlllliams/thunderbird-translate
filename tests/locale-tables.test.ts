@@ -19,6 +19,10 @@ describe("locale tables", () => {
     const answer = await messages("de")
     expect(answer.locale).toBe("de")
     expect(answer.messages.actionTitle).toBe(localeText("de", "actionTitle"))
+    // X1: with the English texts under it, since the content script bundles none.
+    const english = await messages("en")
+    expect(Object.keys(answer.messages)).toEqual(expect.arrayContaining(Object.keys(english.messages)))
+    expect(english.messages.actionTitle).toBe(localeText("en", "actionTitle"))
     // "auto" follows Thunderbird's language.
     expect((await messages("auto")).locale).toBe("en")
   })
