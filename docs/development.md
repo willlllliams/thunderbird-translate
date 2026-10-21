@@ -150,11 +150,11 @@ In CI the job `e2e` of `.github/workflows/release.yml` runs the same command on 
 
 ```
 src/
-  shared/        modules every part uses: settings, provider presets and thinking parameters, the addresses the extension connects to and their host permissions, prompts, language table and codes, language detection, fetch with classified errors, message types, i18n runtime, DOM helpers
+  shared/        modules every part uses: settings, provider presets and thinking parameters, the addresses the extension connects to and their host permissions, prompts, language table and codes, language detection, fetch with classified errors, message types, i18n runtime, DOM helpers, the Markdown reader of AI translations (markdown.ts), the subject without its reply and forward prefixes (subject.ts), the message as context for precise translation (mail-context.ts)
   offline/       offline data of the background page: manager.ts, what the managers of both services have in common; catalog-cache.ts, the catalogs (dictionary index, Bergamot model list); install-registry.ts, the installations of a service, two at a time with a queue
     dictionary/  dictionary packs: format, download, storage, lookup, and manager.ts, which lists, installs and removes the packs and translates with them
     bergamot/    Bergamot engine: model list, download, storage, worker, and manager.ts, which lists, installs and removes the models and translates with them
-  background/    background script: the entry index.ts and the modules it assembles (settings-state, tabs, router, offline-admin, offline-status, commands, locale-tables, content-scripts, welcome), translation service, batch and request queues, cache, provider factory, translators
+  background/    background script: the entry index.ts and the modules it assembles (settings-state, tabs, router, offline-admin, offline-status, commands, locale-tables, content-scripts, welcome), translation service, batch and request queues, cache, provider factory, translators; subject.ts reads the subject of the displayed message for the line above the body
   content/       content script: paragraph detection, rendering, translation state, notice about missing offline data
   popup/         popup
   options/       settings page and the parts the setup guide shares: translation style controls, service fields, dictionary and Bergamot lists (offline-list.ts shows them from the background script), prompt editor, settings session
@@ -166,7 +166,7 @@ src/
 locales/         interface text, one JSON file per language; en.json is the reference
 static/          manifest.json, HTML, CSS, the icons: icons/icon.svg for 64 px and more, icons/icon-16.svg without the text lines for 16 to 32 px
 licenses/        license texts for THIRD-PARTY-NOTICES.txt: those some npm packages lack, the Apache License 2.0, Marian, ECDICT
-scripts/         build, third-party notices and the hook plugin of the e2e build, Bergamot engine download, locale generation and checks, Markdown link check, layer check of src/, live endpoint test
+scripts/         build, third-party notices and the hook plugin of the e2e build, Bergamot engine download, locale generation and checks, Markdown link check, layer check of src/, live endpoint test, release notes of a version from CHANGELOG.md (release-notes.mjs), source archive for the add-on site (source-zip.mjs)
 vendor/
   bergamot/      Bergamot engine: the WebAssembly binary (bergamot-translator.wasm.zst) and its glue script (bergamot-translator.js), as Mozilla publishes them; README.md names their source and hashes
 tools/           dict-build: the pipeline that builds the dictionary packs; store-screenshots: the screenshots of the add-on listing; readme-gif: the animations of the READMEs
@@ -275,6 +275,7 @@ The dictionary packs have their own manually triggered workflow, `.github/workfl
 - [batching.md](batching.md): batch queue, request queues, timeouts and cost estimate.
 - [providers.md](providers.md): endpoints, default models and thinking parameters of every service.
 - [settings.md](settings.md): every setting and the detailed behavior.
+- [experimental.md](experimental.md): the experimental build, its column "Translated subject" and the experiment API.
 - [bergamot.md](bergamot.md): the Bergamot engine module, model selection, storage and build.
 - [dictionary-packs.md](dictionary-packs.md): data sources, pack format, extraction rules and build of the dictionary packs (in Chinese).
 - [archive/size-and-structure-1.5.2.md](archive/size-and-structure-1.5.2.md): size of the xpi and the bundles, module dependencies and data flow of version 1.5.2, kept as a record; the numbers are outdated (in Chinese).
