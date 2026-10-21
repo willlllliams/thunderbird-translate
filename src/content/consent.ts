@@ -14,9 +14,9 @@ import { button, h } from "../shared/dom"
 import { getI18n, t } from "../shared/i18n"
 import { getPreset, providerDisplayName } from "../shared/providers"
 import type { ConsentNeed } from "../shared/settings"
-import { CLS_NOTICE } from "./paragraphs"
+import { noticeBox } from "./notice"
 
-export const CLS_CONSENT = "tt-consent"
+const CLS_CONSENT = "tt-consent"
 
 export interface ConsentDeps {
   root: () => HTMLElement | null
@@ -97,9 +97,11 @@ export class ConsentPanel {
     const cancel = button(t("consentCancel"), () => this.settle(false), false, t("tipConsentCancel"))
     const title = t(this.deps.subjects ? "consentSubjectsTitle" : "consentTitle")
     const body = t(this.deps.subjects ? "consentSubjectsBody" : precise ? "consentBodyPrecise" : "consentBody")
-    return h(
+    return noticeBox(
       "div",
-      { className: `${CLS_NOTICE} ${CLS_CONSENT}`, role: "region", "aria-label": title, lang: i18n.lang, dir: i18n.dir },
+      CLS_CONSENT,
+      title,
+      {},
       h("strong", { text: title }),
       h("p", { text: body }),
       h("ul", {}, ...services),

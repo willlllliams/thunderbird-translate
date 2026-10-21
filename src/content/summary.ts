@@ -12,11 +12,12 @@
  */
 
 import { button, h } from "../shared/dom"
-import { getI18n, type MessageKey, t } from "../shared/i18n"
+import { type MessageKey, t } from "../shared/i18n"
 import { type MailSummary, SUMMARY_ME, type SummaryResponse } from "../shared/summary"
-import { CLS_NOTICE, CLS_SUBJECT } from "./paragraphs"
+import { noticeBox } from "./notice"
+import { CLS_SUBJECT } from "./paragraphs"
 
-export const CLS_SUMMARY = "tt-summary"
+const CLS_SUMMARY = "tt-summary"
 const CLS_SUMMARY_BUTTON = "tt-summary-button"
 
 /** Put `el` at the top of the body, under the line with the subject when there is one. */
@@ -93,7 +94,7 @@ export class SummaryPanel {
     if (!root) return
     const run = ++this.run
     if (!this.el) {
-      this.el = h("details", { className: `${CLS_NOTICE} ${CLS_SUMMARY}`, open: !this.deps.collapsed(), lang: getI18n().lang, dir: getI18n().dir })
+      this.el = noticeBox("details", CLS_SUMMARY, null, { open: !this.deps.collapsed() })
       placeAtTop(root, this.el)
     }
     this.draw(undefined, [h("p", { text: t("summaryRunning") })])
@@ -167,7 +168,7 @@ export class SummaryButton {
     }
     const root = this.deps.root()
     if (this.el || !root) return
-    this.el = h("div", { className: `${CLS_NOTICE} ${CLS_SUMMARY_BUTTON}` }, button(t("summaryButton"), this.deps.onClick, false, t("tipSummaryButton")))
+    this.el = noticeBox("div", CLS_SUMMARY_BUTTON, null, {}, button(t("summaryButton"), this.deps.onClick, false, t("tipSummaryButton")))
     placeAtTop(root, this.el)
   }
 }

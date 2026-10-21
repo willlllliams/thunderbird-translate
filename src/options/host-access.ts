@@ -14,13 +14,13 @@ import { type ProviderConfig, resolveProviderConfig } from "../shared/settings"
 import { button, h } from "../shared/dom"
 
 /** The match pattern a service needs with this configuration; null for the offline services and for an endpoint that is not a URL. */
-export function originOf(providerId: string, cfg: Omit<ProviderConfig, "enabled">): string | null {
+function originOf(providerId: string, cfg: Omit<ProviderConfig, "enabled">): string | null {
   if (!getPreset(providerId)) return null
   return providerOrigin(resolveProviderConfig(providerId, cfg))
 }
 
 /** Whether the extension may connect to `origin`. */
-export async function hasHostAccess(origin: string): Promise<boolean> {
+async function hasHostAccess(origin: string): Promise<boolean> {
   try {
     return await ext.permissions.contains({ origins: [origin] })
   } catch {

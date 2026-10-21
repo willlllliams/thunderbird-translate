@@ -31,6 +31,15 @@ export interface NoticeDeps {
 }
 
 /** Key of a notice entry, as muted in the settings. */
+/**
+ * The frame of a panel above the message or under an image (the missing data, the consent, the summary): the class
+ * of the notices and `extra`, a region named `label`, in the interface language.
+ */
+export function noticeBox<K extends "div" | "details">(tag: K, extra: string, label: string | null, props: Partial<Record<string, string | boolean>>, ...children: (Node | null)[]): HTMLElementTagNameMap[K] {
+  const i18n = getI18n()
+  return h(tag, { className: extra ? `${CLS_NOTICE} ${extra}` : CLS_NOTICE, ...(label ? { role: "region", "aria-label": label } : {}), lang: i18n.lang, dir: i18n.dir, ...props }, ...children)
+}
+
 export const muteKey = ({ service, pair }: Pick<MissingData, "service" | "pair">) => `${service}:${pair}`
 
 export class MissingNotice {
@@ -98,9 +107,11 @@ export class MissingNotice {
     const muteField = h("label", {}, mute, h("span", { text: t("noticeMute") }))
     setTitle(muteField, t("tipNoticeMute"))
 
-    return h(
+    return noticeBox(
       "div",
-      { className: CLS_NOTICE, role: "region", "aria-label": t("noticeMissingTitle"), lang: i18n.lang, dir: i18n.dir },
+      "",
+      t("noticeMissingTitle"),
+      {},
       h("strong", { text: t("noticeMissingTitle") }),
       h("ul", {}, ...lines),
       h("p", { text: t("noticeMissingHint") }),

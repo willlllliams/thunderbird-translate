@@ -45,7 +45,8 @@ import { markdownFragment } from "../shared/markdown"
 import type { ImageRequest, ImageResponse } from "../shared/messages"
 import { getPreset, providerDisplayName } from "../shared/providers"
 import type { ConsentNeed, PublicImageSettings } from "../shared/settings"
-import { CLS_IMAGE, CLS_NOTICE, CLS_ORIGINAL, type Unit } from "./paragraphs"
+import { noticeBox } from "./notice"
+import { CLS_IMAGE, CLS_ORIGINAL, type Unit } from "./paragraphs"
 
 /** How long the line about an image without text stays. */
 export const NO_TEXT_MS = 3000
@@ -298,9 +299,11 @@ export class ImageTranslator {
     const format = s.format === "image/png" ? "PNG" : s.format === "image/webp" ? "WebP" : "JPEG"
     const title = count > 1 ? t("imageConsentTitleAuto", [count, name]) : t("imageConsentTitle", [name])
     const allow = t(count > 1 ? "imageConsentAllowAuto" : "imageConsentAllow")
-    return h(
+    return noticeBox(
       "div",
-      { className: `${CLS_NOTICE} tt-consent tt-image-consent`, role: "region", "aria-label": title },
+      "tt-consent tt-image-consent",
+      title,
+      {},
       h("strong", { text: title }),
       h("p", { text: t("imageConsentWhat", [s.maxLongEdge, format]) }),
       s.glossary && run.context ? h("p", { text: t("imageConsentGlossary") }) : null,
