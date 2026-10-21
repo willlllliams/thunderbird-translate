@@ -67,6 +67,15 @@ describe("version", () => {
 describe("workflows", () => {
   const workflow = (name: string) => readFileSync(join(root, ".github", "workflows", name), "utf8")
 
+  it("shell lines continued with a backslash go on in the next line", () => {
+    for (const name of ["release.yml", "dicts.yml"]) {
+      const lines = workflow(name).split("\n")
+      lines.forEach((line, i) => {
+        if (line.trimEnd().endsWith("\\")) expect(lines[i + 1]?.trim().replace(/^\\$/, ""), `${name}:${i + 2}`).toBeTruthy()
+      })
+    }
+  })
+
   it("I1: release from main only, and attach the source archive", () => {
     const release = workflow("release.yml")
     const job = release.slice(release.indexOf("\n  release:"))

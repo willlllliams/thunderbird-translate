@@ -174,5 +174,4 @@ jobs:
           gh release create "v$VERSION" --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" --title "v$VERSION" \
             --notes-file release-notes/release-notes.md --latest \
             "web-ext-artifacts/thunderbird-translate-$VERSION.xpi" \
-\
             "web-ext-artifacts/thunderbird-translate-$VERSION-source.zip"
