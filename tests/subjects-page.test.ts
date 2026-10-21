@@ -308,6 +308,12 @@ describe("following the mail tab", () => {
     expect(own.mail.api.mailTabs.getListedMessages).toHaveBeenCalledWith(8)
     expect($("openWindow").hidden).toBe(true)
   })
+
+  it("follows no mail tab for a parameter tab that is no tab id", async () => {
+    const page = await subjectsPage({ folders: { Inbox: messages(2) }, search: "?tab=abc" })
+    await vi.waitFor(() => expect($("status").textContent).toBe(ENGLISH.t("subjectsNoMailTab")))
+    expect(page.mail.api.mailTabs.getListedMessages).not.toHaveBeenCalled()
+  })
 })
 
 describe("consent and interface language", () => {

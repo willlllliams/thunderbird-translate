@@ -40,6 +40,7 @@ import { CLS_CELL, collectCells, RELOAD_DELAY_MS, rowKey, senderName } from "./l
 
 /** Size of the window of "Open in a window". */
 const WINDOW_SIZE = { width: 960, height: 640 }
+const DATE_STYLE = { dateStyle: "short", timeStyle: "short" } as const
 
 async function main(): Promise<void> {
   const settings = await loadSettings()
@@ -49,7 +50,9 @@ async function main(): Promise<void> {
 
   const params = new URLSearchParams(location.search)
   const ownWindow = params.has("tab")
-  const tabId = ownWindow ? Number(params.get("tab")) : (await browser.mailTabs.getCurrent())?.id
+  const tab = ownWindow ? Number(params.get("tab")) : (await browser.mailTabs.getCurrent())?.id
+  /** The mail tab the page follows; undefined without one, as for a parameter "tab" that is no tab id. */
+  const tabId = Number.isInteger(tab) ? tab : undefined
   const status = $<HTMLParagraphElement>("status")
   const progress = $<HTMLParagraphElement>("progress")
   const rows = $<HTMLTableSectionElement>("rows")
@@ -61,6 +64,8 @@ async function main(): Promise<void> {
   let generation = 0
   let lastState: Omit<TabState, "connected"> | null = null
   let error = ""
+  /** The dates of the rows, in the interface language. */
+  let dateFormat = new Intl.DateTimeFormat(getI18n().lang, DATE_STYLE)
 
   const client = connectContent({
     root: () => $("list"),
@@ -74,7 +79,7 @@ async function main(): Promise<void> {
   function showStatus(): void {
     table.hidden = listing.shown.length === 0
     more.hidden = !listing.hasMore
-    if (tabId === undefined || Number.isNaN(tabId)) status.textContent = t("subjectsNoMailTab")
+    if (tabId === undefined) status.textContent = t("subjectsNoMailTab")
     else if (error) status.textContent = t("subjectsReadFailed", [truncate(firstLine(error), 120)])
     else if (listing.shown.length === 0) status.textContent = t("subjectsEmpty")
     else status.textContent = t(listing.hasMore ? "subjectsShownMore" : "subjectsShown", [listing.shown.length])
@@ -108,10 +113,7 @@ async function main(): Promise<void> {
     const { prefix, text } = splitSubject(subject)
     const cells = [
       Object.assign(document.createElement("td"), { className: "from", textContent: senderName(message.author ?? ""), title: message.author ?? "" }),
-      Object.assign(document.createElement("td"), {
-        className: "date",
-        textContent: Number.isNaN(date.getTime()) ? "" : new Intl.DateTimeFormat(getI18n().lang, { dateStyle: "short", timeStyle: "short" }).format(date),
-      }),
+      Object.assign(document.createElement("td"), { className: "date", textContent: Number.isNaN(date.getTime()) ? "" : dateFormat.format(date) }),
       Object.assign(document.createElement("td"), { className: "subject", textContent: subject }),
     ]
     const translated = document.createElement("td")
@@ -142,7 +144,7 @@ async function main(): Promise<void> {
 
   /** Read the list of the mail tab again, keeping at least as many messages as are shown; the rows are drawn again only when the list changed. */
   async function reload(): Promise<void> {
-    if (tabId === undefined || Number.isNaN(tabId)) return showStatus()
+    if (tabId === undefined) return showStatus()
     const run = ++generation
     const before = rowKey(listing.shown)
     const hadError = error
@@ -219,6 +221,7 @@ async function main(): Promise<void> {
     uiLanguage = next
     void loadExtensionI18n(uiLanguage).then(() => {
       localizeDocument()
+      dateFormat = new Intl.DateTimeFormat(getI18n().lang, DATE_STYLE)
       return render()
     })
   })
