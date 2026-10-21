@@ -9,6 +9,7 @@
 
 import { normalizeBergamotLang } from "../../shared/languages"
 
+/** Matches every text: the leading whitespace, the rest and the trailing whitespace. */
 const WHITESPACE = /^(\s*)(.*?)(\s*)$/s
 const FULL_WIDTH_QUOTE = /([。！？])“/g
 const FULL_WIDTH_LANGUAGES = new Set(["ja", "ko", "zh"])
@@ -21,19 +22,18 @@ export interface PreparedTexts {
 }
 
 export function prepareTexts(texts: readonly string[], sourceLang: string): PreparedTexts {
-  const base = normalizeBergamotLang(sourceLang).split("-")[0] ?? ""
+  const base = normalizeBergamotLang(sourceLang).split("-")[0]
   const inputs: string[] = []
   const slots: Array<{ index: number; before: string; after: string } | null> = []
   for (const text of texts) {
-    const m = WHITESPACE.exec(text)
-    let core = m?.[2] ?? ""
-    core = core.replaceAll("\u00AD", "")
+    const [, before, body, after] = WHITESPACE.exec(text)!
+    let core = body.replaceAll("\u00AD", "")
     if (FULL_WIDTH_LANGUAGES.has(base)) core = core.replace(FULL_WIDTH_QUOTE, "$1 “")
     if (!core.trim()) {
       slots.push(null)
       continue
     }
-    slots.push({ index: inputs.length, before: m?.[1] ?? "", after: m?.[3] ?? "" })
+    slots.push({ index: inputs.length, before, after })
     inputs.push(core)
   }
   return {
