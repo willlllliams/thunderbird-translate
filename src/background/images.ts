@@ -305,6 +305,13 @@ const aborted = () => new DOMException("No content script waits for the image an
 /** A file name as the address of a part and as messages.getAttachmentFile() give it, for comparing the two. */
 const fileName = (name: string) => name.normalize("NFC").trim().toLowerCase()
 
+/**
+ * The file name messages.getAttachmentFile() gives a part, "" for none. Thunderbird 128 names only the parts it counts
+ * as attachments; a part without Content-Disposition, such as an inline image of multipart/related, is passed to the
+ * File constructor without a name, which makes it "undefined".
+ */
+const partFileName = (file: File) => (file.name === "undefined" ? "" : file.name)
+
 export class ImageService {
   private readonly queues = new Map<string, RequestQueue>()
   private readonly sessions = new LruCache<Session>(MAX_SESSIONS)
@@ -415,7 +422,8 @@ export class ImageService {
     const file = await this.deps.part(message, req.source.part)
     // The part number of the address must name an image part of the message, the one the address names.
     if (!file.type.startsWith("image/")) return null
-    if (req.source.name && file.name && fileName(req.source.name) !== fileName(file.name)) return null
+    const name = partFileName(file)
+    if (req.source.name && name && fileName(req.source.name) !== fileName(name)) return null
     return { bytes: new Uint8Array(await file.arrayBuffer()), type: file.type }
   }
 

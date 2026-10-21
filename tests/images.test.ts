@@ -701,6 +701,16 @@ describe("the session of a content script", () => {
     expect(s.read).toHaveBeenCalledTimes(1)
   })
 
+  it("reads an inline part that Thunderbird 128 gives no file name: the File constructor makes it \"undefined\"", async () => {
+    // getAttachmentFile() of Thunderbird 128 passes the name of a part without Content-Disposition as undefined.
+    const unnamed = new File([png()], undefined as unknown as string, { type: "image/png" })
+    expect(unnamed.name).toBe("undefined")
+    const s = service({ file: unnamed })
+    expect(await s.ask({ source: { part: "1.1.6", name: "notice.png" } })).toMatchObject({ status: "done" })
+    const nameless = service({ file: new File([png()], "", { type: "image/png" }) })
+    expect(await nameless.ask({ source: { part: "1.1.6", name: "notice.png" } })).toMatchObject({ status: "done" })
+  })
+
   it("M4: leaves out an image with too many pixels before it is decoded, and decodes one image at a time", async () => {
     const huge = service({ file: new File([png(6000, false, [10000, 5000])], "chart.png", { type: "image/png" }) })
     const reason = ENGLISH.t("imageTooManyPixels", [40])
