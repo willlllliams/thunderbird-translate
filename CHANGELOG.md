@@ -10,6 +10,7 @@ All notable changes to this project are documented in this file, with the date o
 - A Markdown link whose address names a user name or password before the host, such as `https://bank.example@evil.example/`, stays text. Such addresses show one host in the text and lead to another.
 - After the extension was updated or reloaded, translating in a message pane that was already open stayed in progress for good. Each paragraph now shows the error at once; opening the message again translates it.
 - The first AI translation no longer logs a blocked use of the `Function` constructor in the console of the background page. The AI SDK checks its data with the zod library, which now runs without generating code.
+- On the page of translated subjects in a window 800 pixels wide, an English date with time such as "10/12/26, 11:40 AM" was cut off. The date column is now as wide as such a date.
 - Experimental build: the column "Translated subject" keeps the translations of the 2000 subjects listed last, in the background page and in Thunderbird. Before, both kept every subject ever listed until Thunderbird was closed. A subject that appears again is filled from the cache.
 - Experimental build: when reading the message list failed, Thunderbird kept the list open; it is now closed in that case too.
 
