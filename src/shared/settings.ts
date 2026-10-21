@@ -692,17 +692,16 @@ export function consentNeeds(settings: Settings): ConsentNeed[] {
   return enabledTiers(settings.tiers).flatMap((tier) => consentNeed(settings, settings.tiers[tier]!) ?? [])
 }
 
-/** The AI service of the summary: the added service chosen for it, else the service of the AI tier; null without either. */
-export function summaryProvider(settings: Settings): string | null {
-  const chosen = settings.summary.provider
+/** The added AI service `chosen` for a task, else the service of the AI tier; null without either. */
+function chosenAiProvider(settings: Settings, chosen: string | null): string | null {
   return chosen && settings.providers[chosen]?.enabled ? chosen : settings.tiers.ai
 }
 
+/** The AI service of the summary: the added service chosen for it, else the service of the AI tier; null without either. */
+export const summaryProvider = (settings: Settings): string | null => chosenAiProvider(settings, settings.summary.provider)
+
 /** The AI service that reads images: the added service chosen for them, else the service of the AI tier; null without either. */
-export function visionProvider(settings: Settings): string | null {
-  const chosen = settings.image.provider
-  return chosen && settings.providers[chosen]?.enabled ? chosen : settings.tiers.ai
-}
+export const visionProvider = (settings: Settings): string | null => chosenAiProvider(settings, settings.image.provider)
 
 /** The service `id` as image requests use it: the image model when one is set, and never thinking first, which reading text does not need and which is charged as output. */
 export function resolveVisionProvider(settings: Settings, id: string): ResolvedProvider {

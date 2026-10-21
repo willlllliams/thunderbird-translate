@@ -671,26 +671,13 @@ function inlineText(root: Inline): string {
  * The text of a translation with the Markdown marks of markdownFragment()
  * removed: the text of emphasis, code and links, list items on lines of
  * their own, ordered ones with their number. For places that show plain
- * text, such as the subjects of a folder. With `rich`, a table gives a line
- * per row with tabs between its cells, a blank line stays a blank line, and
- * the text of the header cells options.header names is replaced as well.
+ * text, such as the subjects of a folder. The blocks of the rich form
+ * (tables, blank lines) belong to the answers about images, which are only
+ * rendered.
  */
-export function stripMarkdown(text: string, options: MarkdownOptions = {}): string {
+export function stripMarkdown(text: string): string {
   const plain = (s: string) => inlineText(parseInline(s))
-  return markdownBlocks(text, options)
-    .map((block) => {
-      switch (block.kind) {
-        case "gap":
-          return ""
-        case "text":
-          return plain(block.text)
-        case "table": {
-          const header = relabelled(block.header, options.header) ? [...options.header!.to] : block.header.map(plain)
-          return [header, ...block.rows.map((cells) => cells.map(plain))].map((cells) => cells.join("\t")).join("\n")
-        }
-        case "list":
-          return block.items.map((item, i) => `${block.ordered ? `${block.start + i}. ` : ""}${plain(item)}`).join("\n")
-      }
-    })
+  return markdownBlocks(text)
+    .map((block) => (block.kind === "list" ? block.items.map((item, i) => `${block.ordered ? `${block.start + i}. ` : ""}${plain(item)}`).join("\n") : block.kind === "text" ? plain(block.text) : ""))
     .join("\n")
 }

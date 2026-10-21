@@ -446,7 +446,6 @@ describe("answers about images (rich)", () => {
     const header = { from: ["Original", "Translation"], to: ["原文", "译文"] }
     expect(rich(TABLE, header)).toContain("<th>原文</th><th>译文</th>")
     expect(rich("| Original | Notes |\n|---|---|", header)).toContain("<th>Original</th><th>Notes</th>")
-    expect(stripMarkdown(TABLE, { rich: true, header })).toBe("原文\t译文\nUmsatz\tRevenue\nKosten\tCosts")
   })
 
   it("ends a block at a blank line without a line break for it", () => {
@@ -466,10 +465,6 @@ describe("answers about images (rich)", () => {
   it("leaves the translations of the AI tier as they were", () => {
     expect(html(TABLE)).toBe("| Original | Translation |<br>| --- | --- |<br>| Umsatz | Revenue |<br>| Kosten | Costs |")
     expect(html("# a\n\nb")).toBe("# a<br><br>b")
-  })
-
-  it("writes a table as lines of tab-separated cells and keeps blank lines when stripped", () => {
-    expect(stripMarkdown("**Summary:** a\n\n| *a* | b |\n|---|---|\n| 1 | `2` |\n\n# End", { rich: true })).toBe("Summary: a\n\na\tb\n1\t2\n\nEnd")
   })
 
   it.each([
