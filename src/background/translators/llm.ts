@@ -1,3 +1,5 @@
+// First: zod reads its configuration when the AI SDK below builds its first schema, and ES modules run in import order.
+import "./zod-config"
 import { generateText, type SystemModelMessage } from "ai"
 import { LocalizedError, TimeoutError } from "../../shared/errors"
 import { timeoutSignal } from "../../shared/http"
