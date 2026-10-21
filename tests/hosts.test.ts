@@ -71,3 +71,16 @@ describe("addresses of the services", () => {
     for (const url of ["https://api.openai.com/v1", "http://192.168.0.2/", "http://localhost.example.com/", "nonsense"]) expect([url, isLoopback(url)]).toEqual([url, false])
   })
 })
+
+describe("the privacy policy", () => {
+  it("I8: names every fixed host of the machine translators and the offline data, in English and in Chinese", () => {
+    // The endpoints of the AI presets are covered by "the endpoint of that service shown in the settings".
+    const ai = new Set(PROVIDER_PRESETS.filter((p) => p.kind === "llm").map((p) => originPattern(p.defaultBaseURL)))
+    const hosts = FIXED_HOSTS.filter((pattern) => !ai.has(pattern)).map(patternHost)
+    expect(hosts.length).toBeGreaterThan(10)
+    for (const file of ["privacy-policy.md", "privacy-policy.zh-CN.md"]) {
+      const policy = readFileSync(join(__dirname, "..", "store", file), "utf8")
+      expect(hosts.filter((host) => !policy.includes(host)), file).toEqual([])
+    }
+  })
+})
