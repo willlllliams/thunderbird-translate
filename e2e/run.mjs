@@ -20,12 +20,20 @@
 // 6. The "consent" run opens the HTML message with no online service allowed:
 //    the consent panel appears, nothing reaches the mock server before
 //    "Allow and translate", and the message is translated after it.
-// 7. The "subjects" run starts on a profile with the local folders "Foreign"
+// 7. The "machine-deepl", "machine-baidu", "machine-youdao" and "machine-caiyun"
+//    runs open the HTML message with the machine translator of the name as the
+//    only tier: every paragraph and the subject get its translation, with the
+//    key, the signature and the language codes the mock server expects.
+//    The "summary" run asks for the summary of the HTML message: the consent
+//    panel comes first and nothing reaches the AI service before "Allow"; the
+//    panel then shows the four parts, the cache answers the second request and
+//    "Regenerate" asks the service again.
+// 8. The "subjects" run starts on a profile with the local folders "Foreign"
 //    and "Second": the page of translated subjects lists the folder shown in
 //    the mail tab, asks before the subjects go to Google and the AI service,
 //    translates them, selects a clicked message in the mail tab and follows
 //    the mail tab to the other folder.
-// 8. Two Thunderbirds started without a message open the setup guide
+// 9. Two Thunderbirds started without a message open the setup guide
 //    (src/welcome/), where the probe of src/e2e/welcome.ts skips the tour of the
 //    tiers step and watches its demo (first run only), then clicks through to the
 //    offline step and downloads dictionary packs and Bergamot models from the
@@ -86,6 +94,10 @@ const SCENARIOS = [
   { name: "missing", eml: "html.eml", scenario: "missing", paragraphs: 7 },
   // No online service allowed yet: the consent panel, no request before "Allow and translate", the translation after it.
   { name: "consent", eml: "html.eml", scenario: "consent", paragraphs: 7 },
+  // The machine translators with a key of their own, each as the only tier.
+  ...["deepl", "baidu", "youdao", "caiyun"].map((service) => ({ name: `machine-${service}`, eml: "html.eml", scenario: `machine-${service}`, paragraphs: 7, service })),
+  // The summary and to-dos: consent, the panel, the cache and "Regenerate".
+  { name: "summary", eml: "html.eml", scenario: "summary" },
   // The page of translated subjects on a profile with local folders.
   { name: "subjects", scenario: "subjects", profile: "folders" },
   // The experimental build on the same kind of profile: the column "Translated subject" of its experiment API.
@@ -287,6 +299,63 @@ function checkConsent(c, ready, report, calls) {
   expect(translated?.active === true && translated.state?.done === c.paragraphs + 1 && translated.state.failed === 0, `expected ${c.paragraphs} translated paragraphs and the subject after the consent`, translated?.state)
   expect(translated?.panelLeft === false, "the consent panel stayed on screen")
   for (const s of translated?.shown ?? []) expect(s.mark === null && s.text.startsWith("[AI bilingual] "), "final translation is not the AI translation", s)
+  return failures
+}
+
+/** The language codes each machine translator gets for automatic detection into Simplified Chinese. */
+const MACHINE_CODES = { deepl: { to: "ZH-HANS", from: "" }, baidu: { to: "zh", from: "auto" }, youdao: { to: "zh-CHS", from: "auto" }, caiyun: { to: "auto2zh", from: "auto" } }
+
+/** Check the report of a "machine-…" run: one machine translator with a key of its own translated the message; returns the failures. */
+function checkMachine(c, ready, report, calls) {
+  const failures = []
+  const expect = (ok, message, detail) => {
+    if (!ok) failures.push(detail === undefined ? message : `${message}: ${JSON.stringify(detail)}`)
+  }
+  expect(!ready.error && ready.scenario === c.scenario, `setup of the ${c.scenario} scenario failed`, ready)
+  if (report.error) return [...failures, `content script: ${report.error}`]
+  const units = c.paragraphs + 1
+  const translated = report.translated
+  expect(translated?.state?.total === units && translated.state.done === units && translated.state.failed === 0, `expected ${c.paragraphs} paragraphs and the subject translated by ${c.service}`, translated?.state)
+  expect(translated?.shown?.length === c.paragraphs && translated.shown.every((s) => s.mark === null && s.tags.length === 0 && s.text.startsWith(`[${c.service}] `)), `a paragraph does not show the translation of ${c.service} as text`, translated?.shown)
+  expect(translated?.subject?.translation === `[${c.service}] ${SUBJECTS[c.eml]}`, `the subject line does not show the translation of ${c.service}`, translated?.subject)
+  const requests = calls.filter((x) => x.type === "mt" && x.service === c.service)
+  expect(requests.length > 0 && requests.every((x) => x.auth), `${c.service}: no request, or one with a wrong key or signature`, requests)
+  expect(requests.every((x) => x.to === MACHINE_CODES[c.service].to && x.from === MACHINE_CODES[c.service].from), `${c.service}: wrong language codes`, requests)
+  // Batches: fewer requests than units, except for Baidu's standard edition, which sends at most 950 characters per request.
+  if (c.service !== "baidu") expect(requests.length < units, `${c.service}: the paragraphs were not batched`, requests.length)
+  expect(!calls.some((x) => x.type === "google" || x.type === "ai"), "another service was requested", calls.filter((x) => x.type === "google" || x.type === "ai"))
+  return failures
+}
+
+/** Check the report of the "summary" run: consent first, the four parts, the cache, "Regenerate"; returns the failures. */
+function checkSummary(ready, report, calls) {
+  const failures = []
+  const expect = (ok, message, detail) => {
+    if (!ok) failures.push(detail === undefined ? message : `${message}: ${JSON.stringify(detail)}`)
+  }
+  expect(!ready.error && ready.scenario === "summary", "setup of the summary scenario failed", ready)
+  if (report.error) return [...failures, `content script: ${report.error}`]
+  const summaries = calls.filter((x) => x.type === "ai" && x.mode === "summary")
+  expect(report.beforeAllow?.panel === null && report.beforeAllow.services?.length === 1 && report.beforeAllow.services[0].includes("127.0.0.1"), "the consent panel does not name the AI service alone, or the summary came before it", report.beforeAllow)
+  expect(!summaries.some((x) => x.at < report.allowedAt), "the AI service got the message before the consent", summaries)
+  const first = report.first
+  expect(first?.afterSubject === true && first.open === true && first.copyDisabled === false && first.markup === 0, "the panel is not open at the top of the message with its copy button", first)
+  expect(first?.title?.startsWith("Summary and to-dos · ") === true, "the panel does not name the service", first?.title)
+  const parts = (first?.parts ?? []).map((p) => [p.heading, p.lines.map((l) => l.text)])
+  const expected = [
+    ["Summary", ["Anna asks to move the client meeting."]],
+    ["To-dos", ["Me: Confirm the new date (due 2026-10-23 · by Thursday)"]],
+    ["Questions to answer", ["Anna: Does Thursday work for you?"]],
+    ["Dates and meetings", ["Client meeting · 2026-10-23 15:00 · Room 4"]],
+  ]
+  expect(JSON.stringify(parts) === JSON.stringify(expected), "the panel does not show the four parts of the summary", parts)
+  expect(first?.parts?.[1]?.lines?.[0]?.title === "Could we move the meeting?", "the to-do does not show its quote as hover text", first?.parts?.[1])
+  // The message with its header went out once before "Regenerate"; the cache answered the second request.
+  expect(summaries.filter((x) => x.at < report.cachedAt).length === 1, "the second request of the same summary was not answered by the cache", summaries)
+  expect(summaries.length === 2, "Regenerate did not ask the AI service again", summaries)
+  expect(summaries.every((x) => x.maxTokens === 800 && x.model === "e2e-model" && x.user?.startsWith("<email from=")), "a summary request carries the wrong limit, model or message", summaries)
+  expect(JSON.stringify((report.regenerated?.parts ?? []).map((p) => p.heading)) === JSON.stringify(expected.map(([h]) => h)), "the regenerated summary does not show the four parts", report.regenerated)
+  expect(!calls.some((x) => x.type === "google" || (x.type === "ai" && x.mode !== "summary")), "the summary translated the message", calls.filter((x) => x.type !== "mark"))
   return failures
 }
 
@@ -536,6 +605,15 @@ ${JSON.stringify(report, null, 2)}`)
           if (failures.length) failures.push(`report of the content script:\n${JSON.stringify(report, null, 2)}`)
           const online = server.calls.filter((x) => x.type === "google" || x.type === "ai")
           console.log(`  ${c.name}: panel ${JSON.stringify(report.panel?.services)}; ${online.filter((x) => x.at < report.allowedAt).length} requests before "Allow and translate", ${online.length} after; ${report.translated?.state?.done ?? "?"} paragraphs translated; ${systemLanguages}`)
+        } else if (c.scenario?.startsWith("machine-")) {
+          failures = checkMachine(c, ready, report, server.calls)
+          if (failures.length) failures.push(`report of the content script:\n${JSON.stringify(report, null, 2)}`)
+          const requests = server.calls.filter((x) => x.type === "mt")
+          console.log(`  ${c.name}: ${report.translated?.state?.done ?? "?"} of ${report.translated?.state?.total ?? "?"} units; ${requests.length} requests to ${c.service}, signed ${requests.every((x) => x.auth)}`)
+        } else if (c.scenario === "summary") {
+          failures = checkSummary(ready, report, server.calls)
+          if (failures.length) failures.push(`report of the content script:\n${JSON.stringify(report, null, 2)}`)
+          console.log(`  ${c.name}: ${report.first?.parts?.length ?? "?"} parts; ${server.calls.filter((x) => x.type === "ai" && x.mode === "summary").length} summary requests for 3 summaries`)
         } else if (c.scenario === "column") {
           failures = checkColumn(ready, report, server.calls)
           if (failures.length) failures.push(`report of the background script:\n${JSON.stringify(report, null, 2)}`)

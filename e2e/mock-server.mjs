@@ -2,7 +2,10 @@
 // - Google's free endpoint (translate_a/t, translate_a/single): "[G] *<text>*", whose asterisks a machine translation keeps as text
 // - an OpenAI-compatible chat completions API: "**[AI <mode>]** <text>" in Markdown, the mode read from the system prompt,
 //   the first "report" of the text as a link to https://example.com/report (aiAnswer());
-//   the same text in the same mode asked again gets "**[AI <mode> #<n>]** <text>", n counting the requests
+//   the same text in the same mode asked again gets "**[AI <mode> #<n>]** <text>", n counting the requests;
+//   a request with the summary prompt gets SUMMARY_ANSWER, a summary with one entry in each of its four parts
+// - DeepL (/deepl/v2/translate, /deepl/v2/usage), Baidu (/baidu), Youdao (/youdao) and Caiyun (/caiyun): "[<service>] <text>",
+//   with the key, the signature (Baidu MD5, Youdao SHA-256) and the language codes of the request checked (machineCall())
 // - the dictionary packs of a GitHub release (dict-index.json and the packs en -> zh-Hans and zh-Hans -> en built from fixtures/)
 // - Mozilla Remote Settings for Bergamot (/bergamot/v1/): the server root, the model records of en -> zh-Hans and
 //   zh-Hans -> en and the zstd-compressed attachments, all made of fake bytes
@@ -14,11 +17,71 @@ import { createServer } from "node:http"
 import { join } from "node:path"
 import { gzipSync, zstdCompressSync } from "node:zlib"
 
-/** System prompt phrases of the two display modes (src/shared/prompts.ts). */
+/** System prompt phrases of the two display modes and of the summary (src/shared/prompts.ts). */
 const PROMPT_MODES = [
   ["bilingual", "compares the two"],
   ["translation-only", "never the original"],
+  ["summary", "for the person who received them"],
 ]
+
+/** The answer to a summary request: one entry in each part, the reader as "me", wrapped in a fence as some models do. */
+export const SUMMARY_ANSWER = `\`\`\`json
+${JSON.stringify({
+  summary: ["Anna asks to move the client meeting."],
+  actions: [{ who: "me", task: "Confirm the new date", due: "2026-10-23", due_text: "by Thursday", quote: "Could we move the meeting?" }],
+  questions: [{ from: "Anna", question: "Does Thursday work for you?" }],
+  dates: [{ what: "Client meeting", when: "2026-10-23 15:00", where: "Room 4" }],
+})}
+\`\`\``
+
+/** The keys of the four machine translators as the e2e settings hold them (src/e2e/background.ts). */
+export const MACHINE_KEYS = { deepl: "e2e-deepl:fx", baidu: { appId: "e2e-baidu-app", key: "e2e-baidu-key" }, youdao: { appId: "e2e-youdao-app", key: "e2e-youdao-secret" }, caiyun: "e2e-caiyun-token" }
+
+const md5 = (s) => createHash("md5").update(s, "utf8").digest("hex")
+const sha256Text = (s) => createHash("sha256").update(s, "utf8").digest("hex")
+/** The input of Youdao's signature: up to 20 code points the text, else its first 10, its length and its last 10. */
+const youdaoInput = (q) => {
+  const chars = Array.from(q)
+  return chars.length <= 20 ? q : `${chars.slice(0, 10).join("")}${chars.length}${chars.slice(-10).join("")}`
+}
+
+/**
+ * A request to one of the machine translators with a key: its texts, whether key and signature are right, and the
+ * language codes, in the form of the service; null for another path.
+ */
+export function machineCall(path, headers, raw) {
+  if (path === "/deepl/v2/translate") {
+    const body = JSON.parse(raw)
+    return { service: "deepl", texts: body.text, auth: headers.authorization === `DeepL-Auth-Key ${MACHINE_KEYS.deepl}`, to: body.target_lang, from: body.source_lang ?? "" }
+  }
+  if (path === "/baidu") {
+    const f = new URLSearchParams(raw)
+    const q = f.get("q") ?? ""
+    const { appId, key } = MACHINE_KEYS.baidu
+    return { service: "baidu", texts: q.split("\n"), auth: f.get("appid") === appId && f.get("sign") === md5(appId + q + f.get("salt") + key), to: f.get("to"), from: f.get("from") }
+  }
+  if (path === "/youdao") {
+    const f = new URLSearchParams(raw)
+    const qs = f.getAll("q")
+    const { appId, key } = MACHINE_KEYS.youdao
+    const sign = sha256Text(appId + youdaoInput(qs.join("")) + f.get("salt") + f.get("curtime") + key)
+    return { service: "youdao", texts: qs, auth: f.get("appKey") === appId && f.get("signType") === "v3" && f.get("sign") === sign, to: f.get("to"), from: f.get("from") }
+  }
+  if (path === "/caiyun") {
+    const body = JSON.parse(raw)
+    return { service: "caiyun", texts: body.source, auth: headers["x-authorization"] === `token ${MACHINE_KEYS.caiyun}`, to: body.trans_type, from: body.detect ? "auto" : "" }
+  }
+  return null
+}
+
+/** The answer of a machine translator in its own form; a wrong key or signature gets the service's refusal. */
+export function machineAnswer({ service, texts, auth }) {
+  const out = texts.map((t) => `[${service}] ${t}`)
+  if (service === "deepl") return auth ? [200, { translations: out.map((text) => ({ text })) }] : [403, { message: "Wrong auth" }]
+  if (service === "baidu") return [200, auth ? { from: "en", to: "zh", trans_result: out.map((dst, i) => ({ src: texts[i], dst })) } : { error_code: "54001", error_msg: "Invalid Sign" }]
+  if (service === "youdao") return [200, auth ? { errorCode: "0", translateResults: out.map((translation, i) => ({ query: texts[i], translation })) } : { errorCode: "202" }]
+  return auth ? [200, { target: out, rc: 0 }] : [401, { message: "Invalid token" }]
+}
 
 export function aiMode(system) {
   return PROMPT_MODES.find(([, phrase]) => system.includes(phrase))?.[0] ?? "other"
@@ -169,9 +232,9 @@ export async function startMockServer({ fixtures, screenshots, googleDelayMs = 3
         const user = body.messages.filter((m) => m.role === "user").map((m) => messageText(m.content)).join("\n")
         const mode = aiMode(system)
         const { batch, texts } = segmentsOf(user)
-        calls.push({ type: "ai", mode, batch, count: texts.length, model: body.model, auth: req.headers.authorization ?? "", at: Date.now() })
+        calls.push({ type: "ai", mode, batch, count: texts.length, model: body.model, auth: req.headers.authorization ?? "", maxTokens: body.max_tokens ?? body.max_completion_tokens ?? null, user: mode === "summary" ? user.slice(0, 300) : undefined, at: Date.now() })
         await sleep(aiDelayMs)
-        const out = texts.map((t) => {
+        const out = mode === "summary" ? [SUMMARY_ANSWER] : texts.map((t) => {
           const n = (aiAsked.get(`${mode}\n${t}`) ?? 0) + 1
           aiAsked.set(`${mode}\n${t}`, n)
           return aiAnswer(`${mode}${n > 1 ? ` #${n}` : ""}`, t)
@@ -185,6 +248,17 @@ export async function startMockServer({ fixtures, screenshots, googleDelayMs = 3
           choices: [{ index: 0, message: { role: "assistant", content }, finish_reason: "stop" }],
           usage: { prompt_tokens: 1, completion_tokens: 1, total_tokens: 2 },
         })
+      }
+      if (req.method === "GET" && url.pathname === "/deepl/v2/usage") {
+        calls.push({ type: "mt", service: "deepl", usage: true, auth: req.headers.authorization === `DeepL-Auth-Key ${MACHINE_KEYS.deepl}`, at: Date.now() })
+        return send(res, 200, { character_count: 1234, character_limit: 500000 })
+      }
+      const machine = req.method === "POST" ? machineCall(url.pathname, req.headers, raw) : null
+      if (machine) {
+        calls.push({ type: "mt", ...machine, count: machine.texts.length, texts: undefined, at: Date.now() })
+        await sleep(googleDelayMs)
+        const [status, body] = machineAnswer(machine)
+        return send(res, status, body)
       }
       if (req.method === "GET" && url.pathname === "/releases/dict-index.json") {
         calls.push({ type: "download", file: "dict-index.json", at: Date.now() })

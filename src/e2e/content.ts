@@ -15,6 +15,11 @@
  * In the "consent" scenario (no online service allowed yet) it starts the
  * translation, which shows the consent panel and requests nothing; after a
  * while it clicks "Allow and translate" and waits for the translation.
+ * In the "machine-…" scenarios (one machine translator with a key of its
+ * own) it translates once and reports the translations. In the "summary"
+ * scenario it asks for the summary with the keyboard command, allows the AI
+ * service in the consent panel, reads the panel, asks again, which the cache
+ * answers, and regenerates the summary with the button of the panel.
  * In the "auto" scenario (automatic translation on) it starts nothing and
  * waits until automatic translation has translated every paragraph; in
  * "auto-skip" (a message in the target language) it waits a fixed time and
@@ -192,6 +197,52 @@ export function createContentProbe(): ContentProbe {
     report.translated = { state: last, active: controller.active, shown: snapshot(root()!), panelLeft: document.querySelector(".tt-consent") !== null }
   }
 
+  /** A "machine-…" scenario: one translation by the machine translator with a key of its own. */
+  async function machine(report: Record<string, unknown>): Promise<void> {
+    await parts!.controller.start()
+    await until("the final progress report", () => last !== null && last.total > 0 && last.done + last.failed === last.total)
+    report.translated = { state: last, shown: snapshot(root()!), subject: subjectLine() }
+  }
+
+  /** What the summary panel shows: its place, title, parts with their lines and hover texts, and the copy button. */
+  const summaryPanel = () => {
+    const el = document.querySelector<HTMLDetailsElement>(".tt-summary")
+    if (!el) return null
+    return {
+      afterSubject: el.previousElementSibling?.classList.contains("tt-subject") === true || el === root()?.firstElementChild,
+      open: el.open,
+      title: el.querySelector("summary strong")?.textContent ?? "",
+      parts: Array.from(el.querySelectorAll("h4"), (h4) => ({ heading: h4.textContent, lines: Array.from(h4.nextElementSibling?.children ?? [], (li) => ({ text: li.textContent, title: (li as HTMLElement).title })) })),
+      running: el.textContent?.includes("…") === true && el.querySelectorAll("h4").length === 0,
+      copyDisabled: el.querySelector<HTMLButtonElement>("summary button")?.disabled ?? null,
+      markup: el.querySelectorAll("img, script, a").length,
+    }
+  }
+  const summaryRequests = () => events.length
+
+  /** The "summary" scenario: the consent panel first, then the panel, the cache and "Regenerate". */
+  async function summary(report: Record<string, unknown>): Promise<void> {
+    await send({ e2e: "command", command: "summarize" })
+    await until("the consent panel", () => parts!.consent?.shown === true)
+    await new Promise((r) => setTimeout(r, 1000))
+    report.beforeAllow = { panel: summaryPanel(), services: Array.from(document.querySelectorAll(".tt-consent li"), (li) => li.textContent) }
+    report.allowedAt = Date.now()
+    document.querySelector<HTMLButtonElement>(".tt-consent button")!.click()
+    await until("the summary", () => (summaryPanel()?.parts.length ?? 0) > 0)
+    report.first = summaryPanel()
+    report.firstAt = Date.now()
+    await send({ e2e: "command", command: "summarize" })
+    await new Promise((r) => setTimeout(r, 500))
+    await until("the summary from the cache", () => (summaryPanel()?.parts.length ?? 0) > 0)
+    report.cachedAt = Date.now()
+    document.querySelectorAll<HTMLButtonElement>(".tt-summary summary button")[1].click()
+    await until("the regenerated summary", () => summaryPanel()?.running === true)
+    await until("the regenerated summary", () => (summaryPanel()?.parts.length ?? 0) > 0)
+    report.regenerated = summaryPanel()
+    report.tierResults = summaryRequests()
+    await send({ e2e: "screenshot", name: "summary-panel", windowType: "mail:messageWindow" })
+  }
+
   /** The "auto" scenario: automatic translation translates every paragraph; the probe only waits. */
   async function auto(report: Record<string, unknown>, body: HTMLElement): Promise<void> {
     await until("the final progress report of the automatic translation", () => last !== null && last.total > 0 && last.done + last.failed === last.total)
@@ -213,6 +264,12 @@ export function createContentProbe(): ContentProbe {
     try {
       if (!body) throw new Error("no message body")
       const scenario = await send({ e2e: "scenario" })
+      if (scenario === "summary" || String(scenario).startsWith("machine-")) {
+        report.scenario = scenario
+        await (scenario === "summary" ? summary(report) : machine(report))
+        await send({ e2e: "report", report })
+        return
+      }
       if (scenario === "missing" || scenario === "auto" || scenario === "auto-skip" || scenario === "consent") {
         report.scenario = scenario
         await (scenario === "missing" ? missing(report) : scenario === "auto" ? auto(report, body) : scenario === "consent" ? consent(report) : autoSkip(report))

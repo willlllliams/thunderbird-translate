@@ -25,6 +25,14 @@
  *   profile with the local folders "Foreign" and "Second"; the hook shows
  *   "Foreign" in the mail tab and opens the page of translated subjects for
  *   that tab, whose probe (src/e2e/subjects.ts) runs the test.
+ * - "machine-deepl", "machine-baidu", "machine-youdao", "machine-caiyun":
+ *   one tier, the machine translator with a key of its own, pointed at the
+ *   mock server with the keys the server checks (MACHINE_KEYS of
+ *   e2e/mock-server.mjs), allowed, the cache off; the probe translates once.
+ * - "summary": the three tiers with only Google allowed, the cache on; the
+ *   probe asks for the summary with the keyboard command, allows the AI
+ *   service in the consent panel, asks again (the cache answers) and
+ *   regenerates it.
  * - "column" (experimental build): the three tiers, allowed, on the same
  *   kind of profile; the hook shows "Foreign" in the mail tab and reads the
  *   column "Translated subject" through the experiment API until the
@@ -47,7 +55,7 @@ declare const __E2E_SERVER__: string
 
 /** Messages of the e2e content script; they carry no "type", so the regular handler ignores them. */
 export type E2eMessage =
-  | { e2e: "command"; command: "toggle-translation" | "toggle-display-mode" | "retranslate" }
+  | { e2e: "command"; command: "toggle-translation" | "toggle-display-mode" | "retranslate" | "summarize" }
   | { e2e: "report"; report: unknown }
   | { e2e: "log"; message: string }
   /** Answer: the scenario of the run. */
@@ -203,6 +211,14 @@ async function uninstallDictionary(dictionary: DictionaryManager): Promise<void>
   }
 }
 
+/** The machine translators with a key of their own: the path of each on the mock server and the keys it checks (MACHINE_KEYS of e2e/mock-server.mjs). */
+const MACHINE = [
+  { id: "deepl", path: "/deepl", config: { apiKey: "e2e-deepl:fx" } },
+  { id: "baidu", path: "/baidu", config: { appId: "e2e-baidu-app", apiKey: "e2e-baidu-key", edition: "standard" as const } },
+  { id: "youdao", path: "/youdao", config: { appId: "e2e-youdao-app", apiKey: "e2e-youdao-secret" } },
+  { id: "caiyun", path: "/caiyun", config: { apiKey: "e2e-caiyun-token" } },
+]
+
 export interface E2eDeps {
   storage: KeyValueStorage
   dictionary: DictionaryManager
@@ -243,15 +259,20 @@ export async function setUpE2e({ storage, dictionary, runCommand }: E2eDeps): Pr
     settings.precise.enabled = false
     settings.dictionary.releaseTag = DICT_TAG
     settings.tiers = { dictionary: "dictionary", machine: offline ? "bergamot" : "google-free", ai: offline ? null : "custom" }
+    const machine = MACHINE.find((m) => scenario === `machine-${m.id}`)
+    if (machine) {
+      settings.tiers = { dictionary: null, machine: machine.id, ai: null }
+      settings.providers[machine.id] = { enabled: true, baseURL: `${__E2E_SERVER__}${machine.path}`, model: "", ...machine.config }
+    }
     settings.providers["google-free"] = { ...settings.providers["google-free"], enabled: true, baseURL: `${__E2E_SERVER__}/google` }
     settings.providers.custom = { enabled: true, apiKey: "e2e-test-key", baseURL: `${__E2E_SERVER__}/v1`, model: "e2e-model" }
     settings.providers.dictionary = { ...settings.providers.dictionary, enabled: true }
     if (offline) settings.providers.bergamot = { ...settings.providers.bergamot, enabled: true }
     // The user allowed Google and the AI service in the consent panel of an earlier message; the "consent" and "subjects" runs start without.
-    settings.onlineConsent = scenario === "consent" || scenario === "subjects" ? [] : ["google-free", "custom"]
+    settings.onlineConsent = scenario === "consent" || scenario === "subjects" ? [] : scenario === "summary" ? ["google-free"] : ["google-free", "custom", ...(machine ? [machine.id] : [])]
     // The column of the experimental build translates what the earlier runs of its profile cached: none.
     // The earlier runs share the profile: Google and the AI service have to answer this run themselves, not the cache.
-    if (scenario === "missing" || scenario.startsWith("auto") || scenario === "consent") settings.cache.enabled = false
+    if (scenario === "missing" || scenario.startsWith("auto") || scenario === "consent" || machine) settings.cache.enabled = false
     await storage.set(SETTINGS_KEY, settings)
     if (offline) await uninstallDictionary(dictionary)
     if (welcome) {
