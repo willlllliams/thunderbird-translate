@@ -33,7 +33,8 @@ export interface BackgroundApi {
   /** The notice about missing offline data stays away (or comes back) for these services and language pairs ("dictionary:ja>zh-Hans"). */
   muteOfflinePairs: { req: { pairs: string[]; muted: boolean }; res: void }
   /** The user allowed these online services to receive the text of messages, in the panel above a message. */
-  grantConsent: { req: { ids: string[] }; res: void }
+  /** `hosts`: the host the panel named for each service, in the order of `ids`; a service whose host changed meanwhile is not recorded. */
+  grantConsent: { req: { ids: string[]; hosts?: string[] }; res: void }
   /** The offline services among the tiers, for these languages. */
   offlineStatus: { req: { sourceLang: string; targetLang: string; tiers: TierSettings }; res: OfflineStatus }
   /** The directions of an offline service; `refresh` reads its catalog again, `tag` names the release of the dictionary packs (the page's, which may not be saved yet). */
@@ -260,7 +261,7 @@ export type PortReport =
   /** An image of the displayed message; answered with an "imageResult" push of the same id. */
   | { type: "image"; id: number; image: ImageRequest }
   /** The user allowed these services to receive the images of messages, in the panel under an image; `message`: for the displayed message only. */
-  | { type: "imageConsent"; ids: string[]; message?: boolean }
+  | { type: "imageConsent"; ids: string[]; hosts?: string[]; message?: boolean }
 
 export const CONTENT_PORT_NAME = "tt-content"
 /** The Port of the page of translated subjects (subjects.html): its requests carry subjects of real messages, so the consent rules apply. */

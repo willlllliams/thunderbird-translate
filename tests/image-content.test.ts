@@ -202,7 +202,7 @@ describe("the mode auto", () => {
     await until(() => expect(slots()[0].querySelector(".tt-image-consent")).not.toBeNull())
     slots()[0].querySelector<HTMLButtonElement>(".tt-image-consent button")!.click()
     await until(() => expect(document.querySelectorAll(".tt-image-result")).toHaveLength(2))
-    expect(grant).toHaveBeenCalledWith(["gemini"], false)
+    expect(grant).toHaveBeenCalledWith(["gemini"], false, ["generativelanguage.googleapis.com"])
     buttons()[0].click()
     await until(() => expect(document.querySelectorAll(".tt-image-result")).toHaveLength(3))
     expect(grant).toHaveBeenCalledTimes(1)
@@ -226,7 +226,7 @@ describe("the consent panel under a clicked image", () => {
     buttons()[0].click()
     panel()!.querySelector("button")!.click()
     await until(() => expect(document.querySelectorAll(".tt-image-result")).toHaveLength(2))
-    expect(grant).toHaveBeenCalledWith(["openai"], true)
+    expect(grant).toHaveBeenCalledWith(["openai"], true, ["api.openai.com"])
   })
 
   it.each([
@@ -499,7 +499,7 @@ describe("over the Port of the client", () => {
     await until(() => expect(document.querySelector(".tt-image-consent")).not.toBeNull())
     document.querySelector<HTMLButtonElement>(".tt-image-consent button")!.click()
     await until(() => expect(port.posted("image")).toHaveLength(2))
-    expect(port.posted("imageConsent")).toEqual([{ type: "imageConsent", ids: ["openai"] }])
+    expect(port.posted("imageConsent")).toEqual([{ type: "imageConsent", ids: ["openai"], hosts: ["api.openai.com"] }])
     port.disconnect()
     await until(() => expect(document.querySelector(".tt-image")!.textContent).toContain(ENGLISH.t("errUnknown")))
     // Without the Port, a request fails at once.

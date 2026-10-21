@@ -35,7 +35,7 @@ import { getLanguage } from "../shared/languages"
 import type { ImageRequest, ImageResponse } from "../shared/messages"
 import { promptText } from "../shared/prompts"
 import { getPreset, providerDisplayName } from "../shared/providers"
-import { hasConsent, imageGlossary, imageStatus, type ImageSettings, type ProviderConfig, type ResolvedProvider, resolveProviderConfig, resolveVisionProvider, type Settings } from "../shared/settings"
+import { allowsRequest, imageGlossary, imageStatus, type ImageSettings, type ProviderConfig, type ResolvedProvider, resolveProviderConfig, resolveVisionProvider, type Settings } from "../shared/settings"
 import { outputLimit } from "../shared/thinking"
 import { imageDetailOptions, uploadFormat } from "../shared/vision"
 import { cacheKey, LruCache, type PersistentCache } from "./cache"
@@ -278,7 +278,7 @@ export interface ImageDeps {
   /** A part of a message (messages.getAttachmentFile()). */
   part: (messageId: number, partName: string) => Promise<File>
   /** Records the services the user allowed to receive images (Settings.imageConsent). */
-  recordConsent: (ids: string[]) => Promise<void>
+  recordConsent: (ids: string[], hosts?: string[]) => Promise<void>
   /** The glossary of the analysis precise translation made of the registered message `contextId`; empty without one. */
   glossary: (contextId: string) => Promise<MailAnalysis["glossary"]>
   codec?: ImageCodec
@@ -355,11 +355,11 @@ export class ImageService {
    * The user allowed `ids` to receive images: for the message of `session` only, or recorded in the settings. The
    * image requests of the session that come after it wait for it.
    */
-  grant(session: string, ids: string[], messageOnly: boolean): Promise<void> {
+  grant(session: string, ids: string[], messageOnly: boolean, hosts?: string[]): Promise<void> {
     const s = this.sessions.get(session)
     const granted = async () => {
       if (messageOnly) for (const id of ids) s?.allowed.add(id)
-      else await this.deps.recordConsent(ids)
+      else await this.deps.recordConsent(ids, hosts)
     }
     if (!s) return granted()
     const done = s.consent.then(granted)
@@ -444,12 +444,14 @@ export class ImageService {
    * the same service, and the user still allows the service to receive images. Checked when the request arrives and
    * again when it leaves the queue, on every attempt.
    */
-  private assertSend(session: Session, id: string, service: string, signal?: AbortSignal): void {
+  private assertSend(session: Session, provider: ResolvedProvider, service: string, signal?: AbortSignal): void {
     if (signal?.aborted) throw aborted()
     const settings = this.deps.getSettings()
     const status = imageStatus(settings)
+    const id = provider.id
     if (!status.active || settings.image.mode === "off" || status.id !== id) throw new LocalizedError("imageOff")
-    const allowed = settings.image.confirmEachMessage ? session.allowed.has(id) : hasConsent(settings, "imageConsent", id)
+    // The host the request goes to, as it took the endpoint.
+    const allowed = settings.image.confirmEachMessage ? session.allowed.has(id) : allowsRequest(settings, "imageConsent", provider)
     if (!allowed) throw new LocalizedError("errImageConsent", [service])
   }
 
@@ -497,7 +499,7 @@ export class ImageService {
         const cached = await this.deps.cache.get(key)
         return cached === undefined ? { status: "ready" } : this.answer(cached, service, true)
       }
-      this.assertSend(session, id, service)
+      this.assertSend(session, provider, service)
       await this.checkOrigin(provider)
       const cached = req.fresh ? undefined : await this.deps.cache.get(key)
       if (cached !== undefined) return this.answer(cached, service, true)
@@ -549,7 +551,7 @@ export class ImageService {
     const image: ImageInput = { bytes: upload.bytes, mediaType: upload.type, ...(options ? { providerOptions: options } : {}) }
     try {
       const answer = await this.queue(provider.id).run(() => {
-        this.assertSend(session, provider.id, job.service, signal)
+        this.assertSend(session, provider, job.service, signal)
         return this.read(image, text, { ...this.options(provider, settings, job.systemPrompt), abortSignal: signal })
       })
       const stored = toCache(answer)

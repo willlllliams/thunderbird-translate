@@ -169,7 +169,7 @@ describe("content client", () => {
     expect(port.posted("translate")).toEqual([])
     click("consentAllow")
     await until(() => expect(port.posted("translate")).toHaveLength(1))
-    expect(sendMessage).toHaveBeenCalledWith({ type: "grantConsent", ids: ["google-free"] })
+    expect(sendMessage).toHaveBeenCalledWith({ type: "grantConsent", ids: ["google-free"], hosts: ["translate.googleapis.com"] })
   })
 
   it("translates nothing when the background script cannot record the consent", async () => {
@@ -188,7 +188,7 @@ describe("content client", () => {
     port.push({ type: "toggle" })
     await until(() => expect(panel()).not.toBeNull())
     click("consentAllow")
-    await until(() => expect(sendMessage).toHaveBeenCalledWith({ type: "grantConsent", ids: ["google-free"] }))
+    await until(() => expect(sendMessage).toHaveBeenCalledWith({ type: "grantConsent", ids: ["google-free"], hosts: ["translate.googleapis.com"] }))
     await nextTask()
     expect(port.posted("translate")).toEqual([])
   })

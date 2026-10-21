@@ -99,7 +99,7 @@ export function connectContent({ root, contentScript = false, probe, subjects, o
     ask: async (needs: Parameters<ConsentPanel["ask"]>[0], precise: boolean) => {
       if (!(await consentPanel.ask(needs, precise))) return false
       try {
-        await send({ type: "grantConsent", ids: needs.map((need) => need.id) })
+        await send({ type: "grantConsent", ids: needs.map((need) => need.id), hosts: needs.map((need) => need.host) })
         return true
       } catch {
         return false
@@ -149,7 +149,7 @@ export function connectContent({ root, contentScript = false, probe, subjects, o
             if (post({ type: "image", id, image })) imageRequests.set(id, resolve)
             else resolve({ status: "error", error: getI18n().t("errUnknown") })
           }),
-        grant: (ids, message) => void post({ type: "imageConsent", ids, ...(message ? { message } : {}) }),
+        grant: (ids, message, hosts) => void post({ type: "imageConsent", ids, ...(hosts ? { hosts } : {}), ...(message ? { message } : {}) }),
       })
     : undefined
 

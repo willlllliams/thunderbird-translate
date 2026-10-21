@@ -675,6 +675,24 @@ export function hasConsent(settings: Settings, list: "onlineConsent" | "imageCon
   return settings[list].includes(consentEntry(settings, id))
 }
 
+/** Whether the user allows the host a request goes to: of `provider` as the request took it, whatever the settings say now. */
+export function allowsRequest(settings: Settings, list: "onlineConsent" | "imageConsent", provider: ResolvedProvider): boolean {
+  const origin = providerOrigin(provider)
+  return settings[list].includes(`${provider.id}@${origin ? patternHost(origin) : ""}`)
+}
+
+/**
+ * The entries to record for `ids` the user allowed in a panel that named `hosts` (in the same order): a service whose
+ * host changed since the panel showed it is left out, so that the panel asks again for the new host.
+ */
+export function grantedEntries(settings: Settings, ids: unknown[], hosts?: unknown[], valid: (id: string) => boolean = isOnlineService): string[] {
+  return ids.flatMap((id, i) => {
+    if (typeof id !== "string" || !valid(id)) return []
+    if (hosts && hosts[i] !== consentHost(settings, id)) return []
+    return [consentEntry(settings, id)]
+  })
+}
+
 /** The service and host of an entry of onlineConsent or imageConsent. */
 export function consentParts(entry: string): ConsentNeed {
   const at = entry.indexOf("@")

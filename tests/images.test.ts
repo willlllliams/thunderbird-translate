@@ -395,7 +395,7 @@ describe("the consent for images", () => {
     expect(s.read).not.toHaveBeenCalled()
     // Recorded in the settings, then sent.
     await s.images.grant("s1", ["openai"], false)
-    expect(s.recordConsent).toHaveBeenCalledWith(["openai"])
+    expect(s.recordConsent).toHaveBeenCalledWith(["openai"], undefined)
     expect((await s.ask()).status).toBe("done")
     // Taken back on the settings page: asked again.
     s.settings.imageConsent = []
@@ -769,7 +769,7 @@ describe("the Port and the other requests", () => {
     await until(() => expect(port.posted.at(-1)).toEqual({ type: "imageResult", id: 7, result: { status: "ready" } }))
     expect(order).toEqual(["consent 5:1 openai true", "image 5:1 5 1"])
     port.send({ type: "imageConsent", ids: ["gemini"] })
-    await until(() => expect(imageConsent).toHaveBeenLastCalledWith("5:1", ["gemini"], false))
+    await until(() => expect(imageConsent).toHaveBeenLastCalledWith("5:1", ["gemini"], false, undefined))
     // A second content script of the tab is a session of its own; a failing consent does not block the images.
     imageConsent.mockRejectedValueOnce(new Error("storage"))
     const second = backgroundPort(5)

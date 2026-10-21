@@ -136,6 +136,15 @@ describe("requests from pages", () => {
     expect(deps.adoptSettings).toHaveBeenCalledWith(expect.objectContaining({ onlineConsent: recorded }))
   })
 
+  it("R6: records a service only for the host the panel named", async () => {
+    const s = createDefaultSettings()
+    s.onlineConsent = []
+    s.providers.openai.baseURL = "https://gateway.example.com/v1"
+    const { handlers, stored } = router(s)
+    await createDispatch(handlers, () => Promise.resolve())({ type: "grantConsent", ids: ["openai", "google-free"], hosts: ["api.openai.com", "translate.googleapis.com"] }, CONTENT)
+    expect(stored().onlineConsent).toEqual(["google-free@translate.googleapis.com"])
+  })
+
   it("counts and clears the translation cache", async () => {
     const { send, deps } = router()
     expect(await send({ type: "cacheStats" })).toEqual({ size: 2 })

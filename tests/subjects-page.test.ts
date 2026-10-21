@@ -329,7 +329,7 @@ describe("consent and interface language", () => {
     await vi.advanceTimersByTimeAsync(1000)
     expect(requested(port)).toEqual([])
     panel.querySelector<HTMLButtonElement>("button")!.click()
-    await until(() => expect(page.sendMessage).toHaveBeenCalledWith({ type: "grantConsent", ids: ["google-free"] }))
+    await until(() => expect(page.sendMessage).toHaveBeenCalledWith({ type: "grantConsent", ids: ["google-free"], hosts: ["translate.googleapis.com"] }))
     await until(() => expect(requested(port)).toEqual(["Subject 1", "Subject 2"]))
   })
 

@@ -154,6 +154,29 @@ describe("TranslationService with Google", () => {
     expect(fetchFn).toHaveBeenCalledTimes(1)
   })
 
+  it("R6: a request that waits goes to the host it was made for only while that host is still allowed", async () => {
+    let release!: () => void
+    const gate = new Promise<void>((r) => (release = r))
+    const fetchFn = vi.fn(async (_url: string) => (await gate, jsonResponse({ code: 200, data: "Hallo" })))
+    const settings = createDefaultSettings()
+    settings.batch.concurrency = 1
+    settings.batch.maxItemsPerBatch = 1
+    settings.providers.deeplx = { enabled: true, apiKey: "", baseURL: "http://localhost:1188/translate", model: "" }
+    settings.onlineConsent = allowed(settings, "deeplx")
+    const { service } = createService(settings, { fetchFn: asFetch(fetchFn) }, { consent: false })
+    const first = translateOne(service, { text: "One", targetLang: "de", providerId: "deeplx" })
+    await until(() => expect(fetchFn).toHaveBeenCalledTimes(1))
+    const second = translateOne(service, { text: "Two", targetLang: "de", providerId: "deeplx" }).catch((error: Error) => error.message)
+    await new Promise((r) => setTimeout(r, 20))
+    // The endpoint moves to a host the user allows; the request that waits was made for the old one.
+    settings.providers.deeplx.baseURL = "https://deeplx.example.com/translate"
+    settings.onlineConsent = allowed(settings, "deeplx")
+    release()
+    expect(await first).toBe("Hallo")
+    expect(await second).toBe(ENGLISH.t("errConsentRequired", ["DeepLX"]))
+    expect(fetchFn.mock.calls.map(([url]) => url)).toEqual(["http://localhost:1188/translate"])
+  })
+
   it("B1: sends nothing more once the user took the consent back, also what waits in the queue", async () => {
     let release!: () => void
     const gate = new Promise<void>((r) => (release = r))

@@ -9,7 +9,7 @@ import { describeError } from "../shared/errors"
 import { ext } from "../shared/ext"
 import { getI18n } from "../shared/i18n"
 import { type BackgroundHandlers, type LocaleMessages, type OfflineItem, type OfflineStatus, optionsPath, type PageNotice, type RequestType } from "../shared/messages"
-import { consentEntry, isOnlineService, type TierSettings } from "../shared/settings"
+import { grantedEntries, type TierSettings } from "../shared/settings"
 import { updateSettings } from "../shared/settings-store"
 import type { OfflineManager } from "../offline/manager"
 import type { OfflineService } from "../shared/offline-needs"
@@ -75,7 +75,7 @@ export function createHandlers({ tabs, service, images, localeMessages, offlineM
     // services are recorded, each with the host it sends to; nothing goes back.
     grantConsent: async (req) => {
       const stored = await updateSettings((s) => {
-        const granted = req.ids.filter((id) => typeof id === "string" && isOnlineService(id)).map((id) => consentEntry(s, id))
+        const granted = grantedEntries(s, req.ids, Array.isArray(req.hosts) ? req.hosts : undefined)
         s.onlineConsent = [...new Set([...s.onlineConsent, ...granted])]
       })
       adoptSettings?.(stored)

@@ -65,8 +65,8 @@ export interface ImageTranslatorDeps {
   root: () => HTMLElement | null
   /** An image request to the background script. */
   request: (req: ImageRequest) => Promise<ImageResponse>
-  /** The user allowed `ids` to receive images; `message`: for this message only. */
-  grant: (ids: string[], message: boolean) => void
+  /** The user allowed `ids` to receive images at the `hosts` the panel named; `message`: for this message only. */
+  grant: (ids: string[], message: boolean, hosts?: string[]) => void
 }
 
 /** What the translation of the message tells: the settings, its paragraphs (an image inside one gets its block after it), the context of precise translation, and whether it is a retranslation. */
@@ -277,7 +277,7 @@ export class ImageTranslator {
         this.consent = null
         if (allowed) {
           this.allowed.add(need.id)
-          this.deps.grant([need.id], this.run?.settings.confirmEachMessage === true)
+          this.deps.grant([need.id], this.run?.settings.confirmEachMessage === true, [need.host])
         }
         settle(allowed)
       },

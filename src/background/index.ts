@@ -9,7 +9,7 @@
 import { ext } from "../shared/ext"
 import { getI18n } from "../shared/i18n"
 import { loadExtensionI18n, thunderbirdUiLanguage } from "../shared/i18n-ext"
-import { consentEntry, createDefaultSettings, isOnlineService, toPublicSettings } from "../shared/settings"
+import { createDefaultSettings, grantedEntries, toPublicSettings } from "../shared/settings"
 import { onStoredSettings } from "../shared/settings-store"
 import { sourceDetector } from "../shared/lang-detect"
 import { type KeyValueStorage, PersistentCache } from "./cache"
@@ -88,7 +88,7 @@ const images = new ImageService({
   displayed: displayedMessageId,
   part: messagePart,
   // Written by the request: taken over at once, so the image that waits for it sees the consent.
-  recordConsent: async (ids) => settings.adopt(await updateSettings((s) => void (s.imageConsent = [...new Set([...s.imageConsent, ...ids.filter(isOnlineService).map((id) => consentEntry(s, id))])]))),
+  recordConsent: async (ids, hosts) => settings.adopt(await updateSettings((s) => void (s.imageConsent = [...new Set([...s.imageConsent, ...grantedEntries(s, ids, hosts)])]))),
   glossary: (contextId) => service.glossaryOf(contextId),
   i18n: getI18n,
   hasOrigin: (origin) => ext.permissions.contains({ origins: [origin] }),
@@ -103,7 +103,7 @@ const tabs = createTabRegistry({
   summarize: async (text, tabId, fresh) => service.summarize(text, await displayedHeader(tabId).catch(() => null), fresh),
   openSession: (session, tabId) => images.open(session, tabId),
   image: (session, tabId, request) => images.request(session, tabId, request),
-  imageConsent: (session, ids, message) => images.grant(session, ids, message),
+  imageConsent: (session, ids, message, hosts) => images.grant(session, ids, message, hosts),
   forgetSession: (session) => images.forget(session),
 })
 

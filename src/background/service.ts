@@ -36,7 +36,7 @@ import type { TranslateRequest, TranslateResponse } from "../shared/messages"
 import { promptText } from "../shared/prompts"
 import { outputLimit } from "../shared/thinking"
 import { getPreset, providerDisplayName, type Tier, TIERS } from "../shared/providers"
-import { hasConsent, isOnlineService, type ProviderConfig, type ResolvedProvider, resolveProvider, resolveProviderConfig, resultInputs, type Settings } from "../shared/settings"
+import { allowsRequest, isOnlineService, type ProviderConfig, type ResolvedProvider, resolveProvider, resolveProviderConfig, resultInputs, type Settings } from "../shared/settings"
 import type { SummaryResponse } from "../shared/summary"
 import { cacheKey, LruCache, type PersistentCache } from "./cache"
 import { Dictionary } from "../offline/dictionary"
@@ -252,9 +252,9 @@ export class TranslationService {
    * Throws errConsentRequired unless the user allows `providerId` to receive message text now. Checked when a
    * paragraph arrives and again when its request leaves the queue: the user may have taken the consent back meanwhile.
    */
-  private assertConsent(providerId: string, sample = false): void {
-    if (sample || !isOnlineService(providerId) || hasConsent(this.deps.getSettings(), "onlineConsent", providerId)) return
-    throw new LocalizedError("errConsentRequired", [providerDisplayName(getPreset(providerId)!, this.deps.i18n?.() ?? ENGLISH)])
+  private assertConsent(provider: ResolvedProvider, sample = false): void {
+    if (sample || !isOnlineService(provider.id) || allowsRequest(this.deps.getSettings(), "onlineConsent", provider)) return
+    throw new LocalizedError("errConsentRequired", [providerDisplayName(getPreset(provider.id)!, this.deps.i18n?.() ?? ENGLISH)])
   }
 
   /** The work of one tier for one paragraph. `data`: the dictionary packs or offline models the service translates with. */
@@ -395,8 +395,8 @@ export class TranslationService {
     for (const tier of tiers) {
       try {
         const id = settings.tiers[tier]!
-        this.assertConsent(id, sample)
         const job = { ...this.job(req, id, settings, data[tier], sample), ...(signal ? { signal } : {}) }
+        this.assertConsent(job.provider, sample)
         if (req.sourceLang === "auto" && getPreset(id)?.kind === "baidu") job.batchKey += `|auto:${await this.baiduGroup(req.text)}`
         await this.checkOrigin(job.provider)
         jobs.push([tier, job])
@@ -444,7 +444,7 @@ export class TranslationService {
     const { id, provider, systemPrompt, targetLanguageName } = inputs
     const service = providerDisplayName(getPreset(id)!, i18n)
     try {
-      this.assertConsent(id)
+      this.assertConsent(provider)
       await this.checkOrigin(provider)
       const { parts, maxOutputTokens } = settings.summary
       const prompt = buildSummaryPrompt(text, header, (await this.preciseAnalysis(text, settings))?.glossary)
@@ -456,7 +456,7 @@ export class TranslationService {
       const raw =
         cached ??
         (await this.queue(provider).run(() => {
-          this.assertConsent(id)
+          this.assertConsent(provider)
           return this.llm.summarize(prompt, opts)
         }))
       const summary = parseSummary(raw, parts, text)
@@ -547,7 +547,7 @@ export class TranslationService {
         key,
         () =>
           this.queue(job.provider).run(() => {
-            this.assertConsent(job.provider.id, job.sample)
+            this.assertConsent(job.provider, job.sample)
             return this.llm.analyze(job.mail!.context.text, this.llmOptions(job))
           }),
         (analysis) => (analysis ? this.deps.cache.set(key, JSON.stringify(analysis)) : undefined),
@@ -570,7 +570,7 @@ export class TranslationService {
       run: <T>(task: () => Promise<T>) =>
         providerQueue.run(() => {
           if (jobs.every((job) => job.signal?.aborted)) throw aborted()
-          this.assertConsent(first.provider.id, first.sample)
+          this.assertConsent(first.provider, first.sample)
           return task()
         }),
     }

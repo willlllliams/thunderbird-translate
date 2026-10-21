@@ -538,7 +538,7 @@ describe("the content script", () => {
     port.push({ type: "summarize" })
     await until(() => expect(document.querySelector(".tt-consent")).not.toBeNull())
     document.querySelector<HTMLButtonElement>(".tt-consent button")!.click()
-    await until(() => expect(sendMessage).toHaveBeenCalledWith({ type: "grantConsent", ids: ["openai"] }))
+    await until(() => expect(sendMessage).toHaveBeenCalledWith({ type: "grantConsent", ids: ["openai"], hosts: ["api.openai.com"] }))
     await until(() => expect(port.posted("summary")).toHaveLength(1))
     // Allowed once: the next summary asks no more, also before the new settings arrive.
     port.push({ type: "summarize" })

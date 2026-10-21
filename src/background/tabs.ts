@@ -39,7 +39,7 @@ export interface TabRegistryDeps {
   /** An image of the message displayed in a tab, for the content script `session`; without it every image request fails. */
   image?: (session: string, tabId: number, request: ImageRequest) => Promise<ImageResponse>
   /** The user allowed services to receive images in the panel of the content script `session`; `message`: for its message only. The image requests sent after it wait for it. */
-  imageConsent?: (session: string, ids: string[], message: boolean) => Promise<void>
+  imageConsent?: (session: string, ids: string[], message: boolean, hosts?: string[]) => Promise<void>
   /** The content script `session` went away. */
   forgetSession?: (session: string) => void
 }
@@ -112,7 +112,7 @@ export function createTabRegistry({ ready, publicSettings, setContext, translate
         break
       }
       case "imageConsent":
-        if (session && imageConsent) void imageConsent(session, msg.ids, msg.message === true).catch(() => {})
+        if (session && imageConsent) void imageConsent(session, msg.ids, msg.message === true, Array.isArray(msg.hosts) ? msg.hosts : undefined).catch(() => {})
         break
     }
   }
