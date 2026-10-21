@@ -197,8 +197,9 @@ export const IDLE_TAB_STATE: TabState = { connected: false, active: false, total
 
 /** An image of the displayed message, as the content script hands it over: a part of the message (cid: images, image attachments) or a data: URI. */
 export interface ImageRequest {
-  source: { part: string } | { data: string }
-  /** The natural size. */
+  /** A part of the message, with the file name of its address when it has one, or a data: URI. */
+  source: { part: string; name?: string } | { data: string }
+  /** The natural size: an image with too many pixels is not even read. */
   width: number
   height: number
   /** Its place among the images of the message that pass the filters of the content script, from 1. */
@@ -209,7 +210,7 @@ export interface ImageRequest {
   context?: string
   /** Retranslation: a peek forgets the cached result, a translation passes the cache. */
   fresh?: boolean
-  /** Counts the translations of the message by the content script: the limits per message apply to each. */
+  /** Counts the translations of the message by the content script: an answer of an earlier round is dropped and nothing is sent for it; the limits per message count again after a retranslation. */
   round: number
 }
 

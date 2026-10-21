@@ -7,7 +7,7 @@
  */
 import { afterEach, describe, expect, it, vi } from "vitest"
 import { PersistentCache } from "../src/background/cache"
-import { browserCodec, dataBytes, encodeAttempts, type ImageDeps, ImageService, isAnimated, readImageAnswer } from "../src/background/images"
+import { browserCodec, dataBytes, encodeAttempts, type ImageDeps, ImageService, imageSize, isAnimated, readImageAnswer } from "../src/background/images"
 import { createHandlers } from "../src/background/router"
 import { displayedMessageId, messagePart } from "../src/background/subject"
 import { createTabRegistry } from "../src/background/tabs"
@@ -33,10 +33,12 @@ function gif(frames: number, extension = false): Uint8Array<ArrayBuffer> {
   return new Uint8Array(bytes)
 }
 
-/** A PNG of about `size` bytes: IHDR, an acTL chunk when `animated`, then IDAT. */
-function png(size = 5000, animated = false): Uint8Array<ArrayBuffer> {
-  const chunk = (type: string, length: number) => [(length >>> 24) & 255, (length >>> 16) & 255, (length >>> 8) & 255, length & 255, ...ascii(type), ...new Array(length).fill(7), 0, 0, 0, 0]
-  const bytes = [0x89, ...ascii("PNG\r\n\x1a\n"), ...chunk("IHDR", 13), ...(animated ? chunk("acTL", 8) : []), ...chunk("IDAT", Math.max(0, size - 45))]
+/** A PNG of about `size` bytes and 400 × 200 pixels unless `pixels` says otherwise: IHDR, an acTL chunk when `animated`, then IDAT. */
+function png(size = 5000, animated = false, pixels: [number, number] = [400, 200]): Uint8Array<ArrayBuffer> {
+  const u32 = (n: number) => [(n >>> 24) & 255, (n >>> 16) & 255, (n >>> 8) & 255, n & 255]
+  const chunk = (type: string, length: number, data: number[] = new Array(length).fill(7)) => [...u32(length), ...ascii(type), ...data, 0, 0, 0, 0]
+  const header = [...u32(pixels[0]), ...u32(pixels[1]), 8, 6, 0, 0, 0]
+  const bytes = [0x89, ...ascii("PNG\r\n\x1a\n"), ...chunk("IHDR", 13, header),...(animated ? chunk("acTL", 8) : []), ...chunk("IDAT", Math.max(0, size - 45))]
   return new Uint8Array(bytes)
 }
 
@@ -447,20 +449,83 @@ describe("the limits of a message", () => {
     return files.get(part)!
   }
 
-  it("send at most the images per message of the settings in a round, and as many again in the next", async () => {
+  it("M2: send at most the images per message of the settings, whatever the content script draws again, and as many again after a retranslation", async () => {
     const s = service({ settings: settingsWithImages((x) => (x.image.maxPerMessage = 2)), deps: { part: async (_m, part) => fileOf(part) } })
     const answers = await Promise.all(["1.2", "1.3", "1.4"].map((part, i) => s.ask({ source: { part }, index: i + 1 })))
     // They arrive at the same time: which one is left out depends on the order their bytes are read in.
     expect(answers.map((a) => a.status).sort()).toEqual(["done", "done", "skipped"])
     const left = answers.findIndex((a) => a.status === "skipped")
     expect(answers[left]).toEqual({ status: "skipped", reason: ENGLISH.t("imageLimitCount", [2]) })
-    expect((await s.ask({ source: { part: `1.${left + 2}` }, round: 2 })).status).toBe("done")
-    // One after the other, the third is left out before it is decoded.
+    // A new round of the same message (a setting drawn again, the translation turned off and on) counts on.
+    expect(await s.ask({ source: { part: `1.${left + 2}` }, round: 2 })).toEqual({ status: "skipped", reason: ENGLISH.t("imageLimitCount", [2]) })
+    expect(s.read).toHaveBeenCalledTimes(2)
+    // A request of an earlier round that arrives late sends nothing and counts nothing.
+    expect(await s.ask({ source: { part: "1.9" }, round: 1 })).toMatchObject({ status: "skipped", quiet: true })
+    // A retranslation counts again; one after the other, the third is left out before it is decoded.
     const decoded = s.codec.decode.mock.calls.length
-    await s.ask({ source: { part: "1.5" }, round: 3 })
-    await s.ask({ source: { part: "1.6" }, round: 3 })
-    expect(await s.ask({ source: { part: "1.7" }, round: 3 })).toEqual({ status: "skipped", reason: ENGLISH.t("imageLimitCount", [2]) })
+    await s.ask({ source: { part: "1.5" }, round: 3, fresh: true })
+    await s.ask({ source: { part: "1.6" }, round: 3, fresh: true })
+    expect(await s.ask({ source: { part: "1.7" }, round: 3, fresh: true })).toEqual({ status: "skipped", reason: ENGLISH.t("imageLimitCount", [2]) })
     expect(s.codec.decode.mock.calls.length).toBe(decoded + 2)
+    expect(s.read).toHaveBeenCalledTimes(4)
+  })
+
+  it("M2: an image on its way when the content script draws again goes once", async () => {
+    let release!: () => void
+    const gate = new Promise<void>((resolve) => (release = resolve))
+    const s = service({ answer: async () => (await gate, { text: TABLE, truncated: false }) })
+    const first = s.ask({ round: 1 })
+    await until(() => expect(s.read).toHaveBeenCalledTimes(1))
+    const again = s.ask({ round: 2 })
+    release()
+    expect([(await first).status, (await again).status]).toEqual(["done", "done"])
+    expect(s.read).toHaveBeenCalledTimes(1)
+  })
+
+  it("M1: what waits is not sent once the content script went away, translates the message again, or the mode is off", async () => {
+    let release!: () => void
+    const gate = new Promise<void>((resolve) => (release = resolve))
+    const signals: (AbortSignal | undefined)[] = []
+    const s = service({
+      settings: settingsWithImages((x) => (x.image.concurrency = 1)),
+      deps: { part: async (_m, part) => fileOf(part) },
+      answer: async (_image, _text, opts) => (signals.push(opts.abortSignal), await gate, { text: TABLE, truncated: false }),
+    })
+    const first = s.ask({ source: { part: "3.1" } })
+    await until(() => expect(s.read).toHaveBeenCalledTimes(1))
+    const waiting = s.ask({ source: { part: "3.2" } })
+    await new Promise((r) => setTimeout(r, 20))
+    s.images.forget("s1")
+    // The request on its way is aborted as well.
+    expect(signals[0]?.aborted).toBe(true)
+    release()
+    await first
+    expect((await waiting).status).toBe("error")
+    expect(s.read).toHaveBeenCalledTimes(1)
+    // A retranslation aborts what the rounds before it wait for.
+    const other = service({ settings: settingsWithImages((x) => (x.image.concurrency = 1)), deps: { part: async (_m, part) => fileOf(part) }, answer: (_image, _text, opts) => new Promise((_, reject) => opts.abortSignal?.addEventListener("abort", () => reject(opts.abortSignal!.reason))) })
+    void other.ask({ source: { part: "3.1" } })
+    await until(() => expect(other.read).toHaveBeenCalledTimes(1))
+    const queued = other.ask({ source: { part: "3.2" } })
+    await new Promise((r) => setTimeout(r, 20))
+    other.read.mockImplementation(async () => ({ text: TABLE, truncated: false }))
+    expect((await other.ask({ source: { part: "3.3" }, round: 2, fresh: true })).status).toBe("done")
+    // The first request was aborted and gave its slot to the second, which was not sent; the third went.
+    expect((await queued).status).toBe("error")
+    expect(other.read).toHaveBeenCalledTimes(2)
+    // Turned off while an image waits: it is not sent.
+    const off = service({ settings: settingsWithImages((x) => (x.image.concurrency = 1)), deps: { part: async (_m, part) => fileOf(part) }, answer: async () => (await gate, { text: TABLE, truncated: false }) })
+    let hold!: () => void
+    off.read.mockImplementationOnce(async () => (await new Promise<void>((r) => (hold = r)), { text: TABLE, truncated: false }))
+    const busy = off.ask({ source: { part: "3.1" } })
+    await until(() => expect(off.read).toHaveBeenCalledTimes(1))
+    const pending = off.ask({ source: { part: "3.2" } })
+    await new Promise((r) => setTimeout(r, 20))
+    off.settings.image.mode = "off"
+    hold()
+    await busy
+    expect(await pending).toEqual({ status: "error", error: expect.stringContaining(ENGLISH.t("imageOff")) })
+    expect(off.read).toHaveBeenCalledTimes(1)
   })
 
   it("count the copies of one image once, and send them once", async () => {
@@ -576,19 +641,98 @@ describe("the request of the AI SDK", () => {
   })
 })
 
+describe("the session of a content script", () => {
+  it("lets an image request wait for the consent sent before it", async () => {
+    const s = service({ settings: settingsWithImages((x) => (x.image.confirmEachMessage = true)) })
+    s.images.open("s1", 3)
+    let recorded!: () => void
+    s.recordConsent.mockImplementationOnce(() => new Promise<undefined>((r) => (recorded = () => r(undefined))))
+    const granted = s.images.grant("s1", ["gemini"], false)
+    const allowed = s.images.grant("s1", ["openai"], true)
+    const answer = s.ask()
+    await nextTask()
+    expect(s.read).not.toHaveBeenCalled()
+    recorded()
+    await Promise.all([granted, allowed])
+    expect((await answer).status).toBe("done")
+  })
+
+  it("M3: reads the parts of the message it was opened for only, while the tab shows it, and only under the name of their address", async () => {
+    let shown = 42
+    const s = service({ deps: { displayed: async () => shown } })
+    s.images.open("s1", 3)
+    shown = 43
+    expect(await s.ask()).toEqual({ status: "skipped", reason: ENGLISH.t("imageUnreadable") })
+    expect(s.part).not.toHaveBeenCalled()
+    shown = 42
+    expect(await s.ask({ source: { part: "1.2", name: "other.png" } })).toEqual({ status: "skipped", reason: ENGLISH.t("imageUnreadable") })
+    expect(await s.ask({ source: { part: "1.2", name: "Chart.png" } })).toMatchObject({ status: "done" })
+    expect(s.read).toHaveBeenCalledTimes(1)
+  })
+
+  it("M4: leaves out an image with too many pixels before it is decoded, and decodes one image at a time", async () => {
+    const huge = service({ file: new File([png(6000, false, [10000, 5000])], "chart.png", { type: "image/png" }) })
+    const reason = ENGLISH.t("imageTooManyPixels", [40])
+    expect(await huge.ask()).toEqual({ status: "skipped", reason })
+    expect(await huge.ask({ width: 9000, height: 9000 })).toEqual({ status: "skipped", reason })
+    expect(huge.codec.decode).not.toHaveBeenCalled()
+    let decoding = 0
+    let most = 0
+    const codec = fakeCodec()
+    codec.decode.mockImplementation(async () => {
+      most = Math.max(most, ++decoding)
+      await new Promise((r) => setTimeout(r, 10))
+      decoding--
+      return { width: 400, height: 200, close: () => {} }
+    })
+    const two = service({ codec })
+    await Promise.all([two.ask({ index: 1 }), two.ask({ source: { data: `data:image/png;base64,${Buffer.from(png(7000)).toString("base64")}` }, index: 2 })])
+    expect([codec.decode.mock.calls.length, most]).toEqual([2, 1])
+  })
+
+  it("M5: sends the glossary to a vision service of its own only once it may receive the text of messages", async () => {
+    const s = service({ settings: settingsWithImages((x) => ((x.image.provider = "gemini"), (x.providers.gemini = { enabled: true, apiKey: "g", baseURL: "", model: "" }), (x.imageConsent = ["gemini"]))) })
+    expect(toPublicSettings(s.settings).image.glossary).toBe(false)
+    await s.ask({ context: "mail-1" })
+    expect(s.read.mock.calls[0][1]).toBe("Image 1 of the email. Target language: English.")
+    expect(s.glossary).not.toHaveBeenCalled()
+    // The result does not depend on the message either.
+    expect((await s.ask({ action: "peek", context: "mail-2" })).status).toBe("done")
+    s.settings.onlineConsent = allowed(s.settings, "gemini")
+    expect(toPublicSettings(s.settings).image.glossary).toBe(true)
+    await s.ask({ context: "mail-1", round: 2 })
+    expect(s.read.mock.calls[1][1]).toContain("Glossary, use these translations:")
+  })
+})
+
+describe("the size of an image from its header", () => {
+  it("reads PNG, GIF, JPEG and the three kinds of WebP, and null for a file that ends before its size", () => {
+    expect(imageSize(png(100, false, [640, 480]))).toEqual({ width: 640, height: 480 })
+    expect(imageSize(gif(1))).toEqual({ width: 1, height: 1 })
+    const jpeg = new Uint8Array([0xff, 0xd8, 0xff, 0xe0, 0, 4, 0, 0, 0xff, 0xff, 0xc2, 0, 11, 8, 0x01, 0xe0, 0x02, 0x80, 3, 0, 0])
+    expect(imageSize(jpeg)).toEqual({ width: 640, height: 480 })
+    const riff = (chunk: string, data: number[]) => new Uint8Array([...ascii("RIFF"), 0, 0, 0, 0, ...ascii("WEBP"), ...ascii(chunk), 0, 0, 0, 0, ...data])
+    expect(imageSize(riff("VP8 ", [0, 0, 0, 0x9d, 0x01, 0x2a, 0x80, 0x02, 0xe0, 0x01]))).toEqual({ width: 640, height: 480 })
+    // 14 bits each of width − 1 and height − 1 after the signature byte.
+    const bits = 639 | (479 << 14)
+    expect(imageSize(riff("VP8L", [0x2f, bits & 255, (bits >>> 8) & 255, (bits >>> 16) & 255, (bits >>> 24) & 255]))).toEqual({ width: 640, height: 480 })
+    expect(imageSize(riff("VP8X", [0, 0, 0, 0, 639 & 255, 639 >> 8, 0, 479 & 255, 479 >> 8, 0]))).toEqual({ width: 640, height: 480 })
+    for (const truncated of [png(100).subarray(0, 20), jpeg.subarray(0, 12), riff("VP8X", [0, 0]), gif(1).subarray(0, 8), new Uint8Array([1, 2, 3])]) expect(imageSize(truncated)).toBeNull()
+  })
+})
+
 describe("the Port and the other requests", () => {
-  it("serves the images of a content script in its own session, after the consent it sent first", async () => {
+  it("serves the images of a content script in its own session, opened when it connects, in the order it sent them", async () => {
     stubBrowser()
     const order: string[] = []
+    const openSession = vi.fn()
     const image = vi.fn(async (session: string, tabId: number, req: ImageRequest): Promise<ImageResponse> => (order.push(`image ${session} ${tabId} ${req.index}`), { status: "ready" }))
-    const imageConsent = vi.fn(async (session: string, ids: string[], message: boolean) => {
-      await nextTask()
-      order.push(`consent ${session} ${ids} ${message}`)
-    })
+    const imageConsent = vi.fn(async (session: string, ids: string[], message: boolean) => void order.push(`consent ${session} ${ids} ${message}`))
     const forgetSession = vi.fn()
-    const tabs = createTabRegistry({ ready: async () => {}, publicSettings: () => toPublicSettings(createDefaultSettings()), setContext: () => {}, translate: async () => {}, subject: async () => null, summarize: async () => ({ ok: false, error: "" }), image, imageConsent, forgetSession })
+    const tabs = createTabRegistry({ ready: async () => {}, publicSettings: () => toPublicSettings(createDefaultSettings()), setContext: () => {}, translate: async () => {}, subject: async () => null, summarize: async () => ({ ok: false, error: "" }), openSession, image, imageConsent, forgetSession })
     const port = backgroundPort(5)
     tabs.connect(port as unknown as browser.runtime.Port)
+    expect(openSession).toHaveBeenCalledWith("5:1", 5)
     port.send({ type: "imageConsent", ids: ["openai"], message: true })
     port.send({ type: "image", id: 7, image: { source: { part: "1.2" }, width: 400, height: 200, index: 1, action: "translate", round: 1 } })
     await until(() => expect(port.posted.at(-1)).toEqual({ type: "imageResult", id: 7, result: { status: "ready" } }))

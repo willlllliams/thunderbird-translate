@@ -66,9 +66,9 @@ describe("the images of a translated message", () => {
     await until(() => expect(buttons()).toHaveLength(3))
     expect(images.shown).toBe(3)
     expect(sent(request, "peek").map((req) => [req.source, req.index, req.width, req.height])).toEqual([
-      [{ part: "1.2" }, 1, 400, 200],
-      [{ part: "1.3" }, 2, 400, 200],
-      [{ part: "1.6" }, 3, 400, 200],
+      [{ part: "1.2", name: "x.png" }, 1, 400, 200],
+      [{ part: "1.3", name: "x.png" }, 2, 400, 200],
+      [{ part: "1.6", name: "x.png" }, 3, 400, 200],
     ])
     // After the paragraph that holds the image, after the link around it, after the container of the attachment.
     expect(document.getElementById("para")!.nextElementSibling).toBe(slots()[0])
@@ -82,7 +82,7 @@ describe("the images of a translated message", () => {
     const { images, request, run } = mount(undefined, `<p id="para">Two: <img id="a" src="${part("1.2")}"><img id="b" src="data:image/png;base64,AAEC"><img id="d" src="cid:x@y"></p><div class="moz-attached-image-container"><img src="${part("1.6")}"></div>`)
     images.start(run({ sources: { inline: true, attachments: false } }))
     await until(() => expect(buttons()).toHaveLength(2))
-    expect(sent(request, "peek").map((req) => req.source)).toEqual([{ part: "1.2" }, { data: "data:image/png;base64,AAEC" }])
+    expect(sent(request, "peek").map((req) => req.source)).toEqual([{ part: "1.2", name: "x.png" }, { data: "data:image/png;base64,AAEC" }])
     expect(document.getElementById("para")!.nextElementSibling).toBe(slots()[0])
     expect(slots()[0].nextElementSibling).toBe(slots()[1])
   })
@@ -100,7 +100,7 @@ describe("the images of a translated message", () => {
     await until(() => expect(buttons()).toHaveLength(3))
     buttons()[1].click()
     await until(() => expect(document.querySelector(".tt-image-result")).not.toBeNull())
-    expect(sent(request, "translate")).toEqual([{ source: { part: "1.3" }, width: 400, height: 200, index: 2, action: "translate", round: expect.any(Number), context: "mail-1" }])
+    expect(sent(request, "translate")).toEqual([{ source: { part: "1.3", name: "x.png" }, width: 400, height: 200, index: 2, action: "translate", round: expect.any(Number), context: "mail-1" }])
     const result = document.querySelector<HTMLDetailsElement>(".tt-image-result")!
     expect(result.open).toBe(true)
     expect(result.querySelector("summary")!.textContent).toBe(`${ENGLISH.t("imageResultTitle", ["OpenAI"])} · ${ENGLISH.t("imageUsage", [1036, 80])}`)
@@ -182,13 +182,15 @@ describe("the mode auto", () => {
     expect(sent(request, "translate").map((req) => req.index)).toEqual([2, 3])
   })
 
-  it("asks under the first image before the batch starts; no gives every image its button", async () => {
+  it("asks under the first image before the batch starts, naming how many images go; no gives every image its button", async () => {
     const need = { id: "gemini", host: "generativelanguage.googleapis.com" }
     const { images, request, grant, run } = mount()
     images.start(run({ mode: "auto", consent: need }))
     await until(() => expect(slots()[0].querySelector(".tt-image-consent")).not.toBeNull())
     const panel = slots()[0].querySelector<HTMLElement>(".tt-image-consent")!
-    expect(panel.querySelector("strong")!.textContent).toBe(ENGLISH.t("imageConsentTitle", ["Google Gemini"]))
+    // S2: the three images of the batch.
+    expect(panel.querySelector("strong")!.textContent).toBe(ENGLISH.t("imageConsentTitleAuto", [3, "Google Gemini"]))
+    expect(panel.querySelector("button")!.textContent).toBe(ENGLISH.t("imageConsentAllowAuto"))
     expect(Array.from(panel.querySelectorAll("p"), (p) => p.textContent)).toEqual([ENGLISH.t("imageConsentWhat", [1568, "JPEG"]), ENGLISH.t("imageConsentPolicyGemini"), ENGLISH.t("imageConsentOnce")])
     expect(panel.querySelector("li")!.textContent).toBe(ENGLISH.t("consentService", ["Google Gemini", need.host]))
     expect(sent(request, "translate")).toEqual([])
@@ -327,7 +329,7 @@ describe("settings changes, retranslation and stop", () => {
     Object.defineProperty(late, "complete", { value: true, configurable: true })
     late.dispatchEvent(new Event("load"))
     await until(() => expect(buttons()).toHaveLength(3))
-    expect(sent(request, "peek").at(-1)!.source).toEqual({ part: "1.6" })
+    expect(sent(request, "peek").at(-1)!.source).toEqual({ part: "1.6", name: "x.png" })
     // Loaded after stop: nothing.
     Object.defineProperty(late, "complete", { value: false, configurable: true })
     images.start(run())
@@ -348,6 +350,103 @@ describe("settings changes, retranslation and stop", () => {
     images.start({ settings: imageSettings({ mode: "ask" }), targetLang: "en", units: [] })
     await nextTask()
     expect(request).not.toHaveBeenCalled()
+  })
+})
+
+describe("the limits and the layout of a message", () => {
+  it("M2: draws the results again in place when only how they show changes, and sends nothing new", async () => {
+    const { images, request, run } = mount()
+    images.start(run({ mode: "auto" }))
+    await until(() => expect(document.querySelectorAll(".tt-image-result")).toHaveLength(3))
+    const asked = request.mock.calls.length
+    images.update(imageSettings({ mode: "auto", showUsage: false }), "zh-CN")
+    images.update(imageSettings({ mode: "auto", showUsage: false, collapsed: true }), "zh-CN")
+    expect(request.mock.calls.length).toBe(asked)
+    expect(Array.from(document.querySelectorAll<HTMLDetailsElement>(".tt-image-result"), (d) => d.open)).toEqual([false, false, false])
+  })
+
+  it("M2: counts the images sent for the message across new settings and a stop, and again after a retranslation", async () => {
+    const { images, request, run } = mount()
+    images.start(run({ mode: "auto", maxPerMessage: 1 }))
+    await until(() => expect(sent(request, "translate")).toHaveLength(1))
+    await until(() => expect(buttons()).toHaveLength(2))
+    // Another limit draws everything again, the translation goes off and on: the image sent counts, nothing more goes.
+    images.update(imageSettings({ mode: "auto", maxPerMessage: 2, minSide: 50 }), "zh-CN")
+    await until(() => expect(sent(request, "translate")).toHaveLength(2))
+    images.stop()
+    images.start(run({ mode: "auto", maxPerMessage: 2, minSide: 50 }))
+    await until(() => expect(document.querySelectorAll(".tt-image-result")).toHaveLength(2))
+    await until(() => expect(buttons()).toHaveLength(1))
+    await nextTask()
+    expect(new Set(sent(request, "translate").map((req) => JSON.stringify(req.source))).size).toBe(2)
+    images.start(run({ mode: "auto", maxPerMessage: 2, minSide: 50 }, { fresh: true }))
+    await until(() => expect(sent(request, "translate").filter((req) => req.fresh)).toHaveLength(2))
+  })
+
+  it("S6: counts copies of one image once in mode auto", async () => {
+    const copy = `<img src="${part("1.2")}">`
+    const { images, request, run } = mount(undefined, `<p id="para">${copy}${copy}${copy}<img src="${part("1.3")}"><img src="${part("1.4")}"><img src="${part("1.5")}"><img src="${part("1.7")}"></p>`)
+    images.start(run({ mode: "auto", maxPerMessage: 5 }))
+    await until(() => expect(sent(request, "translate")).toHaveLength(7))
+    expect(new Set(sent(request, "translate").map((req) => JSON.stringify(req.source))).size).toBe(5)
+  })
+
+  it("S4: peeks at the first images only, twice the limit; the others get the button at once", async () => {
+    const many = Array.from({ length: 60 }, (_, i) => `<img src="${part(`2.${i + 1}`)}">`).join("")
+    const { images, request, run } = mount(undefined, `<p id="para">${many}</p>`)
+    images.start(run({ maxPerMessage: 5 }))
+    await until(() => expect(buttons()).toHaveLength(60))
+    expect(sent(request, "peek")).toHaveLength(10)
+  })
+
+  it("S1: asks again after the consent was taken back or is asked for each message", async () => {
+    const need = { id: "openai", host: "api.openai.com" }
+    const { images, run } = mount()
+    images.start(run({ consent: need }))
+    await until(() => expect(buttons()).toHaveLength(3))
+    buttons()[0].click()
+    await until(() => expect(document.querySelector(".tt-image-consent")).not.toBeNull())
+    document.querySelector<HTMLButtonElement>(".tt-image-consent button")!.click()
+    await until(() => expect(document.querySelectorAll(".tt-image-result")).toHaveLength(1))
+    // The settings record it; then the settings page takes it back.
+    images.update(imageSettings({ mode: "ask", consent: null }), "zh-CN")
+    images.update(imageSettings({ mode: "ask", consent: need }), "zh-CN")
+    await until(() => expect(buttons().length).toBeGreaterThan(0))
+    buttons().at(-1)!.click()
+    await until(() => expect(document.querySelector(".tt-image-consent")).not.toBeNull())
+  })
+
+  it("S5: puts the block inside a table cell or a list item, in both display modes, and takes it out again", async () => {
+    const body = `<table><tbody><tr><td id="para"><img id="a" src="${part("1.2")}"> Umsatz im Quartal</td><td>Other</td></tr></tbody></table><ul><li id="item"><img id="b" src="${part("1.3")}"> Punkt</li></ul>`
+    for (const mode of ["bilingual", "translation-only"] as const) {
+      const { images, run, units } = mount(undefined, body)
+      const before = document.body.innerHTML
+      const renderer = new Renderer(document)
+      units.push({ el: document.getElementById("item")!, text: "Punkt", pre: false })
+      images.start(run())
+      await until(() => expect(buttons()).toHaveLength(2))
+      for (const unit of units) renderer.showTranslation(unit, `T(${unit.text})`, mode)
+      expect(slots().map((slot) => slot.parentElement!.id)).toEqual(["para", "item"])
+      expect(document.querySelectorAll("tr > .tt-image, ul > .tt-image")).toHaveLength(0)
+      expect(buttons()).toHaveLength(2)
+      renderer.clearAll()
+      images.stop()
+      expect([mode, document.body.innerHTML]).toEqual([mode, before])
+    }
+  })
+
+  it("M5: the panel says the glossary goes along when it does", async () => {
+    const { images, run } = mount()
+    images.start(run({ consent: { id: "gemini", host: "g.example" }, glossary: true }, { context: "mail-1" }))
+    await until(() => expect(buttons()).toHaveLength(3))
+    buttons()[0].click()
+    await until(() => expect(document.querySelector(".tt-image-consent")).not.toBeNull())
+    expect(document.querySelector(".tt-image-consent")!.textContent).toContain(ENGLISH.t("imageConsentGlossary"))
+    images.start(run({ consent: { id: "gemini", host: "g.example" }, glossary: false }, { context: "mail-1" }))
+    await until(() => expect(buttons()).toHaveLength(3))
+    buttons()[0].click()
+    await until(() => expect(document.querySelector(".tt-image-consent")).not.toBeNull())
+    expect(document.querySelector(".tt-image-consent")!.textContent).not.toContain(ENGLISH.t("imageConsentGlossary"))
   })
 })
 

@@ -161,7 +161,7 @@ describe("images the content script considers", () => {
   const image = (over: Partial<ImageCandidate> = {}): ImageCandidate => ({ width: 400, height: 200, src: "mailbox:///C:/Inbox?number=3&part=1.2&filename=chart.png", inSignature: false, attachment: false, ...over })
 
   it("reads the part of a message part, the bytes of a data: URI, and nothing of other addresses", () => {
-    expect(imageSource("mailbox:///C:/Inbox?number=3&part=1.2&filename=chart.png")).toEqual({ kind: "part", part: "1.2" })
+    expect(imageSource("mailbox:///C:/Inbox?number=3&part=1.2&filename=chart.png")).toEqual({ kind: "part", part: "1.2", name: "chart.png" })
     expect(imageSource("imap://anna@mail.example:993/fetch%3EUID%3E/INBOX%3E42?part=1.1.3&type=image/png")).toEqual({ kind: "part", part: "1.1.3" })
     expect(imageSource("data:image/png;base64,iVBORw0KGgo=")).toEqual({ kind: "data", data: "data:image/png;base64,iVBORw0KGgo=" })
     expect(imageSource("https://tracker.example/p.gif")).toEqual({ kind: "remote" })
@@ -319,6 +319,7 @@ describe("image settings", () => {
       confirmEachMessage: false,
       maxLongEdge: 1568,
       format: "image/jpeg",
+      glossary: true,
       signature: pub.signature,
     })
     expect(JSON.stringify(pub)).not.toContain("sk-1")

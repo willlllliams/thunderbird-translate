@@ -7,8 +7,8 @@
 
 import type { PublicImageSettings } from "./settings"
 
-/** Where an image comes from: a part of the message, a data: URI, a remote address, or anything else (an unreplaced cid:, a blob:). */
-export type ImageSource = { kind: "part"; part: string } | { kind: "data"; data: string } | { kind: "remote" } | { kind: "other" }
+/** Where an image comes from: a part of the message (with the file name of its address), a data: URI, a remote address, or anything else (an unreplaced cid:, a blob:). */
+export type ImageSource = { kind: "part"; part: string; name?: string } | { kind: "data"; data: string } | { kind: "remote" } | { kind: "other" }
 
 /** A part number as libmime writes it: "1.2", "1.1.3". */
 const PART = /^\d+(?:\.\d+)*$/
@@ -16,14 +16,16 @@ const PART = /^\d+(?:\.\d+)*$/
 /**
  * The source of an image by its address. Thunderbird puts the address of the message part in place of a cid:
  * reference and of an image attachment it shows under the body, with the part number in the parameter "part"
- * (mailbox:, imap:, news:, file: messages alike).
+ * (mailbox:, imap:, news:, file: messages alike), and its file name in "filename" when the part has one.
  */
 export function imageSource(src: string): ImageSource {
   if (/^data:image\//i.test(src)) return { kind: "data", data: src }
   if (/^https?:/i.test(src)) return { kind: "remote" }
   try {
-    const part = new URL(src).searchParams.get("part")
-    if (part && PART.test(part)) return { kind: "part", part }
+    const params = new URL(src).searchParams
+    const part = params.get("part")
+    const name = params.get("filename")
+    if (part && PART.test(part)) return { kind: "part", part, ...(name ? { name } : {}) }
   } catch {
     // Not an address.
   }

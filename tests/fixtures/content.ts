@@ -41,6 +41,7 @@ export const imageSettings = (over: Partial<PublicImageSettings> = {}): PublicIm
   confirmEachMessage: false,
   maxLongEdge: 1568,
   format: "image/jpeg",
+  glossary: false,
   signature: "sig",
   ...over,
 })

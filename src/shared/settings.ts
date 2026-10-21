@@ -721,6 +721,14 @@ export function imageStatus(settings: Settings): ImageStatus {
   return { id, model, support, active: settings.precise.enabled && settings.tiers.ai !== null && support !== "no" }
 }
 
+/**
+ * Whether the glossary of precise translation goes with the images to the vision service `id`: with "use message
+ * context" on, for the service of the AI tier and for a service the user allowed to receive the text of messages.
+ */
+export function imageGlossary(settings: Settings, id: string): boolean {
+  return settings.image.useContext && (id === settings.tiers.ai || hasConsent(settings, "onlineConsent", id))
+}
+
 /** The consent the vision service still needs before images go to it; null once it is allowed, and with "confirm each message" on, always the question. */
 function imageConsentNeed(settings: Settings, id: string): ConsentNeed | null {
   if (!settings.image.confirmEachMessage && hasConsent(settings, "imageConsent", id)) return null
@@ -773,9 +781,10 @@ export interface PublicImageSettings {
   /** The consent the vision service still needs (always with "confirm each message"). */
   consent: ConsentNeed | null
   confirmEachMessage: boolean
-  /** What the consent panel says is sent: the long edge and the format. */
+  /** What the consent panel says is sent: the long edge, the format, and whether the glossary of the message goes along (imageGlossary()). */
   maxLongEdge: number
   format: UploadFormat
+  glossary: boolean
   /** A hash of what decides the result of an image besides the image: when it changes, the content script asks again. */
   signature: string
 }
@@ -801,6 +810,7 @@ function publicImageSettings(settings: Settings): PublicImageSettings {
     confirmEachMessage: s.confirmEachMessage,
     maxLongEdge: s.maxLongEdge,
     format,
+    glossary: status.id ? imageGlossary(settings, status.id) : false,
     signature: hashText(parts.join("\n")),
   }
 }

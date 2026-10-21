@@ -101,6 +101,7 @@ const tabs = createTabRegistry({
   translate: (request, onTier, options) => service.translateForPage(request, onTier, options),
   subject: displayedSubject,
   summarize: async (text, tabId, fresh) => service.summarize(text, await displayedHeader(tabId).catch(() => null), fresh),
+  openSession: (session, tabId) => images.open(session, tabId),
   image: (session, tabId, request) => images.request(session, tabId, request),
   imageConsent: (session, ids, message) => images.grant(session, ids, message),
   forgetSession: (session) => images.forget(session),

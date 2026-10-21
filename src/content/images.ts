@@ -10,8 +10,13 @@
  *
  * - "ask": a "Translate image text" button under each image; a click sends that image only;
  * - "auto": the first images, up to the limit per message, are sent one
- *   after the other in the order of the message; the others get the button;
+ *   after the other in the order of the message; the others get the button.
+ *   Copies of one image count once, and the images sent count for the
+ *   message until a retranslation, whatever is drawn again meanwhile;
  * - "off": nothing.
+ *
+ * Only the first images, twice the limit per message, are peeked at; the
+ * others get the button at once and are read when it is clicked.
  *
  * A cached result shows at once, without a button. Before the first image
  * goes to a service the user has not allowed to receive images, a panel
@@ -24,9 +29,12 @@
  *
  * A change of the mode or of the image settings draws everything again
  * without reloading the message, as a change of the display mode does; the
- * results come from the memory of this page or the cache. A retranslation
- * forgets them: "ask" shows the buttons again, "auto" asks the service again.
- * stop() removes every element it added.
+ * results come from the memory of this page or the cache. A change of how
+ * the results show (collapsed, the tokens) draws them again in place. A
+ * retranslation forgets them: "ask" shows the buttons again, "auto" asks the
+ * service again. stop() removes every element it added. The block goes after
+ * its anchor, except in a table cell, a list item or a caption, where it
+ * becomes their last child, so the layout of the table or the list stays.
  */
 
 import { button, h } from "../shared/dom"
@@ -41,6 +49,12 @@ import { CLS_IMAGE, CLS_NOTICE, CLS_ORIGINAL, type Unit } from "./paragraphs"
 
 /** How long the line about an image without text stays. */
 export const NO_TEXT_MS = 3000
+
+/** Anchors that take the block inside, as their last child: a block beside them would break a table or a list. */
+const INSIDE = new Set(["TD", "TH", "LI", "DD", "DT", "CAPTION"])
+
+/** The key of an image by where it comes from: copies of one image share it. */
+const sourceKey = (entry: { source: ImageRequest["source"] }) => JSON.stringify(entry.source)
 
 
 /** What the consent panel says about the data policy of a service; the others handle images by their own privacy policy. */
@@ -80,8 +94,8 @@ export class ImageTranslator {
   private entries: Entry[] = []
   /** Images still loading, with their listeners. */
   private waiting = new Map<HTMLImageElement, () => void>()
-  /** Images sent by themselves in this run ("auto"). */
-  private autoSent = 0
+  /** The images sent by themselves ("auto") for this message, by sourceKey(); a retranslation counts again. */
+  private sent = new Set<string>()
   /** Services allowed in a panel of this message, before the settings that record them arrive. */
   private allowed = new Set<string>()
   /** The open consent panel and its answer, shared by every image that waits for it. */
@@ -99,7 +113,10 @@ export class ImageTranslator {
   /** Start for a translated message; a run on screen is replaced. */
   start(run: ImageRun): void {
     this.stop()
-    if (run.fresh) this.memo.clear()
+    if (run.fresh) {
+      this.memo.clear()
+      this.sent.clear()
+    }
     this.run = run
     if (run.settings.mode === "off") return
     const root = this.deps.root()
@@ -116,16 +133,25 @@ export class ImageTranslator {
   update(next: PublicImageSettings, targetLang: string): void {
     const run = this.run
     if (!run) return
-    const drawn = ({ consent: _consent, ...rest }: PublicImageSettings) => JSON.stringify(rest)
-    if (drawn(run.settings) !== drawn(next) || run.targetLang !== targetLang) return this.start({ ...run, settings: next, targetLang, fresh: false })
+    const prev = run.settings
+    // The consent was taken back, or is asked for every message now: the panel asks again.
+    if ((next.consent && !prev.consent) || (next.confirmEachMessage && !prev.confirmEachMessage)) this.allowed.clear()
+    const drawn = ({ consent: _consent, collapsed: _collapsed, showUsage: _showUsage, ...rest }: PublicImageSettings) => JSON.stringify(rest)
+    if (drawn(prev) !== drawn(next) || run.targetLang !== targetLang) return this.start({ ...run, settings: next, targetLang, fresh: false })
     run.settings = next
+    // Only how the results show changed: they are drawn again where they are.
+    if (prev.collapsed !== next.collapsed || prev.showUsage !== next.showUsage) {
+      for (const entry of this.entries) {
+        const known = this.memo.get(this.memoKey(entry))
+        if (known?.status === "done" && entry.slot.querySelector(".tt-image-result")) entry.slot.replaceChildren(this.result(known))
+      }
+    }
   }
 
   /** The translation stopped: every added element goes, answers still on their way are dropped. */
   stop(): void {
     this.round++
     this.run = null
-    this.autoSent = 0
     this.consent?.settle(false)
     for (const [img, listener] of this.waiting) img.removeEventListener("load", listener)
     this.waiting.clear()
@@ -156,10 +182,13 @@ export class ImageTranslator {
     if (filterImage(candidate, run.settings) !== null) return
     const anchor = img.closest(".moz-attached-image-container") ?? run.units.find((unit) => unit.el.contains(img))?.el ?? img.closest("a") ?? img
     const slot = h("div", { className: CLS_IMAGE, lang: getI18n().lang, dir: getI18n().dir })
-    // After the anchor, and after the slots of the images before this one under the same anchor.
-    const before = this.entries.filter((e) => e.anchor === anchor).at(-1)?.slot ?? anchor
-    before.after(slot)
-    this.entries.push({ img, source: source.kind === "part" ? { part: source.part } : { data: source.data }, index: this.entries.length + 1, anchor, slot })
+    // After the anchor (inside a cell or a list item, at its end), and after the slots of the images before this one under the same anchor.
+    const last = this.entries.filter((e) => e.anchor === anchor).at(-1)?.slot
+    if (last) last.after(slot)
+    else if (INSIDE.has(anchor.tagName)) anchor.append(slot)
+    else anchor.after(slot)
+    const from: ImageRequest["source"] = source.kind === "part" ? { part: source.part, ...(source.name ? { name: source.name } : {}) } : { data: source.data }
+    this.entries.push({ img, source: from, index: this.entries.length + 1, anchor, slot })
   }
 
   private request(entry: Entry, action: ImageRequest["action"]): Promise<ImageResponse> {
@@ -180,22 +209,31 @@ export class ImageTranslator {
     return `${this.run!.settings.signature}|${this.run!.targetLang}|${JSON.stringify(entry.source)}`
   }
 
-  /** Peek at `entries`: a known result shows, an image that may be sent gets the button or, in "auto", is sent. */
+  /**
+   * Peek at `entries`, the first ones of the message up to twice the limit: a known result shows, an image that may be
+   * sent gets the button or, in "auto", is sent. The others get the button at once.
+   */
   private async peekAll(entries: Entry[], round: number): Promise<void> {
-    const answers = await Promise.all(entries.map((entry) => this.memo.get(this.memoKey(entry)) ?? this.request(entry, "peek")))
+    const max = this.run!.settings.maxPerMessage
+    const peeked = entries.filter((entry) => entry.index <= 2 * max)
+    for (const entry of entries) if (!peeked.includes(entry)) this.showButton(entry)
+    const answers = await Promise.all(peeked.map((entry) => this.memo.get(this.memoKey(entry)) ?? this.request(entry, "peek")))
     if (round !== this.round) return
     const auto = this.run!.settings.mode === "auto"
     const send: Entry[] = []
-    entries.forEach((entry, i) => {
+    peeked.forEach((entry, i) => {
       const answer = answers[i]
       if (answer.status !== "ready") return this.show(entry, answer, false)
-      if (auto && this.autoSent < this.run!.settings.maxPerMessage) {
-        this.autoSent++
+      const key = sourceKey(entry)
+      if (auto && (this.sent.has(key) || this.sent.size < max)) {
+        this.sent.add(key)
         send.push(entry)
       } else this.showButton(entry)
     })
     if (send.length === 0) return
-    if (!(await this.ensureConsent(send[0]))) {
+    if (!(await this.ensureConsent(send[0], new Set(send.map(sourceKey)).size))) {
+      // Not sent: they do not count.
+      for (const entry of send) this.sent.delete(sourceKey(entry))
       if (round === this.round) for (const entry of send) this.showButton(entry)
       return
     }
@@ -222,14 +260,14 @@ export class ImageTranslator {
     if (round === this.round) await this.translate(entry, round)
   }
 
-  /** Whether the vision service may receive images: allowed already, or allowed now in the panel under `entry`. */
-  private ensureConsent(entry: Entry): Promise<boolean> {
+  /** Whether the vision service may receive images: allowed already, or allowed now in the panel under `entry`; `count`: the images "auto" sends once allowed. */
+  private ensureConsent(entry: Entry, count = 0): Promise<boolean> {
     const need = this.run!.settings.consent
     if (!need || this.allowed.has(need.id)) return Promise.resolve(true)
     if (this.consent) return this.consent.answer
     let settle!: (allowed: boolean) => void
     const answer = new Promise<boolean>((resolve) => (settle = resolve))
-    const el = this.consentPanel(need)
+    const el = this.consentPanel(need, count)
     this.consent = {
       el,
       answer,
@@ -248,22 +286,28 @@ export class ImageTranslator {
     return answer
   }
 
-  /** The panel that asks before images go to a service: what is sent, where to, the data policy of the service, and the two buttons. */
-  private consentPanel(need: ConsentNeed): HTMLElement {
-    const s = this.run!.settings
+  /**
+   * The panel that asks before images go to a service: what is sent (in "auto" how many images, `count`, and the
+   * glossary of the message when it goes along), where to, the data policy of the service, and the two buttons.
+   */
+  private consentPanel(need: ConsentNeed, count: number): HTMLElement {
+    const run = this.run!
+    const s = run.settings
     const preset = getPreset(need.id)
     const name = preset ? providerDisplayName(preset) : need.id
     const format = s.format === "image/png" ? "PNG" : s.format === "image/webp" ? "WebP" : "JPEG"
-    const title = t("imageConsentTitle", [name])
+    const title = count > 1 ? t("imageConsentTitleAuto", [count, name]) : t("imageConsentTitle", [name])
+    const allow = t(count > 1 ? "imageConsentAllowAuto" : "imageConsentAllow")
     return h(
       "div",
       { className: `${CLS_NOTICE} tt-consent tt-image-consent`, role: "region", "aria-label": title },
       h("strong", { text: title }),
       h("p", { text: t("imageConsentWhat", [s.maxLongEdge, format]) }),
+      s.glossary && run.context ? h("p", { text: t("imageConsentGlossary") }) : null,
       h("ul", {}, h("li", { text: need.host ? t("consentService", [name, need.host]) : name })),
       h("p", { text: t(POLICY_KEYS[need.id] ?? "imageConsentPolicyOther") }),
       h("p", { text: t(s.confirmEachMessage ? "imageConsentEach" : "imageConsentOnce") }),
-      h("div", { className: "tt-notice-actions" }, button(t("imageConsentAllow"), () => this.consent?.settle(true), true, t("tipImageConsentAllow")), button(t("consentCancel"), () => this.consent?.settle(false), false, t("tipImageConsentCancel"))),
+      h("div", { className: "tt-notice-actions" }, button(allow, () => this.consent?.settle(true), true, t("tipImageConsentAllow")), button(t("consentCancel"), () => this.consent?.settle(false), false, t("tipImageConsentCancel"))),
     )
   }
 

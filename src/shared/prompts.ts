@@ -1,7 +1,7 @@
 /**
  * System prompts of the AI tier. Each display mode has its own prompt, and
  * precise translation has a third one; the summary of a message has a
- * fourth, the text of an image (background/image-prompt.ts) a fifth. `{{to}}` stands for the target language; the source language and
+ * fourth, the text of an image (shared/image-prompt.ts) a fifth. `{{to}}` stands for the target language; the source language and
  * the batch format are added to the request by the extension.
  */
 
@@ -49,7 +49,7 @@ ${COMMON_RULES}`,
 - questions: questions the reader is asked and should answer, with "from".
 - dates: meetings, appointments and deadlines with "what", "when" (same rule as "due") and "where".
 - Use [] for an empty list. Do not invent people, tasks or dates that the email does not contain.`,
-  // The text of an image (background/image-prompt.ts): the extension adds the rules of the output format after it.
+  // The text of an image (shared/image-prompt.ts): the extension adds the rules of the output format after it.
   image: `You read an image from an email for a reader of {{to}}. Answer in Markdown.
 
 First decide which kind of image it is:

@@ -35,6 +35,8 @@ export interface LlmCallOptions {
   timeoutMs?: number
   /** Upper bound of the answer, sent as maxOutputTokens; none when absent. */
   maxOutputTokens?: number
+  /** Ends the request once no one waits for its answer, the request on its way included. */
+  abortSignal?: AbortSignal
 }
 
 /** What one request asks: a prompt, or messages with the parts of an image. */
@@ -45,7 +47,8 @@ async function generate(instructions: SystemModelMessage, input: ModelInput, opt
   const reasoning = thinkingOptions(id, model, thinking)
   const sendTemperature = temperature !== null && !reasoning.dropTemperature && !modelRejectsTemperature(id, model)
   const timeout = opts.timeoutMs ? timeoutSignal(opts.timeoutMs) : undefined
-  const abortSignal = timeout?.signal
+  const signals = [timeout?.signal, opts.abortSignal].filter((signal) => signal !== undefined)
+  const abortSignal = signals.length > 1 ? AbortSignal.any(signals) : signals[0]
   try {
     return await generateText({
       model: createLanguageModel(opts.provider, opts.fetchFn),
@@ -59,7 +62,8 @@ async function generate(instructions: SystemModelMessage, input: ModelInput, opt
       maxRetries: 0,
     })
   } catch (error) {
-    if (abortSignal?.aborted) throw new TimeoutError(getPreset(id)?.name ?? id, opts.timeoutMs!)
+    if (opts.abortSignal?.aborted) throw opts.abortSignal.reason
+    if (timeout?.signal.aborted) throw new TimeoutError(getPreset(id)?.name ?? id, opts.timeoutMs!)
     throw error
   } finally {
     timeout?.clear()
