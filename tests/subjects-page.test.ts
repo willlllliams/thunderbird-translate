@@ -6,7 +6,8 @@
  * messages, the consent panel and the window of its own.
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
-import { PAGE_SIZE, RELOAD_DELAY_MS, senderName, SETTLE_DELAYS_MS } from "../src/subjects/list"
+import { PAGE_SIZE, SETTLE_DELAYS_MS } from "../src/shared/message-list"
+import { RELOAD_DELAY_MS, senderName } from "../src/subjects/list"
 import { ENGLISH } from "../src/shared/i18n"
 import { type PortReport, SUBJECTS_PORT_NAME, type TranslateResponse } from "../src/shared/messages"
 import type { Tier } from "../src/shared/providers"

@@ -14,9 +14,10 @@ import { backgroundParts } from "../background/index"
 import { ext } from "../shared/ext"
 import { loadExtensionI18n } from "../shared/i18n-ext"
 import { browserDetector } from "../shared/lang-detect"
+import { listedMessages } from "../shared/message-list"
 import { SETTINGS_KEY, toPublicSettings } from "../shared/settings"
 import { readSettings } from "../shared/settings-store"
-import { type ColumnApi, createColumnSync, listedMessages } from "./column"
+import { type ColumnApi, createColumnSync } from "./column"
 
 const { service, settings } = backgroundParts
 

@@ -7,7 +7,8 @@ import { readFileSync } from "node:fs"
 import { join } from "node:path"
 import { runInNewContext } from "node:vm"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
-import { type ColumnApi, type ColumnDeps, createColumnSync, LIST_SIZE, listedMessages, MAX_SUBJECTS, PUSH_DELAY_MS, SETTLE_DELAYS_MS } from "../src/experiments/column"
+import { type ColumnApi, type ColumnDeps, createColumnSync, LIST_SIZE, MAX_SUBJECTS, PUSH_DELAY_MS } from "../src/experiments/column"
+import { listedMessages, SETTLE_DELAYS_MS } from "../src/shared/message-list"
 import type { TranslateRequest, TranslateResponse } from "../src/shared/messages"
 import type { Tier } from "../src/shared/providers"
 import { createDefaultSettings, SETTINGS_KEY, type Settings, toPublicSettings } from "../src/shared/settings"
@@ -235,6 +236,15 @@ describe("listedMessages", () => {
     const all = await listedMessages(5, 1000)
     expect(all).toHaveLength(250)
     expect(mail.api.messages.abortList).toHaveBeenCalledTimes(1)
+  })
+
+  it("aborts the list also when a page cannot be read", async () => {
+    const mail = fakeMail({ folders: { Inbox: messages(250) }, pageSize: 60 })
+    vi.stubGlobal("browser", mail.api)
+    mail.api.messages.continueList.mockRejectedValueOnce(new Error("folder gone"))
+    await expect(listedMessages(5, 100)).rejects.toThrow("folder gone")
+    expect(mail.api.messages.abortList).toHaveBeenCalledTimes(1)
+    expect(mail.open.size).toBe(0)
   })
 })
 

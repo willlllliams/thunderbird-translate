@@ -30,13 +30,14 @@ import { ext } from "../shared/ext"
 import { getI18n, t } from "../shared/i18n"
 import { localizeDocument } from "../shared/i18n-dom"
 import { loadExtensionI18n } from "../shared/i18n-ext"
+import { Listing, PAGE_SIZE, SETTLE_DELAYS_MS } from "../shared/message-list"
 import type { TabState } from "../shared/messages"
 import { $ } from "../shared/page"
 import { SETTINGS_KEY } from "../shared/settings"
 import { loadSettings, readSettings } from "../shared/settings-store"
 import { splitSubject } from "../shared/subject"
 import { subjectsProbe } from "../hooks/subjects"
-import { CLS_CELL, collectCells, Listing, PAGE_SIZE, RELOAD_DELAY_MS, rowKey, senderName, SETTLE_DELAYS_MS } from "./list"
+import { CLS_CELL, collectCells, RELOAD_DELAY_MS, rowKey, senderName } from "./list"
 
 /** Size of the window of "Open in a window". */
 const WINDOW_SIZE = { width: 960, height: 640 }

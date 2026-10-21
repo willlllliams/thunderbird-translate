@@ -25,6 +25,7 @@
 import type { MessageHeader } from "../shared/ext"
 import type { LanguageDetector } from "../shared/lang-detect"
 import { stripMarkdown } from "../shared/markdown"
+import { SETTLE_DELAYS_MS } from "../shared/message-list"
 import type { TranslateRequest, TranslateResponse } from "../shared/messages"
 import type { Tier } from "../shared/providers"
 import type { PublicSettings } from "../shared/settings"
@@ -34,8 +35,6 @@ import { subjectToTranslate } from "../shared/subject"
 export const LIST_SIZE = 100
 /** Translations go to the column together, at most this often. */
 export const PUSH_DELAY_MS = 200
-/** After a change of folder the list is read again after these delays, as the page of translated subjects does. */
-export const SETTLE_DELAYS_MS = [1000, 3000]
 /** Subjects kept, with their translations, here and in the column: the ones listed longest ago go first. */
 export const MAX_SUBJECTS = 2000
 
@@ -79,18 +78,6 @@ export interface ColumnSync {
 
 /** What decides the translations of the column: languages, the services (signatures) of the tiers and the services still waiting for consent. */
 const columnKey = (s: PublicSettings) => JSON.stringify([s.sourceLang, s.targetLang, s.tiers, s.signatures, s.consent.map((need) => need.id)])
-
-/** The first `count` messages listed in the mail tab `tabId`, read page by page; the rest of the list is aborted. */
-export async function listedMessages(tabId: number, count: number): Promise<MessageHeader[]> {
-  let list = await browser.mailTabs.getListedMessages(tabId)
-  const messages = [...list.messages]
-  while (messages.length < count && list.id !== null) {
-    list = await browser.messages.continueList(list.id)
-    messages.push(...list.messages)
-  }
-  if (list.id !== null) await browser.messages.abortList(list.id).catch(() => {})
-  return messages.slice(0, count)
-}
 
 export function createColumnSync({ api, ready, settings, columnName, translate, listed, activeMailTabs, detect }: ColumnDeps): ColumnSync {
   /**
