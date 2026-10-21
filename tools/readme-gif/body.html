@@ -15,23 +15,46 @@
       p {
         margin: 0 0 12px;
       }
+      /* The popup stays open beside the message in the modes scene. */
+      body.narrow > p {
+        max-width: 470px;
+      }
+      .chart img {
+        display: block;
+        border: 1px solid #d8dbe0;
+      }
     </style>
     <script src="/__gif/samples.js"></script>
     <script src="/__gif/stub.js"></script>
   </head>
   <body>
     <script>
-      // The paragraphs of the sample message, then the content script of the extension.
-      const sample = README_GIF_SAMPLES[new URLSearchParams(location.search).get("variant") || "en"]
+      // The paragraphs of the message of the scene, the chart of the images scene after the first one, then the
+      // content script of the extension. The chart is an inline image of the body (a data: URI here; Thunderbird
+      // shows a cid: image under the address of its message part), which the content script considers.
+      const params = new URLSearchParams(location.search)
+      const sample = README_GIF_SAMPLES[params.get("variant") || "en"]
+      const scene = params.get("scene") || "tiers"
+      const paragraphs = { tiers: sample.paragraphs, modes: sample.paragraphs, summary: [...sample.paragraphs.slice(0, 3), sample.meeting, sample.paragraphs[3]], images: sample.report.paragraphs }[scene]
       document.documentElement.lang = sample.messageLang
-      for (const { text } of sample.paragraphs) {
+      document.body.classList.toggle("narrow", scene === "modes")
+      paragraphs.forEach(({ text }, index) => {
         const p = document.createElement("p")
         text.split("\n").forEach((line, i) => {
           if (i > 0) p.append(document.createElement("br"))
           p.append(line)
         })
         document.body.append(p)
-      }
+        if (scene === "images" && index === 0) {
+          const div = document.createElement("div")
+          div.className = "chart"
+          const img = document.createElement("img")
+          img.alt = ""
+          img.src = sample.report.chart
+          div.append(img)
+          document.body.append(div)
+        }
+      })
       const script = document.createElement("script")
       script.src = "/content.js"
       document.body.append(script)

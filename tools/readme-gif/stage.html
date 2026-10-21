@@ -125,6 +125,24 @@
         box-shadow: 0 0 0 4px color-mix(in srgb, #3b78e7 18%, transparent);
         pointer-events: none;
       }
+      .cursor {
+        position: absolute;
+        width: 22px;
+        height: 22px;
+        pointer-events: none;
+        z-index: 10;
+      }
+      .click {
+        position: absolute;
+        width: 30px;
+        height: 30px;
+        margin: -15px 0 0 -15px;
+        border: 3px solid #3b78e7;
+        border-radius: 50%;
+        background: color-mix(in srgb, #3b78e7 20%, transparent);
+        pointer-events: none;
+        z-index: 9;
+      }
       [hidden] {
         display: none !important;
       }
@@ -133,7 +151,7 @@
   </head>
   <body>
     <div class="stage">
-      <div class="caption"><span class="pill" id="pill-dictionary"></span><span class="arrow">→</span><span class="pill" id="pill-machine"></span><span class="arrow">→</span><span class="pill" id="pill-ai"></span><span class="say" id="say"></span></div>
+      <div class="caption" id="caption"><span class="say" id="say"></span></div>
       <div class="header">
         <div class="subject" id="subject"></div>
         <div class="line"><b id="labelFrom"></b> <span id="from"></span></div>
@@ -142,30 +160,29 @@
       </div>
       <iframe class="body" id="body"></iframe>
     </div>
-    <iframe class="popup" id="popup"></iframe>
+    <iframe class="popup" id="popup" hidden></iframe>
     <div class="mark" id="mark" hidden></div>
+    <div class="click" id="click" hidden></div>
+    <svg class="cursor" id="cursor" viewBox="0 0 22 22" hidden><path d="M3 2 L3 18 L7.5 14 L10.5 20.5 L13.2 19.3 L10.3 12.9 L16.5 12.6 Z" fill="#fff" stroke="#111" stroke-width="1.4" stroke-linejoin="round" /></svg>
     <script>
-      const variant = new URLSearchParams(location.search).get("variant") || "en"
+      // One scene per animation (?scene=tiers|images|summary|modes), for one variant (?variant=en|zh-CN|zh-TW). A scene
+      // is a timeline in seconds: at(s) puts the stage in its state at time s, settled(s) tells whether the pages
+      // show that state. The stage only moves forward. The pointer moves to an element of the popup or of the message
+      // and clicks it at a set time; the click is the real one on the real element.
+      const params = new URLSearchParams(location.search)
+      const variant = params.get("variant") || "en"
+      const sceneName = params.get("scene") || "tiers"
       const sample = README_GIF_SAMPLES[variant]
       const $ = (id) => document.getElementById(id)
       const TIERS = ["dictionary", "machine", "ai"]
       const NAME_KEYS = { dictionary: "tierDictionary", machine: "tierMachine", ai: "tierAi" }
-
-      // The timeline in seconds: the popup with the three tiers, then the answers of the tiers; the machine and AI
-      // answers reach the paragraphs one after another, STAGGER apart; the last state stays until
-      // the loop restarts.
-      const START = 1.6
-      const MACHINE = 3.0
-      const AI = 5.2
-      const STAGGER = 0.2
       const DURATION = 10.0
-      /** What the content script translates, in the order of the timeline: the paragraphs. */
-      const UNITS = sample.paragraphs
 
       document.documentElement.lang = sample.targetLang
-      for (const key of ["subject", "from", "date", "labelFrom", "labelDate", "reply", "forward"]) $(key).textContent = sample.header[key]
-      $("body").src = `/__gif/body.html?variant=${variant}`
-      $("popup").src = `/popup.html?variant=${variant}`
+      for (const key of ["from", "date", "labelFrom", "labelDate", "reply", "forward"]) $(key).textContent = sample.header[key]
+      $("subject").textContent = sceneName === "images" ? sample.header.reportSubject : sample.header.subject
+      $("body").src = `/__gif/body.html?variant=${variant}&scene=${sceneName}`
+      $("popup").src = `/popup.html?variant=${variant}&scene=${sceneName}`
 
       let messages = null
       const t = (key, ...args) => messages[key].replace(/\$(\d)/g, (_, n) => String(args[n - 1]))
@@ -174,84 +191,332 @@
         .then((m) => {
           messages = m
           $("action").textContent = t("actionTitle")
-          TIERS.forEach((tier, i) => ($(`pill-${tier}`).textContent = t("tierLabel", i + 1, t(NAME_KEYS[tier]))))
         })
 
       const popupDoc = () => $("popup").contentDocument
       const bodyDoc = () => $("body").contentDocument
+      const gif = () => $("body").contentWindow.__gif
       /** The service of a tier as the popup names it. */
       const service = (tier) => popupDoc().getElementById(`tier-${tier}`).selectedOptions[0].textContent.trim()
-
       /** The elements of the paragraphs in the message body. */
       const unitElements = () => [...bodyDoc().querySelectorAll("body > p")]
       /** A text as it reads on screen: without the list and bold marks of Markdown and without whitespace. */
       const plain = (text) => text.replace(/^[-*+] /gm, "").replace(/\*\*/g, "").replace(/\s+/g, "")
+      const ease = (x) => (x <= 0 ? 0 : x >= 1 ? 1 : x * x * (3 - 2 * x))
 
-      /** The tier whose answer unit `i` shows at time `s`, or null before the translation starts. */
-      function shown(i, s) {
-        if (s >= AI + i * STAGGER) return "ai"
-        if (s >= MACHINE + i * STAGGER) return "machine"
-        if (s >= START) return "dictionary"
-        return null
+      /** The caption line: pills for the steps, the one at `now` highlighted and those before it greyed when `past`, then the sentence. */
+      function caption(steps, now, say, past = true) {
+        const box = $("caption")
+        if (box.dataset.steps !== JSON.stringify(steps)) {
+          box.dataset.steps = JSON.stringify(steps)
+          box.replaceChildren()
+          steps.forEach((text, i) => {
+            if (i > 0) box.append(Object.assign(document.createElement("span"), { className: "arrow", textContent: "→" }))
+            box.append(Object.assign(document.createElement("span"), { className: "pill", textContent: text }))
+          })
+          box.append(Object.assign(document.createElement("span"), { className: "say", id: "say" }))
+        }
+        box.querySelectorAll(".pill").forEach((pill, i) => {
+          pill.classList.toggle("now", i === now)
+          pill.classList.toggle("past", past && now >= 0 && i < now)
+        })
+        $("say").textContent = say
       }
 
+      /** The rectangle of an element of a frame (or of the stage) in the coordinates of the stage. */
+      function rectOf(el) {
+        const r = el.getBoundingClientRect()
+        const frame = el.ownerDocument === document ? null : [$("popup"), $("body")].find((f) => f.contentDocument === el.ownerDocument)
+        const f = frame ? frame.getBoundingClientRect() : { left: 0, top: 0 }
+        const border = frame ? frame.clientLeft : 0
+        return { left: f.left + border + r.left, top: f.top + border + r.top, width: r.width, height: r.height }
+      }
+
+      /** The blue frame around the elements `els` (null: none). */
+      function mark(els) {
+        const box = $("mark")
+        box.hidden = !els
+        if (!els) return
+        const rects = els.map(rectOf)
+        const left = Math.min(...rects.map((r) => r.left))
+        const top = Math.min(...rects.map((r) => r.top))
+        const right = Math.max(...rects.map((r) => r.left + r.width))
+        const bottom = Math.max(...rects.map((r) => r.top + r.height))
+        const pad = 6
+        Object.assign(box.style, { left: `${left - pad}px`, top: `${top - pad}px`, width: `${right - left + 2 * pad}px`, height: `${bottom - top + 2 * pad}px` })
+      }
+
+      /**
+       * The pointer: it rests at `start`, then for each move goes from where it is to its target between `from` and
+       * `at`, and clicks the target at `at` when the move has `click` (an element to click, if it differs from the one
+       * pointed at). The point of each target is taken when the pointer starts towards it.
+       */
+      function pointer(start, moves) {
+        const points = new Map()
+        const clicked = new Set()
+        const pointOf = (move) => {
+          if (!points.has(move)) {
+            const el = move.target()
+            if (!el) throw new Error(`no element to point at for the move at ${move.at} s`)
+            const r = el.nodeType ? rectOf(el) : { left: el.x, top: el.y, width: 0, height: 0 }
+            points.set(move, { x: r.left + r.width * (move.dx ?? 0.5), y: r.top + r.height * (move.dy ?? 0.55), el })
+          }
+          return points.get(move)
+        }
+        return {
+          at(s) {
+            let pos = start
+            let lastClick = null
+            for (const move of moves) {
+              if (s < move.from) break
+              const to = pointOf(move)
+              const k = ease((s - move.from) / (move.at - move.from))
+              pos = { x: pos.x + (to.x - pos.x) * k, y: pos.y + (to.y - pos.y) * k }
+              if (move.click && s >= move.at) {
+                lastClick = { s: move.at, pos: to }
+                if (!clicked.has(move)) {
+                  clicked.add(move)
+                  ;(typeof move.click === "function" ? move.click() : to.el).click()
+                }
+              }
+            }
+            const cursor = $("cursor")
+            cursor.removeAttribute("hidden")
+            Object.assign(cursor.style, { left: `${pos.x - 3}px`, top: `${pos.y - 2}px` })
+            const ring = $("click")
+            ring.hidden = !lastClick || s - lastClick.s > 0.3
+            if (lastClick) Object.assign(ring.style, { left: `${lastClick.pos.x}px`, top: `${lastClick.pos.y}px` })
+          },
+        }
+      }
+
+      /** Every paragraph shows its final translation, with its Markdown rendered; `mode`: in that display mode. */
+      function allFinal(units, mode) {
+        const elements = unitElements()
+        return units.every((unit, i) => Boolean(elements[i]) && finalShown(unit, elements[i]) && (!mode || elements[i].querySelector(".tt-translation").classList.contains(mode === "bilingual" ? "tt-bilingual" : "tt-only")))
+      }
+
+      /** The paragraph `el` shows the final translation of the AI tier, its list items and bold text rendered. */
+      function finalShown(unit, el) {
+        const node = el.querySelector(".tt-translation")
+        if (!node || node.classList.contains("tt-provisional") || node.querySelector(".tt-tag") || plain(node.textContent) !== plain(unit.ai)) return false
+        return (!/^- /m.test(unit.ai) || node.querySelector("li")) && (!unit.ai.includes("**") || node.querySelector("strong"))
+      }
+
+      /** The popup at the height of its content, shown. */
+      function showPopup() {
+        const popup = $("popup")
+        popup.hidden = false
+        popup.style.height = `${Math.min(popupDoc().documentElement.scrollHeight + 2, 620)}px`
+      }
+
+      /** The popup has loaded and drawn its tiers and its status. */
+      const popupReady = () => {
+        const popup = popupDoc()
+        const tiersFilled = TIERS.every((tier) => popup?.getElementById(`tier-${tier}`)?.selectedOptions[0])
+        return Boolean(tiersFilled && popup.getElementById("status")?.textContent.trim())
+      }
+
+      /** Starts the translation and gives every paragraph every answer at once: the scene begins with the message translated. */
+      function translateAtOnce(units) {
+        gif().start()
+        units.forEach((_, i) => TIERS.forEach((tier) => gif().release(tier, i)))
+      }
+
+      const SCENES = {
+        // The popup with the three tiers, then the answers of the tiers; the machine and AI answers reach the
+        // paragraphs one after another, STAGGER apart; the last state stays until the loop restarts.
+        tiers() {
+          const START = 1.6
+          const MACHINE = 3.0
+          const AI = 5.2
+          const STAGGER = 0.2
+          const units = sample.paragraphs
+          /** The tier whose answer unit `i` shows at time `s`, or null before the translation starts. */
+          const shown = (i, s) => (s >= AI + i * STAGGER ? "ai" : s >= MACHINE + i * STAGGER ? "machine" : s >= START ? "dictionary" : null)
+          return {
+            prepare: () => true,
+            at(s) {
+              const phase = s < START ? "intro" : s < MACHINE ? "dictionary" : s < AI ? "machine" : "ai"
+              const intro = phase === "intro"
+              intro ? showPopup() : ($("popup").hidden = true)
+              $("button").classList.toggle("on", intro)
+              caption(
+                TIERS.map((tier, i) => t("tierLabel", i + 1, t(NAME_KEYS[tier]))),
+                TIERS.indexOf(phase),
+                intro ? sample.captions.intro : sample.captions[phase].replace("$1", service(phase)),
+              )
+              // The three tiers of the popup, marked.
+              mark(intro ? [popupDoc().getElementById("tier-dictionary").closest(".field")] : null)
+              if (s >= START) gif().start()
+              units.forEach((_, i) => {
+                const tier = shown(i, s)
+                for (const lower of TIERS.slice(0, tier ? TIERS.indexOf(tier) + 1 : 0)) gif().release(lower, i)
+              })
+            },
+            // A lower tier as text with its mark, the AI tier as the final translation with its Markdown rendered.
+            settled(s) {
+              const elements = unitElements()
+              return units.every((unit, i) => {
+                const tier = shown(i, s)
+                const el = elements[i]
+                if (!tier) return !el?.querySelector(".tt-translation, .tt-status")
+                if (tier === "ai") return Boolean(el) && finalShown(unit, el)
+                const node = el?.querySelector(".tt-translation")
+                const tag = node?.querySelector(".tt-tag")
+                return Boolean(node) && node.textContent.startsWith(unit[tier]) && node.classList.contains("tt-provisional") && tag?.textContent === t(NAME_KEYS[tier])
+              })
+            },
+            check: () => "",
+          }
+        },
+
+        // Precise translation on and images "ask" in the popup, "Translate this message", then the button under the
+        // chart, the consent panel once, and the table of the labels with their translations.
+        images() {
+          const units = sample.report.paragraphs
+          const c = sample.scenes.images
+          const TRANSLATE = 1.6
+          const CLICK = 2.8
+          const ALLOW = 4.5
+          const ANSWER = 5.3
+          const slot = () => bodyDoc().querySelector(".tt-image")
+          const pointerMoves = pointer({ x: 460, y: 600 }, [
+            { from: 0.7, at: TRANSLATE, target: () => popupDoc().getElementById("toggle"), click: true },
+            { from: 2.1, at: CLICK, target: () => slot().querySelector("button"), click: true },
+            { from: 3.9, at: ALLOW, target: () => slot().querySelector(".tt-image-consent .tt-notice-actions button"), click: true },
+            { from: 5.6, at: 6.2, target: () => ({ x: 860, y: 300 }) },
+          ])
+          return {
+            prepare() {
+              units.forEach((_, i) => TIERS.forEach((tier) => gif().release(tier, i)))
+              return true
+            },
+            at(s) {
+              const intro = s < TRANSLATE
+              intro ? showPopup() : ($("popup").hidden = true)
+              $("button").classList.toggle("on", intro)
+              mark(intro ? [popupDoc().getElementById("preciseRow"), popupDoc().getElementById("imageRow")] : null)
+              caption(c.steps, s < CLICK ? 0 : s < ALLOW ? 1 : 2, c.say[intro ? 0 : s < CLICK ? 1 : s < ANSWER ? 2 : 3])
+              pointerMoves.at(s)
+              if (s >= ANSWER) gif().release("image")
+            },
+            settled(s) {
+              const el = slot()
+              if (s < TRANSLATE) return !el && !bodyDoc().querySelector(".tt-translation")
+              if (!allFinal(units) || !el) return false
+              if (s < CLICK) return Boolean(el.querySelector("button")) && !el.querySelector(".tt-image-consent")
+              if (s < ALLOW) return Boolean(el.querySelector(".tt-image-consent"))
+              if (s < ANSWER) return Boolean(el.querySelector(".tt-image-note .tt-loading"))
+              return Boolean(el.querySelector(".tt-image-result table tr td"))
+            },
+            check: () => (gif().requests.image === 2 ? "" : `${gif().requests.image} image requests instead of a peek and one translation`),
+          }
+        },
+
+        // A translated message with the "Summary" button above it: the panel, its parts, and "Copy as Markdown".
+        summary() {
+          const units = [...sample.paragraphs.slice(0, 3), sample.meeting, sample.paragraphs[3]]
+          const c = sample.scenes.summary
+          const CLICK = 1.4
+          const ANSWER = 2.5
+          const COPY = 6.2
+          const panel = () => bodyDoc().querySelector(".tt-summary")
+          const copyButton = () => panel()?.querySelector("summary .tt-notice-actions button")
+          const pointerMoves = pointer({ x: 560, y: 380 }, [
+            { from: 0.6, at: CLICK, target: () => bodyDoc().querySelector(".tt-summary-button button"), click: true },
+            { from: ANSWER + 0.2, at: ANSWER + 0.8, target: () => ({ x: 860, y: 560 }) },
+            { from: 5.4, at: COPY, target: copyButton, click: true },
+            { from: 6.8, at: 7.4, target: () => ({ x: 860, y: 660 }) },
+          ])
+          return {
+            prepare() {
+              translateAtOnce(units)
+              return allFinal(units) && Boolean(bodyDoc().querySelector(".tt-summary-button button"))
+            },
+            at(s) {
+              const step = s < ANSWER ? 0 : s < COPY ? 1 : 2
+              caption(c.steps, step, c.say[s < CLICK ? 0 : s < ANSWER ? 1 : s < COPY ? 2 : 3].replace("$1", service("ai")))
+              pointerMoves.at(s)
+              if (s >= ANSWER) gif().release("summary")
+            },
+            settled(s) {
+              if (!allFinal(units)) return false
+              const p = panel()
+              if (s < CLICK) return !p
+              if (s < ANSWER) return Boolean(p) && p.textContent.includes(t("summaryRunning"))
+              if (!p?.querySelector("li strong")) return false
+              if (s < COPY) return copyButton()?.textContent === t("summaryCopy")
+              return copyButton()?.textContent === t("summaryCopied") && gif().copied?.startsWith("## ")
+            },
+            check: () => (gif().requests.summary === 1 ? "" : `${gif().requests.summary} summary requests instead of one`),
+          }
+        },
+
+        // The popup stays open: translation only, bilingual again, then "Show original" brings back the message as it was.
+        modes() {
+          const units = sample.paragraphs
+          const c = sample.scenes.modes
+          const ONLY = 1.6
+          const BACK = 4.2
+          const OFF = 6.6
+          const radio = (value) => popupDoc().querySelector(`input[name="mode"][value="${value}"]`)
+          let original = null
+          let requests = null
+          const pointerMoves = pointer({ x: 420, y: 520 }, [
+            { from: 0.8, at: ONLY, target: () => radio("translation-only").closest("label"), click: () => radio("translation-only") },
+            { from: 3.4, at: BACK, target: () => radio("bilingual").closest("label"), click: () => radio("bilingual") },
+            { from: 5.8, at: OFF, target: () => popupDoc().getElementById("toggle"), click: true },
+          ])
+          const mode = (s) => (s < ONLY ? "bilingual" : s < BACK ? "translation-only" : s < OFF ? "bilingual" : "original")
+          return {
+            prepare() {
+              if (original === null) original = bodyDoc().body.innerHTML
+              translateAtOnce(units)
+              const ready = allFinal(units, "bilingual") && popupDoc().getElementById("toggle").textContent === t("popupShowOriginal")
+              if (ready) requests = gif().requests.translate
+              return ready
+            },
+            at(s) {
+              showPopup()
+              $("button").classList.add("on")
+              const m = mode(s)
+              caption(c.steps, m === "bilingual" ? 0 : m === "translation-only" ? 1 : 2, c.say[s < ONLY ? 0 : s < BACK ? 1 : s < OFF ? 2 : 3], false)
+              pointerMoves.at(s)
+            },
+            settled(s) {
+              const m = mode(s)
+              if (m !== "original") return allFinal(units, m)
+              return !bodyDoc().querySelector(".tt-translation") && bodyDoc().body.innerHTML === original && popupDoc().getElementById("toggle").textContent === t("popupTranslate")
+            },
+            check: () => (gif().requests.translate === requests ? "" : `${gif().requests.translate - requests} translation requests after the start`),
+          }
+        },
+      }
+
+      let scene = null
       window.stage = {
         duration: DURATION,
-        /** Whether the extension's pages have loaded and drawn what the first frame needs. */
+        /** Whether the extension's pages have loaded and the scene has its first state. */
         ready() {
-          const popup = popupDoc()
-          const tiersFilled = TIERS.every((tier) => popup?.getElementById(`tier-${tier}`)?.selectedOptions[0])
-          const status = popup?.getElementById("status")?.textContent.trim()
-          return Boolean(messages && tiersFilled && status && $("body").contentWindow.__gif?.connected)
+          if (!messages || !popupReady() || !$("body").contentWindow.__gif?.connected) return false
+          scene ??= SCENES[sceneName]()
+          return scene.prepare()
         },
-        /** Put the stage in its state at time `s`; the stage only moves forward. */
-        at(s) {
-          const phase = s < START ? "intro" : s < MACHINE ? "dictionary" : s < AI ? "machine" : "ai"
-          const intro = phase === "intro"
-          $("popup").hidden = !intro
-          $("button").classList.toggle("on", intro)
-          TIERS.forEach((tier, i) => {
-            const pill = $(`pill-${tier}`)
-            const at = TIERS.indexOf(phase)
-            pill.classList.toggle("now", i === at)
-            pill.classList.toggle("past", at >= 0 && i < at)
-          })
-          $("say").textContent = intro ? sample.captions.intro : sample.captions[phase].replace("$1", service(phase))
-          // The three tiers of the popup, marked.
-          const mark = $("mark")
-          mark.hidden = !intro
-          if (intro) {
-            const field = popupDoc().getElementById("tier-dictionary").closest(".field")
-            const box = field.getBoundingClientRect()
-            const frame = $("popup").getBoundingClientRect()
-            const pad = 6
-            Object.assign(mark.style, { left: `${frame.left + 1 + box.left - pad}px`, top: `${frame.top + 1 + box.top - pad}px`, width: `${box.width + 2 * pad}px`, height: `${box.height + 2 * pad}px` })
-          }
-          const gif = $("body").contentWindow.__gif
-          if (s >= START) gif.start()
-          UNITS.forEach((_, i) => {
-            const tier = shown(i, s)
-            for (const lower of TIERS.slice(0, tier ? TIERS.indexOf(tier) + 1 : 0)) gif.release(lower, i)
-          })
-        },
-        /**
-         * Whether every paragraph shows the answer the time `s` asks for: a lower tier as text with its mark, the AI
-         * tier as the final translation with its Markdown rendered (list items, bold).
-         */
-        settled(s) {
-          const elements = unitElements()
-          return UNITS.every((unit, i) => {
-            const tier = shown(i, s)
-            const el = elements[i]
-            if (!tier) return !el?.querySelector(".tt-translation, .tt-status")
-            const node = el?.querySelector(".tt-translation")
-            if (!node) return false
-            const tag = node.querySelector(".tt-tag")
-            if (tier !== "ai") return node.textContent.startsWith(unit[tier]) && node.classList.contains("tt-provisional") && tag?.textContent === t(NAME_KEYS[tier])
-            if (node.classList.contains("tt-provisional") || tag || plain(node.textContent) !== plain(unit.ai)) return false
-            return (!/^- /m.test(unit.ai) || node.querySelector("li")) && (!unit.ai.includes("**") || node.querySelector("strong"))
-          })
-        },
+        at: (s) => scene.at(s),
+        settled: (s) => scene.settled(s),
+        /** What the pages show, for the message of a timeout. */
+        why: () =>
+          JSON.stringify({
+            labels: Boolean(messages),
+            popup: Boolean(popupDoc()?.getElementById("status")?.textContent.trim()),
+            tiers: TIERS.map((tier) => popupDoc()?.getElementById(`tier-${tier}`)?.selectedOptions[0]?.textContent ?? null),
+            connected: Boolean($("body").contentWindow.__gif?.connected),
+            requests: $("body").contentWindow.__gif?.requests,
+            body: bodyDoc()?.body?.innerHTML.replace(/<script[^]*?<\/script>/g, "").replace(/data:image[^"]+/g, "data:…").slice(0, 2500),
+          }),
+        /** What went wrong in the scene as a whole (requests the scene must not make); empty when nothing. */
+        check: () => scene.check(),
       }
     </script>
   </body>

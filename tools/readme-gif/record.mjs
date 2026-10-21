@@ -1,11 +1,14 @@
-// The animations of the README: node tools/readme-gif/record.mjs [en] [zh-CN] [zh-TW]
+// The animations of the README: node tools/readme-gif/record.mjs [tiers] [images] [summary] [modes] [en] [zh-CN] [zh-TW]
 //
 // Serves dist/ (run npm run build first) on 127.0.0.1 with the pages of this folder and a stand-in for Thunderbird's
 // WebExtension API (stub.js), as tools/store-screenshots/shoot.mjs does. stage.html shows the real popup and the
-// real content script on a made-up message (samples.js) and holds a timeline; this script steps through it frame by
-// frame, waits until the page shows the state of each frame, and takes a screenshot with headless Chrome. ffmpeg then
-// encodes docs/media/tiers-<variant>.gif in two passes: a palette of the frames, then the frames with that palette.
+// real content script on a made-up message (samples.js) and holds the timeline of each scene; this script steps
+// through it frame by frame, waits until the page shows the state of each frame, and takes a screenshot with headless
+// Chrome. ffmpeg then encodes docs/media/<scene>-<variant>.gif in two passes: a palette of the frames, then the frames
+// with that palette. Without arguments it records every scene in every variant; scenes and variants as arguments
+// narrow that down.
 // CHROME_BIN selects the browser and FFMPEG_BIN the encoder; without FFMPEG_BIN, ffmpeg is looked up on the PATH.
+// GIF_DEBUG=1 prints the exceptions and console output of the stage.
 import { spawn, spawnSync } from "node:child_process"
 import { existsSync, mkdirSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs"
 import { createServer } from "node:http"
@@ -22,6 +25,7 @@ const HEIGHT = 716
 const FPS = 12
 const PORT = 9349
 const VARIANTS = ["en", "zh-CN", "zh-TW"]
+const SCENES = ["tiers", "images", "summary", "modes"]
 /** Largest file the README should carry. */
 const MAX_BYTES = 2.5 * 1024 * 1024
 
@@ -66,6 +70,8 @@ async function openPage() {
       const pending = new Map()
       ws.onmessage = (event) => {
         const msg = JSON.parse(event.data)
+        if (process.env.GIF_DEBUG && msg.method === "Runtime.exceptionThrown") console.log("EXC", JSON.stringify(msg.params.exceptionDetails).slice(0, 800))
+        if (process.env.GIF_DEBUG && msg.method === "Runtime.consoleAPICalled") console.log("CON", JSON.stringify(msg.params.args).slice(0, 400))
         if (msg.id && pending.has(msg.id)) {
           const { ok, fail } = pending.get(msg.id)
           pending.delete(msg.id)
@@ -97,7 +103,10 @@ async function evaluate(page, expression) {
 async function until(page, expression, what) {
   const deadline = Date.now() + 20_000
   while (!(await evaluate(page, `(() => { try { return Boolean(${expression}) } catch { return false } })()`))) {
-    if (Date.now() > deadline) throw new Error(`timed out waiting for ${what}`)
+    if (Date.now() > deadline) {
+      const why = await evaluate(page, `(() => { try { return String(${expression}) + " " + (window.stage?.why() ?? "") } catch (e) { return String(e.stack ?? e) } })()`)
+      throw new Error(`timed out waiting for ${what} (${why})`)
+    }
     await new Promise((r) => setTimeout(r, 50))
   }
 }
@@ -105,29 +114,33 @@ async function until(page, expression, what) {
 /** Two animation frames of the stage and of its frames, so that what changed is drawn. */
 const PAINTED = "new Promise((ok) => requestAnimationFrame(() => requestAnimationFrame(() => ok(true))))"
 
-async function record(variant) {
-  const frames = join(work, `frames-${variant}`)
+async function record(scene, variant) {
+  const name = `${scene}-${variant}`
+  const frames = join(work, `frames-${name}`)
   rmSync(frames, { recursive: true, force: true })
   mkdirSync(frames, { recursive: true })
   const page = await openPage()
   await page.send("Emulation.setDeviceMetricsOverride", { width: WIDTH, height: HEIGHT, deviceScaleFactor: 1, mobile: false })
   await page.send("Emulation.setEmulatedMedia", { features: [{ name: "prefers-color-scheme", value: "light" }] })
   await page.send("Page.enable")
-  await page.send("Page.navigate", { url: `http://127.0.0.1:${PORT}/__gif/stage.html?variant=${variant}` })
-  await until(page, "window.stage && stage.ready()", `${variant}: the pages to load`)
+  if (process.env.GIF_DEBUG) await page.send("Runtime.enable")
+  await page.send("Page.navigate", { url: `http://127.0.0.1:${PORT}/__gif/stage.html?variant=${variant}&scene=${scene}` })
+  await until(page, "window.stage && stage.ready()", `${name}: the pages to load`)
   await evaluate(page, "document.fonts.ready.then(() => true)")
   const duration = await evaluate(page, "stage.duration")
   const count = Math.round(duration * FPS)
   for (let i = 0; i < count; i++) {
     const s = i / FPS
     await evaluate(page, `stage.at(${s})`)
-    await until(page, `stage.settled(${s})`, `${variant}: the state at ${s.toFixed(2)} s`)
+    await until(page, `stage.settled(${s})`, `${name}: the state at ${s.toFixed(2)} s`)
     await evaluate(page, PAINTED)
     const { data } = await page.send("Page.captureScreenshot", { format: "png" })
     writeFileSync(join(frames, `${String(i).padStart(4, "0")}.png`), Buffer.from(data, "base64"))
   }
+  const problem = await evaluate(page, "stage.check()")
   page.close()
-  return { frames, count }
+  if (problem) throw new Error(`${name}: ${problem}`)
+  return { name, frames, count }
 }
 
 function ffmpeg(args) {
@@ -136,29 +149,31 @@ function ffmpeg(args) {
 }
 
 /** Two passes: one palette for all frames, weighted towards what changes between them, then the frames with it. */
-function encode(variant, { frames, count }) {
+function encode({ name, frames, count }) {
   const input = ["-framerate", String(FPS), "-i", join(frames, "%04d.png")]
-  const palette = join(work, `palette-${variant}.png`)
+  const palette = join(work, `palette-${name}.png`)
   ffmpeg([...input, "-vf", "palettegen=max_colors=256:stats_mode=full", palette])
-  const gif = join(out, `tiers-${variant}.gif`)
+  const gif = join(out, `${name}.gif`)
   ffmpeg([...input, "-i", palette, "-lavfi", "paletteuse=dither=bayer:bayer_scale=5:diff_mode=rectangle", "-loop", "0", gif])
   const bytes = statSync(gif).size
-  console.log(`docs/media/tiers-${variant}.gif: ${WIDTH}×${HEIGHT}, ${count} frames at ${FPS} fps (${(count / FPS).toFixed(1)} s), ${(bytes / 1024).toFixed(0)} KiB`)
-  if (bytes > MAX_BYTES) throw new Error(`tiers-${variant}.gif is larger than ${MAX_BYTES} bytes`)
+  console.log(`docs/media/${name}.gif: ${WIDTH}×${HEIGHT}, ${count} frames at ${FPS} fps (${(count / FPS).toFixed(1)} s), ${(bytes / 1024).toFixed(0)} KiB`)
+  if (bytes > MAX_BYTES) throw new Error(`${name}.gif is larger than ${MAX_BYTES} bytes`)
 }
 
 async function main() {
   if (!existsSync(join(dist, "manifest.json"))) throw new Error("dist/ is missing: run npm run build first")
   if (!CHROME) throw new Error("no Chrome or Edge found; set CHROME_BIN")
-  const variants = process.argv.slice(2).length ? process.argv.slice(2) : VARIANTS
-  for (const v of variants) if (!VARIANTS.includes(v)) throw new Error(`unknown variant ${v}; one of ${VARIANTS.join(", ")}`)
+  const args = process.argv.slice(2)
+  for (const a of args) if (!VARIANTS.includes(a) && !SCENES.includes(a)) throw new Error(`unknown argument ${a}; scenes ${SCENES.join(", ")}, variants ${VARIANTS.join(", ")}`)
+  const scenes = SCENES.filter((s) => args.includes(s))
+  const variants = VARIANTS.filter((v) => args.includes(v))
   mkdirSync(out, { recursive: true })
   const server = await serve()
   const profile = join(work, "profile")
   rmSync(profile, { recursive: true, force: true })
   const chrome = spawn(CHROME, ["--headless", "--disable-gpu", "--hide-scrollbars", "--no-first-run", "--no-default-browser-check", `--user-data-dir=${profile}`, `--remote-debugging-port=${PORT + 1}`, "--force-device-scale-factor=1", "about:blank"], { stdio: "ignore" })
   try {
-    for (const variant of variants) encode(variant, await record(variant))
+    for (const scene of scenes.length ? scenes : SCENES) for (const variant of variants.length ? variants : VARIANTS) encode(await record(scene, variant))
   } finally {
     chrome.kill()
     server.close()
