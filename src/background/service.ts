@@ -184,6 +184,8 @@ export class TranslationService {
   private readonly contexts = new LruCache<MailContext>(MAX_CONTEXTS)
   /** Analyses by cache key, finished or running, so the batches of one message share one request. */
   private readonly analyses = new LruCache<Promise<MailAnalysis | null>>(MAX_CONTEXTS)
+  /** The paragraphs of the batches that wait for an analysis on its way, by its key: once no page waits for any of them, it is not sent. */
+  private readonly analysisWaiters = new Map<string, Job[]>()
   /** Messages registered for a retranslation, by context id: their next analysis is made again. */
   private readonly freshContexts = new LruCache<true>(MAX_CONTEXTS)
   private readonly llm: LlmImpl
@@ -516,7 +518,7 @@ export class TranslationService {
    * all paragraphs to translate fit into one request, that request carries the
    * whole message and no analysis is needed.
    */
-  private async contextPrefix(job: Job): Promise<string> {
+  private async contextPrefix(job: Job, batch: Job[]): Promise<string> {
     const { context } = job.mail!
     // The first request of a retranslation takes the mark; the requests after it share the new analysis.
     const fresh = this.freshContexts.get(context.id) !== undefined
@@ -524,22 +526,27 @@ export class TranslationService {
     const limits = this.limitsFor(job.provider)
     const chars = context.targets.reduce((n, i) => n + (context.paragraphs[i]?.length ?? 0), 0)
     if (chars <= limits.maxChars && context.targets.length <= limits.maxItems) return ""
-    const analysis = await this.analysis(job, fresh)
+    const analysis = await this.analysis(job, fresh, batch)
     return buildContextBlock(analysis, context.text.length <= MAX_PREFIX_TEXT_CHARS ? context.text : "")
   }
 
   /** The analysis of the message, shared by the requests of one configuration (endpoint, thinking, temperature, languages). */
-  private analysis(job: Job, fresh: boolean): Promise<MailAnalysis | null> {
+  private analysis(job: Job, fresh: boolean, batch: Job[]): Promise<MailAnalysis | null> {
     const key = analysisKey(job.provider, `${job.sourceLang}>${job.targetLang}`, job.mail!.context.text, job.variant)
     let analysis = fresh ? undefined : this.analyses.get(key)
-    if (!analysis) {
-      analysis = this.loadAnalysis(key, job, fresh)
+    if (analysis) this.analysisWaiters.get(key)?.push(...batch)
+    else {
+      const waiters = [...batch]
+      this.analysisWaiters.set(key, waiters)
+      analysis = this.loadAnalysis(key, job, fresh, waiters)
       this.analyses.set(key, analysis)
+      const done = () => void (this.analysisWaiters.get(key) === waiters && this.analysisWaiters.delete(key))
+      void analysis.then(done, done)
     }
     return analysis
   }
 
-  private async loadAnalysis(key: string, job: Job, fresh: boolean): Promise<MailAnalysis | null> {
+  private async loadAnalysis(key: string, job: Job, fresh: boolean, waiters: Job[]): Promise<MailAnalysis | null> {
     const cached = fresh ? undefined : await this.deps.cache.get(key)
     if (cached !== undefined) return parseAnalysis(cached)
     try {
@@ -547,6 +554,8 @@ export class TranslationService {
         key,
         () =>
           this.queue(job.provider).run(() => {
+            // The glossary for images reuses an analysis and never asks for one of its own.
+            if (waiters.every((waiter) => waiter.signal?.aborted)) throw aborted()
             this.assertConsent(job.provider, job.sample)
             return this.llm.analyze(job.mail!.context.text, this.llmOptions(job))
           }),
@@ -622,7 +631,8 @@ export class TranslationService {
         return all(() => caiyunTranslateBatch(texts, languages, p, fetchOpts))
       case "llm": {
         const opts = this.llmOptions(first)
-        if (first.mail) opts.contextPrefix = await this.contextPrefix(first)
+        // The batch queue gives no batch here that no page waits for; the analysis checks that again as it leaves the queue.
+        if (first.mail) opts.contextPrefix = await this.contextPrefix(first, jobs)
         const single = (job: Job) => this.llm.single(this.segments([job])[0], opts)
         return jobs.length > 1 ? batchOrEach(() => this.llm.batch(this.segments(jobs), opts), single) : each(single)
       }

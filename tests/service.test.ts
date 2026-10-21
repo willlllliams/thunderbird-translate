@@ -511,6 +511,36 @@ describe("TranslationService: tiers, caps and precise mode details", () => {
       expect(second.llm.analyze).not.toHaveBeenCalled()
     })
 
+    it("R7: sends no analysis once no page waits for the batches of the message, and asks again for a page that comes later", async () => {
+      const { llm } = fakeLlm(ANALYSIS)
+      let release!: () => void
+      const gate = new Promise<void>((resolve) => (release = resolve))
+      llm.single.mockImplementationOnce(async (g: Segment) => (await gate, `AI(${g.text})`))
+      const { service } = setup((s) => (precise(s), (s.batch.concurrency = 1)), { llm })
+      const ask = (req: Omit<TranslateRequest, "tiers" | "sourceLang" | "targetLang">, signal: AbortSignal) => {
+        let result: TranslateResponse | undefined
+        return service.translateForPage({ sourceLang: "auto", targetLang: "zh-CN", tiers: ["ai"], ...req }, (_tier, r) => (result = r), { signal }).then(() => result!)
+      }
+      // A paragraph outside any message holds the only slot.
+      const blocker = ask({ text: "Blocker" }, new AbortController().signal)
+      await until(() => expect(llm.single).toHaveBeenCalledTimes(1))
+      const context = createMailContext(PARAGRAPHS, [0, 1, 2])
+      service.setContext(context)
+      const page = new AbortController()
+      const asked = PARAGRAPHS.map((text, index) => ask({ text, context: { id: context.id, index } }, page.signal))
+      // The batches went out of the batch queue; their analysis waits for the slot.
+      await new Promise((r) => setTimeout(r, 80))
+      page.abort()
+      release()
+      await blocker
+      expect((await Promise.all(asked)).map((r) => r.ok)).toEqual([false, false, false])
+      expect(llm.analyze).not.toHaveBeenCalled()
+      // The message shown again: its analysis is asked for this time.
+      const again = PARAGRAPHS.map((text, index) => ask({ text, context: { id: context.id, index } }, new AbortController().signal))
+      expect((await Promise.all(again)).map((r) => r.ok)).toEqual([true, true, true])
+      expect(llm.analyze).toHaveBeenCalledTimes(1)
+    })
+
     it("M2: keeps the analysis of a retranslation in the cache when the older analysis answers later", async () => {
       const { llm, prefixes } = fakeLlm(ANALYSIS)
       let release!: () => void
