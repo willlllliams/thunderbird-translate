@@ -373,7 +373,7 @@ function checkSummary(ready, report, calls) {
  * The parts of image.eml that get a button: the chart (cid:) and the receipt (attachment); what each part is otherwise.
  * Thunderbird numbers them from the top multipart/mixed (part 1), as in the address of each image (part=1.1.2).
  */
-const IMAGE_PARTS = { chart: "1.1.2", pixel: "1.1.3", gif: "1.1.4", logo: "1.1.5", receipt: "1.2" }
+const IMAGE_PARTS = { chart: "1.1.2", pixel: "1.1.3", gif: "1.1.4", logo: "1.1.5", notice: "1.1.6", receipt: "1.2" }
 
 /** Check the report of an image run; returns the failures. */
 function checkImage(c, ready, report, calls) {
@@ -385,7 +385,7 @@ function checkImage(c, ready, report, calls) {
   if (report.error) return [...failures, `content script: ${report.error}`]
   const images = calls.filter((x) => x.type === "ai" && x.image)
   const parts = (slots) => (slots ?? []).filter((slot) => slot.button || slot.result || slot.consent).map((slot) => slot.part).sort()
-  const both = [IMAGE_PARTS.chart, IMAGE_PARTS.receipt].sort()
+  const sendable = [IMAGE_PARTS.chart, IMAGE_PARTS.notice, IMAGE_PARTS.receipt].sort()
   expect(images.every((x) => x.mode === "image" && x.image.jpeg && x.image.withinLimit && x.model === "e2e-model" && x.maxTokens === 1024 && /^Image \d of the email\. Target language: Simplified Chinese\./.test(x.image.text)), "an image request is no JPEG within the limit, or carries the wrong model, limit or text", images)
   const result = (slot) => slot?.result && slot.result.header.join("|") === "Original|Translation" && slot.result.cells.join("|") === "Umsatz|[AI image] Revenue|Kosten|[AI image] Costs" && slot.result.open
   if (c.scenario === "image-off") {
@@ -396,17 +396,19 @@ function checkImage(c, ready, report, calls) {
   if (c.scenario === "image-auto") {
     const chart = report.auto?.find((slot) => slot.part === IMAGE_PARTS.chart)
     const receipt = report.auto?.find((slot) => slot.part === IMAGE_PARTS.receipt)
+    const notice = report.auto?.find((slot) => slot.part === IMAGE_PARTS.notice)
     expect(result(chart) && chart.result.title.startsWith("Image text · ") && !chart.result.title.includes("cached"), "the chart has no result of its own request", chart)
     expect(receipt?.button === "Translate image text" && !receipt.result, "the receipt beyond the limit does not keep its button", receipt)
+    expect(notice?.button === "Translate image text" && !notice.result, "the notice beyond the images peeked at does not get its button", notice)
     expect(images.length === 1 && images[0].image.text.startsWith("Image 1 "), "mode auto did not send the chart alone", images)
-    expect(parts(report.auto).join() === both.join(), "an image other than the chart and the receipt shows something", report.auto)
+    expect(parts(report.auto).join() === sendable.join(), "an image other than the chart, the notice and the receipt shows something", report.auto)
     return failures
   }
-  expect(parts(report.ask).join() === both.join() && report.ask.every((slot) => !slot.button || slot.button === "Translate image text"), "the buttons are not under the chart and the receipt only", report.ask)
+  expect(parts(report.ask).join() === sendable.join() && report.ask.every((slot) => !slot.button || slot.button === "Translate image text"), "the buttons are not under the chart, the notice and the receipt only", report.ask)
   if (c.scenario === "image-switch") {
-    expect(report.auto?.filter(result).length === 2, "mode auto did not show both results", report.auto)
-    expect(images.length === 2 && images.every((x) => x.at > report.switchAt), "mode auto did not send each image once", images)
-    expect(report.back?.filter(result).length === 2 && report.back.every((slot) => !slot.button), "back in mode ask the results are not shown at once", report.back)
+    expect(report.auto?.filter(result).length === 3, "mode auto did not show the three results", report.auto)
+    expect(images.length === 3 && images.every((x) => x.at > report.switchAt), "mode auto did not send each image once", images)
+    expect(report.back?.filter(result).length === 3 && report.back.every((slot) => !slot.button), "back in mode ask the results are not shown at once", report.back)
     expect(!images.some((x) => x.at > report.offAt), "back in mode ask an image was sent again", images)
     expect(report.tierResults === 0, "a change of the image mode translated the paragraphs again", report.tierResults)
     return failures
@@ -416,10 +418,12 @@ function checkImage(c, ready, report, calls) {
   expect(report.panel?.title === "Send this image to Custom OpenAI-compatible?" && report.panel.lines.some((line) => line.includes("127.0.0.1")) && report.panel.lines.some((line) => /1,?568 pixels/.test(line) && line.includes("JPEG")), "the consent panel does not say what is sent where", report.panel)
   expect(report.panel?.slots.find((slot) => slot.consent)?.part === IMAGE_PARTS.chart, "the consent panel is not under the clicked image", report.panel?.slots)
   expect(result(report.first?.find((slot) => slot.part === IMAGE_PARTS.chart)), "the chart does not show the table with the column names of the interface", report.first)
-  expect(report.second?.filter(result).length === 2, "the receipt does not show its result after a click without a second question", report.second)
-  expect(images.length === 2 && images.filter((x) => x.at < report.cachedAt).length === 2, "the two clicks did not send one request each", images)
+  // The notice has no Content-Disposition: its bytes arrive all the same.
+  expect(result(report.second?.find((slot) => slot.part === IMAGE_PARTS.notice)), "the notice without Content-Disposition does not show its result", report.second)
+  expect(report.second?.filter(result).length === 3, "the notice and the receipt do not show their results after a click without a second question", report.second)
+  expect(images.length === 3 && images.filter((x) => x.at < report.cachedAt).length === 3, "the three clicks did not send one request each", images)
   expect(report.restored?.identical === true && report.restored.leftovers === 0, "the message did not come back as it was", report.restored)
-  expect(report.cached?.filter((slot) => result(slot) && slot.result.title.endsWith("cached")).length === 2 && report.cached.every((slot) => !slot.button), "translated again, the results do not come from the cache at once", report.cached)
+  expect(report.cached?.filter((slot) => result(slot) && slot.result.title.endsWith("cached")).length === 3 && report.cached.every((slot) => !slot.button), "translated again, the results do not come from the cache at once", report.cached)
   return failures
 }
 

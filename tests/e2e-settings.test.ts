@@ -71,11 +71,16 @@ describe("settings of the e2e runs", () => {
     }
     const size = (png: Uint8Array) => [new DataView(png.buffer, png.byteOffset).getUint32(16), new DataView(png.buffer, png.byteOffset).getUint32(20)]
     const minBytes = defaultImageSettings().minKB * 1024
-    expect([...parts.keys()].sort()).toEqual(["chart.png", "logo.png", "pixel.png", "receipt.png", "spinner.gif"])
+    expect([...parts.keys()].sort()).toEqual(["chart.png", "logo.png", "notice.png", "pixel.png", "receipt.png", "spinner.gif"])
     expect(size(parts.get("chart.png")!)).toEqual([400, 200])
     expect(size(parts.get("receipt.png")!)).toEqual([300, 300])
     expect(size(parts.get("pixel.png")!)).toEqual([1, 1])
-    for (const name of ["chart.png", "receipt.png"]) expect([name, parts.get(name)!.length >= minBytes, isAnimated(parts.get(name)!)]).toEqual([name, true, false])
+    for (const name of ["chart.png", "receipt.png", "notice.png"]) expect([name, parts.get(name)!.length >= minBytes, isAnimated(parts.get(name)!)]).toEqual([name, true, false])
+    // S7: the notice has no Content-Disposition, passes the filters of the content script and comes after the GIF.
+    expect(size(parts.get("notice.png")!)).toEqual([320, 160])
+    const start = eml.indexOf('name="notice.png"')
+    expect(eml.slice(start, eml.indexOf("\n\n", start))).not.toContain("Content-Disposition")
+    expect(eml.indexOf("cid:notice@") > eml.indexOf("cid:spinner@")).toBe(true)
     // The GIF passes the filters of the content script (a 200 × 200 screen) and is left out for its two frames.
     const gif = parts.get("spinner.gif")!
     expect([gif[6] | (gif[7] << 8), gif[8] | (gif[9] << 8), gif.length >= minBytes, isAnimated(gif)]).toEqual([200, 200, true, true])

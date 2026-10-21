@@ -296,24 +296,24 @@ export function createContentProbe(): ContentProbe {
       return
     }
     if (scenario === "image-auto") {
-      await until("the result of the chart and the button of the receipt", () => imageResults() === 1 && imageButtons().length === 1)
+      await until("the result of the chart and the buttons of the notice and the receipt", () => imageResults() === 1 && imageButtons().length === 2)
       report.auto = imageSlots()
       await send({ e2e: "screenshot", name: "image-auto", windowType: "mail:messageWindow" })
       return
     }
-    await until("the buttons under the chart and the receipt", () => imageButtons().length === 2)
+    await until("the buttons under the chart, the notice and the receipt", () => imageButtons().length === 3)
     report.ask = imageSlots()
     if (scenario === "image-switch") {
       const tierResults = events.length
       report.switchAt = Date.now()
       await send({ e2e: "settings", imageMode: "auto" })
-      await until("the results of mode auto", () => settings?.image.mode === "auto" && imageResults() === 2)
+      await until("the results of mode auto", () => settings?.image.mode === "auto" && imageResults() === 3)
       report.auto = imageSlots()
       await send({ e2e: "settings", imageMode: "off" })
       await until("nothing under the images", () => settings?.image.mode === "off" && document.querySelectorAll(".tt-image").length === 0)
       report.offAt = Date.now()
       await send({ e2e: "settings", imageMode: "ask" })
-      await until("the results again in mode ask", () => settings?.image.mode === "ask" && imageResults() === 2)
+      await until("the results again in mode ask", () => settings?.image.mode === "ask" && imageResults() === 3)
       report.back = imageSlots()
       report.tierResults = events.length - tierResults
       report.state = last
@@ -331,8 +331,11 @@ export function createContentProbe(): ContentProbe {
     await until("the result under the chart", () => imageResults() === 1)
     report.first = imageSlots()
     await send({ e2e: "screenshot", name: "image-result", windowType: "mail:messageWindow" })
+    // The notice, then the receipt: no second question.
     document.querySelector<HTMLButtonElement>(".tt-image > button")!.click()
-    await until("the result under the receipt", () => imageResults() === 2)
+    await until("the result under the notice", () => imageResults() === 2)
+    document.querySelector<HTMLButtonElement>(".tt-image > button")!.click()
+    await until("the result under the receipt", () => imageResults() === 3)
     report.second = imageSlots()
     // Translated again: the cache answers, without a button and without a request.
     controller.stop()
@@ -341,7 +344,7 @@ export function createContentProbe(): ContentProbe {
     last = null
     await controller.start()
     await until("the final progress report", translated)
-    await until("both results from the cache", () => imageResults() === 2)
+    await until("the three results from the cache", () => imageResults() === 3)
     report.cached = imageSlots()
     controller.stop()
   }

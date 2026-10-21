@@ -7,7 +7,10 @@
 // - part 1.1.3, a tracking pixel (1 × 1): left out by the content script;
 // - part 1.1.4, an animated GIF (two frames on a 200 × 200 screen, with a comment that makes the file larger than the
 //   smallest file of the settings): left out by the background script, which reads the frames;
-// - part 1.1.5, a logo in the signature (240 × 240): left out by the content script.
+// - part 1.1.5, a logo in the signature (240 × 240): left out by the content script;
+// - part 1.1.6, a notice (PNG, 320 × 160) without Content-Disposition, which Thunderbird 128 lists among no attachments:
+//   its bytes are read all the same. It comes after the GIF, so in "image-auto" (one image per message, the first two
+//   images peeked at) it gets its button without being read.
 // The pixels are deterministic, so the file is the same on every run.
 import { writeFileSync } from "node:fs"
 import { dirname, join } from "node:path"
@@ -48,6 +51,7 @@ const chart = png(400, 200, (x, y) => {
 })
 const receipt = png(300, 300, (x, y) => (y < 24 ? [noise(x, y), noise(x, y + 1), noise(x + 1, y)] : y % 24 < 6 && x > 20 && x < 20 + ((y * 7) % 240) ? [20, 20, 20] : [250, 250, 245]))
 const pixel = png(1, 1, () => [255, 255, 255])
+const notice = png(320, 160, (x, y) => (y < 8 ? [noise(x, y), noise(y, x), noise(x, x + y)] : y > 60 && y < 90 && x > 20 && x < 300 ? [180, 30, 30] : [255, 250, 240]))
 const logo = png(240, 240, (x, y) => ((x - 120) ** 2 + (y - 120) ** 2 < 90 ** 2 ? [200, 60, 60] : [255, 255, 255]))
 
 /** A GIF with two 1 × 1 frames on a 200 × 200 screen and a comment of 5000 bytes. */
@@ -77,6 +81,7 @@ const html = `<html>
 <p>The receipt for the client dinner is attached; please check the total amount before Friday.</p>
 <p><img src="cid:pixel@e2e.example" alt=""></p>
 <p><img src="cid:spinner@e2e.example" alt="Loading"></p>
+<p><img src="cid:notice@e2e.example" alt="Notice"></p>
 <div class="moz-signature">-- <br>Alice Walker<br><img src="cid:logo@e2e.example" alt="Logo"></div>
 </body>
 </html>`
@@ -101,7 +106,8 @@ ${html}
 ${part("image/png", "chart.png", chart, "Content-ID: <chart@e2e.example>\nContent-Disposition: inline; filename=\"chart.png\"")}--tt-related
 ${part("image/png", "pixel.png", pixel, "Content-ID: <pixel@e2e.example>")}--tt-related
 ${part("image/gif", "spinner.gif", animatedGif(), "Content-ID: <spinner@e2e.example>")}--tt-related
-${part("image/png", "logo.png", logo, "Content-ID: <logo@e2e.example>")}--tt-related--
+${part("image/png", "logo.png", logo, "Content-ID: <logo@e2e.example>")}--tt-related
+${part("image/png", "notice.png", notice, "Content-ID: <notice@e2e.example>")}--tt-related--
 
 --tt-mixed
 ${part("image/png", "receipt.png", receipt, "Content-Disposition: attachment; filename=\"receipt.png\"")}--tt-mixed--
