@@ -35,12 +35,12 @@ function repository(): string {
 }
 
 describe("source archive", () => {
-  it("holds what npm ci and npm run build read, without the e2e build, the experimental build, the tests and the documents", () => {
+  it("holds what npm ci and npm run build read, without the e2e build, the tests and the documents", () => {
     const files = sourceFiles()
     for (const file of ["package.json", "package-lock.json", "tsconfig.json", "LICENSE", "SOURCE-BUILD.md", "scripts/build.mjs", "static/manifest.json", "locales/en.json", "vendor/bergamot/bergamot-translator.wasm.zst", "vendor/bergamot/bergamot-translator.js", "licenses/Apache-2.0.txt"]) {
       expect(files).toContain(file)
     }
-    expect(files.filter((f) => f.startsWith("src/")).sort()).toEqual(tracked("src").filter((f) => !f.startsWith("src/e2e/") && !f.startsWith("src/experiments/")).sort())
+    expect(files.filter((f) => f.startsWith("src/")).sort()).toEqual(tracked("src").filter((f) => !f.startsWith("src/e2e/")).sort())
     expect(files.filter((f) => !/^(src|static|scripts|locales|vendor|licenses)\//.test(f))).toEqual(["LICENSE", "SOURCE-BUILD.md", "VENDOR.md", "package-lock.json", "package.json", "tsconfig.json"])
     expect(files).not.toContain("scripts/live-test.mjs")
     expect(files).toEqual([...files].sort())

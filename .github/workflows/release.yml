@@ -38,8 +38,6 @@ jobs:
       # Unit tests with the coverage thresholds of vitest.config.ts.
       - run: npm run test:coverage
       - run: npm run build
-      # The experimental build with the column "Translated subject" (docs/experimental.md), published on GitHub only.
-      - run: npm run build:experimental
       # The source archive for addons.thunderbird.net, made from the commit of this run.
       - run: npm run source-zip
 
@@ -49,7 +47,7 @@ jobs:
           echo "version=$(node -p "require('./static/manifest.json').version")" >> "$GITHUB_OUTPUT"
           echo "sha=$(git rev-parse --short HEAD)" >> "$GITHUB_OUTPUT"
 
-      # Both builds, thunderbird-translate-<version>.xpi and multi-translate-experimental-<version>.xpi, and the source archive.
+      # The build, thunderbird-translate-<version>.xpi, and the source archive.
       - name: Upload build artifact
         uses: actions/upload-artifact@v4
         with:
@@ -111,10 +109,9 @@ jobs:
           test -x "$RUNNER_TEMP/thunderbird/thunderbird"
           echo "THUNDERBIRD_BIN=$RUNNER_TEMP/thunderbird/thunderbird" >> "$GITHUB_ENV"
 
-      # The runs include "column", which runs the experimental build in this Thunderbird version.
       - run: npm run e2e
 
-      # The screenshots the test build took: the subject line, the page of translated subjects, the column.
+      # The screenshots the test build took: the message window with its translation, its summary and the text of its images.
       - name: Upload screenshots
         if: always()
         uses: actions/upload-artifact@v4
@@ -153,17 +150,14 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           file="web-ext-artifacts/thunderbird-translate-$VERSION-$SHA.xpi"
-          experimental="web-ext-artifacts/multi-translate-experimental-$VERSION-$SHA.xpi"
           cp "web-ext-artifacts/thunderbird-translate-$VERSION.xpi" "$file"
-          cp "web-ext-artifacts/multi-translate-experimental-$VERSION.xpi" "$experimental"
           gh release delete nightly --cleanup-tag --yes --repo "$GITHUB_REPOSITORY" || true
-          gh release create nightly "$file" "$experimental" --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" \
+          gh release create nightly "$file" --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" \
             --prerelease --title "Nightly ($SHA)" \
             --notes "Automatic build of commit $GITHUB_SHA. For testing; use the latest versioned release for daily use."
 
       # A version is released once. A tag of the version without a release would give the release the commit of the
-      # tag instead of this one, so the run fails then. The regular build, the experimental build with the column
-      # (docs/experimental.md) and the source archive go to the release.
+      # tag instead of this one, so the run fails then. The build and the source archive go to the release.
       - name: Create release
         env:
           GH_TOKEN: ${{ github.token }}
@@ -180,5 +174,5 @@ jobs:
           gh release create "v$VERSION" --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" --title "v$VERSION" \
             --notes-file release-notes/release-notes.md --latest \
             "web-ext-artifacts/thunderbird-translate-$VERSION.xpi" \
-            "web-ext-artifacts/multi-translate-experimental-$VERSION.xpi" \
+\
             "web-ext-artifacts/thunderbird-translate-$VERSION-source.zip"

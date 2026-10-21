@@ -1,6 +1,5 @@
 {
   "extensionName": "Мультиперевод для Thunderbird",
-  "extensionNameExperimental": "Мультиперевод для Thunderbird (экспериментальная версия)",
   "extensionDescription": "Перевод текста писем прямо в окне сообщения: двуязычный режим или только перевод, бесплатные переводчики Google/Microsoft и более 20 ИИ-провайдеров.",
   "actionTitle": "Перевести сообщение",
   "commandToggle": "Перевести / показать оригинал",
@@ -54,7 +53,6 @@
   "subjectsMore": "Показать ещё",
   "subjectsReadFailed": "Не удалось прочитать список писем: $1",
   "subjectsProgress": "Переведено тем: $1 из $2",
-  "columnTranslatedSubject": "Переведённая тема",
   "labelPrecise": "Точный перевод",
   "popupSettings": "Настройки",
   "popupShortcuts": "Сочетания клавиш: Alt+A — перевод, Alt+S — смена отображения, Alt+R — перевести заново",

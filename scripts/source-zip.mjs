@@ -1,7 +1,6 @@
 // The source archive for the add-on site: npm run source-zip writes
 // web-ext-artifacts/thunderbird-translate-<version>-source.zip with everything `npm ci` and `npm run build` need,
-// and nothing else: the sources without the e2e test build (src/e2e/) and the experimental build (src/experiments/),
-// which a regular build never reads, the static
+// and nothing else: the sources without the e2e test build (src/e2e/), which a regular build never reads, the static
 // files, the build scripts, the interface texts, the vendored Bergamot engine, the license texts, the package files
 // and SOURCE-BUILD.md. The files are those git tracks, as the last commit holds them (line endings included), so
 // untracked and changed files stay out; the command refuses a tree with changes under these paths, so the archive is
@@ -17,7 +16,7 @@ const root = resolve(dirname(fileURLToPath(import.meta.url)), "..")
 
 /** Directories of the archive, and directories inside them that stay out. */
 export const SOURCE_DIRS = ["src", "static", "scripts", "locales", "vendor", "licenses"]
-export const EXCLUDED_DIRS = ["src/e2e", "src/experiments"]
+export const EXCLUDED_DIRS = ["src/e2e"]
 /** Files inside them that stay out: the test of the real Google and Microsoft endpoints (npm run live-test), which no build runs. */
 export const EXCLUDED_FILES = ["scripts/live-test.mjs"]
 /** Single files of the archive. */

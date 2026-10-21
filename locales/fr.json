@@ -1,6 +1,5 @@
 {
   "extensionName": "Multi-traduction pour Thunderbird",
-  "extensionNameExperimental": "Multi-traduction pour Thunderbird (expérimental)",
   "extensionDescription": "Traduit le corps des messages sur place : affichage bilingue ou traduction seule, traducteurs Google/Microsoft gratuits et plus de 20 fournisseurs d’IA.",
   "actionTitle": "Traduire le message",
   "commandToggle": "Traduire / afficher l’original",
@@ -54,7 +53,6 @@
   "subjectsMore": "Afficher plus",
   "subjectsReadFailed": "Impossible de lire la liste des messages : $1",
   "subjectsProgress": "Objets traduits : $1 sur $2",
-  "columnTranslatedSubject": "Objet traduit",
   "labelPrecise": "Traduction précise",
   "popupSettings": "Paramètres",
   "popupShortcuts": "Raccourcis : Alt+A pour traduire, Alt+S pour changer d’affichage, Alt+R pour retraduire",

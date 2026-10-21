@@ -1,6 +1,5 @@
 {
   "extensionName": "멀티 번역 for Thunderbird",
-  "extensionNameExperimental": "멀티 번역 for Thunderbird (실험판)",
   "extensionDescription": "메일 본문을 그 자리에서 번역합니다: 이중 언어 또는 번역문만 표시, 무료 Google/Microsoft 번역기와 20개 이상의 AI 제공자를 지원합니다.",
   "actionTitle": "메시지 번역",
   "commandToggle": "번역 / 원문 표시",
@@ -54,7 +53,6 @@
   "subjectsMore": "더 보기",
   "subjectsReadFailed": "메시지 목록을 읽을 수 없습니다: $1",
   "subjectsProgress": "번역된 제목: $2개 중 $1개",
-  "columnTranslatedSubject": "번역된 제목",
   "labelPrecise": "정밀 번역",
   "popupSettings": "설정",
   "popupShortcuts": "단축키: Alt+A 번역, Alt+S 표시 방식 전환, Alt+R 다시 번역",

@@ -1,6 +1,5 @@
 {
   "extensionName": "Dịch Đa Nguồn cho Thunderbird",
-  "extensionNameExperimental": "Dịch Đa Nguồn cho Thunderbird (thử nghiệm)",
   "extensionDescription": "Dịch nội dung thư ngay tại chỗ: song ngữ hoặc chỉ bản dịch, dịch vụ dịch miễn phí của Google/Microsoft và hơn 20 nhà cung cấp AI.",
   "actionTitle": "Dịch thư",
   "commandToggle": "Dịch / hiện bản gốc",
@@ -54,7 +53,6 @@
   "subjectsMore": "Xem thêm",
   "subjectsReadFailed": "Không đọc được danh sách thư: $1",
   "subjectsProgress": "Tiêu đề đã dịch: $1 trên $2",
-  "columnTranslatedSubject": "Tiêu đề đã dịch",
   "labelPrecise": "Dịch chính xác",
   "popupSettings": "Cài đặt",
   "popupShortcuts": "Phím tắt: Alt+A dịch, Alt+S chuyển chế độ hiển thị, Alt+R dịch lại",

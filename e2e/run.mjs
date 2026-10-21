@@ -109,8 +109,6 @@ const SCENARIOS = [
   ...["ask", "auto", "off", "switch"].map((mode) => ({ name: `image-${mode}`, eml: "image.eml", scenario: `image-${mode}` })),
   // The page of translated subjects on a profile with local folders.
   { name: "subjects", scenario: "subjects", profile: "folders" },
-  // The experimental build on the same kind of profile: the column "Translated subject" of its experiment API.
-  { name: "column", scenario: "column", profile: "folders", variant: "experimental" },
   { name: "welcome", scenario: "welcome" },
   { name: "welcome-auto", scenario: "welcome-auto" },
 ]
@@ -460,32 +458,6 @@ function checkSubjects(ready, report, calls) {
   return failures
 }
 
-/** Check the report of the "column" run: the column of the experimental build fills with the translations; returns the failures. */
-function checkColumn(ready, report, calls) {
-  const failures = []
-  const expect = (ok, message, detail) => {
-    if (!ok) failures.push(detail === undefined ? message : `${message}: ${JSON.stringify(detail)}`)
-  }
-  expect(!ready.error && ready.scenario === "column" && ready.id === "thunderbird-translate-experimental@willlllliams.github.io", "setup of the column scenario failed, or the build is not the experimental one", ready)
-  if (report.error) return [...failures, `column: ${report.error}`]
-  const { first, final } = report
-  expect(first?.registered === true && first.visible === true && first.tableView === true, "the column is not registered and visible in the table view", first)
-  expect(first?.rows?.length === 6, "the message list of the folder Foreign does not hold six messages", first?.rows)
-  expect(final?.registered === true && final.visible === true, "the column went away", final)
-  for (const row of final?.rows ?? []) {
-    if (row.subject === "下周的会议安排") expect(row.text === "" && row.cell === "", "the column translated a subject in the target language", row)
-    else {
-      // The prefix stays in front of the translation.
-      const prefix = row.subject.startsWith("Fwd: ") ? "Fwd: " : ""
-      expect(row.text === `${prefix}[AI bilingual] ${row.subject.slice(prefix.length)}` && row.cell === row.text, "a row of the column does not show the AI translation of its subject", row)
-    }
-  }
-  // Before the translations arrived the column was empty; the rows on screen were filled again afterwards.
-  expect(first?.rows?.every((row) => row.cell === null || row.cell === "" || row.cell === row.text), "the column showed text before any translation", first?.rows)
-  expect(calls.some((x) => x.type === "ai"), "the AI service was not requested")
-  return failures
-}
-
 /** Check the report of the "missing" run; returns the failures. */
 function checkMissing(c, ready, report, calls) {
   const failures = []
@@ -606,30 +578,20 @@ async function main() {
   console.log(`Thunderbird: ${bin} (${thunderbirdVersion(bin)})`)
   mkdirSync(work, { recursive: true })
   const extensionLog = []
-  // Screenshots of the subject line, the page of translated subjects and the column, taken by the test build.
+  // Screenshots of the subject line and the page of translated subjects, taken by the test build.
   const screenshots = join(work, "screenshots")
   const server = await startMockServer({ fixtures, screenshots, log: (m) => extensionLog.push(m) })
   console.log(`mock server: ${server.url}`)
 
-  /** The test build of a variant ("regular" or "experimental"), built on first use: its xpi and add-on id. */
-  const builds = {}
-  const buildOf = (variant) => {
-    if (builds[variant]) return builds[variant]
-    const experimental = variant === "experimental"
-    execFileSync(process.execPath, [join(root, "scripts", "build.mjs"), "--e2e", server.url, ...(experimental ? ["--experimental"] : [])], { cwd: root, stdio: ["ignore", "ignore", "inherit"] })
-    const dir = join(root, ".cache", experimental ? "e2e-experimental" : "e2e")
-    const manifest = JSON.parse(readFileSync(join(dir, "dist", "manifest.json"), "utf8"))
-    const xpi = readFileSync(join(dir, `${experimental ? "multi-translate-experimental" : "thunderbird-translate"}-${manifest.version}-e2e.xpi`))
-    return (builds[variant] = { xpi, id: manifest.browser_specific_settings.gecko.id })
-  }
-  // The runs of a variant share a profile; the runs with local folders have one of their own.
+  // The test build, against the mock server.
+  execFileSync(process.execPath, [join(root, "scripts", "build.mjs"), "--e2e", server.url], { cwd: root, stdio: ["ignore", "ignore", "inherit"] })
+  const manifest = JSON.parse(readFileSync(join(work, "dist", "manifest.json"), "utf8"))
+  const xpi = readFileSync(join(work, `thunderbird-translate-${manifest.version}-e2e.xpi`))
+  // The runs share a profile; the runs with local folders have one of their own.
   const profiles = {}
   const folders = Object.fromEntries(Object.entries(FOLDERS).map(([folder, messages]) => [folder, mbox(messages)]))
-  const profileFor = (variant, kind) => {
-    const { xpi, id } = buildOf(variant)
-    return (profiles[`${variant}:${kind}`] ??= createProfile(xpi, id, kind === "folders" ? { folders } : {}))
-  }
-  console.log(`profile: ${profileFor("regular", "plain")}`)
+  const profileFor = (kind) => (profiles[kind] ??= createProfile(xpi, manifest.browser_specific_settings.gecko.id, kind === "folders" ? { folders } : {}))
+  console.log(`profile: ${profileFor("plain")}`)
 
   // E2E_ONLY=name,name runs some of the runs only.
   const runs = [...CASES, ...SCENARIOS].filter((c) => !process.env.E2E_ONLY || process.env.E2E_ONLY.split(",").includes(c.name))
@@ -641,7 +603,7 @@ async function main() {
       extensionLog.length = 0
       const logFile = join(work, `thunderbird-${c.name}.log`)
       const started = Date.now()
-      const profile = profileFor(c.variant ?? "regular", c.profile ?? "plain")
+      const profile = profileFor(c.profile ?? "plain")
       const tb = launch(bin, profile, c.eml && join(fixtures, c.eml), logFile)
       let failures
       try {
@@ -687,11 +649,6 @@ ${JSON.stringify(report, null, 2)}`)
           if (failures.length) failures.push(`report of the content script:\n${JSON.stringify(report, null, 2)}`)
           const sent = server.calls.filter((x) => x.type === "ai" && x.image)
           console.log(`  ${c.name}: images ${JSON.stringify(report.images?.map((i) => `${i.src?.match(/part=([\d.]+)/)?.[1] ?? i.src?.slice(0, 20)} ${i.width}×${i.height}`))}; ${sent.length} image requests, ${sent.map((x) => `${x.image.bytes} B`).join(", ")}`)
-        } else if (c.scenario === "column") {
-          failures = checkColumn(ready, report, server.calls)
-          if (failures.length) failures.push(`report of the background script:\n${JSON.stringify(report, null, 2)}`)
-          const shown = report.final?.rows?.filter((r) => r.cell) ?? []
-          console.log(`  ${c.name}: ${ready.name}; column registered ${report.final?.registered}, visible ${report.final?.visible}; before: ${JSON.stringify(report.first?.rows?.map((r) => r.text))}; after ${report.waitedMs} ms: ${JSON.stringify(shown.map((r) => r.cell))}`)
         } else if (c.scenario === "subjects") {
           failures = checkSubjects(ready, report, server.calls)
           if (failures.length) failures.push(`report of the page:\n${JSON.stringify(report, null, 2)}`)
@@ -727,7 +684,7 @@ ${JSON.stringify(report, null, 2)}`)
     }
   } finally {
     for (const profile of Object.values(profiles)) removeProfile(profile)
-    console.log(`builds: ${Object.keys(builds).join(", ")}; screenshots in ${screenshots}`)
+    console.log(`screenshots in ${screenshots}`)
     await server.close()
   }
   console.log(failed === 0 ? `e2e: all ${runs.length} runs passed` : `e2e: ${failed} of ${runs.length} runs failed`)

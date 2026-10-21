@@ -3,7 +3,7 @@ import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs"
 import { tmpdir } from "node:os"
 import { dirname, join } from "node:path"
 import { describe, expect, it } from "vitest"
-import { checkImports, importsOf, LAYERS, VARIANT_LAYERS } from "../scripts/check-imports.mjs"
+import { checkImports, importsOf } from "../scripts/check-imports.mjs"
 
 describe("import specifiers", () => {
   it("find every import form, also over several lines, with the line of the specifier", () => {
@@ -175,24 +175,6 @@ describe("layer check", () => {
           "src/welcome/w.ts:3: the path of a dynamic import is computed and cannot be checked (../…)",
         ]),
     )
-  })
-
-  it("let only the experimental build read src/experiments/: no other layer may import it", () => {
-    withTree(
-      {
-        "src/experiments/background.ts": 'import { a } from "../background/index"\nimport { c } from "./column"',
-        "src/experiments/column.ts": 'import { t } from "../shared/text"',
-        "src/background/index.ts": 'import { c } from "../experiments/column"',
-        "src/e2e/e.ts": 'import { c } from "../experiments/column"',
-      },
-      (dir) =>
-        expect(checkImports(dir).problems).toEqual([
-          "src/background/index.ts:1: background must not import experiments (../experiments/column)",
-          "src/e2e/e.ts:1: e2e must not import experiments (../experiments/column)",
-        ]),
-    )
-    expect(VARIANT_LAYERS).toEqual({ experiments: "src/experiments/background.ts" })
-    expect(Object.entries(LAYERS).filter(([layer, allowed]) => layer !== "experiments" && allowed.includes("experiments"))).toEqual([])
   })
 
   it("pass on the repository", () => {

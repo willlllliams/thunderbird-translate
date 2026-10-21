@@ -38,11 +38,6 @@
  *   (IMAGE_MODES of scenario-settings.ts) and the message image.eml; the
  *   probe reads the buttons and results under its images, and in
  *   "image-switch" changes the mode ({ e2e: "settings", imageMode }).
- * - "column" (experimental build): the three tiers, allowed, on the same
- *   kind of profile; the hook shows "Foreign" in the mail tab and reads the
- *   column "Translated subject" through the experiment API until the
- *   translations arrive, then reports what the column showed before and
- *   after.
  * Every ready report says whether i18n.getPreferredSystemLanguages() exists.
  */
 
@@ -167,48 +162,6 @@ async function showFolder(name: string, count: number): Promise<number> {
   }
 }
 
-/** What the experiment API of the experimental build tells about the column in a mail tab (translated-column/schema.json). */
-interface ColumnState {
-  registered: boolean
-  visible: boolean
-  tableView: boolean
-  translations: number
-  rows: { subject: string; text: string; cell: string | null }[]
-}
-
-/**
- * The "column" run: the column in the mail tab `tabId` right away, then once five of the six subjects of the folder
- * show their AI translation in the column and on screen (the sixth is in the target language).
- */
-async function watchColumn(tabId: number): Promise<Record<string, unknown>> {
-  const api = (browser as unknown as { translatedColumn?: { inspect(tabId: number, rows: number): Promise<ColumnState> } }).translatedColumn
-  if (!api) return { error: "the experiment API translatedColumn is missing" }
-  const report: Record<string, unknown> = { scenario: "column" }
-  try {
-    // The background script adds the column once its settings are read, after this hook.
-    const start = Date.now()
-    do report.first = await api.inspect(tabId, 10)
-    while (!(report.first as ColumnState).registered && Date.now() - start < 30_000 && (await new Promise((r) => setTimeout(r, 100))) === undefined)
-    const deadline = Date.now() + 60_000
-    let state: ColumnState
-    for (;;) {
-      state = await api.inspect(tabId, 10)
-      const done = state.rows.filter((row) => row.text.includes("[AI ") && row.cell === row.text)
-      if (done.length >= 5 || Date.now() > deadline) break
-      await new Promise((r) => setTimeout(r, 250))
-    }
-    report.final = state
-    report.waitedMs = Date.now() - start
-    // The setup guide opened after the installation: the mail tab comes to the front for the screenshot.
-    await ext.tabs.update(tabId, { active: true })
-    await new Promise((r) => setTimeout(r, 500))
-    await screenshot("column", "mail:3pane")
-  } catch (error) {
-    report.error = error instanceof Error ? `${error.message}\n${error.stack}` : String(error)
-  }
-  return report
-}
-
 /** Remove every installed pack, so that the setup guide has packs to download. */
 async function uninstallDictionary(dictionary: DictionaryManager): Promise<void> {
   for (const key of await dictionary.installedKeys()) {
@@ -262,14 +215,6 @@ export async function setUpE2e({ storage, dictionary, runCommand }: E2eDeps): Pr
     }
     if (offline) {
       await post("/ready", { scenario, systemLanguagesApi, version: ext.runtime.getManifest().version })
-      return
-    }
-    if (scenario === "column") {
-      const packs = await installDictionary(dictionary)
-      const tabId = await showFolder("Foreign", 6)
-      await post("/ready", { scenario, packs, tabId, systemLanguagesApi, version: ext.runtime.getManifest().version, id: ext.runtime.id, name: ext.runtime.getManifest().name })
-      // Not awaited: the settings, and with them the column, wait for this hook to end.
-      void watchColumn(tabId).then((report) => post("/report", report))
       return
     }
     if (scenario === "subjects") {
