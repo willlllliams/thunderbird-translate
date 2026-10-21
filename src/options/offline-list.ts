@@ -83,6 +83,15 @@ export const megabytes = (bytes: number) => new Intl.NumberFormat(getI18n().lang
 /** The controls of a row that can have the focus. */
 const CONTROLS = "button, input, select, a[href]"
 
+/** "Downloading … %" of a running installation. */
+const downloading = (progress: InstallProgress) => t("dictDownloading", [progress.total ? Math.min(100, Math.round((progress.done / progress.total) * 100)) : 0])
+
+/** The same installations in the same states: only how far they are differs. */
+function sameStates(a: Record<string, InstallProgress>, b: Record<string, InstallProgress>): boolean {
+  const ids = Object.keys(a)
+  return ids.length === Object.keys(b).length && ids.every((id) => Object.hasOwn(b, id) && b[id].state === a[id].state)
+}
+
 let systemLanguages: string[] = []
 
 /** Read the system's preferred languages, once per page. */
@@ -187,8 +196,11 @@ export abstract class OfflineList<T extends ListItem> {
     const notice = message as PageNotice | null | undefined
     if (notice?.type === "offlineProgressChanged") {
       this.notices++
+      const before = this.progress
       this.progress = notice.progress[this.service] ?? {}
-      this.render()
+      // Only the share of a download changed, four times a second: the text of its row changes, and no control is drawn anew.
+      if (sameStates(before, this.progress)) this.renderPercents()
+      else this.render()
     } else if (notice?.type === "offlineDataChanged" && this.reads > 0) {
       void this.read().then(() => this.render())
     }
@@ -203,8 +215,7 @@ export abstract class OfflineList<T extends ListItem> {
   protected activity(item: T): Node[] | null {
     const progress = Object.hasOwn(this.progress, item.id) ? this.progress[item.id] : undefined
     if (progress?.state === "running") {
-      const percent = progress.total ? Math.min(100, Math.round((progress.done / progress.total) * 100)) : 0
-      return [h("span", { text: t("dictDownloading", [percent]) }), button(t("buttonCancel"), () => this.cancel(item), false, t("tipCancelDownload"))]
+      return [h("span", { className: "dict-progress", text: downloading(progress) }), button(t("buttonCancel"), () => this.cancel(item), false, t("tipCancelDownload"))]
     }
     if (!this.installing(item)) return null
     return [
@@ -325,6 +336,15 @@ export abstract class OfflineList<T extends ListItem> {
     if (focused) this.focusControl(focused)
     this.renderCommon()
     this.base.onRender?.()
+  }
+
+  /** The progress text of the downloading rows shown. */
+  private renderPercents(): void {
+    for (const row of this.base.list.querySelectorAll<HTMLElement>("li[data-id]")) {
+      const progress = this.progress[row.dataset.id!]
+      const text = row.querySelector(".dict-progress")
+      if (progress && text) text.textContent = downloading(progress)
+    }
   }
 
   /** The row and the control of the list that has the focus: its text, and its place among the controls of the row. */

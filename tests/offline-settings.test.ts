@@ -513,11 +513,13 @@ describe("offline model list", () => {
     expect(m.rows()[0]!.textContent).toContain(ENGLISH.t("dictQueued"))
     m.section.receive({ type: "offlineProgressChanged", progress: { bergamot: { "de>en": { state: "running", done: 3, total: 4 } } } })
     expect(m.rows()[0]!.textContent).toContain(ENGLISH.t("dictDownloading", [75]))
-    // U7: the rows are drawn anew; the focus stays on the Cancel of the row.
-    button(m.rows()[0]!, ENGLISH.t("buttonCancel"))!.focus()
-    m.section.receive({ type: "offlineProgressChanged", progress: { bergamot: { "de>en": { state: "running", done: 7, total: 8 } } } })
+    // R55: a notice of progress only changes the text; the focused Cancel stays the same element.
+    const cancel = button(m.rows()[0]!, ENGLISH.t("buttonCancel"))!
+    cancel.focus()
+    for (const done of [5, 6, 7]) m.section.receive({ type: "offlineProgressChanged", progress: { bergamot: { "de>en": { state: "running", done, total: 8 } } } })
     expect(m.rows()[0]!.textContent).toContain(ENGLISH.t("dictDownloading", [88]))
-    expect(document.activeElement).toBe(button(m.rows()[0]!, ENGLISH.t("buttonCancel")))
+    expect(document.activeElement).toBe(cancel)
+    expect(cancel.isConnected).toBe(true)
     // Notices of other services and other messages leave the row as it is.
     m.section.receive({ type: "offlineProgressChanged", progress: { dictionary: {} } })
     expect(document.activeElement).toBe(button(m.rows()[0]!, ENGLISH.t("buttonCancel")))
