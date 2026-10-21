@@ -79,6 +79,9 @@ const SOURCE_TIPS: Record<LanguageSource, MessageKey> = {
 
 export const megabytes = (bytes: number) => (bytes / 1048576).toFixed(1)
 
+/** The controls of a row that can have the focus. */
+const CONTROLS = "button, input, select, a[href]"
+
 let systemLanguages: string[] = []
 
 /** Read the system's preferred languages, once per page. */
@@ -315,9 +318,28 @@ export abstract class OfflineList<T extends ListItem> {
     else if (shown.length === 0) status = t("offlineNoMatch")
     this.base.status.textContent = status
     const required = this.required()
+    // The rows are drawn anew, many times a second while a download runs: the focus stays on the same control of its row.
+    const focused = this.focusedControl()
     this.base.list.replaceChildren(...shown.map((item) => this.row(item, required)))
+    if (focused) this.focusControl(focused)
     this.renderCommon()
     this.base.onRender?.()
+  }
+
+  /** The row and the control of the list that has the focus: its text, and its place among the controls of the row. */
+  private focusedControl(): { id: string; text: string; index: number } | null {
+    const active = document.activeElement as HTMLElement | null
+    const row = active?.closest<HTMLElement>("li[data-id]")
+    if (!active || !row || !this.base.list.contains(row)) return null
+    const controls = Array.from(row.querySelectorAll<HTMLElement>(CONTROLS))
+    return { id: row.dataset.id!, text: active.textContent ?? "", index: controls.indexOf(active) }
+  }
+
+  /** Focus the control of the new row that has the text of the one focused before, else the one at its place. */
+  private focusControl({ id, text, index }: { id: string; text: string; index: number }): void {
+    const row = Array.from(this.base.list.querySelectorAll<HTMLElement>("li[data-id]")).find((li) => li.dataset.id === id)
+    const controls = Array.from(row?.querySelectorAll<HTMLElement>(CONTROLS) ?? [])
+    ;(controls.find((control) => control.textContent === text && text !== "") ?? controls[index])?.focus({ preventScroll: true })
   }
 
   private row(item: T, required: string[]): HTMLLIElement {
