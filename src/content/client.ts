@@ -6,7 +6,7 @@
  */
 
 import { ext } from "../shared/ext"
-import { ENGLISH, getI18n, I18n, setI18n } from "../shared/i18n"
+import { getI18n, I18n, setI18n } from "../shared/i18n"
 import { browserDetector } from "../shared/lang-detect"
 import type { UiLanguageSetting } from "../shared/locales"
 import type { PublicSettings } from "../shared/settings"
@@ -15,7 +15,7 @@ import { CONTENT_PORT_NAME, type ImageResponse, isPortPush, type LocaleMessages,
 import type { Tier } from "../shared/providers"
 import type { ContentProbe } from "../hooks/content"
 import { ConsentPanel } from "./consent"
-import { type ControllerDeps, TranslationController } from "./controller"
+import { consentKey, type ControllerDeps, TranslationController } from "./controller"
 import { ImageTranslator } from "./images"
 import { MissingNotice } from "./notice"
 import { restoreLeftovers } from "./paragraphs"
@@ -45,13 +45,18 @@ export interface ContentClient {
   ready: Promise<void>
 }
 
-/** Messages for the interface language; the background reads the packaged files for us. */
-async function loadLabels(uiLanguage: UiLanguageSetting): Promise<void> {
+/**
+ * Messages for the interface language; the background reads the packaged files for us. False when they did not come:
+ * the content script carries no English table of its own, so the labels it has stay, and the next settings try again.
+ */
+async function loadLabels(uiLanguage: UiLanguageSetting): Promise<boolean> {
   try {
     const r: LocaleMessages | undefined = await send({ type: "getLocaleMessages", uiLanguage })
-    setI18n(r?.messages ? new I18n(r.locale, r.messages) : ENGLISH)
+    if (!r?.messages) return false
+    setI18n(new I18n(r.locale, r.messages))
+    return true
   } catch {
-    setI18n(ENGLISH)
+    return false
   }
 }
 
@@ -201,12 +206,13 @@ export function connectContent({ root, contentScript = false, probe, subjects, o
     if (msg.type === "settings") {
       const next = msg.settings
       mutedPairs = next.offlineMutedPairs
+      // The service of the summary asked for anew is asked for again, as the controller does for translation.
+      const asked = next.summary.consent
+      const before = current?.summary.consent
+      if (asked && (!before || consentKey(before) !== consentKey(asked))) summaryAllowed.delete(asked.id)
       current = next
       settingsApplied = settingsApplied.then(async () => {
-        if (contentScript && next.uiLanguage !== uiLanguage) {
-          uiLanguage = next.uiLanguage
-          await loadLabels(uiLanguage)
-        }
+        if (contentScript && next.uiLanguage !== uiLanguage && (await loadLabels(next.uiLanguage))) uiLanguage = next.uiLanguage
         void controller.updateSettings(next)
         showSummaryButton(controller.active)
         if (!firstSettings) return

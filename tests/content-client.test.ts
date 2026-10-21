@@ -2,7 +2,7 @@
 /** The content client: Port protocol with the background, labels of the content script, and the injection guard. */
 import { beforeEach, describe, expect, it, vi } from "vitest"
 import { connectContent } from "../src/content/client"
-import { ENGLISH, getI18n, I18n, setI18n } from "../src/shared/i18n"
+import { EN_MESSAGES, ENGLISH, getI18n, I18n, setI18n } from "../src/shared/i18n"
 import type { ContentProbeParts } from "../src/hooks/content"
 import type { BackgroundRequest, PortPush } from "../src/shared/messages"
 import type { PublicSettings } from "../src/shared/settings"
@@ -115,6 +115,32 @@ describe("connectContent", () => {
     expect(port.posted("translate")).toHaveLength(1)
   })
 
+  it("R54: content script without an English table: labels that did not come keep the ones it has, and the next settings ask again", async () => {
+    // The content script bundle carries an empty English table.
+    const english = { ...EN_MESSAGES }
+    for (const key of Object.keys(EN_MESSAGES)) delete EN_MESSAGES[key]
+    try {
+      const shown = new I18n("de", { statusTranslating: "Übersetze…" })
+      setI18n(shown)
+      sendMessage.mockRejectedValueOnce(new Error("Receiving end does not exist.")).mockResolvedValueOnce(undefined)
+      const client = connectContent({ root: () => document.body, contentScript: true })
+      settingsPush(publicSettings({ uiLanguage: "de" }))
+      await client.ready
+      settingsPush(publicSettings({ uiLanguage: "de" }))
+      await until(() => expect(sendMessage).toHaveBeenCalledTimes(2))
+      await nextTask()
+      expect(getI18n()).toBe(shown)
+      sendMessage.mockResolvedValueOnce({ locale: "de", messages: { statusTranslating: "Wird übersetzt…" } })
+      settingsPush(publicSettings({ uiLanguage: "de" }))
+      await until(() => expect(getI18n().t("statusTranslating")).toBe("Wird übersetzt…"))
+      settingsPush(publicSettings({ uiLanguage: "de" }))
+      await nextTask()
+      expect(sendMessage).toHaveBeenCalledTimes(3)
+    } finally {
+      Object.assign(EN_MESSAGES, english)
+    }
+  })
+
   it("content script: shows the notice about missing offline data, muted entries left out, and sends its requests to the background", async () => {
     sendMessage.mockImplementation(async (req) => (req.type === "getLocaleMessages" ? { locale: "en", messages: {} } : undefined))
     const client = connectContent({ root: () => document.body, contentScript: true })
@@ -193,13 +219,14 @@ describe("connectContent", () => {
   it.each<[string, () => Promise<unknown>]>([
     ["the background fails", async () => Promise.reject(new Error("Receiving end does not exist."))],
     ["the background has no messages", async () => undefined],
-  ])("content script: falls back to English labels when %s", async (_name, answer) => {
-    setI18n(new I18n("de", { statusTranslating: "Übersetze…" }))
+  ])("content script: keeps the labels it has when %s", async (_name, answer) => {
+    const shown = new I18n("de", { statusTranslating: "Übersetze…" })
+    setI18n(shown)
     sendMessage.mockImplementation(answer)
     const client = connectContent({ root: () => document.body, contentScript: true })
     settingsPush(publicSettings({ uiLanguage: "de" }))
     await client.ready
-    expect(getI18n()).toBe(ENGLISH)
+    expect(getI18n()).toBe(shown)
   })
 
   it("content script: leaves a message in the target language alone, as the browser's detector says", async () => {
