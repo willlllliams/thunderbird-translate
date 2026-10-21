@@ -3,7 +3,8 @@
 // - an OpenAI-compatible chat completions API: "**[AI <mode>]** <text>" in Markdown, the mode read from the system prompt,
 //   the first "report" of the text as a link to https://example.com/report (aiAnswer());
 //   the same text in the same mode asked again gets "**[AI <mode> #<n>]** <text>", n counting the requests;
-//   a request with the summary prompt gets SUMMARY_ANSWER, a summary with one entry in each of its four parts
+//   a request with the summary prompt gets SUMMARY_ANSWER, a summary with one entry in each of its four parts;
+//   a request with an image gets IMAGE_ANSWER, a table of two rows, after the image is checked (imageCall())
 // - DeepL (/deepl/v2/translate, /deepl/v2/usage), Baidu (/baidu), Youdao (/youdao) and Caiyun (/caiyun): "[<service>] <text>",
 //   with the key, the signature (Baidu MD5, Youdao SHA-256) and the language codes of the request checked (machineCall())
 // - the dictionary packs of a GitHub release (dict-index.json and the packs en -> zh-Hans and zh-Hans -> en built from fixtures/)
@@ -17,12 +18,36 @@ import { createServer } from "node:http"
 import { join } from "node:path"
 import { gzipSync, zstdCompressSync } from "node:zlib"
 
-/** System prompt phrases of the two display modes and of the summary (src/shared/prompts.ts). */
+/** System prompt phrases of the two display modes, of the summary and of an image (src/shared/prompts.ts). */
 const PROMPT_MODES = [
   ["bilingual", "compares the two"],
   ["translation-only", "never the original"],
   ["summary", "for the person who received them"],
+  ["image", "You read an image from an email"],
 ]
+
+/** The answer to an image request: the table of the image prompt, with the English header the content script shows in the interface language. */
+export const IMAGE_ANSWER = "| Original | Translation |\n| --- | --- |\n| Umsatz | [AI image] Revenue |\n| Kosten | [AI image] Costs |"
+
+/** The upload limit of one image in the e2e settings (Settings.image.maxImageKB, the default). */
+const MAX_IMAGE_BYTES = 1500 * 1024
+
+/**
+ * The image of a chat request, null without one: whether it is a JPEG data URL (the default upload format, whose
+ * base64 starts with the JPEG marker /9j/), its size in bytes, and the text beside it.
+ */
+export function imageCall(messages) {
+  for (const message of messages) {
+    if (message.role !== "user" || !Array.isArray(message.content)) continue
+    const image = message.content.find((part) => part.type === "image_url")
+    if (!image) continue
+    const url = typeof image.image_url === "string" ? image.image_url : image.image_url?.url ?? ""
+    const data = url.slice(url.indexOf(",") + 1)
+    const bytes = Buffer.from(data, "base64").length
+    return { jpeg: url.startsWith("data:image/jpeg;base64,/9j/"), bytes, withinLimit: bytes <= MAX_IMAGE_BYTES, text: message.content.filter((part) => part.type === "text").map((part) => part.text).join("") }
+  }
+  return null
+}
 
 /** The answer to a summary request: one entry in each part, the reader as "me", wrapped in a fence as some models do. */
 export const SUMMARY_ANSWER = `\`\`\`json
@@ -232,14 +257,15 @@ export async function startMockServer({ fixtures, screenshots, googleDelayMs = 3
         const user = body.messages.filter((m) => m.role === "user").map((m) => messageText(m.content)).join("\n")
         const mode = aiMode(system)
         const { batch, texts } = segmentsOf(user)
-        calls.push({ type: "ai", mode, batch, count: texts.length, model: body.model, auth: req.headers.authorization ?? "", maxTokens: body.max_tokens ?? body.max_completion_tokens ?? null, user: mode === "summary" ? user.slice(0, 300) : undefined, at: Date.now() })
+        const image = imageCall(body.messages)
+        calls.push({ type: "ai", mode, batch, count: texts.length, model: body.model, auth: req.headers.authorization ?? "", maxTokens: body.max_tokens ?? body.max_completion_tokens ?? null, user: mode === "summary" ? user.slice(0, 300) : undefined, ...(image ? { image } : {}), at: Date.now() })
         await sleep(aiDelayMs)
-        const out = mode === "summary" ? [SUMMARY_ANSWER] : texts.map((t) => {
+        const out = image ? [image.jpeg && image.withinLimit ? IMAGE_ANSWER : "The image did not arrive as a JPEG within the limit."] : mode === "summary" ? [SUMMARY_ANSWER] : texts.map((t) => {
           const n = (aiAsked.get(`${mode}\n${t}`) ?? 0) + 1
           aiAsked.set(`${mode}\n${t}`, n)
           return aiAnswer(`${mode}${n > 1 ? ` #${n}` : ""}`, t)
         })
-        const content = batch ? JSON.stringify(out) : out[0]
+        const content = batch && !image ? JSON.stringify(out) : out[0]
         return send(res, 200, {
           id: "e2e",
           object: "chat.completion",

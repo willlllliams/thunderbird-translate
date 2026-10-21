@@ -7,7 +7,7 @@
  */
 import { afterEach, describe, expect, it, vi } from "vitest"
 import { PersistentCache } from "../src/background/cache"
-import { browserCodec, dataBytes, encodeAttempts, type ImageCodec, type ImageDeps, ImageService, isAnimated, readImageAnswer } from "../src/background/images"
+import { browserCodec, dataBytes, encodeAttempts, type ImageDeps, ImageService, isAnimated, readImageAnswer } from "../src/background/images"
 import { createHandlers } from "../src/background/router"
 import { displayedMessageId, messagePart } from "../src/background/subject"
 import { createTabRegistry } from "../src/background/tabs"
@@ -23,7 +23,7 @@ import { anthropicMessage, chatCompletion, createService, jsonResponse, memorySt
 const ascii = (s: string) => Array.from(s, (c) => c.charCodeAt(0))
 
 /** A GIF of `frames` 1 × 1 images, with a graphic control extension before each when `extension`. */
-function gif(frames: number, extension = false): Uint8Array {
+function gif(frames: number, extension = false): Uint8Array<ArrayBuffer> {
   const bytes = [...ascii("GIF89a"), 1, 0, 1, 0, 0x80, 0, 0, 0, 0, 0, 255, 255, 255]
   for (let i = 0; i < frames; i++) {
     if (extension) bytes.push(0x21, 0xf9, 4, 0, 0, 0, 0, 0)
@@ -34,7 +34,7 @@ function gif(frames: number, extension = false): Uint8Array {
 }
 
 /** A PNG of about `size` bytes: IHDR, an acTL chunk when `animated`, then IDAT. */
-function png(size = 5000, animated = false): Uint8Array {
+function png(size = 5000, animated = false): Uint8Array<ArrayBuffer> {
   const chunk = (type: string, length: number) => [(length >>> 24) & 255, (length >>> 16) & 255, (length >>> 8) & 255, length & 255, ...ascii(type), ...new Array(length).fill(7), 0, 0, 0, 0]
   const bytes = [0x89, ...ascii("PNG\r\n\x1a\n"), ...chunk("IHDR", 13), ...(animated ? chunk("acTL", 8) : []), ...chunk("IDAT", Math.max(0, size - 45))]
   return new Uint8Array(bytes)
@@ -179,7 +179,7 @@ function settingsWithImages(over: (s: Settings) => void = () => {}): Settings {
 }
 
 /** A codec whose decoded images have `size` and whose encoded files have `bytes(attempt)` bytes. */
-function fakeCodec(size = { width: 400, height: 200 }, bytes: (width: number, quality: number) => number = () => 2000): ImageCodec & { encoded: unknown[][]; closed: number } {
+function fakeCodec(size = { width: 400, height: 200 }, bytes: (width: number, quality: number) => number = () => 2000) {
   const codec = {
     encoded: [] as unknown[][],
     closed: 0,

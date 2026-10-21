@@ -28,6 +28,13 @@
 //    panel comes first and nothing reaches the AI service before "Allow"; the
 //    panel then shows the four parts, the cache answers the second request and
 //    "Regenerate" asks the service again.
+//    The "image-ask", "image-auto", "image-off" and "image-switch" runs open image.eml (a chart and a receipt that
+//    pass the filters, a tracking pixel, an animated GIF and a logo in the signature) with precise translation and
+//    image translation in the mode of the run: only the chart and the receipt get a button; in "image-ask" nothing
+//    reaches the AI service before "Allow and translate image", the result is a table with the column names of the
+//    interface, the message comes back as it was, and translated again the cache answers; in "image-auto" the chart
+//    goes by itself and the receipt keeps its button (one image per message); in "image-off" nothing appears and
+//    nothing is sent; in "image-switch" the mode changes three times while the message stays translated.
 // 8. The "subjects" run starts on a profile with the local folders "Foreign"
 //    and "Second": the page of translated subjects lists the folder shown in
 //    the mail tab, asks before the subjects go to Google and the AI service,
@@ -98,6 +105,8 @@ const SCENARIOS = [
   ...["deepl", "baidu", "youdao", "caiyun"].map((service) => ({ name: `machine-${service}`, eml: "html.eml", scenario: `machine-${service}`, paragraphs: 7, service })),
   // The summary and to-dos: consent, the panel, the cache and "Regenerate".
   { name: "summary", eml: "html.eml", scenario: "summary" },
+  // The text in images: a button and the consent, one image by itself, nothing, and a change of the mode.
+  ...["ask", "auto", "off", "switch"].map((mode) => ({ name: `image-${mode}`, eml: "image.eml", scenario: `image-${mode}` })),
   // The page of translated subjects on a profile with local folders.
   { name: "subjects", scenario: "subjects", profile: "folders" },
   // The experimental build on the same kind of profile: the column "Translated subject" of its experiment API.
@@ -359,6 +368,57 @@ function checkSummary(ready, report, calls) {
   return failures
 }
 
+/** The parts of image.eml that get a button: the chart (cid:) and the receipt (attachment); what each part is otherwise. */
+const IMAGE_PARTS = { chart: "1.2", pixel: "1.3", gif: "1.4", logo: "1.5", receipt: "2" }
+
+/** Check the report of an image run; returns the failures. */
+function checkImage(c, ready, report, calls) {
+  const failures = []
+  const expect = (ok, message, detail) => {
+    if (!ok) failures.push(detail === undefined ? message : `${message}: ${JSON.stringify(detail)}`)
+  }
+  expect(!ready.error && ready.scenario === c.scenario, `setup of the ${c.scenario} scenario failed`, ready)
+  if (report.error) return [...failures, `content script: ${report.error}`]
+  const images = calls.filter((x) => x.type === "ai" && x.image)
+  const parts = (slots) => (slots ?? []).filter((slot) => slot.button || slot.result || slot.consent).map((slot) => slot.part).sort()
+  const both = [IMAGE_PARTS.chart, IMAGE_PARTS.receipt].sort()
+  expect(images.every((x) => x.mode === "image" && x.image.jpeg && x.image.withinLimit && x.model === "e2e-model" && x.maxTokens === 1024 && /^Image \d of the email\. Target language: Simplified Chinese\./.test(x.image.text)), "an image request is no JPEG within the limit, or carries the wrong model, limit or text", images)
+  const result = (slot) => slot?.result && slot.result.header.join("|") === "Original|Translation" && slot.result.cells.join("|") === "Umsatz|[AI image] Revenue|Kosten|[AI image] Costs" && slot.result.open
+  if (c.scenario === "image-off") {
+    expect((report.off?.slots ?? []).length === 0, "something appeared under an image while image translation is off", report.off)
+    expect(images.length === 0, "an image was sent while image translation is off", images)
+    return failures
+  }
+  if (c.scenario === "image-auto") {
+    const chart = report.auto?.find((slot) => slot.part === IMAGE_PARTS.chart)
+    const receipt = report.auto?.find((slot) => slot.part === IMAGE_PARTS.receipt)
+    expect(result(chart) && chart.result.title.startsWith("Image text · ") && !chart.result.title.includes("cached"), "the chart has no result of its own request", chart)
+    expect(receipt?.button === "Translate image text" && !receipt.result, "the receipt beyond the limit does not keep its button", receipt)
+    expect(images.length === 1 && images[0].image.text.startsWith("Image 1 "), "mode auto did not send the chart alone", images)
+    expect(parts(report.auto).join() === both.join(), "an image other than the chart and the receipt shows something", report.auto)
+    return failures
+  }
+  expect(parts(report.ask).join() === both.join() && report.ask.every((slot) => !slot.button || slot.button === "Translate image text"), "the buttons are not under the chart and the receipt only", report.ask)
+  if (c.scenario === "image-switch") {
+    expect(report.auto?.filter(result).length === 2, "mode auto did not show both results", report.auto)
+    expect(images.length === 2 && images.every((x) => x.at > report.switchAt), "mode auto did not send each image once", images)
+    expect(report.back?.filter(result).length === 2 && report.back.every((slot) => !slot.button), "back in mode ask the results are not shown at once", report.back)
+    expect(!images.some((x) => x.at > report.offAt), "back in mode ask an image was sent again", images)
+    expect(report.tierResults === 0, "a change of the image mode translated the paragraphs again", report.tierResults)
+    return failures
+  }
+  // "image-ask"
+  expect(!images.some((x) => x.at < report.allowedAt), "the AI service got an image before the consent", images)
+  expect(report.panel?.title === "Send this image to Custom OpenAI-compatible?" && report.panel.lines.some((line) => line.includes("127.0.0.1")) && report.panel.lines.some((line) => /1,?568 pixels/.test(line) && line.includes("JPEG")), "the consent panel does not say what is sent where", report.panel)
+  expect(report.panel?.slots.find((slot) => slot.consent)?.part === IMAGE_PARTS.chart, "the consent panel is not under the clicked image", report.panel?.slots)
+  expect(result(report.first?.find((slot) => slot.part === IMAGE_PARTS.chart)), "the chart does not show the table with the column names of the interface", report.first)
+  expect(report.second?.filter(result).length === 2, "the receipt does not show its result after a click without a second question", report.second)
+  expect(images.length === 2 && images.filter((x) => x.at < report.cachedAt).length === 2, "the two clicks did not send one request each", images)
+  expect(report.restored?.identical === true && report.restored.leftovers === 0, "the message did not come back as it was", report.restored)
+  expect(report.cached?.filter((slot) => result(slot) && slot.result.title.endsWith("cached")).length === 2 && report.cached.every((slot) => !slot.button), "translated again, the results do not come from the cache at once", report.cached)
+  return failures
+}
+
 /** Check the report of the "subjects" run: the page of translated subjects on the local folders; returns the failures. */
 function checkSubjects(ready, report, calls) {
   const failures = []
@@ -614,6 +674,11 @@ ${JSON.stringify(report, null, 2)}`)
           failures = checkSummary(ready, report, server.calls)
           if (failures.length) failures.push(`report of the content script:\n${JSON.stringify(report, null, 2)}`)
           console.log(`  ${c.name}: ${report.first?.parts?.length ?? "?"} parts; ${server.calls.filter((x) => x.type === "ai" && x.mode === "summary").length} summary requests for 3 summaries`)
+        } else if (c.scenario?.startsWith("image-")) {
+          failures = checkImage(c, ready, report, server.calls)
+          if (failures.length) failures.push(`report of the content script:\n${JSON.stringify(report, null, 2)}`)
+          const sent = server.calls.filter((x) => x.type === "ai" && x.image)
+          console.log(`  ${c.name}: images ${JSON.stringify(report.images?.map((i) => `${i.src?.match(/part=([\d.]+)/)?.[1] ?? i.src?.slice(0, 20)} ${i.width}×${i.height}`))}; ${sent.length} image requests, ${sent.map((x) => `${x.image.bytes} B`).join(", ")}`)
         } else if (c.scenario === "column") {
           failures = checkColumn(ready, report, server.calls)
           if (failures.length) failures.push(`report of the background script:\n${JSON.stringify(report, null, 2)}`)

@@ -33,6 +33,11 @@
  *   probe asks for the summary with the keyboard command, allows the AI
  *   service in the consent panel, asks again (the cache answers) and
  *   regenerates it.
+ * - "image-ask", "image-auto", "image-off", "image-switch": the three tiers
+ *   with precise translation on, image translation in the mode of the run
+ *   (IMAGE_MODES of scenario-settings.ts) and the message image.eml; the
+ *   probe reads the buttons and results under its images, and in
+ *   "image-switch" changes the mode ({ e2e: "settings", imageMode }).
  * - "column" (experimental build): the three tiers, allowed, on the same
  *   kind of profile; the hook shows "Foreign" in the mail tab and reads the
  *   column "Translated subject" through the experiment API until the
@@ -42,7 +47,7 @@
  */
 
 import { ext } from "../shared/ext"
-import { SETTINGS_KEY } from "../shared/settings"
+import { type ImageMode, SETTINGS_KEY } from "../shared/settings"
 import { updateSettings } from "../shared/settings-store"
 import type { KeyValueStorage } from "../background/cache"
 import type { DictionaryManager } from "../offline/dictionary/manager"
@@ -61,8 +66,8 @@ export type E2eMessage =
   | { e2e: "log"; message: string }
   /** Answer: the scenario of the run. */
   | { e2e: "scenario" }
-  /** Answer: the muted notices of the settings, after switching to Google without the dictionary when asked. */
-  | { e2e: "settings"; useGoogle?: boolean }
+  /** Answer: the muted notices of the settings, after switching to Google without the dictionary or to another mode of image translation when asked. */
+  | { e2e: "settings"; useGoogle?: boolean; imageMode?: ImageMode }
   /** A screenshot of the most recent window of a type (experiment e2eCapture), saved by the mock server as <name>.png. */
   | { e2e: "screenshot"; name: string; windowType: string }
 
@@ -231,6 +236,7 @@ export async function setUpE2e({ storage, dictionary, runCommand }: E2eDeps): Pr
     if (msg.e2e === "screenshot") return screenshot(msg.name, msg.windowType)
     if (msg.e2e === "settings") {
       return updateSettings((s) => {
+        if (msg.imageMode) s.image.mode = msg.imageMode
         if (!msg.useGoogle) return
         s.tiers = { dictionary: null, machine: "google-free", ai: null }
         s.offlineMutedPairs = []

@@ -20,6 +20,15 @@
  * scenario it asks for the summary with the keyboard command, allows the AI
  * service in the consent panel, reads the panel, asks again, which the cache
  * answers, and regenerates the summary with the button of the panel.
+ * In the "image-…" scenarios (image.eml, precise translation on) it
+ * translates the message and reads what is under its images: in
+ * "image-ask" it clicks the button of the chart, waits with the consent
+ * panel open, allows the service, clicks the button of the receipt,
+ * restores the message and translates it again, when the cache answers; in
+ * "image-auto" it waits for the chart to be sent by itself and the receipt
+ * to keep its button; in "image-off" it waits and finds nothing; in
+ * "image-switch" it changes the mode from "ask" to "auto", "off" and back,
+ * while the message stays translated.
  * In the "auto" scenario (automatic translation on) it starts nothing and
  * waits until automatic translation has translated every paragraph; in
  * "auto-skip" (a message in the target language) it waits a fixed time and
@@ -243,6 +252,95 @@ export function createContentProbe(): ContentProbe {
     await send({ e2e: "screenshot", name: "summary-panel", windowType: "mail:messageWindow" })
   }
 
+  /** What is under the images of the message: the part of the image, its button, consent panel, result and note. */
+  const imageSlots = () =>
+    Array.from(document.querySelectorAll<HTMLElement>(".tt-image"), (slot) => {
+      const before = slot.previousElementSibling
+      const img = before?.matches("img") ? before : before?.querySelector("img")
+      const result = slot.querySelector<HTMLDetailsElement>(".tt-image-result")
+      return {
+        part: img?.getAttribute("src")?.match(/[?&]part=([\d.]+)/)?.[1] ?? null,
+        button: slot.querySelector(":scope > button")?.textContent ?? null,
+        consent: slot.querySelector(".tt-image-consent")?.textContent ?? null,
+        result: result && {
+          open: result.open,
+          title: result.querySelector("summary")?.textContent ?? "",
+          header: Array.from(result.querySelectorAll("th"), (th) => th.textContent),
+          cells: Array.from(result.querySelectorAll("td"), (td) => td.textContent),
+        },
+        note: slot.querySelector(".tt-image-note")?.textContent ?? null,
+      }
+    })
+  const imageResults = () => imageSlots().filter((slot) => slot.result).length
+  const imageButtons = () => imageSlots().filter((slot) => slot.button)
+  /** The images of the message with their part and natural size. */
+  const messageImages = () => Array.from(root()!.querySelectorAll("img"), (img) => ({ src: img.getAttribute("src")?.slice(0, 160), width: img.naturalWidth, height: img.naturalHeight }))
+  const translated = () => last !== null && last.total > 0 && last.done + last.failed === last.total
+
+  /** The "image-…" scenarios: the buttons, the consent, the results and the modes under the images of image.eml. */
+  async function images(report: Record<string, unknown>, scenario: string): Promise<void> {
+    const { controller } = parts!
+    const body = root()!
+    const original = body.innerHTML
+    await controller.start()
+    await until("the final progress report", translated)
+    report.images = messageImages()
+    if (scenario === "image-off") {
+      await new Promise((r) => setTimeout(r, 1500))
+      report.off = { slots: imageSlots(), state: last }
+      return
+    }
+    if (scenario === "image-auto") {
+      await until("the result of the chart and the button of the receipt", () => imageResults() === 1 && imageButtons().length === 1)
+      report.auto = imageSlots()
+      await send({ e2e: "screenshot", name: "image-auto", windowType: "mail:messageWindow" })
+      return
+    }
+    await until("the buttons under the chart and the receipt", () => imageButtons().length === 2)
+    report.ask = imageSlots()
+    if (scenario === "image-switch") {
+      const tierResults = events.length
+      report.switchAt = Date.now()
+      await send({ e2e: "settings", imageMode: "auto" })
+      await until("the results of mode auto", () => settings?.image.mode === "auto" && imageResults() === 2)
+      report.auto = imageSlots()
+      await send({ e2e: "settings", imageMode: "off" })
+      await until("nothing under the images", () => settings?.image.mode === "off" && document.querySelectorAll(".tt-image").length === 0)
+      report.offAt = Date.now()
+      await send({ e2e: "settings", imageMode: "ask" })
+      await until("the results again in mode ask", () => settings?.image.mode === "ask" && imageResults() === 2)
+      report.back = imageSlots()
+      report.tierResults = events.length - tierResults
+      report.state = last
+      return
+    }
+    // "image-ask": the consent first, nothing goes out before it.
+    report.clickedAt = Date.now()
+    document.querySelector<HTMLButtonElement>(".tt-image > button")!.click()
+    await until("the consent panel under the chart", () => document.querySelector(".tt-image-consent") !== null)
+    await new Promise((r) => setTimeout(r, 1500))
+    const panel = document.querySelector<HTMLElement>(".tt-image-consent")!
+    report.panel = { slots: imageSlots(), title: panel.querySelector("strong")?.textContent, lines: Array.from(panel.querySelectorAll("p, li"), (el) => el.textContent), buttons: Array.from(panel.querySelectorAll("button"), (b) => b.textContent) }
+    report.allowedAt = Date.now()
+    panel.querySelector("button")!.click()
+    await until("the result under the chart", () => imageResults() === 1)
+    report.first = imageSlots()
+    await send({ e2e: "screenshot", name: "image-result", windowType: "mail:messageWindow" })
+    document.querySelector<HTMLButtonElement>(".tt-image > button")!.click()
+    await until("the result under the receipt", () => imageResults() === 2)
+    report.second = imageSlots()
+    // Translated again: the cache answers, without a button and without a request.
+    controller.stop()
+    report.restored = { identical: body.innerHTML === original, leftovers: body.querySelectorAll(".tt-image, .tt-translation").length }
+    report.cachedAt = Date.now()
+    last = null
+    await controller.start()
+    await until("the final progress report", translated)
+    await until("both results from the cache", () => imageResults() === 2)
+    report.cached = imageSlots()
+    controller.stop()
+  }
+
   /** The "auto" scenario: automatic translation translates every paragraph; the probe only waits. */
   async function auto(report: Record<string, unknown>, body: HTMLElement): Promise<void> {
     await until("the final progress report of the automatic translation", () => last !== null && last.total > 0 && last.done + last.failed === last.total)
@@ -264,6 +362,12 @@ export function createContentProbe(): ContentProbe {
     try {
       if (!body) throw new Error("no message body")
       const scenario = await send({ e2e: "scenario" })
+      if (String(scenario).startsWith("image-")) {
+        report.scenario = scenario
+        await images(report, scenario as string)
+        await send({ e2e: "report", report })
+        return
+      }
       if (scenario === "summary" || String(scenario).startsWith("machine-")) {
         report.scenario = scenario
         await (scenario === "summary" ? summary(report) : machine(report))

@@ -6,7 +6,7 @@
  */
 
 import { readSettings } from "../shared/settings-store"
-import type { Settings } from "../shared/settings"
+import { defaultImageSettings, type ImageMode, type Settings } from "../shared/settings"
 import { DICT_TAG } from "./release"
 
 /** The machine translators with a key of their own: the path of each on the mock server and the keys it checks (MACHINE_KEYS of e2e/mock-server.mjs). */
@@ -17,6 +17,13 @@ export const MACHINE = [
   { id: "caiyun", path: "/caiyun", config: { apiKey: "e2e-caiyun-token" } },
 ]
 
+/**
+ * The mode of image translation of each image run: "image-ask" clicks a button, allows the service in the panel and
+ * reads the result again from the cache; "image-auto" sends the first image by itself and leaves the button under the
+ * second; "image-off" shows nothing; "image-switch" changes the mode while the message is translated.
+ */
+export const IMAGE_MODES: Partial<Record<string, ImageMode>> = { "image-ask": "ask", "image-auto": "auto", "image-off": "off", "image-switch": "ask" }
+
 /** The settings of `scenario` over the `stored` settings of the profile; `server` is the address of the mock server. */
 export function scenarioSettings(stored: unknown, scenario: string, server: string): Settings {
   const settings = readSettings(stored)
@@ -25,7 +32,12 @@ export function scenarioSettings(stored: unknown, scenario: string, server: stri
   settings.targetLang = "zh-CN"
   settings.mode = "bilingual"
   settings.autoTranslate = scenario.startsWith("auto")
-  settings.precise.enabled = false
+  // The image runs: precise translation with the AI service of the mock server, in the mode of the run.
+  const image = IMAGE_MODES[scenario]
+  settings.precise.enabled = image !== undefined
+  settings.image = { ...defaultImageSettings(), mode: image ?? "ask", maxPerMessage: scenario === "image-auto" ? 1 : 5 }
+  // The "image-ask" run asks before the first image; the others have the AI service allowed for images already.
+  settings.imageConsent = image && scenario !== "image-ask" ? ["custom"] : []
   settings.dictionary.releaseTag = DICT_TAG
   settings.tiers = { dictionary: "dictionary", machine: offline ? "bergamot" : "google-free", ai: offline ? null : "custom" }
   const machine = MACHINE.find((m) => scenario === `machine-${m.id}`)
@@ -41,6 +53,6 @@ export function scenarioSettings(stored: unknown, scenario: string, server: stri
   settings.onlineConsent = scenario === "consent" || scenario === "subjects" ? [] : scenario === "summary" ? ["google-free"] : ["google-free", "custom", ...(machine ? [machine.id] : [])]
   // The earlier runs share the profile: in these runs Google, the AI service and the machine translators have to answer
   // themselves, not the cache. Every other run has the cache on, the "summary" run to answer its second request from it.
-  settings.cache.enabled = !(scenario === "missing" || scenario.startsWith("auto") || scenario === "consent" || machine)
+  settings.cache.enabled = !(scenario === "missing" || scenario.startsWith("auto") || scenario === "consent" || machine || scenario === "image-auto" || scenario === "image-switch")
   return settings
 }
