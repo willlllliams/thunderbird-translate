@@ -1,7 +1,8 @@
 // Checks the layers of src/: every relative import of a source file must point into a directory its layer may use.
 // Import forms: import … from, import type … from, export … from, side-effect import "…", import x = require("…"),
-// dynamic import("…") and import(`…`), also over several lines. npm packages are not checked; outside src/ only
-// locales/*.json may be imported. The files of src/hooks/ hold no code that runs: they import types only.
+// dynamic import("…") and import(`…`), also over several lines. A layer imports only the npm packages PACKAGES lists
+// for it; outside src/ only locales/*.json may be imported. The files of src/hooks/ hold no code that runs: they
+// import types only.
 //
 // The imports are read from the tokens of TypeScript's own scanner (typescript/unstable/ast/scanner, the scanner
 // TypeScript 7 publishes for tools), the way ts.preProcessFile of TypeScript 5 read them: comments, strings,
@@ -31,7 +32,18 @@ export const LAYERS = {
   // The experimental build: its background script (experiments/background.ts) runs the background script of every
   // build and adds the column of the experiment API. No other layer lists it, so only the entry of that build, which
   // scripts/build.mjs --experimental bundles, reads anything of it.
-  experiments: ["shared", "background", "offline", "content", "hooks"],
+  experiments: ["shared", "background", "offline", "hooks"],
+}
+
+/**
+ * The npm packages each layer may import: a name, every package of a scope ("@ai-sdk/*"), or "type " and a name for
+ * import type only. The AI SDK stays in the AI chunk of the background script, the Zstandard decoder in the offline
+ * layer; content scripts and pages import none.
+ */
+export const PACKAGES = {
+  background: ["ai", "@ai-sdk/*", "zod"],
+  offline: ["fzstd"],
+  shared: ["type ai"],
 }
 
 /** Layers that only the entry of a build variant reads, with that entry; no other layer may import them. */
@@ -192,7 +204,12 @@ export function checkImports(dir = root) {
         continue
       }
       if (TYPE_ONLY_LAYERS.has(layer) && !typeOnly) problems.push(`${where}: ${layer} may import types only (${spec})`)
-      if (!spec.startsWith(".")) continue
+      if (!spec.startsWith(".")) {
+        const name = spec.split("/").slice(0, spec.startsWith("@") ? 2 : 1).join("/")
+        const may = PACKAGES[layer] ?? []
+        if (!may.includes(name) && !may.includes(`${name.split("/")[0]}/*`) && !(typeOnly && may.includes(`type ${name}`))) problems.push(`${where}: ${layer} must not import the package ${spec}`)
+        continue
+      }
       checked++
       const target = posix(relative(dir, resolve(dirname(file), spec)))
       if (!target.startsWith("src/")) {

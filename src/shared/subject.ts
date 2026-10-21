@@ -5,6 +5,9 @@
  * the page of translated subjects and in the cache.
  */
 
+import { isInTargetLanguage, type LanguageDetector } from "./lang-detect"
+import { hasTranslatableText } from "./text"
+
 /**
  * Reply and forward prefixes of common mail programs, followed by a colon (ASCII or full width) and
  * optionally a counter such as "Re[2]:": English, German (AW, WG), Scandinavian (SV, VS, VB), Dutch (Antw, Doorst),
@@ -26,4 +29,11 @@ export function splitSubject(subject: string): SubjectParts {
   const match = PREFIX.exec(subject)
   const prefix = match?.[0] ?? ""
   return { prefix, text: subject.slice(prefix.length).trim() }
+}
+
+/** The parts of `subject` to translate; null when it has nothing to translate or is in the target language already. */
+export async function subjectToTranslate(subject: string, s: { targetLang: string; sourceLang: string }, detect?: LanguageDetector): Promise<SubjectParts | null> {
+  const parts = splitSubject(subject)
+  if (!hasTranslatableText(parts.text)) return null
+  return (await isInTargetLanguage(parts.text, s.targetLang, detect, s.sourceLang)) ? null : parts
 }

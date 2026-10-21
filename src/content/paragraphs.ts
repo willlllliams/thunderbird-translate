@@ -12,7 +12,7 @@
  * list, so restore() puts back the exact original nodes.
  */
 
-import { hasTranslatableText, unwrapPlainText } from "./text"
+import { hasTranslatableText, unwrapPlainText } from "../shared/text"
 
 const CLS_SEG = "tt-seg"
 export const CLS_TRANSLATION = "tt-translation"

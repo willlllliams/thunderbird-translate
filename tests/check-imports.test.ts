@@ -122,10 +122,10 @@ describe("layer check", () => {
   it("accept the allowed directions, npm packages and locales/*.json", () => {
     withTree(
       {
-        "src/shared/a.ts": 'import en from "../../locales/en.json"\nimport { z } from "zod"\nimport { b } from "./b"',
+        "src/shared/a.ts": 'import en from "../../locales/en.json"\nimport type { JSONValue } from "ai"\nimport { b } from "./b"',
         "src/shared/b.ts": "export const b = 1",
-        "src/offline/x.ts": 'import { b } from "../shared/b"',
-        "src/background/index.ts": 'import { x } from "../offline/x"\nimport { hook } from "../hooks/hook"',
+        "src/offline/x.ts": 'import { b } from "../shared/b"\nimport { decompress } from "fzstd"',
+        "src/background/index.ts": 'import { x } from "../offline/x"\nimport { hook } from "../hooks/hook"\nimport { generateText } from "ai"\nimport { createOpenAI } from "@ai-sdk/openai"\nimport { config } from "zod/v4/core"',
         "src/hooks/hook.ts": 'import type { X } from "../offline/x"\nexport type { B } from "../shared/b"',
         "src/options/index.ts": 'import { r } from "../content/render"',
         "src/welcome/index.ts": 'import { o } from "../options/index"',
@@ -147,20 +147,29 @@ describe("layer check", () => {
         "src/background/index.ts": 'import { setUp } from "../e2e/background"',
         "src/hooks/hook.ts": 'import { run } from "../background/run"\nimport type { X } from "../popup/x"\nimport type from "../shared/t"',
         "src/welcome/w.ts": 'const glob = "*/*"\nconst b = () => import(`../background/b`)\nconst c = (n: string) => import(`../${n}/c`)',
+        "src/content/ai.ts": 'import { generateText } from "ai"\nimport type { LanguageModel } from "ai"',
+        "src/shared/t.ts": 'import { generateText } from "ai"\nimport type { Z } from "zod"\nimport { x } from "ai-tools"',
+        "src/offline/s.ts": 'import { a } from "@ai-sdk/openai"',
       },
       (dir) =>
         expect(checkImports(dir).problems).toEqual([
           "src/background/index.ts:1: background must not import e2e (../e2e/background)",
+          "src/content/ai.ts:1: content must not import the package ai",
+          "src/content/ai.ts:2: content must not import the package ai",
           "src/content/c.ts:1: content must not import options (../options/dom)",
           "src/hooks/hook.ts:1: hooks may import types only (../background/run)",
           "src/hooks/hook.ts:2: hooks must not import popup (../popup/x)",
           "src/hooks/hook.ts:3: hooks may import types only (../shared/t)",
           "src/offline/o.ts:1: ../../vendor/data.json is outside src/",
+          "src/offline/s.ts:1: offline must not import the package @ai-sdk/openai",
           "src/options/o.ts:1: options must not import offline (../offline/dictionary/store)",
           "src/popup/index.ts:1: popup must not import background (../background/side)",
           "src/popup/index.ts:2: popup must not import e2e (../e2e/hook)",
           "src/shared/a.ts:3: shared must not import background (../background/x)",
           "src/shared/a.ts:4: shared must not import offline (../offline/y)",
+          "src/shared/t.ts:1: shared must not import the package ai",
+          "src/shared/t.ts:2: shared must not import the package zod",
+          "src/shared/t.ts:3: shared must not import the package ai-tools",
           "src/tools/t.ts: directory src/tools/ belongs to no layer",
           "src/welcome/w.ts:2: welcome must not import background (../background/b)",
           "src/welcome/w.ts:3: the path of a dynamic import is computed and cannot be checked (../…)",
@@ -172,7 +181,7 @@ describe("layer check", () => {
     withTree(
       {
         "src/experiments/background.ts": 'import { a } from "../background/index"\nimport { c } from "./column"',
-        "src/experiments/column.ts": 'import { t } from "../content/text"',
+        "src/experiments/column.ts": 'import { t } from "../shared/text"',
         "src/background/index.ts": 'import { c } from "../experiments/column"',
         "src/e2e/e.ts": 'import { c } from "../experiments/column"',
       },

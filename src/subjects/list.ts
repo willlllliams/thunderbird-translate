@@ -6,7 +6,7 @@
  */
 
 import type { Collected, Unit } from "../content/paragraphs"
-import { hasTranslatableText } from "../content/text"
+import { hasTranslatableText } from "../shared/text"
 import type { MessageHeader, MessageList } from "../shared/ext"
 
 /** Messages listed at first, and added by every "Show more". */

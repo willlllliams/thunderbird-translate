@@ -46,10 +46,10 @@ import { createMailContext, type MailContext } from "../shared/mail-context"
 import type { TabState, TranslateRequest, TranslateResponse } from "../shared/messages"
 import { type Tier, TIER_NAME_KEYS, TIERS } from "../shared/providers"
 import type { ConsentNeed, DisplayMode, PublicSettings } from "../shared/settings"
-import { splitSubject } from "../shared/subject"
+import { type SubjectParts, subjectToTranslate } from "../shared/subject"
 import { CLS_SUBJECT, type Collected, collectParagraphs, extractText, type Unit } from "./paragraphs"
 import { Renderer, type TextFormat, type TranslationMark } from "./render"
-import { hasTranslatableText } from "./text"
+import { hasTranslatableText } from "../shared/text"
 
 export interface ControllerDeps {
   root: () => HTMLElement | null
@@ -261,13 +261,10 @@ export class TranslationController {
   }
 
   /** The subject to put above the body: its prefixes and the text to translate; null when it is off, missing or already in the target language. */
-  private async subjectToTranslate(s: PublicSettings): Promise<{ prefix: string; text: string } | null> {
+  private async subjectToTranslate(s: PublicSettings): Promise<SubjectParts | null> {
     if (!s.translateSubject || !this.deps.subject) return null
     const subject = await this.deps.subject().catch(() => null)
-    if (!subject) return null
-    const parts = splitSubject(subject)
-    if (!hasTranslatableText(parts.text)) return null
-    return (await isInTargetLanguage(parts.text, s.targetLang, this.deps.detect, s.sourceLang)) ? null : parts
+    return subject ? subjectToTranslate(subject, s, this.deps.detect) : null
   }
 
   /** The line with the subject at the top of the body; its text is the unit, the prefixes stay outside it. */

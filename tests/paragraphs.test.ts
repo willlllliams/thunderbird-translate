@@ -3,7 +3,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest"
 import { collectParagraphs, extractText } from "../src/content/paragraphs"
 import { Renderer } from "../src/content/render"
-import { unwrapPlainText } from "../src/content/text"
+import { unwrapPlainText } from "../src/shared/text"
 
 const texts = (html: string) => {
   document.body.innerHTML = html

@@ -22,14 +22,13 @@
  * keeps the translations of the MAX_SUBJECTS subjects listed last.
  */
 
-import { hasTranslatableText } from "../content/text"
 import type { MessageHeader } from "../shared/ext"
-import { isInTargetLanguage, type LanguageDetector } from "../shared/lang-detect"
+import type { LanguageDetector } from "../shared/lang-detect"
 import { stripMarkdown } from "../shared/markdown"
 import type { TranslateRequest, TranslateResponse } from "../shared/messages"
 import type { Tier } from "../shared/providers"
 import type { PublicSettings } from "../shared/settings"
-import { splitSubject } from "../shared/subject"
+import { subjectToTranslate } from "../shared/subject"
 
 /** Messages whose subjects are translated, from the top of the list. */
 export const LIST_SIZE = 100
@@ -132,8 +131,9 @@ export function createColumnSync({ api, ready, settings, columnName, translate, 
   }
 
   async function translateSubject(subject: string, s: PublicSettings, run: number): Promise<void> {
-    const { prefix, text } = splitSubject(subject)
-    if (!hasTranslatableText(text) || (await isInTargetLanguage(text, s.targetLang, detect, s.sourceLang))) return
+    const parts = await subjectToTranslate(subject, s, detect)
+    if (!parts) return
+    const { prefix, text } = parts
     const request: TranslateRequest = { text, sourceLang: s.sourceLang, targetLang: s.targetLang, tiers: s.tiers }
     await translate(
       request,

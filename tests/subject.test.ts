@@ -1,7 +1,7 @@
 /** Subjects: the reply and forward prefixes that stay untranslated (shared/subject.ts) and the subject of a displayed message (background/subject.ts). */
 import { describe, expect, it, vi } from "vitest"
 import { displayedSubject } from "../src/background/subject"
-import { splitSubject } from "../src/shared/subject"
+import { splitSubject, subjectToTranslate } from "../src/shared/subject"
 
 describe("splitSubject", () => {
   it.each([
@@ -23,6 +23,16 @@ describe("splitSubject", () => {
     ["Res publica", "", "Res publica"],
   ])("%s", (subject, prefix, text) => {
     expect(splitSubject(subject)).toEqual({ prefix, text })
+  })
+})
+
+describe("subjectToTranslate", () => {
+  const zh = { targetLang: "zh-CN", sourceLang: "auto" }
+  it("returns the parts of a subject to translate, null for one without letters or in the target language", async () => {
+    expect(await subjectToTranslate("Re: Budget", zh)).toEqual({ prefix: "Re: ", text: "Budget" })
+    expect(await subjectToTranslate("Fwd: 2026-10-14", zh)).toBeNull()
+    expect(await subjectToTranslate("回复：下周的会议安排", zh)).toBeNull()
+    expect(await subjectToTranslate("Budget", { targetLang: "en", sourceLang: "auto" }, async () => "en")).toBeNull()
   })
 })
 

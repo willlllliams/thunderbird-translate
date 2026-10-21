@@ -1,4 +1,4 @@
-/** Text-level filters used before a paragraph is sent for translation. */
+/** Text-level filters used before a paragraph or a subject is sent for translation. */
 
 const URL_RE = /\b(?:https?:\/\/|www\.)[^\s<>"']+/gi
 const EMAIL_RE = /[\w.+-]+@[\w-]+(?:\.[\w-]+)+/g
