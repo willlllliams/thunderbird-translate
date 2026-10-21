@@ -10,7 +10,7 @@ Version 2.4 translates the text in the images of a message. With precise transla
 
 - "Image translation" has three modes: Off, Ask under each image (the default) and On. They apply while precise translation is on and the vision model reads images.
 - Ask under each image: a "Translate image text" button appears under every image that passes the filters; a click sends that image only.
-- On: when you translate a message, its first images go to the service by themselves, five per message by default, in the order of the message; the images after them get the button.
+- On: when you translate a message, its first images go to the service by themselves, five per message by default, in the order of the message; the images after them get the button. The limit counts for the message on screen, also when a setting changes or the translation is turned off and on; Alt+R counts anew. Copies of one image count once.
 - A result already in the cache appears at once, without a button.
 - The popup switches the mode while precise translation is on. The message on screen follows at once, without loading it again and without translating the paragraphs again.
 - Alt+R also forgets the image results of the message: "Ask" shows the buttons again, "On" sends the images again.
@@ -21,7 +21,8 @@ Version 2.4 translates the text in the images of a message. With precise transla
 
 ### Consent for images
 
-- Before the first image goes to a service, a panel under the image asks, apart from the consent for text. It says what is sent and where to, and for Anthropic, Google Gemini and OpenAI what the service states about the data.
+- Before the first image goes to a service, a panel under the image asks, apart from the consent for text. It says what is sent and where to, how many images "On" sends, whether the glossary of the message goes along, and for Anthropic, Google Gemini and OpenAI what the service states about the data.
+- The glossary of precise translation goes with an image only to the service of tier 3 or to a service also allowed to receive the text of messages.
 - "Ask again for every message" asks for every message instead of once per service.
 - The settings page lists the services allowed to receive text and those allowed to receive images in two columns, each with "Revoke".
 
@@ -30,7 +31,12 @@ Version 2.4 translates the text in the images of a message. With precise transla
 - The settings page has the image settings under precise translation: the mode, the vision service and model, a line that names a model that does not accept images together with one that does, an estimate of the tokens of one image, and "Test image", which sends a built-in test image.
 - "Advanced image settings" holds the sources, the size and file limits, animated images, the upload size, format and quality, the limits per image and per message, the image detail, the answer, the length limit, the timeout, the concurrent requests, and how the result opens.
 - The image prompt can be edited and restored in the Prompts section.
-- The AI step of the setup guide offers the three modes under precise translation.
+- The AI step of the setup guide offers the three modes under precise translation, and names a model of the AI service that reads no images.
+
+### Connection check of the free routes
+
+- The settings page and the setup guide check whether Google Translate (free) and Microsoft Translator (free) can be reached from your network when they show one of them as added: once per page, with the test sentence of "Test connection", never with message text. A line says "Reachable" with the time of the answer, or "Not reachable" with the reason.
+- When the route reaches no server, the reason names the services that work without it: the other free route, the offline models and the dictionary, and with your own key DeepL, Baidu, Youdao and Caiyun. For Google it adds that the service is not available in mainland China. A failed translation of a message on one of these routes says the same.
 
 ### Changed
 
@@ -39,6 +45,36 @@ Version 2.4 translates the text in the images of a message. With precise transla
 ### Permissions
 
 - No new permission and no new address. The extension reads the image parts of the displayed message with the permission "Read your email messages" it already has.
+
+### Fixed
+
+- When the consent panel of the translation was open and you asked for the summary, or the other way round, allowing recorded a service the panel had not named. The panel now lists the services of both questions and says when the whole message goes to the summary.
+- A consent is now recorded with the address of the service; changing the address of an allowed service asks again. Consents of earlier versions apply to the address the service has after the update.
+- Revoking the consent of a service, turning image translation off or leaving a message no longer lets what already waits in a queue go to the service; a request still on its way for images is aborted.
+- With the source language "Automatic", Baidu translated the paragraphs of a mixed-language message, such as a Japanese message with an English signature, as if all were in one language. Each detected language now goes in a request of its own.
+- Paragraphs of a message you have already left are no longer translated, at your cost, before those of the message on screen.
+- A server that asks to wait more than 30 seconds (a spent daily quota) now makes the request fail at once with its message, instead of each attempt waiting 30 seconds.
+- An endpoint without `https://`, such as `localhost:1188/translate`, now says that it is not a valid address, instead of being retried as a network failure.
+- An error answer whose body stalled could hold a request slot of a service until Thunderbird was restarted; the timeout now covers it.
+- A summary with a model that reasons first, such as gpt-5-mini, often came back empty or cut off: the reasoning counted within the length limit. Such models now get room for it, and an answer cut at the limit says so.
+- The summary resolved "tomorrow" against the date of the message in UTC, a day off for readers far from it; it now uses your time zone.
+- Instructions hidden in a message could make the summary list invented to-dos. The model is now told to ignore them, and a to-do whose quote is not in the message is marked "not found in the message".
+- "Copy as Markdown" said "Copied" also when the copy failed; it now says "Copying failed" and keeps the focus.
+- After you corrected a key or an app ID, the failed paragraphs of the message on screen stayed failed; they are now asked again, without asking the tiers that succeeded.
+- A paragraph that no tier answered kept its spinner for good; it now fails with a retry marker.
+- A number with a fraction in the settings, such as 850.5 tokens, made every summary or image request fail; counts and sizes are now whole numbers.
+- While a download ran, the offline lists took the keyboard focus away four times a second; the focus now stays on its control.
+- The services of the settings page can now be selected with the keyboard, and the retry marker of a failed paragraph can be pressed with Enter or Space.
+- After an update of the extension, a message that was translated on screen showed every translation twice, or in translation-only display could not show its original again. The new version now restores such a message first.
+- Translations into Arabic and other right-to-left languages have their line and spacing on the side where the text starts.
+- German, French, Spanish and Portuguese interfaces write megabytes with their own decimal mark, lists of languages are joined as the interface language joins them, and counts no longer read "1 items".
+- Experimental build: a change of the settings while the folder list was read could leave subjects untranslated in the column until the next change.
+- The result of an image no longer breaks a table or a list of the message: in a table cell or a list item it goes inside it.
+- An image with more than 40 megapixels is no longer decoded: its size is read from its file first, and the images of a message are decoded one at a time.
+- An image request of a message you were leaving could read the image parts of the next message. A content script now reads only from the message it was started for.
+- A change of how the image results show (collapsed, tokens) no longer starts the images over; an image on its way is sent once.
+- Revoking the image consent, or turning on "Ask again for every message", now makes the panel ask again in the message on screen.
+- When a translation starts, only the first images, twice the limit per message, are read to look up cached results; the others are read when you click their button.
 
 ## 2.3.0 - 2026-10-21
 
