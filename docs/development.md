@@ -51,7 +51,7 @@ During development you can load the extension without packing it. In Thunderbird
 | `npm run typecheck` | TypeScript type check (`tsc --noEmit`) |
 | `npm run locales:check` | checks every `locales/<language>.json` against `locales/en.json` |
 | `npm run docs:check` | checks every relative link and heading anchor in the Markdown files, and that the files named in code spans exist |
-| `npm run imports:check` | checks the imports of `src/` against the layers in [Project structure](#project-structure) |
+| `npm run imports:check` | checks the imports of `src/` against the layers and the npm packages of each layer in [Project structure](#project-structure) |
 | `npm run e2e` | end-to-end test in a headless Thunderbird against a local mock server |
 | `npm run live-test` | calls the real Google and Microsoft endpoints through the extension's own modules, with and without a source language |
 | `npm run source-zip` | packs the source archive for addons.thunderbird.net, see [Release process](#release-process) |
@@ -65,10 +65,10 @@ The unit tests live in `tests/` and run in Node with vitest; DOM tests use jsdom
 
 | Metric | Threshold |
 | --- | --- |
-| Lines | 97% |
-| Statements | 97% |
-| Branches | 93% |
-| Functions | 96% |
+| Lines | 99.5% |
+| Statements | 98.8% |
+| Branches | 96.3% |
+| Functions | 98% |
 
 Two parts are excluded from coverage. `src/offline/bergamot/worker.ts` hands the real wasm module to `worker-core.ts`, which the unit tests cover with a stand-in. `src/e2e/**` is the code of the e2e build, which puts it in place of the empty hooks of `src/hooks/`; it runs only in `npm run e2e`. `tests/hooks.test.ts` checks that every hook of `src/hooks/` is undefined and that `src/e2e/hooks/` defines the same hooks.
 
@@ -150,7 +150,7 @@ In CI the job `e2e` of `.github/workflows/release.yml` runs the same command on 
 
 ```
 src/
-  shared/        modules every part uses: settings, provider presets and thinking parameters, the addresses the extension connects to and their host permissions, prompts, language table and codes, language detection, fetch with classified errors, message types, i18n runtime, DOM helpers, the Markdown reader of AI translations (markdown.ts), the subject without its reply and forward prefixes (subject.ts), the message as context for precise translation (mail-context.ts)
+  shared/        modules every part uses: settings, provider presets and thinking parameters, the addresses the extension connects to and their host permissions, prompts, language table and codes, language detection, fetch with classified errors, message types, i18n runtime, DOM helpers, the text filters applied before a paragraph or subject is sent (text.ts), a value loaded once and tried again after a failure (retryable.ts), the message list of a mail tab read page by page (message-list.ts), the Markdown reader of AI translations (markdown.ts), the subject without its reply and forward prefixes (subject.ts), the message as context for precise translation (mail-context.ts)
   offline/       offline data of the background page: manager.ts, what the managers of both services have in common; catalog-cache.ts, the catalogs (dictionary index, Bergamot model list); install-registry.ts, the installations of a service, two at a time with a queue
     dictionary/  dictionary packs: format, download, storage, lookup, and manager.ts, which lists, installs and removes the packs and translates with them
     bergamot/    Bergamot engine: model list, download, storage, worker, and manager.ts, which lists, installs and removes the models and translates with them
@@ -185,21 +185,23 @@ The dispatch of `runtime.onMessage` (`router.ts`) checks the sender. A content s
 
 The directories under `src/` are layers. A file may import from its own directory and from the directories listed for it:
 
-| Directory | May import from |
-| --- | --- |
-| `shared/` | npm packages and `locales/*.json` only |
-| `hooks/` | types only (`import type`, `export type`), from `shared/`, `offline/`, `background/`, `content/`, `welcome/`, `subjects/` |
-| `offline/` | `shared/`, `hooks/` |
-| `background/` | `shared/`, `offline/`, `hooks/` |
-| `content/` | `shared/`, `hooks/` |
-| `popup/` | `shared/` |
-| `options/` | `shared/`, `content/` (the style preview sets the same CSS variables as the translations in a message) |
-| `welcome/` | `shared/`, `content/`, `options/`, `hooks/` |
-| `subjects/` | `shared/`, `content/` (the translation controller, renderer and consent panel), `hooks/` |
-| `experiments/` | `shared/`, `background/`, `offline/`, `content/`, `hooks/`; no other layer imports it, so only the entry of the experimental build, `src/experiments/background.ts`, reads it (`VARIANT_LAYERS`) |
-| `e2e/` | every directory |
+| Directory | May import from | npm packages |
+| --- | --- | --- |
+| `shared/` | `locales/*.json` only | `import type` from `ai`, no value import |
+| `hooks/` | types only (`import type`, `export type`), from `shared/`, `offline/`, `background/`, `content/`, `welcome/`, `subjects/` | none |
+| `offline/` | `shared/`, `hooks/` | `fzstd` |
+| `background/` | `shared/`, `offline/`, `hooks/` | `ai`, `@ai-sdk/*`, `zod` |
+| `content/` | `shared/`, `hooks/` | none |
+| `popup/` | `shared/` | none |
+| `options/` | `shared/`, `content/` (the style preview sets the same CSS variables as the translations in a message) | none |
+| `welcome/` | `shared/`, `content/`, `options/`, `hooks/` | none |
+| `subjects/` | `shared/`, `content/` (the translation controller, renderer and consent panel), `hooks/` | none |
+| `experiments/` | `shared/`, `background/`, `offline/`, `hooks/`; no other layer imports it, so only the entry of the experimental build, `src/experiments/background.ts`, reads it (`VARIANT_LAYERS`) | none |
+| `e2e/` | every directory | none |
 
-No production file imports from `e2e/`. The pages reach dictionary packs and offline models through the background script only, so `options/` and `welcome/` import nothing from `offline/`, and no download or storage code goes into their bundles. `npm run imports:check` (`scripts/check-imports.mjs`) reads every `import`, `import type`, `export … from`, `import … = require(…)`, side-effect and dynamic import of `src/` and fails on an import across these boundaries; CI runs it after the link check. It reads the imports from the tokens of TypeScript's scanner, so text in comments, strings, template literals and regular expressions never counts as code, a dynamic import with a template literal path is checked like one with a quoted path, and a dynamic import whose path is computed fails the check. A default import named `type` (`import type from "…"`) counts as a value import.
+The packages of each layer are the `PACKAGES` table of `scripts/check-imports.mjs`. The AI SDK stays in the AI chunk of the background script and the Zstandard decoder in the offline layer, so no content script or page bundle carries them.
+
+No production file imports from `e2e/`. The pages reach dictionary packs and offline models through the background script only, so `options/` and `welcome/` import nothing from `offline/`, and no download or storage code goes into their bundles. `npm run imports:check` (`scripts/check-imports.mjs`) reads every `import`, `import type`, `export … from`, `import … = require(…)`, side-effect and dynamic import of `src/` and fails on an import across these boundaries and on an npm package that the layer does not list; CI runs it after the link check. It reads the imports from the tokens of TypeScript's scanner, so text in comments, strings, template literals and regular expressions never counts as code, a dynamic import with a template literal path is checked like one with a quoted path, and a dynamic import whose path is computed fails the check. A default import named `type` (`import type from "…"`) counts as a value import.
 
 The design of paragraph detection, the batch queue, the prompts and the provider configuration follows [Read Frog](https://github.com/mengxi-ream/read-frog), a browser extension for translating web pages released under GPL-3.0. This project carries these ideas over to Thunderbird's message reader and adapts them to email, for example splitting plain-text mail at blank lines and joining hard-wrapped lines.
 

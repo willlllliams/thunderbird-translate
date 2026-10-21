@@ -72,10 +72,12 @@ The column cannot show the consent panel. An online service that you have not al
 The Experiment `translatedColumn` ([schema](../src/experiments/translated-column/schema.json), [implementation](../src/experiments/translated-column/implementation.js)) runs in Thunderbird's main process:
 
 1. `add(name)` registers the column with `ThreadPaneColumns.addCustomColumn()`. Thunderbird asks the column for the text of each row synchronously, through the function `textCallback`, so the column reads a table of translations kept in the main process. The table is keyed by the subject as the message database stores it (`nsIMsgDBHdr.mime2DecodedSubject`), which is the same text as `MessageHeader.subject` of the WebExtension API.
-2. `set(entries)` takes over new translations and calls `ThreadPaneColumns.refreshCustomColumn()`. Every message list of every window then draws its visible rows again, and the column gives each row its translation.
+2. `set(entries)` takes over new translations and calls `ThreadPaneColumns.refreshCustomColumn()`. Every message list of every window then draws its visible rows again, and the column gives each row its translation. An entry with an empty translation removes the subject from the table, and its cell is empty again.
 3. `show()` makes the column visible in the folders the message lists show. A new column is visible in a folder that has no column settings of its own. A folder whose columns you arranged keeps the new column hidden until you tick it in the column picker of the message list. After a new installation the extension calls `show()` once for the folders on screen.
 4. `inspect(tabId, rows)` reports whether the column is registered and visible and what it shows in the first rows; the end-to-end test reads the column with it.
 5. When the extension is disabled, removed or updated, `onShutdown` removes the column with `ThreadPaneColumns.removeCustomColumn()` and asks Thunderbird to reload the scripts of Experiments, so that a new version does not run the old one. When Thunderbird itself closes, nothing needs to be removed.
+
+The column keeps the translations of the 2000 subjects listed last. When a message list shows more, the subjects that were listed longest ago are removed from the table; they are filled again from the cache, without a request, when they appear in a list again and the cache still holds them.
 
 The column cannot be sorted: sorting by it would order the messages by text that changes while translations arrive.
 
@@ -85,10 +87,9 @@ The module and its functions were compared in the source code of Thunderbird ([t
 
 | Thunderbird | Module | Functions used |
 | --- | --- | --- |
-| 115.10 and later 115 | `chrome://messenger/content/thread-pane-columns.mjs` | same as below |
 | 128 ESR, 140 ESR, 153 ESR, 156, 157 | `chrome://messenger/content/ThreadPaneColumns.mjs` | `addCustomColumn(id, { name, hidden, resizable, sortable, textCallback })`, `refreshCustomColumn(id)`, `removeCustomColumn(id)`, `getCustomColumns()` |
 
-Thunderbird 128 renamed the file of the module (bug 1890731). The module was always an ES module under `chrome://`, never a `.jsm` under `resource:///modules/`. From 128 to 157 its custom column functions accept the same properties; the file is identical from 153 on, and 128 and 140 differ only in built-in columns and comments. The implementation tries the name of 128 first and the name of 115 second, and reports both when neither loads. In all these versions `refreshCustomColumn()` makes every message list draw its rows again (`threadTree.invalidate()`), which the column relies on.
+Thunderbird 128 renamed the file of the module (bug 1890731). The module was always an ES module under `chrome://`, never a `.jsm` under `resource:///modules/`. From 128 to 157 its custom column functions accept the same properties; the file is identical from 153 on, and 128 and 140 differ only in built-in columns and comments. The implementation loads the module under the name of 128 and later only: the extension requires Thunderbird 128 (`strict_min_version`), so the older file name of Thunderbird 115 is not tried. In all these versions `refreshCustomColumn()` makes every message list draw its rows again (`threadTree.invalidate()`), which the column relies on.
 
 The choice between table view and cards view lives in different places: Thunderbird 128 keeps it in the XUL store of the main window (`xulstore.json`, entry `threadPane`, attribute `view`), Thunderbird 140 and later in the preference `mail.threadpane.listview`. The button of the message list sets either one, so for users nothing differs. `inspect()` therefore reads the view from the message list itself (`threadTree`, attribute `rows`), and the test profile sets both.
 
