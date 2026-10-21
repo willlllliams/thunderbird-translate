@@ -8,8 +8,7 @@
  */
 
 import { type ContentClient, connectContent } from "../content/client"
-import type { Unit } from "../content/paragraphs"
-import { Renderer, setStyleVars } from "../content/render"
+import { sampleRenderer } from "../content/render"
 import { ext } from "../shared/ext"
 import { getI18n, t } from "../shared/i18n"
 import { localizeDocument } from "../shared/i18n-dom"
@@ -19,12 +18,13 @@ import { $, fillSelect, fillTierSelects, languageOptions, onTierChange, showSave
 import { PROMPT_KINDS } from "../shared/prompts"
 import { getPreset, type Tier } from "../shared/providers"
 import { addProvidersInUse, type DisplayMode, type ImageMode, type Settings } from "../shared/settings"
-import { BergamotSection } from "../options/bergamot"
-import { DictionarySection } from "../options/dictionaries"
+import type { BergamotSection } from "../options/bergamot"
+import type { DictionarySection } from "../options/dictionaries"
 import { h } from "../shared/dom"
-import { loadSystemLanguages, recommendedFor } from "../options/offline-list"
+import { loadSystemLanguages } from "../options/offline-list"
+import { offlineSections } from "../options/offline-sections"
 import { PromptEditor } from "../options/prompt-editor"
-import { type PanelState, providerConfig, providerFields, providerTitle, testButton, testResult } from "../options/provider-panel"
+import { providerConfig, servicePanel } from "../options/provider-panel"
 import { SettingsSession } from "../options/session"
 import { mountStyleControls } from "../options/style-controls"
 import { welcomeProbe } from "../hooks/welcome"
@@ -152,13 +152,8 @@ function renderModePreview(): void {
   const originals = paragraphs([t("welcomePreviewOriginal"), t("stylePreviewOriginal")])
   const translations = [t("welcomePreviewTranslation"), t("stylePreviewTranslation")]
   box.replaceChildren(...originals)
-  setStyleVars(box, settings.style)
-  const renderer = new Renderer(document)
-  renderer.stylePreset = settings.style.preset
-  originals.forEach((el, i) => {
-    const unit: Unit = { el, text: el.textContent ?? "", pre: false }
-    renderer.showTranslation(unit, translations[i], settings.mode)
-  })
+  const sample = sampleRenderer(box, settings.style)
+  originals.forEach((el, i) => sample.show(el, translations[i], settings.mode))
   for (const radio of Array.from(document.querySelectorAll<HTMLInputElement>('input[name="mode"]'))) radio.checked = radio.value === settings.mode
 }
 
@@ -236,17 +231,11 @@ async function downloadPicked(): Promise<void> {
 function renderServicePanel(box: HTMLElement, id: string | null): void {
   const p = id ? getPreset(id) : undefined
   if (!p) return void box.replaceChildren()
-  const cfg = providerConfig(session, p.id)
-  const state: PanelState = {
-    p,
-    cfg,
-    session,
-    addWhileTyping: (value) => {
-      if (value) cfg.enabled = true
-    },
-  }
-  const result = testResult()
-  box.replaceChildren(providerTitle(p), ...providerFields(state), h("div", { className: "row" }, testButton(state, result)), result)
+  box.replaceChildren(
+    ...servicePanel(session, p, (value) => {
+      if (value) providerConfig(session, p.id).enabled = true
+    }),
+  )
 }
 
 /** Every AI service; the AI tier uses the chosen one. */
@@ -328,28 +317,7 @@ async function main(): Promise<void> {
   session.onRemoteChange = remoteChanged
   session.onSaved = showSaved
   session.onSaveError = showSaveError
-  const lists = {
-    languages: () => ({ source: settings.sourceLang, target: settings.targetLang }),
-    recommended: () => recommendedFor(settings),
-    pick: true,
-    onRender: showDownloadState,
-  }
-  dictionaries = new DictionarySection({
-    ...lists,
-    tag: () => settings.dictionary.releaseTag,
-    list: $("dictList"),
-    status: $("dictStatus"),
-    common: $("dictCommon"),
-    filter: $<HTMLInputElement>("dictFilter"),
-  })
-  bergamot = new BergamotSection({
-    ...lists,
-    list: $("bergamotList"),
-    status: $("bergamotStatus"),
-    common: $("bergamotCommon"),
-    needed: $("bergamotNeeded"),
-    filter: $<HTMLInputElement>("bergamotFilter"),
-  })
+  ;({ dictionaries, bergamot } = offlineSections(() => settings, { pick: true, onRender: showDownloadState }))
   prompts = new PromptEditor($("promptEditor"), session, PROMPT_KINDS)
   mountStyleControls($("styleControls"), session, renderModePreview)
   demo = new TierDemo($("tierDemo"), $("demoStatus"))

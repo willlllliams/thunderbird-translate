@@ -15,7 +15,7 @@ import { hostAccessLine, requestHostAccess } from "./host-access"
 import type { SettingsSession } from "./session"
 
 /** The service shown and its configuration. */
-export interface PanelState {
+interface PanelState {
   p: ProviderPreset
   cfg: ProviderConfig
   session: SettingsSession
@@ -244,14 +244,14 @@ function llmFields({ p, cfg, session }: PanelState): HTMLElement[] {
 }
 
 /** Title of a service with the link to its key or documentation. */
-export function providerTitle(p: ProviderPreset): HTMLElement {
+function providerTitle(p: ProviderPreset): HTMLElement {
   const title = h("div", { className: "row" }, h("h3", { text: providerDisplayName(p) }))
   if (p.docsUrl && p.kind !== "microsoft") title.append(h("a", { href: p.docsUrl, target: "_blank", rel: "noopener", text: t("getKey"), title: t("tipGetKey") }))
   return title
 }
 
 /** The configuration fields of a service, by kind. */
-export function providerFields(state: PanelState): HTMLElement[] {
+function providerFields(state: PanelState): HTMLElement[] {
   const { p } = state
   switch (p.kind) {
     case "google":
@@ -283,7 +283,7 @@ export function providerFields(state: PanelState): HTMLElement[] {
 }
 
 /** Connection test with the configuration as it is on screen, saved or not; the result goes into `result`. */
-export function testButton({ p, cfg, session }: PanelState, result: HTMLElement): HTMLButtonElement {
+function testButton({ p, cfg, session }: PanelState, result: HTMLElement): HTMLButtonElement {
   const test = h("button", { type: "button", text: t("buttonTest"), title: t("tipTest") })
   test.addEventListener("click", async () => {
     // First, while the click is being handled: Thunderbird asks the user only from a user action.
@@ -309,6 +309,18 @@ export function testButton({ p, cfg, session }: PanelState, result: HTMLElement)
 }
 
 /** Box for the result of the connection test. */
-export function testResult(): HTMLElement {
+function testResult(): HTMLElement {
   return h("div", { className: "test-result", "aria-live": "polite" })
+}
+
+/**
+ * The panel of a service, as the settings page and the setup guide show it: its title, its fields, a row with the
+ * test button, followed by `actions` (the page's buttons, given the test button to put first) and `after` the row,
+ * then the result of the test.
+ */
+export function servicePanel(session: SettingsSession, p: ProviderPreset, addWhileTyping: PanelState["addWhileTyping"], actions?: (test: HTMLButtonElement) => HTMLElement, after: Node[] = []): Node[] {
+  const state: PanelState = { p, cfg: providerConfig(session, p.id), session, addWhileTyping }
+  const result = testResult()
+  const test = testButton(state, result)
+  return [providerTitle(p), ...providerFields(state), actions ? actions(test) : h("div", { className: "row" }, test), ...after, result]
 }

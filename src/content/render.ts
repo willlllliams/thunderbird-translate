@@ -19,6 +19,7 @@
  * (TextFormat); the controller decides which.
  */
 
+import { getI18n } from "../shared/i18n"
 import { markdownFragment, stripMarkdown } from "../shared/markdown"
 import type { DisplayMode, Settings, StylePreset } from "../shared/settings"
 import { CLS_IMAGE, CLS_ORIGINAL, CLS_STATUS, CLS_TRANSLATION, type Unit } from "./paragraphs"
@@ -32,6 +33,25 @@ export function styleVars(style: Settings["style"]): Record<string, string> {
 export function setStyleVars(el: HTMLElement, style: Settings["style"]): void {
   el.style.removeProperty("--tt-text-color")
   for (const [name, value] of Object.entries(styleVars(style))) el.style.setProperty(name, value)
+}
+
+/**
+ * Sample translations of an extension page (the setup guide) inside `box`, in the style of `style`: each paragraph
+ * element is a unit of its own, and a translation carries the interface language, which it is written in.
+ */
+export function sampleRenderer(box: HTMLElement, style: Settings["style"]) {
+  setStyleVars(box, style)
+  const renderer = new Renderer(box.ownerDocument)
+  renderer.stylePreset = style.preset
+  const units = new WeakMap<HTMLElement, Unit>()
+  const unit = (el: HTMLElement) => {
+    if (!units.has(el)) units.set(el, { el, text: el.textContent ?? "", pre: false })
+    return units.get(el)!
+  }
+  return {
+    show: (el: HTMLElement, text: string, mode: DisplayMode, mark?: TranslationMark) => renderer.showTranslation(unit(el), text, mode, getI18n().lang, mark),
+    loading: (el: HTMLElement, label: string) => renderer.showLoading(unit(el), label),
+  }
 }
 
 interface UnitDom {

@@ -3,7 +3,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest"
 import { TranslationController } from "../src/content/controller"
 import { candidateLanguages, englishScore, isInTargetLanguage } from "../src/shared/lang-detect"
 import { collectParagraphs, extractText } from "../src/content/paragraphs"
-import { Renderer } from "../src/content/render"
+import { Renderer, sampleRenderer } from "../src/content/render"
 import { hasTranslatableText, unwrapPlainText } from "../src/shared/text"
 import { ENGLISH } from "../src/shared/i18n"
 import type { MailContext } from "../src/shared/mail-context"
@@ -493,5 +493,18 @@ describe("controller", () => {
       { id: contexts[0].id, index: 0 },
       { id: contexts[0].id, index: 2 },
     ])
+  })
+})
+
+describe("sample translations of a page", () => {
+  it("U27: show in the style of the settings and the interface language, each paragraph replacing what it showed", () => {
+    document.body.innerHTML = "<div id=box><p>Hello</p></div>"
+    const box = document.getElementById("box")!
+    const p = box.querySelector("p")!
+    const sample = sampleRenderer(box, { preset: "dashed", color: "#112233", textColor: "", opacity: 0.9, fontScale: 1 })
+    sample.loading(p, "…")
+    sample.show(p, "Hallo", "bilingual")
+    expect(box.style.getPropertyValue("--tt-color")).toBe("#112233")
+    expect(Array.from(p.querySelectorAll(".tt-translation, .tt-loading"), (el) => [el.className, el.getAttribute("lang")])).toEqual([["tt-translation tt-bilingual tt-style-dashed tt-flow", "en"]])
   })
 })

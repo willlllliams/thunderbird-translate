@@ -11,8 +11,7 @@
  *   and a shade around the selector, a tip under it with "Next" and "Skip".
  */
 
-import type { Unit } from "../content/paragraphs"
-import { Renderer, setStyleVars } from "../content/render"
+import { sampleRenderer } from "../content/render"
 import { type MessageKey, t } from "../shared/i18n"
 import { $ } from "../shared/page"
 import { getPreset, providerDisplayName, type Tier, TIER_NAME_KEYS, TIERS } from "../shared/providers"
@@ -47,21 +46,18 @@ export class TierDemo {
     this.stop()
     const p = h("p", { text: t("demoSource") })
     this.box.replaceChildren(p)
-    setStyleVars(this.box, settings.style)
+    const sample = sampleRenderer(this.box, settings.style)
     const tiers = enabledTiers(settings.tiers)
     const top = tiers.at(-1)
     if (!top) return void (this.status.textContent = t("tiersEmpty"))
-    const renderer = new Renderer(document)
-    renderer.stylePreset = settings.style.preset
-    const unit: Unit = { el: p, text: t("demoSource"), pre: false }
     const show = (tier: Tier) => {
       const service = providerDisplayName(getPreset(settings.tiers[tier]!)!)
       const mark = tier === top ? undefined : { kind: "provisional" as const, label: t(TIER_NAME_KEYS[tier]), title: t("statusProvisionalHint", [t(TIER_NAME_KEYS[top])]) }
-      renderer.showTranslation(unit, t(DEMO_TEXT[tier]), settings.mode, undefined, mark)
+      sample.show(p, t(DEMO_TEXT[tier]), settings.mode, mark)
       this.status.textContent = `${t("tierLabel", [TIERS.indexOf(tier) + 1, t(TIER_NAME_KEYS[tier])])} · ${service}`
     }
     if (reducedMotion()) return show(top)
-    renderer.showLoading(unit, t("statusTranslating"))
+    sample.loading(p, t("statusTranslating"))
     this.status.textContent = t("statusTranslating")
     for (const tier of tiers) this.timers.push(setTimeout(() => show(tier), DEMO_TIMES[tier]))
   }

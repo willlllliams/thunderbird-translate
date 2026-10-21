@@ -9,13 +9,14 @@ import type { OfflineService } from "../shared/offline-needs"
 import { $, fillSelect, fillTierSelects, languageOptions, offlineName, offlineStatus, onTierChange, showOfflineHint, showSaved, showSaveError, sourceLanguageOptions, uiLanguageOptions } from "../shared/page"
 import { getPreset, PROVIDER_PRESETS, providerDisplayName, type ProviderPreset, type Tier, TIER_NAME_KEYS, TIERS, tierOf } from "../shared/providers"
 import { addedProviders, addProvidersInUse, consentParts, type DisplayMode, enabledTiers, removalBlocker, resolveProvider, type Settings, SUMMARY_PARTS, summaryProvider } from "../shared/settings"
-import { BergamotSection } from "./bergamot"
-import { DictionarySection } from "./dictionaries"
+import type { BergamotSection } from "./bergamot"
+import type { DictionarySection } from "./dictionaries"
 import { button, h } from "../shared/dom"
-import { loadSystemLanguages, recommendedFor } from "./offline-list"
+import { loadSystemLanguages } from "./offline-list"
+import { offlineSections } from "./offline-sections"
 import { ImageSettingsSection } from "./image-settings"
 import { PromptEditor } from "./prompt-editor"
-import { type PanelState, providerConfig, providerFields, providerTitle, testButton, testResult } from "./provider-panel"
+import { providerConfig, servicePanel } from "./provider-panel"
 import { SettingsSession } from "./session"
 import { mountStyleControls } from "./style-controls"
 
@@ -173,23 +174,17 @@ function showTierControls(): void {
 function renderProviderPanel(): void {
   const p = getPreset(selectedProvider)!
   const cfg = providerConfig(session, p.id)
-  const result = testResult()
   // Not added: "Add". Added: "Use this service" (in its tier) and "Remove"; the services of the tiers cannot be removed.
   const actions = h("div", { className: "row" })
   const blockedHint = h("p", { className: "hint remove-hint" })
-  const state: PanelState = {
-    p,
-    cfg,
-    session,
-    addWhileTyping: (value) => {
-      if (!value || cfg.enabled) return
-      cfg.enabled = true
-      renderProviderList()
-      fillTiers()
-      renderActions()
-    },
+  const addWhileTyping = (value: string) => {
+    if (!value || cfg.enabled) return
+    cfg.enabled = true
+    renderProviderList()
+    fillTiers()
+    renderActions()
   }
-  const test = testButton(state, result)
+  let test: HTMLButtonElement
   const renderActions = () => {
     blockedHint.textContent = ""
     if (!cfg.enabled) {
@@ -217,8 +212,13 @@ function renderProviderPanel(): void {
     }
     actions.replaceChildren(test, use, remove)
   }
-  renderActions()
-  $("providerPanel").replaceChildren(providerTitle(p), ...providerFields(state), actions, blockedHint, result)
+  $("providerPanel").replaceChildren(
+    ...servicePanel(session, p, addWhileTyping, (button) => {
+      test = button
+      renderActions()
+      return actions
+    }, [blockedHint]),
+  )
 }
 
 function applyPreview(): void {
@@ -268,26 +268,7 @@ async function main(): Promise<void> {
   session.onSaved = showSaved
   session.onSaveError = showSaveError
   selectedProvider = settings.tiers[enabledTiers(settings.tiers).at(-1)!]!
-  const languages = () => ({ source: settings.sourceLang, target: settings.targetLang })
-  const recommended = () => recommendedFor(settings)
-  dictionaries = new DictionarySection({
-    tag: () => settings.dictionary.releaseTag,
-    list: $("dictList"),
-    status: $("dictStatus"),
-    common: $("dictCommon"),
-    filter: $<HTMLInputElement>("dictFilter"),
-    languages,
-    recommended,
-  })
-  bergamot = new BergamotSection({
-    languages,
-    recommended,
-    list: $("bergamotList"),
-    status: $("bergamotStatus"),
-    common: $("bergamotCommon"),
-    needed: $("bergamotNeeded"),
-    filter: $<HTMLInputElement>("bergamotFilter"),
-  })
+  ;({ dictionaries, bergamot } = offlineSections(() => settings))
   prompts = new PromptEditor($("promptEditor"), session)
   images = new ImageSettingsSection(session)
   mountStyleControls($("styleControls"), session, applyPreview)
