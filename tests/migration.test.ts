@@ -82,6 +82,15 @@ const SNAPSHOTS = {
     precise: { enabled: true },
     dictionary: { releaseTag: "dicts-v2" },
   },
+  "2.3": {
+    targetLang: "de",
+    translateSubject: false,
+    renderMarkdown: false,
+    tiers: { dictionary: null, machine: "google-free", ai: "openai" },
+    providers: { openai: { ...cfg({ apiKey: "sk-oa" }), enabled: true } },
+    onlineConsent: ["google-free", "openai"],
+    summary: { provider: null, model: "gpt-5-mini", inlineButton: true, parts: ["summary", "actions"], maxOutputTokens: 900, display: "collapsed" },
+  },
 } as const
 
 /** Prompts as stored: empty stands for the built-in prompt. */
@@ -140,6 +149,14 @@ describe("settings of earlier versions", () => {
     // thinking: false is the default and is not written.
     expect(s.providers.deepseek).toEqual({ enabled: true, apiKey: "sk-ds", baseURL: "", model: "", temperature: 1 })
     expect(s.providers.dictionary.enabled && s.providers.bergamot.enabled).toBe(true)
+  })
+
+  it("2.3: the subject switch is dropped, the consent gets the hosts and the summary keeps its choices", () => {
+    const s = migrated["2.3"]
+    expect("translateSubject" in s).toBe(false)
+    expect(s.renderMarkdown).toBe(false)
+    expect(s.onlineConsent).toEqual(["google-free@translate.googleapis.com", "openai@api.openai.com"])
+    expect(s.summary).toMatchObject({ provider: null, model: "gpt-5-mini", inlineButton: true, parts: ["summary", "actions"], maxOutputTokens: 900, display: "collapsed" })
   })
 
   it.each(Object.keys(SNAPSHOTS))("%s: normalizing the result again changes nothing, and no old field is left", (version) => {
@@ -203,10 +220,6 @@ describe("normalization of each field", () => {
     ["mode", "translation-only", "translation-only"],
     ["mode", "side-by-side", "bilingual"],
     ["autoTranslate", "true", false],
-    // On for settings saved before 2.1.0, which have no such field, and for anything but false.
-    ["translateSubject", undefined, true],
-    ["translateSubject", "false", true],
-    ["translateSubject", false, false],
     // On for settings saved before 2.2.0, which have no such field, and for anything but false.
     ["renderMarkdown", undefined, true],
     ["renderMarkdown", 0, true],

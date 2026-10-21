@@ -53,64 +53,12 @@ const PREFS = {
   "browser.dom.window.dump.enabled": true,
 }
 
-/** The account "Local Folders", whose folders are the mbox files in Mail/Local Folders/ of the profile. */
-const LOCAL_FOLDERS = {
-  "mail.accountmanager.accounts": "account1",
-  "mail.accountmanager.localfoldersserver": "server1",
-  "mail.account.account1.server": "server1",
-  "mail.server.server1.type": "none",
-  "mail.server.server1.hostname": "Local Folders",
-  "mail.server.server1.name": "Local Folders",
-  "mail.server.server1.userName": "nobody",
-  "mail.server.server1.directory-rel": "[ProfD]Mail/Local Folders",
-  "mail.server.server1.storeContractID": "@mozilla.org/msgstore/berkeleystore;1",
-  // The table view of the message list, which shows the columns of add-ons (the cards view does not), in Thunderbird
-  // 140 and later; Thunderbird 128 keeps the view in the XUL store instead (TABLE_VIEW_XULSTORE).
-  "mail.threadpane.listview": 1,
-}
-
-/** The table view of the message list in Thunderbird 128, which reads it from xulstore.json, not from a preference. */
-const TABLE_VIEW_XULSTORE = { "chrome://messenger/content/messenger.xhtml": { threadPane: { view: "table" } } }
-
-/** A header value: ASCII as it is, anything else as an RFC 2047 encoded word. */
-const headerText = (text) => (/^[\x20-\x7e]*$/.test(text) ? text : `=?UTF-8?B?${Buffer.from(text, "utf8").toString("base64")}?=`)
-
-/** An mbox file of plain-text messages: { from, subject, date, body } each. */
-export function mbox(messages) {
-  return messages
-    .map(({ from, subject, date, body }, i) => {
-      const headers = [
-        // Only the name is encoded; the address stays as it is.
-        `From: ${from.replace(/^(.*?) </, (_, name) => `${headerText(name)} <`)}`,
-        "To: Bob Stone <bob@example.com>",
-        `Subject: ${headerText(subject)}`,
-        `Date: ${new Date(date).toUTCString().replace("GMT", "+0000")}`,
-        `Message-ID: <tt-e2e-folder-${i}-${Date.parse(date)}@example.com>`,
-        "MIME-Version: 1.0",
-        "Content-Type: text/plain; charset=UTF-8",
-        "Content-Transfer-Encoding: 8bit",
-      ]
-      return `From - ${new Date(date).toUTCString()}\n${headers.join("\n")}\n\n${body}\n\n`
-    })
-    .join("")
-}
-
-/**
- * A fresh profile holding the xpi as extensions/<id>.xpi. With `folders` ({ name: mbox text }), the profile has the
- * account "Local Folders" with these folders, and the message list shows the table view.
- */
-export function createProfile(xpi, extensionId, { folders } = {}) {
+/** A fresh profile holding the xpi as extensions/<id>.xpi. */
+export function createProfile(xpi, extensionId) {
   const dir = mkdtempSync(join(tmpdir(), "tt-e2e-profile-"))
   mkdirSync(join(dir, "extensions"))
   writeFileSync(join(dir, "extensions", `${extensionId}.xpi`), xpi)
-  const prefs = { ...PREFS, ...(folders ? LOCAL_FOLDERS : {}) }
-  writeFileSync(join(dir, "user.js"), Object.entries(prefs).map(([k, v]) => `user_pref(${JSON.stringify(k)}, ${JSON.stringify(v)});`).join("\n") + "\n")
-  if (folders) {
-    writeFileSync(join(dir, "xulstore.json"), JSON.stringify(TABLE_VIEW_XULSTORE))
-    const local = join(dir, "Mail", "Local Folders")
-    mkdirSync(local, { recursive: true })
-    for (const [name, text] of Object.entries(folders)) writeFileSync(join(local, name), text)
-  }
+  writeFileSync(join(dir, "user.js"), Object.entries(PREFS).map(([k, v]) => `user_pref(${JSON.stringify(k)}, ${JSON.stringify(v)});`).join("\n") + "\n")
   return dir
 }
 

@@ -27,14 +27,8 @@
  * has not allowed yet, start() asks through the consent panel (consent.ts)
  * and translates nothing until the user allows it; this holds for automatic
  * translation and retranslation as well.
- * With the subject switch on, start() also asks for the subject of the
- * message (the content script cannot see the header) and, unless it is
- * already in the target language, puts it in a line above the body. That
- * line is one more unit, translated like a paragraph through the same tiers,
- * cache and consent rules, and removed by stop().
  * A final translation of the AI tier shows its Markdown rendered while the
- * Markdown switch is on (shared/markdown.ts); the subject line and the units
- * of `plainText` show it as text without the marks. Every other result, the
+ * Markdown switch is on (shared/markdown.ts). Every other result, the
  * provisional ones included, is shown as text. The results keep the text as
  * the service returned it, so a change of the switch only renders again.
  * The images of the message (images.ts) start with the translation and stop
@@ -48,11 +42,10 @@ import { isInTargetLanguage, type LanguageDetector } from "../shared/lang-detect
 import { createMailContext, type MailContext } from "../shared/mail-context"
 import type { TabState, TranslateRequest, TranslateResponse } from "../shared/messages"
 import { type Tier, TIER_NAME_KEYS, TIERS } from "../shared/providers"
-import type { ConsentNeed, DisplayMode, PublicSettings } from "../shared/settings"
-import { type SubjectParts, subjectToTranslate } from "../shared/subject"
+import type { ConsentNeed, PublicSettings } from "../shared/settings"
 import type { ImageTranslator } from "./images"
-import { CLS_SUBJECT, type Collected, collectParagraphs, extractText, type Unit } from "./paragraphs"
-import { Renderer, styleVars, type TextFormat, type TranslationMark } from "./render"
+import { type Collected, collectParagraphs, extractText, type Unit } from "./paragraphs"
+import { Renderer, styleVars, type TranslationMark } from "./render"
 import { hasTranslatableText } from "../shared/text"
 
 export interface ControllerDeps {
@@ -70,14 +63,6 @@ export interface ControllerDeps {
    * (and recorded by the background script). Without it nothing is asked: the extension pages translate their own sample.
    */
   consent?: { ask(needs: ConsentNeed[], precise: boolean): Promise<boolean>; clear(): void }
-  /** The subject of the message on screen, null without one; without it no subject line is shown (the extension pages). */
-  subject?: () => Promise<string | null>
-  /** The units to translate under the root; the paragraphs of a message by default. The page of translated subjects gives one cell per subject. */
-  collect?: (root: HTMLElement) => Collected
-  /** A display mode of its own instead of the one of the settings: the page of translated subjects shows the translations in their own column. */
-  mode?: DisplayMode
-  /** The units show plain text: an AI translation appears without its Markdown marks. The page of translated subjects. */
-  plainText?: boolean
   /** The text of the images of the message; the content script only. */
   images?: Pick<ImageTranslator, "start" | "update" | "stop">
 }
@@ -110,10 +95,6 @@ export class TranslationController {
   /** The position of each collected unit in the message, for the context of precise mode. */
   private positions = new Map<Unit, number>()
   private units: Unit[] = []
-  /** The line above the body with the subject, while the message is translated. */
-  private subjectLine: HTMLElement | null = null
-  /** The unit of the subject line. */
-  private subjectUnit: Unit | null = null
   private context: MailContext | null = null
   private results = new Map<Unit, Partial<Record<Tier, TierState>>>()
   private renderer: Renderer | null = null
@@ -170,7 +151,7 @@ export class TranslationController {
     for (const need of next.consent) if (!before.has(consentKey(need))) this.allowed.delete(need.id)
     this.applyStyleVars()
     if (!this.active || !prev) return
-    if (prev.targetLang !== next.targetLang || prev.sourceLang !== next.sourceLang || prev.precise !== next.precise || prev.translateSubject !== next.translateSubject) {
+    if (prev.targetLang !== next.targetLang || prev.sourceLang !== next.sourceLang || prev.precise !== next.precise) {
       this.stop()
       await this.start()
       return
@@ -202,7 +183,7 @@ export class TranslationController {
   messageText(): string {
     const root = this.root()
     if (!root) return ""
-    const collected = this.collected ?? (this.deps.collect ?? collectParagraphs)(root)
+    const collected = this.collected ?? collectParagraphs(root)
     const text = createMailContext(collected.units.map((unit) => unit.text), []).text
     if (collected !== this.collected) collected.restore()
     return text
@@ -266,12 +247,10 @@ export class TranslationController {
     this.renderer = new Renderer(root.ownerDocument)
     this.renderer.stylePreset = s.style.preset
     this.applyStyleVars()
-    this.collected = (this.deps.collect ?? collectParagraphs)(root)
+    this.collected = collectParagraphs(root)
 
     const all = this.collected.units
     this.positions = new Map(all.map((unit, i) => [unit, i]))
-    // The subject comes from the background script and is translated beside the paragraphs, which do not wait for it.
-    const subject = this.subjectToTranslate(s)
     const inTarget = await Promise.all(all.map((unit) => isInTargetLanguage(unit.text, s.targetLang, this.deps.detect, s.sourceLang)))
     // Stopped or restarted while the language was detected.
     if (session !== this.session) return
@@ -285,39 +264,8 @@ export class TranslationController {
     }
     this.deps.images?.start({ settings: s.image, targetLang: s.targetLang, units: all, ...(this.context ? { context: this.context.id } : {}), ...(bypassCache ? { fresh: true } : {}) })
     this.report()
-    const subjectDone = subject.then((parts) => {
-      if (!parts || session !== this.session) return
-      const unit = this.showSubject(root, parts.prefix, parts.text)
-      this.units = [unit, ...this.units]
-      return this.translateUnit(unit, session)
-    })
     await Promise.all(candidates.map((unit) => this.translateUnit(unit, session)))
     if (session === this.session) this.deps.notice?.end()
-    await subjectDone
-  }
-
-  /** The subject to put above the body: its prefixes and the text to translate; null when it is off, missing or already in the target language. */
-  private async subjectToTranslate(s: PublicSettings): Promise<SubjectParts | null> {
-    if (!s.translateSubject || !this.deps.subject) return null
-    const subject = await this.deps.subject().catch(() => null)
-    return subject ? subjectToTranslate(subject, s, this.deps.detect) : null
-  }
-
-  /** The line with the subject at the top of the body; its text is the unit, the prefixes stay outside it. */
-  private showSubject(root: HTMLElement, prefix: string, text: string): Unit {
-    const doc = root.ownerDocument
-    const line = doc.createElement("div")
-    line.className = CLS_SUBJECT
-    line.setAttribute("dir", "auto")
-    const el = doc.createElement("span")
-    el.className = `${CLS_SUBJECT}-text`
-    el.textContent = text
-    if (prefix) line.append(Object.assign(doc.createElement("span"), { className: `${CLS_SUBJECT}-prefix`, textContent: prefix }))
-    line.append(el)
-    root.prepend(line)
-    this.subjectLine = line
-    this.subjectUnit = { el, text, pre: false }
-    return this.subjectUnit
   }
 
   /** `again`: a retranslation follows. */
@@ -327,9 +275,6 @@ export class TranslationController {
     this.session++
     this.active = false
     this.renderer?.clearAll()
-    this.subjectLine?.remove()
-    this.subjectLine = null
-    this.subjectUnit = null
     this.collected?.restore()
     this.collected = null
     this.positions.clear()
@@ -470,13 +415,9 @@ export class TranslationController {
       else this.renderer.clear(unit)
       return
     }
-    this.renderer.showTranslation(unit, view.text, this.deps.mode ?? s.mode, s.targetLang, mark, this.format(unit, view))
-  }
-
-  /** Markdown only for a final AI translation with the switch on; the subject line and plain-text units without the marks. */
-  private format(unit: Unit, view: View): TextFormat {
-    if (view.kind !== "done" || view.tier !== "ai" || !this.settings?.renderMarkdown) return "text"
-    return this.deps.plainText || unit === this.subjectUnit ? "strip" : "markdown"
+    // Markdown only for a final AI translation with the switch on.
+    const markdown = view.kind === "done" && view.tier === "ai" && s.renderMarkdown
+    this.renderer.showTranslation(unit, view.text, s.mode, s.targetLang, mark, markdown ? "markdown" : "text")
   }
 
   private rerender(): void {

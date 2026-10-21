@@ -19,7 +19,7 @@ import { createLocaleTables } from "./locale-tables"
 import { createOfflineStatus } from "./offline-status"
 import { createDispatch, createHandlers } from "./router"
 import { createSettingsState } from "./settings-state"
-import { displayedHeader, displayedMessageId, displayedSubject, messagePart } from "./subject"
+import { displayedHeader, displayedMessageId, messagePart } from "./displayed"
 import { ImageService } from "./images"
 import { updateSettings } from "../shared/settings-store"
 import { createTabRegistry } from "./tabs"
@@ -99,7 +99,6 @@ const tabs = createTabRegistry({
   publicSettings: () => toPublicSettings(settings.current(), settings.credentials()),
   setContext: (context, bypassCache) => service.setContext(context, bypassCache),
   translate: (request, onTier, options) => service.translateForPage(request, onTier, options),
-  subject: displayedSubject,
   summarize: async (text, tabId, fresh) => service.summarize(text, await displayedHeader(tabId).catch(() => null), fresh),
   openSession: (session, tabId) => images.open(session, tabId),
   image: (session, tabId, request) => images.request(session, tabId, request),

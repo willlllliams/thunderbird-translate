@@ -161,8 +161,6 @@ export interface Settings {
   targetLang: string
   mode: DisplayMode
   autoTranslate: boolean
-  /** Translate the subject of a message with its body, shown in a line above the body. */
-  translateSubject: boolean
   /** Show the Markdown of AI translations formatted (shared/markdown.ts); off shows the text as the service wrote it. */
   renderMarkdown: boolean
   tiers: TierSettings
@@ -216,7 +214,6 @@ export function createDefaultSettings(uiLang?: string): Settings {
     targetLang: defaultTargetLang(uiLang),
     mode: "bilingual",
     autoTranslate: false,
-    translateSubject: true,
     renderMarkdown: true,
     tiers: { ...DEFAULT_TIERS },
     providers,
@@ -400,7 +397,11 @@ function normalizePrompts(stored: Partial<Settings> & LegacySettings): Record<Pr
   return prompts
 }
 
-/** Merge stored (possibly partial or outdated) settings over defaults and clamp values. */
+/**
+ * Merge stored (possibly partial or outdated) settings over defaults and clamp values. Fields the extension no longer
+ * has stay behind, such as translateSubject of 2.1 – 2.3 (3.0.0 translates no subjects): the background script
+ * stores the result once it differs from what it read (background/settings-state.ts).
+ */
 export function normalizeSettings(stored: unknown, uiLang?: string): Settings {
   const d = createDefaultSettings(uiLang)
   if (!stored || typeof stored !== "object") return d
@@ -438,8 +439,6 @@ export function normalizeSettings(stored: unknown, uiLang?: string): Settings {
     targetLang: LANGUAGES.some((l) => l.code === s.targetLang) ? (s.targetLang as string) : d.targetLang,
     mode: s.mode === "translation-only" ? "translation-only" : "bilingual",
     autoTranslate: s.autoTranslate === true,
-    // On unless switched off: settings saved before 2.1.0 have no such field.
-    translateSubject: s.translateSubject !== false,
     // On unless switched off: settings saved before 2.2.0 have no such field.
     renderMarkdown: s.renderMarkdown !== false,
     tiers: normalizeTiers(s),
@@ -767,8 +766,6 @@ export interface PublicSettings {
   targetLang: string
   mode: DisplayMode
   autoTranslate: boolean
-  /** The content script translates the subject of the message as well, in a line above the body. */
-  translateSubject: boolean
   /** AI translations show their Markdown formatted; it decides only how a result is shown, so it is not part of any signature. */
   renderMarkdown: boolean
   /** Tiers in use, lowest first. */
@@ -864,7 +861,6 @@ export function toPublicSettings(settings: Settings, credentials = 0): PublicSet
     targetLang: settings.targetLang,
     mode: settings.mode,
     autoTranslate: settings.autoTranslate,
-    translateSubject: settings.translateSubject,
     renderMarkdown: settings.renderMarkdown,
     tiers: enabledTiers(settings.tiers),
     signatures,

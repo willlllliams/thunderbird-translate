@@ -76,15 +76,12 @@ function translationText(el: HTMLElement): string {
   return Array.from(el.childNodes, (node) => ((node as Element).classList?.contains("tt-status") ? "" : (node.textContent ?? ""))).join("")
 }
 
-/** The text of an element as it shows: without the hidden originals of translation-only units. */
-const shownText = (el: Node): string => Array.from(el.childNodes, (node) => ((node as Element).classList?.contains("tt-original") ? "" : node.nodeType === 1 ? shownText(node) : (node.textContent ?? ""))).join("")
-
 /** The elements inside a translation, without its mark. */
 const markup = (el: HTMLElement) => Array.from(el.querySelectorAll("*")).filter((child) => !child.closest(".tt-status"))
 
-/** The translations of the paragraphs on screen; the line with the subject is reported on its own (subjectLine()). */
+/** The translations of the paragraphs on screen. */
 function snapshot(root: HTMLElement): Shown[] {
-  return Array.from(root.querySelectorAll<HTMLElement>(".tt-translation:not(.tt-subject .tt-translation)"), (el) => ({
+  return Array.from(root.querySelectorAll<HTMLElement>(".tt-translation"), (el) => ({
     text: translationText(el),
     mode: el.classList.contains("tt-only") ? ("only" as const) : ("bilingual" as const),
     mark: el.classList.contains("tt-provisional") ? ("provisional" as const) : el.classList.contains("tt-fallback") ? ("fallback" as const) : null,
@@ -95,7 +92,7 @@ function snapshot(root: HTMLElement): Shown[] {
 
 /** The computed style of the first bold text of an AI translation and of its translation element: the style of the translations reaches the rendered elements. */
 function renderedStyle(root: HTMLElement) {
-  const strong = root.querySelector<HTMLElement>(".tt-translation:not(.tt-subject .tt-translation) strong")
+  const strong = root.querySelector<HTMLElement>(".tt-translation strong")
   const block = strong?.closest<HTMLElement>(".tt-translation")
   if (!strong || !block) return null
   const style = (el: Element) => {
@@ -107,22 +104,6 @@ function renderedStyle(root: HTMLElement) {
 }
 
 const send = (msg: E2eMessage) => ext.runtime.sendMessage(msg)
-
-/** The line with the subject above the body: its whole text, the prefixes, the subject and its translation; null without the line. */
-function subjectLine() {
-  const line = document.querySelector<HTMLElement>(".tt-subject")
-  if (!line) return null
-  const translation = line.querySelector<HTMLElement>(".tt-translation")
-  return {
-    first: line === line.parentElement?.firstElementChild,
-    text: shownText(line),
-    prefix: line.querySelector(".tt-subject-prefix")?.textContent ?? "",
-    translation: translation ? translationText(translation) : null,
-    tags: translation ? markup(translation).map((child) => child.tagName.toLowerCase()) : [],
-    mode: translation?.classList.contains("tt-only") ? "only" : translation ? "bilingual" : null,
-    mark: translation?.classList.contains("tt-provisional") ? "provisional" : translation?.classList.contains("tt-fallback") ? "fallback" : null,
-  }
-}
 
 export function createContentProbe(): ContentProbe {
   const events: TierEvent[] = []
@@ -213,7 +194,7 @@ export function createContentProbe(): ContentProbe {
   async function machine(report: Record<string, unknown>): Promise<void> {
     await parts!.controller.start()
     await until("the final progress report", () => last !== null && last.total > 0 && last.done + last.failed === last.total)
-    report.translated = { state: last, shown: snapshot(root()!), subject: subjectLine() }
+    report.translated = { state: last, shown: snapshot(root()!) }
   }
 
   /** What the summary panel shows: its place, title, parts with their lines and hover texts, and the copy button. */
@@ -221,7 +202,7 @@ export function createContentProbe(): ContentProbe {
     const el = document.querySelector<HTMLDetailsElement>(".tt-summary")
     if (!el) return null
     return {
-      afterSubject: el.previousElementSibling?.classList.contains("tt-subject") === true || el === root()?.firstElementChild,
+      atTop: el === root()?.firstElementChild,
       open: el.open,
       title: el.querySelector("summary strong")?.textContent ?? "",
       parts: Array.from(el.querySelectorAll("h4"), (h4) => ({ heading: h4.textContent, lines: Array.from(h4.nextElementSibling?.children ?? [], (li) => ({ text: li.textContent, title: (li as HTMLElement).title })) })),
@@ -352,7 +333,7 @@ export function createContentProbe(): ContentProbe {
   /** The "auto" scenario: automatic translation translates every paragraph; the probe only waits. */
   async function auto(report: Record<string, unknown>, body: HTMLElement): Promise<void> {
     await until("the final progress report of the automatic translation", () => last !== null && last.total > 0 && last.done + last.failed === last.total)
-    report.translated = { state: last, active: parts!.controller.active, shown: snapshot(body), subject: subjectLine() }
+    report.translated = { state: last, active: parts!.controller.active, shown: snapshot(body) }
   }
 
   /** The "auto-skip" scenario: a message in the target language, which automatic translation leaves alone. */
@@ -365,8 +346,7 @@ export function createContentProbe(): ContentProbe {
   async function run(): Promise<void> {
     const { controller } = parts!
     const body = root()
-    // Whether the document of the message names its subject: the content script reads it from the background script instead.
-    const report: Record<string, unknown> = { hook: E2E_MARKER, url: location.href, events, documentTitle: document.title }
+    const report: Record<string, unknown> = { hook: E2E_MARKER, url: location.href, events }
     try {
       if (!body) throw new Error("no message body")
       const scenario = await send({ e2e: "scenario" })
@@ -395,11 +375,10 @@ export function createContentProbe(): ContentProbe {
       await controller.start()
       // Progress reports are throttled: wait for the one of the finished translation.
       await until("the final progress report", () => last !== null && last.total > 0 && last.done + last.failed === last.total)
-      await until("the translated subject", () => subjectLine()?.translation?.startsWith("[AI ") === true)
-      report.translated = { state: last, shown: snapshot(body), subject: subjectLine(), style: renderedStyle(body) }
-      // The message window with the header and the translated body, the subject line on top.
+      report.translated = { state: last, shown: snapshot(body), style: renderedStyle(body) }
+      // The message window with the header and the translated body.
       const fixture = location.href.includes("plain") ? "plain" : "html"
-      await send({ e2e: "screenshot", name: `subject-line-${fixture}-bilingual`, windowType: "mail:messageWindow" })
+      await send({ e2e: "screenshot", name: `message-${fixture}-bilingual`, windowType: "mail:messageWindow" })
 
       phase = "mode"
       await send({ e2e: "command", command: "toggle-display-mode" })
@@ -407,8 +386,8 @@ export function createContentProbe(): ContentProbe {
         const shown = snapshot(body)
         return shown.length > 0 && shown.every((s) => s.mode === "only" && !s.mark) && last !== null && last.total > 0 && last.done === last.total
       })
-      report.translationOnly = { state: last, shown: snapshot(body), subject: subjectLine() }
-      await send({ e2e: "screenshot", name: `subject-line-${fixture}-translation-only`, windowType: "mail:messageWindow" })
+      report.translationOnly = { state: last, shown: snapshot(body) }
+      await send({ e2e: "screenshot", name: `message-${fixture}-translation-only`, windowType: "mail:messageWindow" })
 
       phase = "restore"
       await send({ e2e: "command", command: "toggle-translation" })
@@ -416,7 +395,7 @@ export function createContentProbe(): ContentProbe {
       report.restored = {
         state: last,
         identical: body.innerHTML === original,
-        leftovers: body.querySelectorAll(".tt-translation, .tt-status, .tt-seg, .tt-subject, .tt-original").length,
+        leftovers: body.querySelectorAll(".tt-translation, .tt-status, .tt-seg, .tt-original").length,
         styleLeft: document.getElementById("tt-style-vars") !== null,
         ...(body.innerHTML === original ? {} : { original: original.slice(0, 4000), after: body.innerHTML.slice(0, 4000) }),
       }
@@ -425,14 +404,14 @@ export function createContentProbe(): ContentProbe {
       phase = "cached"
       await send({ e2e: "command", command: "toggle-translation" })
       await until("the remembered translation", () => last !== null && last.active && last.total > 0 && last.done === last.total)
-      report.cached = { state: last, shown: snapshot(body), subject: subjectLine() }
+      report.cached = { state: last, shown: snapshot(body) }
 
       // Retranslated: every tier is asked again although everything is cached.
       phase = "retranslate"
       await send({ e2e: "command", command: "retranslate" })
       const total = last!.total
       await until("the AI results of the retranslation", () => events.filter((e) => e.phase === "retranslate" && e.tier === "ai").length >= total && last?.done === total)
-      report.retranslated = { state: last, shown: snapshot(body), subject: subjectLine() }
+      report.retranslated = { state: last, shown: snapshot(body) }
     } catch (error) {
       report.error = error instanceof Error ? `${error.message}\n${error.stack}` : String(error)
     }

@@ -3,13 +3,13 @@
  * data: URIs, the codec of the background page, the filters on the bytes, the cache and its keys, the consent checked
  * again, the limits per message and their rounds, the answer and the test image; the request of the AI SDK with an
  * image part (translators/llm.ts); the requests over the Port (tabs.ts), the test request (router.ts), the part of a
- * message (subject.ts) and the glossary of precise translation (service.ts).
+ * message (displayed.ts) and the glossary of precise translation (service.ts).
  */
 import { afterEach, describe, expect, it, vi } from "vitest"
 import { PersistentCache } from "../src/background/cache"
 import { browserCodec, dataBytes, encodeAttempts, type ImageDeps, ImageService, imageSize, isAnimated, readImageAnswer } from "../src/background/images"
 import { createHandlers } from "../src/background/router"
-import { displayedMessageId, messagePart } from "../src/background/subject"
+import { displayedMessageId, messagePart } from "../src/background/displayed"
 import { createTabRegistry } from "../src/background/tabs"
 import { type ImageAnswer, type ImageInput, llmReadImage } from "../src/background/translators/llm"
 import type { LlmCallOptions } from "../src/background/translators/llm"
@@ -770,7 +770,7 @@ describe("the Port and the other requests", () => {
     const image = vi.fn(async (session: string, tabId: number, req: ImageRequest): Promise<ImageResponse> => (order.push(`image ${session} ${tabId} ${req.index}`), { status: "ready" }))
     const imageConsent = vi.fn(async (session: string, ids: string[], message: boolean) => void order.push(`consent ${session} ${ids} ${message}`))
     const forgetSession = vi.fn()
-    const tabs = createTabRegistry({ ready: async () => {}, publicSettings: () => toPublicSettings(createDefaultSettings()), setContext: () => {}, translate: async () => {}, subject: async () => null, summarize: async () => ({ ok: false, error: "" }), openSession, image, imageConsent, forgetSession })
+    const tabs = createTabRegistry({ ready: async () => {}, publicSettings: () => toPublicSettings(createDefaultSettings()), setContext: () => {}, translate: async () => {}, summarize: async () => ({ ok: false, error: "" }), openSession, image, imageConsent, forgetSession })
     const port = backgroundPort(5)
     tabs.connect(port as unknown as browser.runtime.Port)
     expect(openSession).toHaveBeenCalledWith("5:1", 5)
@@ -795,7 +795,7 @@ describe("the Port and the other requests", () => {
   it("answers an image request it cannot serve with an error: a page of the extension, a failing service, no image service", async () => {
     stubBrowser()
     const failing = vi.fn(async (): Promise<ImageResponse> => Promise.reject(new Error("boom")))
-    const deps = { ready: async () => {}, publicSettings: () => toPublicSettings(createDefaultSettings()), setContext: () => {}, translate: async () => {}, subject: async () => null, summarize: async () => ({ ok: false as const, error: "" }) }
+    const deps = { ready: async () => {}, publicSettings: () => toPublicSettings(createDefaultSettings()), setContext: () => {}, translate: async () => {}, summarize: async () => ({ ok: false as const, error: "" }) }
     const request = { type: "image" as const, id: 1, image: { source: { part: "1.2" }, width: 1, height: 1, index: 1, action: "peek" as const, round: 1 } }
     const tabs = createTabRegistry({ ...deps, image: failing })
     const page = backgroundPort(5, undefined, "moz-extension://test/welcome.html")

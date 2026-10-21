@@ -28,7 +28,7 @@ describe("settings of the e2e runs", () => {
     for (const scenario of RUNS) {
       const s = scenarioSettings(scenario, SERVER)
       const d = createDefaultSettings()
-      expect([scenario, s.offlineMutedPairs, s.summary, s.style, s.batch, s.translateSubject, s.renderMarkdown, s.prompts]).toEqual([scenario, d.offlineMutedPairs, d.summary, d.style, d.batch, d.translateSubject, d.renderMarkdown, d.prompts])
+      expect([scenario, s.offlineMutedPairs, s.summary, s.style, s.batch, s.renderMarkdown, s.prompts]).toEqual([scenario, d.offlineMutedPairs, d.summary, d.style, d.batch, d.renderMarkdown, d.prompts])
     }
   })
 

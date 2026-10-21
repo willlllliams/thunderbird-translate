@@ -1,9 +1,8 @@
 /**
- * The header of the message displayed in a tab: the subject for the line
- * above the body that shows its translation, and the sender, date and
- * subject for its summary; its id, and a part of it, for the translation
- * of its images. The content script runs inside the body of the
- * message and cannot see the header, so the background script reads it
+ * The message displayed in a tab: its sender, date and subject for its
+ * summary; its id, and a part of it, for the translation of its images.
+ * The content script runs inside the body of the message and cannot see the
+ * header, so the background script reads it
  * with messageDisplay.getDisplayedMessage(), which needs the messagesRead
  * permission. The call names the `browser` namespace directly rather than
  * going through shared/ext.ts, so that a review of the shipped code sees
@@ -11,13 +10,6 @@
  */
 
 import type { MailHeader } from "./summary"
-
-/** The subject of the message on screen in `tabId`; null without a message or with an empty subject. */
-export async function displayedSubject(tabId: number): Promise<string | null> {
-  const message = await browser.messageDisplay.getDisplayedMessage(tabId)
-  const subject = message?.subject
-  return typeof subject === "string" && subject.trim() ? subject : null
-}
 
 /**
  * `date` in ISO 8601 as the clock of the reader shows it, to the minute, with its offset: "2026-10-22T07:00+08:00".

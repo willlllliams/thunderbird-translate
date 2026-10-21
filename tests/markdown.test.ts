@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 /** The Markdown subset of AI translations (src/shared/markdown.ts): syntax, CommonMark delimiter rules, escapes, blocks, safety, time. */
 import { describe, expect, it } from "vitest"
-import { MAX_TABLE_COLUMNS, MAX_TABLE_ROWS, markdownBlocks, markdownFragment, safeHref, stripMarkdown } from "../src/shared/markdown"
+import { MAX_TABLE_COLUMNS, MAX_TABLE_ROWS, markdownBlocks, markdownFragment, safeHref } from "../src/shared/markdown"
 
 /** The rendered DOM as HTML, read back for the assertion only. */
 function html(text: string): string {
@@ -15,6 +15,13 @@ function elements(text: string): { tag: string; attrs: string[] }[] {
   const div = document.createElement("div")
   div.appendChild(markdownFragment(document, text))
   return Array.from(div.querySelectorAll("*"), (el) => ({ tag: el.tagName.toLowerCase(), attrs: el.getAttributeNames() }))
+}
+
+/** The text the rendered DOM shows. */
+function shown(text: string): string {
+  const div = document.createElement("div")
+  div.appendChild(markdownFragment(document, text))
+  return div.textContent ?? ""
 }
 
 const ALLOWED: Record<string, string[]> = { strong: [], em: [], code: [], del: [], a: ["href", "rel"], ul: [], ol: ["start"], li: [], br: [] }
@@ -234,7 +241,7 @@ describe("links", () => {
   it("keeps a link with a user name or a password before the host as its source text", () => {
     for (const text of ["[https://a.example](https://a.example@b.example/)", "[x](https://user:pw@b.example/)", "[x](<http://:pw@b.example>)"]) {
       expect(elements(text)).toEqual([])
-      expect(stripMarkdown(text)).toBe(text)
+      expect(shown(text)).toBe(text)
     }
   })
 
@@ -250,11 +257,19 @@ describe("links", () => {
     const nested = (n: number) => `https://e.com/${"(".repeat(n)}a${")".repeat(n)}`
     expect(elements(`[x](${nested(32)})`)).toEqual([{ tag: "a", attrs: ["href", "rel"] }])
     expect(elements(`[x](${nested(33)})`)).toEqual([])
-    expect(stripMarkdown(`[x](${nested(33)})`)).toBe(`[x](${nested(33)})`)
+    expect(shown(`[x](${nested(33)})`)).toBe(`[x](${nested(33)})`)
   })
 })
 
 describe("safety", () => {
+  /** The text each hostile input shows where it differs from the input without its line breaks: the elements it may make keep their text. */
+  const SHOWN: Record<string, string> = {
+    "[x](https://e.com\"onmouseover=\"alert(1))": "x",
+    "**<img src=x onerror=alert(1)>**": "<img src=x onerror=alert(1)>",
+    "`<script>alert(1)</script>`": "<script>alert(1)</script>",
+    "[<b onclick=alert(1)>x</b>](https://e.com)": "<b onclick=alert(1)>x</b>",
+    "- <svg onload=alert(1)>\n- [x](vbscript:msgbox(1))": "<svg onload=alert(1)>[x](vbscript:msgbox(1))",
+  }
   const hostile = [
     "[x](javascript:alert(1))",
     "[x](JAVASCRIPT:alert(1))",
@@ -284,7 +299,7 @@ describe("safety", () => {
     expect(div.querySelector("script, img, svg, iframe, object, embed, style, [onerror], [onclick], [onload], [onmouseover]")).toBeNull()
     for (const a of Array.from(div.querySelectorAll("a"))) expect(a.getAttribute("href")).toMatch(/^(https?|mailto):/)
     // The text survives: what is not markup stays as characters.
-    expect(div.textContent).toBe(stripMarkdown(text).replace(/\n/g, ""))
+    expect(div.textContent).toBe(SHOWN[text] ?? text.replace(/\n/g, ""))
   })
 
   it("puts a quote of the address into the attribute only, escaped", () => {
@@ -306,13 +321,11 @@ describe("safety", () => {
     expect(depth).toBe(16)
     const text = `${"a ".repeat(200)}x${" a".repeat(200)}`
     expect(div.textContent).toBe(text)
-    expect(stripMarkdown(deep)).toBe(text)
   })
 
   it("survives long and odd input", () => {
     for (const text of ["*".repeat(10_000), "[".repeat(5000) + "](https://e.com)".repeat(100), "`".repeat(3000), "\\".repeat(4001), "**a".repeat(3000), "- \n".repeat(1000), "\u0000\u200b\ufeff**x**\ud800"]) {
       expectSafe(text)
-      expect(() => stripMarkdown(text)).not.toThrow()
     }
   })
 })
@@ -353,24 +366,6 @@ describe("time", () => {
     // Eight times the text: linear growth takes eight times the time, quadratic growth sixty-four.
     expect(t80).toBeLessThan(Math.max(t10 * 24, 5))
     expect(t10).toBeLessThan(100)
-  })
-})
-
-describe("stripMarkdown", () => {
-  it.each([
-    ["**Quarterly** report", "Quarterly report"],
-    ["*a* _b_ `c` ~~d~~", "a b c d"],
-    ["[the report](https://e.com/r) is ready", "the report is ready"],
-    ["\\*literal\\*", "*literal*"],
-    ["2*3*4 and snake_case", "2*3*4 and snake_case"],
-    ["[x](javascript:alert(1))", "[x](javascript:alert(1))"],
-    ["- a\n- b", "a\nb"],
-    ["Steps:\n1. a\n2. b", "Steps:\n1. a\n2. b"],
-    ["line\nbreak", "line\nbreak"],
-    ["**open", "**open"],
-    ["", ""],
-  ])("%s", (text, expected) => {
-    expect(stripMarkdown(text)).toBe(expected)
   })
 })
 

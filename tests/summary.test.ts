@@ -8,7 +8,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 import { createCommandRunner } from "../src/background/commands"
 import { buildSummaryPrompt, buildSummarySystem, MAX_SUMMARY_ITEMS, parseSummary } from "../src/background/summary"
-import { displayedHeader, localIso } from "../src/background/subject"
+import { displayedHeader, localIso } from "../src/background/displayed"
 import { createTabRegistry } from "../src/background/tabs"
 import type { LlmCallOptions } from "../src/background/translators/llm"
 import type { MailAnalysis, Segment } from "../src/background/translators/llm-prompt"
@@ -263,7 +263,6 @@ describe("the background script", () => {
       publicSettings: () => toPublicSettings(createDefaultSettings("en")),
       setContext: vi.fn(),
       translate: vi.fn(async () => {}),
-      subject: vi.fn(async () => null),
       summarize,
     })
     const port = backgroundPort(7)
@@ -310,20 +309,20 @@ describe("the panel above the message", () => {
   const sections = () => Array.from(panel()!.querySelectorAll("h4"), (h4) => [h4.textContent, Array.from(h4.nextElementSibling!.children, (li) => li.textContent)])
 
   beforeEach(() => {
-    document.body.innerHTML = '<div class="tt-subject">Subject</div><p>Body</p>'
+    document.body.innerHTML = "<p>Body</p>"
     request = vi.fn<(fresh: boolean) => Promise<SummaryResponse>>()
   })
 
   afterEach(() => vi.unstubAllGlobals())
 
-  it("draws the four parts with DOM nodes under the line with the subject, the reader as Me and each quote as hover text", async () => {
+  it("draws the four parts with DOM nodes at the top of the body, the reader as Me and each quote as hover text", async () => {
     answer({ ok: true, service: "OpenAI", summary: SUMMARY, raw: ANSWER })
     const summary = new SummaryPanel({ root, request, collapsed: () => false })
     const shown = summary.show()
     expect(panel()!.textContent).toContain(ENGLISH.t("summaryRunning"))
     await shown
     expect(summary.shown).toBe(true)
-    expect(document.body.children[1]).toBe(panel())
+    expect(document.body.firstElementChild).toBe(panel())
     expect(panel()!.open).toBe(true)
     expect(panel()!.querySelector("summary strong")!.textContent).toBe(ENGLISH.t("summaryTitleService", ["OpenAI"]))
     expect(sections()).toEqual([
@@ -434,11 +433,6 @@ describe("the panel above the message", () => {
     // Without a message nothing is asked.
     await new SummaryPanel({ root: () => null, request, collapsed: () => false }).show()
     expect(request).toHaveBeenCalledTimes(2)
-    // Without a subject line the panel goes to the top of the body.
-    document.body.innerHTML = "<p>Body</p>"
-    answer({ ok: true, service: "OpenAI", summary: SUMMARY, raw: ANSWER })
-    await summary.show()
-    expect(document.body.firstElementChild).toBe(panel())
   })
 
   it("puts the Summary button above the message and takes it away", () => {
@@ -448,7 +442,7 @@ describe("the panel above the message", () => {
     button.sync(true)
     const bars = document.querySelectorAll(".tt-summary-button")
     expect(bars).toHaveLength(1)
-    expect(document.body.children[1]).toBe(bars[0])
+    expect(document.body.firstElementChild).toBe(bars[0])
     const b = bars[0].querySelector("button")!
     expect([b.textContent, b.title]).toEqual([ENGLISH.t("summaryButton"), ENGLISH.t("tipSummaryButton")])
     b.click()

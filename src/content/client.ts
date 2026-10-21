@@ -11,11 +11,11 @@ import { browserDetector } from "../shared/lang-detect"
 import type { UiLanguageSetting } from "../shared/locales"
 import type { PublicSettings } from "../shared/settings"
 import type { SummaryResponse } from "../shared/summary"
-import { CONTENT_PORT_NAME, type ImageResponse, isPortPush, type LocaleMessages, type PortReport, send, SUBJECTS_PORT_NAME, type TabState, type TranslateResponse } from "../shared/messages"
+import { CONTENT_PORT_NAME, type ImageResponse, isPortPush, type LocaleMessages, type PortReport, send, type TabState, type TranslateResponse } from "../shared/messages"
 import type { Tier } from "../shared/providers"
 import type { ContentProbe } from "../hooks/content"
 import { ConsentPanel } from "./consent"
-import { consentKey, type ControllerDeps, TranslationController } from "./controller"
+import { consentKey, TranslationController } from "./controller"
 import { ImageTranslator } from "./images"
 import { MissingNotice } from "./notice"
 import { restoreLeftovers } from "./paragraphs"
@@ -29,14 +29,6 @@ export interface ClientOptions {
   contentScript?: boolean
   /** Follows the client (test build, see hooks/content.ts). */
   probe?: ContentProbe
-  /**
-   * The page of translated subjects: it connects under its own Port name, so that the background script applies the
-   * consent rules of real messages; asks through the consent panel (with the title of the subjects) before subjects
-   * first go to an online service; and translates the units of `collect` in display mode `mode`, as plain text.
-   */
-  subjects?: { collect: NonNullable<ControllerDeps["collect"]>; mode: NonNullable<ControllerDeps["mode"]> }
-  /** Gets every progress report of the controller, as the background script does; the page of translated subjects shows it. */
-  onState?: (state: Omit<TabState, "connected">) => void
 }
 
 export interface ContentClient {
@@ -60,11 +52,11 @@ async function loadLabels(uiLanguage: UiLanguageSetting): Promise<boolean> {
   }
 }
 
-export function connectContent({ root, contentScript = false, probe, subjects, onState }: ClientOptions): ContentClient {
+export function connectContent({ root, contentScript = false, probe }: ClientOptions): ContentClient {
   // The content script of an earlier version of the extension may have left its translations in the message.
   const body = contentScript ? root() : null
   if (body) restoreLeftovers(body)
-  const port = ext.runtime.connect({ name: subjects ? SUBJECTS_PORT_NAME : CONTENT_PORT_NAME })
+  const port = ext.runtime.connect({ name: CONTENT_PORT_NAME })
   /** False when the background went away (extension reloaded): the Port then throws. */
   const post = (msg: PortReport): boolean => {
     try {
@@ -82,8 +74,6 @@ export function connectContent({ root, contentScript = false, probe, subjects, o
     for (const tier of tiers) onTier(tier, { ok: false, error: getI18n().t("errUnknown") })
     resolve()
   }
-  /** Subject requests without an answer yet. */
-  const subjectRequests = new Map<number, (subject: string | null) => void>()
   /** Summary requests without an answer yet. */
   const summaryRequests = new Map<number, (result: SummaryResponse) => void>()
   /** Image requests without an answer yet. */
@@ -98,8 +88,8 @@ export function connectContent({ root, contentScript = false, probe, subjects, o
       })
     : undefined
 
-  // For a displayed message and for the subjects of a folder; the other extension pages translate their own sample text.
-  const consentPanel = contentScript || subjects ? new ConsentPanel({ root, subjects: Boolean(subjects) }) : undefined
+  // For a displayed message; the extension pages translate their own sample text.
+  const consentPanel = contentScript ? new ConsentPanel({ root }) : undefined
   const consent = consentPanel && {
     ask: async (needs: Parameters<ConsentPanel["ask"]>[0], precise: boolean) => {
       if (!(await consentPanel.ask(needs, precise))) return false
@@ -163,7 +153,6 @@ export function connectContent({ root, contentScript = false, probe, subjects, o
     consent,
     images,
     root,
-    ...(subjects ? { collect: subjects.collect, mode: subjects.mode, plainText: true } : {}),
     translate: (request, onTier) =>
       new Promise((resolve) => {
         const id = ++nextId
@@ -172,15 +161,6 @@ export function connectContent({ root, contentScript = false, probe, subjects, o
         else fail(entry)
       }),
     setContext: (context, bypassCache) => void post({ type: "context", context, ...(bypassCache ? { bypassCache } : {}) }),
-    // Only a displayed message has a subject; the background script reads it from the header of the message in the tab.
-    subject: contentScript
-      ? () =>
-          new Promise<string | null>((resolve) => {
-            const id = ++nextId
-            if (post({ type: "subject", id })) subjectRequests.set(id, resolve)
-            else resolve(null)
-          })
-      : undefined,
     detect: browserDetector(ext.i18n),
     report: (state) => {
       if (__DEBUG__) {
@@ -188,7 +168,6 @@ export function connectContent({ root, contentScript = false, probe, subjects, o
         console.info("[thunderbird-translate] state", JSON.stringify(state), first.slice(0, 80))
       }
       probe?.state(state)
-      onState?.(state)
       showSummaryButton(state.active)
       post({ type: "state", state })
     },
@@ -241,9 +220,6 @@ export function connectContent({ root, contentScript = false, probe, subjects, o
     } else if (msg.type === "done") {
       pending.get(msg.id)?.resolve()
       pending.delete(msg.id)
-    } else if (msg.type === "subject") {
-      subjectRequests.get(msg.id)?.(typeof msg.subject === "string" ? msg.subject : null)
-      subjectRequests.delete(msg.id)
     }
     probe?.push(msg)
   })
@@ -251,8 +227,6 @@ export function connectContent({ root, contentScript = false, probe, subjects, o
   port.onDisconnect.addListener(() => {
     for (const request of pending.values()) fail(request)
     pending.clear()
-    for (const resolve of subjectRequests.values()) resolve(null)
-    subjectRequests.clear()
     for (const resolve of summaryRequests.values()) resolve({ ok: false, error: getI18n().t("errUnknown") })
     summaryRequests.clear()
     for (const resolve of imageRequests.values()) resolve({ status: "error", error: getI18n().t("errUnknown") })

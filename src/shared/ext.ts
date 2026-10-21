@@ -9,21 +9,8 @@ export interface MessageHeader {
   id: number
   subject: string
   author: string
-  /** A Date in the background script and the pages; a structured clone of it elsewhere. */
+  /** A Date in the background script; a structured clone of it elsewhere. */
   date: Date | string | number
-}
-
-/** A page of messages (MessageList); `id` names the next page for messages.continueList(), null after the last one. */
-export interface MessageList {
-  id: string | null
-  messages: MessageHeader[]
-}
-
-/** A mail tab (MailTab): a folder pane, the message list and the message pane. */
-export interface MailTab {
-  id: number
-  windowId: number
-  active: boolean
 }
 
 interface ThunderbirdExtras {

@@ -49,8 +49,8 @@ export function scenarioSettings(scenario: string, server: string): Settings {
   settings.providers.custom = { enabled: true, apiKey: "e2e-test-key", baseURL: `${server}/v1`, model: "e2e-model" }
   settings.providers.dictionary = { ...settings.providers.dictionary, enabled: true }
   if (offline) settings.providers.bergamot = { ...settings.providers.bergamot, enabled: true }
-  // The user allowed Google and the AI service in the consent panel of an earlier message; the "consent" and "subjects" runs start without.
-  const allowed = scenario === "consent" || scenario === "subjects" ? [] : scenario === "summary" ? ["google-free"] : ["google-free", "custom", ...(machine ? [machine.id] : [])]
+  // The user allowed Google and the AI service in the consent panel of an earlier message; the "consent" run starts without.
+  const allowed = scenario === "consent" ? [] : scenario === "summary" ? ["google-free"] : ["google-free", "custom", ...(machine ? [machine.id] : [])]
   settings.onlineConsent = allowed.map((id) => consentEntry(settings, id))
   // The "image-ask" run asks before the first image; the others have the AI service allowed for images already.
   settings.imageConsent = image && scenario !== "image-ask" ? [consentEntry(settings, "custom")] : []

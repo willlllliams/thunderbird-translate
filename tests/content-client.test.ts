@@ -235,59 +235,9 @@ describe("connectContent", () => {
     const client = connectContent({ root: () => document.body, contentScript: true })
     settingsPush(publicSettings({ autoTranslate: true, targetLang: "fr" }))
     await client.ready
-    const toggled = client.controller.toggle()
-    // The subject is in the target language too.
-    await until(() => expect(port.posted("subject")).toHaveLength(1))
-    port.push({ type: "subject", id: port.posted("subject")[0].id, subject: "Réunion de l'équipe demain matin" })
-    await toggled
+    await client.controller.toggle()
     expect(port.posted("translate")).toEqual([])
-    expect(document.querySelector(".tt-subject")).toBeNull()
     expect(lastState()).toMatchObject({ active: true, total: 0 })
-  })
-
-  it("content script: asks the background for the subject and translates it in a line above the body", async () => {
-    sendMessage.mockResolvedValue({ locale: "en", messages: {} })
-    const client = connectContent({ root: () => document.body, contentScript: true })
-    settingsPush(publicSettings())
-    await client.ready
-    const toggled = client.controller.toggle()
-    await until(() => expect(port.posted("subject")).toHaveLength(1))
-    const { id } = port.posted("subject")[0]
-    // An answer to another request changes nothing.
-    port.push({ type: "subject", id: id + 100, subject: "Wrong" })
-    port.push({ type: "subject", id, subject: "Fwd: Quarterly report" })
-    await until(() => expect(port.posted("translate")).toHaveLength(2))
-    const request = port.posted("translate").find((r) => r.request.text === "Quarterly report")!
-    port.push({ type: "tier", id: request.id, tier: "machine", result: { ok: true, text: "季度报告" } })
-    port.push({ type: "done", id: request.id })
-    const other = port.posted("translate").find((r) => r !== request)!
-    port.push({ type: "done", id: other.id })
-    await toggled
-    expect(document.body.firstElementChild!.textContent).toBe("Fwd: Quarterly report季度报告")
-  })
-
-  it("content script: a subject request still open when the background goes away ends without a subject", async () => {
-    sendMessage.mockResolvedValue({ locale: "en", messages: {} })
-    const client = connectContent({ root: () => document.body, contentScript: true })
-    settingsPush(publicSettings())
-    await client.ready
-    const toggled = client.controller.toggle()
-    await until(() => expect(port.posted("subject")).toHaveLength(1))
-    port.postMessage.mockImplementation(() => {
-      throw new Error("Attempt to postMessage on disconnected port")
-    })
-    port.disconnect()
-    await toggled
-    expect(document.querySelector(".tt-subject")).toBeNull()
-  })
-
-  it("extension pages ask for no subject", async () => {
-    const client = connectContent({ root: () => document.body })
-    settingsPush(publicSettings())
-    await client.ready
-    void client.controller.start()
-    await until(() => expect(port.posted("translate")).toHaveLength(1))
-    expect(port.posted("subject")).toEqual([])
   })
 
   it("posts the message context in precise mode, marked on a retranslation pushed by the background", async () => {
@@ -336,11 +286,11 @@ describe("connectContent", () => {
     expect(() => client.controller.stop()).not.toThrow()
   })
 
-  it("after a disconnect fails every paragraph at once, the subject and the context too, and start() ends", async () => {
+  it("after a disconnect fails every paragraph at once, the context too, and start() ends", async () => {
     sendMessage.mockResolvedValue({ locale: "en", messages: {} })
     document.body.innerHTML = "<p>Good morning</p><p>See you later</p>"
     const states: unknown[] = []
-    const client = connectContent({ root: () => document.body, contentScript: true, onState: (state) => states.push(state) })
+    const client = connectContent({ root: () => document.body, contentScript: true, probe: { attach: () => {}, state: (state) => states.push(state), push: () => {} } })
     settingsPush(tieredSettings(["machine"], { precise: true }))
     await client.ready
     port.postMessage.mockImplementation(() => {
@@ -349,7 +299,6 @@ describe("connectContent", () => {
     port.disconnect()
     await client.controller.start()
     expect(Array.from(document.querySelectorAll<HTMLElement>("p .tt-error"), (e) => e.title)).toEqual([ENGLISH.t("errUnknown"), ENGLISH.t("errUnknown")])
-    expect(document.querySelector(".tt-subject")).toBeNull()
     await until(() => expect(states.at(-1)).toEqual({ active: true, total: 2, done: 0, provisional: 0, failed: 2, lastError: ENGLISH.t("errUnknown") }))
     // Nothing was left waiting: a second disconnect settles no request.
     const reported = states.length

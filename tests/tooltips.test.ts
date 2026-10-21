@@ -16,7 +16,6 @@ import { IDLE_TAB_STATE, type PortReport, type TabState } from "../src/shared/me
 import { createDefaultSettings, toPublicSettings } from "../src/shared/settings"
 import { WELCOME_KEY } from "../src/welcome/steps"
 import { pagePort } from "./fixtures/browser"
-import { fakeMail, messages } from "./fixtures/mail"
 import { bergamotStandIn } from "./fixtures/offline"
 import { jsonResponse, openPage, until, useFakeTimers } from "./helpers"
 
@@ -376,19 +375,5 @@ describe("inside a message", () => {
     ])
     // The words of the check box show the hover text too.
     expect(panel.querySelector("label")!.title).toBe(ENGLISH.t("tipNoticeMute"))
-  })
-})
-
-describe("page of translated subjects", () => {
-  it("gives every control and every row a hover text", async () => {
-    const mail = fakeMail({ folders: { Inbox: messages(150) } })
-    const port = pagePort()
-    const s = createDefaultSettings("en")
-    s.onlineConsent = ["google-free@translate.googleapis.com"]
-    await openPage("subjects", s, { connect: () => port, api: mail.api })
-    await until(() => expect(document.querySelectorAll("#rows tr")).toHaveLength(100))
-    expect(untitled()).toEqual([])
-    for (const [key, title] of declared()) expect(title, key).toBe(ENGLISH.t(key as never))
-    expect(Array.from(document.querySelectorAll<HTMLElement>("#rows tr"), (tr) => tr.title)).toEqual(Array(100).fill(ENGLISH.t("tipSubjectsRow")))
   })
 })

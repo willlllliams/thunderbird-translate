@@ -19,7 +19,7 @@ export const CLS_TRANSLATION = "tt-translation"
 export const CLS_STATUS = "tt-status"
 /** The notice about missing offline data above the message (notice.ts). */
 export const CLS_NOTICE = "tt-notice"
-/** The line with the subject of the message above the body (controller.ts). */
+/** The line with the subject that versions before 3.0.0 put above the body; restoreLeftovers() removes one left behind. */
 export const CLS_SUBJECT = "tt-subject"
 /** The button, panel or text under an image (images.ts). */
 export const CLS_IMAGE = "tt-image"

@@ -2,7 +2,7 @@
 import { describe, expect, it, vi } from "vitest"
 import { createTabRegistry } from "../src/background/tabs"
 import { createMailContext } from "../src/shared/mail-context"
-import { IDLE_TAB_STATE, SUBJECTS_PORT_NAME, type TranslateRequest, type TranslateResponse } from "../src/shared/messages"
+import { IDLE_TAB_STATE, type TranslateRequest, type TranslateResponse } from "../src/shared/messages"
 import type { Tier } from "../src/shared/providers"
 import { createDefaultSettings, toPublicSettings } from "../src/shared/settings"
 import type { SummaryResponse } from "../src/shared/summary"
@@ -17,21 +17,19 @@ const settings = toPublicSettings(createDefaultSettings())
 function registry({
   ready = Promise.resolve(),
   translate,
-  subject = async (tabId) => `Subject of tab ${tabId}`,
-}: { ready?: Promise<void>; translate?: (req: TranslateRequest, onTier: (tier: Tier, result: TranslateResponse) => void) => Promise<void>; subject?: (tabId: number) => Promise<string | null> } = {}) {
+}: { ready?: Promise<void>; translate?: (req: TranslateRequest, onTier: (tier: Tier, result: TranslateResponse) => void) => Promise<void> } = {}) {
   const { api } = stubBrowser()
   const setContext = vi.fn()
   const translateFn = vi.fn(translate ?? (async (req: TranslateRequest, onTier: (tier: Tier, result: TranslateResponse) => void) => onTier("machine", { ok: true, text: `G(${req.text})` })))
-  const subjectFn = vi.fn(subject)
   const summarize = vi.fn(async (text: string, tabId: number, fresh: boolean): Promise<SummaryResponse> => ({ ok: true, service: "AI", summary: null, raw: `${text}|${tabId}|${fresh}` }))
-  const tabs = createTabRegistry({ ready: () => ready, publicSettings: () => settings, setContext, translate: translateFn, subject: subjectFn, summarize })
+  const tabs = createTabRegistry({ ready: () => ready, publicSettings: () => settings, setContext, translate: translateFn, summarize })
   /** A content script of `tabId` connects; with `url`, a page of that address. */
   const connect = (tabId: number | undefined, name?: string, url?: string) => {
     const port = backgroundPort(tabId, name, url)
     tabs.connect(port as unknown as browser.runtime.Port)
     return port
   }
-  return { tabs, connect, setContext, translate: translateFn, subject: subjectFn, summarize, badge: api.messageDisplayAction }
+  return { tabs, connect, setContext, translate: translateFn, summarize, badge: api.messageDisplayAction }
 }
 
 describe("content script ports", () => {
@@ -202,28 +200,6 @@ describe("messages to the content scripts", () => {
   })
 })
 
-describe("subjects", () => {
-  it("answers a content script with the subject of the message in its tab", async () => {
-    const { connect, subject } = registry()
-    const port = connect(4)
-    port.send({ type: "subject", id: 3 })
-    await until(() => expect(port.posted.at(-1)).toEqual({ type: "subject", id: 3, subject: "Subject of tab 4" }))
-    expect(subject).toHaveBeenCalledWith(4)
-  })
-
-  it("answers null when the subject cannot be read, and to the sample of an extension page without asking", async () => {
-    const failing = registry({ subject: () => Promise.reject(new Error("no message")) })
-    const port = failing.connect(4)
-    port.send({ type: "subject", id: 1 })
-    await until(() => expect(port.posted.at(-1)).toEqual({ type: "subject", id: 1, subject: null }))
-    const { connect, subject } = registry()
-    const page = connect(6, undefined, "moz-extension://test/welcome.html")
-    page.send({ type: "subject", id: 2 })
-    await until(() => expect(page.posted.at(-1)).toEqual({ type: "subject", id: 2, subject: null }))
-    expect(subject).not.toHaveBeenCalled()
-  })
-})
-
 describe("B5: a content script that goes away", () => {
   it("aborts the signal of the translations it asked for", async () => {
     const { connect, translate } = registry({ translate: () => new Promise(() => {}) })
@@ -237,41 +213,14 @@ describe("B5: a content script that goes away", () => {
   })
 })
 
-describe("the page of translated subjects", () => {
-  const PAGE = "moz-extension://test/subjects.html"
-
-  it("gets the settings and translates with the consent rules of real messages, without a tab state or badge", async () => {
-    const { tabs, connect, translate, badge } = registry()
-    // A popup has no tab.
-    const port = connect(undefined, SUBJECTS_PORT_NAME, PAGE)
-    await until(() => expect(port.posted).toEqual([{ type: "settings", settings }]))
-    port.send({ type: "translate", id: 1, request: request("Budget") })
-    await until(() => expect(port.posted.at(-1)).toEqual({ type: "done", id: 1 }))
-    expect((translate.mock.calls[0] as unknown[])[2]).toEqual({ sample: false, signal: expect.any(AbortSignal) })
-    expect(port.posted[1]).toEqual({ type: "tier", id: 1, tier: "machine", result: { ok: true, text: "G(Budget)" } })
-    // Progress reports and subject requests of the page mean nothing here.
-    port.send({ type: "state", state: { active: true, total: 1, done: 1, provisional: 0, failed: 0 } })
-    port.send({ type: "subject", id: 2 })
-    await until(() => expect(port.posted.at(-1)).toEqual({ type: "subject", id: 2, subject: null }))
-    expect(tabs.stateOf(0)).toEqual(IDLE_TAB_STATE)
-    expect(badge.setBadgeText).not.toHaveBeenCalled()
-  })
-
-  it("hears every broadcast until it disconnects", async () => {
-    const { tabs, connect } = registry()
-    const page = connect(undefined, SUBJECTS_PORT_NAME, PAGE)
-    tabs.broadcast({ type: "offlineDataChanged" })
-    expect(page.posted.at(-1)).toEqual({ type: "offlineDataChanged" })
-    page.disconnect()
-    tabs.broadcast({ type: "settings", settings })
-    expect(page.posted.filter((m) => m.type === "settings")).toHaveLength(0)
-  })
-
-  it("is refused under its Port name from anything but a page of the extension", async () => {
-    const { connect, translate } = registry()
-    const port = connect(4, SUBJECTS_PORT_NAME, "imap://example.com/message")
+describe("other Ports", () => {
+  it("are refused: only a content script or a page with its sample message connects", async () => {
+    const { tabs, connect, translate } = registry()
+    // The Port of the page of translated subjects of 2.1 – 2.3.
+    const port = connect(4, "tt-subjects", "moz-extension://test/subjects.html")
     port.send({ type: "translate", id: 1, request: request("Budget") })
     await nextTask()
     expect([port.posted, translate.mock.calls, port.onMessage.listeners.length]).toEqual([[], [], 0])
+    expect(tabs.stateOf(4)).toEqual(IDLE_TAB_STATE)
   })
 })

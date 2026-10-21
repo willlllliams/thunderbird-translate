@@ -1,6 +1,6 @@
 /**
  * The summary and to-dos of the displayed message, in a panel at the top of
- * the body, under the line with the subject: the summary, the to-dos (who,
+ * the body: the summary, the to-dos (who,
  * what, by when, with the words each rests on as hover text), the questions
  * the reader should answer, and the dates and meetings. An empty part is
  * left out. The background script asks the AI service and reads its JSON
@@ -15,17 +15,9 @@ import { button, h } from "../shared/dom"
 import { type MessageKey, t } from "../shared/i18n"
 import { type MailSummary, SUMMARY_ME, type SummaryResponse } from "../shared/summary"
 import { noticeBox } from "./notice"
-import { CLS_SUBJECT } from "./paragraphs"
 
 const CLS_SUMMARY = "tt-summary"
 const CLS_SUMMARY_BUTTON = "tt-summary-button"
-
-/** Put `el` at the top of the body, under the line with the subject when there is one. */
-function placeAtTop(root: HTMLElement, el: HTMLElement): void {
-  const subject = Array.from(root.children).find((child) => child.classList.contains(CLS_SUBJECT))
-  if (subject) subject.after(el)
-  else root.prepend(el)
-}
 
 const who = (name: string) => (name.toLowerCase() === SUMMARY_ME ? t("summaryMe") : name)
 const joined = (...parts: string[]) => parts.filter(Boolean).join(" · ")
@@ -101,7 +93,7 @@ export class SummaryPanel {
     const run = ++this.run
     if (!this.el) {
       this.el = noticeBox("details", CLS_SUMMARY, null, { open: !this.deps.collapsed() })
-      placeAtTop(root, this.el)
+      root.prepend(this.el)
     }
     this.draw(undefined, [h("p", { text: t("summaryRunning") })])
     const result = await this.deps.request(fresh)
@@ -175,6 +167,6 @@ export class SummaryButton {
     const root = this.deps.root()
     if (this.el || !root) return
     this.el = noticeBox("div", CLS_SUMMARY_BUTTON, null, {}, button(t("summaryButton"), this.deps.onClick, false, t("tipSummaryButton")))
-    placeAtTop(root, this.el)
+    root.prepend(this.el)
   }
 }

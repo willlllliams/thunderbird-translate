@@ -649,35 +649,3 @@ export function markdownFragment(doc: Document, text: string, options: MarkdownO
   }
   return fragment
 }
-
-/** The text of an inline list, without recursion. */
-function inlineText(root: Inline): string {
-  let out = ""
-  const stack: (Inline | null)[] = [root.first]
-  while (stack.length > 0) {
-    const n = stack[stack.length - 1]
-    if (!n) {
-      stack.pop()
-      continue
-    }
-    stack[stack.length - 1] = n.next
-    if (n.type === "text" || n.type === "code") out += n.text
-    else stack.push(n.first)
-  }
-  return out
-}
-
-/**
- * The text of a translation with the Markdown marks of markdownFragment()
- * removed: the text of emphasis, code and links, list items on lines of
- * their own, ordered ones with their number. For places that show plain
- * text, such as the subjects of a folder. The blocks of the rich form
- * (tables, blank lines) belong to the answers about images, which are only
- * rendered.
- */
-export function stripMarkdown(text: string): string {
-  const plain = (s: string) => inlineText(parseInline(s))
-  return markdownBlocks(text)
-    .map((block) => (block.kind === "list" ? block.items.map((item, i) => `${block.ordered ? `${block.start + i}. ` : ""}${plain(item)}`).join("\n") : block.kind === "text" ? plain(block.text) : ""))
-    .join("\n")
-}

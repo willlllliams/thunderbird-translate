@@ -14,13 +14,12 @@
  * A translation can carry a mark: a provisional result of a lower tier while
  * the highest tier runs, or a lower result kept after the highest tier failed.
  *
- * A translation is shown as text, as the Markdown subset of shared/markdown.ts
- * rendered into elements, or as text with the marks of that subset removed
- * (TextFormat); the controller decides which.
+ * A translation is shown as text or as the Markdown subset of shared/markdown.ts
+ * rendered into elements (TextFormat); the controller decides which.
  */
 
 import { getI18n } from "../shared/i18n"
-import { markdownFragment, stripMarkdown } from "../shared/markdown"
+import { markdownFragment } from "../shared/markdown"
 import type { DisplayMode, Settings, StylePreset } from "../shared/settings"
 import { CLS_IMAGE, CLS_ORIGINAL, CLS_STATUS, CLS_TRANSLATION, type Unit } from "./paragraphs"
 
@@ -73,8 +72,8 @@ export interface TranslationMark {
   retryHint?: string
 }
 
-/** How the text of a translation is shown: as it is, with its Markdown rendered, or with the Markdown marks removed. */
-export type TextFormat = "text" | "markdown" | "strip"
+/** How the text of a translation is shown: as it is, or with its Markdown rendered. */
+export type TextFormat = "text" | "markdown"
 
 export class Renderer {
   private dom = new Map<Unit, UnitDom>()
@@ -148,7 +147,7 @@ export class Renderer {
       ...(mark ? [`tt-${mark.kind}`] : []),
     ].join(" ")
     if (format === "markdown") node.appendChild(markdownFragment(this.doc, text))
-    else node.textContent = format === "strip" ? stripMarkdown(text) : text
+    else node.textContent = text
     node.setAttribute("dir", "auto")
     if (lang) node.setAttribute("lang", lang)
     if (mark) {

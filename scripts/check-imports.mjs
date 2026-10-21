@@ -18,7 +18,7 @@ const root = resolve(dirname(fileURLToPath(import.meta.url)), "..")
 /** The directories under src/ each layer may import from, besides itself. */
 export const LAYERS = {
   shared: [],
-  hooks: ["shared", "offline", "background", "content", "welcome", "subjects"],
+  hooks: ["shared", "offline", "background", "content", "welcome"],
   offline: ["shared", "hooks"],
   background: ["shared", "offline", "hooks"],
   content: ["shared", "hooks"],
@@ -26,9 +26,7 @@ export const LAYERS = {
   // The pages reach the offline data through the background script only, so no download or storage code goes into them.
   options: ["shared", "content"],
   welcome: ["shared", "content", "options", "hooks"],
-  // The page of translated subjects translates its cells with the controller of the content script.
-  subjects: ["shared", "content", "hooks"],
-  e2e: ["shared", "hooks", "offline", "background", "content", "popup", "options", "welcome", "subjects"],
+  e2e: ["shared", "hooks", "offline", "background", "content", "popup", "options", "welcome"],
 }
 
 /**

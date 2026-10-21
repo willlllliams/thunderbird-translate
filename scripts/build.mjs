@@ -116,7 +116,6 @@ const builds = await Promise.all([
       popup: "src/popup/index.ts",
       options: "src/options/index.ts",
       welcome: "src/welcome/index.ts",
-      subjects: "src/subjects/index.ts",
       "bergamot-worker": "src/offline/bergamot/worker.ts",
     },
     format: "iife",

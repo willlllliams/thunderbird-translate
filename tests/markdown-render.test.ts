@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-/** The Markdown of AI translations in a message: only the AI tier, provisional results as text, restoring, the switch, styles, subjects. */
+/** The Markdown of AI translations in a message: only the AI tier, provisional results as text, restoring, the switch, styles. */
 import { readFileSync } from "node:fs"
 import { join } from "node:path"
 import { beforeEach, describe, expect, it, vi } from "vitest"
@@ -163,27 +163,5 @@ describe("styles", () => {
     new Renderer(document).showTranslation(unit, "**Guten** Morgen", "bilingual", "de", undefined, "markdown")
     const strong = document.querySelector<HTMLElement>(".tt-translation strong")!
     expect(getComputedStyle(strong).color).toBe(getComputedStyle(document.querySelector(".tt-translation")!).color)
-  })
-})
-
-describe("subjects", () => {
-  it("shows the subject line as text without the marks", async () => {
-    const { c } = await mount("<p>Good morning</p>", tieredSettings(["machine", "ai"]), {
-      translate: answering((t, tier) => ok(tier === "ai" ? `**AI** ${t}` : `**MT** ${t}`)),
-      subject: async () => "Re: Budget",
-    })
-    await c.start()
-    await until(() => expect(document.querySelector(".tt-subject .tt-translation")?.textContent).toBe("AI Budget"))
-    const line = document.querySelector<HTMLElement>(".tt-subject")!
-    expect(line.querySelectorAll(".tt-translation *").length).toBe(0)
-    // The paragraphs of the body are rendered.
-    expect(document.querySelector("p .tt-translation strong")?.textContent).toBe("AI")
-  })
-
-  it("shows the units of a plain-text page without the marks", async () => {
-    const { c } = await mount("<p>Good morning</p>", tieredSettings(["ai"]), { translate: answering(() => ok("**Angebot** für [Sie](https://e.com)")), plainText: true })
-    await c.start()
-    expect(tags()).toEqual([])
-    expect(text()).toBe("Angebot für Sie")
   })
 })
