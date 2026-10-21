@@ -104,7 +104,7 @@ La traducción precisa envía el mensaje completo como contexto en cada solicitu
 
 El nivel de IA usa uno de tres prompts: visualización bilingüe (cercana al original), visualización solo traducción (texto fluido) y traducción precisa (términos coherentes en todo el mensaje). Cada uno se puede editar y restaurar con "Restaurar el prompt integrado".
 
-Los preajustes añaden reglas a un prompt: una variedad regional, como el inglés británico o el uso de Taiwán, un estilo de redacción, el término original junto a las palabras difíciles o explicaciones breves de las palabras difíciles. Los detalles están en [docs/settings.md](../docs/settings.md#prompts) (en inglés).
+Los preajustes añaden reglas a un prompt: una variedad regional, como el inglés británico o el uso de Taiwán, un estilo de redacción, el término original junto a las palabras difíciles o explicaciones breves de las palabras difíciles. Los detalles están en [docs/settings.md](../docs/settings.md#prompt-presets) (en inglés).
 
 ## Privacidad
 
@@ -119,7 +119,7 @@ Los preajustes añaden reglas a un prompt: una variedad regional, como el inglé
 
 ## Limitaciones conocidas
 
-- Las traducciones son texto sin formato: los enlaces y el formato en línea del original no se conservan en la traducción.
+- Los enlaces y el formato en línea del original no pasan a la traducción. La negrita, las listas y los enlaces aparecen en una traducción solo cuando un servicio de IA los escribe en Markdown; las traducciones del diccionario y de la traducción automática, y las traducciones provisionales, son texto sin formato.
 - Los puntos de conexión gratuitos de Google y Microsoft no están documentados y pueden cambiar o tener límite de frecuencia.
 - El diccionario da una glosa palabra por palabra en el orden de las palabras de origen.
 - El diccionario y Bergamot no traducen entre chino simplificado y chino tradicional.

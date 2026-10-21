@@ -104,7 +104,7 @@ Precise translation sends the whole message as context with every AI request and
 
 The AI tier uses one of three prompts: bilingual display (close to the original), translation-only display (fluent text) and precise translation (consistent terms across the message). Each can be edited and restored with "Restore built-in prompt".
 
-Presets add rules to a prompt: a regional variety such as British English or Taiwan usage, a writing style, the original term after difficult words, or short explanations of difficult words. Details are in [docs/settings.md](docs/settings.md#prompts).
+Presets add rules to a prompt: a regional variety such as British English or Taiwan usage, a writing style, the original term after difficult words, or short explanations of difficult words. Details are in [docs/settings.md](docs/settings.md#prompt-presets).
 
 ## Privacy
 
@@ -119,7 +119,7 @@ Presets add rules to a prompt: a regional variety such as British English or Tai
 
 ## Known limitations
 
-- Translations are plain text: links and inline formatting of the original are not kept in the translation.
+- Links and inline formatting of the original are not carried into the translation. Bold text, lists and links appear in a translation only when an AI service writes them as Markdown; translations of the dictionary and of machine translation, and provisional translations, are plain text.
 - The free Google and Microsoft endpoints are undocumented and may change or be rate-limited.
 - The dictionary gives a word-by-word gloss in the source word order.
 - The dictionary and Bergamot do not translate between Simplified and Traditional Chinese.

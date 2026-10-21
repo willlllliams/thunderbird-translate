@@ -104,7 +104,7 @@ La traduction précise envoie le message entier comme contexte avec chaque requ�
 
 Le niveau IA utilise l’une des trois invites : affichage bilingue (proche de l’original), affichage en traduction seule (texte fluide) et traduction précise (termes cohérents dans tout le message). Chacune peut être modifiée et rétablie avec « Rétablir l’invite intégrée ».
 
-Les préréglages ajoutent des règles à une invite : une variante régionale comme l’anglais britannique ou l’usage de Taïwan, un style d’écriture, l’original après les mots difficiles, ou de courtes explications des mots difficiles. Les détails se trouvent dans [docs/settings.md](../docs/settings.md#prompts) (en anglais).
+Les préréglages ajoutent des règles à une invite : une variante régionale comme l’anglais britannique ou l’usage de Taïwan, un style d’écriture, l’original après les mots difficiles, ou de courtes explications des mots difficiles. Les détails se trouvent dans [docs/settings.md](../docs/settings.md#prompt-presets) (en anglais).
 
 ## Confidentialité
 
@@ -119,7 +119,7 @@ Les préréglages ajoutent des règles à une invite : une variante régionale c
 
 ## Limites connues
 
-- Les traductions sont du texte brut : les liens et la mise en forme interne de l’original ne sont pas conservés dans la traduction.
+- Les liens et la mise en forme interne de l’original ne passent pas dans la traduction. Le gras, les listes et les liens n’apparaissent dans une traduction que si un service d’IA les écrit en Markdown ; les traductions du dictionnaire et de la traduction automatique, ainsi que les traductions provisoires, sont du texte brut.
 - Les points d’accès gratuits de Google et de Microsoft ne sont pas documentés ; ils peuvent changer ou être soumis à une limitation de débit.
 - Le dictionnaire donne une glose mot à mot dans l’ordre des mots de la langue source.
 - Le dictionnaire et Bergamot ne traduisent pas entre le chinois simplifié et le chinois traditionnel.

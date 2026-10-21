@@ -104,7 +104,7 @@ Hassas çeviri, her yapay zekâ isteğiyle iletinin tamamını bağlam olarak g�
 
 Yapay zekâ kademesi üç istemden birini kullanır: iki dilli görünüm (özgün metne yakın), yalnızca çeviri görünümü (akıcı metin) ve hassas çeviri (ileti boyunca tutarlı terimler). Her biri düzenlenebilir ve "Yerleşik istemi geri yükle" ile eski haline döndürülebilir.
 
-Hazır ayarlar isteme kural ekler: Britanya İngilizcesi veya Tayvan kullanımı gibi bir bölgesel çeşit, bir yazım üslubu, zor sözcüklerin ardından özgün terim ya da zor sözcüklerin kısa açıklamaları. Ayrıntılar [docs/settings.md](../docs/settings.md#prompts) dosyasındadır (İngilizce).
+Hazır ayarlar isteme kural ekler: Britanya İngilizcesi veya Tayvan kullanımı gibi bir bölgesel çeşit, bir yazım üslubu, zor sözcüklerin ardından özgün terim ya da zor sözcüklerin kısa açıklamaları. Ayrıntılar [docs/settings.md](../docs/settings.md#prompt-presets) dosyasındadır (İngilizce).
 
 ## Gizlilik
 
@@ -119,7 +119,7 @@ Hazır ayarlar isteme kural ekler: Britanya İngilizcesi veya Tayvan kullanımı
 
 ## Bilinen sınırlamalar
 
-- Çeviriler düz metindir: özgün metindeki bağlantılar ve satır içi biçimlendirme çeviriye taşınmaz.
+- Özgün metindeki bağlantılar ve satır içi biçimlendirme çeviriye taşınmaz. Kalın yazı, listeler ve bağlantılar bir çeviride yalnızca bir yapay zekâ hizmeti bunları Markdown olarak yazarsa görünür; sözlük ve makine çevirisi çevirileri ile geçici çeviriler düz metindir.
 - Google ve Microsoft'un ücretsiz uç noktaları belgelenmemiştir; değişebilir veya hız sınırına takılabilir.
 - Sözlük, kaynak sözcük sırasında sözcük sözcük karşılık verir.
 - Sözlük ve Bergamot, Basitleştirilmiş ile Geleneksel Çince arasında çeviri yapmaz.

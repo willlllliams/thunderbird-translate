@@ -101,7 +101,7 @@ A step that the earlier choices do not need stays in the list, struck through, a
 
 The guide uses the same components as the settings page: the translation style controls, the service fields and connection test, the dictionary and Bergamot lists, and the prompt editor with its presets.
 
-Step 2 holds the same style controls as the Translation style section of the settings page, described under [Translation style](#translation-style). Every change redraws the sample message at once and is saved like any other setting.
+Step 2 holds the same style controls as the Translation style section of the settings page, described under [Translation style](#translation-style), except the switch "Render Markdown in AI translations", which only the settings page has. Every change redraws the sample message at once and is saved like any other setting.
 
 Step 4 lists every direction of both catalogs, in the order described under [Offline lists](#offline-lists). What is ticked depends on the source language:
 
@@ -468,7 +468,7 @@ The rendered translation consists of text and these elements only: `strong`, `em
 
 Thunderbird handles a click on such a link like a click on any other link in a message; the extension adds no handler of its own. In the message pane Thunderbird's link handler (`StrictLinkClickHandlerChild` for browsers of the group `mail-message`) stops the navigation of an `http:` or `https:` link and opens it in the default web browser, after the phishing check that asks when the text of a link names another host than its address. A `mailto:` link opens a new message to that address, since Thunderbird handles `mailto:` itself.
 
-Subjects are shown as plain text: the subject line above the body, the page of translated subjects and the column of the experimental build show an AI translation of a subject with the marks removed, the text of a link without its address. `**Budget** 2027` becomes "Budget 2027" there.
+Subjects are shown as plain text: while the switch is on, the subject line above the body, the page of translated subjects and the column of the experimental build show an AI translation of a subject with the marks removed, the text of a link without its address. `**Budget** 2027` becomes "Budget 2027" there. With the switch off, a subject shows the text exactly as the service returned it, marks included, like every other translation.
 
 The rendered elements sit inside the translation block, so the style of the translations applies to them: text color, opacity and font size ratio. A link takes the text color of the translations when one is set, otherwise the link color of the system, and stays underlined; code uses a monospace font at 92 % of the translation's size.
 
@@ -534,7 +534,7 @@ The endpoint field of a local service notes that `localhost` is this computer (t
 
 ## Known limitations
 
-- Translations are plain text. Links, bold text and other inline formatting of the original are not kept in the translation. In bilingual mode the original stays fully usable; in translation-only mode you can hover to see the original or switch back to bilingual.
+- Links, bold text and other inline formatting of the original are not carried into the translation. Bold text, lists and links appear in a translation only when an AI service writes them as Markdown, see [Markdown in AI translations](#markdown-in-ai-translations); translations of the dictionary and of machine translation, and provisional translations, are plain text. In bilingual mode the original stays fully usable; in translation-only mode you can hover to see the original or switch back to bilingual.
 - The free Google and Microsoft endpoints are undocumented and may change or be rate-limited.
 - Language detection of Latin-script languages other than English depends on `i18n.detectLanguage`, see [Source language](#source-language).
 - The content script is registered through `messageDisplayScripts` and reaches only messages opened after registration. On startup the extension tries to inject it into messages already open; if that fails, selecting the message again is enough.

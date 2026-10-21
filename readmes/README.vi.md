@@ -104,7 +104,7 @@ Dịch chính xác gửi toàn bộ thư làm ngữ cảnh trong mọi yêu cầ
 
 Tầng AI dùng một trong ba lời nhắc: hiển thị song ngữ (sát bản gốc), hiển thị chỉ bản dịch (văn xuôi trôi chảy) và dịch chính xác (thuật ngữ nhất quán trong cả thư). Mỗi lời nhắc có thể chỉnh sửa và khôi phục bằng "Khôi phục lời nhắc tích hợp sẵn".
 
-Các mẫu có sẵn thêm quy tắc vào lời nhắc: biến thể vùng miền như tiếng Anh Anh hay cách dùng của Đài Loan, một văn phong, nguyên văn đặt sau từ khó, hoặc lời giải thích ngắn cho từ khó. Chi tiết nằm trong [docs/settings.md](../docs/settings.md#prompts) (tiếng Anh).
+Các mẫu có sẵn thêm quy tắc vào lời nhắc: biến thể vùng miền như tiếng Anh Anh hay cách dùng của Đài Loan, một văn phong, nguyên văn đặt sau từ khó, hoặc lời giải thích ngắn cho từ khó. Chi tiết nằm trong [docs/settings.md](../docs/settings.md#prompt-presets) (tiếng Anh).
 
 ## Quyền riêng tư
 
@@ -119,7 +119,7 @@ Các mẫu có sẵn thêm quy tắc vào lời nhắc: biến thể vùng miề
 
 ## Hạn chế đã biết
 
-- Bản dịch là văn bản thuần: liên kết và định dạng nội dòng của bản gốc không được giữ trong bản dịch.
+- Liên kết và định dạng nội dòng của bản gốc không được đưa vào bản dịch. Chữ đậm, danh sách và liên kết chỉ xuất hiện trong bản dịch khi dịch vụ AI viết chúng bằng Markdown; bản dịch của từ điển và của dịch máy, cùng các bản dịch tạm, là văn bản thuần.
 - Các endpoint miễn phí của Google và Microsoft không có tài liệu công khai, có thể thay đổi hoặc bị giới hạn tần suất.
 - Từ điển chú giải từng từ theo thứ tự từ của bản gốc.
 - Từ điển và Bergamot không dịch giữa tiếng Trung giản thể và phồn thể.

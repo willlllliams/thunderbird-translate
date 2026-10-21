@@ -104,7 +104,7 @@ Die präzise Übersetzung sendet bei jeder KI-Anfrage die gesamte Nachricht als 
 
 Die KI-Stufe verwendet einen von drei Prompts: für die zweisprachige Anzeige (nah am Original), für die Anzeige nur der Übersetzung (flüssiger Text) und für die präzise Übersetzung (einheitliche Begriffe in der ganzen Nachricht). Jeder Prompt lässt sich bearbeiten und mit „Integrierten Prompt wiederherstellen“ zurücksetzen.
 
-Vorlagen fügen einem Prompt Regeln hinzu: eine regionale Variante wie britisches Englisch oder taiwanischen Sprachgebrauch, einen Schreibstil, das Original hinter schwierigen Wörtern oder kurze Erklärungen schwieriger Wörter. Einzelheiten stehen in [docs/settings.md](../docs/settings.md#prompts) (auf Englisch).
+Vorlagen fügen einem Prompt Regeln hinzu: eine regionale Variante wie britisches Englisch oder taiwanischen Sprachgebrauch, einen Schreibstil, das Original hinter schwierigen Wörtern oder kurze Erklärungen schwieriger Wörter. Einzelheiten stehen in [docs/settings.md](../docs/settings.md#prompt-presets) (auf Englisch).
 
 ## Datenschutz
 
@@ -119,7 +119,7 @@ Vorlagen fügen einem Prompt Regeln hinzu: eine regionale Variante wie britische
 
 ## Bekannte Einschränkungen
 
-- Übersetzungen sind reiner Text: Links und Formatierungen innerhalb von Zeilen aus dem Original gehen verloren.
+- Links und Formatierungen innerhalb von Zeilen aus dem Original werden nicht in die Übersetzung übernommen. Fett, Listen und Links erscheinen in einer Übersetzung nur, wenn ein KI-Dienst sie als Markdown schreibt; Übersetzungen des Wörterbuchs und der maschinellen Übersetzung sowie vorläufige Übersetzungen sind reiner Text.
 - Die kostenlosen Schnittstellen von Google und Microsoft sind nicht dokumentiert und können sich ändern oder in der Rate begrenzt werden.
 - Das Wörterbuch liefert eine Wort-für-Wort-Glosse in der Wortfolge der Ausgangssprache.
 - Das Wörterbuch und Bergamot übersetzen nicht zwischen vereinfachtem und traditionellem Chinesisch.

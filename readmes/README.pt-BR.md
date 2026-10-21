@@ -104,7 +104,7 @@ A tradução precisa envia a mensagem inteira como contexto em cada requisição
 
 O nível de IA usa um de três prompts: exibição bilíngue (próximo do original), exibição só da tradução (texto fluente) e tradução precisa (termos consistentes em toda a mensagem). Cada um pode ser editado e restaurado com "Restaurar prompt embutido".
 
-As predefinições acrescentam regras a um prompt: uma variante regional, como o inglês britânico ou o uso de Taiwan, um estilo de escrita, o termo original depois de palavras difíceis ou explicações curtas dessas palavras. Os detalhes estão em [docs/settings.md](../docs/settings.md#prompts) (em inglês).
+As predefinições acrescentam regras a um prompt: uma variante regional, como o inglês britânico ou o uso de Taiwan, um estilo de escrita, o termo original depois de palavras difíceis ou explicações curtas dessas palavras. Os detalhes estão em [docs/settings.md](../docs/settings.md#prompt-presets) (em inglês).
 
 ## Privacidade
 
@@ -119,7 +119,7 @@ As predefinições acrescentam regras a um prompt: uma variante regional, como o
 
 ## Limitações conhecidas
 
-- As traduções são texto simples: links e formatação inline do original não são mantidos na tradução.
+- Links e formatação inline do original não passam para a tradução. Negrito, listas e links aparecem em uma tradução apenas quando um serviço de IA os escreve em Markdown; as traduções do dicionário e da tradução automática, e as traduções provisórias, são texto simples.
 - Os endpoints gratuitos do Google e da Microsoft não são documentados e podem mudar ou ter limite de requisições.
 - O dicionário dá uma glosa palavra por palavra na ordem das palavras do idioma de origem.
 - O dicionário e o Bergamot não traduzem entre chinês simplificado e chinês tradicional.
