@@ -224,6 +224,19 @@ describe("subjects", () => {
   })
 })
 
+describe("B5: a content script that goes away", () => {
+  it("aborts the signal of the translations it asked for", async () => {
+    const { connect, translate } = registry({ translate: () => new Promise(() => {}) })
+    const port = connect(4)
+    port.send({ type: "translate", id: 1, request: request("Hello") })
+    await until(() => expect(translate).toHaveBeenCalledTimes(1))
+    const { signal } = (translate.mock.calls[0] as unknown[])[2] as { signal: AbortSignal }
+    expect(signal.aborted).toBe(false)
+    port.disconnect()
+    expect(signal.aborted).toBe(true)
+  })
+})
+
 describe("the page of translated subjects", () => {
   const PAGE = "moz-extension://test/subjects.html"
 
@@ -234,7 +247,7 @@ describe("the page of translated subjects", () => {
     await until(() => expect(port.posted).toEqual([{ type: "settings", settings }]))
     port.send({ type: "translate", id: 1, request: request("Budget") })
     await until(() => expect(port.posted.at(-1)).toEqual({ type: "done", id: 1 }))
-    expect((translate.mock.calls[0] as unknown[])[2]).toEqual({ sample: false })
+    expect((translate.mock.calls[0] as unknown[])[2]).toEqual({ sample: false, signal: expect.any(AbortSignal) })
     expect(port.posted[1]).toEqual({ type: "tier", id: 1, tier: "machine", result: { ok: true, text: "G(Budget)" } })
     // Progress reports and subject requests of the page mean nothing here.
     port.send({ type: "state", state: { active: true, total: 1, done: 1, provisional: 0, failed: 0 } })

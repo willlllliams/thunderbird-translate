@@ -115,6 +115,9 @@ export interface BatchQueueOptions<T, R> {
   getSize: (item: T) => number
   /** Must resolve with one result per item, in order. */
   execute: (key: string, items: T[]) => Promise<R[]>
+  /** An item no one waits for any more: left out of its batch when the batch goes, its promise rejected with dropError(). */
+  dropped?: (item: T) => boolean
+  dropError?: () => unknown
 }
 
 interface Pending<T, R> {
@@ -163,7 +166,12 @@ export class BatchQueue<T, R> {
     if (!batch) return
     this.pending.delete(key)
     if (batch.timer) clearTimeout(batch.timer)
-    const { items, waiters } = batch
+    const { dropped, dropError } = this.options
+    const kept = batch.items.map((item) => !dropped?.(item))
+    batch.waiters.forEach((w, i) => kept[i] || w.reject(dropError?.()))
+    const items = batch.items.filter((_, i) => kept[i])
+    const waiters = batch.waiters.filter((_, i) => kept[i])
+    if (items.length === 0) return
     this.options
       .execute(key, items)
       .then((results) => {

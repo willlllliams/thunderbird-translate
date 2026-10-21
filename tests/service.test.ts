@@ -69,6 +69,40 @@ describe("LRU cache", () => {
 })
 
 describe("TranslationService with Google", () => {
+  it("B5: drops the paragraphs of a page that went away, before and while they wait, unless another page waits too", async () => {
+    let release!: () => void
+    const gate = new Promise<void>((r) => (release = r))
+    const fetchFn = vi.fn(async (_url: string, init: RequestInit) => {
+      await gate
+      return jsonResponse(new URLSearchParams(String(init.body)).getAll("q").map((q) => [`ZH(${q})`, "en"]))
+    })
+    const { service } = setup((s) => (s.batch.concurrency = 1), { fetchFn })
+    const ask = (text: string, signal: AbortSignal) => {
+      let result: TranslateResponse | undefined
+      return service.translateForPage({ text, sourceLang: "auto", targetLang: "zh-CN", tiers: ["machine"] }, (_tier, r) => (result = r), { signal }).then(() => result!)
+    }
+    const [gone, kept, other] = [new AbortController(), new AbortController(), new AbortController()]
+    // In one batch window: the paragraph of the page that goes away is left out of the batch.
+    const dropped = ask("Gone", gone.signal)
+    const first = ask("One", kept.signal)
+    gone.abort()
+    await until(() => expect(fetchFn).toHaveBeenCalledTimes(1))
+    expect(new URLSearchParams(String(fetchFn.mock.calls[0][1].body)).getAll("q")).toEqual(["One"])
+    // Waiting for the only slot: dropped when its page goes, kept while another page waits for the same paragraph.
+    const waiting = ask("Two", gone.signal)
+    const shared = [ask("Three", other.signal), ask("Three", kept.signal)]
+    await new Promise((r) => setTimeout(r, 20))
+    other.abort()
+    release()
+    expect((await first).ok).toBe(true)
+    expect(await Promise.all(shared)).toEqual([
+      { ok: true, text: "ZH(Three)" },
+      { ok: true, text: "ZH(Three)" },
+    ])
+    expect([(await dropped).ok, (await waiting).ok]).toEqual([false, false])
+    expect(fetchFn.mock.calls.map(([, init]) => new URLSearchParams(String(init.body)).getAll("q"))).toEqual([["One"], ["Three"]])
+  })
+
   it("B9: sends nothing to a service whose endpoint moved to a host the user did not allow", async () => {
     const fetchFn = vi.fn(async () => jsonResponse({ code: 200, data: "Hallo" }))
     const settings = createDefaultSettings()

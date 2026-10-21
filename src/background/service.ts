@@ -76,7 +76,19 @@ interface Job {
   data?: OfflineData
   /** The built-in sample of an extension page or a connection test, not a message: it needs no consent. */
   sample?: boolean
+  /** Aborted once no page waits for the result any more (the tab closed, another message is shown): the job is dropped before its request goes out. */
+  signal?: AbortSignal
 }
+
+/** A request that runs for a cache key, and the pages that wait for it: when the last of them goes away, `controller` aborts it. */
+interface Running {
+  promise: Promise<string>
+  waiting: number
+  controller: AbortController
+}
+
+/** The error of a job no page waits for any more; it is not retried. */
+const aborted = () => new DOMException("No page waits for the translation any more.", "AbortError")
 
 /** The installed data an offline service translates with, as part of the cache key. */
 interface OfflineData {
@@ -169,7 +181,7 @@ export class TranslationService {
   /** One request queue per provider: its concurrency limit and retries apply to that provider only. */
   private readonly queues = new Map<string, RequestQueue>()
   private readonly batchQueue: BatchQueue<Job, ItemResult>
-  private readonly inflight = new Map<string, Promise<string>>()
+  private readonly inflight = new Map<string, Running>()
   /** The request that started last for each cache key of a running request: only its result is cached. */
   private readonly writers = new Map<string, symbol>()
   private readonly contexts = new LruCache<MailContext>(MAX_CONTEXTS)
@@ -188,6 +200,8 @@ export class TranslationService {
       getKey: (job) => job.batchKey,
       getSize: (job) => job.text.length,
       limits: (job) => this.limitsFor(job.provider),
+      dropped: (job) => job.signal?.aborted === true,
+      dropError: aborted,
       execute: (_key, jobs) => this.executeBatch(jobs),
     })
   }
@@ -287,18 +301,31 @@ export class TranslationService {
     if (!allowed) throw new LocalizedError("errHostPermission", [patternHost(origin)])
   }
 
-  /** The cached result, or the result of the running request for the same paragraph, or a new one. A retranslation always makes a new one, which later requests share. */
+  /**
+   * The cached result, or the result of the running request for the same paragraph, or a new one. A retranslation
+   * always makes a new one, which later requests share. The request is dropped before it goes out once every page
+   * that waits for it went away (`job.signal`).
+   */
   private async run(job: Job): Promise<string> {
     const cached = job.fresh ? undefined : await this.deps.cache.get(job.key)
     if (cached !== undefined) return cached
     let running = job.fresh ? undefined : this.inflight.get(job.key)
     if (!running) {
-      const started: Promise<string> = this.latest(job.key, () => this.translateParts(job), (text) => this.store(job, text)).finally(() => {
-        if (this.inflight.get(job.key) === started) this.inflight.delete(job.key)
+      const controller = new AbortController()
+      const entry: Running = { promise: Promise.resolve(""), waiting: 0, controller }
+      entry.promise = this.latest(job.key, () => this.translateParts({ ...job, signal: controller.signal }), (text) => this.store(job, text)).finally(() => {
+        if (this.inflight.get(job.key) === entry) this.inflight.delete(job.key)
       })
-      this.inflight.set(job.key, (running = started))
+      this.inflight.set(job.key, (running = entry))
     }
-    return running
+    const entry = running
+    entry.waiting++
+    const leave = () => {
+      if (--entry.waiting === 0) entry.controller.abort()
+    }
+    if (job.signal?.aborted) leave()
+    else job.signal?.addEventListener("abort", leave, { once: true })
+    return entry.promise.finally(() => job.signal?.removeEventListener("abort", leave))
   }
 
   /** Run a request for a cache key and cache its result, unless a request for the same key started after it: an older answer that arrives late does not replace a retranslation. */
@@ -355,7 +382,7 @@ export class TranslationService {
    * and its tier fails with errConsentRequired; `sample`: the text is the
    * built-in sample of an extension page, not a message, and needs no consent.
    */
-  async translateForPage(req: TranslateRequest, onTier: (tier: Tier, result: TranslateResponse) => void, { sample = false }: { sample?: boolean } = {}): Promise<void> {
+  async translateForPage(req: TranslateRequest, onTier: (tier: Tier, result: TranslateResponse) => void, { sample = false, signal }: { sample?: boolean; signal?: AbortSignal } = {}): Promise<void> {
     const settings = this.deps.getSettings()
     const tiers = TIERS.filter((tier) => settings.tiers[tier] && req.tiers.includes(tier))
     const data: Partial<Record<Tier, OfflineData>> = {}
@@ -369,7 +396,7 @@ export class TranslationService {
       try {
         const id = settings.tiers[tier]!
         this.assertConsent(id, sample)
-        const job = this.job(req, id, settings, data[tier], sample)
+        const job = { ...this.job(req, id, settings, data[tier], sample), ...(signal ? { signal } : {}) }
         if (req.sourceLang === "auto" && getPreset(id)?.kind === "baidu") job.batchKey += `|auto:${await this.baiduGroup(req.text)}`
         await this.checkOrigin(job.provider)
         jobs.push([tier, job])
@@ -540,10 +567,11 @@ export class TranslationService {
     // Jobs carry a resolved provider, and resolving fails for unknown presets.
     const preset = getPreset(first.provider.id)!
     const providerQueue = this.queue(first.provider)
-    // The consent is checked again as each request leaves the queue.
+    // The consent is checked again as each request leaves the queue, and a batch no page waits for is dropped.
     const queue = {
       run: <T>(task: () => Promise<T>) =>
         providerQueue.run(() => {
+          if (jobs.every((job) => job.signal?.aborted)) throw aborted()
           this.assertConsent(first.provider.id, first.sample)
           return task()
         }),
