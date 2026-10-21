@@ -272,6 +272,8 @@ describe("offline data in the background script", () => {
   const EN_ZH = tsv("en", "zh-Hans", { hello: "你好", world: "世界" })
   const JA_EN = tsv("ja", "en", { こんにちは: "hello" })
   const dictionaryOnly = (text: string): TranslateRequest => ({ text, sourceLang: "en", targetLang: "zh-CN", tiers: ["dictionary"] })
+  /** An installation unpacks and stores a pack in IndexedDB, which takes longer than a second on a busy machine. */
+  const until = <T>(check: () => T | Promise<T>) => vi.waitFor(check, { timeout: 10_000 })
 
   /** The background script with the dictionary tier; the release serves EN_ZH at once and JA_EN never (a download that is still running). */
   async function withRelease() {
@@ -287,7 +289,7 @@ describe("offline data in the background script", () => {
     const translate = async (text: string) => {
       const request = ++id
       port.send({ type: "translate", id: request, request: dictionaryOnly(text) })
-      await vi.waitFor(() => expect(port.posted).toContainEqual({ type: "done", id: request }))
+      await until(() => expect(port.posted).toContainEqual({ type: "done", id: request }))
       return (port.posted.find((m) => m.type === "tier" && m.id === request) as Extract<PortPush, { type: "tier" }>).result
     }
     const notices = () => ({
@@ -298,12 +300,14 @@ describe("offline data in the background script", () => {
   }
 
   it("translates with a pack installed while the page that asked for it is gone, also after a translation found the pack missing", async () => {
-    const { bg, translate } = await withRelease()
+    const { bg, translate, notices } = await withRelease()
     expect(await translate("hello world")).toMatchObject({ ok: false, error: expect.stringContaining("en → zh-Hans") })
     // The page asks for two packs and is closed: nothing more comes from it, and the second pack is still downloading.
     void bg.send({ type: "offlineInstall", service: "dictionary", pairs: [{ src: "en", tgt: "zh-Hans" }, { src: "ja", tgt: "en" }], tag: "dicts-v1" })
-    await vi.waitFor(async () => expect((await new DictionaryStore().list()).map((p) => p.id)).toEqual(["en>zh-Hans"]))
+    await until(async () => expect((await new DictionaryStore().list()).map((p) => p.id)).toEqual(["en>zh-Hans"]))
     expect(await translate("hello world")).toEqual({ ok: true, text: "你好世界" })
+    // The installation has ended once the pages heard of it; a notice after this test would reach the stand-ins of the next one.
+    await until(() => expect(notices().pages).toBe(1))
   })
 
   it("completes an installation that no page waits for, reads the packs again and tells the content scripts and the pages once", async () => {
@@ -311,7 +315,7 @@ describe("offline data in the background script", () => {
     const { Dictionary } = await import("../src/offline/dictionary")
     const invalidate = vi.spyOn(Dictionary.prototype, "invalidate")
     void bg.send({ type: "offlineInstall", service: "dictionary", pairs: [{ src: "en", tgt: "zh-Hans" }], tag: "dicts-v1" })
-    await vi.waitFor(() => expect(notices()).toEqual({ contentScripts: 1, pages: 1 }))
+    await until(() => expect(notices()).toEqual({ contentScripts: 1, pages: 1 }))
     expect(invalidate).toHaveBeenCalledTimes(1)
     expect(await translate("hello")).toEqual({ ok: true, text: "你好" })
     expect(notices()).toEqual({ contentScripts: 1, pages: 1 })
