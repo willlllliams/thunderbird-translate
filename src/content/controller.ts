@@ -234,17 +234,21 @@ export class TranslationController {
     return this.deps.consent ? s.consent.filter((need) => !this.allowed.has(need.id)) : []
   }
 
+  /** The settings to translate with once the user allowed the online services `needs`; null when the user declined or the state changed meanwhile. */
+  private async consented(s: PublicSettings, needs: ConsentNeed[]): Promise<PublicSettings | null> {
+    if (!(await this.deps.consent!.ask(needs, s.precise))) return null
+    for (const need of needs) this.allowed.add(need.id)
+    // The settings may have changed while the panel was open.
+    const now = this.settings!
+    return this.active || this.consentNeeds(now).length > 0 ? null : now
+  }
+
   async start(bypassCache = false): Promise<void> {
-    let s = this.settings
-    if (this.active || !s || !this.deps.root()) return
-    const needs = this.consentNeeds(s)
-    if (needs.length > 0) {
-      if (!(await this.deps.consent!.ask(needs, s.precise))) return
-      for (const need of needs) this.allowed.add(need.id)
-      // The settings may have changed while the panel was open.
-      s = this.settings!
-      if (this.active || this.consentNeeds(s).length > 0) return
-    }
+    if (this.active || !this.settings || !this.deps.root()) return
+    const needs = this.consentNeeds(this.settings)
+    // Without a question the translation starts at once.
+    const s = needs.length === 0 ? this.settings : await this.consented(this.settings, needs)
+    if (!s) return
     const root = this.deps.root()
     if (!root) return
     this.active = true
