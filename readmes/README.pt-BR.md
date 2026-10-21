@@ -6,6 +6,8 @@ O Multitradutor para Thunderbird é uma extensão do Thunderbird que traduz o co
 
 ![Dicionário, tradução automática e tradução por IA chegam uma após a outra](../docs/media/tiers-en.gif)
 
+Vídeo de apresentação: [YouTube](https://www.youtube.com/watch?v=OZmiMGeuhJ0) (1 min) · [Bilibili](https://www.bilibili.com/video/BV1JaWw6YENX) (2 min)
+
 ## Sumário
 
 - [Recursos](#recursos)

@@ -6,6 +6,8 @@ Multi-traduction pour Thunderbird est une extension Thunderbird qui traduit le c
 
 ![Dictionnaire, traduction automatique et traduction par l’IA arrivent l’une après l’autre](../docs/media/tiers-en.gif)
 
+Vidéo de présentation : [YouTube](https://www.youtube.com/watch?v=OZmiMGeuhJ0) (1 min) · [Bilibili](https://www.bilibili.com/video/BV1JaWw6YENX) (2 min)
+
 ## Sommaire
 
 - [Fonctionnalités](#fonctionnalités)

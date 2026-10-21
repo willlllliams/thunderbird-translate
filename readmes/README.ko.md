@@ -6,6 +6,8 @@
 
 ![사전, 기계 번역, AI 번역이 차례로 표시된다](../docs/media/tiers-en.gif)
 
+소개 영상: [YouTube](https://www.youtube.com/watch?v=OZmiMGeuhJ0) (1분) · [bilibili](https://www.bilibili.com/video/BV1JaWw6YENX) (2분)
+
 ## 목차
 
 - [기능](#기능)

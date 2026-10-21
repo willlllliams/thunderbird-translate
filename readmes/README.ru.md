@@ -6,6 +6,8 @@
 
 ![Словарь, машинный перевод и перевод ИИ появляются по очереди](../docs/media/tiers-en.gif)
 
+Видео о расширении: [YouTube](https://www.youtube.com/watch?v=OZmiMGeuhJ0) (1 мин) · [Bilibili](https://www.bilibili.com/video/BV1JaWw6YENX) (2 мин)
+
 ## Содержание
 
 - [Возможности](#возможности)

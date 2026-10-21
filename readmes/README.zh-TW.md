@@ -6,6 +6,8 @@
 
 ![辭典、機器翻譯與 AI 翻譯的譯文依序出現](../docs/media/tiers-zh-TW.gif)
 
+介紹影片：[嗶哩嗶哩](https://www.bilibili.com/video/BV1JaWw6YENX)（2 分鐘）· [YouTube](https://www.youtube.com/watch?v=OZmiMGeuhJ0)（1 分鐘）
+
 ## 目錄
 
 - [功能](#功能)

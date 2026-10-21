@@ -6,6 +6,8 @@ Dịch Đa Nguồn cho Thunderbird là một tiện ích của Thunderbird, dị
 
 ![Bản dịch từ điển, dịch máy và dịch bằng AI lần lượt xuất hiện](../docs/media/tiers-en.gif)
 
+Video giới thiệu: [YouTube](https://www.youtube.com/watch?v=OZmiMGeuhJ0) (1 phút) · [Bilibili](https://www.bilibili.com/video/BV1JaWw6YENX) (2 phút)
+
 ## Mục lục
 
 - [Tính năng](#tính-năng)

@@ -6,6 +6,8 @@
 
 ![词典、机器翻译与 AI 翻译的译文依次出现](../docs/media/tiers-zh-CN.gif)
 
+视频介绍：[哔哩哔哩](https://www.bilibili.com/video/BV1JaWw6YENX)（2 分钟）· [YouTube](https://www.youtube.com/watch?v=OZmiMGeuhJ0)（1 分钟）
+
 ## 目录
 
 - [功能](#功能)

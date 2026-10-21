@@ -6,6 +6,8 @@ Multi-Übersetzer für Thunderbird ist eine Erweiterung für Thunderbird, die de
 
 ![Wörterbuch, maschinelle Übersetzung und KI-Übersetzung erscheinen nacheinander](../docs/media/tiers-en.gif)
 
+Vorstellungsvideo: [YouTube](https://www.youtube.com/watch?v=OZmiMGeuhJ0) (1 Min.) · [Bilibili](https://www.bilibili.com/video/BV1JaWw6YENX) (2 Min.)
+
 ## Inhalt
 
 - [Funktionen](#funktionen)

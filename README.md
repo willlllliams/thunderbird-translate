@@ -6,6 +6,8 @@ English | [简体中文](readmes/README.zh-CN.md) | [繁體中文](readmes/READM
 
 ![Dictionary, machine translation and AI translation arriving in turn](docs/media/tiers-en.gif)
 
+Video: [YouTube](https://www.youtube.com/watch?v=OZmiMGeuhJ0) (1 min) · [Bilibili](https://www.bilibili.com/video/BV1JaWw6YENX) (2 min)
+
 ## Contents
 
 - [Features](#features)

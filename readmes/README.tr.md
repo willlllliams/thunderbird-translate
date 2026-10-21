@@ -6,6 +6,8 @@
 
 ![Sözlük, makine çevirisi ve yapay zekâ çevirisi sırayla gelir](../docs/media/tiers-en.gif)
 
+Tanıtım videosu: [YouTube](https://www.youtube.com/watch?v=OZmiMGeuhJ0) (1 dk) · [Bilibili](https://www.bilibili.com/video/BV1JaWw6YENX) (2 dk)
+
 ## İçindekiler
 
 - [Özellikler](#özellikler)

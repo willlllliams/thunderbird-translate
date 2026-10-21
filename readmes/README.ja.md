@@ -6,6 +6,8 @@
 
 ![辞書、機械翻訳、AI 翻訳の訳文が順に表示される](../docs/media/tiers-en.gif)
 
+紹介動画：[YouTube](https://www.youtube.com/watch?v=OZmiMGeuhJ0)（1 分）· [bilibili](https://www.bilibili.com/video/BV1JaWw6YENX)（2 分）
+
 ## 目次
 
 - [機能](#機能)
