@@ -296,13 +296,15 @@ describe("safety", () => {
 })
 
 describe("time", () => {
-  /** Milliseconds of one rendering of `text`, the fastest of five rounds of three. */
-  function time(text: string): number {
-    let best = Infinity
-    for (let round = 0; round < 5; round++) {
-      const t0 = performance.now()
-      for (let i = 0; i < 3; i++) markdownFragment(document, text)
-      best = Math.min(best, (performance.now() - t0) / 3)
+  /** Milliseconds of one rendering of each text, the fastest of seven rounds that take turns, so that a busy machine slows both alike. */
+  function times(texts: string[]): number[] {
+    const best = texts.map(() => Infinity)
+    for (let round = 0; round < 7; round++) {
+      texts.forEach((text, i) => {
+        const t0 = performance.now()
+        markdownFragment(document, text)
+        best[i] = Math.min(best[i], performance.now() - t0)
+      })
     }
     return best
   }
@@ -321,12 +323,11 @@ describe("time", () => {
     // Characters added by one more repetition.
     const unit = make(2).length - make(1).length
     const ten = make(Math.ceil(10_000 / unit))
-    const forty = make(Math.ceil(40_000 / unit))
+    const eighty = make(Math.ceil(80_000 / unit))
     expect(ten.length).toBeGreaterThanOrEqual(10_000)
-    const t10 = time(ten)
-    const t40 = time(forty)
-    // Four times the text: linear growth takes four times the time, quadratic growth sixteen.
-    expect(t40).toBeLessThan(Math.max(t10 * 10, 5))
+    const [t10, t80] = times([ten, eighty])
+    // Eight times the text: linear growth takes eight times the time, quadratic growth sixty-four.
+    expect(t80).toBeLessThan(Math.max(t10 * 24, 5))
     expect(t10).toBeLessThan(100)
   })
 })
