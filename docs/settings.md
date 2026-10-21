@@ -21,6 +21,7 @@ This page describes every setting of Multi Translate for Thunderbird and how the
 - [Prompt presets](#prompt-presets)
 - [Precise translation](#precise-translation)
 - [Summary and to-dos](#summary-and-to-dos)
+- [Image translation](#image-translation)
 - [Request batching and timeouts](#request-batching-and-timeouts)
 - [Offline services](#offline-services)
 - [Offline lists](#offline-lists)
@@ -95,7 +96,7 @@ Each step asks for one decision and saves it at once. "Back", "Next" and "Skip t
 | 3 Translation tiers | speed, quality, privacy and cost of the dictionary, machine translation and AI tiers; the service of each tier or "Not used", at least one tier with a service; a note that the first online translation asks once per service; a demo of the chosen tiers on a sample paragraph and a tour of the three selectors | always |
 | 4 Offline translation | every dictionary pack and Bergamot direction with size, license and attribution, those of your languages first and ticked; "Download selected" with progress, or "Download common languages" | the dictionary tier is used or the machine tier uses Bergamot |
 | 5 Online machine translation | the fields of the machine translator: nothing to fill in for Google, free or Azure key mode for Microsoft, endpoint and token for DeepLX, the key of DeepL, Baidu, Youdao or Caiyun; "Test connection" | the machine tier uses an online service |
-| 6 AI translation | the AI provider, its API key, model, temperature and thinking mode, "Test connection", and the precise translation switch; a note that thinking mode and precise translation make translation slower and more expensive | the AI tier is used |
+| 6 AI translation | the AI provider, its API key, model, temperature and thinking mode, "Test connection", the precise translation switch and under it the mode of image translation (Off, Ask under each image, On; greyed out while precise translation is off) with a note on its cost and consent; a note that thinking mode and precise translation make translation slower and more expensive | the AI tier is used |
 | 7 Prompts | the three prompts and the preset library | the AI tier is used |
 | 8 Done | how to translate (toolbar button, Alt+A, Alt+S), the switches "Automatically translate messages not in the target language" and "Translate the subject as well" with a note on how the subject is shown, and "Translate the sample message" | always |
 
@@ -150,7 +151,7 @@ The "Translate message" button in the message header toolbar opens the popup.
 - Display switches between bilingual and translation-only. The change applies to the current message immediately.
 - Source language and target language: after a change of either, a message being translated is translated again. A note appears when both are the same language.
 - Translation tiers: one list per tier (1 dictionary, 2 machine translation, 3 AI translation), each with "Not used", the added services of that tier and, as last entry, "+ Add translation service…". That entry opens the settings page at the translation services of the tier and leaves the list at its value. At least one tier needs a service; choosing "Not used" for the last one is refused with a note.
-- Precise translation is shown while the AI tier has a service.
+- Precise translation is shown while the AI tier has a service. While it is on, "Image translation" offers Off, Ask under each image and On, with a warning when the vision model does not accept images, see [Image translation](#image-translation).
 - "Automatically translate messages not in the target language": when checked, a message whose body is not in the target language is translated as soon as it is opened.
 - "Summary and to-dos" shows the summary of the message above it, see [Summary and to-dos](#summary-and-to-dos). It is disabled without an AI service for the summary.
 - "Setup guide" opens the setup guide in a new tab.
@@ -215,7 +216,7 @@ Switching the display mode re-renders the dictionary and machine translations as
 
 ## Consent before online translation
 
-Before the text of a message first goes to an online service, the extension asks once per service. The online services are Google Translate, Microsoft Translator, DeepLX, DeepL, Baidu, Youdao, Caiyun and every AI service; the dictionary and Bergamot translate on the computer and need no consent.
+Before the text of a message first goes to an online service, the extension asks once per service. Images have a consent of their own, see [Consent for images](#consent-for-images). The online services are Google Translate, Microsoft Translator, DeepLX, DeepL, Baidu, Youdao, Caiyun and every AI service; the dictionary and Bergamot translate on the computer and need no consent.
 
 When a translation starts (the toolbar button, Alt+A, automatic translation, Retranslate) and a tier in use has an online service that is not allowed yet, a panel appears above the message instead of the translation:
 
@@ -270,7 +271,7 @@ Error messages produced by the extension are translated. Error texts returned by
 
 ## Prompts
 
-The AI tier has three system prompts. Each can be edited on the settings page and restored with "Restore built-in prompt".
+The AI tier has three system prompts. Each can be edited on the settings page and restored with "Restore built-in prompt". The summary and image translation have a prompt each, in the same section, described under [Summary and to-dos](#summary-and-to-dos) and [The answer](#the-answer).
 
 | Prompt | Used for | Built-in prompt asks for |
 | --- | --- | --- |
@@ -363,6 +364,162 @@ The summary uses the consent of the translation. Its service gets the message on
 | Show a “Summary” button above a translated message | off | | a button on every message is in the way of readers who only want the translation |
 
 The summary prompt is the fourth box of the Prompts section, with its own "Restore built-in prompt". `{{to}}` stands for the target language, in which the summary is written.
+
+## Image translation
+
+With precise translation on, an AI service can read the text in the images of a message. The result appears under each image as text: a table of the original and its translation. The extension draws nothing on an image and generates no image.
+
+### Modes
+
+"Image translation" has three modes:
+
+| Mode | What happens |
+| --- | --- |
+| Off | nothing; no button appears under any image |
+| Ask under each image (default) | a "Translate image text" button under every image that passes the filters below; a click sends that image only |
+| On | when the translation starts, the images that pass the filters go to the service in the order of the message, up to "Images per message"; the images after them get the button |
+
+A mode takes effect only while the message is translated, with precise translation on (which needs a service in the AI tier) and with a vision model that is not known to refuse images ([providers.md](providers.md#image-translation)). An image whose result is in the cache shows the result at once, without a button, in both "Ask" and "On": showing it sends nothing and costs nothing. The buttons and results go when the translation is turned off.
+
+"Ask" is the default for three reasons. Images often hold identity documents, contracts or screenshots of internal systems, so you decide per image. One image costs about as much as a dozen paragraphs of text. Most images of a mail are decoration, which "On" would pay for.
+
+The popup shows the three modes while precise translation is on; the settings page has them under the switch of precise translation, and the setup guide on its AI step. A new mode applies to the message on screen at once, as a new display mode does, without translating the paragraphs again:
+
+- "Off" removes the buttons and results; the results stay in the cache.
+- "Ask" shows the buttons, and the results this message already has.
+- "On" shows those results and sends the other images.
+
+Retranslate (Alt+R) forgets the image results of the message: "Ask" shows the buttons again, "On" sends the images again.
+
+### Which images
+
+| Source | In the message pane | Translated |
+| --- | --- | --- |
+| Inline images of the body (`cid:` references and `data:` addresses) | Thunderbird replaces a `cid:` reference with the address of the message part, with its part number in the parameter `part` | with "Translate inline images of the body", on by default |
+| Image attachments | Thunderbird shows them under the body (`.moz-attached-image`) | with "Translate image attachments", on by default |
+| Remote images (`http:`, `https:`) | blocked by Thunderbird unless you load remote content | never |
+
+Remote images are not translated: no extension API tells whether a message may load remote content, and a second download would show your IP address to the image server, which is how tracking pixels work.
+
+The content script filters by the natural size of an image, not its displayed size, since mail templates often show large screenshots smaller:
+
+| Rule | Default | Leaves out |
+| --- | --- | --- |
+| a side of 2 px or less | always | tracking pixels |
+| the shorter side under "Shortest side (px)" | 100 px | icons, buttons, social media badges |
+| the area under "Smallest area (px²)" | 40000 px² (200 × 200); 0 = no limit | small logos, avatars |
+| the longer side over "Largest aspect ratio" times the shorter one | 8 | divider lines, banners |
+| inside a signature (`.moz-signature`, `.moz-txt-sig`), with "Leave out images in signatures" | on | signature logos |
+| not loaded yet | waits until it has loaded | blocked or broken images |
+
+The background script reads the bytes of an image that passes: an image of the body or an attachment with `messages.getAttachmentFile()` and the part number of its address, a `data:` image from its address. A part that is not an image counts as unreadable. It then filters by the bytes:
+
+| Rule | Default | Effect |
+| --- | --- | --- |
+| a file under "Smallest file (KB)" | 4 KB | left out: solid blocks, minimal icons |
+| animated: a GIF with a second image, a WebP with the animation flag, a PNG with an `acTL` chunk (APNG), read from the content, not the name | "Leave out" | "Send the first frame" sends the first frame as a still image |
+| the same image twice in one message (SHA-256 of the bytes) | | sent once; each copy shows the result |
+| more images sent than "Images per message" | 5 | "This message has already sent 5 images, the limit per message." |
+| more bytes sent than "Limit per message (MB)" | 6 MB | the image is not sent |
+
+To find cached results and to apply these filters, the background script reads the images that pass the filters of the content script when a translation starts, in "Ask" mode too. This happens on your computer; nothing is sent before a click or, in "On", before the consent.
+
+### Upload
+
+The background page prepares each image before it is sent:
+
+1. `createImageBitmap()` decodes the image; an animated image decodes to its first frame. An image that cannot be decoded (damaged, or a format such as TIFF) is left out with "This image cannot be read.".
+2. An image whose longer side exceeds "Longest edge (px)" is scaled down to it, with `resizeQuality: "high"`.
+3. The image is drawn on an `OffscreenCanvas`, for JPEG on a white ground, so transparent areas do not turn black.
+4. `convertToBlob()` encodes it in the "Upload format" with the "Quality".
+5. Above "Limit per image (KB)", the quality goes down to 0.7 and 0.55, then the size to 0.8 of the size before, up to three times. An image still above the limit is left out.
+6. The images of one message together stay under "Limit per message (MB)".
+
+Encoding the image again drops its file name and every metadata field, such as EXIF. The default longest edge, 1568 px, is the size Anthropic's standard resolution takes without scaling again; it stays under the limits of OpenAI and DeepSeek, and the body text of a mail screenshot stays legible at that size. JPEG is the default format because every service takes it; xAI and Zhipu take no WebP, and for them a WebP choice is sent as JPEG.
+
+Each request carries one image. Image requests go through a request queue of their own per service, with "Concurrent requests" (2 by default) apart from the text, so slow image requests do not hold back the paragraphs. A 429 or 5xx answer is retried with the backoff of the other requests; a request that timed out is not retried, since every attempt is charged. The thinking mode is always off for images: reading text needs no reasoning, and reasoning tokens are charged as output.
+
+### The answer
+
+The image prompt (fifth box of the Prompts section, with "Restore built-in prompt") tells the model to sort the image into one of three kinds:
+
+| Kind | Examples | Answer |
+| --- | --- | --- |
+| Chart | line and bar charts, flow diagrams | the title, axis titles, units, legend and series names, each with its translation; no trends, values or comparisons, which you read off the chart |
+| Text | screenshots, scans, posters, slides, tables, receipts | every legible line in reading order with its translation; a table keeps its rows and columns |
+| Other | photos, illustrations, decorations | nothing by default; one sentence with "Images without text: Describe in one sentence" |
+
+Text the model cannot read with confidence is written as `[?]`; names, numbers, dates, addresses and codes stay unchanged. The extension adds the rules of the "Answer" setting after the prompt, so changing the answer keeps a prompt of your own:
+
+| Answer | Rule added |
+| --- | --- |
+| Original and translation, with "Show the recognized original" | a table with the header "Original" and "Translation", one row per label, line or cell |
+| Original and translation, without it | a list of the translations |
+| Short summary | one or two sentences on what the image contains; of a chart only what its axes and series measure. At most 200 tokens are asked for |
+| Both | a line "**Summary:**", then the table |
+
+The text beside the image is "Image <n> of the email. Target language: <language>.". With "Use the message context" on and an analysis of the message by precise translation, its glossary follows, so that names in the image are written as in the translation. No analysis is made for the images alone, and the whole message is not sent with them.
+
+The result is a collapsible block after the image (after the container of an attachment, after the paragraph or link that holds the image). Its title reads "Image text · <service>" with the input and output tokens of the request while "Show the tokens of each image" is on, or "cached". It opens expanded, or collapsed with "Result: Collapsed". The table shows its header in the interface language. An answer that reached "Answer length limit (tokens)" ends with a note that it may be incomplete. An image without text, after a click, shows "This image has no text to translate." for three seconds; in "On" it shows nothing.
+
+The result is always rendered as Markdown with tables ([Markdown in AI translations](#markdown-in-ai-translations)), whatever the switch of AI translations says: a table is unreadable as its characters. Both display modes leave the image as it is; the result does not change with the display mode. In translation-only mode, an image that sits inside a paragraph stays as a copy after the translation of that paragraph.
+
+### Consent for images
+
+Images are allowed apart from the text of messages, per service, in `Settings.imageConsent`: a service allowed to receive message text is not allowed to receive images. Before the first image goes to a service, a panel appears in the place of the result, under the clicked image, or in "On" under the first image to be sent, which holds back the whole batch. It names:
+
+- what is sent: this image, scaled to at most the longest edge and encoded again as JPEG (or the format in use), without its file name and metadata;
+- where to: the service and the host of its endpoint;
+- the data policy of the service, for the services checked: Anthropic states that it does not train its models on images sent through its API; on the free tier of the Gemini API, Google may have people review the input and use it to improve its products; OpenAI does not train on API data by default and keeps abuse monitoring logs for up to 30 days. For any other service: it handles the image under its own privacy policy.
+
+"Allow and translate image" records the service and sends the image; "Cancel" sends nothing and brings the button back. The background script checks the consent again before it sends an image and refuses one without it. With "Ask again for every message" on, the panel asks before the first image of every message and records nothing. The Translation tiers section of the settings page lists the services allowed to receive text and those allowed to receive images in two columns, each with "Revoke".
+
+### Cache of images
+
+While the cache is on, a result is cached under the service, the vision model, the target language, the SHA-256 of the original bytes, and a hash of the endpoint, the system prompt with its rules, the answer, images without text, "Show the recognized original", the longest edge, the format, the quality, the detail, the answer length and the temperature. With "Use the message context" on, the message is part of the key too, as for precise translation: the same image in another message is read again with that message's glossary. With it off, one result serves the image in every message. Results share the cache and its limit with the translations.
+
+### Image settings
+
+| Setting | Default | Range | Meaning |
+| --- | --- | --- | --- |
+| Image translation | Ask under each image | Off, Ask under each image, On | see [Modes](#modes); greyed out with "Needs precise translation" while precise translation is off, its value kept |
+| Vision service | Same as the AI tier | the added AI services | another service needs its own consent and access to its endpoint |
+| Model | empty | any model name | empty uses the model of the service; the line under it names a model that does not accept images, with one that does |
+| Translate inline images of the body | on | | `cid:` and `data:` images |
+| Translate image attachments | on | | remote images are not translated |
+| Images per message | 5 | 1–20 | "On" sends the first ones; a click after them says the limit is reached |
+| Shortest side (px) | 100 | 16–1000 | of the natural size |
+| Smallest area (px²) | 40000 | 0–4000000 | 0 = no limit |
+| Largest aspect ratio | 8 | 2–30 | longer and narrower images count as dividers |
+| Smallest file (KB) | 4 | 0–200 | of the original bytes |
+| Leave out images in signatures | on | | |
+| Animated images | Leave out | Leave out, Send the first frame | |
+| Longest edge (px) | 1568 | 512–2576 | |
+| Upload format | JPEG | JPEG, WebP, PNG | JPEG for a service that does not take the format |
+| Quality | 0.85 | 0.5–0.95 | JPEG and WebP |
+| Limit per image (KB) | 1500 | 200–8000 | above it: lower quality, then a smaller size |
+| Limit per message (MB) | 6 | 1–30 | all uploads of one message |
+| Image detail | Automatic (not sent) | Automatic, Low, High | sent to OpenAI and DeepSeek only, see [providers.md](providers.md#image-translation) |
+| Answer | Original and translation | Original and translation, Short summary, Both | |
+| Images without text | Show nothing | Show nothing, Describe in one sentence | |
+| Show the recognized original | on | | off: a list of the translations |
+| Use the message context | on | | the glossary of precise translation goes with each image |
+| Answer length limit (tokens) | 1024 | 128–4096 | sent as `maxOutputTokens`; at most 200 for a short summary |
+| Request timeout (seconds) | 90 | 10–600 | three times as long for Ollama and LM Studio |
+| Concurrent requests | 2 | 1–6 | image requests at once, in their own queue |
+| Result | Expanded | Expanded, Collapsed | |
+| Show the tokens of each image | on | | in the title of a result |
+| Ask again for every message | off | | asks before the first image of every message |
+
+The mode, the vision service and model, the estimate and "Test image" sit under the switch of precise translation; the other settings are in the collapsed "Advanced image settings".
+
+The answer defaults to the table because you want to read the text in the image, and the table gives it directly; a summary repeats what you see, and "Both" costs about a fifth more output. Images without text are skipped because a description neither helps to understand the mail nor comes free. 1024 tokens cover a screenshot (about 600 tokens of table) and an A4 scan full of text (about 1000), and stop a model that does not end.
+
+### Estimate and test image
+
+Under the model, a line estimates the tokens of one image of 1024 × 768 pixels with the formula the service publishes for the model, and the tokens of the prompts from their length (about 4 characters per token). It names no price, since prices change often, and links to the price page of OpenAI, Anthropic and Gemini. For a model without a known formula it gives the tokens of the prompts only.
+
+"Test image" sends a test image the extension draws itself, "TEST 42" in black on white at 160 × 48 pixels, with the configuration on the page, saved or not, and the image prompt. The test passes when the answer contains 42. It needs access to the endpoint of the service, which the click asks for first.
 
 ## Request batching and timeouts
 
@@ -510,6 +667,14 @@ The asterisks, underscores and tildes open and close by the delimiter rules of C
 
 Headings, tables, images, block quotes and HTML are not read; their characters stay in the translation, and so do unclosed or invalid marks such as a single `**`.
 
+The answers about images ([Image translation](#image-translation)) are read with three more kinds of block:
+
+- GFM pipe tables: a header row, a delimiter row of as many cells (`---`, `:--`, `:-:`, `--:`), then rows up to a blank line or a line without `|`. A row with fewer cells gets empty ones, a row with more loses the rest, and `\|` is a pipe inside a cell, whose content is read as inline markup. Alignment becomes the class `tt-align-center` or `tt-align-right`. A table has at most 20 columns and 300 rows: a header with more columns stays text, and rows after the 300th follow as text.
+- A blank line ends a block: the lines of text between two blank lines, lists or tables become a paragraph, and the blank line itself adds no line break.
+- A heading line (`#` to `######` and a space) becomes a paragraph of bold text. A heading element would break into the headings of the message around the answer and the outline screen readers navigate by.
+
+These answers add the elements `p`, `table`, `thead`, `tbody`, `tr`, `th` and `td`, created the same way. Reading them still takes time proportional to the length: every line is split into cells at most twice, once as a possible header row and once as a possible delimiter row.
+
 The rendered translation consists of text and these elements only: `strong`, `em`, `code`, `del`, `a`, `ul`, `ol` (with `start` for a list that does not start at 1), `li` and `br`. The extension creates each element with the DOM API and never parses the text of a translation as HTML, so `<script>` or `<img onerror=…>` in a translation stays visible text. A link carries only its address and `rel="noopener noreferrer"`. A link to any other address, such as `javascript:`, `data:` or a relative path, stays as its whole source text, and so does an image. The same holds for an address with a user name or password before the host (`https://bank.example@evil.example/` shows one host and leads to another), for a destination longer than 2048 characters, and for a destination whose parentheses nest deeper than 32 levels. Elements nest at most 16 levels deep; deeper markup keeps its text without the elements.
 
 Thunderbird handles a click on such a link like a click on any other link in a message; the extension adds no handler of its own. In the message pane Thunderbird's link handler (`StrictLinkClickHandlerChild` for browsers of the group `mail-message`) stops the navigation of an `http:` or `https:` link and opens it in the default web browser, after the phishing check that asks when the text of a link names another host than its address. A `mailto:` link opens a new message to that address, since Thunderbird handles `mailto:` itself.
@@ -542,14 +707,16 @@ Settings saved before version 2.2.0 have no switch for the Markdown of AI transl
 
 Settings saved before version 2.3.0 have no summary settings and no summary prompt: the summary uses the AI tier with the defaults of [Summary and to-dos](#summary-and-to-dos) and the built-in prompt. They have no app ID, Baidu edition or DeepL options either: Baidu starts as the standard edition, DeepL with default formality, American English and Brazilian Portuguese.
 
+Settings saved before version 2.4.0 have no image settings, no image prompt and no service allowed to receive images: image translation starts in mode "Ask under each image" with the defaults of [Image settings](#image-settings), which takes effect once precise translation is on, and the first image asks before it is sent. A service in the list of services allowed for images that is not an online AI service is dropped when the settings are read.
+
 ## Permissions
 
 | Permission | What the extension uses it for |
 | --- | --- |
 | `messagesModify` | showing translations inside the displayed message: Thunderbird runs the content script of `messageDisplayScripts` and injects it into a message already on screen only with this permission. The extension changes no stored message. |
-| `messagesRead` | reading subjects: the subject of the displayed message for the line above the body, and its sender and date for its summary (`messageDisplay.getDisplayedMessage()`), and the sender, date and subject of the messages listed in a mail tab for the page of translated subjects (`mailTabs.getListedMessages()`, `messages.continueList()`, `messages.abortList()`), read again after new, deleted and moved messages. The extension reads no message body this way and stores no header. |
+| `messagesRead` | reading subjects: the subject of the displayed message for the line above the body, and its sender and date for its summary (`messageDisplay.getDisplayedMessage()`), and the sender, date and subject of the messages listed in a mail tab for the page of translated subjects (`mailTabs.getListedMessages()`, `messages.continueList()`, `messages.abortList()`), read again after new, deleted and moved messages. The extension reads no message body this way and stores no header. Image translation reads the id of the displayed message and, with `messages.getAttachmentFile()`, the image parts of that message whose images pass the filters of [Which images](#which-images): inline images of the body and image attachments, never another attachment. |
 | `accountsRead` | the page of translated subjects: Thunderbird requires it for `mailTabs.setSelectedMessages()`, which selects the message of a clicked row, and for `mailTabs.onDisplayedFolderChanged`, which tells the page that the mail tab shows another folder. The extension reads no account settings. |
-| `sensitiveDataUpload` | sending the paragraphs of a message to the online services of the tiers in use, and the message to the AI service of its summary |
+| `sensitiveDataUpload` | sending the paragraphs of a message to the online services of the tiers in use, the message to the AI service of its summary, and the images you ask to translate, or that mode "On" takes, to the vision service |
 | `storage` | the settings, the translation cache and the state of the setup guide in `storage.local` |
 | `unlimitedStorage` | the dictionary packs and Bergamot models in IndexedDB, 13 to 48 MB per direction, which the browser then neither evicts nor caps |
 | host permissions | the fixed addresses the extension connects to, listed in `src/shared/hosts.ts`: Google Translate, both Microsoft Translator addresses, both DeepL addresses (free and Pro keys), Baidu Translate, Youdao, Caiyun, the default endpoint of every AI preset, Mozilla Remote Settings with its attachment CDN, and the GitHub releases with the two hosts GitHub redirects downloads to |
@@ -574,6 +741,7 @@ The endpoint field of a local service notes that `localhost` is this computer (t
   - user names and passwords in URLs;
   - URL parameters whose names contain key, token, auth, secret, sig, pass, credential or session.
 - Message text is sent only to the services of the tiers in use and, when you ask for a summary, to the AI service of the summary, and to an online service only after you allowed it, see [Consent before online translation](#consent-before-online-translation). This includes the subjects: the subject of a displayed message and the subjects on the page of translated subjects go to the same services under the same consent. The dictionary and Bergamot translate on your computer and send no text anywhere.
+- An image goes to the vision service only with precise translation on, after a click on its button or, in mode "On", by itself, and only once the service is allowed to receive images, see [Consent for images](#consent-for-images). It goes scaled down and encoded again, without its file name and metadata. Remote images, images in signatures and images under the filters of [Which images](#which-images) are never sent. To look up cached results, the images that pass the filters are read on the computer when a translation starts.
 - The extension connects only to the hosts of its manifest and to the endpoints you allowed, see [Permissions](#permissions).
 - Two lists come from the network, without any message text: the list of dictionary packs from this repository's GitHub releases and the list of Bergamot models from Mozilla. The background script reads them and keeps the copy it read; the settings page and the setup guide show the offline lists from that copy.
 - The background script reads a list when a page shows it and, while the dictionary or Bergamot is the service of a tier, when Thunderbird starts, when the settings change, and when the popup or the settings page asks what is missing. It reads either list again once the copy in memory is older than 6 hours (the dictionary list per release tag). After a failed read, either list is read again 10 minutes later at the earliest; until then it answers with the copy in memory, and the Bergamot list also with the copy saved by an earlier session, if there is one. "Reload list" in either offline section of the settings page reads its list at once. Translating a message reads neither list, also when a pack or model is missing.
@@ -590,7 +758,10 @@ The endpoint field of a local service notes that `localhost` is this computer (t
 - The extension name, its description in the Add-ons Manager and the shortcut descriptions follow Thunderbird's interface language, not the interface language option.
 - Precise translation identifies a message by a hash of its body text. Two copies of the same text share their translations and their analysis.
 - Prompt caching is up to the provider, see [Precise translation](#precise-translation).
-- The thinking switch works by matching model names, see [providers.md](providers.md#thinking-mode).
+- The thinking switch works by matching model names, see [providers.md](providers.md#thinking-mode). So does the line that says whether a vision model accepts images, see [providers.md](providers.md#image-translation); a model it does not know is sent images, and "Test image" tells whether it reads them.
+- Remote images are not translated, see [Which images](#which-images).
+- "Image detail" reaches OpenAI and DeepSeek only. The AI SDK puts the options of an OpenAI-compatible service beside the image part instead of into it, so Doubao and SiliconFlow, which read a detail, get none.
+- Image translation takes the part number in the address of an image as the part name of `messages.getAttachmentFile()`. A part that does not turn out to be an image is reported as unreadable.
 - Every tier in use sends its own requests. With the AI tier and the machine tier both in use, each message also costs requests to the machine translator.
 - Dictionary translation is a word-by-word gloss: it keeps the word order of the source and does not inflect. Words outside the packs stay untranslated.
 - The sample message of the setup guide exists in English and in German only, see [Trial](#trial). With a fixed source language other than these two, the message is in English (in German when the target language is English), and the trial still sends the fixed source language with it.

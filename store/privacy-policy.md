@@ -27,15 +27,28 @@ With precise translation turned on, the AI service also receives the text of the
 
 When you ask for the summary and to-dos of a message, with the button "Summary and to-dos" of the popup, a keyboard shortcut you assigned yourself or the "Summary" button above a translated message if you turned it on, the AI service of the summary receives the text of the whole message (up to 20,000 characters) together with its sender, date and subject, so that it can name who has to do what and turn "next Wednesday" into a date. With precise translation on, the request also carries the glossary of the analysis described above. Nothing is sent for a summary unless you ask for one.
 
+### Images
+
+The images of a message are sent only when you turn on precise translation, and then only:
+
+- in the image translation mode "Ask under each image" (the default), when you click "Translate image text" under an image: that image only;
+- in the mode "On", by themselves when you translate a message: the first images that pass the filters below, five per message by default, in the order of the message.
+
+What is sent is the image itself, scaled down to at most 1568 pixels on its longer side (the default) and encoded again as JPEG, which drops its file name and metadata such as EXIF, together with the prompt and one line naming its place in the message and the target language. With "Use the message context" on, the glossary of names and terms that precise translation made of the message goes with it. At most 6 MB of images per message are sent (the default). The image goes to the vision service: the AI service of tier 3, or another AI service you chose for images, at the endpoint listed above.
+
+Never sent: remote images (loaded from the internet), images in a signature, tracking pixels and images under the size limits of the settings (100 pixels on the shorter side, 40,000 pixels of area, 4 KB of file by default), animated images unless you choose to send their first frame, and attachments that are not images.
+
 Together with the text, a service receives the source and target language, and the settings of the request that belong to it: for an AI service the model, the prompt, the temperature and the thinking switch; for Baidu and Youdao your app ID and a signature computed from your key, which itself is not sent; for DeepL the formality and the variant of English or Portuguese. An API key you saved is sent only to its own service. The recipients and attachments of a message are never sent; its sender and date only with a summary, and its subject only as described above. Each service handles the text under its own privacy policy.
 
 ### What the extension reads in Thunderbird
 
-To translate subjects the extension reads the subject of the message on screen, for a summary also its sender and date, and on the page of translated subjects the sender, date and subject of the messages listed in the mail tab (the permission "Read your email messages", `messagesRead`). The page also selects the message of a row you click and notices when the mail tab shows another folder, which Thunderbird allows only with the permission "See your mail accounts and their folders" (`accountsRead`). The extension reads no account settings and stores none of this; only the subjects it translates, and the sender and date of a message you summarize, leave your computer, as described above.
+To translate the images of a message, the extension reads the image parts of the message on screen with `messages.getAttachmentFile()`: the images of the body and the image attachments that pass the filters above, no other attachment. It reads them on your computer when the translation of the message starts, to find results it already has and to apply its filters; an image leaves your computer only as described above. To translate subjects the extension reads the subject of the message on screen, for a summary also its sender and date, and on the page of translated subjects the sender, date and subject of the messages listed in the mail tab (the permission "Read your email messages", `messagesRead`). The page also selects the message of a row you click and notices when the mail tab shows another folder, which Thunderbird allows only with the permission "See your mail accounts and their folders" (`accountsRead`). The extension reads no account settings and stores none of this; only the subjects it translates, and the sender and date of a message you summarize, leave your computer, as described above.
 
 ### Your consent
 
 Before the text of a message first goes to an online service, a panel above the message names the service and the address its requests go to, and says what is sent. The page of translated subjects shows the same panel above its list before subjects first go to an online service. Nothing is sent to that service until you click "Allow and translate". A summary uses the same consent: before its AI service first receives a message, the same panel appears. The extension asks once per service and records your answer in its settings. The settings page lists the services you allowed, and "Revoke" takes the consent back, after which the panel asks again.
+
+Images need a consent of their own, apart from the text: before the first image goes to a service, a panel under the image names the service and its address, says that the image goes scaled down and encoded again without its file name and metadata, and, for Anthropic, Google Gemini and OpenAI, what the service states about its use of the data. Nothing is sent until you click "Allow and translate image". With "Ask again for every message" on, the panel asks for every message and records nothing. The settings page lists the services allowed to receive images in a column of their own, each with "Revoke".
 
 The extension connects only to the addresses listed in its manifest. An address you type yourself, such as a local Ollama server or your DeepLX server, needs your permission through Thunderbird's own prompt, which the extension shows only when you click "Allow access" or "Test connection".
 
@@ -55,7 +68,7 @@ The extension reads the lists when the settings page or the setup guide shows th
 ### What is stored on your computer
 
 - The settings, including API keys, in the extension storage (storage.local) of your Thunderbird profile. They are not encrypted, like the data of other add-ons.
-- A cache of translations and summaries in the same storage, up to 5,000 entries by default. It holds the translations and summaries, and the text they come from only as a hash. The settings page turns the cache off and clears it.
+- A cache of translations, summaries and the text of images in the same storage, up to 5,000 entries by default. It holds the translations, summaries and the answers about images, and the text or image they come from only as a hash. The settings page turns the cache off and clears it.
 - The dictionary packs and Bergamot models you downloaded, in the extension's IndexedDB storage.
 
 Removing the extension removes all of this.

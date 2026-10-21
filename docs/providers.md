@@ -1,6 +1,6 @@
 # Translation services
 
-This page lists every translation service of Multi Translate for Thunderbird with its endpoint, default model, where to get a key, and the parameters the extension sends. The presets live in `src/shared/providers.ts`; the thinking parameters live in `src/shared/thinking.ts`.
+This page lists every translation service of Multi Translate for Thunderbird with its endpoint, default model, where to get a key, and the parameters the extension sends. The presets live in `src/shared/providers.ts`; the thinking parameters live in `src/shared/thinking.ts`, what is known of the models that read images in `src/shared/vision.ts`.
 
 ## Contents
 
@@ -11,6 +11,7 @@ This page lists every translation service of Multi Translate for Thunderbird wit
 - [AI providers](#ai-providers)
 - [Provider notes](#provider-notes)
 - [Thinking mode](#thinking-mode)
+- [Image translation](#image-translation)
 - [Source language in requests](#source-language-in-requests)
 
 ## Free and offline services
@@ -231,6 +232,77 @@ Perplexity, LM Studio and custom OpenAI-compatible services have no documented t
 For OpenAI-compatible presets (Ollama, OpenRouter, Zhipu, SiliconFlow, Doubao) the options are written under the preset ID. `@ai-sdk/openai-compatible` copies them into the request body as they are. `reasoningEffort` is the one key it renames, to `reasoning_effort`.
 
 The switch works by matching model names. A new model whose name matches none of the patterns gets no thinking parameter until the table in `src/shared/thinking.ts` is extended.
+
+## Image translation
+
+Image translation ([settings.md](settings.md#image-translation)) needs a model that reads images. No API tells whether a model takes images, so `src/shared/vision.ts` matches model names, as the thinking switch does. A model reads images ("yes", sent without a word), does not ("no": nothing is sent, and the settings page and the popup name a model that does), or is unknown (sent; "Test image" on the settings page tells). Only models that the documentation of their service names as text-only count as "no", so an unknown name is never blocked.
+
+| Preset | Default model | Reads images | Vision model to choose |
+| --- | --- | --- | --- |
+| OpenAI | `gpt-4.1-mini` | yes | the default |
+| Anthropic | `claude-haiku-5-5` | yes | the default |
+| Google Gemini | `gemini-2.5-flash-lite` | yes | the default |
+| DeepSeek | `deepseek-flash` | yes (`deepseek-v4-pro` does not) | the default |
+| xAI Grok | `grok-4.3` | yes, JPEG and PNG only | the default |
+| Mistral AI | `mistral-small-latest` | yes | the default |
+| OpenRouter | `openai/gpt-4.1-mini` | yes | the default |
+| Volcengine Doubao | `doubao-seed-2-0-mini-260428` | yes | the default |
+| Zhipu GLM | `glm-4-flash` | no | `glm-4.6v-flash` (free) |
+| DashScope (Qwen) | `qwen-plus` | unknown | `qwen3-vl-plus` |
+| SiliconFlow | `Qwen/Qwen2.5-7B-Instruct` | no | `Qwen/Qwen2.5-VL-72B-Instruct` |
+| Moonshot / Kimi | `kimi-k2-turbo-preview` | unknown | `kimi-k3` |
+| Ollama | `qwen2.5:7b` | no | `qwen3-vl:8b` |
+| Groq | `llama-3.3-70b-versatile` | no | `qwen/qwen3.8-27b` (at most 3 images per request) |
+| Together AI, Fireworks AI, DeepInfra, Cerebras | Llama and gpt-oss text models | no | one you choose |
+| Azure OpenAI, LM Studio, custom | the name of the deployment or model | by the name: `gpt-4o`, `gpt-4.1`, `gpt-5`, `claude-`, `gemini-`, `-vl`, `vision`, `llava`, `gemma3` and similar names read images | one you choose |
+
+GLM-4V-Flash takes no base64 image, the only form the extension sends, and counts as "no".
+
+### How an image is sent
+
+The image goes as a file part of the AI SDK with its media type (`{ type: "file", mediaType: "image/jpeg", data: { type: "data", data } }`); version 7.0.137 of `ai` deprecates the image part. The packages of the AI SDK turn it into the form of each API:
+
+| Package | Request |
+| --- | --- |
+| `@ai-sdk/openai`, `@ai-sdk/openai-compatible` and the packages built on them | `image_url: { url: "data:<type>;base64,…" }` |
+| `@ai-sdk/mistral` | `image_url` as a string holding the data URL |
+| `@ai-sdk/anthropic` | an `image` block with `source: { type: "base64" }` |
+| `@ai-sdk/google` | `inlineData` with `mimeType` |
+
+"Image detail" goes to two services, in the form their package puts into the image: `providerOptions.openai.imageDetail` for OpenAI and `providerOptions.deepseek.imageDetail` for DeepSeek. `@ai-sdk/openai-compatible` spreads its options beside the image part, not into `image_url`, so Doubao and SiliconFlow get no detail. Zhipu's own example puts bare base64 into the `url` field, while the SDK sends a data URL; "Test image" shows whether Zhipu takes it.
+
+The extension uploads JPEG unless the settings choose WebP or PNG; xAI and Zhipu take JPEG and PNG only, and get JPEG for a WebP choice. One request carries one image of at most 1500 KB by default, under the limit of every service below:
+
+| Service | Formats | Limit per image | Other limits |
+| --- | --- | --- | --- |
+| OpenAI | PNG, JPEG, WEBP, non-animated GIF | none stated | 512 MB and 1500 images per request; at most 30000 patches per image |
+| Anthropic | JPEG, PNG, GIF, WebP | 10 MB (base64) | 8000 × 8000 px; at most 2000 px per side above 20 images per request |
+| Gemini | PNG, JPEG, WEBP, HEIC, HEIF | 20 MB per request | 3600 images per request |
+| Qwen (Model Studio) | BMP, JPEG, PNG, TIFF, WEBP, HEIC | 20 MB (Qwen3), else 10 MB | sides over 10 px, ratio at most 200:1 |
+| Zhipu GLM-4.6V, 4.5V | jpg, png, jpeg | 5 MB, 6000 × 6000 px | |
+| Doubao | JPEG, PNG, GIF, WEBP, BMP, TIFF, HEIC | 10 MB | 64 MB per request; sides over 14 px |
+| xAI | jpg, jpeg, png | 20 MiB | |
+| DeepSeek | JPEG, PNG, GIF, WebP | 32 MiB | 48 MiB per request; 8192 px per side |
+| Ollama | depends on the model | | only base64 data URLs on `/v1`; `OLLAMA_ORIGINS` must allow `moz-extension://*` |
+
+### Tokens of an image
+
+The settings page estimates the input tokens of an image of 1024 × 768 pixels by the formula of the service:
+
+| Models | Formula | 1024 × 768 |
+| --- | --- | --- |
+| OpenAI `gpt-4.1-mini`, `gpt-4.1-nano`, `gpt-5-mini`, `gpt-5-nano` | 32 px patches, `ceil(w/32) × ceil(h/32)`, times 1.62, 2.46, 1.2 or 1.5 | 1245, 1890, 922, 1152 |
+| OpenAI `gpt-4o-mini` | 2833, plus 5667 per 512 px tile of the image fitted into 2048 × 2048 with its short side at most 768 px | 25501 (2833 with detail "low") |
+| OpenAI `gpt-4o`, `gpt-4.1` | the same with 85 and 170 | 765 |
+| Anthropic | `ceil(w/28) × ceil(h/28)`, at most 1568 | 1036 |
+| Gemini 2.5 | 258 when both sides are 384 px or less, else 258 per 768 × 768 tile | 516 |
+| Qwen3 (Model Studio) | one token per 32 × 32 pixels, plus 2 | 770 |
+| Doubao seed 2.0 | `w × h / 1764`; 1280 with detail "high" | 446 (1280) |
+| Mistral Small 3.2 and later | about `w × h / 784` | 1003 |
+
+The prompts add about 450 tokens; the line on the settings page computes them from the prompt in use. For other models, DeepSeek included, the line gives the prompt tokens only.
+
+Sources, checked on 2026-10-21: [OpenAI images and vision](https://developers.openai.com/api/docs/guides/images-vision), [Anthropic vision](https://platform.claude.com/docs/en/build-with-claude/vision), [Gemini image understanding](https://ai.google.dev/gemini-api/docs/image-understanding), [Qwen vision](https://help.aliyun.com/zh/model-studio/vision), [GLM-4.6V-Flash](https://docs.bigmodel.cn/cn/guide/models/free/glm-4.6v-flash), [Doubao image understanding](https://docs.volcengine.com/docs/ark/image-understanding), [xAI image understanding](https://docs.x.ai/docs/guides/image-understanding), [Mistral vision](https://docs.mistral.ai/studio/conversations/vision), [DeepSeek vision](https://api-docs.deepseek.com/guides/vision), [OpenRouter images](https://openrouter.ai/docs/guides/overview/multimodal/image-understanding), [Ollama OpenAI compatibility](https://docs.ollama.com/api/openai-compatibility), [Kimi vision](https://platform.kimi.com/docs/guide/use-kimi-vision-model).
 
 ## Source language in requests
 

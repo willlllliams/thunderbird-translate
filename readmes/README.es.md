@@ -31,7 +31,7 @@ Vídeo de presentación: [YouTube](https://www.youtube.com/watch?v=OZmiMGeuhJ0) 
 - Traducción automática sin cuenta (Google Translate, el predeterminado, y Microsoft Translator) o con una clave propia (DeepL, Baidu, Youdao, Caiyun).
 - Traducción sin conexión con paquetes de diccionario y los modelos Bergamot de Mozilla; ningún texto sale de su equipo.
 - 22 configuraciones predefinidas de proveedores de IA, entre ellas OpenAI, Claude, Gemini, DeepSeek, Qwen, Ollama y LM Studio en local, y cualquier servicio compatible con OpenAI.
-- Traducción precisa: el nivel de IA ve el mensaje completo, de modo que los nombres y los términos se mantienen coherentes.
+- Traducción precisa: el nivel de IA ve el mensaje completo, de modo que los nombres y los términos se mantienen coherentes. Con ella, un servicio de IA puede leer el texto de las imágenes de un mensaje y mostrar el original y su traducción bajo cada imagen.
 - Resumen y tareas: un servicio de IA enumera, encima del mensaje, el resumen, las tareas, las preguntas por responder y las fechas.
 - Tres prompts editables con preajustes para variedades regionales, estilos de redacción y palabras difíciles.
 - Traducción automática opcional de todo mensaje que no esté en el idioma de destino.
@@ -55,7 +55,7 @@ Abra un mensaje y haga clic en el botón "Traducir mensaje" de la barra de herra
 
 - "Traducir este mensaje" inicia la traducción. Mientras se muestra una traducción, el botón dice "Mostrar original".
 - "Volver a traducir" consulta de nuevo a todos los niveles e ignora la caché; "Resumen y tareas" muestra el resumen del mensaje encima de él.
-- Modo de visualización, idioma de origen ("Detectar automáticamente" de forma predeterminada), idioma de destino, una lista de servicios por nivel, la traducción precisa y el interruptor "Traducir automáticamente los mensajes que no estén en el idioma de destino".
+- Modo de visualización, idioma de origen ("Detectar automáticamente" de forma predeterminada), idioma de destino, una lista de servicios por nivel, la traducción precisa con el modo de la traducción de imágenes (desactivada, preguntar bajo cada imagen, activada) y el interruptor "Traducir automáticamente los mensajes que no estén en el idioma de destino".
 
 | Atajo | Acción |
 | --- | --- |
@@ -109,11 +109,11 @@ Los preajustes añaden reglas a un prompt: una variedad regional, como el inglé
 
 - El texto del mensaje solo va a los servicios de los niveles en uso. El diccionario y Bergamot traducen en su equipo. Los asuntos de los mensajes siguen la misma regla. Un resumen que usted pida envía el mensaje completo, con su remitente y su fecha, a su servicio de IA.
 - Antes de que el texto de un mensaje vaya por primera vez a un servicio en línea, un panel sobre el mensaje indica el servicio y su dirección y pregunta una vez por servicio. No se envía nada hasta hacer clic en «Permitir y traducir»; la página de configuración muestra los servicios permitidos y permite revocarlos. Con solo el diccionario y Bergamot no se pregunta nada.
+- Una imagen solo va a un servicio de IA con la traducción precisa activada: tras un clic en el botón que tiene debajo, o sola cuando la traducción de imágenes está «Activada». Antes de la primera imagen, un panel bajo ella pregunta una vez por servicio, aparte del texto. La imagen se reduce y se codifica de nuevo, sin su nombre de archivo ni sus metadatos. Las imágenes remotas nunca se traducen.
 - Una dirección que usted escribe (Ollama, LM Studio, DeepLX, un servicio personalizado, una dirección modificada) necesita permiso de conexión, que se da una vez con «Permitir acceso» o «Probar conexión» en la configuración.
 - Las claves de API se guardan solo en su perfil de Thunderbird y se envían solo al punto de conexión de su propio servicio.
 - Dos listas proceden de la red, sin ningún texto de mensajes: el índice de paquetes de diccionario de las versiones de GitHub de este repositorio y los registros de modelos Bergamot de Mozilla. La página de configuración y la guía de configuración las leen para mostrar las listas sin conexión. Mientras el diccionario o Bergamot está seleccionado en un nivel, también se leen al iniciar Thunderbird, al cambiar la configuración y al abrir la ventana emergente. Traducir un mensaje nunca las lee.
-- Los paquetes y los modelos se descargan solo cuando usted hace clic en un botón de descarga. La extensión no recopila estadísticas.
-- La caché de traducciones se guarda en local y se puede desactivar o vaciar.
+- Los paquetes y los modelos se descargan solo cuando usted hace clic en un botón de descarga. La caché de traducciones se guarda en local y se puede desactivar o vaciar. La extensión no recopila estadísticas.
 - Para el correo sensible, use solo el diccionario, Bergamot y modelos de IA locales (Ollama, LM Studio).
 
 ## Limitaciones conocidas
@@ -131,7 +131,7 @@ La lista completa está en [docs/settings.md](../docs/settings.md#known-limitati
 Los documentos siguientes están en inglés, salvo dictionary-packs.md, que está en chino.
 
 - [docs/settings.md](../docs/settings.md): cada ajuste, las listas sin conexión, los avisos de datos ausentes y la caché.
-- [docs/providers.md](../docs/providers.md): puntos de conexión, modelos predeterminados y parámetros de razonamiento de cada servicio.
+- [docs/providers.md](../docs/providers.md): puntos de conexión, modelos predeterminados, parámetros de razonamiento y los modelos que leen imágenes, de cada servicio.
 - [docs/batching.md](../docs/batching.md): cómo se combinan los párrafos en solicitudes, los tiempos de espera y los costes.
 - [docs/bergamot.md](../docs/bergamot.md): el motor sin conexión Bergamot, la elección y el almacenamiento de sus modelos y su compilación.
 - [docs/dictionary-packs.md](../docs/dictionary-packs.md): fuentes de datos, formato y compilación de los paquetes de diccionario (en chino).

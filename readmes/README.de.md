@@ -31,7 +31,7 @@ Vorstellungsvideo: [YouTube](https://www.youtube.com/watch?v=OZmiMGeuhJ0) (1 Min
 - Maschinelle Übersetzung ohne Konto (Google Translate als Standard und Microsoft Translator) oder mit eigenem Schlüssel (DeepL, Baidu, Youdao, Caiyun).
 - Offline-Übersetzung mit Wörterbuchpaketen und den Bergamot-Modellen von Mozilla; kein Text verlässt den Computer.
 - 22 Voreinstellungen für KI-Anbieter, darunter OpenAI, Claude, Gemini, DeepSeek, Qwen, lokale Instanzen von Ollama und LM Studio sowie jeder OpenAI-kompatible Dienst.
-- Präzise Übersetzung: Die KI-Stufe sieht die gesamte Nachricht, sodass Namen und Fachbegriffe einheitlich bleiben.
+- Präzise Übersetzung: Die KI-Stufe sieht die gesamte Nachricht, sodass Namen und Fachbegriffe einheitlich bleiben. Damit kann ein KI-Dienst auch den Text in den Bildern einer Nachricht lesen und unter jedem Bild Original und Übersetzung zeigen.
 - Zusammenfassung und Aufgaben: Ein KI-Dienst listet über der Nachricht die Zusammenfassung, die Aufgaben, die zu beantwortenden Fragen und die Termine auf.
 - Drei bearbeitbare Prompts mit Vorlagen für regionale Varianten, Schreibstile und schwierige Wörter.
 - Optional: automatische Übersetzung jeder Nachricht, die nicht in der Zielsprache verfasst ist.
@@ -55,7 +55,7 @@ Eine Nachricht öffnen und in der Symbolleiste des Nachrichtenkopfs auf „Nachr
 
 - „Diese Nachricht übersetzen“ startet die Übersetzung. Solange eine Übersetzung angezeigt wird, lautet die Schaltfläche „Original anzeigen“.
 - „Neu übersetzen“ fragt jede Stufe erneut und ignoriert den Cache; „Zusammenfassung und Aufgaben“ zeigt die Zusammenfassung der Nachricht über ihr.
-- Anzeigemodus, Ausgangssprache („Automatisch erkennen“ ist voreingestellt), Zielsprache, pro Stufe eine Liste der Dienste, „Präzise Übersetzung“ und der Schalter „Nachrichten, die nicht in der Zielsprache verfasst sind, automatisch übersetzen“.
+- Anzeigemodus, Ausgangssprache („Automatisch erkennen“ ist voreingestellt), Zielsprache, pro Stufe eine Liste der Dienste, „Präzise Übersetzung“ mit dem Modus der Bildübersetzung (aus, unter jedem Bild fragen, ein) und der Schalter „Nachrichten, die nicht in der Zielsprache verfasst sind, automatisch übersetzen“.
 
 | Tastenkombination | Aktion |
 | --- | --- |
@@ -109,11 +109,11 @@ Vorlagen fügen einem Prompt Regeln hinzu: eine regionale Variante wie britische
 
 - Der Nachrichtentext geht nur an die Dienste der verwendeten Stufen. Das Wörterbuch und Bergamot übersetzen auf dem eigenen Computer. Für die Betreffs der Nachrichten gilt dieselbe Regel. Eine angeforderte Zusammenfassung schickt die ganze Nachricht mit Absender und Datum an ihren KI-Dienst.
 - Bevor der Text einer Nachricht zum ersten Mal an einen Online-Dienst geht, nennt ein Feld über der Nachricht den Dienst und seine Adresse und fragt einmal pro Dienst nach. Vor einem Klick auf „Erlauben und übersetzen“ wird nichts gesendet; die Einstellungsseite listet die erlaubten Dienste auf und kann die Erlaubnis widerrufen. Mit Wörterbuch und Bergamot allein wird nichts gefragt.
+- Ein Bild geht nur bei eingeschalteter präziser Übersetzung an einen KI-Dienst: nach einem Klick auf die Schaltfläche darunter oder von selbst, wenn die Bildübersetzung auf „Ein“ steht. Vor dem ersten Bild fragt ein Feld darunter einmal pro Dienst nach, getrennt vom Text. Das Bild wird verkleinert und neu codiert, ohne Dateinamen und Metadaten. Externe Bilder werden nie übersetzt.
 - Eine selbst eingetragene Adresse (Ollama, LM Studio, DeepLX, ein eigener Dienst, eine geänderte Adresse) braucht einmal die Erlaubnis zur Verbindung, erteilt mit „Zugriff erlauben“ oder „Verbindung testen“ in den Einstellungen.
 - API-Schlüssel werden nur im eigenen Thunderbird-Profil gespeichert und nur an die Adresse des jeweiligen Dienstes gesendet.
 - Zwei Listen kommen aus dem Netz, ohne jeden Nachrichtentext: der Index der Wörterbuchpakete aus den GitHub-Releases dieses Repositorys und die Bergamot-Modelleinträge von Mozilla. Die Einstellungsseite und der Einrichtungsassistent lesen sie, um die Offline-Listen anzuzeigen. Ist in einer Stufe das Wörterbuch oder Bergamot gewählt, werden sie auch beim Start von Thunderbird, bei Änderungen der Einstellungen und beim Öffnen des Pop-ups gelesen. Beim Übersetzen einer Nachricht werden sie nie gelesen.
-- Pakete und Modelle werden nur heruntergeladen, wenn man auf eine Download-Schaltfläche klickt. Die Erweiterung sammelt keine Statistiken.
-- Der Übersetzungs-Cache liegt lokal und lässt sich ausschalten oder leeren.
+- Pakete und Modelle werden nur heruntergeladen, wenn man auf eine Download-Schaltfläche klickt. Der Übersetzungs-Cache liegt lokal und lässt sich ausschalten oder leeren. Die Erweiterung sammelt keine Statistiken.
 - Für vertrauliche Nachrichten nur das Wörterbuch, Bergamot und lokale KI-Modelle (Ollama, LM Studio) verwenden.
 
 ## Bekannte Einschränkungen
@@ -131,7 +131,7 @@ Die vollständige Liste steht in [docs/settings.md](../docs/settings.md#known-li
 Die folgenden Dokumente sind auf Englisch, außer dictionary-packs.md, das auf Chinesisch ist.
 
 - [docs/settings.md](../docs/settings.md): alle Einstellungen, Offline-Listen, Hinweise bei fehlenden Daten und der Cache.
-- [docs/providers.md](../docs/providers.md): Adressen, Standardmodelle und Denk-Parameter aller Dienste.
+- [docs/providers.md](../docs/providers.md): Adressen, Standardmodelle, Denk-Parameter und die Modelle, die Bilder lesen, für alle Dienste.
 - [docs/batching.md](../docs/batching.md): wie Absätze zu Anfragen zusammengefasst werden, Zeitlimits und Kosten.
 - [docs/bergamot.md](../docs/bergamot.md): die Offline-Engine Bergamot, Auswahl und Speicherung ihrer Modelle und ihr Build.
 - [docs/dictionary-packs.md](../docs/dictionary-packs.md): Datenquellen, Format und Erstellung der Wörterbuchpakete (auf Chinesisch).

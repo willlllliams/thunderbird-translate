@@ -8,16 +8,16 @@ Multi Translate for Thunderbird
 
 ## Summary
 
-At most 250 characters; this one has 247.
+At most 250 characters; this one has 249.
 
 ```text
-Translate the message you read, in place: bilingual or translation only. Three tiers at once: offline dictionary, machine translation (Google, DeepL, Baidu, Bergamot…) and 22 AI services; AI summary and to-dos. Text goes only to services you pick.
+Translate the message you read, in place: bilingual or translation only. Three tiers at once: offline dictionary, machine translation (Google, DeepL, Baidu, Bergamot…) and 22 AI services; AI summary and text in images. Data goes only where you pick.
 ```
 
 ## Description
 
 ```text
-Your message text goes only to the translation services you choose. The online machine translators and the AI services receive the paragraphs and the subject of the message you translate (with precise translation, the whole message as context) and the subjects you translate on the page of translated subjects; the AI service of a summary you ask for receives the whole message with its sender and date. The extension asks once per service before it sends anything there. The offline dictionary and the offline Bergamot models translate on your computer and send nothing. API keys stay in your Thunderbird profile and go only to their own service. The extension collects no statistics.
+Your message text goes only to the translation services you choose. The online machine translators and the AI services receive the paragraphs and the subject of the message you translate (with precise translation, the whole message as context) and the subjects you translate on the page of translated subjects; the AI service of a summary you ask for receives the whole message with its sender and date. An image goes to an AI service only with precise translation on, after a click under it (or by itself if you turn image translation on), scaled down and without its file name or metadata; remote images are never sent. The extension asks once per service before it sends anything there, for images apart from text. The offline dictionary and the offline Bergamot models translate on your computer and send nothing. API keys stay in your Thunderbird profile and go only to their own service. The extension collects no statistics.
 
 Multi Translate for Thunderbird translates the body of the message you are reading, directly in the message pane. It works right after installation with the free Google Translate, and you can add offline translation and AI services when you want them.
 
@@ -34,6 +34,7 @@ What it does
 - 22 AI presets: OpenAI, Anthropic Claude, Google Gemini, DeepSeek, xAI Grok, Groq, Mistral AI, OpenRouter, Together AI, Fireworks AI, DeepInfra, Cerebras, Perplexity, Moonshot/Kimi, Zhipu GLM, Qwen (DashScope), SiliconFlow, Volcengine Ark, Azure OpenAI, local Ollama and LM Studio, and any OpenAI-compatible service. Thinking mode and temperature per service, and a connection test.
 - Precise translation: the AI service sees the whole message, so names and terms stay consistent.
 - Summary and to-dos: an AI service lists the summary, who has to do what by when, the questions to answer and the dates of a message, in a panel above it, with "Copy as Markdown".
+- Text in images: with precise translation, an AI service reads the text in the images of a message and shows the original and its translation under each image; of a chart only its labels. A button under each image (the default), every image by itself, or off.
 - Three editable prompts with presets for regional varieties, writing styles and difficult words.
 - Optional automatic translation of every message that is not in your language.
 

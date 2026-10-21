@@ -2,6 +2,44 @@
 
 All notable changes to this project are documented in this file, with the date of each version. It lists what users of the extension notice. The record up to 1.12.0 with the internal changes is kept in [docs/archive/CHANGELOG-full.md](docs/archive/CHANGELOG-full.md). Versions follow [Semantic Versioning](https://semver.org/).
 
+## 2.4.0 - 2026-10-21
+
+Version 2.4 translates the text in the images of a message. With precise translation on, an AI service reads an image and the text appears under it: the original and its translation side by side. The extension draws nothing on an image and generates no image.
+
+### Text in images
+
+- "Image translation" has three modes: Off, Ask under each image (the default) and On. They apply while precise translation is on and the vision model reads images.
+- Ask under each image: a "Translate image text" button appears under every image that passes the filters; a click sends that image only.
+- On: when you translate a message, its first images go to the service by themselves, five per message by default, in the order of the message; the images after them get the button.
+- A result already in the cache appears at once, without a button.
+- The popup switches the mode while precise translation is on. The message on screen follows at once, without loading it again and without translating the paragraphs again.
+- Alt+R also forgets the image results of the message: "Ask" shows the buttons again, "On" sends the images again.
+- Only the images of the body and the image attachments Thunderbird shows under it. Remote images are never translated. Tracking pixels, icons and small logos, divider lines, logos in the signature, files under 4 KB and animated images are left out; the size limits can be changed.
+- The result is a collapsible block under the image with a table of the original and its translation; its title names the service and the tokens of the request. Of a chart only the labels are translated, without describing its trends. Text the model cannot read is marked [?]. An image without text shows nothing.
+- The answer can also be a short summary of the image, or both; an image without text can get one sentence instead of nothing.
+- Each image goes in a request of its own, scaled to at most 1568 pixels on its longer side and encoded again as JPEG, without its file name and metadata.
+
+### Consent for images
+
+- Before the first image goes to a service, a panel under the image asks, apart from the consent for text. It says what is sent and where to, and for Anthropic, Google Gemini and OpenAI what the service states about the data.
+- "Ask again for every message" asks for every message instead of once per service.
+- The settings page lists the services allowed to receive text and those allowed to receive images in two columns, each with "Revoke".
+
+### Settings
+
+- The settings page has the image settings under precise translation: the mode, the vision service and model, a line that names a model that does not accept images together with one that does, an estimate of the tokens of one image, and "Test image", which sends a built-in test image.
+- "Advanced image settings" holds the sources, the size and file limits, animated images, the upload size, format and quality, the limits per image and per message, the image detail, the answer, the length limit, the timeout, the concurrent requests, and how the result opens.
+- The image prompt can be edited and restored in the Prompts section.
+- The AI step of the setup guide offers the three modes under precise translation.
+
+### Changed
+
+- Translation-only display keeps the images of a paragraph: copies of them follow its translation. Before, an image inside a translated paragraph disappeared until the original was shown again. Remote images are not copied.
+
+### Permissions
+
+- No new permission and no new address. The extension reads the image parts of the displayed message with the permission "Read your email messages" it already has.
+
 ## 2.3.0 - 2026-10-21
 
 Version 2.3 adds four machine translators that work with an account of your own, and a summary of the message with its to-dos written by an AI service.

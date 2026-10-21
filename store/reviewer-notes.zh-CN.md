@@ -34,6 +34,24 @@ Web Crypto 不提供 MD5，所以 `src/shared/md5.ts` 按 RFC 1321 直接实现�
 
 用自己的 AI 密钥测试：在设置中为第 3 层选择一个 AI 服务，打开第 2 步的德语邮件，在弹出面板中点击“摘要与待办”，并在面板中允许该服务。邮件上方的面板列出摘要、待办、需要回复的问题和日期。
 
+## 2.4.0 起：图片文字
+
+开启精翻后，AI 服务可以读取当前显示邮件中图片里的文字；结果是图片下方的文字（原文与译文的对照表）。扩展不在图片上绘制任何内容，也不生成图片。
+
+- 处理哪些图片：正文中的图片（`cid:` 和 `data:`），以及 Thunderbird 显示在正文下方的图片附件。远程图片从不读取、从不发送；内容脚本跳过所有 `http:`/`https:` 图片，也跳过跟踪像素、低于设置中尺寸下限的图片和签名里的图片（`src/shared/image.ts`）。
+- 如何读取字节：后台脚本用 `messages.getAttachmentFile(messageId, partName)` 读取部件（`src/background/subject.ts` 的 `messagePart()`），部件名取自 Thunderbird 给图片的地址，当前邮件的 id 来自 `messageDisplay.getDisplayedMessage()`。两者都只需要扩展自 2.1 起就有的 `messagesRead`。只读取图片部件：翻译邮件开始时，读取通过内容脚本过滤的图片的部件，在本机查找缓存结果、检查大小和动图；文件不是图片的部件会被丢弃。不读取其他任何附件。
+- 何时发送图片：默认模式“图片下询问”下，用户点击某张图片下方的“翻译图片文字”之后；“开启”模式下自动发送，默认每封邮件最多 5 张。图片在后台页中用 `createImageBitmap()` 解码，缩小到长边不超过 1568 px，再用 `OffscreenCanvas` 重新编码为 JPEG，文件名和元数据随之丢弃（`src/background/images.ts`），然后经 AI SDK 发给视觉服务（用户没有另选时即第 3 层的 AI 服务）。
+- 同意：图片有单独的列表 `imageConsent`，与文字的同意分开。第一张图片发给某个服务之前，图片下方的面板写明服务、主机、发送的内容，以及 Anthropic、Gemini 或 OpenAI 公布的数据政策；没有同意时后台脚本拒绝图片请求（`ImageService.request()`）。设置页列出并可撤销已允许接收图片的服务。
+- 不新增权限，也不新增主机：视觉服务就是各个 AI 预设，其默认接口地址已在清单中。
+
+不用 AI 密钥测试（确认面板，以及确认之前不发送任何内容）：
+
+1. 在设置中为第 3 层选择 OpenAI（选择时不需要密钥），并开启“精翻”。其下方的“图片翻译”显示“图片下询问”。
+2. 给自己发一封邮件，正文或附件中带一张至少 200 × 200 像素的图片，打开后按 Alt+A。
+3. 图片下方出现“翻译图片文字”按钮。点击后，图片发往 OpenAI 之前，图片下方的面板会询问。“取消”会恢复按钮；“允许并翻译图片”发送请求，没有密钥时图片下方显示“OpenAI：缺少 API 密钥”。
+
+使用自己的 AI 密钥时，结果以表格显示在图片下方；设置页视觉模型下方的“测试图片”会发送一张写着“TEST 42”的内置图片。
+
 ## 源代码与构建
 
 xpi 中的脚本由 esbuild 打包并压缩，因此随提交附上源代码包。包内的 `SOURCE-BUILD.md` 写明步骤：Node.js 24.21.0 和 npm 11.19.0（Ubuntu 24.04 或 Windows），依次运行 `npm ci`、`npm run build`。产物 `web-ext-artifacts/thunderbird-translate-<version>.xpi` 与提交的 xpi 逐字节相同，可用 `sha256sum` 核对。`npm ci` 之后构建不需要联网：Bergamot 引擎随源代码包提供，构建时按固定的 sha256 校验。源代码包不含测试、文档、端到端测试构建的代码（`src/e2e/`）和实验版的代码（`src/experiments/`，只在 GitHub 发布，使用另一个附加组件 ID），常规构建都不读取这些文件；其中任一目录的文件或 `experiment_apis` 条目进入常规构建时，构建会中止。
@@ -42,10 +60,10 @@ xpi 中的脚本由 esbuild 打包并压缩，因此随提交附上源代码包�
 
 | 权限 | 用途 |
 | --- | --- |
-| `messagesRead` | 标题：内容脚本运行在邮件正文中，看不到邮件头，所以后台脚本用 `messageDisplay.getDisplayedMessage()`（`src/background/subject.ts`）读取当前显示邮件的标题，供正文上方的标题译文使用；用户请求摘要时还读取它的发件人和日期。标题翻译页面（`src/subjects/`，即 `browser_action` 的弹出页）用 `mailTabs.getListedMessages()`、`messages.continueList()` 和 `messages.abortList()` 列出邮件标签页中的邮件，并在 `messages.onNewMailReceived`、`onDeleted` 和 `onMoved` 时重新读取列表。只显示发件人、日期和标题；不借此读取邮件正文，也不保存任何内容。 |
+| `messagesRead` | 标题：内容脚本运行在邮件正文中，看不到邮件头，所以后台脚本用 `messageDisplay.getDisplayedMessage()`（`src/background/subject.ts`）读取当前显示邮件的标题，供正文上方的标题译文使用；用户请求摘要时还读取它的发件人和日期。标题翻译页面（`src/subjects/`，即 `browser_action` 的弹出页）用 `mailTabs.getListedMessages()`、`messages.continueList()` 和 `messages.abortList()` 列出邮件标签页中的邮件，并在 `messages.onNewMailReceived`、`onDeleted` 和 `onMoved` 时重新读取列表。只显示发件人、日期和标题；不借此读取邮件正文，也不保存任何内容。从 2.4.0 起，图片翻译用 `messages.getAttachmentFile()`（`subject.ts` 的 `messagePart()`）读取当前邮件的图片部件，见上文：只读正文图片和图片附件，从不读取其他附件。 |
 | `accountsRead` | 仅用于标题翻译页面：Thunderbird 要求 `mailTabs.setSelectedMessages()`（点击一行即在邮件标签页中显示该邮件）、`mailTabs.onDisplayedFolderChanged`（页面跟随文件夹切换）和上面三个 `messages` 事件具备这项权限。不读取任何账户或文件夹数据。 |
 | `messagesModify` | 后台脚本用 `messageDisplayScripts.register()`（`src/background/content-scripts.ts`）在显示的邮件中显示译文，并用 `tabs.executeScript()`/`insertCSS()` 把同一脚本注入扩展启动时已经打开的邮件。Thunderbird 只在有这项权限时允许这两种操作（没有它时 `messenger.messageDisplayScripts` 不存在，已在 Thunderbird 156 中验证）。扩展不修改任何已保存的邮件。 |
-| `sensitiveDataUpload` | 显示的邮件文字会发往用户选定的翻译服务；第一次发往每个在线服务之前，用户在邮件上方的面板中确认 |
+| `sensitiveDataUpload` | 显示的邮件文字会发往用户选定的翻译服务；第一次发往每个在线服务之前，用户在邮件上方的面板中确认。邮件中的图片发往用户选定的视觉服务，之前另有图片下方面板中的单独确认 |
 | `storage` | 设置、翻译缓存和新手引导的状态，保存在 `storage.local` 中（通过 `src/shared/ext.ts` 的封装调用，所以 linter 看不到这些调用） |
 | `unlimitedStorage` | IndexedDB 中的离线词典包（每个 0.3 至 3.6 MB）和 Bergamot 模型（每个方向 13 至 48 MB），不能被浏览器清除 |
 | 主机权限 | 只列出各服务的固定地址：谷歌翻译、微软翻译的两个地址、DeepL 的两个地址、百度翻译、有道智云和彩云小译（使用用户密钥的机器翻译，见上文）、18 个 AI 预设的默认接口地址、Mozilla Remote Settings 及其附件 CDN（Bergamot 模型），以及 GitHub 和它的两个发布下载主机（词典包）。列表在 `src/shared/hosts.ts` 中，单元测试保证它与清单和预设一致。 |
@@ -60,7 +78,7 @@ xpi 中的脚本由 esbuild 打包并压缩，因此随提交附上源代码包�
 
 内容安全策略中的 `'wasm-unsafe-eval'` 只用于在 worker 中编译这个随包提供的引擎。扩展自己的脚本不调用 `eval` 或 `Function` 构造器。随包的 zod 库（位于 `chunks/llm-*.js`，与 AI SDK 一起加载）含有用 `Function` 构造器生成函数的代码：一个特性探测、一个可选的对象 schema 编译器，以及没有任何调用方的 `z.compile()`。扩展在创建任何 schema 之前设置 `z.config({ jitless: true })`（见 `src/background/translators/zod-config.ts`），这些代码因此都不会运行；内容安全策略不含 `'unsafe-eval'`，同样会拦截它们。
 
-从 2.2.0 起，AI 译文中的 Markdown 按格式显示。`src/shared/markdown.ts` 用 `createElement`、`createTextNode` 和 `setAttribute` 构建这些内容，从不把译文赋给 `innerHTML`；元素只有 `strong`、`em`、`code`、`del`、`a`、`ul`、`ol`、`li` 和 `br`，链接只在地址以 `http:`、`https:` 或 `mailto:` 开头时才带地址。
+从 2.2.0 起，AI 译文中的 Markdown 按格式显示。`src/shared/markdown.ts` 用 `createElement`、`createTextNode` 和 `setAttribute` 构建这些内容，从不把译文赋给 `innerHTML`；元素只有 `strong`、`em`、`code`、`del`、`a`、`ul`、`ol`、`li` 和 `br`，链接只在地址以 `http:`、`https:` 或 `mailto:` 开头时才带地址。从 2.4.0 起，图片的回答另加 `p`、`table`、`thead`、`tbody`、`tr`、`th` 和 `td`，构建方式相同；单元格最多带 `tt-align-center` 或 `tt-align-right` 这一个类名。
 
 ## 运行时下载的是数据
 

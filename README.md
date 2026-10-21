@@ -31,7 +31,7 @@ Video: [YouTube](https://www.youtube.com/watch?v=OZmiMGeuhJ0) (1 min) · [Bilibi
 - Machine translation without an account (Google Translate, the default, and Microsoft Translator), or with a key of your own (DeepL, Baidu, Youdao, Caiyun).
 - Offline translation with dictionary packs and Mozilla's Bergamot models; no text leaves your computer.
 - 22 AI provider presets, including OpenAI, Claude, Gemini, DeepSeek, Qwen, local Ollama and LM Studio, and any OpenAI-compatible service.
-- Precise translation: the AI tier sees the whole message, so names and terms stay consistent.
+- Precise translation: the AI tier sees the whole message, so names and terms stay consistent. With it, an AI service can read the text in the images of a message and show the original and its translation under each image.
 - Summary and to-dos: an AI service lists the summary, the to-dos, the questions to answer and the dates of a message in a panel above it.
 - Three editable prompts with presets for regional varieties, writing styles and difficult words.
 - Optional automatic translation of every message not in the target language.
@@ -55,7 +55,7 @@ Open a message and click the "Translate message" button in the message header to
 
 - "Translate this message" starts translating. While a translation is shown, the button reads "Show original".
 - "Retranslate" asks every tier again and ignores the cache; "Summary and to-dos" shows the summary of the message above it.
-- Display mode, source language ("Detect automatically" by default), target language, one service list per tier, precise translation, and the switch "Automatically translate messages not in the target language".
+- Display mode, source language ("Detect automatically" by default), target language, one service list per tier, precise translation with the mode of image translation (off, ask under each image, on), and the switch "Automatically translate messages not in the target language".
 
 | Shortcut | Action |
 | --- | --- |
@@ -109,11 +109,11 @@ Presets add rules to a prompt: a regional variety such as British English or Tai
 
 - Message text goes only to the services of the tiers in use. The dictionary and Bergamot translate on your computer. The subjects of messages follow the same rule. A summary you ask for sends the whole message with its sender and date to its AI service.
 - Before the text of a message first goes to an online service, a panel above the message names the service and its address and asks once per service. Nothing is sent until you click “Allow and translate”; the settings page lists the allowed services and takes them back. With only the dictionary and Bergamot, nothing is asked.
+- An image goes to an AI service only while precise translation is on: after a click on the button under it, or by itself when image translation is “On”. Before the first image, a panel under it asks once per service, apart from the text. The image is scaled down and encoded again, without its file name and metadata. Remote images are never translated.
 - An endpoint you type (Ollama, LM Studio, DeepLX, a custom service, a changed endpoint) needs your permission to connect, given once with “Allow access” or “Test connection” in the settings.
 - API keys are stored only in your Thunderbird profile and are sent only to the endpoint of their own service.
 - Two lists come from the network, without any message text: the dictionary pack index from this repository's GitHub releases and the Bergamot model records from Mozilla. The settings page and the setup guide read them to show the offline lists. While the dictionary or Bergamot is selected in a tier, they are also read when Thunderbird starts, when the settings change and when the popup opens. Translating a message never reads them.
-- Packs and models are downloaded only when you click a download button. The extension collects no statistics.
-- The translation cache is stored locally and can be turned off or cleared.
+- Packs and models are downloaded only when you click a download button. The translation cache is stored locally and can be turned off or cleared. The extension collects no statistics.
 - For sensitive mail, use only the dictionary, Bergamot and local AI models (Ollama, LM Studio).
 
 ## Known limitations
@@ -131,7 +131,7 @@ The complete list is in [docs/settings.md](docs/settings.md#known-limitations).
 The documents below are in English, except dictionary-packs.md, which is in Chinese.
 
 - [docs/settings.md](docs/settings.md): every setting, offline lists, missing-data notices and the cache.
-- [docs/providers.md](docs/providers.md): endpoints, default models and thinking parameters of every service.
+- [docs/providers.md](docs/providers.md): endpoints, default models, thinking parameters and the models that read images, for every service.
 - [docs/batching.md](docs/batching.md): how paragraphs are merged into requests, timeouts and costs.
 - [docs/bergamot.md](docs/bergamot.md): the Bergamot offline engine, the choice and storage of its models, and its build.
 - [docs/dictionary-packs.md](docs/dictionary-packs.md): data sources, format and build of the dictionary packs (in Chinese).

@@ -31,7 +31,7 @@ Tanıtım videosu: [YouTube](https://www.youtube.com/watch?v=OZmiMGeuhJ0) (1 dk)
 - Hesap gerektirmeyen makine çevirisi (varsayılan Google Translate ve Microsoft Translator) veya kendi anahtarınızla DeepL, Baidu, Youdao ve Caiyun.
 - Sözlük paketleri ve Mozilla'nın Bergamot modelleriyle çevrimdışı çeviri; hiçbir metin bilgisayarınızdan çıkmaz.
 - OpenAI, Claude, Gemini, DeepSeek, Qwen, yerel Ollama ve LM Studio ile OpenAI uyumlu her hizmeti içeren 22 yapay zekâ sağlayıcısı ön ayarı.
-- Hassas çeviri: yapay zekâ kademesi iletinin tamamını görür, bu yüzden adlar ve terimler tutarlı kalır.
+- Hassas çeviri: yapay zekâ kademesi iletinin tamamını görür, bu yüzden adlar ve terimler tutarlı kalır. Bununla bir yapay zekâ hizmeti iletinin görsellerindeki metni de okuyup her görselin altında özgün metni ve çevirisini gösterebilir.
 - Özet ve yapılacaklar: bir yapay zekâ hizmeti iletinin üstünde özeti, yapılacakları, yanıtlanacak soruları ve tarihleri listeler.
 - Bölgesel çeşitler, yazım üslupları ve zor sözcükler için hazır ayarları olan, düzenlenebilir üç istem.
 - Hedef dilde olmayan her iletinin isteğe bağlı otomatik çevirisi.
@@ -55,7 +55,7 @@ Bir ileti açın ve ileti başlığı araç çubuğundaki "İletiyi çevir" dü�
 
 - "Bu iletiyi çevir" çeviriyi başlatır. Çeviri gösterilirken düğmenin adı "Özgün metni göster" olur.
 - "Yeniden çevir" her kademeye yeniden sorar ve önbelleği yok sayar; "Özet ve yapılacaklar" iletinin özetini iletinin üstünde gösterir.
-- Görünüm modu, kaynak dil (varsayılan "Otomatik algıla"), hedef dil, her kademe için bir hizmet listesi, hassas çeviri ve "Hedef dilde olmayan iletileri otomatik olarak çevir" anahtarı.
+- Görünüm modu, kaynak dil (varsayılan "Otomatik algıla"), hedef dil, her kademe için bir hizmet listesi, görsel çevirisinin moduyla (kapalı, her görselin altında sor, açık) hassas çeviri ve "Hedef dilde olmayan iletileri otomatik olarak çevir" anahtarı.
 
 | Kısayol | İşlem |
 | --- | --- |
@@ -109,11 +109,11 @@ Hazır ayarlar isteme kural ekler: Britanya İngilizcesi veya Tayvan kullanımı
 
 - İleti metni yalnızca kullanılan kademelerin hizmetlerine gider. Sözlük ve Bergamot bilgisayarınızda çeviri yapar. İletilerin konuları da aynı kurala uyar. İstediğiniz bir özet, iletinin tamamını gönderen ve tarihiyle birlikte özetin yapay zekâ hizmetine gönderir.
 - Bir iletinin metni bir çevrimiçi hizmete ilk kez gitmeden önce iletinin üstündeki bir panel hizmeti ve adresini gösterir ve her hizmet için bir kez sorar. "İzin ver ve çevir" düğmesine tıklanana kadar hiçbir şey gönderilmez; ayarlar sayfası izin verilen hizmetleri listeler ve izni geri almayı sağlar. Yalnızca sözlük ve Bergamot kullanılırsa hiçbir şey sorulmaz.
+- Bir görsel yalnızca hassas çeviri açıkken bir yapay zekâ hizmetine gider: altındaki düğmeye tıklandıktan sonra ya da görsel çevirisi "Açık" olduğunda kendiliğinden. İlk görselden önce altındaki panel, metinden ayrı olarak her hizmet için bir kez sorar. Görsel küçültülüp yeniden kodlanır; dosya adı ve üst verileri gönderilmez. Uzak görseller asla çevrilmez.
 - Elle girilen bir adres (Ollama, LM Studio, DeepLX, özel bir hizmet, değiştirilmiş bir adres) bağlantı için bir kez izin ister; izin ayarlarda "Erişime izin ver" veya "Bağlantıyı test et" ile verilir.
 - API anahtarları yalnızca Thunderbird profilinizde saklanır ve yalnızca kendi hizmetlerinin uç noktasına gönderilir.
 - İki liste, hiçbir ileti metni içermeden ağdan gelir: bu deponun GitHub sürümlerindeki sözlük paketi dizini ve Mozilla'nın Bergamot model kayıtları. Ayarlar sayfası ve kurulum rehberi, çevrimdışı listeleri göstermek için bunları okur. Bir kademede sözlük veya Bergamot seçiliyken Thunderbird başlarken, ayarlar değişirken ve açılır pencere açılırken de okunurlar. Bir iletiyi çevirmek bunları hiçbir zaman okumaz.
-- Paketler ve modeller yalnızca bir indirme düğmesine tıkladığınızda indirilir. Eklenti hiçbir istatistik toplamaz.
-- Çeviri önbelleği yerel olarak saklanır; kapatılabilir veya temizlenebilir.
+- Paketler ve modeller yalnızca bir indirme düğmesine tıkladığınızda indirilir. Çeviri önbelleği yerel olarak saklanır; kapatılabilir veya temizlenebilir. Eklenti hiçbir istatistik toplamaz.
 - Hassas iletiler için yalnızca sözlüğü, Bergamot'u ve yerel yapay zekâ modellerini (Ollama, LM Studio) kullanın.
 
 ## Bilinen sınırlamalar
@@ -131,7 +131,7 @@ Tam liste [docs/settings.md](../docs/settings.md#known-limitations) dosyasındad
 Aşağıdaki belgeler İngilizcedir; yalnızca dictionary-packs.md Çincedir.
 
 - [docs/settings.md](../docs/settings.md): her ayar, çevrimdışı listeler, eksik veri bildirimleri ve önbellek.
-- [docs/providers.md](../docs/providers.md): her hizmetin uç noktaları, varsayılan modelleri ve düşünme parametreleri.
+- [docs/providers.md](../docs/providers.md): her hizmetin uç noktaları, varsayılan modelleri, düşünme parametreleri ve görsel okuyabilen modelleri.
 - [docs/batching.md](../docs/batching.md): paragrafların isteklerde nasıl birleştirildiği, zaman aşımları ve maliyetler.
 - [docs/bergamot.md](../docs/bergamot.md): çevrimdışı Bergamot motoru, modellerinin seçimi ve saklanması, derlenmesi.
 - [docs/dictionary-packs.md](../docs/dictionary-packs.md): sözlük paketlerinin veri kaynakları, biçimi ve derlenmesi (Çince).

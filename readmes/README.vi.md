@@ -31,7 +31,7 @@ Video giới thiệu: [YouTube](https://www.youtube.com/watch?v=OZmiMGeuhJ0) (1 
 - Dịch máy không cần tài khoản (Google Translate, mặc định, và Microsoft Translator) hoặc bằng khóa của riêng bạn (DeepL, Baidu, Youdao, Caiyun).
 - Dịch ngoại tuyến bằng gói từ điển và các mô hình Bergamot của Mozilla; không có văn bản nào rời khỏi máy của bạn.
 - 22 cấu hình sẵn cho nhà cung cấp AI, trong đó có OpenAI, Claude, Gemini, DeepSeek, Qwen, Ollama và LM Studio chạy cục bộ, cùng mọi dịch vụ tương thích OpenAI.
-- Dịch chính xác: tầng AI nhận toàn bộ thư làm ngữ cảnh, nên tên riêng và thuật ngữ nhất quán.
+- Dịch chính xác: tầng AI nhận toàn bộ thư làm ngữ cảnh, nên tên riêng và thuật ngữ nhất quán. Khi bật, dịch vụ AI còn đọc được chữ trong ảnh của thư và hiện bản gốc cùng bản dịch dưới mỗi ảnh.
 - Tóm tắt và việc cần làm: một dịch vụ AI liệt kê phía trên thư bản tóm tắt, các việc cần làm, các câu hỏi cần trả lời và các ngày.
 - Ba lời nhắc có thể chỉnh sửa, kèm mẫu có sẵn cho biến thể vùng miền, văn phong và từ khó.
 - Tùy chọn tự động dịch mọi thư không ở ngôn ngữ đích.
@@ -55,7 +55,7 @@ Mở một thư và nhấn nút "Dịch thư" trên thanh công cụ ở phần 
 
 - "Dịch thư này" bắt đầu dịch. Khi bản dịch đang hiển thị, nút này đổi thành "Hiện bản gốc".
 - "Dịch lại" hỏi lại mọi tầng và bỏ qua bộ nhớ đệm; "Tóm tắt và việc cần làm" hiện bản tóm tắt của thư phía trên thư.
-- Chế độ hiển thị, ngôn ngữ nguồn (mặc định là "Tự động phát hiện"), ngôn ngữ đích, danh sách dịch vụ của từng tầng, dịch chính xác, và công tắc "Tự động dịch thư không ở ngôn ngữ đích".
+- Chế độ hiển thị, ngôn ngữ nguồn (mặc định là "Tự động phát hiện"), ngôn ngữ đích, danh sách dịch vụ của từng tầng, dịch chính xác cùng chế độ dịch hình ảnh (tắt, hỏi dưới mỗi ảnh, bật), và công tắc "Tự động dịch thư không ở ngôn ngữ đích".
 
 | Phím tắt | Tác dụng |
 | --- | --- |
@@ -109,11 +109,11 @@ Các mẫu có sẵn thêm quy tắc vào lời nhắc: biến thể vùng miề
 
 - Văn bản thư chỉ đến các dịch vụ của những tầng đang dùng. Từ điển và Bergamot dịch ngay trên máy của bạn. Tiêu đề của thư cũng tuân theo quy tắc này. Bản tóm tắt bạn yêu cầu gửi toàn bộ thư cùng người gửi và ngày gửi đến dịch vụ AI của bản tóm tắt.
 - Trước khi nội dung thư lần đầu được gửi đến một dịch vụ trực tuyến, bảng phía trên thư nêu tên dịch vụ và địa chỉ của nó, rồi hỏi một lần cho mỗi dịch vụ. Không có gì được gửi trước khi bạn bấm "Cho phép và dịch"; trang cài đặt liệt kê các dịch vụ đã cho phép và cho phép thu hồi. Nếu chỉ dùng từ điển và Bergamot thì không có câu hỏi nào.
+- Ảnh chỉ được gửi đến dịch vụ AI khi dịch chính xác đang bật: sau khi bạn nhấn nút dưới ảnh, hoặc tự động khi dịch hình ảnh ở chế độ "Bật". Trước ảnh đầu tiên, bảng dưới ảnh hỏi một lần cho mỗi dịch vụ, tách khỏi văn bản. Ảnh được thu nhỏ và mã hóa lại, không kèm tên tệp và siêu dữ liệu. Ảnh từ xa không bao giờ được dịch.
 - Địa chỉ bạn tự nhập (Ollama, LM Studio, DeepLX, dịch vụ tùy chỉnh, địa chỉ đã đổi) cần được cấp quyền kết nối một lần, bằng nút "Cho phép truy cập" hoặc "Kiểm tra kết nối" trong phần cài đặt.
 - Khóa API chỉ được lưu trong hồ sơ Thunderbird của bạn và chỉ được gửi đến endpoint của chính dịch vụ đó.
 - Hai danh sách lấy từ mạng, không kèm văn bản thư nào: chỉ mục gói từ điển từ các bản phát hành GitHub của kho mã này và các bản ghi mô hình Bergamot từ Mozilla. Trang cài đặt và hướng dẫn thiết lập đọc chúng để hiển thị danh sách ngoại tuyến. Khi từ điển hoặc Bergamot được chọn ở một tầng, chúng cũng được đọc lúc Thunderbird khởi động, khi cài đặt thay đổi và khi mở cửa sổ bật lên. Dịch một thư không bao giờ đọc chúng.
-- Gói và mô hình chỉ được tải khi bạn nhấn nút tải xuống. Tiện ích không thu thập số liệu thống kê.
-- Bộ nhớ đệm bản dịch được lưu cục bộ và có thể tắt hoặc xóa.
+- Gói và mô hình chỉ được tải khi bạn nhấn nút tải xuống. Bộ nhớ đệm bản dịch được lưu cục bộ và có thể tắt hoặc xóa. Tiện ích không thu thập số liệu thống kê.
 - Với thư nhạy cảm, chỉ dùng từ điển, Bergamot và các mô hình AI cục bộ (Ollama, LM Studio).
 
 ## Hạn chế đã biết
@@ -131,7 +131,7 @@ Danh sách đầy đủ nằm trong [docs/settings.md](../docs/settings.md#known
 Các tài liệu dưới đây viết bằng tiếng Anh, riêng dictionary-packs.md viết bằng tiếng Trung.
 
 - [docs/settings.md](../docs/settings.md): mọi cài đặt, danh sách ngoại tuyến, thông báo thiếu dữ liệu và bộ nhớ đệm.
-- [docs/providers.md](../docs/providers.md): endpoint, mô hình mặc định và tham số suy nghĩ của từng dịch vụ.
+- [docs/providers.md](../docs/providers.md): endpoint, mô hình mặc định, tham số suy nghĩ và các mô hình đọc được ảnh của từng dịch vụ.
 - [docs/batching.md](../docs/batching.md): cách gộp đoạn thành yêu cầu, thời gian chờ và chi phí.
 - [docs/bergamot.md](../docs/bergamot.md): bộ máy dịch ngoại tuyến Bergamot, cách chọn và lưu mô hình, quy trình build.
 - [docs/dictionary-packs.md](../docs/dictionary-packs.md): nguồn dữ liệu, định dạng và cách tạo các gói từ điển (tiếng Trung).
