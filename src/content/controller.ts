@@ -48,7 +48,7 @@ import { type Tier, TIER_NAME_KEYS, TIERS } from "../shared/providers"
 import type { ConsentNeed, DisplayMode, PublicSettings } from "../shared/settings"
 import { type SubjectParts, subjectToTranslate } from "../shared/subject"
 import { CLS_SUBJECT, type Collected, collectParagraphs, extractText, type Unit } from "./paragraphs"
-import { Renderer, type TextFormat, type TranslationMark } from "./render"
+import { Renderer, styleVars, type TextFormat, type TranslationMark } from "./render"
 import { hasTranslatableText } from "../shared/text"
 
 export interface ControllerDeps {
@@ -280,7 +280,7 @@ export class TranslationController {
     line.append(el)
     root.prepend(line)
     this.subjectLine = line
-    this.subjectUnit = { id: 0, el, text, pre: false }
+    this.subjectUnit = { el, text, pre: false }
     return this.subjectUnit
   }
 
@@ -452,7 +452,6 @@ export class TranslationController {
       style.id = STYLE_ID
       ;(doc.head ?? doc.documentElement).appendChild(style)
     }
-    const text = s.style.textColor ? `--tt-text-color:${s.style.textColor};` : ""
-    style.textContent = `:root{--tt-color:${s.style.color};${text}--tt-opacity:${s.style.opacity};--tt-scale:${s.style.fontScale};}`
+    style.textContent = `:root{${Object.entries(styleVars(s.style)).map(([name, value]) => `${name}:${value};`).join("")}}`
   }
 }

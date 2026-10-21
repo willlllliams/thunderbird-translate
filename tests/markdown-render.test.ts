@@ -158,7 +158,7 @@ describe("styles", () => {
   it("keeps the colour and size of the translation on the rendered elements in a real cascade", () => {
     document.head.innerHTML = `<style>${readFileSync(join(__dirname, "..", "static", "content.css"), "utf8")}</style><style>:root{--tt-text-color:#123456}</style>`
     document.body.innerHTML = "<p>Good morning</p>"
-    const unit = { id: 1, el: document.querySelector("p")!, text: "Good morning", pre: false }
+    const unit = { el: document.querySelector("p")!, text: "Good morning", pre: false }
     new Renderer(document).showTranslation(unit, "**Guten** Morgen", "bilingual", "de", undefined, "markdown")
     const strong = document.querySelector<HTMLElement>(".tt-translation strong")!
     expect(getComputedStyle(strong).color).toBe(getComputedStyle(document.querySelector(".tt-translation")!).color)

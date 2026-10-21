@@ -53,7 +53,7 @@ export class TierDemo {
     if (!top) return void (this.status.textContent = t("tiersEmpty"))
     const renderer = new Renderer(document)
     renderer.stylePreset = settings.style.preset
-    const unit: Unit = { id: 0, el: p, text: t("demoSource"), pre: false }
+    const unit: Unit = { el: p, text: t("demoSource"), pre: false }
     const show = (tier: Tier) => {
       const service = providerDisplayName(getPreset(settings.tiers[tier]!)!)
       const mark = tier === top ? undefined : { kind: "provisional" as const, label: t(TIER_NAME_KEYS[tier]), title: t("statusProvisionalHint", [t(TIER_NAME_KEYS[top])]) }

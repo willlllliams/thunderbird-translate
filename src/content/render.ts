@@ -18,13 +18,15 @@ import { markdownFragment, stripMarkdown } from "../shared/markdown"
 import type { DisplayMode, Settings, StylePreset } from "../shared/settings"
 import { CLS_STATUS, CLS_TRANSLATION, type Unit } from "./paragraphs"
 
-/** The colours, opacity and size of the translations inside `el`, as CSS variables; without a text colour they keep the colour of the message. */
+/** The colours, opacity and size of the translations as CSS variables; without a text colour they keep the colour of the message. */
+export function styleVars(style: Settings["style"]): Record<string, string> {
+  return { "--tt-color": style.color, ...(style.textColor ? { "--tt-text-color": style.textColor } : {}), "--tt-opacity": String(style.opacity), "--tt-scale": String(style.fontScale) }
+}
+
+/** The variables of styleVars() on `el`, for the translations inside it. */
 export function setStyleVars(el: HTMLElement, style: Settings["style"]): void {
-  el.style.setProperty("--tt-color", style.color)
-  if (style.textColor) el.style.setProperty("--tt-text-color", style.textColor)
-  else el.style.removeProperty("--tt-text-color")
-  el.style.setProperty("--tt-opacity", String(style.opacity))
-  el.style.setProperty("--tt-scale", String(style.fontScale))
+  el.style.removeProperty("--tt-text-color")
+  for (const [name, value] of Object.entries(styleVars(style))) el.style.setProperty(name, value)
 }
 
 interface UnitDom {

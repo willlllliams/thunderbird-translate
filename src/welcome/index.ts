@@ -154,7 +154,7 @@ function renderModePreview(): void {
   const renderer = new Renderer(document)
   renderer.stylePreset = settings.style.preset
   originals.forEach((el, i) => {
-    const unit: Unit = { id: i, el, text: el.textContent ?? "", pre: false }
+    const unit: Unit = { el, text: el.textContent ?? "", pre: false }
     renderer.showTranslation(unit, translations[i], settings.mode)
   })
   for (const radio of Array.from(document.querySelectorAll<HTMLInputElement>('input[name="mode"]'))) radio.checked = radio.value === settings.mode

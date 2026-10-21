@@ -28,7 +28,7 @@ export function collectCells(root: HTMLElement): Collected {
   const units: Unit[] = []
   for (const el of Array.from(root.querySelectorAll<HTMLElement>(`.${CLS_CELL}`))) {
     const text = el.dataset.text ?? ""
-    if (hasTranslatableText(text)) units.push({ id: units.length + 1, el, text, pre: false })
+    if (hasTranslatableText(text)) units.push({ el, text, pre: false })
   }
   return { units, restore: () => {} }
 }

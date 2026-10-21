@@ -23,7 +23,6 @@ export const CLS_NOTICE = "tt-notice"
 export const CLS_SUBJECT = "tt-subject"
 
 export interface Unit {
-  id: number
   /** Element that holds the paragraph and receives the translation. */
   el: HTMLElement
   /** Text sent to the translator. */
@@ -148,14 +147,13 @@ export function collectParagraphs(root: HTMLElement): Collected {
   const doc = root.ownerDocument
   const units: Unit[] = []
   const saved: { container: Element; children: Node[] }[] = []
-  let nextId = 1
 
   const addUnit = (el: HTMLElement, pre: boolean) => {
     const text = extractText(el, pre)
     if (!hasTranslatableText(text)) return
     // A paragraph made only of code is left alone.
     if (!pre && !hasTranslatableText(extractText(el, false, true))) return
-    units.push({ id: nextId++, el, text, pre })
+    units.push({ el, text, pre })
   }
 
   const wrap = (nodes: Node[]): HTMLElement => {
