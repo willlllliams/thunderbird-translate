@@ -1,0 +1,355 @@
+// @vitest-environment jsdom
+/** The Markdown subset of AI translations (src/shared/markdown.ts): syntax, CommonMark delimiter rules, escapes, blocks, safety, time. */
+import { describe, expect, it } from "vitest"
+import { markdownBlocks, markdownFragment, safeHref, stripMarkdown } from "../src/shared/markdown"
+
+/** The rendered DOM as HTML, read back for the assertion only. */
+function html(text: string): string {
+  const div = document.createElement("div")
+  div.appendChild(markdownFragment(document, text))
+  return div.innerHTML
+}
+
+/** Every element of the rendered DOM with its attributes. */
+function elements(text: string): { tag: string; attrs: string[] }[] {
+  const div = document.createElement("div")
+  div.appendChild(markdownFragment(document, text))
+  return Array.from(div.querySelectorAll("*"), (el) => ({ tag: el.tagName.toLowerCase(), attrs: el.getAttributeNames() }))
+}
+
+const ALLOWED: Record<string, string[]> = { strong: [], em: [], code: [], del: [], a: ["href", "rel"], ul: [], ol: ["start"], li: [], br: [] }
+
+/** Only the allowed elements and attributes, every link to http:, https: or mailto:. */
+function expectSafe(text: string): void {
+  const div = document.createElement("div")
+  div.appendChild(markdownFragment(document, text))
+  for (const el of Array.from(div.querySelectorAll("*"))) {
+    const tag = el.tagName.toLowerCase()
+    expect(Object.keys(ALLOWED)).toContain(tag)
+    for (const name of el.getAttributeNames()) expect(ALLOWED[tag]).toContain(name)
+    if (tag === "a") expect(new URL(el.getAttribute("href")!).protocol).toMatch(/^(https?|mailto):$/)
+    if (tag === "ol" && el.hasAttribute("start")) expect(el.getAttribute("start")).toMatch(/^\d+$/)
+  }
+  for (const node of Array.from(div.querySelectorAll("*")).flatMap((el) => Array.from(el.childNodes))) expect([1, 3]).toContain(node.nodeType)
+}
+
+describe("inline syntax", () => {
+  it.each([
+    ["**strong**", "<strong>strong</strong>"],
+    ["__strong__", "<strong>strong</strong>"],
+    ["*em*", "<em>em</em>"],
+    ["_em_", "<em>em</em>"],
+    ["***both***", "<em><strong>both</strong></em>"],
+    ["~~gone~~", "<del>gone</del>"],
+    ["`a *b* c`", "<code>a *b* c</code>"],
+    ["``a ` b``", "<code>a ` b</code>"],
+    ["` `` `", "<code>``</code>"],
+    ["`  `", "<code>  </code>"],
+    ["[text](https://example.com/a?b=1)", '<a href="https://example.com/a?b=1" rel="noopener noreferrer">text</a>'],
+    ["[mail](mailto:bob@example.com)", '<a href="mailto:bob@example.com" rel="noopener noreferrer">mail</a>'],
+    ["[x](<https://example.com/a b>)", '<a href="https://example.com/a%20b" rel="noopener noreferrer">x</a>'],
+    ["[wiki](https://en.wikipedia.org/wiki/Foo_(bar))", '<a href="https://en.wikipedia.org/wiki/Foo_(bar)" rel="noopener noreferrer">wiki</a>'],
+    ["[**bold** link](http://example.com)", '<a href="http://example.com/" rel="noopener noreferrer"><strong>bold</strong> link</a>'],
+    ["**[link](https://a.example) inside**", '<strong><a href="https://a.example/" rel="noopener noreferrer">link</a> inside</strong>'],
+    ["a ~~b *c*~~ d", "a <del>b <em>c</em></del> d"],
+  ])("%s", (text, expected) => {
+    expect(html(text)).toBe(expected)
+  })
+
+  it("closes each code span with the next run of the same length", () => {
+    expect(html("`a` `b` ``c`` `d`")).toBe("<code>a</code> <code>b</code> <code>c</code> <code>d</code>")
+    expect(html("``a`b`` and `c`")).toBe("<code>a`b</code> and <code>c</code>")
+  })
+
+  it("reads a destination in angle brackets", () => {
+    expect(html("[x](<https://e.com/a\\>b>)")).toBe('<a href="https://e.com/a%3Eb" rel="noopener noreferrer">x</a>')
+    for (const text of ["[x](<https://e.com)", "[x](<https://e.com<b>)", "[x](<https://e.com\nb>)", "[x](<https://e.com> y)"]) expect(html(text)).not.toContain("<a")
+  })
+
+  it("keeps what is inside code as it is", () => {
+    expect(html("`**not bold** [x](https://e.com)`")).toBe("<code>**not bold** [x](https://e.com)</code>")
+    expect(html("`a\nb`")).toBe("<code>a b</code>")
+  })
+
+  it("leaves unclosed and invalid markup as its characters", () => {
+    for (const text of ["**open", "open**", "*a", "`code", "``a`", "~~a", "~one~", "~~~three~~~", "[text]", "[text](", "[text](https://e.com", "[a](b c)", "a ] b", "[]()"]) {
+      expect(html(text)).toBe(text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;"))
+    }
+  })
+
+  it("reads backslash escapes of ASCII punctuation", () => {
+    expect(html("\\*not em\\*")).toBe("*not em*")
+    expect(html("\\_a\\_ \\`b\\` \\[c\\](https://e.com) \\~~d~~")).toBe("_a_ `b` [c](https://e.com) ~~d~~")
+    expect(html("\\\\*em*")).toBe("\\<em>em</em>")
+    // Other characters keep their backslash.
+    expect(html("C:\\Users\\a")).toBe("C:\\Users\\a")
+    expect(html("[x](https://e.com/\\(a\\))")).toBe('<a href="https://e.com/(a)" rel="noopener noreferrer">x</a>')
+  })
+
+  it("matches nested and mixed runs as CommonMark does", () => {
+    expect(html("*a **b** c*")).toBe("<em>a <strong>b</strong> c</em>")
+    expect(html("**a *b* c**")).toBe("<strong>a <em>b</em> c</strong>")
+    // The ** between a and b has an ASCII letter on both sides: it neither opens nor closes.
+    expect(html("**a**b**")).toBe("<strong>a**b</strong>")
+    expect(html("**a** b**")).toBe("<strong>a</strong> b**")
+    expect(html("*a**")).toBe("<em>a</em>*")
+    expect(html("**a*")).toBe("*<em>a</em>")
+    // The rule of three: *foo**bar* is one emphasis.
+    expect(html("*foo**bar*")).toBe("<em>foo**bar</em>")
+    expect(html("_a *b_ c*")).toBe("<em>a *b</em> c*")
+  })
+
+  it("keeps a link that is not in the text of another", () => {
+    expect(html("[a [b](https://b.example) c](https://a.example)")).toBe('[a <a href="https://b.example/" rel="noopener noreferrer">b</a> c](https://a.example)')
+    expect(html("[a [b] c](https://e.com)")).toBe('<a href="https://e.com/" rel="noopener noreferrer">a [b] c</a>')
+  })
+})
+
+describe("delimiter rules", () => {
+  it.each([
+    // Intraword underscores never delimit.
+    ["snake_case_name", "snake_case_name"],
+    ["file_name.txt and other_file.txt", "file_name.txt and other_file.txt"],
+    ["__init__.py", "<strong>init</strong>.py"],
+    // A * between two ASCII letters or digits neither opens nor closes.
+    ["2*3*4", "2*3*4"],
+    ["a*b*c", "a*b*c"],
+    ["x * y * z", "x * y * z"],
+    ["5 * 3 = 15 and *done*", "5 * 3 = 15 and <em>done</em>"],
+    // Flanking: a run followed by whitespace cannot open, preceded by whitespace cannot close.
+    ["a * not em * b", "a * not em * b"],
+    ["** not strong **", "** not strong **"],
+    ["a * b*", "a * b*"],
+    // Punctuation: an opener before punctuation needs whitespace or punctuation in front of it.
+    ['say *"hi"* now', 'say <em>"hi"</em> now'],
+    ['a*"b"*c', 'a*"b"*c'],
+    ["(*a*)", "(<em>a</em>)"],
+    ["**foo.**bar", "**foo.**bar"],
+    ["*foo*bar", "*foo*bar"],
+    ["*foo* bar", "<em>foo</em> bar"],
+    ["*Foo*-bar", "<em>Foo</em>-bar"],
+    ["_foo_bar", "_foo_bar"],
+    ["_foo_.", "<em>foo</em>."],
+  ])("%s", (text, expected) => {
+    expect(html(text)).toBe(expected)
+  })
+
+  it("delimits beside CJK letters by the Unicode rules", () => {
+    expect(html("这是**重要**的通知")).toBe("这是<strong>重要</strong>的通知")
+    expect(html("这是*强调*的")).toBe("这是<em>强调</em>的")
+    expect(html("会议在`周四`举行")).toBe("会议在<code>周四</code>举行")
+    expect(html("日本語の**太字**です")).toBe("日本語の<strong>太字</strong>です")
+    expect(html("한국어 **굵게** 표시")).toBe("한국어 <strong>굵게</strong> 표시")
+    // Full-width punctuation is Unicode punctuation: after it, a closer needs whitespace or punctuation, as in CommonMark.
+    expect(html("请**注意：**明天")).toBe("请**注意：**明天")
+    expect(html("请**注意：** 明天")).toBe("请<strong>注意：</strong> 明天")
+    expect(html("“**重要**”")).toBe("“<strong>重要</strong>”")
+    // An ideographic space is Unicode whitespace.
+    expect(html("**　空白**")).toBe("**　空白**")
+    // Underscores between CJK letters are intraword.
+    expect(html("中文_强调_中文")).toBe("中文_强调_中文")
+  })
+
+  it("treats letters outside the Basic Multilingual Plane as whole characters", () => {
+    expect(html("𠀀**𠀁**𠀂")).toBe("𠀀<strong>𠀁</strong>𠀂")
+    expect(html("😀*a*😀")).toBe("😀<em>a</em>😀")
+  })
+
+  it("keeps right-to-left text and its marks", () => {
+    expect(html("مرحبا **بالعالم**")).toBe("مرحبا <strong>بالعالم</strong>")
+    expect(html("שלום \u202e*abc*\u202c")).toBe("שלום \u202e<em>abc</em>\u202c")
+  })
+})
+
+describe("blocks", () => {
+  it("renders a single line break as <br>", () => {
+    expect(html("one\ntwo\r\nthree")).toBe("one<br>two<br>three")
+    expect(html("one\n\ntwo")).toBe("one<br><br>two")
+  })
+
+  it("lets emphasis span a line break", () => {
+    expect(html("**a\nb**")).toBe("<strong>a<br>b</strong>")
+  })
+
+  it("renders consecutive list lines as a list", () => {
+    expect(html("- a\n- **b**\n- c")).toBe("<ul><li>a</li><li><strong>b</strong></li><li>c</li></ul>")
+    expect(html("* a\n* b")).toBe("<ul><li>a</li><li>b</li></ul>")
+    expect(html("+ a")).toBe("<ul><li>a</li></ul>")
+    expect(html("1. a\n2. b")).toBe("<ol><li>a</li><li>b</li></ol>")
+    expect(html("3. c\n4. d")).toBe('<ol start="3"><li>c</li><li>d</li></ol>')
+  })
+
+  it("puts text before and after a list around it", () => {
+    expect(html("Please:\n- a\n- b\nThanks")).toBe("Please:<ul><li>a</li><li>b</li></ul>Thanks")
+    expect(html("Please:\n\n- a\n\nThanks")).toBe("Please:<br><ul><li>a</li></ul><br>Thanks")
+  })
+
+  it("starts a new list with another marker", () => {
+    expect(html("- a\n* b\n1. c")).toBe("<ul><li>a</li></ul><ul><li>b</li></ul><ol><li>c</li></ol>")
+  })
+
+  it("reads only the list lines that CommonMark reads", () => {
+    // No space after the marker, nothing after it, or four spaces of indentation.
+    for (const text of ["-a", "- ", "1.a", "    - a", "**bold** start", "-- signature", "1) a"]) expect(html(text)).not.toContain("<li>")
+    // An ordered list interrupts a line of text only from 1.
+    expect(html("We meet on\n3. October")).toBe("We meet on<br>3. October")
+    expect(html("Steps:\n1. a\n2. b")).toBe("Steps:<ol><li>a</li><li>b</li></ol>")
+    expect(html("3. Oktober ist ein Feiertag.")).toBe('<ol start="3"><li>Oktober ist ein Feiertag.</li></ol>')
+  })
+
+  it("leaves headings, tables, images, quotes and rules as their characters", () => {
+    expect(html("# Title")).toBe("# Title")
+    expect(html("| a | b |\n|---|---|")).toBe("| a | b |<br>|---|---|")
+    expect(html("![logo](https://e.com/logo.png)")).toBe("![logo](https://e.com/logo.png)")
+    expect(html("> quote")).toBe("&gt; quote")
+    expect(html("---")).toBe("---")
+  })
+
+  it("splits the blocks of a translation", () => {
+    expect(markdownBlocks("a\n- b\n- c\nd")).toEqual([
+      { kind: "text", text: "a" },
+      { kind: "list", ordered: false, start: 1, marker: "-", items: ["b", "c"] },
+      { kind: "text", text: "d" },
+    ])
+  })
+})
+
+describe("links", () => {
+  it("accepts http:, https: and mailto: only", () => {
+    expect(safeHref("https://example.com")).toBe("https://example.com/")
+    expect(safeHref("HTTP://EXAMPLE.COM/A")).toBe("http://example.com/A")
+    expect(safeHref("mailto:a@example.com")).toBe("mailto:a@example.com")
+    for (const raw of ["javascript:alert(1)", "JavaScript:alert(1)", "data:text/html,<b>x</b>", "vbscript:x", "file:///etc/passwd", "ftp://e.com", "/relative", "page.html", "//e.com", "http:", "https://", "http://[bad"]) {
+      expect(safeHref(raw)).toBeNull()
+    }
+  })
+
+  it("keeps a link to another address as its whole source text", () => {
+    expect(html("[x](javascript:alert(1))")).toBe("[x](javascript:alert(1))")
+    expect(html("see [**x**](data:text/html,hi) now")).toBe("see [**x**](data:text/html,hi) now")
+    expect(html("[a](page.html) and *b*")).toBe("[a](page.html) and <em>b</em>")
+    expect(html("*[a](javascript:x)*")).toBe("<em>[a](javascript:x)</em>")
+  })
+})
+
+describe("safety", () => {
+  const hostile = [
+    "[x](javascript:alert(1))",
+    "[x](JAVASCRIPT:alert(1))",
+    "[x](java\nscript:alert(1))",
+    "[x]( javascript:alert(1) )",
+    "[x](<javascript:alert(1)>)",
+    "[x](&#106;avascript:alert(1))",
+    "[x](data:text/html,<script>alert(1)</script>)",
+    "[x](data:text/html;base64,PHNjcmlwdD5hbGVydCgxKTwvc2NyaXB0Pg==)",
+    "[x](https://e.com\"onmouseover=\"alert(1))",
+    "[x](https://e.com' onclick='alert(1))",
+    "<script>alert(1)</script>",
+    "<img src=x onerror=alert(1)>",
+    "**<img src=x onerror=alert(1)>**",
+    "`<script>alert(1)</script>`",
+    "<a href=\"javascript:alert(1)\">x</a>",
+    "&lt;script&gt; &amp; &#x3C;",
+    "![x](javascript:alert(1))",
+    "[<b onclick=alert(1)>x</b>](https://e.com)",
+    "- <svg onload=alert(1)>\n- [x](vbscript:msgbox(1))",
+  ]
+
+  it.each(hostile)("%s creates no executable content", (text) => {
+    expectSafe(text)
+    const div = document.createElement("div")
+    div.appendChild(markdownFragment(document, text))
+    expect(div.querySelector("script, img, svg, iframe, object, embed, style, [onerror], [onclick], [onload], [onmouseover]")).toBeNull()
+    for (const a of Array.from(div.querySelectorAll("a"))) expect(a.getAttribute("href")).toMatch(/^(https?|mailto):/)
+    // The text survives: what is not markup stays as characters.
+    expect(div.textContent).toBe(stripMarkdown(text).replace(/\n/g, ""))
+  })
+
+  it("puts a quote of the address into the attribute only, escaped", () => {
+    const div = document.createElement("div")
+    div.appendChild(markdownFragment(document, '[x](https://e.com/"><script>)'))
+    // The destination ends at the first space or control character: here it holds the quote and the angle brackets.
+    const a = div.querySelector("a")
+    expect(a?.getAttribute("href")).toBe("https://e.com/%22%3E%3Cscript%3E")
+    expect(div.querySelector("script")).toBeNull()
+  })
+
+  it("keeps deep nesting at a bounded depth with its text", () => {
+    const deep = `${"*a ".repeat(200)}x${" a*".repeat(200)}`
+    expectSafe(deep)
+    const div = document.createElement("div")
+    div.appendChild(markdownFragment(document, deep))
+    let depth = 0
+    for (let el: Element | null = div.querySelector("em, strong"); el; el = el.querySelector(":scope > em, :scope > strong")) depth++
+    expect(depth).toBe(16)
+    const text = `${"a ".repeat(200)}x${" a".repeat(200)}`
+    expect(div.textContent).toBe(text)
+    expect(stripMarkdown(deep)).toBe(text)
+  })
+
+  it("survives long and odd input", () => {
+    for (const text of ["*".repeat(10_000), "[".repeat(5000) + "](https://e.com)".repeat(100), "`".repeat(3000), "\\".repeat(4001), "**a".repeat(3000), "- \n".repeat(1000), "\u0000\u200b\ufeff**x**\ud800"]) {
+      expectSafe(text)
+      expect(() => stripMarkdown(text)).not.toThrow()
+    }
+  })
+})
+
+describe("time", () => {
+  /** Milliseconds of one rendering of `text`, the fastest of five rounds of three. */
+  function time(text: string): number {
+    let best = Infinity
+    for (let round = 0; round < 5; round++) {
+      const t0 = performance.now()
+      for (let i = 0; i < 3; i++) markdownFragment(document, text)
+      best = Math.min(best, (performance.now() - t0) / 3)
+    }
+    return best
+  }
+
+  it.each([
+    ["plain prose", (n: number) => "The meeting was moved to Thursday. ".repeat(n)],
+    ["openers without closers", (n: number) => "*a ".repeat(n)],
+    ["closers without openers", (n: number) => "a* ".repeat(n)],
+    ["alternating runs", (n: number) => "*_".repeat(n)],
+    ["nested emphasis", (n: number) => `${"*a ".repeat(n)}x${" a*".repeat(n)}`],
+    ["brackets without destination", (n: number) => "[a ".repeat(n)],
+    ["links", (n: number) => "[a](https://e.com) ".repeat(n)],
+    ["rejected links", (n: number) => "[*a*](javascript:x) ".repeat(n)],
+    ["backtick runs of rising length", (n: number) => Array.from({ length: n }, (_, i) => "`".repeat((i % 40) + 1)).join(" a ")],
+  ])("%s: linear in the length, 10 KB at once", (_, make) => {
+    // Characters added by one more repetition.
+    const unit = make(2).length - make(1).length
+    const ten = make(Math.ceil(10_000 / unit))
+    const forty = make(Math.ceil(40_000 / unit))
+    expect(ten.length).toBeGreaterThanOrEqual(10_000)
+    const t10 = time(ten)
+    const t40 = time(forty)
+    // Four times the text: linear growth takes four times the time, quadratic growth sixteen.
+    expect(t40).toBeLessThan(Math.max(t10 * 10, 5))
+    expect(t10).toBeLessThan(100)
+  })
+})
+
+describe("stripMarkdown", () => {
+  it.each([
+    ["**Quarterly** report", "Quarterly report"],
+    ["*a* _b_ `c` ~~d~~", "a b c d"],
+    ["[the report](https://e.com/r) is ready", "the report is ready"],
+    ["\\*literal\\*", "*literal*"],
+    ["2*3*4 and snake_case", "2*3*4 and snake_case"],
+    ["[x](javascript:alert(1))", "[x](javascript:alert(1))"],
+    ["- a\n- b", "a\nb"],
+    ["Steps:\n1. a\n2. b", "Steps:\n1. a\n2. b"],
+    ["line\nbreak", "line\nbreak"],
+    ["**open", "**open"],
+    ["", ""],
+  ])("%s", (text, expected) => {
+    expect(stripMarkdown(text)).toBe(expected)
+  })
+})
+
+it("lists only the allowed elements", () => {
+  const all = elements("**a** *b* `c` ~~d~~ [e](https://e.com)\nf\n- g\n1. h\n\n3. i")
+  expect([...new Set(all.map((e) => e.tag))].sort()).toEqual(["a", "br", "code", "del", "em", "li", "ol", "strong", "ul"])
+})
