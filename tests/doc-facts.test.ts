@@ -73,4 +73,16 @@ describe("facts in the documents", () => {
       for (const key of named) expect([file, key, keys.includes(key)]).toEqual([file, key, true])
     }
   })
+
+  it("say in the privacy section of every README that the settings page checks the free routes with the sentence of Test connection", () => {
+    const readmeOf = (locale: string) => (locale === "en" ? "README.md" : `readmes/README.${locale.replace("_", "-")}.md`)
+    const line = read("README.md").split("\n").findIndex((l) => l.startsWith("- Two lists come from the network"))
+    expect(line).toBeGreaterThan(0)
+    const lengths = new Set(READMES.map((file) => read(file).split("\n").length))
+    expect(lengths.size).toBe(1)
+    for (const locale of SUPPORTED_LOCALES) {
+      const button = (JSON.parse(read(`locales/${locale}.json`)) as { buttonTest: string }).buttonTest
+      expect([locale, read(readmeOf(locale)).split("\n")[line].includes(button)]).toEqual([locale, true])
+    }
+  })
 })
