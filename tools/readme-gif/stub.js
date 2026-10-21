@@ -1,13 +1,17 @@
 // A stand-in for Thunderbird's WebExtension API for the README animations (record.mjs), loaded after samples.js and
 // before the scripts of the extension's pages. It follows tools/store-screenshots/stub.js, with two differences: the
 // variant (?variant=en|zh-CN|zh-TW) picks the interface language and the sample message, and nothing happens by
-// itself. The stage starts the translation and releases each tier's answer for each paragraph through window.__gif,
-// so that every frame shows a state chosen by the timeline of the stage, not by the timers of the browser.
+// itself. The stage starts the translation and releases each tier's answer for the subject and for each paragraph
+// through window.__gif, so that every frame shows a state chosen by the timeline of the stage, not by the timers of
+// the browser. The content script asks for the subject of the message as it does in Thunderbird, and gets the
+// subject of the sample.
 ;(() => {
   const params = new URLSearchParams(location.search)
   const sample = globalThis.README_GIF_SAMPLES[params.get("variant") || "en"]
   const origin = location.origin
   const tiers = ["dictionary", "machine", "ai"]
+  /** What the content script translates: the subject line first, then the paragraphs of the message. */
+  const units = [sample.subject, ...sample.paragraphs]
 
   const settings = {
     uiLanguage: sample.locale,
@@ -15,6 +19,8 @@
     targetLang: sample.targetLang,
     mode: "bilingual",
     autoTranslate: false,
+    translateSubject: true,
+    renderMarkdown: true,
     tiers: { dictionary: "dictionary", machine: "google-free", ai: "deepseek" },
     providers: {
       dictionary: { enabled: true, apiKey: "", baseURL: "", model: "" },
@@ -52,8 +58,8 @@
     }
   }
 
-  /** The index of a paragraph of the sample, from the text the content script sends. */
-  const indexOf = (text) => sample.paragraphs.findIndex((p) => p.text.trim() === text.trim())
+  /** The index of a unit of the sample (0 the subject, then the paragraphs), from the text the content script sends. */
+  const indexOf = (text) => units.findIndex((p) => p.text.trim() === text.trim())
 
   /** Answers the stage has released ("tier:index") and requests that wait for them. */
   const released = new Set()
@@ -66,7 +72,7 @@
       for (const tier of entry.tiers) {
         if (entry.answered.has(tier) || !released.has(`${tier}:${entry.index}`)) continue
         entry.answered.add(tier)
-        port.onMessage.fire({ type: "tier", id: entry.id, tier, result: { ok: true, text: sample.paragraphs[entry.index][tier] } })
+        port.onMessage.fire({ type: "tier", id: entry.id, tier, result: { ok: true, text: units[entry.index][tier] } })
       }
       if (entry.answered.size === entry.tiers.length && !entry.done) {
         entry.done = true
@@ -82,9 +88,14 @@
       onDisconnect: listeners(),
       disconnect() {},
       postMessage(msg) {
+        // The background script reads the subject from the header of the message on screen.
+        if (msg.type === "subject") {
+          queueMicrotask(() => port.onMessage.fire({ type: "subject", id: msg.id, subject: sample.header.subject }))
+          return
+        }
         if (msg.type !== "translate") return
         const index = indexOf(msg.request.text)
-        if (index < 0) throw new Error(`not a paragraph of the sample: ${msg.request.text}`)
+        if (index < 0) throw new Error(`not a unit of the sample: ${msg.request.text}`)
         waiting.push({ id: msg.id, index, tiers: msg.request.tiers, answered: new Set(), done: false })
         flush()
       },
@@ -98,6 +109,8 @@
           targetLang: sample.targetLang,
           mode: "bilingual",
           autoTranslate: false,
+          translateSubject: true,
+          renderMarkdown: true,
           tiers,
           signatures: Object.fromEntries(tiers.map((tier) => [tier, tier])),
           precise: false,
@@ -111,7 +124,7 @@
     return port
   }
 
-  /** What the stage drives: start() is the click on the toolbar button, release() one tier's answer for one paragraph. */
+  /** What the stage drives: start() is the click on the toolbar button, release() one tier's answer for one unit (0 the subject, then the paragraphs). */
   const gif = {
     connected: false,
     started: false,
@@ -132,7 +145,7 @@
   const api = {
     runtime: {
       getURL: (path) => `${origin}/${String(path).replace(/^\//, "")}`,
-      getManifest: () => ({ version: "2.0.0", name: "Multi Translate for Thunderbird" }),
+      getManifest: () => ({ version: "2.2.0", name: "Multi Translate for Thunderbird" }),
       sendMessage: (req) => respond(req),
       connect,
       onMessage: listeners(),

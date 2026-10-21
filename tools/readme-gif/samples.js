@@ -1,20 +1,26 @@
 // The sample messages of the README animations (record.mjs), one per variant: a made-up email with made-up names
-// and example.com addresses, the translation each tier gives for every paragraph, and the words of the caption line.
+// and example.com addresses, the translation each tier gives for its subject and for every paragraph, and the words
+// of the caption line.
 // The dictionary lines are the output of the real dictionary tier (translateText() of src/offline/dictionary) with the
 // packs dict-de-en and dict-en-zh-Hans of the release dicts-v1; the zh-TW line is that output in traditional characters.
+// The AI lines are Markdown, as AI services write it: the content script shows the list and the bold date of the
+// third paragraph formatted, and the subject line as plain text. The dictionary and Google Translate lines keep the
+// "- " in front of the list items as characters, as those services do.
 // Caption texts: $1 stands for the service of the tier as the popup names it.
 ;(() => {
   const DE = {
+    subject: "Projekt Nordlicht – Unterlagen für die Abnahme",
     greeting: "Hallo zusammen,",
     feedback:
       "vielen Dank für die schnelle Rückmeldung zum Entwurf. Wir haben die Anmerkungen zum Budget eingearbeitet und die überarbeitete Fassung gestern Abend hochgeladen.",
-    meeting: "Könnten wir die Abnahme auf Donnerstag, 15 Uhr, verschieben? Am Mittwoch bin ich auf einer Messe in Hamburg und nur eingeschränkt erreichbar.",
+    list: "Bitte schickt mir bis Freitag, 23. Oktober:\n- die finale Kostenaufstellung\n- die Folien zum Zeitplan",
     closing: "Viele Grüße\nKatrin",
   }
   const EN = {
+    subject: "Project Northlight – documents for the review",
     greeting: "Hi everyone,",
     feedback: "Thanks for the quick feedback on the draft. We have worked your comments on the budget into it and uploaded the revised version last night.",
-    meeting: "Could we move the review meeting to Thursday afternoon? On Wednesday I will be at a trade fair in Hamburg and hard to reach.",
+    list: "Please send me by Friday, October 23:\n- the final cost breakdown\n- the slides for the timeline",
     closing: "Best regards,\nKate",
   }
 
@@ -24,12 +30,18 @@
       uiTag: "en-US",
       targetLang: "en",
       messageLang: "de",
-      header: { subject: "Projekt Nordlicht – Termin für die Abnahme", from: "Katrin Vogel <katrin.vogel@example.com>", date: "Tue, 13 Oct 2026 09:12", labelFrom: "From", labelDate: "Date", reply: "Reply", forward: "Forward" },
+      header: { subject: DE.subject, from: "Katrin Vogel <katrin.vogel@example.com>", date: "Tue, 13 Oct 2026 09:12", labelFrom: "From", labelDate: "Date", reply: "Reply", forward: "Forward" },
       captions: {
-        intro: "Every paragraph goes to three tiers at the same time",
+        intro: "Subject and paragraphs go to three tiers at once",
         dictionary: "$1: word for word, right away",
         machine: "$1 replaces the dictionary text",
-        ai: "$1 writes the final translation",
+        ai: "$1 writes the final translation in Markdown",
+      },
+      subject: {
+        text: DE.subject,
+        dictionary: "project northern lights – at the base for the Abnahme",
+        machine: "Project Northern Lights – documents for the acceptance",
+        ai: "Project Nordlicht – documents for the sign-off",
       },
       paragraphs: [
         { text: DE.greeting, dictionary: "hello together,", machine: "Hello everyone,", ai: "Hi all," },
@@ -40,10 +52,10 @@
           ai: "Thank you for the quick feedback on the draft. We have worked your comments on the budget into it and uploaded the revised version last night.",
         },
         {
-          text: DE.meeting,
-          dictionary: "be able we the Abnahme on Thursday, 15 hours, move? on Wednesday be I on one fair in Hamburg and only restricted reachable.",
-          machine: "Could we postpone the acceptance to Thursday, 3 p.m.? On Wednesday I am at a trade fair in Hamburg and only available to a limited extent.",
-          ai: "Could we move the sign-off meeting to Thursday at 3 pm? On Wednesday I am at a trade fair in Hamburg and hard to reach.",
+          text: DE.list,
+          dictionary: "please send I until Friday, 23. October:\n- the final Kostenaufstellung\n- the slide to timetable",
+          machine: "Please send me by Friday, October 23rd:\n- the final cost breakdown\n- the slides on the schedule",
+          ai: "Please send me the following by **Friday, 23 October**:\n- the final cost breakdown\n- the slides on the timeline",
         },
         { text: DE.closing, dictionary: "much greeting\nKatrin", machine: "Best regards\nKatrin", ai: "Best regards,\nKatrin" },
       ],
@@ -53,13 +65,14 @@
       uiTag: "zh-CN",
       targetLang: "zh-CN",
       messageLang: "en",
-      header: { subject: "Project Northlight – moving the review", from: "Kate Miller <kate.miller@example.com>", date: "2026/10/13 09:12", labelFrom: "发件人", labelDate: "日期", reply: "回复", forward: "转发" },
+      header: { subject: EN.subject, from: "Kate Miller <kate.miller@example.com>", date: "2026/10/13 09:12", labelFrom: "发件人", labelDate: "日期", reply: "回复", forward: "转发" },
       captions: {
-        intro: "每个段落同时交给三个层级翻译",
+        intro: "标题和每个段落同时交给三个层级翻译",
         dictionary: "$1：逐词直译，立即显示",
         machine: "$1：替换词典译文",
-        ai: "$1：给出最终译文",
+        ai: "$1：给出最终译文，按 Markdown 格式显示",
       },
+      subject: { text: EN.subject, dictionary: "计划Northlight –文档为那检讨", machine: "Northlight 项目 – 审核文件", ai: "Northlight 项目：评审材料" },
       paragraphs: [
         { text: EN.greeting, dictionary: "喂每个人,", machine: "大家好，", ai: "大家好：" },
         {
@@ -69,10 +82,10 @@
           ai: "感谢各位对草稿的及时反馈。我们已按大家对预算的意见做了修改，修订版昨晚已经上传。",
         },
         {
-          text: EN.meeting,
-          dictionary: "可以我们移动那检讨会议到星期四午后?在之上星期三我意志是在一个贸易展览会在期间汉堡和坚硬的到伸出.",
-          machine: "我们可以将审核会议改到星期四下午吗？星期三我将在汉堡参加贸易展览会，很难联系到我。",
-          ai: "评审会能否改到周四下午？周三我在汉堡参加展会，不太方便联系。",
+          text: EN.list,
+          dictionary: "请发送我被星期五,十月23:\n-那期末考试代价崩溃\n-那滑为那时间轴",
+          machine: "请在 10 月 23 日星期五之前发送给我：\n- 最终成本明细\n- 时间表幻灯片",
+          ai: "请在**10月23日（周五）前**发给我：\n- 最终费用明细\n- 时间安排的幻灯片",
         },
         { text: EN.closing, dictionary: "最好的问候,\n凯特", machine: "此致，\n凯特", ai: "祝好\nKate" },
       ],
@@ -82,13 +95,14 @@
       uiTag: "zh-TW",
       targetLang: "zh-TW",
       messageLang: "en",
-      header: { subject: "Project Northlight – moving the review", from: "Kate Miller <kate.miller@example.com>", date: "2026/10/13 09:12", labelFrom: "寄件者", labelDate: "日期", reply: "回覆", forward: "轉寄" },
+      header: { subject: EN.subject, from: "Kate Miller <kate.miller@example.com>", date: "2026/10/13 09:12", labelFrom: "寄件者", labelDate: "日期", reply: "回覆", forward: "轉寄" },
       captions: {
-        intro: "每個段落同時交給三個層級翻譯",
+        intro: "主旨和每個段落同時交給三個層級翻譯",
         dictionary: "$1：逐詞直譯，立即顯示",
         machine: "$1：取代辭典譯文",
-        ai: "$1：產生最終譯文",
+        ai: "$1：產生最終譯文，依 Markdown 格式顯示",
       },
+      subject: { text: EN.subject, dictionary: "計劃Northlight –文檔為那檢討", machine: "Northlight 專案 – 審核文件", ai: "Northlight 專案：評審資料" },
       paragraphs: [
         { text: EN.greeting, dictionary: "喂每個人,", machine: "大家好，", ai: "大家好：" },
         {
@@ -98,10 +112,10 @@
           ai: "感謝各位對草稿的即時回饋。我們已依照大家對預算的意見修改，修訂版昨晚已經上傳。",
         },
         {
-          text: EN.meeting,
-          dictionary: "可以我們移動那檢討會議到星期四午後?在之上星期三我意志是在一個貿易展覽會在期間漢堡和堅硬的到伸出.",
-          machine: "我們可以將審核會議改到星期四下午嗎？星期三我將在漢堡參加貿易展覽會，很難聯絡到我。",
-          ai: "評審會議能否改到週四下午？週三我在漢堡參加展覽，不太方便聯絡。",
+          text: EN.list,
+          dictionary: "請發送我被星期五,十月23:\n-那期末考試代價崩潰\n-那滑為那時間軸",
+          machine: "請在 10 月 23 日星期五之前寄給我：\n- 最終成本明細\n- 時程表投影片",
+          ai: "請在**10月23日（週五）前**寄給我：\n- 最終費用明細\n- 時程安排的投影片",
         },
         { text: EN.closing, dictionary: "最好的問候,\n凱特", machine: "此致，\n凱特", ai: "祝好\nKate" },
       ],

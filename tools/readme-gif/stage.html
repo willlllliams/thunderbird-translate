@@ -152,12 +152,15 @@
       const NAME_KEYS = { dictionary: "tierDictionary", machine: "tierMachine", ai: "tierAi" }
 
       // The timeline in seconds: the popup with the three tiers, then the answers of the tiers; the machine and AI
-      // answers reach the paragraphs one after another, STAGGER apart; the last state stays until the loop restarts.
+      // answers reach the subject line and the paragraphs one after another, STAGGER apart; the last state stays until
+      // the loop restarts.
       const START = 1.6
       const MACHINE = 3.0
       const AI = 5.2
       const STAGGER = 0.2
-      const DURATION = 9.0
+      const DURATION = 10.0
+      /** What the content script translates, in the order of the timeline: the subject line, then the paragraphs. */
+      const UNITS = [sample.subject, ...sample.paragraphs]
 
       document.documentElement.lang = sample.targetLang
       for (const key of ["subject", "from", "date", "labelFrom", "labelDate", "reply", "forward"]) $(key).textContent = sample.header[key]
@@ -179,7 +182,12 @@
       /** The service of a tier as the popup names it. */
       const service = (tier) => popupDoc().getElementById(`tier-${tier}`).selectedOptions[0].textContent.trim()
 
-      /** The tier whose answer a paragraph shows at time `s`, or null before the translation starts. */
+      /** The elements of the units in the message body: the text of the subject line, then the paragraphs. */
+      const unitElements = () => [bodyDoc().querySelector(".tt-subject-text"), ...bodyDoc().querySelectorAll("body > p")]
+      /** A text as it reads on screen: without the list and bold marks of Markdown and without whitespace. */
+      const plain = (text) => text.replace(/^[-*+] /gm, "").replace(/\*\*/g, "").replace(/\s+/g, "")
+
+      /** The tier whose answer unit `i` shows at time `s`, or null before the translation starts. */
       function shown(i, s) {
         if (s >= AI + i * STAGGER) return "ai"
         if (s >= MACHINE + i * STAGGER) return "machine"
@@ -221,21 +229,29 @@
           }
           const gif = $("body").contentWindow.__gif
           if (s >= START) gif.start()
-          sample.paragraphs.forEach((_, i) => {
+          UNITS.forEach((_, i) => {
             const tier = shown(i, s)
             for (const lower of TIERS.slice(0, tier ? TIERS.indexOf(tier) + 1 : 0)) gif.release(lower, i)
           })
         },
-        /** Whether every paragraph shows the answer the time `s` asks for. */
+        /**
+         * Whether the subject line and every paragraph show the answer the time `s` asks for: a lower tier as text with
+         * its mark, the AI tier as the final translation, its Markdown rendered in the paragraphs (list items, bold)
+         * and removed in the subject line.
+         */
         settled(s) {
-          const ps = bodyDoc().querySelectorAll("body > p")
-          return sample.paragraphs.every((p, i) => {
+          const elements = unitElements()
+          return UNITS.every((unit, i) => {
             const tier = shown(i, s)
-            const node = ps[i].querySelector(".tt-translation")
-            if (!tier) return !node && !ps[i].querySelector(".tt-status")
-            if (!node || !node.textContent.startsWith(p[tier])) return false
+            const el = elements[i]
+            if (!tier) return !el?.querySelector(".tt-translation, .tt-status")
+            const node = el?.querySelector(".tt-translation")
+            if (!node) return false
             const tag = node.querySelector(".tt-tag")
-            return tier === "ai" ? !node.classList.contains("tt-provisional") && !tag : node.classList.contains("tt-provisional") && tag?.textContent === t(NAME_KEYS[tier])
+            if (tier !== "ai") return node.textContent.startsWith(unit[tier]) && node.classList.contains("tt-provisional") && tag?.textContent === t(NAME_KEYS[tier])
+            if (node.classList.contains("tt-provisional") || tag || plain(node.textContent) !== plain(unit.ai)) return false
+            if (i === 0) return !node.textContent.includes("**")
+            return (!/^- /m.test(unit.ai) || node.querySelector("li")) && (!unit.ai.includes("**") || node.querySelector("strong"))
           })
         },
       }
