@@ -19,12 +19,22 @@ export async function displayedSubject(tabId: number): Promise<string | null> {
   return typeof subject === "string" && subject.trim() ? subject : null
 }
 
-/** Sender, date (ISO 8601, "" when unreadable) and subject of the message on screen in `tabId`; null without a message. */
+/**
+ * `date` in ISO 8601 as the clock of the reader shows it, to the minute, with its offset: "2026-10-22T07:00+08:00".
+ * The summary resolves "tomorrow" against the date of the message, which is the date of the reader, not of UTC.
+ */
+export function localIso(date: Date, offset = -date.getTimezoneOffset()): string {
+  const pad = (n: number) => String(n).padStart(2, "0")
+  const abs = Math.abs(offset)
+  return `${new Date(date.getTime() + offset * 60_000).toISOString().slice(0, 16)}${offset < 0 ? "-" : "+"}${pad(Math.trunc(abs / 60))}:${pad(abs % 60)}`
+}
+
+/** Sender, date (ISO 8601 in the time zone of the reader, "" when unreadable) and subject of the message on screen in `tabId`; null without a message. */
 export async function displayedHeader(tabId: number): Promise<MailHeader | null> {
   const message = await browser.messageDisplay.getDisplayedMessage(tabId)
   if (!message) return null
   const date = new Date(message.date)
-  return { author: message.author, date: Number.isNaN(date.getTime()) ? "" : date.toISOString(), subject: message.subject }
+  return { author: message.author, date: Number.isNaN(date.getTime()) ? "" : localIso(date), subject: message.subject }
 }
 
 /** The id of the message on screen in `tabId`; null without a message. */

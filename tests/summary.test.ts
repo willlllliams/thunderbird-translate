@@ -8,7 +8,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 import { createCommandRunner } from "../src/background/commands"
 import { buildSummaryPrompt, buildSummarySystem, MAX_SUMMARY_ITEMS, parseSummary } from "../src/background/summary"
-import { displayedHeader } from "../src/background/subject"
+import { displayedHeader, localIso } from "../src/background/subject"
 import { createTabRegistry } from "../src/background/tabs"
 import type { LlmCallOptions } from "../src/background/translators/llm"
 import type { MailAnalysis, Segment } from "../src/background/translators/llm-prompt"
@@ -245,7 +245,11 @@ describe("the background script", () => {
   it("reads sender, date and subject of the message on screen", async () => {
     const getDisplayedMessage = vi.fn(async (tabId: number) => (tabId === 1 ? { id: 1, author: "Anna", date: new Date("2026-10-21T07:12:00Z"), subject: "Hi" } : tabId === 2 ? { id: 2, author: "", date: "not a date", subject: "" } : null))
     vi.stubGlobal("browser", { messageDisplay: { getDisplayedMessage } })
-    expect(await displayedHeader(1)).toEqual({ author: "Anna", date: "2026-10-21T07:12:00.000Z", subject: "Hi" })
+    expect(await displayedHeader(1)).toEqual({ author: "Anna", date: localIso(new Date("2026-10-21T07:12:00Z")), subject: "Hi" })
+    // B10: the date of the reader, with its offset.
+    expect(localIso(new Date("2026-10-21T23:00:00Z"), 480)).toBe("2026-10-22T07:00+08:00")
+    expect(localIso(new Date("2026-10-21T03:30:00Z"), -330)).toBe("2026-10-20T22:00-05:30")
+    expect(localIso(new Date("2026-10-21T07:12:00Z"), 0)).toBe("2026-10-21T07:12+00:00")
     expect(await displayedHeader(2)).toEqual({ author: "", date: "", subject: "" })
     expect(await displayedHeader(3)).toBeNull()
     vi.unstubAllGlobals()
