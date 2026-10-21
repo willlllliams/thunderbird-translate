@@ -245,6 +245,13 @@ describe("links", () => {
     expect(html(`[x](${at}b)`)).toBe(`[x](${at}b)`)
     expect(html(`[x](<${at}b>)`)).toBe(`[x](&lt;${at}b&gt;)`)
   })
+
+  it("reads parentheses in a destination nested up to 32 deep", () => {
+    const nested = (n: number) => `https://e.com/${"(".repeat(n)}a${")".repeat(n)}`
+    expect(elements(`[x](${nested(32)})`)).toEqual([{ tag: "a", attrs: ["href", "rel"] }])
+    expect(elements(`[x](${nested(33)})`)).toEqual([])
+    expect(stripMarkdown(`[x](${nested(33)})`)).toBe(`[x](${nested(33)})`)
+  })
 })
 
 describe("safety", () => {

@@ -18,15 +18,15 @@
  * right after it neither opens nor closes, so 2*3*4 stays arithmetic.
  *
  * A link to any other address (javascript:, data:, a relative path, a user
- * name before the host, more than MAX_DESTINATION characters) stays as its
- * whole source text. Unclosed or invalid markup stays as its characters.
+ * name before the host, more than MAX_DESTINATION characters, parentheses
+ * nested more than MAX_PARENS deep) stays as its whole source text. Unclosed or invalid markup stays as its characters.
  * Headings, tables, images and HTML are not read: their characters stay.
  *
  * Parsing takes time linear in the length of the text: delimiters are
  * matched with the "openers bottom" bound of CommonMark, closing backtick
- * runs are looked up in an index, a link destination is read at most
- * MAX_DESTINATION characters far, and nodes move between lists in constant
- * time. Elements nest at most MAX_DEPTH deep; deeper markup keeps its text
+ * runs are looked up in an index, at most MAX_PARENS + 1 link destinations
+ * read any one character (each one still read has its "(" unclosed, so they
+ * nest), and nodes move between lists in constant time. Elements nest at most MAX_DEPTH deep; deeper markup keeps its text
  * without the element.
  */
 
@@ -74,8 +74,10 @@ export type MarkdownBlock = { kind: "text"; text: string } | { kind: "list"; ord
 
 /** Elements nest at most this deep. */
 const MAX_DEPTH = 16
-/** A link destination longer than this stays text: every "](" then scans at most this far. */
+/** A link destination longer than this stays text. */
 const MAX_DESTINATION = 2048
+/** Parentheses nest at most this deep in a link destination, as in cmark. */
+const MAX_PARENS = 32
 
 const ASCII_PUNCT = /[!-/:-@[-`{-~]/
 const UNICODE_WS = /[\p{Zs}\t\n\f\r]/u
@@ -127,6 +129,7 @@ function linkDestination(s: string, i: number): { raw: string; end: number } | n
         if (depth === 0) break
         depth--
       }
+      if (depth > MAX_PARENS) return null
       j++
     }
     if (depth !== 0 || j === start || j - start > MAX_DESTINATION) return null
