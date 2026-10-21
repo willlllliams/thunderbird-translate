@@ -1,5 +1,5 @@
 /**
- * The three prompts of the AI tier and the prompt of the summary, each with
+ * The three prompts of the AI tier and the prompts of the summary and of the images, each with
  * its "Restore built-in prompt" button, and the preset library that adds
  * rules to one of the three; its first
  * entry, "Plain", removes the rules that presets added. Shared by
@@ -23,6 +23,7 @@ const KIND_LABELS: Record<PromptName, MessageKey> = {
   translationOnly: "labelPromptTranslationOnly",
   precise: "labelPromptPrecise",
   summary: "labelPromptSummary",
+  image: "labelPromptImage",
 }
 
 /** Short names of the prompts in the "Apply to" list. */

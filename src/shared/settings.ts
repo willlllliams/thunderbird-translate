@@ -5,6 +5,7 @@ import { appLang, LANGUAGES, languageTag } from "./languages"
 import { normalizeUiLanguageSetting, type UiLanguageSetting } from "./locales"
 import { DEFAULT_PROMPTS, PROMPT_NAMES, type PromptKind, type PromptName, promptText } from "./prompts"
 import { DEFAULT_PROVIDER_ID, getPreset, isAiProvider, PROVIDER_PRESETS, type ProviderPreset, type Tier, TIERS, tierOf } from "./providers"
+import { type UploadFormat, uploadFormat, type VisionSupport, visionSupport } from "./vision"
 
 export type DisplayMode = "bilingual" | "translation-only"
 const STYLE_PRESETS = ["border", "dashed", "highlight", "plain"] as const
@@ -66,6 +67,54 @@ export interface SummarySettings {
   maxOutputTokens: number
   /** The panel opens expanded or collapsed. */
   display: "expanded" | "collapsed"
+}
+
+/** How the images of a message are translated: not at all, after a click on the button under each image, or by themselves. */
+export const IMAGE_MODES = ["off", "ask", "auto"] as const
+export type ImageMode = (typeof IMAGE_MODES)[number]
+
+/** The text in the images of a message (Settings.image). Precise translation and a service that reads images are needed. */
+export interface ImageSettings {
+  mode: ImageMode
+  /** AI service that reads the images; null = the service of the AI tier. */
+  provider: string | null
+  /** Model for images; "" = the model of the service. */
+  model: string
+  /** Which images: inline ones of the body (cid: and data:) and image attachments. Remote images never. */
+  sources: { inline: boolean; attachments: boolean }
+  /** Images sent per message: "auto" takes the first ones, the others get the button. */
+  maxPerMessage: number
+  /** Filters of the content script, on the natural size: the short side, the area and the ratio of the long side to the short one. */
+  minSide: number
+  minArea: number
+  maxAspect: number
+  skipSignature: boolean
+  /** Filters of the background script, on the bytes: the size (KB), and animated images skipped or sent as their first frame. */
+  minKB: number
+  animated: "skip" | "firstFrame"
+  /** The upload: long edge (px), format, quality of JPEG and WebP, the limits per image (KB) and per message (MB), the detail of OpenAI and DeepSeek. */
+  maxLongEdge: number
+  format: "jpeg" | "webp" | "png"
+  quality: number
+  maxImageKB: number
+  maxMessageMB: number
+  detail: "auto" | "low" | "high"
+  /** The answer: a table of original and translation, a short summary, or both; images without text skipped or described in a sentence. */
+  output: "table" | "summary" | "both"
+  noText: "skip" | "describe"
+  /** The table has the original text beside the translation; off: a list of translations. */
+  showSource: boolean
+  /** The glossary of the analysis of precise translation goes with each image. */
+  useContext: boolean
+  maxOutputTokens: number
+  timeoutSeconds: number
+  /** Image requests at the same time, in a queue of their own. */
+  concurrency: number
+  /** The result opens expanded or collapsed; its title names the tokens of the request. */
+  display: "expanded" | "collapsed"
+  showUsage: boolean
+  /** Ask before the first image of every message, without recording the answer. */
+  confirmEachMessage: boolean
 }
 
 export function emptyProviderConfig(): ProviderConfig {
@@ -132,6 +181,9 @@ export interface Settings {
    */
   onlineConsent: string[]
   summary: SummarySettings
+  image: ImageSettings
+  /** AI services the user allowed to receive the images of messages, by id; asked apart from onlineConsent. */
+  imageConsent: string[]
   batch: BatchSettings
   cache: { enabled: boolean; maxEntries: number }
   style: StyleSettings
@@ -167,15 +219,96 @@ export function createDefaultSettings(uiLang?: string): Settings {
     renderMarkdown: true,
     tiers: { ...DEFAULT_TIERS },
     providers,
-    prompts: { bilingual: "", translationOnly: "", precise: "", summary: "" },
+    prompts: { bilingual: "", translationOnly: "", precise: "", summary: "", image: "" },
     precise: { enabled: false },
     dictionary: { releaseTag: DEFAULT_DICT_TAG },
     offlineMutedPairs: [],
     onlineConsent: [],
     summary: { provider: null, model: "", inlineButton: false, parts: [...SUMMARY_PARTS], maxOutputTokens: 800, display: "expanded" },
+    image: defaultImageSettings(),
+    imageConsent: [],
     batch: { batchDelayMs: 50, maxCharsPerBatch: 3000, maxItemsPerBatch: 30, concurrency: 4, maxRetries: 3, timeoutSeconds: 60, llmBatchEnabled: true },
     cache: { enabled: true, maxEntries: 5000 },
     style: { preset: "border", color: "#4c8bf5", textColor: "", opacity: 0.85, fontScale: 1 },
+  }
+}
+
+/** The image settings of a fresh installation: a button under each image once precise translation is on. */
+export function defaultImageSettings(): ImageSettings {
+  return {
+    mode: "ask",
+    provider: null,
+    model: "",
+    sources: { inline: true, attachments: true },
+    maxPerMessage: 5,
+    minSide: 100,
+    minArea: 40000,
+    maxAspect: 8,
+    skipSignature: true,
+    minKB: 4,
+    animated: "skip",
+    maxLongEdge: 1568,
+    format: "jpeg",
+    quality: 0.85,
+    maxImageKB: 1500,
+    maxMessageMB: 6,
+    detail: "auto",
+    output: "table",
+    noText: "skip",
+    showSource: true,
+    useContext: true,
+    maxOutputTokens: 1024,
+    timeoutSeconds: 90,
+    concurrency: 2,
+    display: "expanded",
+    showUsage: true,
+    confirmEachMessage: false,
+  }
+}
+
+/** The range of each number of the image settings; the settings page gives its fields the same min and max. */
+export const IMAGE_RANGES = {
+  maxPerMessage: [1, 20],
+  minSide: [16, 1000],
+  minArea: [0, 4_000_000],
+  maxAspect: [2, 30],
+  minKB: [0, 200],
+  maxLongEdge: [512, 2576],
+  quality: [0.5, 0.95],
+  maxImageKB: [200, 8000],
+  maxMessageMB: [1, 30],
+  maxOutputTokens: [128, 4096],
+  timeoutSeconds: [10, 600],
+  concurrency: [1, 6],
+} as const satisfies Partial<Record<keyof ImageSettings, readonly [number, number]>>
+
+/** `value` when it is one of `values`, else the first of them. */
+const oneOf = <T extends string>(value: unknown, values: readonly T[]): T => (values.includes(value as T) ? (value as T) : values[0])
+
+/** Image settings from stored settings: a missing or unknown value takes the default, a number is clamped to its range. */
+function normalizeImage(stored: unknown): ImageSettings {
+  const d = defaultImageSettings()
+  const s = (stored && typeof stored === "object" ? stored : {}) as Partial<Record<keyof ImageSettings, unknown>>
+  const sources = (s.sources && typeof s.sources === "object" ? s.sources : {}) as Partial<Record<keyof ImageSettings["sources"], unknown>>
+  const numbers = Object.fromEntries(Object.entries(IMAGE_RANGES).map(([key, [min, max]]) => [key, num(s[key as keyof ImageSettings], d[key as keyof typeof IMAGE_RANGES], min, max)]))
+  return {
+    ...d,
+    ...(numbers as Pick<ImageSettings, keyof typeof IMAGE_RANGES>),
+    mode: oneOf(s.mode, ["ask", "off", "auto"]),
+    provider: isAiProvider(getPreset(String(s.provider))) ? (s.provider as string) : null,
+    model: typeof s.model === "string" ? s.model.trim() : "",
+    sources: { inline: sources.inline !== false, attachments: sources.attachments !== false },
+    skipSignature: s.skipSignature !== false,
+    animated: oneOf(s.animated, ["skip", "firstFrame"]),
+    format: oneOf(s.format, ["jpeg", "webp", "png"]),
+    detail: oneOf(s.detail, ["auto", "low", "high"]),
+    output: oneOf(s.output, ["table", "summary", "both"]),
+    noText: oneOf(s.noText, ["skip", "describe"]),
+    showSource: s.showSource !== false,
+    useContext: s.useContext !== false,
+    display: oneOf(s.display, ["expanded", "collapsed"]),
+    showUsage: s.showUsage !== false,
+    confirmEachMessage: s.confirmEachMessage === true,
   }
 }
 
@@ -246,10 +379,10 @@ const isBuiltInPrompt = (kind: PromptName, text: string) => [PROMPT_1_0, DEFAULT
  * both display modes.
  */
 function normalizePrompts(stored: Partial<Settings> & LegacySettings): Record<PromptName, string> {
-  const prompts: Record<PromptName, string> = { bilingual: "", translationOnly: "", precise: "", summary: "" }
+  const prompts: Record<PromptName, string> = { bilingual: "", translationOnly: "", precise: "", summary: "", image: "" }
   const own = (kind: PromptName, value: unknown) => (typeof value === "string" && value.trim() && !isBuiltInPrompt(kind, value) ? value : "")
   if (stored.prompts && typeof stored.prompts === "object") {
-    // Settings saved before 2.3.0 have no summary prompt, which stands for the built-in one.
+    // Settings saved before 2.3.0 have no summary prompt, those before 2.4.0 no image prompt: each stands for the built-in one.
     for (const kind of PROMPT_NAMES) prompts[kind] = own(kind, (stored.prompts as Partial<Record<PromptName, unknown>>)[kind])
   } else {
     prompts.bilingual = own("bilingual", stored.systemPrompt)
@@ -316,6 +449,9 @@ export function normalizeSettings(stored: unknown, uiLang?: string): Settings {
       maxOutputTokens: num(sum.maxOutputTokens, d.summary.maxOutputTokens, 200, 4000),
       display: sum.display === "collapsed" ? "collapsed" : "expanded",
     },
+    // Settings saved before 2.4.0 have no image settings and no image consent: the defaults.
+    image: normalizeImage(s.image),
+    imageConsent: Array.isArray(s.imageConsent) ? [...new Set(s.imageConsent.filter((id): id is string => typeof id === "string" && isOnlineService(id) && isAiProvider(getPreset(id))))] : [],
     batch: {
       batchDelayMs: num(b.batchDelayMs, d.batch.batchDelayMs, 0, 2000),
       maxCharsPerBatch: num(b.maxCharsPerBatch, d.batch.maxCharsPerBatch, 200, 50000),
@@ -344,11 +480,10 @@ export function normalizeSettings(stored: unknown, uiLang?: string): Settings {
 
 /** DeepL options from stored settings; a missing or unknown value takes the default. */
 function normalizeDeepl(stored: Partial<Record<keyof DeeplOptions, unknown>>): DeeplOptions {
-  const pick = <T extends string>(value: unknown, values: readonly T[]) => (values.includes(value as T) ? (value as T) : values[0])
   return {
-    formality: pick(stored.formality, ["default", "more", "less"]),
-    english: pick(stored.english, ["EN-US", "EN-GB"]),
-    portuguese: pick(stored.portuguese, ["PT-BR", "PT-PT"]),
+    formality: oneOf(stored.formality, ["default", "more", "less"]),
+    english: oneOf(stored.english, ["EN-US", "EN-GB"]),
+    portuguese: oneOf(stored.portuguese, ["PT-BR", "PT-PT"]),
   }
 }
 
@@ -517,6 +652,44 @@ export function summaryProvider(settings: Settings): string | null {
   return chosen && settings.providers[chosen]?.enabled ? chosen : settings.tiers.ai
 }
 
+/** The AI service that reads images: the added service chosen for them, else the service of the AI tier; null without either. */
+export function visionProvider(settings: Settings): string | null {
+  const chosen = settings.image.provider
+  return chosen && settings.providers[chosen]?.enabled ? chosen : settings.tiers.ai
+}
+
+/** The service `id` as image requests use it: the image model when one is set, and never thinking first, which reading text does not need and which is charged as output. */
+export function resolveVisionProvider(settings: Settings, id: string): ResolvedProvider {
+  const provider = resolveProvider(settings, id)
+  return { ...provider, model: settings.image.model || provider.model, thinking: false }
+}
+
+/** Whether the images of a message are translated, and by which service and model. */
+export interface ImageStatus {
+  /** The vision service; null without an AI service. */
+  id: string | null
+  model: string
+  /** Whether the model reads images (shared/vision.ts); null without a service. */
+  support: VisionSupport | null
+  /** The mode of the settings applies: precise translation is on and the model is not known to refuse images. */
+  active: boolean
+}
+
+export function imageStatus(settings: Settings): ImageStatus {
+  const id = visionProvider(settings)
+  if (!id) return { id, model: "", support: null, active: false }
+  const { model } = resolveVisionProvider(settings, id)
+  const support = visionSupport(id, model)
+  return { id, model, support, active: settings.precise.enabled && settings.tiers.ai !== null && support !== "no" }
+}
+
+/** The consent the vision service still needs before images go to it; null once it is allowed, and with "confirm each message" on, always the question. */
+function imageConsentNeed(settings: Settings, id: string): ConsentNeed | null {
+  if (!settings.image.confirmEachMessage && settings.imageConsent.includes(id)) return null
+  const origin = providerOrigin(resolveProvider(settings, id))
+  return { id, host: origin ? patternHost(origin) : "" }
+}
+
 /** Settings that content scripts may see. Never contains API keys, nor endpoints, which may hold a token; only the host of a service that awaits consent. */
 export interface PublicSettings {
   uiLanguage: UiLanguageSetting
@@ -545,6 +718,54 @@ export interface PublicSettings {
   consent: ConsentNeed[]
   /** Summary and to-dos: whether a service is there, the button above a translated message, the panel collapsed, and the consent its service still needs. */
   summary: { available: boolean; inlineButton: boolean; collapsed: boolean; consent: ConsentNeed | null }
+  image: PublicImageSettings
+}
+
+/** What the content script needs of the image settings: the filters it applies itself, and what the consent panel says. */
+export interface PublicImageSettings {
+  /** "off" as well when image translation does not apply (imageStatus()). */
+  mode: ImageMode
+  sources: ImageSettings["sources"]
+  maxPerMessage: number
+  minSide: number
+  minArea: number
+  maxAspect: number
+  skipSignature: boolean
+  collapsed: boolean
+  showUsage: boolean
+  /** The consent the vision service still needs (always with "confirm each message"). */
+  consent: ConsentNeed | null
+  confirmEachMessage: boolean
+  /** What the consent panel says is sent: the long edge and the format. */
+  maxLongEdge: number
+  format: UploadFormat
+  /** A hash of what decides the result of an image besides the image: when it changes, the content script asks again. */
+  signature: string
+}
+
+/** The image settings for the content script. */
+function publicImageSettings(settings: Settings): PublicImageSettings {
+  const status = imageStatus(settings)
+  const s = settings.image
+  const format = status.id ? uploadFormat(status.id, `image/${s.format}`) : "image/jpeg"
+  const provider = status.id ? resolveVisionProvider(settings, status.id) : null
+  const parts = [status.id, status.model, provider?.baseURL, promptText(settings.prompts, "image"), settings.targetLang, s.output, s.noText, s.showSource, s.useContext, s.maxLongEdge, format, s.quality, s.detail, s.minKB, s.animated, s.maxImageKB, s.maxMessageMB, s.maxOutputTokens]
+  return {
+    mode: status.active ? s.mode : "off",
+    sources: { ...s.sources },
+    maxPerMessage: s.maxPerMessage,
+    minSide: s.minSide,
+    minArea: s.minArea,
+    maxAspect: s.maxAspect,
+    skipSignature: s.skipSignature,
+    collapsed: s.display === "collapsed",
+    showUsage: s.showUsage,
+    consent: status.id ? imageConsentNeed(settings, status.id) : null,
+    confirmEachMessage: s.confirmEachMessage,
+    maxLongEdge: s.maxLongEdge,
+    format,
+    signature: hashText(parts.join("\n")),
+  }
 }
 
 export function toPublicSettings(settings: Settings): PublicSettings {
@@ -574,5 +795,6 @@ export function toPublicSettings(settings: Settings): PublicSettings {
       collapsed: settings.summary.display === "collapsed",
       consent: summarizer ? consentNeed(settings, summarizer) : null,
     },
+    image: publicImageSettings(settings),
   }
 }

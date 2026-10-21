@@ -2,7 +2,7 @@
 import { vi } from "vitest"
 import type { TranslateRequest, TranslateResponse } from "../../src/shared/messages"
 import type { Tier } from "../../src/shared/providers"
-import type { PublicSettings } from "../../src/shared/settings"
+import type { PublicImageSettings, PublicSettings } from "../../src/shared/settings"
 
 export type OnTier = (tier: Tier, result: TranslateResponse) => void
 
@@ -22,6 +22,26 @@ export const publicSettings = (over: Partial<PublicSettings> = {}): PublicSettin
   offlineMutedPairs: [],
   consent: [],
   summary: { available: false, inlineButton: false, collapsed: false, consent: null },
+  image: imageSettings(),
+  ...over,
+})
+
+/** The image settings of the content script: "off" unless the test says otherwise, the filters of the defaults. */
+export const imageSettings = (over: Partial<PublicImageSettings> = {}): PublicImageSettings => ({
+  mode: "off",
+  sources: { inline: true, attachments: true },
+  maxPerMessage: 5,
+  minSide: 100,
+  minArea: 40000,
+  maxAspect: 8,
+  skipSignature: true,
+  collapsed: false,
+  showUsage: true,
+  consent: null,
+  confirmEachMessage: false,
+  maxLongEdge: 1568,
+  format: "image/jpeg",
+  signature: "sig",
   ...over,
 })
 

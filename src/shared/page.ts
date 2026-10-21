@@ -9,7 +9,8 @@ import { LOCALE_NATIVE_NAMES, localeToLanguageTag, matchUiLocale, SUPPORTED_LOCA
 import { type OfflineStatus, type OptionsPlace, send } from "./messages"
 import { lacksData, type OfflineService, offlineServiceOf } from "./offline-needs"
 import { PROVIDER_PRESETS, providerDisplayName, type Tier, TIER_NAME_KEYS, TIERS, tierOf } from "./providers"
-import { addedProviders, type Settings, type TierSettings, tiersValid } from "./settings"
+import { addedProviders, type ImageStatus, type Settings, type TierSettings, tiersValid } from "./settings"
+import { SUGGESTED_VISION_MODELS } from "./vision"
 
 export const $ = <T extends HTMLElement>(id: string) => document.getElementById(id) as T
 
@@ -154,4 +155,12 @@ export function showSaveError(error: unknown): void {
   saved.textContent = t("errSaveFailed", [firstLine(description)])
   saved.title = description
   saved.classList.add("show", "error")
+}
+
+/** What a page says about the vision model: that it refuses images, with a model that reads them, or that it is not known; "" for a model that reads them. */
+export function visionHint({ id, model, support }: ImageStatus): string {
+  if (!id || support === "yes" || support === null) return ""
+  if (support === "unknown") return t("hintVisionUnknown", [model])
+  const suggested = SUGGESTED_VISION_MODELS[id]
+  return suggested ? t("hintVisionNo", [model, suggested]) : t("hintVisionNoSuggestion", [model])
 }

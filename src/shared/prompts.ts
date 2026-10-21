@@ -1,7 +1,7 @@
 /**
  * System prompts of the AI tier. Each display mode has its own prompt, and
  * precise translation has a third one; the summary of a message has a
- * fourth. `{{to}}` stands for the target language; the source language and
+ * fourth, the text of an image (background/image-prompt.ts) a fifth. `{{to}}` stands for the target language; the source language and
  * the batch format are added to the request by the extension.
  */
 
@@ -9,9 +9,9 @@ export type PromptKind = "bilingual" | "translationOnly" | "precise"
 
 export const PROMPT_KINDS: readonly PromptKind[] = ["bilingual", "translationOnly", "precise"]
 
-/** The prompts of the settings: the three of the AI tier and the one of the summary. */
-export type PromptName = PromptKind | "summary"
-export const PROMPT_NAMES: readonly PromptName[] = [...PROMPT_KINDS, "summary"]
+/** The prompts of the settings: the three of the AI tier, the one of the summary and the one of the images. */
+export type PromptName = PromptKind | "summary" | "image"
+export const PROMPT_NAMES: readonly PromptName[] = [...PROMPT_KINDS, "summary", "image"]
 
 const COMMON_RULES = `- Keep names, email addresses, URLs, numbers, dates, code and product names unchanged unless they have an established translation.
 - Keep line breaks and list markers.
@@ -49,6 +49,23 @@ ${COMMON_RULES}`,
 - questions: questions the reader is asked and should answer, with "from".
 - dates: meetings, appointments and deadlines with "what", "when" (same rule as "due") and "where".
 - Use [] for an empty list. Do not invent people, tasks or dates that the email does not contain.`,
+  // The text of an image (background/image-prompt.ts): the extension adds the rules of the output format after it.
+  image: `You read an image from an email for a reader of {{to}}. Answer in Markdown.
+
+First decide which kind of image it is:
+- CHART: a chart, graph or diagram with a title, axes, a legend or labels.
+- TEXT: a screenshot, scan, poster, slide, table, receipt or any image whose main content is text.
+- OTHER: a photo, illustration, logo or decoration without text worth reading.
+
+CHART: translate only the labels: the title, the axis titles, the units, the legend entries and series names, and the category labels. Do not describe trends, values, peaks, shapes or comparisons; the reader looks at the chart for those.
+
+TEXT: transcribe every legible text in reading order and translate it. When the image itself is a table, keep its rows and columns.
+
+Rules:
+- Never guess. Write text you cannot read with confidence as [?]. Do not invent, complete or correct words.
+- Copy names, numbers, dates, e-mail addresses, URLs and codes unchanged.
+- Text already in {{to}} stays as it is.
+- No headings, no introduction, no closing remarks.`,
 }
 
 /** The prompt of one kind; an empty prompt means the default. */

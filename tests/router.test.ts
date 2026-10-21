@@ -160,6 +160,7 @@ describe("requests from pages", () => {
       offlineProgress: true,
       offlineRemove: true,
       summarizeTab: true,
+      testVision: true,
     } satisfies Record<RequestType, true>)
     expect(Object.keys(router().handlers).sort()).toEqual(types.sort())
   })

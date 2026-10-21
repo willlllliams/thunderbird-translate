@@ -23,6 +23,8 @@ export interface BackgroundApi {
   summarizeTab: { req: { tabId: number }; res: void }
   getTabState: { req: { tabId: number }; res: TabState }
   testProvider: { req: { providerId: string; config: ProviderConfig; targetLang: string }; res: TranslateResponse }
+  /** Reads the built-in test image with an unsaved configuration of an AI service and `model` ("" = the model of the configuration); ok when the answer names its number. */
+  testVision: { req: { providerId: string; config: ProviderConfig; model: string }; res: TranslateResponse }
   clearCache: { req: NoFields; res: void }
   cacheStats: { req: NoFields; res: { size: number } }
   getLocaleMessages: { req: { uiLanguage: UiLanguageSetting }; res: LocaleMessages }
@@ -193,6 +195,36 @@ export interface TabState {
 /** State of a tab without a connected content script. */
 export const IDLE_TAB_STATE: TabState = { connected: false, active: false, total: 0, done: 0, provisional: 0, failed: 0 }
 
+/** An image of the displayed message, as the content script hands it over: a part of the message (cid: images, image attachments) or a data: URI. */
+export interface ImageRequest {
+  source: { part: string } | { data: string }
+  /** The natural size. */
+  width: number
+  height: number
+  /** Its place among the images of the message that pass the filters of the content script, from 1. */
+  index: number
+  /** "peek": the cached result, or whether the image passes the filters of the background script, with nothing sent; "translate": send it to the service. */
+  action: "peek" | "translate"
+  /** Precise mode: the id of the message registered as context, whose analysis lends its glossary. */
+  context?: string
+  /** Retranslation: a peek forgets the cached result, a translation passes the cache. */
+  fresh?: boolean
+  /** Counts the translations of the message by the content script: the limits per message apply to each. */
+  round: number
+}
+
+/** The answer to an image request. */
+export type ImageResponse =
+  /** The text of the image as Markdown; `truncated` when the answer reached its length limit. */
+  | { status: "done"; text: string; service: string; cached: boolean; usage?: { input: number; output: number }; truncated?: boolean }
+  /** The service found no text worth translating. */
+  | { status: "noText"; service: string }
+  /** A peek without a cached result: the image may go to the service. */
+  | { status: "ready" }
+  /** Left out, and why; `quiet` for the filters (too small, animated), which show nothing. */
+  | { status: "skipped"; reason: string; quiet?: true }
+  | { status: "error"; error: string }
+
 /** Messages pushed from background to content scripts over a runtime Port. */
 export type PortPush =
   | { type: "settings"; settings: PublicSettings }
@@ -205,6 +237,8 @@ export type PortPush =
   | { type: "summary"; id: number; result: SummaryResponse }
   /** The result of one tier for request `id`. */
   | { type: "tier"; id: number; tier: Tier; result: TranslateResponse }
+  /** Answer to the image request `id`. */
+  | { type: "imageResult"; id: number; result: ImageResponse }
   /** Request `id` is complete; tiers that did not report were not asked. */
   | { type: "done"; id: number }
   /** Answer to the subject request `id`: the subject of the message displayed in the tab, null when there is none. */
@@ -222,6 +256,10 @@ export type PortReport =
   | { type: "subject"; id: number }
   /** The summary of the message displayed in the tab of the content script, of its text (MailContext.text); answered with a "summary" push of the same id. `bypassCache`: generate it again. */
   | { type: "summary"; id: number; text: string; bypassCache?: boolean }
+  /** An image of the displayed message; answered with an "imageResult" push of the same id. */
+  | { type: "image"; id: number; image: ImageRequest }
+  /** The user allowed these services to receive the images of messages, in the panel under an image; `message`: for the displayed message only. */
+  | { type: "imageConsent"; ids: string[]; message?: boolean }
 
 export const CONTENT_PORT_NAME = "tt-content"
 /** The Port of the page of translated subjects (subjects.html): its requests carry subjects of real messages, so the consent rules apply. */
@@ -234,7 +272,7 @@ function ofTypes<T extends { type: string }>(types: Record<T["type"], true>) {
 }
 
 /** A push of the background script, as the content script receives it over the Port. */
-export const isPortPush = /* @__PURE__ */ ofTypes<PortPush>({ settings: true, toggle: true, retranslate: true, summarize: true, summary: true, tier: true, done: true, subject: true, offlineDataChanged: true })
+export const isPortPush = /* @__PURE__ */ ofTypes<PortPush>({ settings: true, toggle: true, retranslate: true, summarize: true, summary: true, imageResult: true, tier: true, done: true, subject: true, offlineDataChanged: true })
 
 /** A report of a content script, as the background script receives it over the Port. */
-export const isPortReport = /* @__PURE__ */ ofTypes<PortReport>({ state: true, context: true, translate: true, subject: true, summary: true })
+export const isPortReport = /* @__PURE__ */ ofTypes<PortReport>({ state: true, context: true, translate: true, subject: true, summary: true, image: true, imageConsent: true })
