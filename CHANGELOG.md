@@ -2,6 +2,17 @@
 
 All notable changes to this project are documented in this file, with the date of each version. It lists what users of the extension notice. The record up to 1.12.0 with the internal changes is kept in [docs/archive/CHANGELOG-full.md](docs/archive/CHANGELOG-full.md). Versions follow [Semantic Versioning](https://semver.org/).
 
+## 2.2.1 - 2026-10-21
+
+### Fixed
+
+- A translation with many unclosed `[](` took time that grew with the square of its length to format: about 1.5 seconds for 80 KB, during which the message pane did not respond. Formatting now takes time proportional to the length. As a consequence, a Markdown link stays text when its address is longer than 2048 characters or nests parentheses deeper than 32 levels.
+- A Markdown link whose address names a user name or password before the host, such as `https://bank.example@evil.example/`, stays text. Such addresses show one host in the text and lead to another.
+- After the extension was updated or reloaded, translating in a message pane that was already open stayed in progress for good. Each paragraph now shows the error at once; opening the message again translates it.
+- The first AI translation no longer logs a blocked use of the `Function` constructor in the console of the background page. The AI SDK checks its data with the zod library, which now runs without generating code.
+- Experimental build: the column "Translated subject" keeps the translations of the 2000 subjects listed last, in the background page and in Thunderbird. Before, both kept every subject ever listed until Thunderbird was closed. A subject that appears again is filled from the cache.
+- Experimental build: when reading the message list failed, Thunderbird kept the list open; it is now closed in that case too.
+
 ## 2.2.0 - 2026-10-21
 
 Version 2.2 shows the Markdown of AI translations formatted. AI services often answer with `**bold**`, `- ` in front of list items and links in Markdown; these now appear as bold text, lists and links instead of their characters.
