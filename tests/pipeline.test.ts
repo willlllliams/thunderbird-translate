@@ -21,7 +21,7 @@ import { createMailContext } from "../src/shared/mail-context"
 import type { TranslateRequest, TranslateResponse } from "../src/shared/messages"
 import type { Tier } from "../src/shared/providers"
 import { createDefaultSettings, type Settings } from "../src/shared/settings"
-import { asFetch, chatCompletion, createService, fakeDictionary, jsonResponse, translateOne, useFakeTimers } from "./helpers"
+import { asFetch, chatCompletion, createService, fakeDictionary, jsonResponse, translateOne, until, useFakeTimers } from "./helpers"
 
 /** The texts of the q parameters of a Google request. */
 const queries = (init?: RequestInit) => new URLSearchParams(String(init?.body)).getAll("q")
@@ -87,7 +87,7 @@ describe("tiers side by side", () => {
     )
     const texts = Array.from({ length: 20 }, (_, i) => `Paragraph ${i}`)
     const { done, of } = translateAll(service, texts, ["dictionary", "machine", "ai"])
-    await vi.waitFor(() => expect([of("dictionary").length, of("machine").length]).toEqual([20, 20]))
+    await until(() => expect([of("dictionary").length, of("machine").length]).toEqual([20, 20]))
     expect(of("machine").every((r) => r.result.ok)).toBe(true)
     expect(of("ai")).toHaveLength(0)
     // The AI tier keeps its own limit of four requests at a time.

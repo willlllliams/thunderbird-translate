@@ -9,6 +9,7 @@ import type { TranslateRequest, TranslateResponse } from "../src/shared/messages
 import type { Tier } from "../src/shared/providers"
 import type { PublicSettings } from "../src/shared/settings"
 import { answering, manualTranslate, type OnTier, tieredSettings } from "./fixtures/content"
+import { until } from "./helpers"
 
 const ok = (text: string): TranslateResponse => ({ ok: true, text })
 const fail = (error: string): TranslateResponse => ({ ok: false, error })
@@ -66,7 +67,7 @@ describe("only the AI tier", () => {
     })
     const { c } = await mount("<p>Good morning</p>", tieredSettings(tiers), { translate })
     void c.start()
-    await vi.waitFor(() => expect(document.querySelector(".tt-translation")).not.toBeNull())
+    await until(() => expect(document.querySelector(".tt-translation")).not.toBeNull())
     const block = document.querySelector<HTMLElement>(".tt-translation")!
     expect(kind === "done" || block.classList.contains(`tt-${kind}`)).toBe(true)
     expect(tags(block)).toEqual([])
@@ -77,7 +78,7 @@ describe("only the AI tier", () => {
     const m = manualTranslate()
     const { c } = await mount("<p>Good morning</p>", tieredSettings(["machine", "ai"]), { translate: m.translate })
     void c.start()
-    await vi.waitFor(() => expect(m.translate).toHaveBeenCalled())
+    await until(() => expect(m.translate).toHaveBeenCalled())
     m.answer("Good morning", "machine", ok("**MT**"))
     expect(text()).toBe("**MT**")
     expect(tags()).toEqual([])
@@ -172,7 +173,7 @@ describe("subjects", () => {
       subject: async () => "Re: Budget",
     })
     await c.start()
-    await vi.waitFor(() => expect(document.querySelector(".tt-subject .tt-translation")?.textContent).toBe("AI Budget"))
+    await until(() => expect(document.querySelector(".tt-subject .tt-translation")?.textContent).toBe("AI Budget"))
     const line = document.querySelector<HTMLElement>(".tt-subject")!
     expect(line.querySelectorAll(".tt-translation *").length).toBe(0)
     // The paragraphs of the body are rendered.

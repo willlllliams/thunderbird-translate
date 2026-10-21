@@ -8,6 +8,7 @@ import type { TabState, TranslateRequest, TranslateResponse } from "../src/share
 import type { Tier } from "../src/shared/providers"
 import type { PublicSettings } from "../src/shared/settings"
 import { answering, manualTranslate, type OnTier, publicSettings, tieredSettings } from "./fixtures/content"
+import { until } from "./helpers"
 
 type Reports = Omit<TabState, "connected">[]
 
@@ -85,17 +86,17 @@ describe("tier combinations", () => {
     const translate = scripted(results)
     const { c, reports } = await mount("<p>Good morning</p>", tieredSettings(tiers), { translate })
     void c.start()
-    await vi.waitFor(() => expect(translate).toHaveBeenCalledTimes(1))
+    await until(() => expect(translate).toHaveBeenCalledTimes(1))
     expect(translate.mock.calls[0][0].tiers).toEqual(tiers)
     expect(shown()).toEqual(expected)
-    await vi.waitFor(() => expect(reports.at(-1)).toMatchObject({ active: true, total: 1, ...counts }))
+    await until(() => expect(reports.at(-1)).toMatchObject({ active: true, total: 1, ...counts }))
   })
 
   it("does not report a lower tier's failure as the last error", async () => {
     const { c, reports } = await mount("<p>Good morning</p>", tieredSettings(["machine", "ai"]), { translate: scripted({ machine: fail("MT down") }) })
     void c.start()
-    await vi.waitFor(() => expect(shown().kind).toBe("loading"))
-    await vi.waitFor(() => expect(reports.at(-1)).not.toHaveProperty("lastError"))
+    await until(() => expect(shown().kind).toBe("loading"))
+    await until(() => expect(reports.at(-1)).not.toHaveProperty("lastError"))
   })
 
   it("the retry button asks again only the tiers that failed", async () => {
@@ -108,7 +109,7 @@ describe("tier combinations", () => {
     expect(shown()).toMatchObject({ kind: "fallback", text: "D" })
     results = { machine: ok("MT"), ai: ok("AI") }
     document.querySelector<HTMLElement>(".tt-fallback .tt-error")!.click()
-    await vi.waitFor(() => expect(shown()).toEqual({ kind: "done", text: "AI" }))
+    await until(() => expect(shown()).toEqual({ kind: "done", text: "AI" }))
     expect(translate.mock.calls[1][0].tiers).toEqual(["machine", "ai"])
   })
 
@@ -138,7 +139,7 @@ describe("results", () => {
     const translate = scripted(results)
     const { c } = await mount("<p>Good morning</p>", tieredSettings(tiers), { translate })
     void c.start()
-    await vi.waitFor(() => expect(translate).toHaveBeenCalled())
+    await until(() => expect(translate).toHaveBeenCalled())
     expect(shown()).toEqual(expected)
   })
 
@@ -160,7 +161,7 @@ describe("results", () => {
     const { c, reports } = await mount("<p>Good morning</p>", tieredSettings(["machine", "ai"]), { translate })
     await c.start()
     expect(shown()).toMatchObject({ kind: "fallback", text: "MT", label: AI_FAILED, title: expect.stringContaining("Port closed") })
-    await vi.waitFor(() => expect(reports.at(-1)).toMatchObject({ failed: 1, lastError: expect.stringContaining("Port closed") }))
+    await until(() => expect(reports.at(-1)).toMatchObject({ failed: 1, lastError: expect.stringContaining("Port closed") }))
   })
 
   it("forgets tiers the background did not answer, and asks them with the next request", async () => {
@@ -168,7 +169,7 @@ describe("results", () => {
     const translate = vi.fn(async (_req: TranslateRequest, onTier: OnTier) => onTier("ai", ok("AI")))
     const { c, reports } = await mount("<p>Good morning</p>", tieredSettings(["machine", "ai"]), { translate })
     await c.start()
-    await vi.waitFor(() => expect(reports.at(-1)).toMatchObject({ done: 1, provisional: 0, failed: 0 }))
+    await until(() => expect(reports.at(-1)).toMatchObject({ done: 1, provisional: 0, failed: 0 }))
     await c.updateSettings(tieredSettings(["machine", "ai"], { mode: "translation-only" }))
     expect(translate.mock.calls.map(([req]) => req.tiers)).toEqual([
       ["machine", "ai"],
@@ -241,10 +242,10 @@ describe("settings changes while active", () => {
     const r = manualTranslate()
     const { c } = await mount("<p>Good morning</p>", publicSettings(), { translate: r.translate })
     void c.start()
-    await vi.waitFor(() => expect(r.translate).toHaveBeenCalledTimes(1))
+    await until(() => expect(r.translate).toHaveBeenCalledTimes(1))
     const stale = r.translate.mock.calls[0][1]
     void c.updateSettings(publicSettings({ signatures: { machine: "microsoft-free" } }))
-    await vi.waitFor(() => expect(r.translate).toHaveBeenCalledTimes(2))
+    await until(() => expect(r.translate).toHaveBeenCalledTimes(2))
     stale("machine", ok("OLD"))
     expect(shown().kind).toBe("loading")
     r.answer("Good morning", "machine", ok("NEW"))
@@ -275,7 +276,7 @@ describe("retranslation", () => {
     expect(first.mock.calls.every(([req]) => req.bypassCache === undefined)).toBe(true)
     translate = r.translate
     const again = c.retranslate()
-    await vi.waitFor(() => expect(r.translate).toHaveBeenCalledTimes(2))
+    await until(() => expect(r.translate).toHaveBeenCalledTimes(2))
     expect(r.translate.mock.calls.map(([req]) => [req.text, req.tiers, req.bypassCache])).toEqual([
       ["Good morning", TIERS, true],
       ["See you later", TIERS, true],
@@ -292,7 +293,7 @@ describe("retranslation", () => {
       r.done(text)
     }
     await again
-    await vi.waitFor(() => expect(reports.at(-1)).toMatchObject({ active: true, total: 2, done: 2 }))
+    await until(() => expect(reports.at(-1)).toMatchObject({ active: true, total: 2, done: 2 }))
 
     // The new results are what the page remembers; a plain restart asks nothing and passes no cache.
     c.stop()
@@ -352,7 +353,7 @@ describe("progress reports", () => {
     await c.start()
     // Every paragraph got two results, each a change of state; the reports stay few.
     expect(reports.length).toBeLessThan(5)
-    await vi.waitFor(() => expect(reports.at(-1)).toEqual({ active: true, total: 40, done: 40, provisional: 0, failed: 0 }))
+    await until(() => expect(reports.at(-1)).toEqual({ active: true, total: 40, done: 40, provisional: 0, failed: 0 }))
     expect(reports.length).toBeLessThan(6)
   })
 })
@@ -382,7 +383,7 @@ describe("lifecycle", () => {
     await c.toggle()
     expect(c.active).toBe(false)
     expect(document.body.innerHTML).toBe(original)
-    await vi.waitFor(() => expect(reports.at(-1)).toEqual({ active: false, total: 0, done: 0, provisional: 0, failed: 0 }))
+    await until(() => expect(reports.at(-1)).toEqual({ active: false, total: 0, done: 0, provisional: 0, failed: 0 }))
   })
 
   it.each<[string, string, Partial<PublicSettings>]>([
@@ -420,7 +421,7 @@ describe("lifecycle", () => {
     const r = manualTranslate()
     const { c, original, reports } = await mount("<p>Good morning</p>", tieredSettings(["machine", "ai"]), { translate: r.translate })
     void c.start()
-    await vi.waitFor(() => expect(r.translate).toHaveBeenCalledTimes(1))
+    await until(() => expect(r.translate).toHaveBeenCalledTimes(1))
     c.stop()
     const count = reports.length
     r.answer("Good morning", "machine", ok("MT"))
@@ -446,7 +447,7 @@ describe("subject line", () => {
     expect(line()!.querySelector(".tt-subject-text")!.firstChild!.textContent).toBe("Budget for the next quarter")
     expect(line()!.querySelector(".tt-translation.tt-bilingual")!.textContent).toBe("T:Budget for the next quarter")
     expect(translate.mock.calls.map(([req]) => req.text)).toEqual(["Good morning", "Budget for the next quarter"])
-    await vi.waitFor(() => expect(reports.at(-1)).toMatchObject({ total: 2, done: 2 }))
+    await until(() => expect(reports.at(-1)).toMatchObject({ total: 2, done: 2 }))
     c.stop()
     expect(line()).toBeNull()
     expect(document.body.innerHTML).toBe(original)

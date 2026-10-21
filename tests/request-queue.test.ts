@@ -6,7 +6,7 @@ import { llmTranslateSingle } from "../src/background/translators/llm"
 import { NetworkError, TimeoutError } from "../src/shared/errors"
 import { ENGLISH } from "../src/shared/i18n"
 import { resolveProviderConfig } from "../src/shared/settings"
-import { asFetch, chatCompletion, useFakeTimers } from "./helpers"
+import { asFetch, chatCompletion, until, useFakeTimers } from "./helpers"
 
 afterEach(() => vi.useRealTimers())
 
@@ -249,9 +249,9 @@ describe("RequestQueue concurrency", () => {
     expect(queue.activeCount).toBe(1)
     limit = 3
     runs.push(queue.run(task(3)))
-    await vi.waitFor(() => expect(order).toEqual([1, 3]))
+    await until(() => expect(order).toEqual([1, 3]))
     gates[0]()
-    await vi.waitFor(() => expect(order).toEqual([1, 3, 2]))
+    await until(() => expect(order).toEqual([1, 3, 2]))
     expect(queue.activeCount).toBe(2)
     gates[1]()
     gates[2]()

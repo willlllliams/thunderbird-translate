@@ -7,7 +7,7 @@ import { ENGLISH } from "../src/shared/i18n"
 import type { BackgroundRequest } from "../src/shared/messages"
 import { createDefaultSettings, type Settings } from "../src/shared/settings"
 import { flushSave } from "./fixtures/pages"
-import { openPage, useFakeTimers } from "./helpers"
+import { openPage, until, useFakeTimers } from "./helpers"
 
 // Fake timers in every test: a page left open by a test cannot fire its timers into the next one.
 beforeEach(() => useFakeTimers())
@@ -29,7 +29,7 @@ async function options(change: (s: Settings) => void = () => {}, opts: Parameter
   const s = createDefaultSettings("en")
   change(s)
   const page = await openPage("options", s, opts)
-  await vi.waitFor(() => expect(document.querySelector("#providerPanel h3")).not.toBeNull())
+  await until(() => expect(document.querySelector("#providerPanel h3")).not.toBeNull())
   return page
 }
 
@@ -76,7 +76,7 @@ describe("general settings", () => {
     const page = await options()
     expect($<HTMLSelectElement>("uiLanguage").options[0].textContent).toBe(ENGLISH.t("uiLanguageAuto", ["English"]))
     set("uiLanguage", "fr")
-    await vi.waitFor(() => expect(document.documentElement.lang).toBe("fr"))
+    await until(() => expect(document.documentElement.lang).toBe("fr"))
     expect(document.querySelector("h1")!.textContent).toBe(fr.optionsTitle)
     expect($("tierLabel-machine").textContent).toContain(fr.tierMachine)
     await flushSave()
@@ -88,7 +88,7 @@ describe("general settings", () => {
     const ja = readLocaleSources().ja
     const page = await options()
     page.external((s) => (s.uiLanguage = "ja"))
-    await vi.waitFor(() => expect(document.documentElement.lang).toBe("ja"))
+    await until(() => expect(document.documentElement.lang).toBe("ja"))
     expect(document.querySelector("h1")!.textContent).toBe(ja.optionsTitle)
   })
 
@@ -107,7 +107,7 @@ describe("general settings", () => {
   it("shows that the settings were saved", async () => {
     await options()
     $<HTMLInputElement>("autoTranslate").click()
-    await vi.waitFor(() => expect($("saved").classList.contains("show")).toBe(true))
+    await until(() => expect($("saved").classList.contains("show")).toBe(true))
   })
 
   it("scrolls to the section named in the address, e.g. #providers from the popup", async () => {
@@ -242,15 +242,15 @@ describe("batching, style and cache", () => {
         return req.type === "cacheStats" ? { size } : undefined
       },
     })
-    await vi.waitFor(() => expect($("cacheCount").textContent).toBe(ENGLISH.t("cacheCount", [1234])))
+    await until(() => expect($("cacheCount").textContent).toBe(ENGLISH.t("cacheCount", [1234])))
     $("clearCache").click()
-    await vi.waitFor(() => expect($("cacheCount").textContent).toBe(`${ENGLISH.t("cacheCount", [0])} · ${ENGLISH.t("cacheCleared")}`))
+    await until(() => expect($("cacheCount").textContent).toBe(`${ENGLISH.t("cacheCount", [0])} · ${ENGLISH.t("cacheCleared")}`))
     expect(requests.map((r) => r.type)).toContain("clearCache")
   })
 
   it("counts 0 when the background script does not answer", async () => {
     await options(undefined, { respond: () => null })
-    await vi.waitFor(() => expect($("cacheCount").textContent).toBe(ENGLISH.t("cacheCount", [0])))
+    await until(() => expect($("cacheCount").textContent).toBe(ENGLISH.t("cacheCount", [0])))
   })
 })
 
@@ -375,26 +375,26 @@ describe("service panel", () => {
     it("asks for an endpoint the user typed with Allow access, and hides the line once it is granted", async () => {
       const page = await options((s) => (s.providers.deeplx = { enabled: true, apiKey: "", baseURL: "https://deeplx.example/translate", model: "" }))
       pick("DeepLX")
-      await vi.waitFor(() => expect(line().hidden).toBe(false))
+      await until(() => expect(line().hidden).toBe(false))
       expect(line().textContent).toContain(ENGLISH.t("hostAccessMissing", ["deeplx.example"]))
       expect(button(ENGLISH.t("buttonAllowHost")).title).toBe(ENGLISH.t("tipAllowHost"))
       button(ENGLISH.t("buttonAllowHost")).click()
       expect(page.browser.api.permissions.request).toHaveBeenCalledWith({ origins: ["https://deeplx.example/*"] })
-      await vi.waitFor(() => expect(line().hidden).toBe(true))
+      await until(() => expect(line().hidden).toBe(true))
       // Another endpoint needs its own permission.
       fire(input("text"), "https://other.example/translate", "input")
       fire(input("text"), "https://other.example/translate", "change")
-      await vi.waitFor(() => expect(line().textContent).toContain("other.example"))
+      await until(() => expect(line().textContent).toContain("other.example"))
       expect(line().hidden).toBe(false)
       // Granted elsewhere (another page, the add-ons manager): the line goes.
       await page.browser.api.permissions.request({ origins: ["https://other.example/*"] })
-      await vi.waitFor(() => expect(line().hidden).toBe(true))
+      await until(() => expect(line().hidden).toBe(true))
     })
 
     it("needs no permission for the default endpoint of a preset, and shows none for an endpoint that is not a URL", async () => {
       await options((s) => (s.providers.openai.enabled = true))
       pick("OpenAI")
-      await vi.waitFor(() => expect(line()).not.toBeNull())
+      await until(() => expect(line()).not.toBeNull())
       await vi.advanceTimersByTimeAsync(0)
       expect(line().hidden).toBe(true)
       fire(input("text"), "not a url", "change")
@@ -407,10 +407,10 @@ describe("service panel", () => {
       const loopback = () => Array.from(panel().querySelectorAll<HTMLElement>(".hint")).find((el) => el.textContent === ENGLISH.t("hintLoopback"))!
       pick("Ollama (local)")
       expect(loopback().hidden).toBe(false)
-      await vi.waitFor(() => expect(line().hidden).toBe(false))
+      await until(() => expect(line().hidden).toBe(false))
       expect(line().textContent).toContain(ENGLISH.t("hostAccessMissing", ["localhost"]))
       button(ENGLISH.t("buttonAllowHost")).click()
-      await vi.waitFor(() => expect(page.browser.api.permissions.request).toHaveBeenCalled())
+      await until(() => expect(page.browser.api.permissions.request).toHaveBeenCalled())
       await vi.advanceTimersByTimeAsync(0)
       expect(line().hidden).toBe(false)
       pick("OpenAI")
@@ -427,7 +427,7 @@ describe("service panel", () => {
         throw new Error("not from a user action")
       })
       pick("DeepLX")
-      await vi.waitFor(() => expect(line().hidden).toBe(false))
+      await until(() => expect(line().hidden).toBe(false))
       button(ENGLISH.t("buttonAllowHost")).click()
       await vi.advanceTimersByTimeAsync(0)
       expect(line().hidden).toBe(false)
@@ -456,8 +456,8 @@ describe("service panel", () => {
       pick("Custom OpenAI-compatible")
       button(ENGLISH.t("buttonTest")).click()
       expect(order).toEqual(["request"])
-      await vi.waitFor(() => expect(order).toEqual(["request", "test"]))
-      await vi.waitFor(() => expect(panel().querySelector(".test-reason")!.textContent).toBe(ENGLISH.t("errHostPermission", ["llm.example"])))
+      await until(() => expect(order).toEqual(["request", "test"]))
+      await until(() => expect(panel().querySelector(".test-reason")!.textContent).toBe(ENGLISH.t("errHostPermission", ["llm.example"])))
     })
   })
 
@@ -469,7 +469,7 @@ describe("service panel", () => {
       test.click()
       expect(test.disabled).toBe(true)
       expect(panel().querySelector(".test-result")!.textContent).toBe(ENGLISH.t("testRunning"))
-      await vi.waitFor(() => expect(test.disabled).toBe(false))
+      await until(() => expect(test.disabled).toBe(false))
       return panel().querySelector<HTMLElement>(".test-result")!
     }
 
@@ -518,6 +518,6 @@ describe("online services allowed to receive message text", () => {
     expect(items().map((li) => li.textContent)).toEqual([ENGLISH.t("consentListNone")])
     // Allowed in a message meanwhile: the list follows.
     page.external((s) => (s.onlineConsent = ["deeplx", "gone"]))
-    await vi.waitFor(() => expect(items().map((li) => li.querySelector("span")?.textContent)).toEqual(["DeepLX"]))
+    await until(() => expect(items().map((li) => li.querySelector("span")?.textContent)).toEqual(["DeepLX"]))
   })
 })

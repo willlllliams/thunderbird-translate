@@ -3,7 +3,7 @@ import { afterEach, describe, expect, it, vi } from "vitest"
 import { CACHE_STORAGE_KEY, cacheKey, LruCache, PersistentCache } from "../src/background/cache"
 import { hashText } from "../src/shared/hash"
 import { createDefaultSettings, type Settings } from "../src/shared/settings"
-import { createService, fakeDictionary, memoryStorage, translateOne, useFakeTimers } from "./helpers"
+import { createService, fakeDictionary, memoryStorage, translateOne, until, useFakeTimers } from "./helpers"
 
 afterEach(() => vi.useRealTimers())
 
@@ -110,7 +110,7 @@ describe("PersistentCache", () => {
     vi.spyOn(storage, "get").mockRejectedValueOnce(new Error("storage busy"))
     const cache = new PersistentCache(storage, 10, 0)
     await cache.set("new", "2")
-    await vi.waitFor(() => expect(storage.data.get(CACHE_STORAGE_KEY)).toEqual([
+    await until(() => expect(storage.data.get(CACHE_STORAGE_KEY)).toEqual([
       ["old", "1"],
       ["new", "2"],
     ]))
@@ -227,7 +227,7 @@ describe("cache keys of the translation service", () => {
     await ask("openai")
     s.providers.openai.thinking = true
     await ask("openai")
-    await vi.waitFor(() => expect(storage.data.get(CACHE_STORAGE_KEY)).toHaveLength(3))
+    await until(() => expect(storage.data.get(CACHE_STORAGE_KEY)).toHaveLength(3))
     const keys = (storage.data.get(CACHE_STORAGE_KEY) as [string, string][]).map(([key]) => key.split("|"))
     expect(keys.every((parts) => parts.length === 5 && parts[3].length <= 24)).toBe(true)
     expect(keys.map(([id, model, langs]) => `${id} ${model} ${langs}`)).toEqual(["google-free  de>en", "openai gpt-test de>en", "openai gpt-test de>en"])
@@ -259,7 +259,7 @@ describe("cache keys of the translation service", () => {
     const { service } = createService(settings, { dictionary })
     const ask = () => translateOne(service, { text: "Hello", providerId: "dictionary" })
     const first = ask()
-    await vi.waitFor(() => expect(dictionary.translate).toHaveBeenCalledTimes(1))
+    await until(() => expect(dictionary.translate).toHaveBeenCalledTimes(1))
     // A pack is installed while the batch runs, which may already use it: the result is not stored under the key of no packs.
     packs = "en>zh-Hans@1"
     release()

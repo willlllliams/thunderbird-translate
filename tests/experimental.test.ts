@@ -16,7 +16,7 @@ import { localeText, stubBackgroundApi } from "./fixtures/background-api"
 import { publicSettings, tieredSettings } from "./fixtures/content"
 import { fakeEvent } from "./fixtures/events"
 import { fakeMail, message, messages } from "./fixtures/mail"
-import { jsonResponse, nextTask, useFakeTimers } from "./helpers"
+import { jsonResponse, nextTask, until, useFakeTimers } from "./helpers"
 
 beforeEach(() => useFakeTimers())
 afterEach(() => {
@@ -190,10 +190,10 @@ describe("column sync", () => {
     const waiting: OnTier[] = []
     const s = sync({ answer: (_req, onTier) => new Promise<void>(() => waiting.push(onTier)) })
     void s.sync.translateTab(5)
-    await vi.waitFor(() => expect(waiting).toHaveLength(1))
+    await until(() => expect(waiting).toHaveLength(1))
     s.setSettings(publicSettings({ targetLang: "fr" }))
     void s.sync.settingsChanged()
-    await vi.waitFor(() => expect(waiting).toHaveLength(2))
+    await until(() => expect(waiting).toHaveLength(2))
     waiting[0]("machine", { ok: true, text: "old" })
     await flush()
     expect(s.shown.size).toBe(0)
@@ -272,8 +272,8 @@ describe("background script of the experimental build", () => {
 
   it("adds the column in the interface language and fills it with the subjects of the active mail tab", async () => {
     const { column, shown } = await start(allowed())
-    await vi.waitFor(() => expect(column.add).toHaveBeenCalledWith(localeText("en", "columnTranslatedSubject")))
-    await vi.waitFor(async () => {
+    await until(() => expect(column.add).toHaveBeenCalledWith(localeText("en", "columnTranslatedSubject")))
+    await until(async () => {
       await vi.advanceTimersByTimeAsync(PUSH_DELAY_MS)
       expect(shown.get("Angebot für die Druckmaschine")).toBe("G(Angebot für die Druckmaschine)")
     })
@@ -282,35 +282,35 @@ describe("background script of the experimental build", () => {
 
   it("leaves the column empty for a service that is not allowed yet", async () => {
     const { column, shown } = await start(Object.assign(createDefaultSettings("en"), { targetLang: "zh-CN" }))
-    await vi.waitFor(() => expect(column.clear).toHaveBeenCalled())
+    await until(() => expect(column.clear).toHaveBeenCalled())
     await vi.advanceTimersByTimeAsync(1000)
     expect(shown.size).toBe(0)
   })
 
   it("follows folders, mail tabs, new mail, settings and the installation", async () => {
     const { bg, mail, column, onActivated } = await start(allowed())
-    await vi.waitFor(() => expect(column.add).toHaveBeenCalledTimes(1))
+    await until(() => expect(column.add).toHaveBeenCalledTimes(1))
     const listed = mail.api.mailTabs.getListedMessages
-    await vi.waitFor(() => expect(listed).toHaveBeenCalled())
+    await until(() => expect(listed).toHaveBeenCalled())
     listed.mockClear()
     mail.show("Inbox")
-    await vi.waitFor(() => expect(listed).toHaveBeenCalledWith(5))
+    await until(() => expect(listed).toHaveBeenCalledWith(5))
     listed.mockClear()
     onActivated.fire({ tabId: 5 })
     onActivated.fire({ tabId: 9 })
-    await vi.waitFor(() => expect(listed).toHaveBeenCalledTimes(1))
+    await until(() => expect(listed).toHaveBeenCalledTimes(1))
     mail.api.messages.onNewMailReceived.fire({}, { id: null, messages: [] })
-    await vi.waitFor(() => expect(listed).toHaveBeenCalledTimes(2))
+    await until(() => expect(listed).toHaveBeenCalledTimes(2))
 
     const s = allowed()
     s.uiLanguage = "de"
     bg.local[SETTINGS_KEY] = s
     bg.storageChanged({ [SETTINGS_KEY]: { newValue: s } }, "local")
     bg.storageChanged({ other: { newValue: 1 } }, "local")
-    await vi.waitFor(() => expect(column.add).toHaveBeenLastCalledWith(localeText("de", "columnTranslatedSubject")))
+    await until(() => expect(column.add).toHaveBeenLastCalledWith(localeText("de", "columnTranslatedSubject")))
     bg.install("update")
     bg.install("install")
-    await vi.waitFor(() => expect(column.show).toHaveBeenCalledTimes(1))
+    await until(() => expect(column.show).toHaveBeenCalledTimes(1))
   })
 
   it("logs a column that cannot be added", async () => {
@@ -322,12 +322,12 @@ describe("background script of the experimental build", () => {
     Object.assign(mail.api.mailTabs, { query: async () => [] })
     vi.resetModules()
     await import("../src/experiments/background")
-    await vi.waitFor(() => expect(error).toHaveBeenCalledWith("translatedColumn:", expect.objectContaining({ message: "no ThreadPaneColumns" })))
+    await until(() => expect(error).toHaveBeenCalledWith("translatedColumn:", expect.objectContaining({ message: "no ThreadPaneColumns" })))
     bg.install("install")
     const s = allowed()
     s.uiLanguage = "fr"
     bg.storageChanged({ [SETTINGS_KEY]: { newValue: s } }, "local")
-    await vi.waitFor(() => expect(error).toHaveBeenCalledTimes(3))
+    await until(() => expect(error).toHaveBeenCalledTimes(3))
   })
 })
 

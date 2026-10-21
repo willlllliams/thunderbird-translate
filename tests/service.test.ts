@@ -8,7 +8,7 @@ import { createMailContext } from "../src/shared/mail-context"
 import type { TranslateRequest, TranslateResponse } from "../src/shared/messages"
 import type { Tier } from "../src/shared/providers"
 import { createDefaultSettings, type ResolvedProvider, type Settings } from "../src/shared/settings"
-import { asFetch, chatCompletion, createService, jsonResponse, memoryStorage, translateOne } from "./helpers"
+import { asFetch, chatCompletion, createService, jsonResponse, memoryStorage, translateOne, until } from "./helpers"
 
 function setup(over: (s: Settings) => void = () => {}, extra: { llm?: LlmImpl; fetchFn?: unknown; cache?: PersistentCache } = {}) {
   const settings = createDefaultSettings()
@@ -30,7 +30,7 @@ describe("LRU cache", () => {
     const storage = memoryStorage()
     const c1 = new PersistentCache(storage, 10, 0)
     await c1.set("k1", "v1")
-    await vi.waitFor(() => expect(storage.data.get(CACHE_STORAGE_KEY)).toEqual([["k1", "v1"]]))
+    await until(() => expect(storage.data.get(CACHE_STORAGE_KEY)).toEqual([["k1", "v1"]]))
     const c2 = new PersistentCache(storage, 10, 0)
     expect(await c2.get("k1")).toBe("v1")
     await c2.clear()
@@ -316,7 +316,7 @@ describe("TranslationService: tiers, caps and precise mode details", () => {
       await translateMail(setup(precise, { llm: first.llm, cache: new PersistentCache(storage, 100, 0) }).service, PARAGRAPHS)
       expect(first.llm.analyze).toHaveBeenCalledTimes(1)
       // A new background script over the same storage, with the analysis kept and the translations gone.
-      await vi.waitFor(() => expect(storage.data.get(CACHE_STORAGE_KEY)).toHaveLength(PARAGRAPHS.length + 1))
+      await until(() => expect(storage.data.get(CACHE_STORAGE_KEY)).toHaveLength(PARAGRAPHS.length + 1))
       const entries = storage.data.get(CACHE_STORAGE_KEY) as [string, string][]
       storage.data.set(CACHE_STORAGE_KEY, entries.filter(([key]) => key.includes(":analysis|")))
       const second = fakeLlm(ANALYSIS)
@@ -370,7 +370,7 @@ describe("TranslationService: tiers, caps and precise mode details", () => {
       expect(first.prefixes.every((prefix) => prefix?.includes("Summary: Round 3."))).toBe(true)
 
       // A new background script over the same storage, translations gone: the stored analyses are the new one and the other message's.
-      await vi.waitFor(() => expect(storage.data.get(CACHE_STORAGE_KEY)).toHaveLength(PARAGRAPHS.length + OTHER.length + 2))
+      await until(() => expect(storage.data.get(CACHE_STORAGE_KEY)).toHaveLength(PARAGRAPHS.length + OTHER.length + 2))
       const entries = storage.data.get(CACHE_STORAGE_KEY) as [string, string][]
       storage.data.set(CACHE_STORAGE_KEY, entries.filter(([key]) => key.includes(":analysis|")))
       const second = fakeLlm(ANALYSIS)
@@ -396,7 +396,7 @@ describe("TranslationService: tiers, caps and precise mode details", () => {
       const { service, cache } = setup(precise, { llm })
       const set = vi.spyOn(cache, "set")
       const first = translateMail(service, PARAGRAPHS)
-      await vi.waitFor(() => expect(llm.analyze).toHaveBeenCalledTimes(1))
+      await until(() => expect(llm.analyze).toHaveBeenCalledTimes(1))
       const context = createMailContext(PARAGRAPHS, [0, 1, 2])
       service.setContext(context, true)
       await Promise.all(PARAGRAPHS.map((text, index) => translateOne(service, { text, targetLang: "zh-CN", providerId: "openai", context: { id: context.id, index }, bypassCache: true })))
@@ -459,7 +459,7 @@ describe("retranslation (bypassCache)", () => {
     const fetchFn = rounds(new Promise<void>((resolve) => (release = resolve)))
     const { service } = setup(() => {}, { fetchFn })
     const running = translateOne(service, google("Same"))
-    await vi.waitFor(() => expect(fetchFn).toHaveBeenCalledTimes(1))
+    await until(() => expect(fetchFn).toHaveBeenCalledTimes(1))
     expect(await translateOne(service, google("Same", true))).toBe("R2(Same)")
     release()
     expect(await running).toBe("R1(Same)")
@@ -470,7 +470,7 @@ describe("retranslation (bypassCache)", () => {
     const fetchFn = rounds(new Promise<void>((resolve) => (release = resolve)))
     const { service } = setup(() => {}, { fetchFn })
     const running = translateOne(service, google("Same"))
-    await vi.waitFor(() => expect(fetchFn).toHaveBeenCalledTimes(1))
+    await until(() => expect(fetchFn).toHaveBeenCalledTimes(1))
     expect(await translateOne(service, google("Same", true))).toBe("R2(Same)")
     release()
     expect(await running).toBe("R1(Same)")
@@ -483,7 +483,7 @@ describe("retranslation (bypassCache)", () => {
     const fetchFn = rounds(new Promise<void>((resolve) => (release = resolve)))
     const { service } = setup(() => {}, { fetchFn })
     const fresh = translateOne(service, google("Same", true))
-    await vi.waitFor(() => expect(fetchFn).toHaveBeenCalledTimes(1))
+    await until(() => expect(fetchFn).toHaveBeenCalledTimes(1))
     const plain = translateOne(service, google("Same"))
     release()
     expect(await Promise.all([fresh, plain])).toEqual(["R1(Same)", "R1(Same)"])

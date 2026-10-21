@@ -5,7 +5,7 @@ import { LocalizedError } from "../src/shared/errors"
 import { ENGLISH } from "../src/shared/i18n"
 import type { BackgroundRequest, BergamotPairInfo, PageNotice } from "../src/shared/messages"
 import { bergamotStandIn } from "./fixtures/offline"
-import { nextTask, useFakeTimers } from "./helpers"
+import { nextTask, until, useFakeTimers } from "./helpers"
 
 beforeEach(() => useFakeTimers())
 afterEach(() => vi.useRealTimers())
@@ -93,11 +93,11 @@ describe("offline lists in the background script", () => {
     await send({ type: "offlineCancel", service: "dictionary", src: "fr", tgt: "en" })
     expect(await states()).toEqual(["en>de running", "de>en running", "en>fr queued", "en>ja queued"])
     installs.one("de>en").finish()
-    await vi.waitFor(() => expect(installs.started()).toEqual(["en>de", "de>en", "en>fr"]))
+    await until(() => expect(installs.started()).toEqual(["en>de", "de>en", "en>fr"]))
     // An installation ended while others run: the pages hear of it, the content scripts not yet.
     expect(notices()).toEqual({ contentScripts: 0, pages: 1 })
     installs.one("en>de").fail(new Error("disk full"))
-    await vi.waitFor(() => expect(installs.started()).toEqual(["en>de", "de>en", "en>fr", "en>ja"]))
+    await until(() => expect(installs.started()).toEqual(["en>de", "de>en", "en>fr", "en>ja"]))
     installs.one("en>fr").finish()
     installs.one("en>ja").finish()
     expect(await result).toEqual([{ ok: false, error: "disk full" }, { ok: true }, { ok: true }, { ok: false, cancelled: true }, { ok: true }])
@@ -112,9 +112,9 @@ describe("offline lists in the background script", () => {
     void send({ type: "offlineInstall", service: "dictionary", pairs: ["en>de", "de>en", "en>fr"].map((key) => ({ src: key.split(">")[0]!, tgt: key.split(">")[1]! })) })
     installs.one("en>de").finish()
     installs.one("de>en").finish()
-    await vi.waitFor(() => expect(installs.started()).toContain("en>fr"))
+    await until(() => expect(installs.started()).toContain("en>fr"))
     installs.one("en>fr").finish()
-    await vi.waitFor(() => expect(notices()).toEqual({ contentScripts: 1, pages: 3 }))
+    await until(() => expect(notices()).toEqual({ contentScripts: 1, pages: 3 }))
   })
 
   it("cancels a running installation, also one that two pages asked for", async () => {

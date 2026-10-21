@@ -10,7 +10,7 @@ import { ADD_SERVICE } from "../src/shared/page"
 import { createDefaultSettings } from "../src/shared/settings"
 import { bergamotStandIn } from "./fixtures/offline"
 import { flushSave } from "./fixtures/pages"
-import { jsonResponse, nextTask, openPage, useFakeTimers } from "./helpers"
+import { jsonResponse, nextTask, openPage, until, useFakeTimers } from "./helpers"
 
 // Fake timers in every test: a page left open by a test cannot fire its timers into the next one.
 beforeEach(() => useFakeTimers())
@@ -31,7 +31,7 @@ describe("popup", () => {
     s.providers.openai.enabled = true
     s.providers.openai.apiKey = "sk"
     const { created, close, stored } = await openPage("popup", s)
-    await vi.waitFor(() => expect(optionTexts(select("tier-machine"))).toEqual(["", "google-free", "microsoft-free", ADD_SERVICE]))
+    await until(() => expect(optionTexts(select("tier-machine"))).toEqual(["", "google-free", "microsoft-free", ADD_SERVICE]))
     expect(optionTexts(select("tier-ai"))).toEqual(["", "openai", ADD_SERVICE])
     expect(optionTexts(select("tier-dictionary"))).toEqual(["", ADD_SERVICE])
     expect(select("tier-ai").options[0].textContent).toBe(ENGLISH.t("tierNotUsed"))
@@ -60,7 +60,7 @@ describe("popup", () => {
       const s = offlineSettings()
       let status: OfflineStatus = { dictionary: { missing: ["en>zh-Hans"], unsupported: false }, bergamot: { missing: [], unsupported: false } }
       const page = await openPage("popup", s, { respond: (req) => (req.type === "offlineStatus" ? status : undefined) })
-      await vi.waitFor(() => expect(select("tier-dictionary").classList.contains("missing")).toBe(true))
+      await until(() => expect(select("tier-dictionary").classList.contains("missing")).toBe(true))
       expect(page.sendMessage).toHaveBeenCalledWith({ type: "offlineStatus", sourceLang: "auto", targetLang: "zh-CN", tiers: s.tiers })
       const option = select("tier-dictionary").selectedOptions[0]
       expect(option.textContent).toBe(ENGLISH.t("tierModelMissing", [ENGLISH.t("tierDictionary")]))
@@ -73,7 +73,7 @@ describe("popup", () => {
       status = { dictionary: { missing: [], unsupported: false }, bergamot: { missing: ["en>zh-Hans"], unsupported: false } }
       page.notify({ type: "offlineDataChanged" })
       page.notify({ type: "something else" })
-      await vi.waitFor(() => expect(select("tier-machine").classList.contains("missing")).toBe(true))
+      await until(() => expect(select("tier-machine").classList.contains("missing")).toBe(true))
       expect(select("tier-machine").selectedOptions[0].textContent).toBe(ENGLISH.t("tierModelMissing", ["Bergamot"]))
       expect(select("tier-dictionary").classList.contains("missing")).toBe(false)
       expect(select("tier-dictionary").selectedOptions[0].textContent).toBe(ENGLISH.t("providerDictionary"))
@@ -83,7 +83,7 @@ describe("popup", () => {
       const status: OfflineStatus = { dictionary: { missing: [], unsupported: false, anyInto: "en" }, bergamot: { missing: ["ja>en", "en>de"], unsupported: false } }
       const { created, close } = await openPage("popup", offlineSettings(), { respond: (req) => (req.type === "offlineStatus" ? status : undefined) })
       const link = () => document.querySelector<HTMLAnchorElement>("#offlineMissing a")
-      await vi.waitFor(() => expect(link()).not.toBeNull())
+      await until(() => expect(link()).not.toBeNull())
       expect(document.querySelector("#offlineMissing")!.textContent).toContain(ENGLISH.t("offlineMissingAnyInto", [ENGLISH.t("tierDictionary"), "English"]))
       expect(link()!.textContent).toBe(ENGLISH.t("offlineDownload"))
       link()!.click()
@@ -94,13 +94,13 @@ describe("popup", () => {
     it("says when the service does not support the languages, without red and without a link, and asks nothing without an offline service", async () => {
       const status: OfflineStatus = { bergamot: { missing: [], unsupported: true } }
       await openPage("popup", offlineSettings(), { respond: (req) => (req.type === "offlineStatus" ? status : undefined) })
-      await vi.waitFor(() => expect(document.querySelector<HTMLElement>("#offlineMissing")!.hidden).toBe(false))
+      await until(() => expect(document.querySelector<HTMLElement>("#offlineMissing")!.hidden).toBe(false))
       expect(document.querySelector("#offlineMissing")!.textContent).toBe(ENGLISH.t("offlineUnsupported", ["Bergamot"]))
       expect(document.querySelector("#offlineMissing")!.classList.contains("missing")).toBe(false)
       expect(select("tier-machine").classList.contains("missing")).toBe(false)
 
       const page = await openPage("popup", createDefaultSettings("en"), { respond: () => ({ dictionary: { missing: ["x>y"], unsupported: false } }) })
-      await vi.waitFor(() => expect(optionTexts(select("tier-machine"))).toContain("google-free"))
+      await until(() => expect(optionTexts(select("tier-machine"))).toContain("google-free"))
       expect(page.sendMessage.mock.calls.some(([req]) => req.type === "offlineStatus")).toBe(false)
       expect(document.querySelector<HTMLElement>("#offlineMissing")!.hidden).toBe(true)
     })
@@ -109,7 +109,7 @@ describe("popup", () => {
       const status: OfflineStatus = { dictionary: { missing: [], unsupported: true }, bergamot: { missing: ["en>zh-Hans"], unsupported: false } }
       await openPage("popup", offlineSettings(), { respond: (req) => (req.type === "offlineStatus" ? status : undefined) })
       const hint = document.querySelector<HTMLElement>("#offlineMissing")!
-      await vi.waitFor(() => expect(hint.hidden).toBe(false))
+      await until(() => expect(hint.hidden).toBe(false))
       const statements = Array.from(hint.querySelectorAll("span"), (el) => [el.textContent, el.classList.contains("missing")])
       expect(statements).toEqual([
         [ENGLISH.t("offlineUnsupported", [ENGLISH.t("tierDictionary")]), false],
@@ -121,9 +121,9 @@ describe("popup", () => {
 
     it("asks again when the languages or the tiers change", async () => {
       const page = await openPage("popup", offlineSettings(), { respond: () => undefined })
-      await vi.waitFor(() => expect(page.sendMessage.mock.calls.filter(([req]) => req.type === "offlineStatus")).toHaveLength(1))
+      await until(() => expect(page.sendMessage.mock.calls.filter(([req]) => req.type === "offlineStatus")).toHaveLength(1))
       page.external((s) => (s.targetLang = "ja"))
-      await vi.waitFor(() => expect(page.sendMessage).toHaveBeenLastCalledWith(expect.objectContaining({ type: "offlineStatus", targetLang: "ja" })))
+      await until(() => expect(page.sendMessage).toHaveBeenLastCalledWith(expect.objectContaining({ type: "offlineStatus", targetLang: "ja" })))
       page.external((s) => (s.autoTranslate = true))
       await nextTask()
       expect(page.sendMessage.mock.calls.filter(([req]) => req.type === "offlineStatus")).toHaveLength(2)
@@ -134,11 +134,11 @@ describe("popup", () => {
     const s = createDefaultSettings("en")
     s.providers.openai = { enabled: true, apiKey: "sk", baseURL: "", model: "" }
     const { stored } = await openPage("popup", s)
-    await vi.waitFor(() => expect(optionTexts(select("tier-ai"))).toContain("openai"))
+    await until(() => expect(optionTexts(select("tier-ai"))).toContain("openai"))
     choose(select("tier-ai"), "openai")
-    await vi.waitFor(() => expect(stored().tiers.ai).toBe("openai"))
+    await until(() => expect(stored().tiers.ai).toBe("openai"))
     choose(select("tier-machine"), "")
-    await vi.waitFor(() => expect(stored().tiers).toEqual({ dictionary: null, machine: null, ai: "openai" }))
+    await until(() => expect(stored().tiers).toEqual({ dictionary: null, machine: null, ai: "openai" }))
 
     choose(select("tier-ai"), "")
     expect(select("tier-ai").value).toBe("openai")
@@ -150,7 +150,7 @@ describe("popup", () => {
 
   it("links to the setup guide", async () => {
     const { created } = await openPage("popup", createDefaultSettings("en"))
-    await vi.waitFor(() => expect(document.querySelector("#openWelcome")!.textContent).toBe(ENGLISH.t("openWelcome")))
+    await until(() => expect(document.querySelector("#openWelcome")!.textContent).toBe(ENGLISH.t("openWelcome")))
     document.querySelector<HTMLAnchorElement>("#openWelcome")!.click()
     expect(created).toEqual(["moz-extension://test/welcome.html"])
   })
@@ -159,23 +159,23 @@ describe("popup", () => {
     const s = createDefaultSettings("en")
     s.tiers.ai = "deepseek"
     const { stored } = await openPage("popup", s)
-    await vi.waitFor(() => expect(document.querySelector<HTMLElement>("#preciseRow")!.hidden).toBe(false))
+    await until(() => expect(document.querySelector<HTMLElement>("#preciseRow")!.hidden).toBe(false))
     const precise = document.querySelector<HTMLInputElement>("#preciseEnabled")!
     precise.checked = true
     precise.dispatchEvent(new Event("change"))
-    await vi.waitFor(() => expect(stored().precise.enabled).toBe(true))
+    await until(() => expect(stored().precise.enabled).toBe(true))
   })
 
   it("chooses the source language and warns when it equals the target language", async () => {
     const { stored } = await openPage("popup", createDefaultSettings("en"))
-    await vi.waitFor(() => expect(select("sourceLang").options.length).toBeGreaterThan(1))
+    await until(() => expect(select("sourceLang").options.length).toBeGreaterThan(1))
     expect(select("sourceLang").options[0]).toMatchObject({ value: "auto", textContent: ENGLISH.t("sourceLangAuto") })
     expect(select("sourceLang").value).toBe("auto")
     choose(select("sourceLang"), "de")
-    await vi.waitFor(() => expect(stored().sourceLang).toBe("de"))
+    await until(() => expect(stored().sourceLang).toBe("de"))
     expect(document.querySelector<HTMLElement>("#sameLanguage")!.hidden).toBe(true)
     choose(select("sourceLang"), "en")
-    await vi.waitFor(() => expect(document.querySelector<HTMLElement>("#sameLanguage")!.hidden).toBe(false))
+    await until(() => expect(document.querySelector<HTMLElement>("#sameLanguage")!.hidden).toBe(false))
   })
 })
 
@@ -186,7 +186,7 @@ describe("settings page", () => {
 
   it("groups services into added and available ones, and fills the tiers", async () => {
     await openPage("options", createDefaultSettings("en"))
-    await vi.waitFor(() => expect(document.querySelector("#providerPanel button")).not.toBeNull())
+    await until(() => expect(document.querySelector("#providerPanel button")).not.toBeNull())
     const list = providerList()
     expect(list.slice(0, 4)).toEqual([`# ${ENGLISH.t("providerGroupAdded")}`, "Google Translate (free)", "Microsoft Translator (free)", `# ${ENGLISH.t("providerGroupAvailable")}`])
     expect(list).toContain("OpenAI")
@@ -199,7 +199,7 @@ describe("settings page", () => {
 
   it("does not remove a service that a tier uses, and explains why", async () => {
     await openPage("options", createDefaultSettings("en"))
-    await vi.waitFor(() => expect(button(ENGLISH.t("buttonRemoveProvider"))).toBeDefined())
+    await until(() => expect(button(ENGLISH.t("buttonRemoveProvider"))).toBeDefined())
     expect(button(ENGLISH.t("buttonRemoveProvider")).disabled).toBe(true)
     expect(document.querySelector("#providerPanel .remove-hint")!.textContent).toBe(ENGLISH.t("removeBlockedTier", [ENGLISH.t("tierMachine")]))
     pick("Microsoft Translator (free)")
@@ -208,7 +208,7 @@ describe("settings page", () => {
 
   it("adds the dictionary and uses it in its tier", async () => {
     const { stored } = await openPage("options", createDefaultSettings("en"))
-    await vi.waitFor(() => expect(document.querySelector("#providerList li")).not.toBeNull())
+    await until(() => expect(document.querySelector("#providerList li")).not.toBeNull())
     pick(ENGLISH.t("providerDictionary"))
     expect(document.querySelector("#providerPanel .hint")!.textContent).toBe(ENGLISH.t("hintDictionaryProvider"))
     button(ENGLISH.t("buttonAddProvider")).click()
@@ -221,7 +221,7 @@ describe("settings page", () => {
 
   it("adds a service with the Add button or by typing its key, and removes it again", async () => {
     const { stored } = await openPage("options", createDefaultSettings("en"))
-    await vi.waitFor(() => expect(document.querySelector("#providerList li")).not.toBeNull())
+    await until(() => expect(document.querySelector("#providerList li")).not.toBeNull())
 
     pick("Mistral AI")
     button(ENGLISH.t("buttonAddProvider")).click()
@@ -246,7 +246,7 @@ describe("settings page", () => {
 
   it("refuses to leave every tier empty", async () => {
     const { stored, browser } = await openPage("options", createDefaultSettings("en"))
-    await vi.waitFor(() => expect(select("tier-machine").options.length).toBeGreaterThan(1))
+    await until(() => expect(select("tier-machine").options.length).toBeGreaterThan(1))
     choose(select("tier-machine"), "")
     expect(select("tier-machine").value).toBe("google-free")
     expect(document.querySelector<HTMLElement>("#tiersEmpty")!.hidden).toBe(false)
@@ -262,7 +262,7 @@ describe("settings page", () => {
   it("edits the three prompts and restores a default; the built-in prompt shows in the box and is stored as empty", async () => {
     const { stored } = await openPage("options", createDefaultSettings("en"))
     const box = (kind: string) => document.querySelector<HTMLTextAreaElement>(`#prompt-${kind}`)!
-    await vi.waitFor(() => expect(box("precise").value).toBe(DEFAULT_PROMPTS.precise))
+    await until(() => expect(box("precise").value).toBe(DEFAULT_PROMPTS.precise))
     expect(box("bilingual").value).toBe(DEFAULT_PROMPTS.bilingual)
     box("translationOnly").value = "Natural {{to}}."
     box("translationOnly").dispatchEvent(new Event("input"))
@@ -288,7 +288,7 @@ describe("settings page", () => {
     s.targetLang = "pt"
     const { stored } = await openPage("options", s)
     const box = (kind: string) => document.querySelector<HTMLTextAreaElement>(`#prompt-${kind}`)!
-    await vi.waitFor(() => expect(optionTexts(select("presetId"))).toEqual([NO_PRESET, "dialect", "keepTerms", "explainTerms", "style"]))
+    await until(() => expect(optionTexts(select("presetId"))).toEqual([NO_PRESET, "dialect", "keepTerms", "explainTerms", "style"]))
     choose(select("presetId"), "dialect")
     expect(optionTexts(select("presetOption"))).toEqual(["pt-BR", "pt-PT"])
     const dialect = getPromptPreset("dialect")!
@@ -326,7 +326,7 @@ describe("settings page", () => {
     history.replaceState(null, "", "?tier=dictionary#providers")
     try {
       await openPage("options", createDefaultSettings("en"))
-      await vi.waitFor(() => expect(providerList()).toEqual([`# ${ENGLISH.t("providerGroupAvailable")}`, ENGLISH.t("providerDictionary")]))
+      await until(() => expect(providerList()).toEqual([`# ${ENGLISH.t("providerGroupAvailable")}`, ENGLISH.t("providerDictionary")]))
       expect(select("providerTierFilter").value).toBe("dictionary")
       expect(document.querySelector("#providerPanel h3")!.textContent).toBe(ENGLISH.t("providerDictionary"))
       expect(scrolled).toEqual(["providers"])
@@ -347,7 +347,7 @@ describe("settings page", () => {
     const s = createDefaultSettings("en")
     s.offlineMutedPairs = ["dictionary:ja>zh-Hans", "bergamot:de>en"]
     const page = await openPage("options", s)
-    await vi.waitFor(() => expect(document.querySelector("#mutedPairs")!.textContent).not.toBe(""))
+    await until(() => expect(document.querySelector("#mutedPairs")!.textContent).not.toBe(""))
     const entries = [ENGLISH.t("mutedPairEntry", [ENGLISH.t("tierDictionary"), "Japanese (日本語) → Simplified Chinese (简体中文)"]), ENGLISH.t("mutedPairEntry", ["Bergamot", "German (Deutsch) → English"])]
     expect(document.querySelector("#mutedPairs")!.textContent).toBe(ENGLISH.t("mutedPairsList", [entries.join(", ")]))
     document.querySelector<HTMLButtonElement>("#clearMuted")!.click()
@@ -373,23 +373,23 @@ describe("settings page", () => {
       expect(document.querySelector<HTMLInputElement>("#dictFilter")!.value).toBe("en>zh-Hans")
       expect(document.querySelector<HTMLInputElement>("#bergamotFilter")!.value).toBe("ja>en, en>zh-Hans")
       expect(scrolled).toEqual(["dictionaries"])
-      await vi.waitFor(() => expect(select("tier-machine").classList.contains("missing")).toBe(true))
+      await until(() => expect(select("tier-machine").classList.contains("missing")).toBe(true))
       document.querySelector<HTMLAnchorElement>("#offlineMissing a")!.click()
       expect(document.querySelector<HTMLInputElement>("#bergamotFilter")!.value).toBe("de>en")
       expect(scrolled).toEqual(["dictionaries", "bergamot"])
       // New languages ask again.
       status = {}
       choose(select("targetLang"), "ja")
-      await vi.waitFor(() => expect(select("tier-machine").classList.contains("missing")).toBe(false))
+      await until(() => expect(select("tier-machine").classList.contains("missing")).toBe(false))
       status = { dictionary: { missing: ["en>ko"], unsupported: false } }
       choose(select("sourceLang"), "en")
-      await vi.waitFor(() => expect(select("tier-dictionary").classList.contains("missing")).toBe(true))
+      await until(() => expect(select("tier-dictionary").classList.contains("missing")).toBe(true))
       status = {}
       page.external((s) => (s.tiers.ai = "openai"))
-      await vi.waitFor(() => expect(select("tier-dictionary").classList.contains("missing")).toBe(false))
+      await until(() => expect(select("tier-dictionary").classList.contains("missing")).toBe(false))
       status = { dictionary: { missing: ["en>de"], unsupported: false } }
       page.notify({ type: "offlineDataChanged" })
-      await vi.waitFor(() => expect(select("tier-dictionary").classList.contains("missing")).toBe(true))
+      await until(() => expect(select("tier-dictionary").classList.contains("missing")).toBe(true))
     } finally {
       history.replaceState(null, "", location.pathname)
       delete (Element.prototype as Partial<Element>).scrollIntoView
@@ -398,7 +398,7 @@ describe("settings page", () => {
 
   it("opens the setup guide", async () => {
     const { created } = await openPage("options", createDefaultSettings("en"))
-    await vi.waitFor(() => expect(document.querySelector("#openWelcome")!.textContent).toBe(ENGLISH.t("openWelcome")))
+    await until(() => expect(document.querySelector("#openWelcome")!.textContent).toBe(ENGLISH.t("openWelcome")))
     document.querySelector<HTMLButtonElement>("#openWelcome")!.click()
     expect(created).toEqual(["moz-extension://test/welcome.html"])
   })
@@ -407,7 +407,7 @@ describe("settings page", () => {
     const s = createDefaultSettings("en")
     s.tiers.ai = "lmstudio"
     await openPage("options", s)
-    await vi.waitFor(() => expect(document.querySelector("#providerPanel button")).not.toBeNull())
+    await until(() => expect(document.querySelector("#providerPanel button")).not.toBeNull())
     const box = Array.from(document.querySelectorAll<HTMLInputElement>('#providerPanel input[type="checkbox"]'))[0]
     expect(box.disabled).toBe(true)
     expect(document.querySelector("#providerPanel")!.textContent).toContain(ENGLISH.t("hintThinkingUnsupported"))
@@ -438,7 +438,7 @@ describe("dictionaries on the settings page", () => {
   it("lists the packs of the release with size, license and attribution", async () => {
     vi.stubGlobal("indexedDB", new IDBFactory())
     await openPage("options", createDefaultSettings("en"), { fetchUrl: async () => jsonResponse(INDEX) })
-    await vi.waitFor(() => expect(rows()).toHaveLength(1))
+    await until(() => expect(rows()).toHaveLength(1))
     const text = rows()[0].textContent!
     expect(text).toContain("English → ")
     expect(text).toContain(ENGLISH.t("dictPackMeta", ["0.7", "57,640", "MIT"]))
@@ -450,7 +450,7 @@ describe("dictionaries on the settings page", () => {
   it("says why the list could not be loaded", async () => {
     vi.stubGlobal("indexedDB", new IDBFactory())
     await openPage("options", createDefaultSettings("en"), { fetchUrl: async () => new Response("Not Found", { status: 404 }) })
-    await vi.waitFor(() => expect(document.querySelector("#dictStatus")!.textContent).toContain("HTTP 404"))
+    await until(() => expect(document.querySelector("#dictStatus")!.textContent).toContain("HTTP 404"))
     expect(document.querySelector("#dictStatus")!.textContent!.startsWith(ENGLISH.t("dictIndexFailed", [""]).trim())).toBe(true)
     expect(rows()).toHaveLength(0)
   })
@@ -464,7 +464,7 @@ describe("dictionaries on the settings page", () => {
         return jsonResponse(INDEX)
       },
     })
-    await vi.waitFor(() => expect(urls).toHaveLength(1))
+    await until(() => expect(urls).toHaveLength(1))
     const tag = document.querySelector<HTMLInputElement>("#dictReleaseTag")!
     expect(tag.value).toBe("dicts-v1")
     tag.value = "dicts-v2"
@@ -472,8 +472,8 @@ describe("dictionaries on the settings page", () => {
     // The settings are written 300 ms later; the request names the tag of the page, so the list does not show the old release.
     expect(offline.requests.filter((r) => r.type === "offlineList").at(-1)).toEqual({ type: "offlineList", service: "dictionary", refresh: false, tag: "dicts-v2" })
     expect(stored().dictionary.releaseTag).toBe("dicts-v1")
-    await vi.waitFor(() => expect(urls.at(-1)).toContain("/dicts-v2/dict-index.json"))
-    await vi.waitFor(() => expect(document.querySelectorAll("#dictList li")).toHaveLength(1))
+    await until(() => expect(urls.at(-1)).toContain("/dicts-v2/dict-index.json"))
+    await until(() => expect(document.querySelectorAll("#dictList li")).toHaveLength(1))
     await flushSave()
     expect(stored().dictionary.releaseTag).toBe("dicts-v2")
   })
@@ -508,7 +508,7 @@ describe("offline models on the settings page", () => {
     s.targetLang = "zh-CN"
     const bg = background()
     await openPage("options", s, bg.page)
-    await vi.waitFor(() => expect(rows()).toHaveLength(3))
+    await until(() => expect(rows()).toHaveLength(3))
     expect(document.querySelector("#bergamotNeeded")!.textContent).toContain("Japanese")
     expect(rows()[0].textContent).toMatch(/^English → /)
     expect(rows()[1].textContent!.startsWith("Japanese (日本語) → English")).toBe(true)
@@ -521,7 +521,7 @@ describe("offline models on the settings page", () => {
 
   it("filters by language", async () => {
     await openPage("options", createDefaultSettings("en"), background().page)
-    await vi.waitFor(() => expect(rows()).toHaveLength(3))
+    await until(() => expect(rows()).toHaveLength(3))
     const filter = document.querySelector<HTMLInputElement>("#bergamotFilter")!
     filter.value = "japan"
     filter.dispatchEvent(new Event("input"))
@@ -534,20 +534,20 @@ describe("offline models on the settings page", () => {
   it("downloads a pair with progress and can cancel", async () => {
     const bg = background()
     await openPage("options", createDefaultSettings("en"), bg.page)
-    await vi.waitFor(() => expect(rows()).toHaveLength(3))
+    await until(() => expect(rows()).toHaveLength(3))
     rowButton(row("Japanese"), ENGLISH.t("buttonDownload")).click()
     expect(bg.requests).toContainEqual({ type: "offlineInstall", service: "bergamot", pairs: [{ src: "ja", tgt: "en" }] })
-    await vi.waitFor(() => expect(row("Japanese").textContent).toContain(ENGLISH.t("dictDownloading", ["50"])), { timeout: 2000 })
+    await until(() => expect(row("Japanese").textContent).toContain(ENGLISH.t("dictDownloading", ["50"])), 2000)
     rowButton(row("Japanese"), ENGLISH.t("buttonCancel")).click()
     expect(bg.requests).toContainEqual({ type: "offlineCancel", service: "bergamot", src: "ja", tgt: "en" })
-    await vi.waitFor(() => expect(rowButton(row("Japanese"), ENGLISH.t("buttonDownload"))).toBeDefined())
+    await until(() => expect(rowButton(row("Japanese"), ENGLISH.t("buttonDownload"))).toBeDefined())
     expect(row("Japanese").querySelector(".test-result")).toBeNull()
   })
 
   it("shows the progress of a download another page started, and reads the list again when it has ended", async () => {
     const bg = background()
     const page = await openPage("options", createDefaultSettings("en"), bg.page)
-    await vi.waitFor(() => expect(rows()).toHaveLength(3))
+    await until(() => expect(rows()).toHaveLength(3))
     page.notify({ type: "offlineProgressChanged", progress: { bergamot: { "ja>en": { state: "running", done: 6_000_000, total: 30_000_000 } } } })
     expect(row("Japanese").textContent).toContain(ENGLISH.t("dictDownloading", ["20"]))
     expect(rowButton(row("Japanese"), ENGLISH.t("buttonCancel")).title).toBe(ENGLISH.t("tipCancelDownload"))
@@ -555,7 +555,7 @@ describe("offline models on the settings page", () => {
     const before = lists()
     page.notify({ type: "offlineProgressChanged", progress: { bergamot: {} } })
     page.notify({ type: "offlineDataChanged" })
-    await vi.waitFor(() => expect(lists()).toBe(before + 1))
+    await until(() => expect(lists()).toBe(before + 1))
     expect(rowButton(row("Japanese"), ENGLISH.t("buttonDownload"))).toBeDefined()
   })
 
@@ -564,15 +564,15 @@ describe("offline models on the settings page", () => {
     const s = createDefaultSettings("en")
     s.targetLang = "zh-CN"
     await openPage("options", s, bg.page)
-    await vi.waitFor(() => expect(rows()).toHaveLength(3))
+    await until(() => expect(rows()).toHaveLength(3))
     rowButton(row("English → "), ENGLISH.t("buttonDelete")).click()
     expect(row("English → ").textContent).toContain(ENGLISH.t("bergamotDeleteNeeded"))
     expect(bg.requests.some((r) => r.type === "offlineRemove")).toBe(false)
     rowButton(row("English → "), ENGLISH.t("buttonDeleteAnyway")).click()
-    await vi.waitFor(() => expect(bg.requests).toContainEqual({ type: "offlineRemove", service: "bergamot", src: "en", tgt: "zh-Hans" }))
+    await until(() => expect(bg.requests).toContainEqual({ type: "offlineRemove", service: "bergamot", src: "en", tgt: "zh-Hans" }))
     // A pair nobody needs goes at once.
     rowButton(row("German"), ENGLISH.t("buttonDelete")).click()
-    await vi.waitFor(() => expect(bg.requests).toContainEqual({ type: "offlineRemove", service: "bergamot", src: "de", tgt: "en" }))
+    await until(() => expect(bg.requests).toContainEqual({ type: "offlineRemove", service: "bergamot", src: "de", tgt: "en" }))
   })
 })
 
@@ -588,7 +588,7 @@ describe("Microsoft Translator interface", () => {
 
   it("shows the key, region and endpoint fields only in key mode", async () => {
     const { stored, sendMessage } = await openPage("options", createDefaultSettings("en"))
-    await vi.waitFor(() => expect(document.querySelector("#providerList li")).not.toBeNull())
+    await until(() => expect(document.querySelector("#providerList li")).not.toBeNull())
     pickMicrosoft()
     expect(radio("free").checked).toBe(true)
     expect(azureFields().hidden).toBe(true)
@@ -607,7 +607,7 @@ describe("Microsoft Translator interface", () => {
 
     // The connection test sends the unsaved configuration with the mode.
     button(ENGLISH.t("buttonTest")).click()
-    await vi.waitFor(() =>
+    await until(() =>
       expect(sendMessage).toHaveBeenCalledWith(
         expect.objectContaining({ type: "testProvider", providerId: "microsoft-free", config: expect.objectContaining({ mode: "key", apiKey: "azure-key", region: "westeurope" }) }),
       ),
@@ -624,7 +624,7 @@ describe("Microsoft Translator interface", () => {
     const s = createDefaultSettings("en")
     s.providers["microsoft-free"] = { ...s.providers["microsoft-free"], mode: "key", apiKey: "k", region: "eastus" }
     await openPage("options", s)
-    await vi.waitFor(() => expect(document.querySelector("#providerList li")).not.toBeNull())
+    await until(() => expect(document.querySelector("#providerList li")).not.toBeNull())
     pickMicrosoft()
     expect(radio("key").checked).toBe(true)
     expect(azureFields().hidden).toBe(false)
@@ -634,7 +634,7 @@ describe("Microsoft Translator interface", () => {
 
 describe("settings changed in another page", () => {
   const check = (id: string) => document.querySelector<HTMLInputElement>(`#${id}`)!
-  const ready = () => vi.waitFor(() => expect(select("targetLang").options.length).toBeGreaterThan(1))
+  const ready = () => until(() => expect(select("targetLang").options.length).toBeGreaterThan(1))
   const edit = (el: HTMLSelectElement | HTMLTextAreaElement, value: string, type: "change" | "input") => {
     el.value = value
     el.dispatchEvent(new Event(type))
@@ -685,7 +685,7 @@ describe("settings changed in another page", () => {
 
   it("settings page: keeps the typed key when the popup switches the service", async () => {
     const page = await openPage("options", createDefaultSettings("en"))
-    await vi.waitFor(() => expect(document.querySelector("#providerList li")).not.toBeNull())
+    await until(() => expect(document.querySelector("#providerList li")).not.toBeNull())
     Array.from(document.querySelectorAll<HTMLLIElement>("#providerList li")).find((li) => li.firstChild?.textContent === "OpenAI")!.click()
     const key = document.querySelector<HTMLInputElement>('#providerPanel input[type="password"]')!
     key.focus()
@@ -702,7 +702,7 @@ describe("settings changed in another page", () => {
 
   it("popup: shows a change made on the settings page and keeps other settings when it saves", async () => {
     const page = await openPage("popup", createDefaultSettings("en"))
-    await vi.waitFor(() => expect(select("targetLang").options.length).toBeGreaterThan(1))
+    await until(() => expect(select("targetLang").options.length).toBeGreaterThan(1))
     page.external((s) => {
       s.autoTranslate = true
       s.mode = "translation-only"
@@ -714,7 +714,7 @@ describe("settings changed in another page", () => {
     page.external((s) => (s.providers.openai.apiKey = "sk-newer"), false)
     select("targetLang").value = "fr"
     select("targetLang").dispatchEvent(new Event("change"))
-    await vi.waitFor(() => expect(page.stored().targetLang).toBe("fr"))
+    await until(() => expect(page.stored().targetLang).toBe("fr"))
     expect(page.stored().providers.openai.apiKey).toBe("sk-newer")
   })
 })

@@ -11,6 +11,7 @@ import type { TabState, TranslateRequest, TranslateResponse } from "../src/share
 import type { Tier } from "../src/shared/providers"
 import type { PublicSettings } from "../src/shared/settings"
 import { answering, manualTranslate, publicSettings, tieredSettings } from "./fixtures/content"
+import { until } from "./helpers"
 
 const HTML_MAIL = `
 <div class="moz-text-html">
@@ -247,7 +248,7 @@ describe("controller", () => {
     expect(err.title).toBe("HTTP 500")
     fail = false
     err.click()
-    await vi.waitFor(() => expect(document.querySelector(".tt-translation")?.textContent).toBe("ZH:Good morning"))
+    await until(() => expect(document.querySelector(".tt-translation")?.textContent).toBe("ZH:Good morning"))
   })
 
   it("never shows an empty failure reason and reports the last one", async () => {
@@ -263,9 +264,9 @@ describe("controller", () => {
     const markers = Array.from(document.querySelectorAll<HTMLElement>(".tt-error"))
     expect(markers).toHaveLength(2)
     for (const m of markers) expect(m.title.trim()).not.toBe("")
-    await vi.waitFor(() => expect(reports.at(-1)).toMatchObject({ failed: 2, lastError: expect.stringMatching(/\S/) }))
+    await until(() => expect(reports.at(-1)).toMatchObject({ failed: 2, lastError: expect.stringMatching(/\S/) }))
     c.stop()
-    await vi.waitFor(() => expect(reports.at(-1)!.lastError).toBeUndefined())
+    await until(() => expect(reports.at(-1)!.lastError).toBeUndefined())
   })
 
   it("auto-starts only for messages not in the target language", async () => {
@@ -308,12 +309,12 @@ describe("controller", () => {
     const c = new TranslationController({ root: () => document.body, translate, detect, report: (s) => reports.push(s) })
     await c.updateSettings(settings({ targetLang: "en" }))
     const started = c.start()
-    await vi.waitFor(() => expect(detect).toHaveBeenCalledTimes(2))
+    await until(() => expect(detect).toHaveBeenCalledTimes(2))
     c.stop()
     release()
     await started
     expect(translate).not.toHaveBeenCalled()
-    await vi.waitFor(() => expect(reports.at(-1)).toMatchObject({ active: false, total: 0 }))
+    await until(() => expect(reports.at(-1)).toMatchObject({ active: false, total: 0 }))
     expect(document.querySelector(".tt-status")).toBeNull()
   })
 
@@ -331,7 +332,7 @@ describe("controller", () => {
     const c = new TranslationController({ root: () => document.body, translate: r.translate, report: (st) => reports.push(st) })
     await c.updateSettings(threeTiers())
     const started = c.start()
-    await vi.waitFor(() => expect(r.translate).toHaveBeenCalledTimes(2))
+    await until(() => expect(r.translate).toHaveBeenCalledTimes(2))
     expect(r.translate.mock.calls[0][0].tiers).toEqual(["dictionary", "machine", "ai"])
 
     r.answer("Good morning", "dictionary", { ok: true, text: "DICT" })
@@ -343,13 +344,13 @@ describe("controller", () => {
     block = document.querySelector<HTMLElement>(".tt-translation.tt-provisional")!
     expect(block.firstChild!.textContent).toBe("MT")
     expect(block.querySelector(".tt-tag")!.textContent).toBe(ENGLISH.t("tierMachine"))
-    await vi.waitFor(() => expect(reports.at(-1)).toMatchObject({ total: 2, done: 0, provisional: 1, failed: 0 }))
+    await until(() => expect(reports.at(-1)).toMatchObject({ total: 2, done: 0, provisional: 1, failed: 0 }))
 
     r.answer("Good morning", "ai", { ok: true, text: "AI" })
     r.answer("See you later", "ai", { ok: true, text: "AI2" })
     expect(document.querySelector(".tt-provisional")).toBeNull()
     expect(texts()).toEqual(["AI", "AI2"])
-    await vi.waitFor(() => expect(reports.at(-1)).toMatchObject({ total: 2, done: 2, provisional: 0, failed: 0 }))
+    await until(() => expect(reports.at(-1)).toMatchObject({ total: 2, done: 2, provisional: 0, failed: 0 }))
     r.done("Good morning")
     r.done("See you later")
     await started
@@ -363,7 +364,7 @@ describe("controller", () => {
     const c = new TranslationController({ root: () => document.body, translate: r.translate })
     await c.updateSettings(threeTiers())
     void c.start()
-    await vi.waitFor(() => expect(r.translate).toHaveBeenCalledTimes(1))
+    await until(() => expect(r.translate).toHaveBeenCalledTimes(1))
     r.answer("Good morning", "ai", { ok: true, text: "AI" })
     r.answer("Good morning", "machine", { ok: true, text: "MT" })
     r.answer("Good morning", "dictionary", { ok: true, text: "DICT" })
@@ -379,7 +380,7 @@ describe("controller", () => {
     const c = new TranslationController({ root: () => document.body, translate: r.translate, report: (st) => reports.push(st) })
     await c.updateSettings(threeTiers())
     void c.start()
-    await vi.waitFor(() => expect(r.translate).toHaveBeenCalledTimes(1))
+    await until(() => expect(r.translate).toHaveBeenCalledTimes(1))
     r.answer("Good morning", "dictionary", { ok: true, text: "DICT" })
     r.answer("Good morning", "ai", { ok: false, error: "OpenAI request failed: HTTP 401" })
     // The machine tier is still running: the dictionary result stays, marked with the AI failure.
@@ -387,17 +388,17 @@ describe("controller", () => {
     expect(block.firstChild!.textContent).toBe("DICT")
     r.answer("Good morning", "machine", { ok: true, text: "MT" })
     r.done("Good morning")
-    await vi.waitFor(() => expect(r.translate).toHaveBeenCalledTimes(1))
+    await until(() => expect(r.translate).toHaveBeenCalledTimes(1))
 
     block = document.querySelector<HTMLElement>(".tt-translation.tt-fallback")!
     expect(block.firstChild!.textContent).toBe("MT")
     const marker = block.querySelector<HTMLElement>(".tt-error")!
     expect(marker.textContent).toBe(ENGLISH.t("statusTierFailed", [ENGLISH.t("tierAi")]))
     expect(marker.title).toBe(`OpenAI request failed: HTTP 401\n${ENGLISH.t("tipRetryTier")}`)
-    await vi.waitFor(() => expect(reports.at(-1)).toMatchObject({ done: 0, provisional: 0, failed: 1, lastError: "OpenAI request failed: HTTP 401" }))
+    await until(() => expect(reports.at(-1)).toMatchObject({ done: 0, provisional: 0, failed: 1, lastError: "OpenAI request failed: HTTP 401" }))
 
     marker.click()
-    await vi.waitFor(() => expect(r.translate).toHaveBeenCalledTimes(2))
+    await until(() => expect(r.translate).toHaveBeenCalledTimes(2))
     expect(r.translate.mock.calls[1][0].tiers).toEqual(["ai"])
     // While the AI tier runs again, the machine translation is provisional.
     expect(document.querySelector(".tt-translation.tt-provisional")!.firstChild!.textContent).toBe("MT")
@@ -415,7 +416,7 @@ describe("controller", () => {
     const c = new TranslationController({ root: () => document.body, translate: r.translate })
     await c.updateSettings(threeTiers())
     void c.start()
-    await vi.waitFor(() => expect(r.translate).toHaveBeenCalledTimes(1))
+    await until(() => expect(r.translate).toHaveBeenCalledTimes(1))
     r.answer("Good morning", "ai", { ok: false, error: "AI down" })
     r.answer("Good morning", "machine", { ok: false, error: "MT down" })
     expect(document.querySelector(".tt-loading")).not.toBeNull()
@@ -473,7 +474,7 @@ describe("controller", () => {
     await c.updateSettings(threeTiers())
     await c.start()
     expect(texts()).toEqual(["AI"])
-    await vi.waitFor(() => expect(reports.at(-1)).toMatchObject({ total: 1, done: 1, provisional: 0, failed: 0 }))
+    await until(() => expect(reports.at(-1)).toMatchObject({ total: 1, done: 1, provisional: 0, failed: 0 }))
   })
 
   /* ---------- precise mode ---------- */

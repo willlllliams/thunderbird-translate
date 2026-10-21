@@ -15,6 +15,12 @@ export function useFakeTimers(now?: Date): void {
   vi.useFakeTimers(now ? { toFake: ["setTimeout", "clearTimeout", "setInterval", "clearInterval", "Date"], now } : { toFake: ["setTimeout", "clearTimeout", "setInterval", "clearInterval"] })
 }
 
+/**
+ * vi.waitFor() with 10 s instead of 1 s: on a busy machine IndexedDB, gunzip and the modules of a page take longer
+ * than a second. A check that passes returns at once, so a passing test waits no longer.
+ */
+export const until = <T>(check: () => T | Promise<T>, timeout = 10_000) => vi.waitFor(check, { timeout })
+
 /** One turn of the event loop: every promise chain that waits for no timer has run. Works with fake timers too. */
 export const nextTask = () => new Promise<void>((resolve) => setImmediate(resolve))
 

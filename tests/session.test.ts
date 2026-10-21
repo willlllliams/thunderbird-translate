@@ -4,7 +4,7 @@ import { afterEach, describe, expect, it, vi } from "vitest"
 import { SettingsSession } from "../src/options/session"
 import { createDefaultSettings, type Settings, SETTINGS_KEY } from "../src/shared/settings"
 import { stubBrowser } from "./fixtures/browser"
-import { useFakeTimers } from "./helpers"
+import { until, useFakeTimers } from "./helpers"
 
 afterEach(() => {
   vi.useRealTimers()
@@ -72,7 +72,7 @@ describe("SettingsSession", () => {
     session.save()
     const release = page.hold()
     const first = session.flush()
-    await vi.waitFor(() => expect(page.set).toHaveBeenCalled())
+    await until(() => expect(page.set).toHaveBeenCalled())
     // While the write runs, the user switches back.
     session.settings.mode = "bilingual"
     session.save()
@@ -90,7 +90,7 @@ describe("SettingsSession", () => {
     session.save()
     const release = page.hold()
     const saving = session.flush()
-    await vi.waitFor(() => expect(page.set).toHaveBeenCalled())
+    await until(() => expect(page.set).toHaveBeenCalled())
     // Another page writes after this page did, while this page still waits for its write to report back.
     page.external((s) => (s.autoTranslate = true))
     release()

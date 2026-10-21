@@ -9,7 +9,7 @@ import { IDLE_TAB_STATE, type PortPush, type TranslateRequest } from "../src/sha
 import { createDefaultSettings, SETTINGS_KEY, type Settings, toPublicSettings } from "../src/shared/settings"
 import { localeText, stubBackgroundApi } from "./fixtures/background-api"
 import { packEntry, releaseServer, tsv } from "./fixtures/dictionary"
-import { asFetch, jsonResponse, useFakeTimers } from "./helpers"
+import { asFetch, jsonResponse, until, useFakeTimers } from "./helpers"
 
 beforeEach(() => useFakeTimers())
 afterEach(() => {
@@ -27,7 +27,7 @@ async function start(options: Parameters<typeof stubBackgroundApi>[0] = {}) {
   const bg = stubBackgroundApi({ fetchUrl: google, ...options })
   vi.resetModules()
   await import("../src/background/index")
-  await vi.waitFor(() => expect(bg.api.messageDisplayAction.setTitle).toHaveBeenCalled())
+  await until(() => expect(bg.api.messageDisplayAction.setTitle).toHaveBeenCalled())
   return bg
 }
 
@@ -65,14 +65,14 @@ describe("settings", () => {
     vi.resetModules()
     await import("../src/background/index")
     const port = bg.connect(3)
-    await vi.waitFor(() => expect(port.posted).toEqual([{ type: "settings", settings: toPublicSettings(createDefaultSettings()) }]))
+    await until(() => expect(port.posted).toEqual([{ type: "settings", settings: toPublicSettings(createDefaultSettings()) }]))
     expect(await bg.send({ type: "getTabState", tabId: 3 })).toMatchObject({ connected: true })
   })
 
   it("passes a settings change to every content script and applies a new interface language", async () => {
     const bg = await start({ stored: stored(createDefaultSettings()) })
     const [a, b] = [bg.connect(1), bg.connect(2)]
-    await vi.waitFor(() => expect(b.posted).toHaveLength(1))
+    await until(() => expect(b.posted).toHaveLength(1))
     bg.api.messageDisplayAction.setBadgeText.mockClear()
     const s = createDefaultSettings()
     s.targetLang = "ja"
@@ -81,15 +81,15 @@ describe("settings", () => {
     const push: PortPush = { type: "settings", settings: toPublicSettings(s) }
     expect(a.posted.at(-1)).toEqual(push)
     expect(b.posted.at(-1)).toEqual(push)
-    await vi.waitFor(() => expect(bg.api.messageDisplayAction.setTitle).toHaveBeenLastCalledWith({ title: localeText("de", "actionTitle") }))
+    await until(() => expect(bg.api.messageDisplayAction.setTitle).toHaveBeenLastCalledWith({ title: localeText("de", "actionTitle") }))
     // The badges of the connected tabs are redrawn in the new language.
-    await vi.waitFor(() => expect(bg.api.messageDisplayAction.setBadgeText.mock.calls.map(([d]) => d.tabId).sort()).toEqual([1, 2]))
+    await until(() => expect(bg.api.messageDisplayAction.setBadgeText.mock.calls.map(([d]) => d.tabId).sort()).toEqual([1, 2]))
   })
 
   it("keeps the interface language when another setting changes, and ignores other keys and areas", async () => {
     const bg = await start({ stored: stored(createDefaultSettings()) })
     const port = bg.connect(1)
-    await vi.waitFor(() => expect(port.posted).toHaveLength(1))
+    await until(() => expect(port.posted).toHaveLength(1))
     const titles = bg.api.messageDisplayAction.setTitle.mock.calls.length
     bg.storageChanged({ [SETTINGS_KEY]: { newValue: createDefaultSettings() } }, "sync")
     bg.storageChanged({ other: { newValue: 1 } }, "local")
@@ -107,7 +107,7 @@ describe("settings", () => {
     const port = bg.connect(1)
     const translate = async (id: number) => {
       port.send({ type: "translate", id, request: request("Hello") })
-      await vi.waitFor(() => expect(port.posted.at(-1)).toEqual({ type: "done", id }))
+      await until(() => expect(port.posted.at(-1)).toEqual({ type: "done", id }))
     }
     await translate(1)
     await translate(2)
@@ -124,7 +124,7 @@ describe("content script ports", () => {
   it("sends the settings to a new content script and clears its badge", async () => {
     const bg = await start({ stored: stored(createDefaultSettings()) })
     const port = bg.connect(4)
-    await vi.waitFor(() => expect(port.posted).toEqual([{ type: "settings", settings: toPublicSettings(createDefaultSettings()) }]))
+    await until(() => expect(port.posted).toEqual([{ type: "settings", settings: toPublicSettings(createDefaultSettings()) }]))
     expect(bg.api.messageDisplayAction.setBadgeText).toHaveBeenCalledWith({ tabId: 4, text: "" })
     expect(await bg.send({ type: "getTabState", tabId: 4 })).toEqual({ ...IDLE_TAB_STATE, connected: true })
   })
@@ -133,7 +133,7 @@ describe("content script ports", () => {
     const bg = await start({ stored: stored(allowed()) })
     const port = bg.connect(4)
     port.send({ type: "translate", id: 7, request: request("Hello") })
-    await vi.waitFor(() => expect(port.posted.at(-1)).toEqual({ type: "done", id: 7 }))
+    await until(() => expect(port.posted.at(-1)).toEqual({ type: "done", id: 7 }))
     expect(port.posted.slice(1)).toEqual([
       { type: "tier", id: 7, tier: "machine", result: { ok: true, text: "G(Hello)" } },
       { type: "done", id: 7 },
@@ -143,16 +143,16 @@ describe("content script ports", () => {
   it("sends nothing to an online service the user has not allowed, and translates at once after the consent panel", async () => {
     const bg = await start({ stored: stored(createDefaultSettings()) })
     const port = bg.connect(4)
-    await vi.waitFor(() => expect(port.posted[0]).toMatchObject({ type: "settings", settings: { consent: [{ id: "google-free", host: "translate.googleapis.com" }] } }))
+    await until(() => expect(port.posted[0]).toMatchObject({ type: "settings", settings: { consent: [{ id: "google-free", host: "translate.googleapis.com" }] } }))
     port.send({ type: "translate", id: 1, request: request("Hello") })
-    await vi.waitFor(() => expect(port.posted.at(-1)).toEqual({ type: "done", id: 1 }))
+    await until(() => expect(port.posted.at(-1)).toEqual({ type: "done", id: 1 }))
     expect(port.posted.at(-2)).toEqual({ type: "tier", id: 1, tier: "machine", result: { ok: false, error: localeText("en", "errConsentRequired").replace("$1", "Google Translate (free)") } })
     expect(google).not.toHaveBeenCalled()
     // The content script of the message records the consent; the next request goes out before the storage event arrives.
     expect(await bg.send({ type: "grantConsent", ids: ["google-free"] }, { tab: { id: 4 } })).toBeUndefined()
     expect((bg.local[SETTINGS_KEY] as Settings).onlineConsent).toEqual(["google-free"])
     port.send({ type: "translate", id: 2, request: request("Hello") })
-    await vi.waitFor(() => expect(port.posted.at(-1)).toEqual({ type: "done", id: 2 }))
+    await until(() => expect(port.posted.at(-1)).toEqual({ type: "done", id: 2 }))
     expect(port.posted.at(-2)).toEqual({ type: "tier", id: 2, tier: "machine", result: { ok: true, text: "G(Hello)" } })
   })
 
@@ -160,7 +160,7 @@ describe("content script ports", () => {
     const bg = await start({ stored: stored(createDefaultSettings()) })
     const page = bg.connect(5, undefined, "moz-extension://test/welcome.html")
     page.send({ type: "translate", id: 1, request: request("Hello") })
-    await vi.waitFor(() => expect(page.posted.at(-1)).toEqual({ type: "done", id: 1 }))
+    await until(() => expect(page.posted.at(-1)).toEqual({ type: "done", id: 1 }))
     expect(page.posted.at(-2)).toEqual({ type: "tier", id: 1, tier: "machine", result: { ok: true, text: "G(Hello)" } })
   })
 
@@ -246,7 +246,7 @@ describe("requests from pages", () => {
     const dictionaryOnly = (text: string, sourceLang: string): TranslateRequest => ({ text, sourceLang, targetLang: "zh-CN", tiers: ["dictionary"] })
     port.send({ type: "translate", id: 1, request: dictionaryOnly("hello world", "en") })
     port.send({ type: "translate", id: 2, request: dictionaryOnly("Bonjour", "fr") })
-    await vi.waitFor(() => expect(port.posted.filter((m) => m.type === "done")).toHaveLength(2))
+    await until(() => expect(port.posted.filter((m) => m.type === "done")).toHaveLength(2))
     expect(port.posted).toContainEqual({ type: "tier", id: 1, tier: "dictionary", result: { ok: true, text: "你好世界" } })
     expect(port.posted).toContainEqual({ type: "tier", id: 2, tier: "dictionary", result: { ok: false, error: expect.stringContaining("fr → zh-Hans") } })
     expect(port.posted.find((m) => m.type === "tier" && m.id === 2)).not.toHaveProperty("result.missing")
@@ -263,7 +263,7 @@ describe("requests from pages", () => {
     await import("../src/background/index")
     const port = bg.connect(4)
     port.send({ type: "translate", id: 1, request: { ...request("Bonjour tout le monde, merci pour votre message"), tiers: ["dictionary"] } })
-    await vi.waitFor(() => expect(port.posted.at(-1)).toEqual({ type: "done", id: 1 }))
+    await until(() => expect(port.posted.at(-1)).toEqual({ type: "done", id: 1 }))
     expect(port.posted[1]).toMatchObject({ type: "tier", tier: "dictionary", result: { ok: false, error: expect.stringContaining("en → zh-Hans") } })
   })
 })
@@ -272,8 +272,6 @@ describe("offline data in the background script", () => {
   const EN_ZH = tsv("en", "zh-Hans", { hello: "你好", world: "世界" })
   const JA_EN = tsv("ja", "en", { こんにちは: "hello" })
   const dictionaryOnly = (text: string): TranslateRequest => ({ text, sourceLang: "en", targetLang: "zh-CN", tiers: ["dictionary"] })
-  /** An installation unpacks and stores a pack in IndexedDB, which takes longer than a second on a busy machine. */
-  const until = <T>(check: () => T | Promise<T>) => vi.waitFor(check, { timeout: 10_000 })
 
   /** The background script with the dictionary tier; the release serves EN_ZH at once and JA_EN never (a download that is still running). */
   async function withRelease() {
@@ -353,11 +351,11 @@ describe("offline data in the background script", () => {
     const results = bg.send({ type: "offlineInstall", service: "dictionary", pairs: ["en>de", "de>en", "en>fr", "fr>en", "en>ja"].map(pair) }) as Promise<unknown>
     // A second page asks for a pack of the first one.
     const second = bg.send({ type: "offlineInstall", service: "dictionary", pairs: [pair("en>de")] }) as Promise<unknown>
-    await vi.waitFor(() => expect(files).toEqual(["dict-en-de.tsv.gz", "dict-de-en.tsv.gz"]))
+    await until(() => expect(files).toEqual(["dict-en-de.tsv.gz", "dict-de-en.tsv.gz"]))
     expect(await bg.send({ type: "offlineProgress" })).toMatchObject({ dictionary: { "en>de": { state: "running" }, "de>en": { state: "running" }, "en>fr": { state: "queued" }, "fr>en": { state: "queued" }, "en>ja": { state: "queued" } } })
     await bg.send({ type: "offlineCancel", service: "dictionary", src: "fr", tgt: "en" })
     // The pages that asked are gone: nothing more comes from them.
-    await vi.waitFor(() => {
+    await until(() => {
       waiting.splice(0).forEach((resolve) => resolve())
       expect(files).toHaveLength(4)
     })

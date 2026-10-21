@@ -9,7 +9,7 @@ import type { TranslateRequest, TranslateResponse } from "../src/shared/messages
 import { DEFAULT_PROMPTS } from "../src/shared/prompts"
 import type { Tier } from "../src/shared/providers"
 import { createDefaultSettings, type Settings } from "../src/shared/settings"
-import { anthropicMessage, asFetch, createService, fakeDictionary, jsonResponse, type OneRequest, translateOne, useFakeTimers } from "./helpers"
+import { anthropicMessage, asFetch, createService, fakeDictionary, jsonResponse, type OneRequest, translateOne, until, useFakeTimers } from "./helpers"
 
 afterEach(() => vi.useRealTimers())
 
@@ -80,7 +80,7 @@ describe("tiers", () => {
     const { service } = setup((s) => (s.tiers.dictionary = "dictionary"), { llm: fakeLlm(ai.promise).llm, fetchFn: googleFetch(), dictionary: fakeDictionary() })
     const reports: [Tier, TranslateResponse][] = []
     const done = service.translateForPage(page("Hello"), (tier, result) => reports.push([tier, result]))
-    await vi.waitFor(() => expect(reports.map(([tier]) => tier).sort()).toEqual(["dictionary", "machine"]))
+    await until(() => expect(reports.map(([tier]) => tier).sort()).toEqual(["dictionary", "machine"]))
     ai.resolve()
     await done
     expect(reports.at(-1)).toEqual(["ai", { ok: true, text: "AI(Hello)" }])
@@ -96,7 +96,7 @@ describe("tiers", () => {
     const { service } = setup(() => {}, { llm: fakeLlm().llm, fetchFn: googleFetch(google.promise) })
     const reports: [Tier, TranslateResponse][] = []
     const done = service.translateForPage(page("Hello"), (tier, result) => reports.push([tier, result]))
-    await vi.waitFor(() => expect(reports).toEqual([["ai", { ok: true, text: "AI(Hello)" }]]))
+    await until(() => expect(reports).toEqual([["ai", { ok: true, text: "AI(Hello)" }]]))
     google.resolve()
     await done
     expect(reports.map(([tier]) => tier)).toEqual(["ai", "machine"])

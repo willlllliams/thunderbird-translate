@@ -13,7 +13,7 @@ import { readLocaleSources } from "../scripts/locales.mjs"
 import { pagePort, stubBrowser } from "./fixtures/browser"
 import { bergamotStandIn } from "./fixtures/offline"
 import { flushSave } from "./fixtures/pages"
-import { jsonResponse, nextTask, openPage, useFakeTimers } from "./helpers"
+import { jsonResponse, nextTask, openPage, until, useFakeTimers } from "./helpers"
 
 // Fake timers in every test: a page left open by a test cannot fire its timers into the next one.
 beforeEach(() => useFakeTimers())
@@ -101,7 +101,7 @@ describe("welcome page", () => {
     el.value = value
     el.dispatchEvent(new Event("change"))
   }
-  const ready = () => vi.waitFor(() => expect(current()).toBeDefined())
+  const ready = () => until(() => expect(current()).toBeDefined())
 
   function settings(change: (s: Settings) => void = () => {}): Settings {
     const s = createDefaultSettings("en")
@@ -120,17 +120,17 @@ describe("welcome page", () => {
     expect($<HTMLButtonElement>("prevStep").disabled).toBe(true)
 
     $("nextStep").click()
-    await vi.waitFor(() => expect(current()).toBe("display"))
+    await until(() => expect(current()).toBe("display"))
     $("skipStep").click()
-    await vi.waitFor(() => expect(current()).toBe("tiers"))
+    await until(() => expect(current()).toBe("tiers"))
     $("nextStep").click()
-    await vi.waitFor(() => expect(current()).toBe("machine"))
+    await until(() => expect(current()).toBe("machine"))
     $("nextStep").click()
-    await vi.waitFor(() => expect(current()).toBe("finish"))
+    await until(() => expect(current()).toBe("finish"))
     expect($("nextStep").textContent).toBe(ENGLISH.t("buttonFinish"))
     expect($("skipStep").hidden).toBe(true)
     $("prevStep").click()
-    await vi.waitFor(() => expect(current()).toBe("machine"))
+    await until(() => expect(current()).toBe("machine"))
     expect($("progressBar").style.width).toBe("80%")
   })
 
@@ -143,7 +143,7 @@ describe("welcome page", () => {
     expect(page.stored()).toMatchObject({ targetLang: "ja", sourceLang: "de" })
 
     stepButtons()[1].click()
-    await vi.waitFor(() => expect(page.local(WELCOME_KEY)).toEqual({ step: "display" }))
+    await until(() => expect(page.local(WELCOME_KEY)).toEqual({ step: "display" }))
     const only = document.querySelector<HTMLInputElement>('input[name="mode"][value="translation-only"]')!
     only.checked = true
     only.dispatchEvent(new Event("change"))
@@ -179,11 +179,11 @@ describe("welcome page", () => {
       return write(v)
     }
     choose("targetLang", "ja")
-    await vi.waitFor(() => expect($("saved").textContent).toBe(ENGLISH.t("errSaveFailed", ["quota exceeded"])))
+    await until(() => expect($("saved").textContent).toBe(ENGLISH.t("errSaveFailed", ["quota exceeded"])))
     expect($("saved").classList.contains("error")).toBe(true)
     // The failed save does not hold up the guide.
     $("nextStep").click()
-    await vi.waitFor(() => expect(current()).toBe("display"))
+    await until(() => expect(current()).toBe("display"))
     refuse = false
     const only = document.querySelector<HTMLInputElement>('input[name="mode"][value="translation-only"]')!
     only.checked = true
@@ -196,15 +196,15 @@ describe("welcome page", () => {
 
   it("continues at the stored step and saves it when the user leaves", async () => {
     const page = await openPage("welcome", settings(), { stored: { [WELCOME_KEY]: { step: "tiers" } } })
-    await vi.waitFor(() => expect(current()).toBe("tiers"))
+    await until(() => expect(current()).toBe("tiers"))
     $("exitGuide").click()
-    await vi.waitFor(() => expect(page.removed).toEqual([7]))
+    await until(() => expect(page.removed).toEqual([7]))
     expect(page.local(WELCOME_KEY)).toEqual({ step: "tiers" })
   })
 
   it("M3: stays open with the failure on screen when the settings cannot be saved on leaving or finishing", async () => {
     const page = await openPage("welcome", settings(), { stored: { [WELCOME_KEY]: { step: "finish" } } })
-    await vi.waitFor(() => expect(current()).toBe("finish"))
+    await until(() => expect(current()).toBe("finish"))
     const local = (globalThis as unknown as { browser: { storage: { local: { set: (v: Record<string, unknown>) => Promise<void> } } } }).browser.storage.local
     const write = local.set
     let refuse = true
@@ -215,23 +215,23 @@ describe("welcome page", () => {
     $<HTMLInputElement>("autoTranslate").click()
     for (const button of ["exitGuide", "nextStep"]) {
       $(button).click()
-      await vi.waitFor(() => expect($("saved").textContent).toBe(ENGLISH.t("errSaveFailed", ["quota exceeded"])))
+      await until(() => expect($("saved").textContent).toBe(ENGLISH.t("errSaveFailed", ["quota exceeded"])))
       await nextTask()
       expect(page.removed).toEqual([])
       $("saved").textContent = ""
     }
     refuse = false
     $("nextStep").click()
-    await vi.waitFor(() => expect(page.removed).toEqual([7]))
+    await until(() => expect(page.removed).toEqual([7]))
     expect(page.stored().autoTranslate).toBe(true)
     expect(page.local(WELCOME_KEY)).toEqual({ step: "finish", finished: true })
   })
 
   it("marks the guide as finished on the last step", async () => {
     const page = await openPage("welcome", settings(), { stored: { [WELCOME_KEY]: { step: "finish" } } })
-    await vi.waitFor(() => expect(current()).toBe("finish"))
+    await until(() => expect(current()).toBe("finish"))
     $("nextStep").click()
-    await vi.waitFor(() => expect(page.removed).toEqual([7]))
+    await until(() => expect(page.removed).toEqual([7]))
     expect(page.local(WELCOME_KEY)).toEqual({ step: "finish", finished: true })
   })
 
@@ -240,7 +240,7 @@ describe("welcome page", () => {
       stored: { [WELCOME_KEY]: { step: "ai" } },
       respond: (req) => (req.type === "testProvider" ? { ok: true, text: "你好" } : undefined),
     })
-    await vi.waitFor(() => expect(current()).toBe("ai"))
+    await until(() => expect(current()).toBe("ai"))
     expect($<HTMLSelectElement>("aiService").value).toBe("openai")
     choose("aiService", "deepseek")
     const key = document.querySelector<HTMLInputElement>('#aiPanel input[type="password"]')!
@@ -251,7 +251,7 @@ describe("welcome page", () => {
     await flushSave()
     expect(page.stored().providers.deepseek.apiKey).toBe("sk-test")
     Array.from(document.querySelectorAll<HTMLButtonElement>("#aiPanel button")).find((b) => b.textContent === ENGLISH.t("buttonTest"))!.click()
-    await vi.waitFor(() => expect(document.querySelector("#aiPanel .test-result.ok")?.textContent).toBe(ENGLISH.t("testOk", ["你好"])))
+    await until(() => expect(document.querySelector("#aiPanel .test-result.ok")?.textContent).toBe(ENGLISH.t("testOk", ["你好"])))
     expect(page.sendMessage).toHaveBeenCalledWith(expect.objectContaining({ type: "testProvider", providerId: "deepseek" }))
     $<HTMLInputElement>("preciseEnabled").click()
     await flushSave()
@@ -260,7 +260,7 @@ describe("welcome page", () => {
 
   it("shows the online translator's fields only for the service of the machine tier", async () => {
     await openPage("welcome", settings((s) => (s.tiers.machine = "microsoft-free")), { stored: { [WELCOME_KEY]: { step: "machine" } } })
-    await vi.waitFor(() => expect(current()).toBe("machine"))
+    await until(() => expect(current()).toBe("machine"))
     expect(document.querySelector("#machinePanel h3")!.textContent).toBe("Microsoft Translator (free)")
     expect(document.querySelectorAll('#machinePanel input[name="microsoftMode"]')).toHaveLength(2)
   })
@@ -304,8 +304,8 @@ describe("welcome page", () => {
     await openPage("welcome", s, { stored: { [WELCOME_KEY]: { step: "offline" } }, respond: services.respond, fetchUrl: services.fetchUrl, bergamot: services.bergamot, systemLanguages: ["fr-FR"] })
     const names = (list: string) => Array.from(document.querySelectorAll(`#${list} .dict-name`)).map((el) => el.textContent)
     const ticked = (list: string) => Array.from(document.querySelectorAll<HTMLInputElement>(`#${list} input[type=checkbox]`)).filter((b) => b.checked).length
-    await vi.waitFor(() => expect(names("dictList")).toHaveLength(5))
-    await vi.waitFor(() => expect(names("bergamotList")).toHaveLength(5))
+    await until(() => expect(names("dictList")).toHaveLength(5))
+    await until(() => expect(names("bergamotList")).toHaveLength(5))
     expect($("offlineAutoHint").hidden).toBe(false)
     // Target language (Simplified Chinese), then the system's French; Japanese and German are not recommended.
     expect(names("dictList")).toEqual(["English → Simplified Chinese (简体中文)", "Simplified Chinese (简体中文) → English", "French (Français) → English", "English → German (Deutsch)", "Japanese (日本語) → English"])
@@ -318,9 +318,9 @@ describe("welcome page", () => {
     expect($<HTMLButtonElement>("downloadPicked").disabled).toBe(true)
     expect($("downloadStatus").textContent).toBe(ENGLISH.t("downloadRunning", [7]))
     // The packs fail (the server has no files), the models are installed once the background script answers.
-    await vi.waitFor(() => expect(services.urls.filter((u) => u.endsWith(".tsv.gz"))).toHaveLength(3))
+    await until(() => expect(services.urls.filter((u) => u.endsWith(".tsv.gz"))).toHaveLength(3))
     // The models are downloaded two at a time.
-    await vi.waitFor(() => {
+    await until(() => {
       services.finish()
       expect($("downloadStatus").textContent).toBe(ENGLISH.t("downloadFailed", [3]))
     })
@@ -335,7 +335,7 @@ describe("welcome page", () => {
       s.tiers = { dictionary: null, machine: "bergamot", ai: null }
     })
     await openPage("welcome", s, { stored: { [WELCOME_KEY]: { step: "offline" } }, respond: services.respond, fetchUrl: services.fetchUrl, bergamot: services.bergamot })
-    await vi.waitFor(() => expect(document.querySelectorAll("#bergamotList input[type=checkbox]")).toHaveLength(4))
+    await until(() => expect(document.querySelectorAll("#bergamotList input[type=checkbox]")).toHaveLength(4))
     const box = () => Array.from(document.querySelectorAll<HTMLInputElement>("#bergamotList input[type=checkbox]")).find((b) => b.checked)!
     // fr → zh-CN needs fr → en (ticked) and en → zh-Hans (installed).
     box().click()
@@ -384,14 +384,14 @@ describe("welcome page", () => {
       },
     })
     const names = (list: string) => Array.from(document.querySelectorAll(`#${list} .dict-name`)).map((el) => el.textContent)
-    await vi.waitFor(() => expect(names("dictList")).toHaveLength(3))
+    await until(() => expect(names("dictList")).toHaveLength(3))
     // The target language first, then the source language, then the rest.
     expect(names("dictList")[0]).toMatch(/^English → .*简体中文/)
     expect(names("dictList")[1]).toMatch(/^Japanese .*→ English$/)
     expect(names("dictList")[2]).toMatch(/^English → German/)
     expect(document.querySelector("#dictList")!.textContent).toContain("Wiktionary ja-en")
     expect(document.querySelector("#dictList")!.textContent).toContain(ENGLISH.t("dictPackMeta", ["1.0", "1,000", "CC BY-SA 4.0"]))
-    await vi.waitFor(() => expect(names("bergamotList")).toHaveLength(3))
+    await until(() => expect(names("bergamotList")).toHaveLength(3))
     expect($("offlineAutoHint").hidden).toBe(true)
     // The installed direction has no check box; the missing one is ticked, the one the languages do not need is not.
     expect(Array.from(document.querySelectorAll<HTMLInputElement>('#bergamotList input[type="checkbox"]')).map((b) => b.checked)).toEqual([true, false])
@@ -402,15 +402,15 @@ describe("welcome page", () => {
     expect(dictBoxes.map((b) => b.checked)).toEqual([true, true, false])
     dictBoxes[0].click()
     $("downloadPicked").click()
-    await vi.waitFor(() => expect(requests).toContainEqual({ type: "offlineInstall", service: "bergamot", pairs: [{ src: "ja", tgt: "en" }] }))
-    await vi.waitFor(() => expect(urls.some((u) => u.endsWith("/dict-ja-en.tsv.gz"))).toBe(true))
+    await until(() => expect(requests).toContainEqual({ type: "offlineInstall", service: "bergamot", pairs: [{ src: "ja", tgt: "en" }] }))
+    await until(() => expect(urls.some((u) => u.endsWith("/dict-ja-en.tsv.gz"))).toBe(true))
     expect(urls.some((u) => u.endsWith("/dict-en-zh-Hans.tsv.gz"))).toBe(false)
     expect(requests.some((r) => r.type === "offlineInstall" && r.pairs.some((p) => p.src === "fr"))).toBe(false)
   })
 
   it("applies a preset to a prompt with the shared prompt editor", async () => {
     const page = await openPage("welcome", settings((s) => (s.tiers.ai = "openai")), { stored: { [WELCOME_KEY]: { step: "prompts" } } })
-    await vi.waitFor(() => expect(current()).toBe("prompts"))
+    await until(() => expect(current()).toBe("prompts"))
     expect($<HTMLSelectElement>("presetId").value).toBe(NO_PRESET)
     choose("presetId", "style")
     choose("presetOption", "plain")
@@ -434,7 +434,7 @@ describe("welcome page", () => {
       s.tiers.ai = "openai"
       s.prompts.bilingual = prompt
     }), { stored: { [WELCOME_KEY]: { step: "prompts" } } })
-    await vi.waitFor(() => expect(current()).toBe("prompts"))
+    await until(() => expect(current()).toBe("prompts"))
     choose("presetId", NO_PRESET)
     expect($("presetHint").textContent).toBe(ENGLISH.t("presetNoneHint"))
     expect($("presetExample").textContent).toBe(ENGLISH.t("presetNoneExample"))
@@ -472,12 +472,12 @@ describe("welcome page", () => {
     const { port, emit, connect } = answeringPort()
     const s = settings()
     await openPage("welcome", s, { stored: { [WELCOME_KEY]: { step: "finish" } }, connect })
-    await vi.waitFor(() => expect(current()).toBe("finish"))
+    await until(() => expect(current()).toBe("finish"))
     $("tryIt").click()
     expect(connect).toHaveBeenCalledWith({ name: "tt-content" })
     // The background script answers the connection with the settings.
     emit({ type: "settings", settings: toPublicSettings(s) })
-    await vi.waitFor(() => expect(document.querySelectorAll("#trySample .tt-translation")).toHaveLength(4))
+    await until(() => expect(document.querySelectorAll("#trySample .tt-translation")).toHaveLength(4))
     const requests = port.posted("translate")
     expect(requests.map((m) => m.request.text)[1]).toContain("Thanks for sending the draft")
     expect(requests.every((m) => m.request.targetLang === "zh-CN" && m.request.tiers.join() === "machine")).toBe(true)
@@ -491,12 +491,12 @@ describe("welcome page", () => {
     const { emit, connect } = answeringPort()
     const s = settings()
     await openPage("welcome", s, { stored: { [WELCOME_KEY]: { step: "finish" } }, connect })
-    await vi.waitFor(() => expect(current()).toBe("finish"))
+    await until(() => expect(current()).toBe("finish"))
     $("tryIt").click()
     emit({ type: "settings", settings: toPublicSettings(s) })
-    await vi.waitFor(() => expect(document.querySelectorAll("#trySample .tt-translation")).toHaveLength(4))
+    await until(() => expect(document.querySelectorAll("#trySample .tt-translation")).toHaveLength(4))
     choose("uiLanguage", "ko")
-    await vi.waitFor(() => expect(document.documentElement.lang).toBe("ko"))
+    await until(() => expect(document.documentElement.lang).toBe("ko"))
     expect($("tryIt").textContent).toBe(readLocaleSources().ko.popupShowOriginal)
   })
 
@@ -505,7 +505,7 @@ describe("welcome page", () => {
     const page = await openPage("welcome", settings())
     await ready()
     choose("uiLanguage", "de")
-    await vi.waitFor(() => expect(document.documentElement.lang).toBe("de"))
+    await until(() => expect(document.documentElement.lang).toBe("de"))
     expect(stepButtons()[0].textContent).toBe(`1. ${de.stepLanguage}`)
     expect($("nextStep").textContent).toBe(de.buttonNext)
     await flushSave()
@@ -526,7 +526,7 @@ describe("welcome page", () => {
   it("takes over changes made in another page", async () => {
     const ja = readLocaleSources().ja
     const page = await openPage("welcome", settings(), { stored: { [WELCOME_KEY]: { step: "display" } } })
-    await vi.waitFor(() => expect(current()).toBe("display"))
+    await until(() => expect(current()).toBe("display"))
     page.external((s) => (s.mode = "translation-only"))
     expect(document.querySelector<HTMLInputElement>('input[name="mode"]:checked')!.value).toBe("translation-only")
     expect(document.querySelectorAll("#modePreview .tt-translation.tt-only")).toHaveLength(2)
@@ -538,13 +538,13 @@ describe("welcome page", () => {
     expect(stepButtons().filter((b) => b.disabled)).toHaveLength(1)
     expect($("sameLanguage").hidden).toBe(false)
     page.external((s) => (s.uiLanguage = "ja"))
-    await vi.waitFor(() => expect(document.documentElement.lang).toBe("ja"))
+    await until(() => expect(document.documentElement.lang).toBe("ja"))
     expect(stepButtons()[1].textContent).toBe(`2. ${ja.stepDisplay}`)
   })
 
   it("does not redraw the step the user is typing in", async () => {
     const page = await openPage("welcome", settings((s) => (s.tiers.ai = "openai")), { stored: { [WELCOME_KEY]: { step: "ai" } } })
-    await vi.waitFor(() => expect(current()).toBe("ai"))
+    await until(() => expect(current()).toBe("ai"))
     const key = document.querySelector<HTMLInputElement>('#aiPanel input[type="password"]')!
     key.focus()
     page.external((s) => (s.mode = "translation-only"))
@@ -553,7 +553,7 @@ describe("welcome page", () => {
 
   it("saves the switches of the last step and opens the settings page", async () => {
     const page = await openPage("welcome", settings(), { stored: { [WELCOME_KEY]: { step: "finish" } } })
-    await vi.waitFor(() => expect(current()).toBe("finish"))
+    await until(() => expect(current()).toBe("finish"))
     expect($<HTMLInputElement>("translateSubject").checked).toBe(true)
     $<HTMLInputElement>("autoTranslate").click()
     $<HTMLInputElement>("translateSubject").click()
@@ -567,14 +567,14 @@ describe("welcome page", () => {
     const page = await openPage("welcome", settings(), { currentTab: {} })
     await ready()
     $("exitGuide").click()
-    await vi.waitFor(() => expect(page.close).toHaveBeenCalledTimes(1))
+    await until(() => expect(page.close).toHaveBeenCalledTimes(1))
     expect(page.removed).toEqual([])
   })
 
   it("adds the online translator when its endpoint is typed, and ignores an emptied field", async () => {
     const s = settings((s) => (s.tiers.machine = "deeplx"))
     const page = await openPage("welcome", s, { stored: { [WELCOME_KEY]: { step: "machine" } } })
-    await vi.waitFor(() => expect(current()).toBe("machine"))
+    await until(() => expect(current()).toBe("machine"))
     const endpoint = document.querySelector<HTMLInputElement>('#machinePanel input[type="text"]')!
     endpoint.value = ""
     endpoint.dispatchEvent(new Event("input"))
@@ -596,12 +596,12 @@ describe("welcome page", () => {
     await nextTask()
     expect(lists()).toEqual([])
     stepButtons()[3]!.click()
-    await vi.waitFor(() => expect(current()).toBe("offline"))
-    await vi.waitFor(() => expect(lists().sort()).toEqual(["bergamot", "dictionary"]))
-    await vi.waitFor(() => expect([$("dictStatus").textContent, $("bergamotStatus").textContent]).not.toContain(ENGLISH.t("dictLoading")))
-    await vi.waitFor(() => expect($("bergamotStatus").textContent).not.toBe(ENGLISH.t("bergamotLoading")))
+    await until(() => expect(current()).toBe("offline"))
+    await until(() => expect(lists().sort()).toEqual(["bergamot", "dictionary"]))
+    await until(() => expect([$("dictStatus").textContent, $("bergamotStatus").textContent]).not.toContain(ENGLISH.t("dictLoading")))
+    await until(() => expect($("bergamotStatus").textContent).not.toBe(ENGLISH.t("bergamotLoading")))
     page.notify({ type: "offlineDataChanged" })
-    await vi.waitFor(() => expect(lists()).toHaveLength(4))
+    await until(() => expect(lists()).toHaveLength(4))
   })
 
   it("shows only the offline lists of the offline services in use", async () => {
@@ -609,11 +609,11 @@ describe("welcome page", () => {
     const requests: BackgroundRequest[] = []
     const respond = (req: BackgroundRequest) => void requests.push(req)
     await openPage("welcome", settings((s) => (s.tiers.dictionary = "dictionary")), { stored: { [WELCOME_KEY]: { step: "offline" } }, respond })
-    await vi.waitFor(() => expect(current()).toBe("offline"))
+    await until(() => expect(current()).toBe("offline"))
     expect($("offlineDictionary").hidden).toBe(false)
     expect($("offlineBergamot").hidden).toBe(true)
     // Nothing to tick (the release index cannot be fetched): the button stays disabled and says why.
-    await vi.waitFor(() => expect($("dictStatus").textContent).toContain(ENGLISH.t("dictIndexFailed", [""]).trim()))
+    await until(() => expect($("dictStatus").textContent).toContain(ENGLISH.t("dictIndexFailed", [""]).trim()))
     expect($<HTMLButtonElement>("downloadPicked").disabled).toBe(true)
     expect($("downloadStatus").textContent).toBe(ENGLISH.t("downloadNothingPicked"))
     expect(requests.some((r) => r.type === "offlineInstall")).toBe(false)

@@ -9,7 +9,7 @@ import type { BackgroundRequest } from "../src/shared/messages"
 import type { ConsentNeed } from "../src/shared/settings"
 import { pagePort } from "./fixtures/browser"
 import { answering, publicSettings, tieredSettings } from "./fixtures/content"
-import { nextTask } from "./helpers"
+import { nextTask, until } from "./helpers"
 
 const GOOGLE: ConsentNeed = { id: "google-free", host: "translate.googleapis.com" }
 const CUSTOM: ConsentNeed = { id: "custom", host: "" }
@@ -144,10 +144,10 @@ describe("content client", () => {
     port.push({ type: "settings", settings: publicSettings({ consent: [GOOGLE] }) })
     await client.ready
     port.push({ type: "toggle" })
-    await vi.waitFor(() => expect(panel()).not.toBeNull())
+    await until(() => expect(panel()).not.toBeNull())
     expect(port.posted("translate")).toEqual([])
     click("consentAllow")
-    await vi.waitFor(() => expect(port.posted("translate")).toHaveLength(1))
+    await until(() => expect(port.posted("translate")).toHaveLength(1))
     expect(sendMessage).toHaveBeenCalledWith({ type: "grantConsent", ids: ["google-free"] })
   })
 
@@ -165,9 +165,9 @@ describe("content client", () => {
     port.push({ type: "settings", settings: publicSettings({ consent: [GOOGLE] }) })
     await client.ready
     port.push({ type: "toggle" })
-    await vi.waitFor(() => expect(panel()).not.toBeNull())
+    await until(() => expect(panel()).not.toBeNull())
     click("consentAllow")
-    await vi.waitFor(() => expect(sendMessage).toHaveBeenCalledWith({ type: "grantConsent", ids: ["google-free"] }))
+    await until(() => expect(sendMessage).toHaveBeenCalledWith({ type: "grantConsent", ids: ["google-free"] }))
     await nextTask()
     expect(port.posted("translate")).toEqual([])
   })
@@ -179,7 +179,7 @@ describe("content client", () => {
     port.push({ type: "settings", settings: publicSettings({ consent: [GOOGLE] }) })
     await client.ready
     port.push({ type: "toggle" })
-    await vi.waitFor(() => expect(port.posted("translate")).toHaveLength(1))
+    await until(() => expect(port.posted("translate")).toHaveLength(1))
     expect(panel()).toBeNull()
   })
 })

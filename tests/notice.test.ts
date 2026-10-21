@@ -8,7 +8,7 @@ import { ENGLISH } from "../src/shared/i18n"
 import type { BackgroundRequest, TranslateResponse } from "../src/shared/messages"
 import type { Tier } from "../src/shared/providers"
 import { answering, manualTranslate, tieredSettings } from "./fixtures/content"
-import { nextTask } from "./helpers"
+import { nextTask, until } from "./helpers"
 
 const DICT: MissingData = { service: "dictionary", pair: "ja>zh-Hans", models: ["ja>en", "en>zh-Hans"] }
 const BERGAMOT: MissingData = { service: "bergamot", pair: "ja>zh-Hans", models: ["ja>en"] }
@@ -62,7 +62,7 @@ describe("notice", () => {
     await held.updateSettings(tieredSettings(["dictionary"]))
     const start = held.start()
     const [first, second] = ["Thank you for the report about the budget.", "See you on Friday at the office."]
-    await vi.waitFor(() => expect(manual.translate).toHaveBeenCalledTimes(2))
+    await until(() => expect(manual.translate).toHaveBeenCalledTimes(2))
     manual.answer(first, "dictionary", missing(DICT))
     manual.done(first)
     // One paragraph is still on its way: nothing shows yet.

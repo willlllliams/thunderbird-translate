@@ -18,7 +18,7 @@ import { WELCOME_KEY } from "../src/welcome/steps"
 import { pagePort } from "./fixtures/browser"
 import { fakeMail, messages } from "./fixtures/mail"
 import { bergamotStandIn } from "./fixtures/offline"
-import { jsonResponse, openPage, useFakeTimers } from "./helpers"
+import { jsonResponse, openPage, until, useFakeTimers } from "./helpers"
 
 // Fake timers in every test: a page left open by a test cannot fire its timers into the next one.
 beforeEach(() => useFakeTimers())
@@ -79,7 +79,7 @@ describe("popup", () => {
 
   async function popup(state: TabState, settings = createDefaultSettings("en")) {
     const page = await openPage("popup", settings, { activeTab: { id: 3 }, respond: (req) => (req.type === "getTabState" ? state : undefined) })
-    await vi.waitFor(() => expect($("status").textContent).not.toBe(""))
+    await until(() => expect($("status").textContent).not.toBe(""))
     return page
   }
 
@@ -110,14 +110,14 @@ describe("popup", () => {
     const s = createDefaultSettings("en")
     s.tiers.dictionary = "dictionary"
     await openPage("popup", s, { respond: (req) => (req.type === "offlineStatus" ? { dictionary: { missing: ["en>de"], unsupported: false } } : undefined) })
-    await vi.waitFor(() => expect(document.querySelector("#offlineMissing a")).not.toBeNull())
+    await until(() => expect(document.querySelector("#offlineMissing a")).not.toBeNull())
     expect(document.querySelector<HTMLElement>("#offlineMissing a")!.title).toBe(ENGLISH.t("tipOfflineDownload"))
   })
 
   it("writes the hover texts in the new interface language when it changes", async () => {
     const page = await popup(tabState({}))
     page.external((s) => (s.uiLanguage = "zh_CN"))
-    await vi.waitFor(() => expect($("toggle").title).toBe(sources.zh_CN.tipTranslate))
+    await until(() => expect($("toggle").title).toBe(sources.zh_CN.tipTranslate))
     for (const [key, title] of declared()) expect(title, key).toBe(sources.zh_CN[key])
     expect($("targetLang").title).toBe(sources.zh_CN.tipTargetLang)
   })
@@ -153,8 +153,8 @@ describe("settings page", () => {
       // Downloads that never end.
       bergamot: bergamotStandIn(PAIRS, { install: () => new Promise(() => {}) }),
     })
-    await vi.waitFor(() => expect(document.querySelectorAll("#bergamotList li")).toHaveLength(PAIRS.length))
-    await vi.waitFor(() => expect(document.querySelectorAll("#dictList li")).toHaveLength(1))
+    await until(() => expect(document.querySelectorAll("#bergamotList li")).toHaveLength(PAIRS.length))
+    await until(() => expect(document.querySelectorAll("#dictList li")).toHaveLength(1))
     return page
   }
 
@@ -231,12 +231,12 @@ describe("settings page", () => {
     buttonIn($("bergamotCommon"), ENGLISH.t("buttonConfirmDownload")).click()
     // Two run, the others wait for their turn.
     const waiting = () => Array.from(document.querySelectorAll<HTMLElement>("#bergamotList li span")).filter((el) => el.textContent === ENGLISH.t("dictQueued"))
-    await vi.waitFor(() => expect(waiting().length).toBeGreaterThan(0))
+    await until(() => expect(waiting().length).toBeGreaterThan(0))
     for (const el of waiting()) expect(el.title).toBe(ENGLISH.t("tipWaiting"))
     const titles = () => Array.from(document.querySelectorAll<HTMLButtonElement>("#bergamotList button"), (b) => b.title)
     expect(titles()).toContain(ENGLISH.t("tipCancelQueued"))
     // The background script reports which ones run.
-    await vi.waitFor(() => expect(titles()).toContain(ENGLISH.t("tipCancelDownload")))
+    await until(() => expect(titles()).toContain(ENGLISH.t("tipCancelDownload")))
     expect(untitled()).toEqual([])
     // English → German is what the languages need: deleting it asks first.
     buttonIn(bergamotRow("English"), ENGLISH.t("buttonDelete")).click()
@@ -250,7 +250,7 @@ describe("settings page", () => {
     const ui = $<HTMLSelectElement>("uiLanguage")
     ui.value = "zh_TW"
     ui.dispatchEvent(new Event("change"))
-    await vi.waitFor(() => expect($("clearCache").title).toBe(sources.zh_TW.tipClearCache))
+    await until(() => expect($("clearCache").title).toBe(sources.zh_TW.tipClearCache))
     for (const [key, title] of declared()) expect(title, key).toBe(sources.zh_TW[key])
     expect($("batchDelayMs").title).toBe(sources.zh_TW.tipBatchDelay)
     expect(buttonIn($("providerPanel"), sources.zh_TW.buttonTest).title).toBe(sources.zh_TW.tipTest)
@@ -292,7 +292,7 @@ describe("setup guide", () => {
       fetchUrl: async () => jsonResponse(INDEX),
       bergamot: bergamotStandIn([pair("fr", "en"), pair("en", "zh-Hans")]),
     })
-    await vi.waitFor(() => expect(current()).toBe(step))
+    await until(() => expect(current()).toBe(step))
     return { page, s, port }
   }
 
@@ -301,8 +301,8 @@ describe("setup guide", () => {
     // Walk through the steps with the numbered list: each step draws its own parts on entering.
     for (let i = 0; i < 8; i++) {
       stepButton(i).click()
-      await vi.waitFor(() => expect(stepButton(i).getAttribute("aria-current")).toBe("step"))
-      if (current() === "offline") await vi.waitFor(() => expect(document.querySelectorAll("#dictList li, #bergamotList li")).toHaveLength(4))
+      await until(() => expect(stepButton(i).getAttribute("aria-current")).toBe("step"))
+      if (current() === "offline") await until(() => expect(document.querySelectorAll("#dictList li, #bergamotList li")).toHaveLength(4))
       expect(untitled(), current()).toEqual([])
     }
     for (const [key, title] of declared()) expect(title, key).toBe(ENGLISH.t(key as never))
@@ -323,12 +323,12 @@ describe("setup guide", () => {
     $("tourNext").click()
     expect($("tourNext").title).toBe(ENGLISH.t("tipTourEnd"))
     stepButton(7).click()
-    await vi.waitFor(() => expect(current()).toBe("finish"))
+    await until(() => expect(current()).toBe("finish"))
     expect($("tryIt").title).toBe(ENGLISH.t("tipTryIt"))
     $("tryIt").click()
     expect($("tryIt").title).toBe(ENGLISH.t("tipShowOriginal"))
     port.push({ type: "settings", settings: toPublicSettings(s) })
-    await vi.waitFor(() => expect(document.querySelectorAll("#trySample .tt-translation")).toHaveLength(4))
+    await until(() => expect(document.querySelectorAll("#trySample .tt-translation")).toHaveLength(4))
     $("tryIt").click()
     expect($("tryIt").title).toBe(ENGLISH.t("tipTryIt"))
   })
@@ -336,7 +336,7 @@ describe("setup guide", () => {
   it("marks a skipped step with the reason", async () => {
     vi.stubGlobal("indexedDB", new IDBFactory())
     await openPage("welcome", createDefaultSettings("en"))
-    await vi.waitFor(() => expect(current()).toBe("language"))
+    await until(() => expect(current()).toBe("language"))
     expect(stepButton(3).disabled).toBe(true)
     expect(stepButton(3).title).toBe(ENGLISH.t("stepNotNeeded"))
   })
@@ -345,11 +345,11 @@ describe("setup guide", () => {
     const { s, port } = await guide("finish")
     $("tryIt").click()
     port.push({ type: "settings", settings: toPublicSettings(s) })
-    await vi.waitFor(() => expect(document.querySelectorAll("#trySample .tt-translation")).toHaveLength(4))
+    await until(() => expect(document.querySelectorAll("#trySample .tt-translation")).toHaveLength(4))
     const ui = $<HTMLSelectElement>("uiLanguage")
     ui.value = "ja"
     ui.dispatchEvent(new Event("change"))
-    await vi.waitFor(() => expect(document.documentElement.lang).toBe("ja"))
+    await until(() => expect(document.documentElement.lang).toBe("ja"))
     for (const [key, title] of declared()) {
       if (key !== "tipTryIt") expect(title, key).toBe(sources.ja[key])
     }
@@ -386,7 +386,7 @@ describe("page of translated subjects", () => {
     const s = createDefaultSettings("en")
     s.onlineConsent = ["google-free"]
     await openPage("subjects", s, { connect: () => port, api: mail.api })
-    await vi.waitFor(() => expect(document.querySelectorAll("#rows tr")).toHaveLength(100))
+    await until(() => expect(document.querySelectorAll("#rows tr")).toHaveLength(100))
     expect(untitled()).toEqual([])
     for (const [key, title] of declared()) expect(title, key).toBe(ENGLISH.t(key as never))
     expect(Array.from(document.querySelectorAll<HTMLElement>("#rows tr"), (tr) => tr.title)).toEqual(Array(100).fill(ENGLISH.t("tipSubjectsRow")))

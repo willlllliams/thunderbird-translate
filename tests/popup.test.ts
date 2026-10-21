@@ -6,7 +6,7 @@ import { ENGLISH } from "../src/shared/i18n"
 import { IDLE_TAB_STATE, type TabState } from "../src/shared/messages"
 import { createDefaultSettings } from "../src/shared/settings"
 import { REFRESH_AFTER_ACTION_MS, REFRESH_INTERVAL_MS } from "../src/popup/timing"
-import { nextTask, openPage, useFakeTimers } from "./helpers"
+import { nextTask, openPage, until, useFakeTimers } from "./helpers"
 
 // Fake timers in every test: a page left open by a test cannot fire its timers into the next one.
 beforeEach(() => useFakeTimers())
@@ -26,7 +26,7 @@ async function popup(state: TabState | (() => TabState), settings = createDefaul
     uiLanguage,
     respond: (req) => (req.type === "getTabState" ? current() : undefined),
   })
-  await vi.waitFor(() => expect($("status").textContent).not.toBe(""))
+  await until(() => expect($("status").textContent).not.toBe(""))
   return page
 }
 
@@ -40,7 +40,7 @@ describe("translation state", () => {
     ["with failures", tabState({ active: true, total: 9, done: 7, failed: 2 }), `${ENGLISH.t("popupProgress", [7, 9])} · ${ENGLISH.t("popupFailed", [2])}`, false],
   ])("%s", async (_name, state, status, disabled) => {
     await popup(state)
-    await vi.waitFor(() => expect($("status").textContent).toBe(status))
+    await until(() => expect($("status").textContent).toBe(status))
     expect($<HTMLButtonElement>("toggle").disabled).toBe(disabled)
     expect($("toggle").classList.contains("active")).toBe(state.active)
     expect($("toggle").textContent).toBe(ENGLISH.t(state.active ? "popupShowOriginal" : "popupTranslate"))
@@ -52,7 +52,7 @@ describe("translation state", () => {
   it("shows the first line of the most recent failure, shortened, with the full text as tooltip", async () => {
     const lastError = `OpenAI: HTTP 429 Too Many Requests ${"x".repeat(120)}\nTry again later.`
     await popup(tabState({ active: true, total: 2, done: 1, failed: 1, lastError }))
-    await vi.waitFor(() => expect($("lastError").hidden).toBe(false))
+    await until(() => expect($("lastError").hidden).toBe(false))
     const shown = `OpenAI: HTTP 429 Too Many Requests ${"x".repeat(90 - 36)}…`
     expect(shown).toHaveLength(90)
     expect($("lastError").textContent).toBe(ENGLISH.t("popupLastError", [shown]))
@@ -76,7 +76,7 @@ describe("translation state", () => {
 
   it("asks no state and keeps the button disabled without a message tab", async () => {
     const { sendMessage } = await openPage("popup", createDefaultSettings("en"))
-    await vi.waitFor(() => expect($("status").textContent).toBe(ENGLISH.t("popupNotConnected")))
+    await until(() => expect($("status").textContent).toBe(ENGLISH.t("popupNotConnected")))
     $("toggle").click()
     await nextTask()
     expect(sendMessage.mock.calls.map(([req]) => req.type)).not.toContain("toggleTab")
@@ -127,7 +127,7 @@ describe("controls", () => {
       return req.type === "getTabState" ? state : undefined
     })
     $("toggle").click()
-    await vi.waitFor(() => expect($("retranslate").hidden).toBe(true))
+    await until(() => expect($("retranslate").hidden).toBe(true))
   })
 
   it("saves the display mode, automatic translation and the target language", async () => {
@@ -135,17 +135,17 @@ describe("controls", () => {
     const only = document.querySelector<HTMLInputElement>('input[name="mode"][value="translation-only"]')!
     only.checked = true
     only.dispatchEvent(new Event("change"))
-    await vi.waitFor(() => expect(page.stored().mode).toBe("translation-only"))
+    await until(() => expect(page.stored().mode).toBe("translation-only"))
     // A radio button that is being unchecked does not save.
     const bilingual = document.querySelector<HTMLInputElement>('input[name="mode"][value="bilingual"]')!
     bilingual.dispatchEvent(new Event("change"))
     $<HTMLInputElement>("autoTranslate").click()
-    await vi.waitFor(() => expect(page.stored().autoTranslate).toBe(true))
+    await until(() => expect(page.stored().autoTranslate).toBe(true))
     expect(page.stored().mode).toBe("translation-only")
     const target = $<HTMLSelectElement>("targetLang")
     target.value = "ko"
     target.dispatchEvent(new Event("change"))
-    await vi.waitFor(() => expect(page.stored().targetLang).toBe("ko"))
+    await until(() => expect(page.stored().targetLang).toBe("ko"))
   })
 
   it("shows the stored switches", async () => {
@@ -190,7 +190,7 @@ describe("interface language", () => {
   it("switches at once when the settings page changes it, and redraws the state", async () => {
     const page = await popup(tabState({ active: true, total: 1000, done: 1000 }))
     page.external((s) => (s.uiLanguage = "de"))
-    await vi.waitFor(() => expect(document.documentElement.lang).toBe("de"))
+    await until(() => expect(document.documentElement.lang).toBe("de"))
     expect($("status").textContent).toBe(de.popupProgress.replace("$1", "1.000").replace("$2", "1.000"))
     expect($("openOptions").textContent).toBe(de.popupSettings)
     expect($("tierLabel-machine").textContent).toContain(de.tierMachine)

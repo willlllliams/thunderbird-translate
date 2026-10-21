@@ -9,7 +9,7 @@ import { errorContext } from "../src/background/service"
 import { HttpError } from "../src/shared/http"
 import { googleTranslateBatch } from "../src/background/translators/google"
 import { createDefaultSettings, resolveProviderConfig } from "../src/shared/settings"
-import { asFetch, createService, openPage, translateOne, useFakeTimers } from "./helpers"
+import { asFetch, createService, openPage, translateOne, until, useFakeTimers } from "./helpers"
 
 const sources = readLocaleSources()
 const zh = new I18n("zh_CN", compileMessagesJson(toMessagesJson(sources.zh_CN)))
@@ -263,7 +263,7 @@ describe("settings page", () => {
     settings.tiers.ai = "deepseek"
     settings.providers.deepseek = { enabled: true, apiKey: "sk-test", baseURL: "https://platform.deepseek.com", model: "" }
     const page = await openPage("options", settings, { uiLanguage: "zh-CN", respond: (req) => (req.type === "testProvider" ? testResponse : undefined) })
-    await vi.waitFor(() => expect(document.querySelector("#providerPanel button")).not.toBeNull())
+    await until(() => expect(document.querySelector("#providerPanel button")).not.toBeNull())
     return page
   }
 
@@ -272,7 +272,7 @@ describe("settings page", () => {
     const { sendMessage } = await openOptions({ ok: false, error: description })
     const test = Array.from(document.querySelectorAll<HTMLButtonElement>("#providerPanel button")).find((b) => b.textContent === zh.t("buttonTest"))!
     test.click()
-    await vi.waitFor(() => expect(document.querySelector(".test-result.fail")).not.toBeNull())
+    await until(() => expect(document.querySelector(".test-result.fail")).not.toBeNull())
     expect(sendMessage).toHaveBeenCalledWith(expect.objectContaining({ type: "testProvider", providerId: "deepseek" }))
     const box = document.querySelector(".test-result.fail")!
     expect(box.querySelector(".test-title")?.textContent).toBe("连接测试失败")
@@ -286,7 +286,7 @@ describe("settings page", () => {
     await openOptions({ ok: false, error: "" })
     const test = Array.from(document.querySelectorAll<HTMLButtonElement>("#providerPanel button")).find((b) => b.textContent === zh.t("buttonTest"))!
     test.click()
-    await vi.waitFor(() => expect(document.querySelector(".test-result.fail .test-reason")?.textContent).toBe("未知错误"))
+    await until(() => expect(document.querySelector(".test-result.fail .test-reason")?.textContent).toBe("未知错误"))
   })
 
   it("warns about a console URL under the endpoint field and restores the default", async () => {

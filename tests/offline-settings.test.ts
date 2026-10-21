@@ -12,7 +12,7 @@ import { languageTag } from "../src/shared/languages"
 import type { SourcedLanguage } from "../src/shared/offline-needs"
 import { gz, packEntry, releaseServer, tsv } from "./fixtures/dictionary"
 import { bergamotStandIn, offlineBackground, type OfflineBackground } from "./fixtures/offline"
-import { jsonResponse, nextTask, useFakeTimers } from "./helpers"
+import { jsonResponse, nextTask, until, useFakeTimers } from "./helpers"
 
 const sendMessage = vi.fn<(req: unknown) => Promise<unknown>>()
 type Install = Extract<BackgroundRequest, { type: "offlineInstall" }>
@@ -93,9 +93,6 @@ function dictionaries(texts: string[], options: ListOptions & { fetchUrl?: (url:
 }
 
 describe("dictionary list", () => {
-  // Downloads go through gunzip and IndexedDB in real time, which on a busy machine takes longer than the 1 s vi.waitFor() waits by default.
-  const until = <T>(check: () => T | Promise<T>) => vi.waitFor(check, { timeout: 10_000 })
-
   it("says while loading, and when the release has no packs", async () => {
     const d = dictionaries([])
     const loading = d.section.load()
@@ -463,7 +460,7 @@ function models(options: ListOptions = {}) {
 }
 describe("offline model list", () => {
   // Fake timers: the progress notices of the offline handlers go with the clock instead of reaching the next test.
-  // The dictionary list stays on real time: its downloads give up after 30 s without data, which vi.waitFor() would pass on fake timers.
+  // The dictionary list stays on real time: its downloads give up after 30 s without data, which until() would pass on fake timers.
   beforeEach(() => useFakeTimers())
 
   it("shows why the list could not be loaded", async () => {
@@ -522,7 +519,7 @@ describe("offline model list", () => {
     m.section.receive(undefined)
     expect(m.rows()[0]!.textContent).toContain(ENGLISH.t("dictQueued"))
     finish({ ok: false, error: "disk full" })
-    await vi.waitFor(() => expect(m.rows()[0]!.querySelector(".test-result")?.textContent).toBe("disk full"))
+    await until(() => expect(m.rows()[0]!.querySelector(".test-result")?.textContent).toBe("disk full"))
     await vi.advanceTimersByTimeAsync(10_000)
     // The only request for the progress came with the list.
     expect(requests.filter((r) => r.type === "offlineProgress")).toHaveLength(2)
@@ -563,15 +560,15 @@ describe("offline model list", () => {
     // Another page installed a direction meanwhile: the list is read again although this page's download runs.
     m.section.receive({ type: "offlineDataChanged" })
     m.section.receive({ type: "offlineDataChanged" })
-    await vi.waitFor(() => expect(requests.filter((r) => r.type === "offlineList")).toHaveLength(3))
+    await until(() => expect(requests.filter((r) => r.type === "offlineList")).toHaveLength(3))
     // The later read answers first; the earlier one, answering last, changes nothing.
     answers.pop()!({ ok: true, items: [pair("de", "en"), pair("en", "fr", { installed: true })] })
-    await vi.waitFor(() => expect(m.row("English").textContent).toContain(ENGLISH.t("dictInstalled")))
+    await until(() => expect(m.row("English").textContent).toContain(ENGLISH.t("dictInstalled")))
     answers.pop()!({ ok: true, items: [pair("de", "en"), pair("en", "fr")] })
     await nextTask()
     expect(m.row("English").textContent).toContain(ENGLISH.t("dictInstalled"))
     finish([{ ok: true }])
-    await vi.waitFor(() => expect(requests.filter((r) => r.type === "offlineList")).toHaveLength(4))
+    await until(() => expect(requests.filter((r) => r.type === "offlineList")).toHaveLength(4))
   })
 
   it("shows the downloads of another page when it opens, running and queued, and takes a queued one off the queue", async () => {
@@ -594,7 +591,7 @@ describe("offline model list", () => {
     // Installed or removed data: the list is read again.
     const lists = () => requests.filter((r) => r.type === "offlineList").length
     m.section.receive({ type: "offlineDataChanged" })
-    await vi.waitFor(() => expect(lists()).toBe(2))
+    await until(() => expect(lists()).toBe(2))
   })
 
   it.each([
@@ -606,7 +603,7 @@ describe("offline model list", () => {
     const m = models()
     await m.section.load()
     button(m.rows()[0]!, ENGLISH.t("buttonDownload"))!.click()
-    await vi.waitFor(() => expect(m.rows()[0]?.querySelector(".test-result")?.textContent).toBe(text))
+    await until(() => expect(m.rows()[0]?.querySelector(".test-result")?.textContent).toBe(text))
   })
 
   it("updates an installed pair", async () => {
@@ -614,7 +611,7 @@ describe("offline model list", () => {
     const m = models()
     await m.section.load()
     button(m.rows()[0]!, ENGLISH.t("buttonUpdate"))!.click()
-    await vi.waitFor(() => expect(requests).toContainEqual({ type: "offlineInstall", service: "bergamot", pairs: [{ src: "de", tgt: "en" }] }))
+    await until(() => expect(requests).toContainEqual({ type: "offlineInstall", service: "bergamot", pairs: [{ src: "de", tgt: "en" }] }))
   })
 
   it("keeps a needed pair when the deletion is cancelled, and shows why a deletion failed", async () => {
@@ -632,13 +629,13 @@ describe("offline model list", () => {
     expect(requests.some((r) => r.type === "offlineRemove")).toBe(false)
 
     button(m.row("French"), ENGLISH.t("buttonDelete"))!.click()
-    await vi.waitFor(() => expect(m.row("French").querySelector(".test-result")?.textContent).toBe("locked"))
+    await until(() => expect(m.row("French").querySelector(".test-result")?.textContent).toBe("locked"))
     removeAnswer = () => undefined
     button(m.row("French"), ENGLISH.t("buttonDelete"))!.click()
-    await vi.waitFor(() => expect(m.row("French").querySelector(".test-result")?.textContent).toBe(unknownError))
+    await until(() => expect(m.row("French").querySelector(".test-result")?.textContent).toBe(unknownError))
     removeAnswer = () => Promise.reject(new Error("port closed"))
     button(m.row("French"), ENGLISH.t("buttonDelete"))!.click()
-    await vi.waitFor(() => expect(m.row("French").querySelector(".test-result")?.textContent).toBe(describeError(new Error("port closed"), ENGLISH)))
+    await until(() => expect(m.row("French").querySelector(".test-result")?.textContent).toBe(describeError(new Error("port closed"), ENGLISH)))
   })
 
   it("on the welcome page ticks the directions the language pair needs and downloads the ticked ones", async () => {
@@ -682,7 +679,7 @@ describe("offline model list", () => {
     m.commonButton().click()
     expect(m.common.querySelector(".common-confirm p")!.textContent).toBe(ENGLISH.t("commonConfirm", [2, "12.0"]))
     button(m.common.querySelector(".common-confirm")!, ENGLISH.t("buttonConfirmDownload"))!.click()
-    await vi.waitFor(() => expect(m.common.textContent).toContain(ENGLISH.t("commonAllInstalled")))
+    await until(() => expect(m.common.textContent).toContain(ENGLISH.t("commonAllInstalled")))
     expect(requests.flatMap((r) => (r.type === "offlineInstall" ? r.pairs.map((p) => `${p.src}>${p.tgt}`) : [])).sort()).toEqual(["de>en", "en>fr"])
   })
 
@@ -720,10 +717,10 @@ describe("offline model list", () => {
     await m.section.load()
     m.commonButton().click()
     button(m.common.querySelector(".common-confirm")!, ENGLISH.t("buttonConfirmDownload"))!.click()
-    await vi.waitFor(() => expect(m.waiting.size).toBe(2))
+    await until(() => expect(m.waiting.size).toBe(2))
     await nextTask()
     expect(m.waiting.size).toBe(2)
-    await vi.waitFor(() => {
+    await until(() => {
       m.finish()
       expect(m.common.textContent).toContain(ENGLISH.t("commonAllInstalled"))
     })
@@ -738,7 +735,7 @@ describe("offline model list", () => {
     await m.section.load()
     m.commonButton().click()
     button(m.common.querySelector(".common-confirm")!, ENGLISH.t("buttonConfirmDownload"))!.click()
-    await vi.waitFor(() => expect(m.waiting.size).toBe(2))
+    await until(() => expect(m.waiting.size).toBe(2))
     expect([...m.waiting.keys()].sort()).toEqual(["de>en", "en>de"])
     const [toFrench, fromFrench] = [m.row("English → French"), m.row("French")]
     button(toFrench, ENGLISH.t("buttonDownload"))?.click()
@@ -746,11 +743,11 @@ describe("offline model list", () => {
     expect(button(toFrench, ENGLISH.t("buttonDownload"))).toBeUndefined()
     button(fromFrench, ENGLISH.t("buttonCancel"))!.click()
     expect(button(m.row("French"), ENGLISH.t("buttonDownload"))).toBeDefined()
-    await vi.waitFor(() => {
+    await until(() => {
       m.finish()
       expect(m.installed.size).toBe(3)
     })
-    await vi.waitFor(() => expect(m.rows().filter((li) => li.textContent!.includes(ENGLISH.t("dictInstalled")))).toHaveLength(3))
+    await until(() => expect(m.rows().filter((li) => li.textContent!.includes(ENGLISH.t("dictInstalled")))).toHaveLength(3))
     expect(m.installed.has("fr>en")).toBe(false)
     expect(m.bg.requests.filter((r) => r.type === "offlineInstall")).toHaveLength(4)
   })

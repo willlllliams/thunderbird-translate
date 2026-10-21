@@ -8,7 +8,7 @@ import type { BackgroundRequest, PortPush } from "../src/shared/messages"
 import type { PublicSettings } from "../src/shared/settings"
 import { pagePort } from "./fixtures/browser"
 import { publicSettings, tieredSettings } from "./fixtures/content"
-import { nextTask } from "./helpers"
+import { nextTask, until } from "./helpers"
 
 /** The extension API of the content script. */
 const stub = {
@@ -58,17 +58,17 @@ describe("connectContent", () => {
     expect(port.posted("translate")).toEqual([]) // and do not auto-translate
 
     port.push({ type: "toggle" })
-    await vi.waitFor(() => expect(port.posted("translate")).toHaveLength(1))
+    await until(() => expect(port.posted("translate")).toHaveLength(1))
     const [{ id, request }] = port.posted("translate")
     expect(request).toEqual({ text: "Good morning everyone", sourceLang: "auto", targetLang: "zh-CN", tiers: ["machine"] })
     port.push({ type: "tier", id: id + 99, tier: "machine", result: { ok: true, text: "wrong request" } })
     port.push({ type: "tier", id, tier: "machine", result: { ok: true, text: "大家早上好" } })
     port.push({ type: "done", id })
     expect(document.querySelector(".tt-translation")!.textContent).toBe("大家早上好")
-    await vi.waitFor(() => expect(lastState()).toEqual({ active: true, total: 1, done: 1, provisional: 0, failed: 0 }))
+    await until(() => expect(lastState()).toEqual({ active: true, total: 1, done: 1, provisional: 0, failed: 0 }))
 
     port.push({ type: "toggle" })
-    await vi.waitFor(() => expect(lastState()).toMatchObject({ active: false }))
+    await until(() => expect(lastState()).toMatchObject({ active: false }))
     expect(document.querySelector(".tt-translation")).toBeNull()
   })
 
@@ -78,23 +78,23 @@ describe("connectContent", () => {
     await client.ready
     const toggle = async (active: boolean) => {
       port.push({ type: "toggle" })
-      await vi.waitFor(() => expect(lastState()).toMatchObject({ active }))
+      await until(() => expect(lastState()).toMatchObject({ active }))
     }
     await toggle(true)
-    await vi.waitFor(() => expect(port.posted("translate")).toHaveLength(1))
+    await until(() => expect(port.posted("translate")).toHaveLength(1))
     const [{ id }] = port.posted("translate")
     port.push({ type: "tier", id, tier: "dictionary", result: { ok: true, text: "D1" } })
     port.push({ type: "done", id })
     await toggle(false)
     // The same paragraph again: the result kept by the page answers, the background is not asked.
     port.push({ type: "toggle" })
-    await vi.waitFor(() => expect(document.querySelector(".tt-translation")?.textContent).toBe("D1"))
+    await until(() => expect(document.querySelector(".tt-translation")?.textContent).toBe("D1"))
     expect(port.posted("translate")).toHaveLength(1)
     port.push({ type: "toggle" })
-    await vi.waitFor(() => expect(lastState()).toMatchObject({ active: false }))
+    await until(() => expect(lastState()).toMatchObject({ active: false }))
     port.push({ type: "offlineDataChanged" })
     port.push({ type: "toggle" })
-    await vi.waitFor(() => expect(port.posted("translate")).toHaveLength(2))
+    await until(() => expect(port.posted("translate")).toHaveLength(2))
   })
 
   it("content script: loads the labels of the interface language once per language and auto-translates", async () => {
@@ -104,12 +104,12 @@ describe("connectContent", () => {
     await client.ready
     expect(sendMessage).toHaveBeenCalledWith({ type: "getLocaleMessages", uiLanguage: "de" })
     expect(getI18n().locale).toBe("de")
-    await vi.waitFor(() => expect(port.posted("translate")).toHaveLength(1))
+    await until(() => expect(port.posted("translate")).toHaveLength(1))
     expect(document.querySelector(".tt-loading")!.getAttribute("aria-label")).toBe("Übersetze…")
 
     settingsPush(publicSettings({ uiLanguage: "de", autoTranslate: true, mode: "translation-only" }))
     settingsPush(publicSettings({ uiLanguage: "fr", autoTranslate: true, mode: "translation-only" }))
-    await vi.waitFor(() => expect(sendMessage).toHaveBeenCalledTimes(2))
+    await until(() => expect(sendMessage).toHaveBeenCalledTimes(2))
     expect(sendMessage).toHaveBeenLastCalledWith({ type: "getLocaleMessages", uiLanguage: "fr" })
     // Auto-translation is decided once, for the first settings.
     expect(port.posted("translate")).toHaveLength(1)
@@ -121,11 +121,11 @@ describe("connectContent", () => {
     settingsPush(tieredSettings(["dictionary"], { offlineMutedPairs: ["bergamot:en>zh-Hans"] }))
     await client.ready
     port.push({ type: "toggle" })
-    await vi.waitFor(() => expect(port.posted("translate")).toHaveLength(1))
+    await until(() => expect(port.posted("translate")).toHaveLength(1))
     const { id } = port.posted("translate")[0]
     port.push({ type: "tier", id, tier: "dictionary", result: { ok: false, error: "missing", missing: { service: "dictionary", pair: "en>zh-Hans", models: ["en>zh-Hans"] } } })
     port.push({ type: "done", id })
-    await vi.waitFor(() => expect(document.querySelector(".tt-notice")).not.toBeNull())
+    await until(() => expect(document.querySelector(".tt-notice")).not.toBeNull())
     document.querySelector<HTMLInputElement>(".tt-notice input[type=checkbox]")!.click()
     expect(sendMessage).toHaveBeenCalledWith({ type: "muteOfflinePairs", pairs: ["dictionary:en>zh-Hans"], muted: true })
     // A failed message to the background is no error of the page.
@@ -151,11 +151,11 @@ describe("connectContent", () => {
     expect(parts.notice).toBeDefined()
     settingsPush(publicSettings({ autoTranslate: true }))
     await client.ready
-    await vi.waitFor(() => expect(port.posted("translate")).toHaveLength(1))
+    await until(() => expect(port.posted("translate")).toHaveLength(1))
     const [{ id }] = port.posted("translate")
     port.push({ type: "tier", id, tier: "machine", result: { ok: true, text: "大家早上好" } })
     port.push({ type: "done", id })
-    await vi.waitFor(() => expect(lastState()).toMatchObject({ done: 1 }))
+    await until(() => expect(lastState()).toMatchObject({ done: 1 }))
     expect(seen.filter((s) => !s.startsWith("state"))).toEqual(["settings", "tier 大家早上好", "done"])
     expect(seen).toContain("state true")
     expect(probe.state.mock.calls.map(([state]) => state)).toEqual(port.posted("state").map((report) => report.state))
@@ -166,11 +166,11 @@ describe("connectContent", () => {
     settingsPush(tieredSettings(["dictionary"]))
     await client.ready
     port.push({ type: "toggle" })
-    await vi.waitFor(() => expect(port.posted("translate")).toHaveLength(1))
+    await until(() => expect(port.posted("translate")).toHaveLength(1))
     const { id } = port.posted("translate")[0]
     port.push({ type: "tier", id, tier: "dictionary", result: { ok: false, error: "missing", missing: { service: "dictionary", pair: "en>zh-Hans", models: ["en>zh-Hans"] } } })
     port.push({ type: "done", id })
-    await vi.waitFor(() => expect(document.querySelector(".tt-error")).not.toBeNull())
+    await until(() => expect(document.querySelector(".tt-error")).not.toBeNull())
     expect(document.querySelector(".tt-notice")).toBeNull()
   })
 
@@ -180,12 +180,12 @@ describe("connectContent", () => {
     const client = connectContent({ root: () => document.body, contentScript: true })
     settingsPush(publicSettings({ uiLanguage: "de" }))
     settingsPush(publicSettings({ uiLanguage: "de", targetLang: "ja" }))
-    await vi.waitFor(() => expect(sendMessage).toHaveBeenCalledTimes(1))
+    await until(() => expect(sendMessage).toHaveBeenCalledTimes(1))
     release()
     await client.ready
     void client.controller.toggle()
     // The second settings win, whether they reach the controller before or after the start.
-    await vi.waitFor(() => expect(port.posted("translate").at(-1)?.request.targetLang).toBe("ja"))
+    await until(() => expect(port.posted("translate").at(-1)?.request.targetLang).toBe("ja"))
     await nextTask()
     expect(port.posted("translate").at(-1)?.request.targetLang).toBe("ja")
   })
@@ -210,7 +210,7 @@ describe("connectContent", () => {
     await client.ready
     const toggled = client.controller.toggle()
     // The subject is in the target language too.
-    await vi.waitFor(() => expect(port.posted("subject")).toHaveLength(1))
+    await until(() => expect(port.posted("subject")).toHaveLength(1))
     port.push({ type: "subject", id: port.posted("subject")[0].id, subject: "Réunion de l'équipe demain matin" })
     await toggled
     expect(port.posted("translate")).toEqual([])
@@ -224,12 +224,12 @@ describe("connectContent", () => {
     settingsPush(publicSettings())
     await client.ready
     const toggled = client.controller.toggle()
-    await vi.waitFor(() => expect(port.posted("subject")).toHaveLength(1))
+    await until(() => expect(port.posted("subject")).toHaveLength(1))
     const { id } = port.posted("subject")[0]
     // An answer to another request changes nothing.
     port.push({ type: "subject", id: id + 100, subject: "Wrong" })
     port.push({ type: "subject", id, subject: "Fwd: Quarterly report" })
-    await vi.waitFor(() => expect(port.posted("translate")).toHaveLength(2))
+    await until(() => expect(port.posted("translate")).toHaveLength(2))
     const request = port.posted("translate").find((r) => r.request.text === "Quarterly report")!
     port.push({ type: "tier", id: request.id, tier: "machine", result: { ok: true, text: "季度报告" } })
     port.push({ type: "done", id: request.id })
@@ -245,7 +245,7 @@ describe("connectContent", () => {
     settingsPush(publicSettings())
     await client.ready
     const toggled = client.controller.toggle()
-    await vi.waitFor(() => expect(port.posted("subject")).toHaveLength(1))
+    await until(() => expect(port.posted("subject")).toHaveLength(1))
     port.postMessage.mockImplementation(() => {
       throw new Error("Attempt to postMessage on disconnected port")
     })
@@ -259,7 +259,7 @@ describe("connectContent", () => {
     settingsPush(publicSettings())
     await client.ready
     void client.controller.start()
-    await vi.waitFor(() => expect(port.posted("translate")).toHaveLength(1))
+    await until(() => expect(port.posted("translate")).toHaveLength(1))
     expect(port.posted("subject")).toEqual([])
   })
 
@@ -268,14 +268,14 @@ describe("connectContent", () => {
     settingsPush(tieredSettings(["machine", "ai"], { precise: true }))
     await client.ready
     void client.controller.start()
-    await vi.waitFor(() => expect(port.posted("translate")).toHaveLength(1))
+    await until(() => expect(port.posted("translate")).toHaveLength(1))
     const [first] = port.posted("context")
     expect(first).toEqual({ type: "context", context: first.context })
     expect(first.context.paragraphs).toEqual(["Good morning everyone"])
     expect(port.posted("translate")[0].request.context).toEqual({ id: first.context.id, index: 0 })
 
     port.push({ type: "retranslate" })
-    await vi.waitFor(() => expect(port.posted("translate")).toHaveLength(2))
+    await until(() => expect(port.posted("translate")).toHaveLength(2))
     expect(port.posted("context").at(-1)).toEqual({ type: "context", context: first.context, bypassCache: true })
     expect(port.posted("translate")[1].request).toMatchObject({ tiers: ["machine", "ai"], bypassCache: true })
   })
@@ -286,7 +286,7 @@ describe("connectContent", () => {
     settingsPush(tieredSettings(["machine", "ai"]))
     await client.ready
     const started = client.controller.start()
-    await vi.waitFor(() => expect(port.posted("translate")).toHaveLength(2))
+    await until(() => expect(port.posted("translate")).toHaveLength(2))
     const [first] = port.posted("translate")
     port.push({ type: "tier", id: first.id, tier: "machine", result: { ok: true, text: "早上好" } })
 
@@ -305,7 +305,7 @@ describe("connectContent", () => {
 
     // A retry after the disconnect fails at once instead of waiting forever.
     error.querySelector<HTMLElement>(".tt-error")!.click()
-    await vi.waitFor(() => expect(error.querySelector<HTMLElement>(".tt-error")?.title).toMatch(/\S/))
+    await until(() => expect(error.querySelector<HTMLElement>(".tt-error")?.title).toMatch(/\S/))
     expect(() => client.controller.stop()).not.toThrow()
   })
 
@@ -323,7 +323,7 @@ describe("connectContent", () => {
     await client.controller.start()
     expect(Array.from(document.querySelectorAll<HTMLElement>("p .tt-error"), (e) => e.title)).toEqual([ENGLISH.t("errUnknown"), ENGLISH.t("errUnknown")])
     expect(document.querySelector(".tt-subject")).toBeNull()
-    await vi.waitFor(() => expect(states.at(-1)).toEqual({ active: true, total: 2, done: 0, provisional: 0, failed: 2, lastError: ENGLISH.t("errUnknown") }))
+    await until(() => expect(states.at(-1)).toEqual({ active: true, total: 2, done: 0, provisional: 0, failed: 2, lastError: ENGLISH.t("errUnknown") }))
     // Nothing was left waiting: a second disconnect settles no request.
     const reported = states.length
     port.disconnect()

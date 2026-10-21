@@ -20,7 +20,7 @@ import { WELCOME_KEY } from "../src/welcome/steps"
 import { stubBackgroundApi } from "./fixtures/background-api"
 import { SETTLE_TURNS, settle, stubBrowser } from "./fixtures/browser"
 import { openPage } from "./fixtures/pages"
-import { jsonResponse, nextTask, useFakeTimers } from "./helpers"
+import { jsonResponse, nextTask, until, useFakeTimers } from "./helpers"
 
 /** What reached a new fake API: requests to the background script and writes to storage.local. */
 async function reached(run: () => Promise<unknown> | void) {
@@ -39,13 +39,13 @@ describe("a page left open by a test", { shuffle: false }, () => {
     settings.tiers = { dictionary: "dictionary", machine: "google-free", ai: "deepseek" }
     // The tour of the tiers step listens for keys on the document; Escape closes it and saves that it was seen.
     await openPage("welcome", settings, { stored: { [WELCOME_KEY]: { step: "tiers" } } })
-    await vi.waitFor(() => expect(document.querySelector(".spotlight")).not.toBeNull())
+    await until(() => expect(document.querySelector(".spotlight")).not.toBeNull())
     // The popup asks for the state of its tab every REFRESH_INTERVAL_MS.
     const popup = await openPage("popup", settings, { activeTab: { id: 3 }, respond: (req) => (req.type === "getTabState" ? IDLE_TAB_STATE : undefined) })
-    await vi.waitFor(() => expect(popup.sendMessage).toHaveBeenCalledWith({ type: "getTabState", tabId: 3 }))
+    await until(() => expect(popup.sendMessage).toHaveBeenCalledWith({ type: "getTabState", tabId: 3 }))
     // The settings page saves an edit SAVE_DELAY_MS later.
     await openPage("options", settings)
-    await vi.waitFor(() => expect(document.querySelector("#providerPanel h3")).not.toBeNull())
+    await until(() => expect(document.querySelector("#providerPanel h3")).not.toBeNull())
     document.querySelector<HTMLInputElement>("#autoTranslate")!.click()
   })
 
@@ -74,7 +74,7 @@ describe("a page still loading when its test ends", { shuffle: false }, () => {
       // Like an answer that IndexedDB requests of the background script hold up: no timer, only turns of the event loop.
       respond: (req) => (req.type === "offlineList" && req.service === "bergamot" ? ((asked = true), settle(SETTLE_TURNS / 2).then(() => ({ ok: true, items: pairs }))) : undefined),
     })
-    await vi.waitFor(() => expect(asked).toBe(true))
+    await until(() => expect(asked).toBe(true))
     expect(document.querySelectorAll("#bergamotList input[type=checkbox]")).toHaveLength(0)
   })
 
@@ -97,7 +97,7 @@ describe("a background script left running by a test", { shuffle: false }, () =>
     await import("../src/background/index")
     const port = bg.connect(4)
     port.send({ type: "translate", id: 1, request: { text: "Hello", sourceLang: "auto", targetLang: "zh-CN", tiers: ["machine"] } })
-    await vi.waitFor(() => expect(port.posted.at(-1)).toEqual({ type: "done", id: 1 }))
+    await until(() => expect(port.posted.at(-1)).toEqual({ type: "done", id: 1 }))
   })
 
   it("does not write into the storage of the next test", async () => {

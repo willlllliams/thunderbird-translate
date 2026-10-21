@@ -6,7 +6,7 @@ import { createDefaultSettings, type Settings } from "../src/shared/settings"
 import { DEMO_TIMES, TierDemo } from "../src/welcome/demo"
 import { WELCOME_KEY } from "../src/welcome/steps"
 import { flushSave } from "./fixtures/pages"
-import { openPage, useFakeTimers } from "./helpers"
+import { openPage, until, useFakeTimers } from "./helpers"
 
 // Fake timers in every test: a page left open by a test cannot fire its timers into the next one.
 beforeEach(() => useFakeTimers())
@@ -138,7 +138,7 @@ describe("welcome page: display and tiers steps", () => {
 
   it("offers the style controls of the settings page on the display step, previewed in the sample message", async () => {
     const page = await openPage("welcome", settings(), { stored: { [WELCOME_KEY]: { step: "display" } } })
-    await vi.waitFor(() => expect(current()).toBe("display"))
+    await until(() => expect(current()).toBe("display"))
     const controls = Array.from($("styleControls").querySelectorAll("select, input"), (el) => el.id)
     expect(controls).toEqual(["stylePreset", "styleColor", "styleTextColor", "styleOpacity", "styleFontScale"])
     expect($<HTMLSelectElement>("stylePreset").options[2].textContent).toBe(ENGLISH.t("styleHighlight"))
@@ -161,7 +161,7 @@ describe("welcome page: display and tiers steps", () => {
   it("replays the demo after each choice, with the services chosen", async () => {
     lessMotion()
     const page = await openPage("welcome", settings((s) => (s.tiers = { ...all })), { stored: { [WELCOME_KEY]: { step: "tiers", toured: true } } })
-    await vi.waitFor(() => expect(current()).toBe("tiers"))
+    await until(() => expect(current()).toBe("tiers"))
     expect(spot()).toBeUndefined()
     expect(shown()).toEqual({ text: ENGLISH.t("demoAi"), tag: null, provisional: false })
     expect($("demoStatus").textContent).toBe("Tier 3: AI translation · DeepSeek")
@@ -185,10 +185,10 @@ describe("welcome page: display and tiers steps", () => {
   it("tours the selectors once: Next, a choice and Enter go on, the last step closes it, the link shows it again and Esc skips", async () => {
     lessMotion()
     const page = await openPage("welcome", settings(), { stored: { [WELCOME_KEY]: { step: "display" } } })
-    await vi.waitFor(() => expect(current()).toBe("display"))
+    await until(() => expect(current()).toBe("display"))
     expect(spot()).toBeUndefined()
     $("nextStep").click()
-    await vi.waitFor(() => expect(current()).toBe("tiers"))
+    await until(() => expect(current()).toBe("tiers"))
     const tip = $("tourTip")
     expect([spot(), tip.hidden, $("tourText").textContent]).toEqual(["tier-dictionary", false, ENGLISH.t("spotlightDictionary")])
     expect(tip.getAttribute("role")).toBe("dialog")
@@ -207,15 +207,15 @@ describe("welcome page: display and tiers steps", () => {
     // The key press is cancelled, so it does not also click "Next", which has the focus by then.
     expect(key("Enter")).toBe(false)
     expect([spot(), tip.hidden]).toEqual([undefined, true])
-    await vi.waitFor(() => expect(page.local(WELCOME_KEY)).toEqual({ step: "tiers", toured: true }))
+    await until(() => expect(page.local(WELCOME_KEY)).toEqual({ step: "tiers", toured: true }))
 
     // Back and again: it does not open by itself.
     $("prevStep").click()
-    await vi.waitFor(() => expect(current()).toBe("display"))
+    await until(() => expect(current()).toBe("display"))
     $("nextStep").click()
-    await vi.waitFor(() => expect(current()).toBe("tiers"))
+    await until(() => expect(current()).toBe("tiers"))
     expect(spot()).toBeUndefined()
-    await vi.waitFor(() => expect(page.local(WELCOME_KEY)).toEqual({ step: "tiers", toured: true }))
+    await until(() => expect(page.local(WELCOME_KEY)).toEqual({ step: "tiers", toured: true }))
 
     // The link starts it again; Esc skips it and gives the focus back.
     $("tourAgain").focus()
@@ -230,7 +230,7 @@ describe("welcome page: display and tiers steps", () => {
 
   it("stops the demo and ends the tour when the user leaves the step, and only stops them when the page goes away", async () => {
     const page = await openPage("welcome", settings((s) => (s.tiers.ai = "deepseek")), { stored: { [WELCOME_KEY]: { step: "tiers" } } })
-    await vi.waitFor(() => expect(current()).toBe("tiers"))
+    await until(() => expect(current()).toBe("tiers"))
     expect(spot()).toBe("tier-dictionary")
     expect(shown()).toBe("loading")
     // The page goes away: timers and listeners end, the tour has not been closed by the user.
@@ -243,10 +243,10 @@ describe("welcome page: display and tiers steps", () => {
     $("tourAgain").click()
     $("demoReplay").click()
     $("nextStep").click()
-    await vi.waitFor(() => expect(current()).toBe("machine"))
+    await until(() => expect(current()).toBe("machine"))
     expect(spot()).toBeUndefined()
     await vi.advanceTimersByTimeAsync(DEMO_TIMES.ai)
     expect(shown()).toBe("loading")
-    await vi.waitFor(() => expect(page.local(WELCOME_KEY)).toEqual({ step: "machine", toured: true }))
+    await until(() => expect(page.local(WELCOME_KEY)).toEqual({ step: "machine", toured: true }))
   })
 })
