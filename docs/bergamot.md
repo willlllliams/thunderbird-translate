@@ -157,7 +157,7 @@ The glue script and the binary must come from the same build. `vendor/bergamot/R
 
 ## Permissions and content security policy
 
-The manifest gains the `unlimitedStorage` permission and an explicit policy, `script-src 'self' 'wasm-unsafe-eval'; object-src 'self'`. `'wasm-unsafe-eval'` allows compiling WebAssembly and nothing else. The other scripts of the extension are bundled files loaded from the package and use neither `eval` nor `new Function`, so the policy does not change how they run.
+The manifest gains the `unlimitedStorage` permission and an explicit policy, `script-src 'self' 'wasm-unsafe-eval'; object-src 'self'`. `'wasm-unsafe-eval'` allows compiling WebAssembly and nothing else. The other scripts of the extension are bundled files loaded from the package. The extension's own code uses neither `eval` nor `new Function`; the bundled zod library contains code that builds functions with `new Function`, but the extension turns on zod's jitless mode before any schema is created, so that code never runs and the policy does not change how the scripts run.
 
 ## Message keys for the interface
 

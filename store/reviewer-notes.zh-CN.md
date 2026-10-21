@@ -39,7 +39,7 @@ xpi 中的脚本由 esbuild 打包并压缩，因此随提交附上源代码包�
 - 打包进脚本的 npm 包：Vercel AI SDK（`ai` 和各个 `@ai-sdk/*` 服务商包）、`zod` 和 `fzstd`，以及它们的依赖。xpi 中的 `THIRD-PARTY-NOTICES.txt` 列出每个打包进去的包及其版本、许可证和版权声明；构建根据 esbuild 实际读取的文件生成这份清单，缺少任何一个包时构建中止。
 - `bergamot-translator.js` 和 `bergamot-translator.wasm.zst`：Mozilla 的 Bergamot 翻译引擎，与 Firefox 和 Thunderbird 自带的文件相同，未作修改（MPL-2.0）。源代码包中的 `VENDOR.md` 声明了这两个文件，来源与哈希值见英文版的表格。
 
-内容安全策略中的 `'wasm-unsafe-eval'` 只用于在 worker 中编译这个随包提供的引擎；没有任何脚本使用 `eval` 或 `new Function`。
+内容安全策略中的 `'wasm-unsafe-eval'` 只用于在 worker 中编译这个随包提供的引擎。扩展自己的脚本不调用 `eval` 或 `Function` 构造器。随包的 zod 库（位于 `chunks/llm-*.js`，与 AI SDK 一起加载）含有用 `Function` 构造器生成函数的代码：一个特性探测、一个可选的对象 schema 编译器，以及没有任何调用方的 `z.compile()`。扩展在创建任何 schema 之前设置 `z.config({ jitless: true })`（见 `src/background/translators/zod-config.ts`），这些代码因此都不会运行；内容安全策略不含 `'unsafe-eval'`，同样会拦截它们。
 
 从 2.2.0 起，AI 译文中的 Markdown 按格式显示。`src/shared/markdown.ts` 用 `createElement`、`createTextNode` 和 `setAttribute` 构建这些内容，从不把译文赋给 `innerHTML`；元素只有 `strong`、`em`、`code`、`del`、`a`、`ul`、`ol`、`li` 和 `br`，链接只在地址以 `http:`、`https:` 或 `mailto:` 开头时才带地址。
 
