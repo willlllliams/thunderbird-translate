@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 /** The Markdown subset of AI translations (src/shared/markdown.ts): syntax, CommonMark delimiter rules, escapes, blocks, safety, time. */
 import { describe, expect, it } from "vitest"
-import { markdownBlocks, markdownFragment, safeHref, stripMarkdown } from "../src/shared/markdown"
+import { MAX_TABLE_COLUMNS, MAX_TABLE_ROWS, markdownBlocks, markdownFragment, safeHref, stripMarkdown } from "../src/shared/markdown"
 
 /** The rendered DOM as HTML, read back for the assertion only. */
 function html(text: string): string {
@@ -377,4 +377,152 @@ describe("stripMarkdown", () => {
 it("lists only the allowed elements", () => {
   const all = elements("**a** *b* `c` ~~d~~ [e](https://e.com)\nf\n- g\n1. h\n\n3. i")
   expect([...new Set(all.map((e) => e.tag))].sort()).toEqual(["a", "br", "code", "del", "em", "li", "ol", "strong", "ul"])
+})
+
+describe("answers about images (rich)", () => {
+  const rich = (text: string, header?: { from: string[]; to: string[] }) => {
+    const div = document.createElement("div")
+    div.appendChild(markdownFragment(document, text, { rich: true, header }))
+    return div.innerHTML
+  }
+  const TABLE = "| Original | Translation |\n| --- | --- |\n| Umsatz | Revenue |\n| Kosten | Costs |"
+
+  it("reads a pipe table with a head and a body", () => {
+    expect(rich(TABLE)).toBe("<table><thead><tr><th>Original</th><th>Translation</th></tr></thead><tbody><tr><td>Umsatz</td><td>Revenue</td></tr><tr><td>Kosten</td><td>Costs</td></tr></tbody></table>")
+    // The pipes at the start and the end are optional, and a table may have no rows.
+    expect(rich("a | b\n-|-")).toBe("<table><thead><tr><th>a</th><th>b</th></tr></thead></table>")
+    expect(rich("| a |\n| - |\n| x |")).toBe("<table><thead><tr><th>a</th></tr></thead><tbody><tr><td>x</td></tr></tbody></table>")
+  })
+
+  it("keeps the lines as text without a delimiter row of as many cells", () => {
+    expect(rich("| a | b |\n| c | d |")).toBe("<p>| a | b |<br>| c | d |</p>")
+    expect(rich("| a | b |\n| --- |")).toBe("<p>| a | b |<br>| --- |</p>")
+    expect(rich("| a | b |\n| --- | x |")).toBe("<p>| a | b |<br>| --- | x |</p>")
+    // A delimiter row needs a pipe, so a line under a dashed rule is no table.
+    expect(rich("a\n---")).toBe("<p>a<br>---</p>")
+    expect(rich("|\n|")).toBe("<p>|<br>|</p>")
+  })
+
+  it("fills short rows, cuts long ones and reads escaped pipes and inline markup in cells", () => {
+    expect(rich("| a | b |\n|---|---|\n| 1 |\n| 1 | 2 | 3 |")).toBe("<table><thead><tr><th>a</th><th>b</th></tr></thead><tbody><tr><td>1</td><td></td></tr><tr><td>1</td><td>2</td></tr></tbody></table>")
+    expect(rich("| a | b |\n|---|---|\n| x \\| y | **z** [l](https://e.com) `c` |")).toBe(
+      '<table><thead><tr><th>a</th><th>b</th></tr></thead><tbody><tr><td>x | y</td><td><strong>z</strong> <a href="https://e.com/" rel="noopener noreferrer">l</a> <code>c</code></td></tr></tbody></table>',
+    )
+    // An escaped backslash before a pipe leaves the pipe a divider.
+    expect(rich("| a | b |\n|---|---|\n| x \\\\| y |")).toContain("<td>x \\</td><td>y</td>")
+  })
+
+  it("marks the alignment with a class only", () => {
+    const out = rich("| l | c | r | n |\n| :-- | :-: | --: | --- |\n| 1 | 2 | 3 | 4 |")
+    expect(out).toContain('<th>l</th><th class="tt-align-center">c</th><th class="tt-align-right">r</th><th>n</th>')
+    expect(out).toContain('<td>1</td><td class="tt-align-center">2</td><td class="tt-align-right">3</td><td>4</td>')
+    expect(out).not.toContain("style")
+  })
+
+  it("starts a table after a line of text and ends it at a blank line or a line without a pipe", () => {
+    expect(rich("**Summary:** two labels\n| a | b |\n|---|---|\n| 1 | 2 |\nafter")).toBe(
+      "<p><strong>Summary:</strong> two labels</p><table><thead><tr><th>a</th><th>b</th></tr></thead><tbody><tr><td>1</td><td>2</td></tr></tbody></table><p>after</p>",
+    )
+    expect(rich("| a | b |\n|---|---|\n| 1 | 2 |\n\n| 3 | 4 |")).toBe("<table><thead><tr><th>a</th><th>b</th></tr></thead><tbody><tr><td>1</td><td>2</td></tr></tbody></table><p>| 3 | 4 |</p>")
+  })
+
+  it("has at most 20 columns and 300 rows; the rest stays text", () => {
+    const table = (columns: number, rows: number) => [`|${" h |".repeat(columns)}`, `|${" - |".repeat(columns)}`, ...Array.from({ length: rows }, (_, i) => `| r${i} |${" x |".repeat(columns - 1)}`)].join("\n")
+    const rendered = (text: string) => {
+      const div = document.createElement("div")
+      div.appendChild(markdownFragment(document, text, { rich: true }))
+      return div
+    }
+    expect(MAX_TABLE_COLUMNS).toBe(20)
+    expect(MAX_TABLE_ROWS).toBe(300)
+    expect(rendered(table(MAX_TABLE_COLUMNS, 1)).querySelectorAll("th")).toHaveLength(20)
+    expect(rendered(table(MAX_TABLE_COLUMNS + 1, 1)).querySelector("table")).toBeNull()
+    const long = rendered(table(2, MAX_TABLE_ROWS + 2))
+    expect(long.querySelectorAll("tbody tr")).toHaveLength(300)
+    expect(long.querySelector("p")?.innerHTML).toBe("| r300 | x |<br>| r301 | x |")
+  })
+
+  it("shows the header that `header` names in its labels", () => {
+    const header = { from: ["Original", "Translation"], to: ["原文", "译文"] }
+    expect(rich(TABLE, header)).toContain("<th>原文</th><th>译文</th>")
+    expect(rich("| Original | Notes |\n|---|---|", header)).toContain("<th>Original</th><th>Notes</th>")
+    expect(stripMarkdown(TABLE, { rich: true, header })).toBe("原文\t译文\nUmsatz\tRevenue\nKosten\tCosts")
+  })
+
+  it("ends a block at a blank line without a line break for it", () => {
+    expect(rich("one\ntwo\n\n\nthree")).toBe("<p>one<br>two</p><p>three</p>")
+    expect(rich("\n\n- a\n- b\n\n- c\n\nend\n\n")).toBe("<ul><li>a</li><li>b</li></ul><ul><li>c</li></ul><p>end</p>")
+    expect(markdownBlocks("a\n\nb", { rich: true })).toEqual([{ kind: "text", text: "a" }, { kind: "gap" }, { kind: "text", text: "b" }])
+  })
+
+  it("shows a heading line as a paragraph of bold text", () => {
+    expect(rich("# Title\ntext")).toBe("<p><strong>Title</strong></p><p>text</p>")
+    expect(rich("###### *Six* ##")).toBe("<p><strong><em>Six</em></strong></p>")
+    expect(rich("## C# ##")).toBe("<p><strong>C#</strong></p>")
+    expect(rich("#")).toBe("<p><strong></strong></p>")
+    for (const text of ["#hashtag", "####### seven", "    # code"]) expect(rich(text)).not.toContain("<strong>")
+  })
+
+  it("leaves the translations of the AI tier as they were", () => {
+    expect(html(TABLE)).toBe("| Original | Translation |<br>| --- | --- |<br>| Umsatz | Revenue |<br>| Kosten | Costs |")
+    expect(html("# a\n\nb")).toBe("# a<br><br>b")
+  })
+
+  it("writes a table as lines of tab-separated cells and keeps blank lines when stripped", () => {
+    expect(stripMarkdown("**Summary:** a\n\n| *a* | b |\n|---|---|\n| 1 | `2` |\n\n# End", { rich: true })).toBe("Summary: a\n\na\tb\n1\t2\n\nEnd")
+  })
+
+  it.each([
+    "| <script>alert(1)</script> | <img src=x onerror=alert(1)> |\n|---|---|\n| [x](javascript:alert(1)) | <b onclick=alert(1)>y</b> |",
+    "# <svg onload=alert(1)>\n\n| a |\n| - |\n| ![i](https://e.com/i.png) |",
+    "| a | b |\n| :-: | --: |\n| \" onmouseover=\"alert(1) | ' style='x |",
+  ])("creates no executable content in a table or heading: %s", (text) => {
+    const div = document.createElement("div")
+    div.appendChild(markdownFragment(document, text, { rich: true }))
+    const allowed: Record<string, string[]> = { ...ALLOWED, p: [], table: [], thead: [], tbody: [], tr: [], th: ["class"], td: ["class"] }
+    for (const el of Array.from(div.querySelectorAll("*"))) {
+      const tag = el.tagName.toLowerCase()
+      expect(Object.keys(allowed)).toContain(tag)
+      for (const name of el.getAttributeNames()) expect(allowed[tag]).toContain(name)
+      if (el.hasAttribute("class")) expect(el.getAttribute("class")).toMatch(/^tt-align-(center|right)$/)
+    }
+    expect(div.querySelector("script, img, svg, [onerror], [onclick], [onload], [onmouseover], [style]")).toBeNull()
+  })
+})
+
+describe("time of the answers about images", () => {
+  /** As above, with the reading of the answers about images. */
+  function times(texts: string[]): number[] {
+    const best = texts.map(() => Infinity)
+    for (let round = 0; round < 7; round++) {
+      texts.forEach((text, i) => {
+        const t0 = performance.now()
+        markdownFragment(document, text, { rich: true })
+        best[i] = Math.min(best[i], performance.now() - t0)
+      })
+    }
+    return best
+  }
+
+  it.each([
+    ["pipes only", (n: number) => "|".repeat(n)],
+    ["lines of pipes", (n: number) => "|||||||||\n".repeat(n)],
+    ["header rows without a delimiter row", (n: number) => "| a | b |\n".repeat(n)],
+    ["header rows with a delimiter row of the wrong width", (n: number) => "| a | b |\n| - |\n".repeat(n)],
+    ["tables", (n: number) => "| a | b |\n| --- | --- |\n| 1 | 2 |\n\n".repeat(n)],
+    ["one table with many rows", (n: number) => `| a | b |\n| - | - |\n${"| *x* | `y` |\n".repeat(n)}`],
+    ["a row of many cells", (n: number) => `| a |\n| - |\n${"| x ".repeat(n)}`],
+    ["escaped pipes", (n: number) => "\\|".repeat(n)],
+    ["blank lines and headings", (n: number) => "# h\n\n\ntext\n".repeat(n)],
+    ["heading lines of spaces", (n: number) => `#${" ".repeat(n)}x`],
+  ])("%s: linear in the length, 10 KB at once", (_, make) => {
+    const unit = make(2).length - make(1).length
+    const ten = make(Math.ceil(10_000 / unit))
+    const eighty = make(Math.ceil(80_000 / unit))
+    expect(ten.length).toBeGreaterThanOrEqual(10_000)
+    const [t10, t80] = times([ten, eighty])
+    // Eight times the text: linear growth takes eight times the time, quadratic growth sixty-four.
+    expect(t80).toBeLessThan(Math.max(t10 * 24, 5))
+    expect(t10).toBeLessThan(100)
+  })
 })

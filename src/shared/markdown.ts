@@ -10,6 +10,21 @@
  * - blocks, inside one translation: consecutive lines starting with "- ",
  *   "* ", "+ " or "1. " become a list, and every other line break a <br>.
  *
+ * The answers about images (rich: true) read three more kinds of block:
+ *
+ * - GFM pipe tables: a header row, a delimiter row of as many cells
+ *   (:?-+:?), then rows up to a blank line or a line without "|"; a row with
+ *   fewer cells gets empty ones, one with more loses the rest; "\|" is a
+ *   pipe inside a cell, whose content is read as inline markup. Alignment
+ *   becomes the class tt-align-center or tt-align-right, never a style. A
+ *   table has at most MAX_TABLE_COLUMNS columns and MAX_TABLE_ROWS rows: one
+ *   with more columns stays text, rows past the limit follow as text;
+ * - a blank line ends a block: every run of text lines between two blank
+ *   lines, lists or tables becomes a <p>, and no <br> stands for the blank line;
+ * - a heading line ("# Title" to "###### Title") becomes a paragraph of
+ *   bold text: a heading element would break into the headings of the message
+ *   around the answer, and the outline screen readers navigate by.
+ *
  * The delimiter runs of *, _ and ~~ open and close by the left- and
  * right-flanking rules of CommonMark (0.31), with Unicode whitespace and
  * Unicode punctuation (categories P and S), so 这是**重要**的 is strong while
@@ -20,13 +35,15 @@
  * A link to any other address (javascript:, data:, a relative path, a user
  * name before the host, more than MAX_DESTINATION characters, parentheses
  * nested more than MAX_PARENS deep) stays as its whole source text. Unclosed or invalid markup stays as its characters.
- * Headings, tables, images and HTML are not read: their characters stay.
+ * Images and HTML are never read, headings and tables only with `rich`: their characters stay.
  *
  * Parsing takes time linear in the length of the text: delimiters are
  * matched with the "openers bottom" bound of CommonMark, closing backtick
  * runs are looked up in an index, at most MAX_PARENS + 1 link destinations
  * read any one character (each one still read has its "(" unclosed, so they
- * nest), and nodes move between lists in constant time. Elements nest at most MAX_DEPTH deep; deeper markup keeps its text
+ * nest), and nodes move between lists in constant time. Every line is split
+ * into cells at most twice, as a possible header row and as a possible
+ * delimiter row, each time in one pass. Elements nest at most MAX_DEPTH deep; deeper markup keeps its text
  * without the element.
  */
 
@@ -69,8 +86,31 @@ interface Bracket {
   prev: Bracket | null
 }
 
-/** A block of one translation: lines of text, or a list; `marker` is the character of a bullet list, "." for an ordered one. */
-export type MarkdownBlock = { kind: "text"; text: string } | { kind: "list"; ordered: boolean; start: number; marker: string; items: string[] }
+/** How a column of a table is aligned. */
+export type TableAlign = "left" | "center" | "right" | ""
+
+/**
+ * A block of one translation: lines of text, or a list; `marker` is the character of a bullet list, "." for an ordered
+ * one. With `rich`: a table, whose cells hold their source text; a blank line (gap); and text that was a heading line
+ * (strong).
+ */
+export type MarkdownBlock =
+  | { kind: "text"; text: string; strong?: true }
+  | { kind: "list"; ordered: boolean; start: number; marker: string; items: string[] }
+  | { kind: "table"; header: string[]; align: TableAlign[]; rows: string[][] }
+  | { kind: "gap" }
+
+export interface MarkdownOptions {
+  /** Tables, blank lines as the ends of blocks, heading lines as bold paragraphs: the answers about images. */
+  rich?: boolean
+  /** A table whose header cells are exactly `from` shows `to` instead, e.g. the English column names in the interface language. */
+  header?: { from: readonly string[]; to: readonly string[] }
+}
+
+/** A table has at most this many columns; one with more stays text. */
+export const MAX_TABLE_COLUMNS = 20
+/** A table has at most this many rows besides the header; the rows after them stay text. */
+export const MAX_TABLE_ROWS = 300
 
 /** Elements nest at most this deep. */
 const MAX_DEPTH = 16
@@ -85,6 +125,10 @@ const UNICODE_PUNCT = /[\p{P}\p{S}]/u
 const ASCII_ALNUM = /[A-Za-z0-9]/
 /** A list item: up to three spaces, the marker, at least one space or tab, then the text. */
 const LIST_ITEM = /^ {0,3}(?:([-*+])|(\d{1,9})\.)[ \t]+(?=\S)(.*)$/
+/** The opening of a heading line: up to three spaces, one to six #, then a space, a tab or the end. */
+const HEADING = /^ {0,3}#{1,6}(?=[ \t]|$)/
+/** A cell of a delimiter row. */
+const DELIMITER_CELL = /^[ \t]*(:?)-+(:?)[ \t]*$/
 
 const node = (type: Inline["type"], text = ""): Inline => ({ type, text, href: "", prev: null, next: null, first: null, last: null })
 
@@ -392,15 +436,99 @@ function parseInline(s: string): Inline {
   return root
 }
 
-/** Splits a translation into lines of text and lists. */
-export function markdownBlocks(text: string): MarkdownBlock[] {
+/** The text of a heading line without its #s, the closing ones included; null for any other line. */
+function headingText(line: string): string | null {
+  const open = HEADING.exec(line)
+  if (!open) return null
+  let rest = line.slice(open[0].length).trim()
+  // Closing #s count only after a space or a tab, or as the whole rest.
+  let end = rest.length
+  while (end > 0 && rest[end - 1] === "#") end--
+  if (end === 0 || rest[end - 1] === " " || rest[end - 1] === "\t") rest = rest.slice(0, end).trimEnd()
+  return rest
+}
+
+/**
+ * The cells of a table row, split at every "|" that no backslash escapes, without the pipes at the start and the end;
+ * a cell keeps its "\|", which the inline reader turns into "|". One pass over the line.
+ */
+function rowCells(line: string): string[] {
+  const s = line.trim()
+  const cells: string[] = []
+  let cell = ""
+  let closed = false
+  for (let i = 0; i < s.length; i++) {
+    const c = s[i]
+    if (c === "\\" && i + 1 < s.length) {
+      cell += c + s[++i]
+      closed = false
+    } else if (c === "|") {
+      cells.push(cell)
+      cell = ""
+      closed = true
+    } else {
+      cell += c
+      closed = false
+    }
+  }
+  if (!closed) cells.push(cell)
+  if (s.startsWith("|")) cells.shift()
+  return cells.map((part) => part.trim())
+}
+
+/** The alignment of each column when `line` is a delimiter row of `columns` cells; null otherwise. */
+function delimiterRow(line: string, columns: number): TableAlign[] | null {
+  if (!line.includes("|")) return null
+  const cells = rowCells(line)
+  if (cells.length !== columns) return null
+  const align: TableAlign[] = []
+  for (const cell of cells) {
+    const m = DELIMITER_CELL.exec(cell)
+    if (!m) return null
+    align.push(m[1] && m[2] ? "center" : m[2] ? "right" : m[1] ? "left" : "")
+  }
+  return align
+}
+
+/** Splits a translation into lines of text and lists; with `rich`, also tables, blank lines and heading lines. */
+export function markdownBlocks(text: string, { rich = false }: Pick<MarkdownOptions, "rich"> = {}): MarkdownBlock[] {
   const blocks: MarkdownBlock[] = []
   let lines: string[] = []
   const flushText = () => {
     if (lines.length > 0) blocks.push({ kind: "text", text: lines.join("\n") })
     lines = []
   }
-  for (const line of text.split(/\r\n?|\n/)) {
+  const all = text.split(/\r\n?|\n/)
+  for (let i = 0; i < all.length; i++) {
+    const line = all[i]
+    if (rich) {
+      if (!line.trim()) {
+        flushText()
+        if (blocks.length > 0 && blocks.at(-1)!.kind !== "gap") blocks.push({ kind: "gap" })
+        continue
+      }
+      const heading = headingText(line)
+      if (heading !== null) {
+        flushText()
+        blocks.push({ kind: "text", text: heading, strong: true })
+        continue
+      }
+      const header = line.includes("|") ? rowCells(line) : null
+      const align = header && header.length > 0 && header.length <= MAX_TABLE_COLUMNS && i + 1 < all.length ? delimiterRow(all[i + 1], header.length) : null
+      if (header && align) {
+        flushText()
+        const rows: string[][] = []
+        let j = i + 2
+        for (; j < all.length && rows.length < MAX_TABLE_ROWS && all[j].includes("|") && all[j].trim(); j++) {
+          const cells = rowCells(all[j]).slice(0, header.length)
+          while (cells.length < header.length) cells.push("")
+          rows.push(cells)
+        }
+        blocks.push({ kind: "table", header, align, rows })
+        i = j - 1
+        continue
+      }
+    }
     const m = LIST_ITEM.exec(line)
     const last = blocks.at(-1)
     if (m) {
@@ -460,12 +588,54 @@ function appendInline(doc: Document, parent: Node, root: Inline): void {
   }
 }
 
-/** The DOM of a translation with the Markdown subset rendered. */
-export function markdownFragment(doc: Document, text: string): DocumentFragment {
+/** Whether the header of a table is the one `header.from` names. */
+const relabelled = (cells: string[], header: MarkdownOptions["header"]) => header !== undefined && cells.length === header.from.length && cells.every((cell, i) => cell === header.from[i])
+
+/** A table with a head and a body; the header cells of options.header show its labels as text. */
+function tableElement(doc: Document, block: Extract<MarkdownBlock, { kind: "table" }>, header: MarkdownOptions["header"]): HTMLTableElement {
+  const table = doc.createElement("table")
+  const labels = relabelled(block.header, header) ? header!.to : null
+  const row = (cells: string[], tag: "th" | "td", labels: readonly string[] | null = null) => {
+    const tr = doc.createElement("tr")
+    cells.forEach((cell, i) => {
+      const el = doc.createElement(tag)
+      const align = block.align[i]
+      if (align === "center" || align === "right") el.className = `tt-align-${align}`
+      if (labels) el.appendChild(doc.createTextNode(labels[i]))
+      else appendInline(doc, el, parseInline(cell))
+      tr.appendChild(el)
+    })
+    return tr
+  }
+  const head = doc.createElement("thead")
+  head.appendChild(row(block.header, "th", labels))
+  table.appendChild(head)
+  if (block.rows.length > 0) {
+    const body = doc.createElement("tbody")
+    for (const cells of block.rows) body.appendChild(row(cells, "td"))
+    table.appendChild(body)
+  }
+  return table
+}
+
+/** The DOM of a translation with the Markdown subset rendered; with `rich`, of an answer about an image. */
+export function markdownFragment(doc: Document, text: string, options: MarkdownOptions = {}): DocumentFragment {
   const fragment = doc.createDocumentFragment()
-  for (const block of markdownBlocks(text)) {
+  for (const block of markdownBlocks(text, options)) {
+    if (block.kind === "gap") continue
+    if (block.kind === "table") {
+      fragment.appendChild(tableElement(doc, block, options.header))
+      continue
+    }
     if (block.kind === "text") {
-      appendInline(doc, fragment, parseInline(block.text))
+      if (!options.rich) {
+        appendInline(doc, fragment, parseInline(block.text))
+        continue
+      }
+      const p = doc.createElement("p")
+      const into = block.strong ? p.appendChild(doc.createElement("strong")) : p
+      appendInline(doc, into, parseInline(block.text))
+      fragment.appendChild(p)
       continue
     }
     const list = doc.createElement(block.ordered ? "ol" : "ul")
@@ -501,12 +671,26 @@ function inlineText(root: Inline): string {
  * The text of a translation with the Markdown marks of markdownFragment()
  * removed: the text of emphasis, code and links, list items on lines of
  * their own, ordered ones with their number. For places that show plain
- * text, such as the subjects of a folder.
+ * text, such as the subjects of a folder. With `rich`, a table gives a line
+ * per row with tabs between its cells, a blank line stays a blank line, and
+ * the text of the header cells options.header names is replaced as well.
  */
-export function stripMarkdown(text: string): string {
-  return markdownBlocks(text)
-    .map((block) =>
-      block.kind === "text" ? inlineText(parseInline(block.text)) : block.items.map((item, i) => `${block.ordered ? `${block.start + i}. ` : ""}${inlineText(parseInline(item))}`).join("\n"),
-    )
+export function stripMarkdown(text: string, options: MarkdownOptions = {}): string {
+  const plain = (s: string) => inlineText(parseInline(s))
+  return markdownBlocks(text, options)
+    .map((block) => {
+      switch (block.kind) {
+        case "gap":
+          return ""
+        case "text":
+          return plain(block.text)
+        case "table": {
+          const header = relabelled(block.header, options.header) ? [...options.header!.to] : block.header.map(plain)
+          return [header, ...block.rows.map((cells) => cells.map(plain))].map((cells) => cells.join("\t")).join("\n")
+        }
+        case "list":
+          return block.items.map((item, i) => `${block.ordered ? `${block.start + i}. ` : ""}${plain(item)}`).join("\n")
+      }
+    })
     .join("\n")
 }
