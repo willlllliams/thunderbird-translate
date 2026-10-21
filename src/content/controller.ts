@@ -393,6 +393,12 @@ export class TranslationController {
     }
     // Tiers without an answer were not asked, because the highest tier came from the cache.
     for (const tier of wanted) if (current(tier) && state[tier]?.status === "pending") delete state[tier]
+    // No tier answered at all (the background could not read its settings, or newer ones left the tier out): the paragraph fails and can be retried.
+    const top = wanted.at(-1)!
+    if (current(top) && !s.tiers.some((tier) => state[tier])) {
+      state[top] = { status: "error", error: describeError(undefined, getI18n()) }
+      if (top === s.tiers.at(-1)) this.lastError = state[top].error
+    }
     if (session === this.session) {
       this.renderResult(unit)
       this.report()

@@ -125,6 +125,17 @@ describe("tier combinations", () => {
 })
 
 describe("results", () => {
+  it("U9: fails a paragraph no tier answered, with a retry that asks again", async () => {
+    const translate = vi.fn(async () => {})
+    const { c, reports } = await mount("<p>Good morning</p>", tieredSettings(["machine", "ai"]), { translate })
+    await c.start()
+    const error = document.querySelector<HTMLButtonElement>("p .tt-error")!
+    expect(error.textContent).toBe(ENGLISH.t("statusFailed"))
+    await until(() => expect(reports.at(-1)).toMatchObject({ total: 1, done: 0, failed: 1 }))
+    error.click()
+    expect(translate).toHaveBeenCalledTimes(2)
+  })
+
   it.each<[string, Tier[], Partial<Record<Tier, TranslateResponse>>, ReturnType<typeof shown>]>([
     ["an empty final result shows nothing", ["machine"], { machine: ok("  ") }, { kind: "nothing" }],
     ["a final result equal to the original shows nothing", ["machine"], { machine: ok(" Good morning ") }, { kind: "nothing" }],
