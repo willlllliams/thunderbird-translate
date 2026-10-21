@@ -16,12 +16,15 @@
  * fill the column. The highest tier that answered is shown; reply and
  * forward prefixes stay as they are; a subject already in the target
  * language stays empty. A change of the languages or of a service of the
- * tiers empties the column and translates again.
+ * tiers empties the column and translates again. An AI translation shows
+ * without its Markdown marks while the Markdown switch is on; a change of
+ * the switch shows the translations again without a request.
  */
 
 import { hasTranslatableText } from "../content/text"
 import type { MessageHeader } from "../shared/ext"
 import { isInTargetLanguage, type LanguageDetector } from "../shared/lang-detect"
+import { stripMarkdown } from "../shared/markdown"
 import type { TranslateRequest, TranslateResponse } from "../shared/messages"
 import type { Tier } from "../shared/providers"
 import type { PublicSettings } from "../shared/settings"
@@ -93,6 +96,10 @@ export function createColumnSync({ api, ready, settings, columnName, translate, 
   let key = ""
   /** Increased by a change of key: answers to an older key are dropped. */
   let generation = 0
+  /** The result shown for each subject: its prefixes, the text the tier returned and whether the AI tier returned it. */
+  const results = new Map<string, { prefix: string; text: string; ai: boolean }>()
+  /** The Markdown switch the column was filled with. */
+  let markdown = true
   const pending = new Map<string, string>()
   let pushTimer: ReturnType<typeof setTimeout> | undefined
   const settleTimers = new Map<number, ReturnType<typeof setTimeout>[]>()
@@ -105,9 +112,17 @@ export function createColumnSync({ api, ready, settings, columnName, translate, 
     void api.set(entries).catch(() => {})
   }
 
-  function show(subject: string, text: string): void {
-    pending.set(subject, text)
+  function show(subject: string): void {
+    const { prefix, text, ai } = results.get(subject)!
+    pending.set(subject, `${prefix}${ai && markdown ? stripMarkdown(text) : text}`)
     pushTimer ??= setTimeout(push, PUSH_DELAY_MS)
+  }
+
+  /** The Markdown switch of `s`: a change shows every result again. */
+  function followMarkdown(s: PublicSettings): void {
+    if (s.renderMarkdown === markdown) return
+    markdown = s.renderMarkdown
+    for (const subject of results.keys()) show(subject)
   }
 
   async function translateSubject(subject: string, s: PublicSettings, run: number): Promise<void> {
@@ -120,7 +135,8 @@ export function createColumnSync({ api, ready, settings, columnName, translate, 
         const rank = s.tiers.indexOf(tier)
         if (run !== generation || !result.ok || !result.text.trim() || rank < (asked.get(subject) ?? -1)) return
         asked.set(subject, rank)
-        show(subject, `${prefix}${result.text}`)
+        results.set(subject, { prefix, text: result.text, ai: tier === "ai" })
+        show(subject)
       },
       { sample: false },
     )
@@ -129,6 +145,7 @@ export function createColumnSync({ api, ready, settings, columnName, translate, 
   async function translateTab(tabId: number): Promise<void> {
     await ready()
     const s = settings()
+    followMarkdown(s)
     if (columnKey(s) !== key) await reset(columnKey(s))
     const run = generation
     const messages = await listed(tabId, LIST_SIZE).catch(() => [])
@@ -147,13 +164,16 @@ export function createColumnSync({ api, ready, settings, columnName, translate, 
     key = next
     generation++
     asked.clear()
+    results.clear()
     pending.clear()
     await api.clear().catch(() => {})
   }
 
   async function settingsChanged(): Promise<void> {
     await ready()
-    const next = columnKey(settings())
+    const s = settings()
+    followMarkdown(s)
+    const next = columnKey(s)
     if (next === key) return
     await reset(next)
     await translateActive()

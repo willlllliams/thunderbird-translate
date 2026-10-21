@@ -100,6 +100,36 @@ describe("column sync", () => {
     expect(s.shown.get("Budget")).toBe("AI")
   })
 
+  it("shows an AI translation without its Markdown marks, a machine translation as it is, and again after the switch changes", async () => {
+    const settings = tieredSettings(["machine", "ai"])
+    const s = sync({
+      subjects: ["Re: Budget", "Offer"],
+      settings,
+      answer: (req, onTier) => {
+        if (req.text === "Budget") onTier("ai", { ok: true, text: "**Budget** [2027](https://e.com)" })
+        else onTier("machine", { ok: true, text: "**MT** offer" })
+      },
+    })
+    await s.sync.translateTab(5)
+    await flush()
+    expect([...s.shown]).toEqual([
+      ["Re: Budget", "Re: Budget 2027"],
+      ["Offer", "**MT** offer"],
+    ])
+    s.setSettings({ ...settings, renderMarkdown: false })
+    await s.sync.settingsChanged()
+    await flush()
+    expect(s.shown.get("Re: Budget")).toBe("Re: **Budget** [2027](https://e.com)")
+    // A mail tab translated with the switch changed meanwhile shows the results the same way, without new requests.
+    s.setSettings(settings)
+    await s.sync.translateTab(5)
+    await flush()
+    expect(s.shown.get("Re: Budget")).toBe("Re: Budget 2027")
+    // Emptied once, when the column was first filled.
+    expect(s.api.clear).toHaveBeenCalledTimes(1)
+    expect(s.translate).toHaveBeenCalledTimes(2)
+  })
+
   it("asks again for a subject whose translation failed as a whole", async () => {
     let fail = true
     const s = sync({

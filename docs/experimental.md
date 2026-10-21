@@ -18,6 +18,7 @@ The message list gets a column "Translated subject". When a mail tab shows a fol
 
 - The column shows the result of the highest tier that has answered. A lower tier fills it first, and the highest tier replaces it.
 - Reply and forward prefixes such as "Fwd:" stay in front of the translation.
+- An AI translation appears without its Markdown marks while "Render Markdown in AI translations" is on, see [Markdown in AI translations](settings.md#markdown-in-ai-translations); changing the switch shows the column again without a request.
 - A subject already in the target language leaves its cell empty.
 - The subjects are translated again when the mail tab shows another folder, when another mail tab comes to the front, when new mail arrives and when Thunderbird starts. Translations in the cache come back without a request.
 - After a change of the languages, of a service of the tiers or of the allowed services, the column empties and fills again.
