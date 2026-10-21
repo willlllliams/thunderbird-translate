@@ -3,6 +3,7 @@
  * scope so that it also runs in Node (verification scripts, tests).
  */
 
+import { retryable } from "../../shared/retryable"
 import type { WorkerModelFile, WorkerRequest, WorkerResponse } from "./protocol"
 import { fileAlignment, modelConfig } from "./records"
 import { zstdDecompress } from "./verify"
@@ -113,22 +114,14 @@ function buildModel(bergamot: BergamotModule, src: string, tgt: string, files: W
  * first "load" and must return the instantiated module.
  */
 export function createEngineHandler(getBergamot: () => Promise<BergamotModule>): (req: WorkerRequest) => Promise<WorkerResponse> {
-  let bergamot: Promise<BergamotModule> | null = null
+  const engine = retryable(getBergamot)
   let service: BlockingService | null = null
   const models = new Map<string, TranslationModel>()
-
-  const engine = () => {
-    bergamot ??= getBergamot().catch((e) => {
-      bergamot = null
-      throw e
-    })
-    return bergamot
-  }
 
   const handle = async (req: WorkerRequest): Promise<WorkerResponse> => {
     switch (req.type) {
       case "load": {
-        const b = await engine()
+        const b = await engine.get()
         service ??= new b.BlockingService({ cacheSize: 0 })
         models.get(req.key)?.delete()
         models.delete(req.key)
@@ -141,7 +134,7 @@ export function createEngineHandler(getBergamot: () => Promise<BergamotModule>):
         return { id: req.id, ok: true }
       }
       case "translate": {
-        const b = await engine()
+        const b = await engine.get()
         const loaded = req.keys.map((k) => models.get(k))
         if (loaded.length < 1 || loaded.length > 2 || loaded.some((m) => !m)) throw new Error(`models not loaded: ${req.keys.join(", ")}`)
         service ??= new b.BlockingService({ cacheSize: 0 })

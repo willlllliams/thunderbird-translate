@@ -10,6 +10,7 @@ import { timeoutSignal } from "../../shared/http"
 import { isChinesePair, normalizeBergamotLang, pairKey } from "../../shared/languages"
 import type { BergamotPairInfo } from "../../shared/messages"
 import { type Catalog, pairNeeds } from "../../shared/offline-needs"
+import { retryable } from "../../shared/retryable"
 import { CatalogCache } from "../catalog-cache"
 import type { ListOptions, OfflineListing, OfflineManager } from "../manager"
 import { BergamotEngine, type EngineOptions, type WorkerLike } from "./engine"
@@ -71,7 +72,8 @@ export class BergamotManager implements OfflineManager<BergamotPairInfo> {
   readonly engine: BergamotEngine
   /** The model list: read again after six hours, after a failed read not before ten minutes, the copy of an earlier session when Mozilla cannot be reached. */
   private readonly records: CatalogCache<CachedRecords>
-  private installed: Promise<string> | null = null
+  /** Hash of the installed pairs and their versions. */
+  private readonly installed = retryable(async () => hashText((await this.listInstalled()).map((p) => `${p.key}@${p.version}`).sort().join(",")))
   private readonly serverUrl: string
   private readonly now: () => number
 
@@ -268,7 +270,7 @@ export class BergamotManager implements OfflineManager<BergamotPairInfo> {
     } catch (e) {
       throw new LocalizedError("bergamotStorageFailed", [], errorText(e))
     } finally {
-      this.installed = null
+      this.installed.reset()
     }
     if (existing) await this.engine.forget(key).catch(() => {})
     onProgress?.(pair.bytes, pair.bytes)
@@ -282,20 +284,13 @@ export class BergamotManager implements OfflineManager<BergamotPairInfo> {
     } catch (e) {
       throw new LocalizedError("bergamotStorageFailed", [], errorText(e))
     } finally {
-      this.installed = null
+      this.installed.reset()
     }
   }
 
   /** Hash of the installed pairs and their versions: part of the cache key of every offline translation. */
   signature(): Promise<string> {
-    this.installed ??= this.listInstalled().then(
-      (pairs) => hashText(pairs.map((p) => `${p.key}@${p.version}`).sort().join(",")),
-      (error) => {
-        this.installed = null
-        throw error
-      },
-    )
-    return this.installed
+    return this.installed.get()
   }
 
   private async loadPair(key: string) {

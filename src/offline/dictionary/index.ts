@@ -21,6 +21,7 @@ import { hashText } from "../../shared/hash"
 import { detectSourceLanguage, type LanguageDetector } from "../../shared/lang-detect"
 import { baseLang, dictLang, isChinesePair, pairKey } from "../../shared/languages"
 import { type Catalog, type PairNeeds, pairNeeds } from "../../shared/offline-needs"
+import { retryable } from "../../shared/retryable"
 import { dictKey, type DictPack, gunzip, parsePack } from "./format"
 import { DictionaryStore } from "./store"
 
@@ -107,7 +108,8 @@ export interface DictionaryOptions {
 
 export class Dictionary {
   private packs = new Map<string, Promise<DictPack | null>>()
-  private installed: Promise<string> | null = null
+  /** Hash of the installed packs and their versions. */
+  private readonly installed = retryable(async () => hashText((await this.store.list()).map((p) => `${p.id}@${p.version}:${p.bytes}`).sort().join(",")))
   private idleTimer: ReturnType<typeof setTimeout> | null = null
 
   constructor(
@@ -122,7 +124,7 @@ export class Dictionary {
   invalidate(id?: string): void {
     if (id === undefined) this.packs.clear()
     else this.packs.delete(id)
-    this.installed = null
+    this.installed.reset()
   }
 
   /** Ids of the installed packs ("en>zh-Hans"). */
@@ -132,14 +134,7 @@ export class Dictionary {
 
   /** Hash of the installed packs and their versions: part of the cache key of every dictionary translation. */
   signature(): Promise<string> {
-    this.installed ??= this.store.list().then(
-      (packs) => hashText(packs.map((p) => `${p.id}@${p.version}:${p.bytes}`).sort().join(",")),
-      (error) => {
-        this.installed = null
-        throw error
-      },
-    )
-    return this.installed
+    return this.installed.get()
   }
 
   /**
