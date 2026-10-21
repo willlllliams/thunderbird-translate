@@ -191,6 +191,7 @@
   "errResultCount": "$1: beklenen sonuç sayısı $2, alınan sonuç sayısı $3",
   "errMissingTranslation": "$1: çeviri eksik (konum: $2)",
   "errEmptyAnswer": "Model boş bir yanıt döndürdü",
+  "errAnswerCutOff": "Yanıt bitmeden uzunluk sınırına ulaştı. Ayarlarda özetin uzunluk sınırını yükseltin ya da hizmetinin düşünmesini kapatın.",
   "errDictionaryMissing": "Sözlük kurulu değil: $1",
   "hintDictionaryDownload": "Dil çiftini ayarlar sayfasında \"Sözlükler\" bölümünden indirin. İngilizce içermeyen çiftler İngilizce üzerinden her iki paketi de gerektirir.",
   "errDictionaryUnsupported": "$1 dili için kullanılabilir sözlük yok",

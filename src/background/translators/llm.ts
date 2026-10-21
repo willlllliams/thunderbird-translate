@@ -103,9 +103,13 @@ export async function llmTranslateBatch(segments: Segment[], opts: LlmCallOption
   return parsed
 }
 
-/** The summary and to-dos of a message (background/summary.ts): the answer as the model wrote it; `opts.systemPrompt` is the complete system prompt. */
+/**
+ * The summary and to-dos of a message (background/summary.ts): the answer as the model wrote it; `opts.systemPrompt`
+ * is the complete system prompt. An answer cut at the output limit is half a JSON object, and fails with errAnswerCutOff.
+ */
 export async function llmSummarize(prompt: string, opts: LlmCallOptions): Promise<string> {
-  const raw = await callModel({ role: "system", content: opts.systemPrompt }, prompt, opts)
+  const { text: raw, finishReason } = await generate({ role: "system", content: opts.systemPrompt }, { prompt }, opts)
+  if (finishReason === "length") throw new LocalizedError("errAnswerCutOff")
   if (!raw.trim()) throw new LocalizedError("errEmptyAnswer")
   return raw
 }

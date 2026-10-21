@@ -188,6 +188,7 @@
   "errResultCount": "$1: 결과 $2개를 기대했지만 $3개를 받았습니다",
   "errMissingTranslation": "$1: $2번 위치의 번역이 없습니다",
   "errEmptyAnswer": "모델이 빈 응답을 반환했습니다",
+  "errAnswerCutOff": "답변이 끝나기 전에 길이 한도에 도달했습니다. 설정에서 요약의 길이 한도를 높이거나 해당 서비스의 사고 모드를 끄세요.",
   "errDictionaryMissing": "사전이 설치되어 있지 않습니다: $1",
   "hintDictionaryDownload": "설정 페이지의 '사전'에서 언어 쌍을 내려받으세요. 영어가 없는 쌍은 영어를 거치므로 두 팩이 모두 필요합니다.",
   "errDictionaryUnsupported": "$1 언어에 사용할 수 있는 사전이 없습니다",

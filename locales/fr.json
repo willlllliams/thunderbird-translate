@@ -188,6 +188,7 @@
   "errResultCount": "$1 : $2 résultats attendus, $3 reçus",
   "errMissingTranslation": "$1 : traduction manquante à la position $2",
   "errEmptyAnswer": "Le modèle a renvoyé une réponse vide",
+  "errAnswerCutOff": "La réponse a atteint sa limite de longueur avant de finir. Augmentez la limite de longueur du résumé dans les paramètres, ou désactivez la réflexion pour son service.",
   "errDictionaryMissing": "Dictionnaire non installé : $1",
   "hintDictionaryDownload": "Téléchargez la paire de langues dans la page des paramètres, sous « Dictionnaires ». Les paires sans l’anglais nécessitent les deux packs via l’anglais.",
   "errDictionaryUnsupported": "Aucun dictionnaire n’est disponible pour la langue $1",

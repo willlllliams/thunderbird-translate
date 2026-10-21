@@ -188,6 +188,7 @@
   "errResultCount": "$1：应返回 $2 条结果，实际返回 $3 条",
   "errMissingTranslation": "$1：第 $2 条结果缺少译文",
   "errEmptyAnswer": "模型返回了空回答",
+  "errAnswerCutOff": "回答在结束前达到了长度上限。请在设置中调高摘要的长度上限，或关闭其服务的思考模式。",
   "errDictionaryMissing": "词典未安装：$1",
   "hintDictionaryDownload": "请在设置页面的“词典”中下载该语言对。不含英语的语言对需要经英语中转的两个词典包。",
   "errDictionaryUnsupported": "没有可用于 $1 语言的词典",

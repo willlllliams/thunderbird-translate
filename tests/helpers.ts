@@ -36,13 +36,13 @@ export function jsonResponse(body: unknown, status = 200): Response {
 }
 
 /** Chat Completions answer (OpenAI and compatible APIs). */
-export const chatCompletion = (content: string) =>
+export const chatCompletion = (content: string, finishReason = "stop") =>
   jsonResponse({
     id: "c1",
     object: "chat.completion",
     created: 1,
     model: "m",
-    choices: [{ index: 0, message: { role: "assistant", content }, finish_reason: "stop" }],
+    choices: [{ index: 0, message: { role: "assistant", content }, finish_reason: finishReason }],
     usage: { prompt_tokens: 1, completion_tokens: 1, total_tokens: 2 },
   })
 

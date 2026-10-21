@@ -188,6 +188,7 @@
   "errResultCount": "$1: $2 件の結果が必要ですが、$3 件が返されました",
   "errMissingTranslation": "$1: $2 番目の訳文がありません",
   "errEmptyAnswer": "モデルが空の応答を返しました",
+  "errAnswerCutOff": "回答が終わる前に長さの上限に達しました。設定で要約の長さの上限を上げるか、そのサービスの思考をオフにしてください。",
   "errDictionaryMissing": "辞書がインストールされていません: $1",
   "hintDictionaryDownload": "言語ペアは設定ページの「辞書」からダウンロードしてください。英語を含まないペアは、英語を経由するため両方のパックが必要です。",
   "errDictionaryUnsupported": "言語 $1 の辞書はありません",

@@ -188,6 +188,7 @@
   "errResultCount": "$1: cần $2 kết quả, nhận được $3",
   "errMissingTranslation": "$1: thiếu bản dịch ở vị trí $2",
   "errEmptyAnswer": "Mô hình trả về câu trả lời rỗng",
+  "errAnswerCutOff": "Câu trả lời chạm giới hạn độ dài trước khi kết thúc. Hãy tăng giới hạn độ dài của bản tóm tắt trong cài đặt hoặc tắt chế độ suy nghĩ của dịch vụ.",
   "errDictionaryMissing": "Chưa cài từ điển: $1",
   "hintDictionaryDownload": "Hãy tải cặp ngôn ngữ ở trang cài đặt, mục \"Từ điển\". Cặp không có tiếng Anh cần cả hai gói qua tiếng Anh.",
   "errDictionaryUnsupported": "Không có từ điển cho ngôn ngữ $1",

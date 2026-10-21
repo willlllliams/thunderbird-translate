@@ -22,7 +22,7 @@ import { createDefaultSettings, normalizeSettings, type Settings, SUMMARY_PARTS,
 import type { MailSummary, SummaryResponse } from "../src/shared/summary"
 import { backgroundPort, pagePort, stubBrowser } from "./fixtures/browser"
 import { publicSettings } from "./fixtures/content"
-import { createService, translateOne, until } from "./helpers"
+import { chatCompletion, createService, translateOne, until } from "./helpers"
 
 const SUMMARY: MailSummary = {
   summary: ["Anna asks to move the acceptance test."],
@@ -598,5 +598,34 @@ describe("B12: instructions inside the message", () => {
     ])
     setI18n(ENGLISH)
     expect(summaryMarkdown(summary)).toContain(`Log in to example-bank · ${ENGLISH.t("summaryUnverified")}`)
+  })
+})
+
+describe("B3: models that reason first", () => {
+  it("get room for their reasoning on top of the length of the summary, except with Anthropic, whose SDK adds it", async () => {
+    const run = async (provider: string, model: string, thinking: boolean) => {
+      const settings = createDefaultSettings("en")
+      settings.tiers.ai = provider
+      settings.providers[provider] = { enabled: true, apiKey: "k", baseURL: "", model, thinking }
+      const summarize = vi.fn(async (_prompt: string, _opts: LlmCallOptions) => ANSWER)
+      const { service } = createService(settings, { llm: { summarize } })
+      await service.summarize("Text", null)
+      return summarize.mock.calls[0][1].maxOutputTokens
+    }
+    expect(await run("openai", "gpt-5-mini", true)).toBe(800 + 4096)
+    // "Off" is still the smallest effort for gpt-5-mini; gpt-4.1 does not reason.
+    expect(await run("openai", "gpt-5-mini", false)).toBe(800 + 4096)
+    expect(await run("openai", "gpt-4.1-mini", false)).toBe(800)
+    expect(await run("anthropic", "claude-sonnet-5-5", true)).toBe(800)
+    expect(await run("deepseek", "deepseek-chat", false)).toBe(800)
+  })
+
+  it("fail with the length limit named when the answer was cut", async () => {
+    const settings = createDefaultSettings("en")
+    settings.tiers.ai = "custom"
+    settings.providers.custom = { enabled: true, apiKey: "k", baseURL: "https://llm.example/v1", model: "m" }
+    const fetchFn = vi.fn(async () => chatCompletion('{"summary": ["The meeting moves to', "length"))
+    const { service } = createService(settings, { fetchFn: fetchFn as unknown as typeof fetch, i18n: () => ENGLISH })
+    expect(await service.summarize("Text", null)).toMatchObject({ ok: false, error: expect.stringContaining(ENGLISH.t("errAnswerCutOff")) })
   })
 })

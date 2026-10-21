@@ -188,6 +188,7 @@
   "errResultCount": "$1: se esperaban $2 resultados y se recibieron $3",
   "errMissingTranslation": "$1: falta la traducción en la posición $2",
   "errEmptyAnswer": "El modelo devolvió una respuesta vacía",
+  "errAnswerCutOff": "La respuesta alcanzó su límite de longitud antes de terminar. Aumente el límite de longitud del resumen en los ajustes o desactive el razonamiento de su servicio.",
   "errDictionaryMissing": "Diccionario no instalado: $1",
   "hintDictionaryDownload": "Descargue el par de idiomas en la página de ajustes, en «Diccionarios». Los pares sin inglés necesitan ambos paquetes a través del inglés.",
   "errDictionaryUnsupported": "No hay ningún diccionario disponible para el idioma $1",

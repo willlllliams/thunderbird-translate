@@ -191,6 +191,7 @@
   "errResultCount": "$1: expected $2 results, got $3",
   "errMissingTranslation": "$1: missing translation at position $2",
   "errEmptyAnswer": "The model returned an empty answer",
+  "errAnswerCutOff": "The answer reached its length limit before it ended. Raise the length limit of the summary in the settings, or turn thinking off for its service.",
   "errDictionaryMissing": "Dictionary not installed: $1",
   "hintDictionaryDownload": "Download the language pair on the settings page, under Dictionaries. Pairs without English need both packs through English.",
   "errDictionaryUnsupported": "No dictionary is available for the language $1",

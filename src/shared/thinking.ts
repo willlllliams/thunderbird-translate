@@ -171,6 +171,20 @@ export interface ThinkingRequest {
   dropTemperature: boolean
 }
 
+/** Options of the switch "off" that still let the model reason: a low effort, a small budget, a level. */
+const STILL_REASONS = /"reasoningEffort":"(?:minimal|low|medium)"|"thinkingBudget":[1-9]|"thinkingLevel"|"effort":"low"/
+
+/**
+ * Whether a request with the switch at `on` makes the model reason before it answers: on for a model the switch
+ * applies to, and off for one that cannot stop or only reasons less. Most services count those tokens within the
+ * output limit of the request.
+ */
+export function reasons(presetId: string, model: string, on: boolean): boolean {
+  const rule = CONTROLS[presetId]?.rules.find((r) => r.models.test(model))
+  if (!rule) return false
+  return on || rule.off === null || STILL_REASONS.test(JSON.stringify(rule.off))
+}
+
 /** Request options for the thinking switch of one provider and model. */
 export function thinkingOptions(presetId: string, model: string, on: boolean): ThinkingRequest {
   const control = CONTROLS[presetId]

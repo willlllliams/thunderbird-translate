@@ -188,6 +188,7 @@
   "errResultCount": "$1: $2 Ergebnisse erwartet, $3 erhalten",
   "errMissingTranslation": "$1: Übersetzung an Position $2 fehlt",
   "errEmptyAnswer": "Das Modell hat eine leere Antwort zurückgegeben",
+  "errAnswerCutOff": "Die Antwort hat ihre Längengrenze erreicht, bevor sie endete. Erhöhen Sie in den Einstellungen die Längengrenze der Zusammenfassung oder schalten Sie das Nachdenken für ihren Dienst aus.",
   "errDictionaryMissing": "Wörterbuch nicht installiert: $1",
   "hintDictionaryDownload": "Laden Sie das Sprachpaar auf der Einstellungsseite unter „Wörterbücher“ herunter. Paare ohne Englisch brauchen beide Pakete über Englisch.",
   "errDictionaryUnsupported": "Für die Sprache $1 ist kein Wörterbuch verfügbar",

@@ -188,6 +188,7 @@
   "errResultCount": "$1：應傳回 $2 筆結果，實際傳回 $3 筆",
   "errMissingTranslation": "$1：第 $2 筆結果缺少譯文",
   "errEmptyAnswer": "模型傳回了空的回答",
+  "errAnswerCutOff": "回答在結束前達到了長度上限。請在設定中調高摘要的長度上限，或關閉其服務的思考模式。",
   "errDictionaryMissing": "辭典未安裝：$1",
   "hintDictionaryDownload": "請在設定頁面的「辭典」中下載該語言組合。不含英語的語言組合需要經英語中轉的兩個辭典包。",
   "errDictionaryUnsupported": "沒有可用於 $1 語言的辭典",
