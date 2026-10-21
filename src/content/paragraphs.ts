@@ -21,6 +21,8 @@ export const CLS_STATUS = "tt-status"
 export const CLS_NOTICE = "tt-notice"
 /** The line with the subject of the message above the body (controller.ts). */
 export const CLS_SUBJECT = "tt-subject"
+/** The button, panel or text under an image (images.ts). */
+export const CLS_IMAGE = "tt-image"
 
 export interface Unit {
   /** Element that holds the paragraph and receives the translation. */
@@ -54,7 +56,7 @@ const SKIP_TAGS = new Set([
 const CODE_TAGS = new Set(["CODE", "KBD", "SAMP", "VAR", "TT"])
 
 function isOurs(el: Element): boolean {
-  return el.classList.contains(CLS_TRANSLATION) || el.classList.contains(CLS_STATUS) || el.classList.contains(CLS_NOTICE) || el.classList.contains(CLS_SUBJECT)
+  return el.classList.contains(CLS_TRANSLATION) || el.classList.contains(CLS_STATUS) || el.classList.contains(CLS_NOTICE) || el.classList.contains(CLS_SUBJECT) || el.classList.contains(CLS_IMAGE)
 }
 
 function computedDisplay(el: Element): string | null {

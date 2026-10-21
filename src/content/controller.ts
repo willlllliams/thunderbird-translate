@@ -37,6 +37,9 @@
  * of `plainText` show it as text without the marks. Every other result, the
  * provisional ones included, is shown as text. The results keep the text as
  * the service returned it, so a change of the switch only renders again.
+ * The images of the message (images.ts) start with the translation and stop
+ * with it; a change of their settings, a new display mode or Markdown switch
+ * never asks for them again, a retranslation does.
  */
 
 import { describeError, type MissingData } from "../shared/errors"
@@ -47,6 +50,7 @@ import type { TabState, TranslateRequest, TranslateResponse } from "../shared/me
 import { type Tier, TIER_NAME_KEYS, TIERS } from "../shared/providers"
 import type { ConsentNeed, DisplayMode, PublicSettings } from "../shared/settings"
 import { type SubjectParts, subjectToTranslate } from "../shared/subject"
+import type { ImageTranslator } from "./images"
 import { CLS_SUBJECT, type Collected, collectParagraphs, extractText, type Unit } from "./paragraphs"
 import { Renderer, styleVars, type TextFormat, type TranslationMark } from "./render"
 import { hasTranslatableText } from "../shared/text"
@@ -74,6 +78,8 @@ export interface ControllerDeps {
   mode?: DisplayMode
   /** The units show plain text: an AI translation appears without its Markdown marks. The page of translated subjects. */
   plainText?: boolean
+  /** The text of the images of the message; the content script only. */
+  images?: Pick<ImageTranslator, "start" | "update" | "stop">
 }
 
 /** What one tier has for one paragraph. */
@@ -170,6 +176,7 @@ export class TranslationController {
       await this.start()
       return
     }
+    this.deps.images?.update(next.image, next.targetLang)
     for (const state of this.results.values()) for (const tier of changed) delete state[tier]
     if (changed.length > 0 || prev.mode !== next.mode || prev.style.preset !== next.style.preset || prev.renderMarkdown !== next.renderMarkdown) this.rerender()
     if (changed.length > 0) {
@@ -263,6 +270,7 @@ export class TranslationController {
       this.context = createMailContext(all.map((u) => u.text), targets)
       this.deps.setContext?.(this.context, bypassCache)
     }
+    this.deps.images?.start({ settings: s.image, targetLang: s.targetLang, units: all, ...(this.context ? { context: this.context.id } : {}), ...(bypassCache ? { fresh: true } : {}) })
     this.report()
     const subjectDone = subject.then((parts) => {
       if (!parts || session !== this.session) return
@@ -302,6 +310,7 @@ export class TranslationController {
   /** `again`: a retranslation follows. */
   stop(again = false): void {
     this.deps.consent?.clear()
+    this.deps.images?.stop()
     this.session++
     this.active = false
     this.renderer?.clearAll()

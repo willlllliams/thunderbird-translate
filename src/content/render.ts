@@ -4,7 +4,9 @@
  * - bilingual: a block with the translation is appended inside the unit, so
  *   it stays in the same list item / table cell / quote as the original.
  * - translation-only: the unit's children are swapped for the translation;
- *   the original nodes are kept in memory and put back on clear().
+ *   the original nodes are kept in memory and put back on clear(). The
+ *   images of the unit stay: copies of them follow the translation, except
+ *   remote ones, whose copies would be fetched again.
  *
  * A translation can carry a mark: a provisional result of a lower tier while
  * the highest tier runs, or a lower result kept after the highest tier failed.
@@ -137,6 +139,7 @@ export class Renderer {
       s.added = node
     } else {
       node.title = unit.text.length > 600 ? `${unit.text.slice(0, 600)}…` : unit.text
+      for (const img of Array.from(unit.el.querySelectorAll("img"))) if (!/^https?:/i.test(img.getAttribute("src") ?? "")) node.appendChild(img.cloneNode(false))
       s.original = Array.from(unit.el.childNodes)
       unit.el.replaceChildren(node)
       s.added = node

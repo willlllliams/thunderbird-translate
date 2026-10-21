@@ -12,6 +12,7 @@
 import type { ConsentPanel } from "../content/consent"
 import type { TranslationController } from "../content/controller"
 import type { MissingNotice } from "../content/notice"
+import type { ImageTranslator } from "../content/images"
 import type { SummaryPanel } from "../content/summary"
 import type { PortPush, TabState } from "../shared/messages"
 
@@ -26,6 +27,8 @@ export interface ContentProbeParts {
   consent: ConsentPanel | undefined
   /** The panel with the summary and to-dos of the message; the content script only. */
   summary: SummaryPanel | undefined
+  /** The text of the images of the message; the content script only. */
+  images: ImageTranslator | undefined
   /** Settles once the first settings are applied. */
   ready: Promise<void>
 }

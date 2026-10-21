@@ -201,12 +201,97 @@
   background: none;
 }
 
+/* The text of an image (images.ts): a button, the consent panel or a collapsible block under the image. */
+.tt-image {
+  margin: 0.3em 0 0.8em;
+  font: 13px/1.5 system-ui, sans-serif;
+}
+
+.tt-image button {
+  padding: 0.15em 0.8em;
+  font: inherit;
+  cursor: pointer;
+}
+
+.tt-image .tt-notice {
+  margin: 0;
+}
+
+.tt-image-result {
+  padding: 0.2em 0 0.2em 0.6em;
+  border-left: 3px solid var(--tt-color, #4c8bf5);
+}
+
+.tt-image-result > summary {
+  cursor: pointer;
+  opacity: 0.75;
+}
+
+.tt-translation.tt-image-body {
+  display: block;
+  margin-top: 0.3em;
+}
+
+.tt-image-body p {
+  margin: 0.3em 0;
+}
+
+.tt-image-body table {
+  margin: 0.3em 0;
+  border-collapse: collapse;
+}
+
+.tt-image-body th,
+.tt-image-body td {
+  padding: 0.15em 0.5em;
+  border: 1px solid color-mix(in srgb, currentColor 25%, transparent);
+  text-align: start;
+  vertical-align: top;
+}
+
+.tt-image-body th {
+  background: color-mix(in srgb, var(--tt-color, #4c8bf5) 10%, transparent);
+  font-weight: 600;
+}
+
+.tt-image-body .tt-align-center {
+  text-align: center;
+}
+
+.tt-image-body .tt-align-right {
+  text-align: end;
+}
+
+.tt-image-note {
+  opacity: 0.7;
+}
+
+.tt-error-text {
+  color: #c5221f;
+}
+
+/* The line about an image without text fades out before it goes. */
+.tt-image-fade {
+  animation: tt-fade 3s ease-in forwards;
+}
+
+@keyframes tt-fade {
+  70% {
+    opacity: 0.7;
+  }
+
+  100% {
+    opacity: 0;
+  }
+}
+
 @media (prefers-color-scheme: dark) {
   .tt-notice {
     background: color-mix(in srgb, var(--tt-color, #4c8bf5) 18%, transparent);
   }
 
-  .tt-error {
+  .tt-error,
+  .tt-error-text {
     color: #f28b82;
   }
 

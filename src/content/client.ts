@@ -11,11 +11,12 @@ import { browserDetector } from "../shared/lang-detect"
 import type { UiLanguageSetting } from "../shared/locales"
 import type { PublicSettings } from "../shared/settings"
 import type { SummaryResponse } from "../shared/summary"
-import { CONTENT_PORT_NAME, isPortPush, type LocaleMessages, type PortReport, send, SUBJECTS_PORT_NAME, type TabState, type TranslateResponse } from "../shared/messages"
+import { CONTENT_PORT_NAME, type ImageResponse, isPortPush, type LocaleMessages, type PortReport, send, SUBJECTS_PORT_NAME, type TabState, type TranslateResponse } from "../shared/messages"
 import type { Tier } from "../shared/providers"
 import type { ContentProbe } from "../hooks/content"
 import { ConsentPanel } from "./consent"
 import { type ControllerDeps, TranslationController } from "./controller"
+import { ImageTranslator } from "./images"
 import { MissingNotice } from "./notice"
 import { SummaryButton, SummaryPanel } from "./summary"
 
@@ -76,6 +77,8 @@ export function connectContent({ root, contentScript = false, probe, subjects, o
   const subjectRequests = new Map<number, (subject: string | null) => void>()
   /** Summary requests without an answer yet. */
   const summaryRequests = new Map<number, (result: SummaryResponse) => void>()
+  /** Image requests without an answer yet. */
+  const imageRequests = new Map<number, (result: ImageResponse) => void>()
   let nextId = 0
   let mutedPairs: string[] = []
   const notice = contentScript
@@ -132,9 +135,24 @@ export function connectContent({ root, contentScript = false, probe, subjects, o
   const summaryButton = summaryPanel ? new SummaryButton({ root, onClick: () => void summarize() }) : undefined
   const showSummaryButton = (active: boolean) => summaryButton?.sync(active && current?.summary.available === true && current.summary.inlineButton)
 
+  // Only a displayed message has images to translate.
+  const images = contentScript
+    ? new ImageTranslator({
+        root,
+        request: (image) =>
+          new Promise<ImageResponse>((resolve) => {
+            const id = ++nextId
+            if (post({ type: "image", id, image })) imageRequests.set(id, resolve)
+            else resolve({ status: "error", error: getI18n().t("errUnknown") })
+          }),
+        grant: (ids, message) => void post({ type: "imageConsent", ids, ...(message ? { message } : {}) }),
+      })
+    : undefined
+
   const controller = new TranslationController({
     notice,
     consent,
+    images,
     root,
     ...(subjects ? { collect: subjects.collect, mode: subjects.mode, plainText: true } : {}),
     translate: (request, onTier) =>
@@ -169,7 +187,7 @@ export function connectContent({ root, contentScript = false, probe, subjects, o
 
   let markReady!: () => void
   const ready = new Promise<void>((resolve) => (markReady = resolve))
-  probe?.attach({ contentScript, root, controller, notice, consent: consentPanel, summary: summaryPanel, ready })
+  probe?.attach({ contentScript, root, controller, notice, consent: consentPanel, summary: summaryPanel, images, ready })
   let firstSettings = true
   let uiLanguage: UiLanguageSetting | null = null
   // Settings are applied in the order they arrive, each once its labels are loaded.
@@ -201,6 +219,9 @@ export function connectContent({ root, contentScript = false, probe, subjects, o
     } else if (msg.type === "summary") {
       summaryRequests.get(msg.id)?.(msg.result)
       summaryRequests.delete(msg.id)
+    } else if (msg.type === "imageResult") {
+      imageRequests.get(msg.id)?.(msg.result)
+      imageRequests.delete(msg.id)
     } else if (msg.type === "offlineDataChanged") {
       controller.forgetResults()
     } else if (msg.type === "tier") {
@@ -224,6 +245,8 @@ export function connectContent({ root, contentScript = false, probe, subjects, o
     subjectRequests.clear()
     for (const resolve of summaryRequests.values()) resolve({ ok: false, error: getI18n().t("errUnknown") })
     summaryRequests.clear()
+    for (const resolve of imageRequests.values()) resolve({ status: "error", error: getI18n().t("errUnknown") })
+    imageRequests.clear()
   })
   return { controller, ready }
 }
