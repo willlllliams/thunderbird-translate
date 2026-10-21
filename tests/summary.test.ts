@@ -544,6 +544,12 @@ describe("the content script", () => {
     port.push({ type: "summarize" })
     await until(() => expect(port.posted("summary")).toHaveLength(2))
     expect(document.querySelector(".tt-consent")).toBeNull()
+    // R53: recorded, then the endpoint moves to another host: the summary asks again.
+    port.push({ type: "settings", settings: summaryOn({ consent: null }) })
+    port.push({ type: "settings", settings: summaryOn({ consent: { id: "openai", host: "gateway.example.com" } }) })
+    port.push({ type: "summarize" })
+    await until(() => expect(document.querySelector(".tt-consent")?.textContent).toContain("gateway.example.com"))
+    expect(port.posted("summary")).toHaveLength(2)
   })
 
   it("shows the Summary button while the message is translated, when the settings ask for it", async () => {

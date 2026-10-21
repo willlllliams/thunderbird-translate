@@ -138,6 +138,33 @@ describe("controller", () => {
     expect(translate).toHaveBeenCalledTimes(1)
   })
 
+  it("R53: asks again in the same message when the host of an allowed service changed or the consent was taken back", async () => {
+    const translate = answering((text) => ({ ok: true, text }))
+    const consent = consentDeps([true, true, true])
+    const c = new TranslationController({ root: () => document.body, translate, consent })
+    const at = (host: string): ConsentNeed => ({ id: "custom", host })
+    await c.updateSettings(publicSettings({ consent: [at("a.example")] }))
+    await c.start()
+    expect(consent.ask).toHaveBeenCalledTimes(1)
+    // The host changes before the settings that record the consent arrive.
+    await c.updateSettings(publicSettings({ consent: [at("b.example")] }))
+    c.stop()
+    await c.start()
+    expect(consent.ask).toHaveBeenLastCalledWith([at("b.example")], false)
+    // Recorded, then taken back on the settings page.
+    await c.updateSettings(publicSettings({ consent: [] }))
+    await c.updateSettings(publicSettings({ consent: [at("b.example")] }))
+    c.stop()
+    await c.start()
+    expect(consent.ask).toHaveBeenCalledTimes(3)
+    // The same need pushed again while it waits for its record asks no more.
+    await c.updateSettings(publicSettings({ consent: [at("b.example")] }))
+    c.stop()
+    await c.start()
+    expect(consent.ask).toHaveBeenCalledTimes(3)
+    expect(c.active).toBe(true)
+  })
+
   it("does not translate when the settings changed to a service without consent while the panel was open", async () => {
     const translate = answering((text) => ({ ok: true, text }))
     let allow!: (ok: boolean) => void

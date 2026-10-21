@@ -99,6 +99,9 @@ const STYLE_ID = "tt-style-vars"
 /** Progress goes to the background at most this often; the last state always follows. */
 const REPORT_INTERVAL_MS = 100
 
+/** A service and the host the consent panel names for it: a consent is given for both. */
+export const consentKey = (need: ConsentNeed): string => `${need.id}@${need.host}`
+
 export class TranslationController {
   active = false
   private settings: PublicSettings | null = null
@@ -162,6 +165,9 @@ export class TranslationController {
   async updateSettings(next: PublicSettings): Promise<void> {
     const prev = this.settings
     this.settings = next
+    // A service asked for anew (its host changed, or the user took the consent back) is asked for again in this message.
+    const before = new Set((prev?.consent ?? []).map(consentKey))
+    for (const need of next.consent) if (!before.has(consentKey(need))) this.allowed.delete(need.id)
     this.applyStyleVars()
     if (!this.active || !prev) return
     if (prev.targetLang !== next.targetLang || prev.sourceLang !== next.sourceLang || prev.precise !== next.precise || prev.translateSubject !== next.translateSubject) {
