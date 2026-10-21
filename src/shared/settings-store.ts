@@ -13,6 +13,13 @@ export async function loadSettings(): Promise<Settings> {
   return readSettings((await ext.storage.local.get(SETTINGS_KEY))[SETTINGS_KEY])
 }
 
+/** Calls `listener` with the stored settings, as they are in storage, after every change; registered at once. */
+export function onStoredSettings(listener: (stored: unknown) => void): void {
+  ext.storage.onChanged.addListener((changes, area) => {
+    if (area === "local" && changes[SETTINGS_KEY]) listener(changes[SETTINGS_KEY].newValue)
+  })
+}
+
 async function saveSettings(settings: Settings): Promise<void> {
   await ext.storage.local.set({ [SETTINGS_KEY]: settings })
 }

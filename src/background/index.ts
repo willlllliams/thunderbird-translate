@@ -9,7 +9,8 @@
 import { ext } from "../shared/ext"
 import { getI18n } from "../shared/i18n"
 import { loadExtensionI18n, thunderbirdUiLanguage } from "../shared/i18n-ext"
-import { createDefaultSettings, SETTINGS_KEY, toPublicSettings } from "../shared/settings"
+import { createDefaultSettings, toPublicSettings } from "../shared/settings"
+import { onStoredSettings } from "../shared/settings-store"
 import { sourceDetector } from "../shared/lang-detect"
 import { type KeyValueStorage, PersistentCache } from "./cache"
 import { createCommandRunner } from "./commands"
@@ -115,9 +116,8 @@ const handlers = createHandlers({
 
 /* ---------- listeners: all of them in this first run ---------- */
 
-ext.storage.onChanged.addListener((changes, area) => {
-  if (area !== "local" || !changes[SETTINGS_KEY]) return
-  settings.adopt(changes[SETTINGS_KEY].newValue)
+onStoredSettings((stored) => {
+  settings.adopt(stored)
   tabs.broadcast({ type: "settings", settings: toPublicSettings(settings.current()) })
 })
 ext.runtime.onConnect.addListener((port) => tabs.connect(port))

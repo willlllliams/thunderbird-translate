@@ -5,8 +5,8 @@ import { localizeDocument } from "../shared/i18n-dom"
 import { loadExtensionI18n } from "../shared/i18n-ext"
 import { IDLE_TAB_STATE, type OfflineStatus, type OptionsPlace, optionsPath, type PageNotice, send, type TabState } from "../shared/messages"
 import { $, fillSelect, fillTierSelects, languageOptions, offlineStatus, onTierChange, showOfflineHint, sourceLanguageOptions } from "../shared/page"
-import { type DisplayMode, SETTINGS_KEY } from "../shared/settings"
-import { loadSettings, readSettings, updateSettings } from "../shared/settings-store"
+import type { DisplayMode } from "../shared/settings"
+import { loadSettings, onStoredSettings, readSettings, updateSettings } from "../shared/settings-store"
 import { REFRESH_AFTER_ACTION_MS, REFRESH_INTERVAL_MS } from "./timing"
 
 async function main(): Promise<void> {
@@ -112,10 +112,9 @@ async function main(): Promise<void> {
   }
 
   // The popup and the settings page change the settings; the interface language may change too.
-  ext.storage.onChanged.addListener((changes, area) => {
-    if (area !== "local" || !changes[SETTINGS_KEY]) return
+  onStoredSettings((stored) => {
     const before = settings
-    settings = readSettings(changes[SETTINGS_KEY].newValue)
+    settings = readSettings(stored)
     showSwitches()
     const languages = (s: typeof settings) => JSON.stringify([s.sourceLang, s.targetLang, s.tiers])
     if (languages(settings) !== languages(before)) void refreshOffline()

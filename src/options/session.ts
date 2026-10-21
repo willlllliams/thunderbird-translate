@@ -8,10 +8,9 @@
  * stay pending and go with the next save.
  */
 
-import { ext } from "../shared/ext"
 import { $ } from "../shared/page"
-import { SETTINGS_KEY, type Settings } from "../shared/settings"
-import { loadSettings, mergeChanges, readSettings, saveChanges } from "../shared/settings-store"
+import type { Settings } from "../shared/settings"
+import { loadSettings, mergeChanges, onStoredSettings, readSettings, saveChanges } from "../shared/settings-store"
 
 /** Edits are saved this long after the last change, together. */
 export const SAVE_DELAY_MS = 300
@@ -45,9 +44,8 @@ export class SettingsSession {
   /** Load the settings and follow the changes made by the popup, other pages and the background script. */
   static async open(): Promise<SettingsSession> {
     const session = new SettingsSession(await loadSettings())
-    ext.storage.onChanged.addListener((changes, area) => {
-      if (area !== "local" || !changes[SETTINGS_KEY]) return
-      const remote = readSettings(changes[SETTINGS_KEY].newValue)
+    onStoredSettings((stored) => {
+      const remote = readSettings(stored)
       if (session.writing) session.remote = remote
       else session.absorb(remote)
     })

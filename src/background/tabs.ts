@@ -85,6 +85,12 @@ export function createTabRegistry({ ready, publicSettings, setContext, translate
     }
   }
 
+  /** The settings to a Port that just connected, once they are read. */
+  const sendSettings = (port: browser.runtime.Port) =>
+    void ready()
+      .then(() => safePost(port, { type: "settings", settings: publicSettings() }))
+      .catch(() => {})
+
   /** The page of translated subjects: no tab state and no badge; the subjects are those of real messages. */
   function connectSubjectsPage(port: browser.runtime.Port): void {
     subjectPages.add(port)
@@ -92,9 +98,7 @@ export function createTabRegistry({ ready, publicSettings, setContext, translate
       if (isPortReport(msg) && msg.type !== "state") serve(port, msg, false, undefined)
     })
     port.onDisconnect.addListener(() => subjectPages.delete(port))
-    void ready()
-      .then(() => safePost(port, { type: "settings", settings: publicSettings() }))
-      .catch(() => {})
+    sendSettings(port)
   }
 
   function connect(port: browser.runtime.Port): void {
@@ -127,9 +131,7 @@ export function createTabRegistry({ ready, publicSettings, setContext, translate
         void updateBadge(tabId)
       }
     })
-    void ready()
-      .then(() => safePost(port, { type: "settings", settings: publicSettings() }))
-      .catch(() => {})
+    sendSettings(port)
   }
 
   return {

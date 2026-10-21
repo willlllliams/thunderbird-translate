@@ -1,4 +1,4 @@
-/** Small DOM builder for the settings page; avoids innerHTML. */
+/** Small DOM builder for the pages and the panels above a message; avoids innerHTML. */
 export function h<K extends keyof HTMLElementTagNameMap>(
   tag: K,
   props: Partial<Record<string, string | boolean>> = {},

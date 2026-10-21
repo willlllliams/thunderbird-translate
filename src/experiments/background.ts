@@ -15,8 +15,8 @@ import { ext } from "../shared/ext"
 import { loadExtensionI18n } from "../shared/i18n-ext"
 import { browserDetector } from "../shared/lang-detect"
 import { listedMessages } from "../shared/message-list"
-import { SETTINGS_KEY, toPublicSettings } from "../shared/settings"
-import { readSettings } from "../shared/settings-store"
+import { toPublicSettings } from "../shared/settings"
+import { onStoredSettings, readSettings } from "../shared/settings-store"
 import { type ColumnApi, createColumnSync } from "./column"
 
 const { service, settings } = backgroundParts
@@ -65,10 +65,9 @@ browser.tabs.onActivated.addListener(({ tabId }) => {
   )
 })
 browser.messages.onNewMailReceived.addListener(() => void sync.translateActive())
-ext.storage.onChanged.addListener((changes, area) => {
-  if (area !== "local" || !changes[SETTINGS_KEY]) return
+onStoredSettings((stored) => {
   void sync.settingsChanged()
-  if (readSettings(changes[SETTINGS_KEY].newValue).uiLanguage !== uiLanguage) void addColumn().catch((error) => console.error("translatedColumn:", error))
+  if (readSettings(stored).uiLanguage !== uiLanguage) void addColumn().catch((error) => console.error("translatedColumn:", error))
 })
 ext.runtime.onInstalled.addListener((details) => {
   // After a new installation the column shows in the folders on screen; elsewhere the column picker of the message list shows it.

@@ -33,8 +33,7 @@ import { loadExtensionI18n } from "../shared/i18n-ext"
 import { Listing, PAGE_SIZE, SETTLE_DELAYS_MS } from "../shared/message-list"
 import type { TabState } from "../shared/messages"
 import { $ } from "../shared/page"
-import { SETTINGS_KEY } from "../shared/settings"
-import { loadSettings, readSettings } from "../shared/settings-store"
+import { loadSettings, onStoredSettings, readSettings } from "../shared/settings-store"
 import { splitSubject } from "../shared/subject"
 import { subjectsProbe } from "../hooks/subjects"
 import { CLS_CELL, collectCells, RELOAD_DELAY_MS, rowKey, senderName } from "./list"
@@ -141,7 +140,6 @@ async function main(): Promise<void> {
     if (listing.shown.length > 0) await client.controller.start()
   }
 
-  /** Read the list of the mail tab again, keeping at least as many messages as are shown. */
   /** Read the list of the mail tab again, keeping at least as many messages as are shown; the rows are drawn again only when the list changed. */
   async function reload(): Promise<void> {
     if (tabId === undefined || Number.isNaN(tabId)) return showStatus()
@@ -215,9 +213,8 @@ async function main(): Promise<void> {
   }, { once: true })
 
   // A new interface language: the labels of the page and of its rows.
-  ext.storage.onChanged.addListener((changes, area) => {
-    if (area !== "local" || !changes[SETTINGS_KEY]) return
-    const next = readSettings(changes[SETTINGS_KEY].newValue).uiLanguage
+  onStoredSettings((stored) => {
+    const next = readSettings(stored).uiLanguage
     if (next === uiLanguage) return
     uiLanguage = next
     void loadExtensionI18n(uiLanguage).then(() => {
