@@ -2,6 +2,7 @@
 import { IDBFactory } from "fake-indexeddb"
 import { afterEach, describe, expect, it, vi } from "vitest"
 import { BergamotEngine, EngineError } from "../src/offline/bergamot/engine"
+import { idbCommit, lazyDatabase } from "../src/shared/idb"
 import { normalizeBergamotLang } from "../src/shared/languages"
 import type { WorkerRequest } from "../src/offline/bergamot/protocol"
 import { compareVersions, type ModelRecord, selectPairs } from "../src/offline/bergamot/records"
@@ -507,6 +508,16 @@ describe("BergamotStore edge cases", () => {
       }
       req.onblocked = () => reject(new Error("blocked"))
     })
+  })
+
+  it("rejects with an error of its own for a transaction aborted without one", async () => {
+    const db = await lazyDatabase(() => new IDBFactory(), "aborted", 1, (d) => d.createObjectStore("s"))()
+    const tx = db.transaction("s", "readwrite")
+    tx.objectStore("s").put(1, "a")
+    const committed = idbCommit(tx)
+    tx.abort()
+    expect(tx.error).toBeNull()
+    await expect(committed).rejects.toThrow("IndexedDB transaction aborted")
   })
 
   it("names a model file missing from storage", async () => {
