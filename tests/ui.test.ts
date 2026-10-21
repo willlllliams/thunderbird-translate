@@ -181,8 +181,8 @@ describe("popup", () => {
 
 describe("settings page", () => {
   const providerList = () =>
-    Array.from(document.querySelectorAll("#providerList li")).map((li) => (li.classList.contains("group") ? `# ${li.textContent}` : li.firstChild!.textContent))
-  const pick = (name: string) => Array.from(document.querySelectorAll<HTMLLIElement>("#providerList li")).find((li) => li.firstChild?.textContent === name)!.click()
+    Array.from(document.querySelectorAll("#providerList li")).map((li) => (li.classList.contains("group") ? `# ${li.textContent}` : li.firstChild!.firstChild!.textContent))
+  const pick = (name: string) => Array.from(document.querySelectorAll<HTMLButtonElement>("#providerList button")).find((b) => b.firstChild?.textContent === name)!.click()
 
   it("groups services into added and available ones, and fills the tiers", async () => {
     await openPage("options", createDefaultSettings("en"))
@@ -578,7 +578,7 @@ describe("offline models on the settings page", () => {
 
 describe("Microsoft Translator interface", () => {
   const pickMicrosoft = () =>
-    Array.from(document.querySelectorAll<HTMLLIElement>("#providerList li")).find((li) => li.firstChild?.textContent === "Microsoft Translator (free)")!.click()
+    Array.from(document.querySelectorAll<HTMLButtonElement>("#providerList button")).find((b) => b.firstChild?.textContent === "Microsoft Translator (free)")!.click()
   const radio = (value: string) => document.querySelector<HTMLInputElement>(`#providerPanel input[name="microsoftMode"][value="${value}"]`)!
   const azureFields = () => document.querySelector<HTMLElement>("#providerPanel .azure-fields")!
   const change = (input: HTMLInputElement, value: string) => {
@@ -686,7 +686,7 @@ describe("settings changed in another page", () => {
   it("settings page: keeps the typed key when the popup switches the service", async () => {
     const page = await openPage("options", createDefaultSettings("en"))
     await until(() => expect(document.querySelector("#providerList li")).not.toBeNull())
-    Array.from(document.querySelectorAll<HTMLLIElement>("#providerList li")).find((li) => li.firstChild?.textContent === "OpenAI")!.click()
+    Array.from(document.querySelectorAll<HTMLButtonElement>("#providerList button")).find((b) => b.firstChild?.textContent === "OpenAI")!.click()
     const key = document.querySelector<HTMLInputElement>('#providerPanel input[type="password"]')!
     key.focus()
     key.value = "sk-typing"

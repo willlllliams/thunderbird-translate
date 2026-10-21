@@ -138,7 +138,7 @@ describe("settings page", () => {
     { src: "fr", tgt: "en", version: "3.0", architecture: "base", bytes: 30_000_000, rawBytes: 1, installed: false },
     { src: "en", tgt: "fr", version: "3.0", architecture: "base", bytes: 30_000_000, rawBytes: 1, installed: false },
   ]
-  const pick = (name: string) => Array.from(document.querySelectorAll<HTMLLIElement>("#providerList li")).find((li) => li.firstChild?.textContent === name)!.click()
+  const pick = (name: string) => Array.from(document.querySelectorAll<HTMLButtonElement>("#providerList button")).find((b) => b.firstChild?.textContent === name)!.click()
   const buttonIn = (scope: ParentNode, text: string) => Array.from(scope.querySelectorAll<HTMLButtonElement>("button")).find((b) => b.textContent === text)!
   const bergamotRow = (start: string) => Array.from(document.querySelectorAll<HTMLLIElement>("#bergamotList li")).find((li) => li.textContent!.startsWith(start))!
 
@@ -172,7 +172,7 @@ describe("settings page", () => {
     // A service in use keeps the reason why it cannot be removed.
     expect(buttonIn(panel, ENGLISH.t("buttonRemoveProvider")).title).toBe(ENGLISH.t("removeBlockedTier", [ENGLISH.t("tierAi")]))
     // The labels and the size lines of the lists.
-    for (const el of Array.from(document.querySelectorAll<HTMLElement>(".tag, .dict-meta, #providerList li"))) expect(el.title, el.textContent!).not.toBe("")
+    for (const el of Array.from(document.querySelectorAll<HTMLElement>(".tag, .dict-meta, #providerList li.group, #providerList button"))) expect(el.title, el.textContent!).not.toBe("")
     expect(document.querySelector<HTMLElement>("#dictList .dict-meta")!.title).toBe(ENGLISH.t("tipPackMeta"))
     expect(bergamotRow("German").querySelector<HTMLElement>(".dict-meta")!.title).toBe(ENGLISH.t("tipModelMeta"))
     expect(buttonIn(bergamotRow("German"), ENGLISH.t("buttonUpdate")).title).toBe(ENGLISH.t("tipUpdate"))
@@ -255,7 +255,7 @@ describe("settings page", () => {
     expect($("batchDelayMs").title).toBe(sources.zh_TW.tipBatchDelay)
     expect(buttonIn($("providerPanel"), sources.zh_TW.buttonTest).title).toBe(sources.zh_TW.tipTest)
     expect(document.querySelector<HTMLElement>("#dictList .dict-meta")!.title).toBe(sources.zh_TW.tipPackMeta)
-    expect(document.querySelector<HTMLElement>("#providerList li:not(.group)")!.title).toBe(sources.zh_TW.tipProviderItem)
+    expect(document.querySelector<HTMLElement>("#providerList button")!.title).toBe(sources.zh_TW.tipProviderItem)
     expect(untitled()).toEqual([])
   })
 })

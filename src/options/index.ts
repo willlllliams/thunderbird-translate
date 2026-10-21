@@ -129,13 +129,16 @@ function remoteChanged(before: Settings): void {
 function renderProviderList(): void {
   const item = (p: ProviderPreset) => {
     const tag = removalBlocker(settings, p.id) ? h("span", { className: "tag active", text: t("providerInUse"), title: t("tipInUse") }) : null
-    const li = h("li", { className: p.id === selectedProvider ? "selected" : "", title: t("tipProviderItem") }, h("span", { text: providerDisplayName(p) }), tag)
-    li.addEventListener("click", () => {
+    const selected = p.id === selectedProvider
+    // A button, so the keyboard reaches every service; the list is drawn again, so the focus goes to the new button.
+    const pick = h("button", { type: "button", className: "provider-item", title: t("tipProviderItem"), "aria-current": selected ? "true" : undefined }, h("span", { text: providerDisplayName(p) }), tag)
+    pick.addEventListener("click", () => {
       selectedProvider = p.id
       renderProviderList()
       renderProviderPanel()
+      $("providerList").querySelector<HTMLElement>("[aria-current]")?.focus()
     })
-    return li
+    return h("li", { className: selected ? "selected" : "" }, pick)
   }
   const group = (label: string, title: string, presets: ProviderPreset[]) =>
     presets.length > 0 ? [h("li", { className: "group", role: "presentation", text: label, title }), ...presets.map(item)] : []

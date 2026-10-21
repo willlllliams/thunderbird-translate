@@ -255,11 +255,26 @@ describe("batching, style and cache", () => {
 })
 
 describe("service panel", () => {
-  const pick = (name: string) => Array.from(document.querySelectorAll<HTMLLIElement>("#providerList li")).find((li) => li.firstChild?.textContent === name)!.click()
+  const pick = (name: string) => Array.from(document.querySelectorAll<HTMLButtonElement>("#providerList button")).find((b) => b.firstChild?.textContent === name)!.click()
   const panel = () => $("providerPanel")
   const inputs = () => Array.from(panel().querySelectorAll<HTMLInputElement>("input"))
   const input = (type: string, n = 0) => inputs().filter((i) => i.type === type)[n]
   const button = (text: string) => Array.from(panel().querySelectorAll<HTMLButtonElement>("button")).find((b) => b.textContent === text)!
+
+  it("U2: lists every service as a button the keyboard reaches; the focus stays on the chosen one", async () => {
+    await options()
+    const items = Array.from(document.querySelectorAll("#providerList li:not(.group)"))
+    expect(items.length).toBeGreaterThan(10)
+    for (const li of items) expect(li.firstElementChild!.tagName).toBe("BUTTON")
+    const deepl = Array.from(document.querySelectorAll<HTMLButtonElement>("#providerList button")).find((b) => b.firstChild?.textContent === "DeepL API")!
+    deepl.focus()
+    // Enter on a focused button clicks it.
+    deepl.click()
+    expect(panel().querySelector("h3")!.textContent).toContain("DeepL API")
+    const current = document.activeElement as HTMLElement
+    expect([current.tagName, current.getAttribute("aria-current"), current.firstChild?.textContent]).toEqual(["BUTTON", "true", "DeepL API"])
+    expect(document.querySelectorAll("#providerList [aria-current]")).toHaveLength(1)
+  })
 
   it.each([
     ["Google Translate (free)", "hintFree"],
@@ -527,7 +542,7 @@ describe("online services allowed to receive message text", () => {
 })
 
 describe("the machine translators with a key of their own", () => {
-  const pick = (name: string) => Array.from(document.querySelectorAll<HTMLLIElement>("#providerList li")).find((li) => li.firstChild?.textContent === name)!.click()
+  const pick = (name: string) => Array.from(document.querySelectorAll<HTMLButtonElement>("#providerList button")).find((b) => b.firstChild?.textContent === name)!.click()
   const panel = () => $("providerPanel")
   const field = (label: string) => Array.from(panel().querySelectorAll("label.panel-field")).find((l) => l.firstChild?.textContent === label)!
   const control = <T extends HTMLElement>(label: string) => field(label).querySelector<T>("input, select")!
@@ -624,7 +639,7 @@ describe("summary and to-dos", () => {
     // A chosen service that is not added: the summary uses the AI tier.
     expect($<HTMLSelectElement>("summaryProvider").value).toBe("")
     expect($<HTMLInputElement>("summaryModel").placeholder).toBe("gpt-4.1-mini")
-    Array.from(document.querySelectorAll<HTMLLIElement>("#providerList li")).find((li) => li.firstChild?.textContent === "DeepSeek")!.click()
+    Array.from(document.querySelectorAll<HTMLButtonElement>("#providerList button")).find((b) => b.firstChild?.textContent === "DeepSeek")!.click()
     Array.from($("providerPanel").querySelectorAll("button")).find((b) => b.textContent === ENGLISH.t("buttonAddProvider"))!.click()
     expect($<HTMLSelectElement>("summaryProvider").value).toBe("deepseek")
   })

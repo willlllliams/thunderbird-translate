@@ -144,12 +144,22 @@ button.primary {
 }
 
 .provider-list li {
+  border-bottom: 1px solid var(--border);
+}
+
+.provider-list button {
   display: flex;
   justify-content: space-between;
   gap: 6px;
+  width: 100%;
   padding: 6px 10px;
+  border: 0;
+  border-radius: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: start;
   cursor: pointer;
-  border-bottom: 1px solid var(--border);
 }
 
 .provider-list li:last-child {
@@ -157,7 +167,6 @@ button.primary {
 }
 
 .provider-list li.group {
-  cursor: default;
   padding: 8px 10px 4px;
   color: var(--muted);
   font-size: 12px;
