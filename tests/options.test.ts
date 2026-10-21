@@ -503,21 +503,25 @@ describe("service panel", () => {
 })
 
 describe("online services allowed to receive message text", () => {
-  it("lists them with a button that takes the consent back, and says when there is none", async () => {
+  it("lists them with the host each was allowed for and a button that takes the consent back, and says when there is none", async () => {
+    // Saved before 2.4.0: the ids alone stand for the endpoints the services have now.
     const page = await options((s) => (s.onlineConsent = ["google-free", "openai"]))
     const items = () => Array.from($("consentList").querySelectorAll("li"))
-    expect(items().map((li) => li.querySelector("span")?.textContent)).toEqual(["Google Translate (free)", "OpenAI"])
+    expect(items().map((li) => li.querySelector("span")?.textContent)).toEqual([
+      ENGLISH.t("consentService", ["Google Translate (free)", "translate.googleapis.com"]),
+      ENGLISH.t("consentService", ["OpenAI", "api.openai.com"]),
+    ])
     const revoke = items()[1].querySelector("button")!
     expect([revoke.textContent, revoke.title]).toEqual([ENGLISH.t("buttonRevokeConsent"), ENGLISH.t("tipRevokeConsent")])
     revoke.click()
     await flushSave()
-    expect(page.stored().onlineConsent).toEqual(["google-free"])
+    expect(page.stored().onlineConsent).toEqual(["google-free@translate.googleapis.com"])
     items()[0].querySelector("button")!.click()
     await flushSave()
     expect(page.stored().onlineConsent).toEqual([])
     expect(items().map((li) => li.textContent)).toEqual([ENGLISH.t("consentListNone")])
     // Allowed in a message meanwhile: the list follows.
-    page.external((s) => (s.onlineConsent = ["deeplx", "gone"]))
+    page.external((s) => (s.onlineConsent = ["deeplx@", "gone@example.com"]))
     await until(() => expect(items().map((li) => li.querySelector("span")?.textContent)).toEqual(["DeepLX"]))
   })
 })

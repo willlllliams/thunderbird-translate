@@ -125,12 +125,15 @@ describe("requests from pages", () => {
 
   it("records the online services a content script was allowed to use, takes the settings over at once, and answers nothing", async () => {
     const s = createDefaultSettings()
-    s.onlineConsent = ["google-free"]
+    s.onlineConsent = ["google-free@translate.googleapis.com"]
+    s.providers.openai.baseURL = "https://gateway.example.com/v1"
     const { handlers, deps, stored } = router(s)
     const dispatch = createDispatch(handlers, () => Promise.resolve())
     expect(await dispatch({ type: "grantConsent", ids: ["openai", "google-free", "dictionary", "nope"] }, CONTENT)).toBeUndefined()
-    expect(stored().onlineConsent).toEqual(["google-free", "openai"])
-    expect(deps.adoptSettings).toHaveBeenCalledWith(expect.objectContaining({ onlineConsent: ["google-free", "openai"] }))
+    // Each with the host it sends to.
+    const recorded = ["google-free@translate.googleapis.com", "openai@gateway.example.com"]
+    expect(stored().onlineConsent).toEqual(recorded)
+    expect(deps.adoptSettings).toHaveBeenCalledWith(expect.objectContaining({ onlineConsent: recorded }))
   })
 
   it("counts and clears the translation cache", async () => {

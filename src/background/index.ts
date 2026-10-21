@@ -9,7 +9,7 @@
 import { ext } from "../shared/ext"
 import { getI18n } from "../shared/i18n"
 import { loadExtensionI18n, thunderbirdUiLanguage } from "../shared/i18n-ext"
-import { createDefaultSettings, toPublicSettings } from "../shared/settings"
+import { consentEntry, createDefaultSettings, isOnlineService, toPublicSettings } from "../shared/settings"
 import { onStoredSettings } from "../shared/settings-store"
 import { sourceDetector } from "../shared/lang-detect"
 import { type KeyValueStorage, PersistentCache } from "./cache"
@@ -88,7 +88,7 @@ const images = new ImageService({
   displayed: displayedMessageId,
   part: messagePart,
   // Written by the request: taken over at once, so the image that waits for it sees the consent.
-  recordConsent: async (ids) => settings.adopt(await updateSettings((s) => void (s.imageConsent = [...new Set([...s.imageConsent, ...ids])]))),
+  recordConsent: async (ids) => settings.adopt(await updateSettings((s) => void (s.imageConsent = [...new Set([...s.imageConsent, ...ids.filter(isOnlineService).map((id) => consentEntry(s, id))])]))),
   glossary: (contextId) => service.glossaryOf(contextId),
   i18n: getI18n,
   hasOrigin: (origin) => ext.permissions.contains({ origins: [origin] }),

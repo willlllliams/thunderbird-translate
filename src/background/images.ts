@@ -27,7 +27,7 @@ import { getLanguage } from "../shared/languages"
 import type { ImageRequest, ImageResponse } from "../shared/messages"
 import { promptText } from "../shared/prompts"
 import { getPreset, providerDisplayName } from "../shared/providers"
-import { imageStatus, type ImageSettings, type ProviderConfig, type ResolvedProvider, resolveProviderConfig, resolveVisionProvider, type Settings } from "../shared/settings"
+import { hasConsent, imageStatus, type ImageSettings, type ProviderConfig, type ResolvedProvider, resolveProviderConfig, resolveVisionProvider, type Settings } from "../shared/settings"
 import { imageDetailOptions, uploadFormat } from "../shared/vision"
 import { cacheKey, LruCache, type PersistentCache } from "./cache"
 import { buildImageSystem, buildImageUserText, imageOutputTokens } from "../shared/image-prompt"
@@ -325,8 +325,7 @@ export class ImageService {
         return cached === undefined ? { status: "ready" } : this.answer(cached, service, true)
       }
       const sessionState = this.session(session)
-      const allowed = s.confirmEachMessage ? sessionState.allowed.has(id) : settings.imageConsent.includes(id)
-      if (!allowed) throw new LocalizedError("errImageConsent", [service])
+      this.assertConsent(sessionState, id, service)
       await this.checkOrigin(provider)
       const cached = req.fresh ? undefined : await this.deps.cache.get(key)
       if (cached !== undefined) return this.answer(cached, service, true)
@@ -334,12 +333,22 @@ export class ImageService {
       const round = sessionState.round
       const running = round.running.get(key)
       if (running) return await running
-      const started = this.send({ ...original, animated }, req, { settings, provider, key, round, systemPrompt, format, context, service })
+      const started = this.send({ ...original, animated }, req, { settings, provider, key, round, systemPrompt, format, context, service, consent: () => this.assertConsent(sessionState, id, service) })
       round.running.set(key, started)
       return await started
     } catch (error) {
       return { status: "error", error: describeError(error, this.i18n, errorContext(provider)) }
     }
+  }
+
+  /**
+   * Throws errImageConsent unless the user allows `id` to receive images now: for the message of `session`, or recorded
+   * for the host it sends to. Checked when the request arrives and again when it leaves the queue.
+   */
+  private assertConsent(session: Session, id: string, service: string): void {
+    const settings = this.deps.getSettings()
+    const allowed = settings.image.confirmEachMessage ? session.allowed.has(id) : hasConsent(settings, "imageConsent", id)
+    if (!allowed) throw new LocalizedError("errImageConsent", [service])
   }
 
   /** An answer of the model, or a cached one, as the content script gets it; usage only for an answer that just came. */
@@ -354,7 +363,7 @@ export class ImageService {
   private async send(
     original: { bytes: Uint8Array; type: string; animated: boolean },
     req: ImageRequest,
-    job: { settings: Settings; provider: ResolvedProvider; key: string; round: Round; systemPrompt: string; format: string; context: string; service: string },
+    job: { settings: Settings; provider: ResolvedProvider; key: string; round: Round; systemPrompt: string; format: string; context: string; service: string; consent: () => void },
   ): Promise<ImageResponse> {
     const { settings, provider, round } = job
     const s = settings.image
@@ -372,7 +381,10 @@ export class ImageService {
     const options = imageDetailOptions(provider.id, s.detail)
     const image: ImageInput = { bytes: upload.bytes, mediaType: upload.type, ...(options ? { providerOptions: options } : {}) }
     try {
-      const answer = await this.queue(provider.id).run(() => this.read(image, text, this.options(provider, settings, job.systemPrompt)))
+      const answer = await this.queue(provider.id).run(() => {
+        job.consent()
+        return this.read(image, text, this.options(provider, settings, job.systemPrompt))
+      })
       const stored = toCache(answer)
       await this.deps.cache.set(job.key, stored)
       return this.answer(stored, job.service, false, answer.usage)

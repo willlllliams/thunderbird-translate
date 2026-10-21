@@ -185,16 +185,16 @@ describe("settings page", () => {
   })
 
   it("lists the services allowed to receive images apart from text, with a button that takes the consent back", async () => {
-    const page = await options(precise((s) => ((s.onlineConsent = ["google-free"]), (s.imageConsent = ["openai"]))))
+    const page = await options(precise((s) => ((s.onlineConsent = ["google-free@translate.googleapis.com"]), (s.imageConsent = ["openai@api.openai.com"]))))
     const items = (id: string) => Array.from($(id).querySelectorAll("li"))
-    expect(items("consentList").map((li) => li.querySelector("span")?.textContent)).toEqual(["Google Translate (free)"])
-    expect(items("imageConsentList").map((li) => li.querySelector("span")?.textContent)).toEqual(["OpenAI"])
+    expect(items("consentList").map((li) => li.querySelector("span")?.textContent)).toEqual([ENGLISH.t("consentService", ["Google Translate (free)", "translate.googleapis.com"])])
+    expect(items("imageConsentList").map((li) => li.querySelector("span")?.textContent)).toEqual([ENGLISH.t("consentService", ["OpenAI", "api.openai.com"])])
     const revoke = items("imageConsentList")[0].querySelector("button")!
     expect(revoke.title).toBe(ENGLISH.t("tipRevokeImageConsent"))
     revoke.click()
     await flushSave()
     expect(page.stored().imageConsent).toEqual([])
-    expect(page.stored().onlineConsent).toEqual(["google-free"])
+    expect(page.stored().onlineConsent).toEqual(["google-free@translate.googleapis.com"])
     expect(items("imageConsentList").map((li) => li.textContent)).toEqual([ENGLISH.t("consentListNone")])
   })
 

@@ -384,7 +384,7 @@ describe("page of translated subjects", () => {
     const mail = fakeMail({ folders: { Inbox: messages(150) } })
     const port = pagePort()
     const s = createDefaultSettings("en")
-    s.onlineConsent = ["google-free"]
+    s.onlineConsent = ["google-free@translate.googleapis.com"]
     await openPage("subjects", s, { connect: () => port, api: mail.api })
     await until(() => expect(document.querySelectorAll("#rows tr")).toHaveLength(100))
     expect(untitled()).toEqual([])

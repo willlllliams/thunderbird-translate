@@ -28,6 +28,9 @@ export class ConsentPanel {
   private el: HTMLElement | null = null
   private answer: ((allowed: boolean) => void) | null = null
   private pending: Promise<boolean> | null = null
+  /** What the open panel shows: every service any open question needs, and whether one of them sends the whole message. */
+  private needs: ConsentNeed[] = []
+  private precise = false
 
   constructor(private readonly deps: ConsentDeps) {}
 
@@ -39,13 +42,28 @@ export class ConsentPanel {
   /**
    * Show the panel for `needs`; resolves true on "Allow and translate",
    * false on "Cancel", when the panel is cleared, and without a message to
-   * show it on. Asked again while it is on screen, it answers with the same promise.
+   * show it on. Asked again while it is on screen, it answers with the same promise, and the panel lists the
+   * services of both questions: whoever records an answer of yes records only services the user saw.
    */
   ask(needs: ConsentNeed[], precise: boolean): Promise<boolean> {
-    if (this.pending) return this.pending
+    if (this.pending && this.el) {
+      const added = needs.filter((need) => !this.needs.some((shown) => shown.id === need.id))
+      if (added.length > 0 || (precise && !this.precise)) {
+        this.needs = [...this.needs, ...added]
+        this.precise ||= precise
+        const focused = this.el.contains(document.activeElement)
+        const next = this.render(this.needs, this.precise)
+        this.el.replaceWith(next)
+        this.el = next
+        if (focused) next.querySelector<HTMLButtonElement>("button")?.focus({ preventScroll: true })
+      }
+      return this.pending
+    }
     const root = this.deps.root()
     if (!root) return Promise.resolve(false)
     this.pending = new Promise<boolean>((resolve) => (this.answer = resolve))
+    this.needs = needs
+    this.precise = precise
     this.el = this.render(needs, precise)
     root.prepend(this.el)
     this.el.querySelector<HTMLButtonElement>("button")?.focus({ preventScroll: true })
@@ -60,6 +78,8 @@ export class ConsentPanel {
   private settle(allowed: boolean): void {
     this.el?.remove()
     this.el = null
+    this.needs = []
+    this.precise = false
     const answer = this.answer
     this.answer = null
     this.pending = null

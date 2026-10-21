@@ -6,7 +6,7 @@
  */
 
 import { readSettings } from "../shared/settings-store"
-import { defaultImageSettings, type ImageMode, type Settings } from "../shared/settings"
+import { consentEntry, defaultImageSettings, type ImageMode, type Settings } from "../shared/settings"
 import { DICT_TAG } from "./release"
 
 /** The machine translators with a key of their own: the path of each on the mock server and the keys it checks (MACHINE_KEYS of e2e/mock-server.mjs). */
@@ -37,7 +37,6 @@ export function scenarioSettings(stored: unknown, scenario: string, server: stri
   settings.precise.enabled = image !== undefined
   settings.image = { ...defaultImageSettings(), mode: image ?? "ask", maxPerMessage: scenario === "image-auto" ? 1 : 5 }
   // The "image-ask" run asks before the first image; the others have the AI service allowed for images already.
-  settings.imageConsent = image && scenario !== "image-ask" ? ["custom"] : []
   settings.dictionary.releaseTag = DICT_TAG
   settings.tiers = { dictionary: "dictionary", machine: offline ? "bergamot" : "google-free", ai: offline ? null : "custom" }
   const machine = MACHINE.find((m) => scenario === `machine-${m.id}`)
@@ -50,7 +49,10 @@ export function scenarioSettings(stored: unknown, scenario: string, server: stri
   settings.providers.dictionary = { ...settings.providers.dictionary, enabled: true }
   if (offline) settings.providers.bergamot = { ...settings.providers.bergamot, enabled: true }
   // The user allowed Google and the AI service in the consent panel of an earlier message; the "consent" and "subjects" runs start without.
-  settings.onlineConsent = scenario === "consent" || scenario === "subjects" ? [] : scenario === "summary" ? ["google-free"] : ["google-free", "custom", ...(machine ? [machine.id] : [])]
+  const allowed = scenario === "consent" || scenario === "subjects" ? [] : scenario === "summary" ? ["google-free"] : ["google-free", "custom", ...(machine ? [machine.id] : [])]
+  settings.onlineConsent = allowed.map((id) => consentEntry(settings, id))
+  // The "image-ask" run asks before the first image; the others have the AI service allowed for images already.
+  settings.imageConsent = image && scenario !== "image-ask" ? [consentEntry(settings, "custom")] : []
   // The earlier runs share the profile: in these runs Google, the AI service and the machine translators have to answer
   // themselves, not the cache. Every other run has the cache on, the "summary" run to answer its second request from it.
   settings.cache.enabled = !(scenario === "missing" || scenario.startsWith("auto") || scenario === "consent" || machine || scenario === "image-auto" || scenario === "image-switch")

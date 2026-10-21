@@ -9,7 +9,7 @@ import { describeError } from "../shared/errors"
 import { ext } from "../shared/ext"
 import { getI18n } from "../shared/i18n"
 import { type BackgroundHandlers, type LocaleMessages, type OfflineItem, type OfflineStatus, optionsPath, type PageNotice, type RequestType } from "../shared/messages"
-import { isOnlineService, type TierSettings } from "../shared/settings"
+import { consentEntry, isOnlineService, type TierSettings } from "../shared/settings"
 import { updateSettings } from "../shared/settings-store"
 import type { OfflineManager } from "../offline/manager"
 import type { OfflineService } from "../shared/offline-needs"
@@ -72,10 +72,11 @@ export function createHandlers({ tabs, service, images, localeMessages, offlineM
         s.offlineMutedPairs = [...muted]
       })),
     // The user allowed online services to receive the text of messages, in the panel above a message. Only online
-    // services are recorded; nothing goes back.
+    // services are recorded, each with the host it sends to; nothing goes back.
     grantConsent: async (req) => {
       const stored = await updateSettings((s) => {
-        s.onlineConsent = [...new Set([...s.onlineConsent, ...req.ids.filter((id) => typeof id === "string" && isOnlineService(id))])]
+        const granted = req.ids.filter((id) => typeof id === "string" && isOnlineService(id)).map((id) => consentEntry(s, id))
+        s.onlineConsent = [...new Set([...s.onlineConsent, ...granted])]
       })
       adoptSettings?.(stored)
     },

@@ -11,7 +11,7 @@ import { IMAGE_MODES, MACHINE, scenarioSettings } from "../src/e2e/scenario-sett
 import { isAnimated } from "../src/background/images"
 import { readFileSync } from "node:fs"
 import { join } from "node:path"
-import { createDefaultSettings, defaultImageSettings } from "../src/shared/settings"
+import { consentEntry, createDefaultSettings, defaultImageSettings } from "../src/shared/settings"
 import { createService, memoryStorage } from "./helpers"
 
 const SERVER = "http://127.0.0.1:8080"
@@ -37,9 +37,9 @@ describe("settings of the e2e runs", () => {
 
   it("let the summary run answer its second request from the cache, as the background script configures it", async () => {
     const settings = storedRuns().find(([scenario]) => scenario === "summary")![1]
-    expect([settings.tiers.ai, settings.onlineConsent]).toEqual(["custom", ["google-free"]])
+    expect([settings.tiers.ai, settings.onlineConsent]).toEqual(["custom", ["google-free@127.0.0.1"]])
     // The probe allows the AI service in the consent panel.
-    settings.onlineConsent.push("custom")
+    settings.onlineConsent.push(consentEntry(settings, "custom"))
     const cache = new PersistentCache(memoryStorage(), 100, 10)
     cache.configure(settings.cache.enabled, settings.cache.maxEntries)
     const summarize = vi.fn(async (_prompt: string, _opts: LlmCallOptions) => '```json\n{"summary": ["S"], "actions": [], "questions": [], "dates": []}\n```')
@@ -54,7 +54,7 @@ describe("settings of the e2e runs", () => {
     expect(storedRuns().map(([scenario, s]) => [scenario, s.precise.enabled, s.image.mode, s.image.maxPerMessage, s.imageConsent])).toEqual(
       RUNS.map((scenario) => {
         const mode = IMAGE_MODES[scenario]
-        return [scenario, mode !== undefined, mode ?? "ask", scenario === "image-auto" ? 1 : 5, mode && scenario !== "image-ask" ? ["custom"] : []]
+        return [scenario, mode !== undefined, mode ?? "ask", scenario === "image-auto" ? 1 : 5, mode && scenario !== "image-ask" ? ["custom@127.0.0.1"] : []]
       }),
     )
   })
@@ -83,6 +83,6 @@ describe("settings of the e2e runs", () => {
     const s = scenarioSettings(undefined, "machine-baidu", SERVER)
     expect(s.tiers).toEqual({ dictionary: null, machine: "baidu", ai: null })
     expect(s.providers.baidu).toMatchObject({ enabled: true, baseURL: `${SERVER}/baidu`, appId: "e2e-baidu-app", apiKey: "e2e-baidu-key" })
-    expect(s.onlineConsent).toEqual(["google-free", "custom", "baidu"])
+    expect(s.onlineConsent).toEqual(["google-free@127.0.0.1", "custom@127.0.0.1", "baidu@127.0.0.1"])
   })
 })

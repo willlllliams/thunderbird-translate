@@ -176,13 +176,14 @@ export interface Settings {
   /** Offline service and language pair ("dictionary:ja>zh-Hans", "bergamot:ja>zh-Hans") for which a message shows no notice about missing dictionary packs or offline models. */
   offlineMutedPairs: string[]
   /**
-   * Online services the user allowed to receive the text of messages, by id. A content script asks once per service
-   * before it first sends message text there; the settings page lists them and takes them back.
+   * Online services the user allowed to receive the text of messages, each with the host the consent panel named
+   * ("deepl@api-free.deepl.com", consentEntry()). A content script asks once per service and host before it first
+   * sends message text there, so a new endpoint asks again; the settings page lists them and takes them back.
    */
   onlineConsent: string[]
   summary: SummarySettings
   image: ImageSettings
-  /** AI services the user allowed to receive the images of messages, by id; asked apart from onlineConsent. */
+  /** AI services the user allowed to receive the images of messages, with their hosts as in onlineConsent; asked apart from it. */
   imageConsent: string[]
   batch: BatchSettings
   cache: { enabled: boolean; maxEntries: number }
@@ -439,7 +440,7 @@ export function normalizeSettings(stored: unknown, uiLang?: string): Settings {
     precise: { enabled: s.precise?.enabled === true },
     dictionary: { releaseTag: tag || d.dictionary.releaseTag },
     offlineMutedPairs: Array.isArray(s.offlineMutedPairs) ? [...new Set(s.offlineMutedPairs.filter((p): p is string => typeof p === "string" && MUTED_KEY.test(p)))] : [],
-    onlineConsent: Array.isArray(s.onlineConsent) ? [...new Set(s.onlineConsent.filter((id): id is string => typeof id === "string" && isOnlineService(id)))] : [],
+    onlineConsent: [],
     // Settings saved before 2.3.0 have no summary settings: the defaults.
     summary: {
       provider: isAiProvider(getPreset(String(sum.provider))) ? (sum.provider as string) : null,
@@ -451,7 +452,7 @@ export function normalizeSettings(stored: unknown, uiLang?: string): Settings {
     },
     // Settings saved before 2.4.0 have no image settings and no image consent: the defaults.
     image: normalizeImage(s.image),
-    imageConsent: Array.isArray(s.imageConsent) ? [...new Set(s.imageConsent.filter((id): id is string => typeof id === "string" && isOnlineService(id) && isAiProvider(getPreset(id))))] : [],
+    imageConsent: [],
     batch: {
       batchDelayMs: num(b.batchDelayMs, d.batch.batchDelayMs, 0, 2000),
       maxCharsPerBatch: num(b.maxCharsPerBatch, d.batch.maxCharsPerBatch, 200, 50000),
@@ -475,7 +476,23 @@ export function normalizeSettings(stored: unknown, uiLang?: string): Settings {
     },
   }
   addProvidersInUse(settings)
+  // Settings saved before 2.4.0 hold the ids alone: the consent stands for the endpoint the service has now.
+  settings.onlineConsent = normalizeConsent(settings, s.onlineConsent, isOnlineService)
+  settings.imageConsent = normalizeConsent(settings, s.imageConsent, (id) => isOnlineService(id) && isAiProvider(getPreset(id)))
   return settings
+}
+
+/** The entries of a stored consent list whose service passes `valid`, an id alone with the host the service sends to now. */
+function normalizeConsent(settings: Settings, stored: unknown, valid: (id: string) => boolean): string[] {
+  if (!Array.isArray(stored)) return []
+  const entries = stored.flatMap((entry) => {
+    if (typeof entry !== "string") return []
+    const at = entry.indexOf("@")
+    const id = at < 0 ? entry : entry.slice(0, at)
+    if (!valid(id)) return []
+    return [at < 0 ? consentEntry(settings, id) : entry]
+  })
+  return [...new Set(entries)]
 }
 
 /** DeepL options from stored settings; a missing or unknown value takes the default. */
@@ -634,11 +651,32 @@ export interface ConsentNeed {
   host: string
 }
 
+/** The host an online service sends to, as the consent panel names it; empty when the endpoint is not a URL. */
+export function consentHost(settings: Settings, id: string): string {
+  const origin = providerOrigin(resolveProvider(settings, id))
+  return origin ? patternHost(origin) : ""
+}
+
+/** An entry of onlineConsent or imageConsent: the service and the host it sends to now. */
+export function consentEntry(settings: Settings, id: string): string {
+  return `${id}@${consentHost(settings, id)}`
+}
+
+/** Whether the user allowed `id` to receive the text (onlineConsent) or the images (imageConsent) of messages at the host it sends to now. */
+export function hasConsent(settings: Settings, list: "onlineConsent" | "imageConsent", id: string): boolean {
+  return settings[list].includes(consentEntry(settings, id))
+}
+
+/** The service and host of an entry of onlineConsent or imageConsent. */
+export function consentParts(entry: string): ConsentNeed {
+  const at = entry.indexOf("@")
+  return at < 0 ? { id: entry, host: "" } : { id: entry.slice(0, at), host: entry.slice(at + 1) }
+}
+
 /** The consent `id` still needs before message text goes to it; null for an offline service and one already allowed. */
 function consentNeed(settings: Settings, id: string): ConsentNeed | null {
-  if (!isOnlineService(id) || settings.onlineConsent.includes(id)) return null
-  const origin = providerOrigin(resolveProvider(settings, id))
-  return { id, host: origin ? patternHost(origin) : "" }
+  if (!isOnlineService(id) || hasConsent(settings, "onlineConsent", id)) return null
+  return { id, host: consentHost(settings, id) }
 }
 
 /** The online services of the tiers in use that need the user's consent before message text goes to them, lowest tier first. */
@@ -685,9 +723,8 @@ export function imageStatus(settings: Settings): ImageStatus {
 
 /** The consent the vision service still needs before images go to it; null once it is allowed, and with "confirm each message" on, always the question. */
 function imageConsentNeed(settings: Settings, id: string): ConsentNeed | null {
-  if (!settings.image.confirmEachMessage && settings.imageConsent.includes(id)) return null
-  const origin = providerOrigin(resolveProvider(settings, id))
-  return { id, host: origin ? patternHost(origin) : "" }
+  if (!settings.image.confirmEachMessage && hasConsent(settings, "imageConsent", id)) return null
+  return { id, host: consentHost(settings, id) }
 }
 
 /** Settings that content scripts may see. Never contains API keys, nor endpoints, which may hold a token; only the host of a service that awaits consent. */

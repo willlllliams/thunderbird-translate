@@ -118,7 +118,7 @@ describe("the settings of the summary", () => {
     s.summary.inlineButton = true
     s.summary.display = "collapsed"
     expect(toPublicSettings(s).summary).toEqual({ available: true, inlineButton: true, collapsed: true, consent: { id: "openai", host: "api.openai.com" } })
-    s.onlineConsent = ["openai"]
+    s.onlineConsent = ["openai@api.openai.com"]
     expect(toPublicSettings(s).summary.consent).toBeNull()
   })
 })
@@ -171,6 +171,26 @@ describe("the summary request of the translation service", () => {
     expect(await service.summarize("Text", null)).toEqual({ ok: true, service: "OpenAI", summary: null, raw: "I cannot help with that." })
     await service.summarize("Text", null)
     expect(summarize).toHaveBeenCalledTimes(2)
+  })
+
+  it("B1: sends nothing when the user took the consent back while the request waited in the queue", async () => {
+    let release!: () => void
+    const gate = new Promise<void>((r) => (release = r))
+    const { service, settings, summarize } = setup((s) => (s.batch.concurrency = 1))
+    summarize.mockImplementationOnce(async () => {
+      await gate
+      return ANSWER
+    })
+    // The first summary holds the only slot of the service.
+    const first = service.summarize("First", null)
+    await until(() => expect(summarize).toHaveBeenCalledTimes(1))
+    const second = service.summarize("Second", null)
+    await new Promise((r) => setTimeout(r, 20))
+    settings.onlineConsent = []
+    release()
+    expect(await first).toMatchObject({ ok: true })
+    expect(await second).toEqual({ ok: false, service: "OpenAI", error: ENGLISH.t("errConsentRequired", ["OpenAI"]) })
+    expect(summarize).toHaveBeenCalledTimes(1)
   })
 
   it("sends nothing without a service or before the user allowed it, and reports a failed request", async () => {

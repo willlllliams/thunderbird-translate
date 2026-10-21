@@ -14,7 +14,7 @@ import type { Tier } from "../src/shared/providers"
 import { createDefaultSettings, type Settings, toPublicSettings } from "../src/shared/settings"
 import { pagePort } from "./fixtures/browser"
 import { fakeMail, type FakeMailOptions, message, messages } from "./fixtures/mail"
-import { openPage, until, useFakeTimers } from "./helpers"
+import { allowed as allowedAt, openPage, until, useFakeTimers } from "./helpers"
 
 beforeEach(() => useFakeTimers())
 
@@ -30,6 +30,7 @@ function allowed(change: (s: Settings) => void = () => {}): Settings {
   const s = createDefaultSettings("en")
   s.onlineConsent = ["google-free"]
   change(s)
+  s.onlineConsent = allowedAt(s, ...s.onlineConsent)
   return s
 }
 

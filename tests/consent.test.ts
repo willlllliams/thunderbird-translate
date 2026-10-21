@@ -13,6 +13,7 @@ import { nextTask, until } from "./helpers"
 
 const GOOGLE: ConsentNeed = { id: "google-free", host: "translate.googleapis.com" }
 const CUSTOM: ConsentNeed = { id: "custom", host: "" }
+const OPENAI: ConsentNeed = { id: "openai", host: "api.openai.com" }
 
 const panel = () => document.querySelector<HTMLElement>(".tt-consent")
 const buttons = () => Array.from(panel()?.querySelectorAll<HTMLButtonElement>("button") ?? [])
@@ -44,6 +45,26 @@ describe("consent panel", () => {
     expect(await answer).toBe(true)
     expect(panel()).toBeNull()
     expect(consent.shown).toBe(false)
+  })
+
+  it("U1: asked for another service while open, lists both and says the whole message goes, with the same answer", async () => {
+    const consent = new ConsentPanel({ root: () => document.body })
+    const first = consent.ask([GOOGLE], false)
+    buttons()[0].focus()
+    expect(consent.ask([OPENAI], true)).toBe(first)
+    expect(document.querySelectorAll(".tt-consent")).toHaveLength(1)
+    expect(Array.from(panel()!.querySelectorAll("li")).map((li) => li.textContent)).toEqual([
+      ENGLISH.t("consentService", ["Google Translate (free)", "translate.googleapis.com"]),
+      ENGLISH.t("consentService", ["OpenAI", "api.openai.com"]),
+    ])
+    expect(panel()!.textContent).toContain(ENGLISH.t("consentBodyPrecise"))
+    expect(document.activeElement).toBe(buttons()[0])
+    click("consentAllow")
+    expect(await first).toBe(true)
+    // The next question starts from what it needs alone.
+    void consent.ask([GOOGLE], false)
+    expect(panel()!.querySelectorAll("li")).toHaveLength(1)
+    expect(panel()!.textContent).toContain(ENGLISH.t("consentBody"))
   })
 
   it("says that precise translation sends the whole message, answers no on Cancel, when cleared and without a message", async () => {
@@ -170,6 +191,27 @@ describe("content client", () => {
     await until(() => expect(sendMessage).toHaveBeenCalledWith({ type: "grantConsent", ids: ["google-free"] }))
     await nextTask()
     expect(port.posted("translate")).toEqual([])
+  })
+
+  it("U1: a summary asked while the panel of the translation is open shows its service there; every recorded id was on the panel", async () => {
+    const port = pagePort()
+    const sendMessage = vi.fn(async (_req: BackgroundRequest): Promise<unknown> => undefined)
+    vi.stubGlobal("browser", {
+      runtime: { connect: () => port, sendMessage },
+      i18n: { detectLanguage: async () => ({ isReliable: false, languages: [] }) },
+    })
+    const client = connectContent({ root: () => document.body, contentScript: true })
+    port.push({ type: "settings", settings: publicSettings({ consent: [GOOGLE], summary: { available: true, inlineButton: false, collapsed: false, consent: OPENAI } }) })
+    await client.ready
+    port.push({ type: "toggle" })
+    await until(() => expect(panel()).not.toBeNull())
+    port.push({ type: "summarize" })
+    await until(() => expect(panel()!.querySelectorAll("li")).toHaveLength(2))
+    const listed = panel()!.textContent!
+    click("consentAllow")
+    const ids = () => sendMessage.mock.calls.flatMap(([req]) => (req.type === "grantConsent" ? req.ids : []))
+    await until(() => expect(ids().sort()).toEqual(["google-free", "openai"]))
+    for (const id of ids()) expect(listed).toContain(id === "openai" ? "api.openai.com" : "translate.googleapis.com")
   })
 
   it("asks nothing on an extension page: it translates its own sample text", async () => {

@@ -150,7 +150,7 @@ describe("content script ports", () => {
     expect(google).not.toHaveBeenCalled()
     // The content script of the message records the consent; the next request goes out before the storage event arrives.
     expect(await bg.send({ type: "grantConsent", ids: ["google-free"] }, { tab: { id: 4 } })).toBeUndefined()
-    expect((bg.local[SETTINGS_KEY] as Settings).onlineConsent).toEqual(["google-free"])
+    expect((bg.local[SETTINGS_KEY] as Settings).onlineConsent).toEqual(["google-free@translate.googleapis.com"])
     port.send({ type: "translate", id: 2, request: request("Hello") })
     await until(() => expect(port.posted.at(-1)).toEqual({ type: "done", id: 2 }))
     expect(port.posted.at(-2)).toEqual({ type: "tier", id: 2, tier: "machine", result: { ok: true, text: "G(Hello)" } })
@@ -425,7 +425,7 @@ describe("images of the displayed message", () => {
     port.send({ type: "image", id: 2, image })
     await until(() => expect(port.posted.at(-1)).toMatchObject({ type: "imageResult", id: 2, result: { status: "done", service: "OpenAI", cached: false } }))
     expect(getAttachmentFile).toHaveBeenCalledWith(42, "1.2")
-    expect((bg.local[SETTINGS_KEY] as Settings).imageConsent).toEqual(["openai"])
+    expect((bg.local[SETTINGS_KEY] as Settings).imageConsent).toEqual(["openai@api.openai.com"])
     expect(JSON.stringify(bodies[0])).toContain('"image_url":{"url":"data:image/jpeg;base64,')
     port.disconnect()
   })

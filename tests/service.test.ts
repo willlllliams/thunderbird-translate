@@ -8,7 +8,7 @@ import { createMailContext } from "../src/shared/mail-context"
 import type { TranslateRequest, TranslateResponse } from "../src/shared/messages"
 import type { Tier } from "../src/shared/providers"
 import { createDefaultSettings, DEFAULT_DEEPL, type ResolvedProvider, type Settings } from "../src/shared/settings"
-import { asFetch, chatCompletion, createService, jsonResponse, memoryStorage, translateOne, until } from "./helpers"
+import { allowed, asFetch, chatCompletion, createService, jsonResponse, memoryStorage, translateOne, until } from "./helpers"
 
 function setup(over: (s: Settings) => void = () => {}, extra: { llm?: Partial<LlmImpl>; fetchFn?: unknown; cache?: PersistentCache } = {}) {
   const settings = createDefaultSettings()
@@ -69,6 +69,38 @@ describe("LRU cache", () => {
 })
 
 describe("TranslationService with Google", () => {
+  it("B9: sends nothing to a service whose endpoint moved to a host the user did not allow", async () => {
+    const fetchFn = vi.fn(async () => jsonResponse({ code: 200, data: "Hallo" }))
+    const settings = createDefaultSettings()
+    settings.providers.deeplx = { enabled: true, apiKey: "", baseURL: "http://localhost:1188/translate", model: "" }
+    settings.onlineConsent = allowed(settings, "deeplx")
+    const { service } = createService(settings, { fetchFn: asFetch(fetchFn) }, { consent: false })
+    expect(await translateOne(service, { text: "Hello", targetLang: "de", providerId: "deeplx" })).toBe("Hallo")
+    settings.providers.deeplx.baseURL = "https://deeplx.example.com/translate"
+    await expect(translateOne(service, { text: "Good morning", targetLang: "de", providerId: "deeplx" })).rejects.toThrow(ENGLISH.t("errConsentRequired", ["DeepLX"]))
+    expect(fetchFn).toHaveBeenCalledTimes(1)
+  })
+
+  it("B1: sends nothing more once the user took the consent back, also what waits in the queue", async () => {
+    let release!: () => void
+    const gate = new Promise<void>((r) => (release = r))
+    const fetchFn = vi.fn(async (_url: string, init: RequestInit) => {
+      await gate
+      return jsonResponse(new URLSearchParams(String(init.body)).getAll("q").map((q) => [`ZH(${q})`, "en"]))
+    })
+    const { service, settings } = setup((s) => ((s.batch.concurrency = 1), (s.batch.maxItemsPerBatch = 1)), { fetchFn })
+    const first = translateOne(service, { text: "One", providerId: "google-free" })
+    await until(() => expect(fetchFn).toHaveBeenCalledTimes(1))
+    const second = translateOne(service, { text: "Two", providerId: "google-free" }).catch((error: Error) => error.message)
+    // The second batch waits for the only slot.
+    await new Promise((r) => setTimeout(r, 20))
+    settings.onlineConsent = []
+    release()
+    expect(await first).toBe("ZH(One)")
+    expect(await second).toBe(ENGLISH.t("errConsentRequired", ["Google Translate (free)"]))
+    expect(fetchFn).toHaveBeenCalledTimes(1)
+  })
+
   it("merges paragraphs from one window into one request and caches them", async () => {
     const fetchFn = vi.fn(async (_url: string, init: RequestInit) => {
       const qs = new URLSearchParams(String(init.body)).getAll("q")

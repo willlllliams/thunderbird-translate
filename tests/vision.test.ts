@@ -264,7 +264,7 @@ describe("image settings", () => {
       skipSignature: false,
     })
     // Only online AI services can be allowed to receive images.
-    expect(s.imageConsent).toEqual(["openai"])
+    expect(s.imageConsent).toEqual(["openai@api.openai.com"])
     expect(normalizeSettings({ image: { mode: "sometimes", provider: "google-free", sources: "all" }, imageConsent: "openai" }).image).toEqual(defaultImageSettings())
     expect(normalizeSettings({ image: "on" }).imageConsent).toEqual([])
   })
@@ -322,7 +322,7 @@ describe("image settings", () => {
       signature: pub.signature,
     })
     expect(JSON.stringify(pub)).not.toContain("sk-1")
-    s.imageConsent = ["openai"]
+    s.imageConsent = ["openai@api.openai.com"]
     expect(toPublicSettings(s).image.consent).toBeNull()
     // With "confirm each message" the content script asks every time.
     s.image.confirmEachMessage = true

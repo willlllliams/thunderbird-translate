@@ -7,7 +7,7 @@ import { normalizeUiLanguageSetting } from "../shared/locales"
 import { type OfflineStatus, type OptionsPlace, type PageNotice, send } from "../shared/messages"
 import { $, fillSelect, fillTierSelects, languageOptions, offlineStatus, onTierChange, showOfflineHint, showSaved, showSaveError, sourceLanguageOptions, uiLanguageOptions } from "../shared/page"
 import { getPreset, PROVIDER_PRESETS, providerDisplayName, type ProviderPreset, type Tier, TIER_NAME_KEYS, TIERS, tierOf } from "../shared/providers"
-import { addedProviders, addProvidersInUse, type DisplayMode, enabledTiers, removalBlocker, resolveProvider, type Settings, SUMMARY_PARTS, summaryProvider } from "../shared/settings"
+import { addedProviders, addProvidersInUse, consentParts, type DisplayMode, enabledTiers, removalBlocker, resolveProvider, type Settings, SUMMARY_PARTS, summaryProvider } from "../shared/settings"
 import { BergamotSection } from "./bergamot"
 import { DictionarySection } from "./dictionaries"
 import { button, h } from "../shared/dom"
@@ -75,19 +75,21 @@ function renderMuted(): void {
 /** The online services allowed to receive the text of messages and those allowed to receive their images, each with a button that takes the consent back. */
 function renderConsent(): void {
   const list = (listId: string, key: "onlineConsent" | "imageConsent") => {
-    const items = settings[key].map((id) => {
+    const items = settings[key].map((entry) => {
+      const { id, host } = consentParts(entry)
       const preset = getPreset(id)
+      const name = preset ? providerDisplayName(preset) : id
       const revoke = button(
         t("buttonRevokeConsent"),
         () => {
-          settings[key] = settings[key].filter((other) => other !== id)
+          settings[key] = settings[key].filter((other) => other !== entry)
           renderConsent()
           session.save()
         },
         false,
         t(key === "onlineConsent" ? "tipRevokeConsent" : "tipRevokeImageConsent"),
       )
-      return h("li", { className: "row" }, h("span", { text: preset ? providerDisplayName(preset) : id }), revoke)
+      return h("li", { className: "row" }, h("span", { text: host ? t("consentService", [name, host]) : name }), revoke)
     })
     $(listId).replaceChildren(...(items.length > 0 ? items : [h("li", { className: "hint", text: t("consentListNone") })]))
   }

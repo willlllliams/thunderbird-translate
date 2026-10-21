@@ -5,7 +5,9 @@ import {
   addedByDefault,
   addedProviders,
   consentNeeds,
+  consentParts,
   createDefaultSettings,
+  hasConsent,
   isOnlineService,
   normalizeSettings,
   promptKindFor,
@@ -247,7 +249,7 @@ describe("public settings", () => {
     expect(pub.image.consent).toEqual({ id: "openai", host: "proxy.example" })
     const { consent, summary, image, ...rest } = pub
     for (const value of [...leaves(rest), ...leaves({ ...summary, consent: null }), ...leaves({ ...image, consent: null }), ...Object.keys(pub.signatures)]) for (const host of hosts) expect(value).not.toContain(host)
-    s.onlineConsent = ["deeplx", "openai"]
+    s.onlineConsent = ["deeplx@api.deeplx.org", "openai@proxy.example"]
     expect(toPublicSettings(s).consent).toEqual([])
     expect(toPublicSettings(s).summary.consent).toBeNull()
     // Another endpoint still changes the signature, so the page asks the tier again.
@@ -278,8 +280,8 @@ describe("muted notices about missing offline data", () => {
 })
 
 describe("consent to online services", () => {
-  it("keeps the ids of online services once each, and asks for the online tiers in use only", () => {
-    expect(normalizeSettings({ onlineConsent: ["openai", "openai", "dictionary", "bergamot", "nope", 3] }).onlineConsent).toEqual(["openai"])
+  it("keeps online services once each with their hosts, and asks for the online tiers in use only", () => {
+    expect(normalizeSettings({ onlineConsent: ["openai", "openai@api.openai.com", "dictionary", "bergamot@", "nope", "nope@x", 3] }).onlineConsent).toEqual(["openai@api.openai.com"])
     expect(normalizeSettings({ onlineConsent: "openai" }).onlineConsent).toEqual([])
     expect(createDefaultSettings().onlineConsent).toEqual([])
     const s = createDefaultSettings()
@@ -290,9 +292,27 @@ describe("consent to online services", () => {
       { id: "microsoft-free", host: "edge.microsoft.com" },
       { id: "ollama", host: "localhost" },
     ])
-    s.onlineConsent = ["microsoft-free"]
+    s.onlineConsent = ["microsoft-free@edge.microsoft.com"]
     s.tiers.ai = "custom"
     expect(consentNeeds(s)).toEqual([{ id: "custom", host: "" }])
     expect([isOnlineService("google-free"), isOnlineService("dictionary"), isOnlineService("bergamot"), isOnlineService("nope")]).toEqual([true, false, false, false])
+  })
+
+  it("B9: asks again when the endpoint of an allowed service moves to another host", () => {
+    // Saved before 2.4.0: the id alone stands for the endpoint the service has now.
+    const s = normalizeSettings({ tiers: { machine: "google-free", ai: "ollama" }, onlineConsent: ["ollama"], imageConsent: ["ollama"] })
+    expect([s.onlineConsent, s.imageConsent]).toEqual([["ollama@localhost"], ["ollama@localhost"]])
+    expect(consentNeeds(s)).toEqual([{ id: "google-free", host: "translate.googleapis.com" }])
+    expect(hasConsent(s, "onlineConsent", "ollama")).toBe(true)
+    s.providers.ollama.baseURL = "https://gateway.example.com/v1"
+    expect(consentNeeds(s)).toEqual([
+      { id: "google-free", host: "translate.googleapis.com" },
+      { id: "ollama", host: "gateway.example.com" },
+    ])
+    expect([hasConsent(s, "onlineConsent", "ollama"), hasConsent(s, "imageConsent", "ollama")]).toEqual([false, false])
+    // Back to the host the user allowed: allowed again.
+    s.providers.ollama.baseURL = "http://localhost:11434/v1"
+    expect(hasConsent(s, "onlineConsent", "ollama")).toBe(true)
+    expect(consentParts("ollama@localhost")).toEqual({ id: "ollama", host: "localhost" })
   })
 })

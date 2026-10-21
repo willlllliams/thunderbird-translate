@@ -35,7 +35,7 @@ import type { MailContext } from "../shared/mail-context"
 import type { TranslateRequest, TranslateResponse } from "../shared/messages"
 import { promptText } from "../shared/prompts"
 import { getPreset, providerDisplayName, type Tier, TIERS } from "../shared/providers"
-import { isOnlineService, type ProviderConfig, type ResolvedProvider, resolveProvider, resolveProviderConfig, resultInputs, type Settings, summaryProvider } from "../shared/settings"
+import { hasConsent, isOnlineService, type ProviderConfig, type ResolvedProvider, resolveProvider, resolveProviderConfig, resultInputs, type Settings, summaryProvider } from "../shared/settings"
 import type { SummaryResponse } from "../shared/summary"
 import { cacheKey, LruCache, type PersistentCache } from "./cache"
 import { Dictionary } from "../offline/dictionary"
@@ -74,6 +74,8 @@ interface Job {
   fresh?: boolean
   /** Dictionary and Bergamot: the signature of the installed data when the job started, and how to read it again. */
   data?: OfflineData
+  /** The built-in sample of an extension page or a connection test, not a message: it needs no consent. */
+  sample?: boolean
 }
 
 /** The installed data an offline service translates with, as part of the cache key. */
@@ -235,8 +237,17 @@ export class TranslationService {
     if (fresh) this.freshContexts.set(context.id, true)
   }
 
+  /**
+   * Throws errConsentRequired unless the user allows `providerId` to receive message text now. Checked when a
+   * paragraph arrives and again when its request leaves the queue: the user may have taken the consent back meanwhile.
+   */
+  private assertConsent(providerId: string, sample = false): void {
+    if (sample || !isOnlineService(providerId) || hasConsent(this.deps.getSettings(), "onlineConsent", providerId)) return
+    throw new LocalizedError("errConsentRequired", [providerDisplayName(getPreset(providerId)!, this.deps.i18n?.() ?? ENGLISH)])
+  }
+
   /** The work of one tier for one paragraph. `data`: the dictionary packs or offline models the service translates with. */
-  private job(req: TranslateRequest, providerId: string, settings: Settings, data?: OfflineData): Job {
+  private job(req: TranslateRequest, providerId: string, settings: Settings, data?: OfflineData, sample = false): Job {
     const { provider, kind, prompt, parts } = resultInputs(settings, providerId)
     const context = kind === "precise" && req.context ? this.contexts.get(req.context.id) : undefined
     // Everything besides the text that shapes the result keeps cache entries and batches apart.
@@ -254,6 +265,7 @@ export class TranslationService {
       ...(context && req.context ? { mail: { context, index: req.context.index } } : {}),
       ...(req.bypassCache ? { fresh: true } : {}),
       ...(data ? { data } : {}),
+      ...(sample ? { sample } : {}),
     }
   }
 
@@ -346,8 +358,8 @@ export class TranslationService {
     for (const tier of tiers) {
       try {
         const id = settings.tiers[tier]!
-        if (!sample && isOnlineService(id) && !settings.onlineConsent.includes(id)) throw new LocalizedError("errConsentRequired", [providerDisplayName(getPreset(id)!, this.deps.i18n?.() ?? ENGLISH)])
-        const job = this.job(req, id, settings, data[tier])
+        this.assertConsent(id, sample)
+        const job = this.job(req, id, settings, data[tier], sample)
         await this.checkOrigin(job.provider)
         jobs.push([tier, job])
       } catch (error) {
@@ -372,7 +384,7 @@ export class TranslationService {
     }
     const sample = "Hello! This is a connection test from Multi Translate for Thunderbird."
     const prompt = promptText(this.deps.getSettings().prompts, "bilingual")
-    const results = await this.executeBatch([{ text: sample, sourceLang: "auto", targetLang, provider, prompt, variant: "", batchKey: "test", key: "" }])
+    const results = await this.executeBatch([{ text: sample, sourceLang: "auto", targetLang, provider, prompt, variant: "", batchKey: "test", key: "", sample: true }])
     const r = results[0]
     if (!r.ok) throw new Error(r.error)
     return r.text
@@ -395,7 +407,7 @@ export class TranslationService {
     const configured = resolveProvider(settings, id)
     const provider = { ...configured, model: settings.summary.model || configured.model }
     try {
-      if (!settings.onlineConsent.includes(id)) throw new LocalizedError("errConsentRequired", [service])
+      this.assertConsent(id)
       await this.checkOrigin(provider)
       const { parts, maxOutputTokens } = settings.summary
       const targetLanguageName = getLanguage(settings.targetLang).english
@@ -405,7 +417,12 @@ export class TranslationService {
       const key = cacheKey(`summary:${id}`, provider.model, `auto>${settings.targetLang}`, prompt, variant)
       const cached = fresh ? undefined : await this.deps.cache.get(key)
       const opts = { provider, systemPrompt, targetLanguageName, fetchFn: this.deps.fetchFn, timeoutMs: this.timeoutMs(provider), maxOutputTokens }
-      const raw = cached ?? (await this.queue(provider).run(() => this.llm.summarize(prompt, opts)))
+      const raw =
+        cached ??
+        (await this.queue(provider).run(() => {
+          this.assertConsent(id)
+          return this.llm.summarize(prompt, opts)
+        }))
       const summary = parseSummary(raw, parts)
       if (summary && cached === undefined) await this.deps.cache.set(key, raw)
       return { ok: true, service, summary, raw }
@@ -492,7 +509,11 @@ export class TranslationService {
     try {
       return await this.latest(
         key,
-        () => this.queue(job.provider).run(() => this.llm.analyze(job.mail!.context.text, this.llmOptions(job))),
+        () =>
+          this.queue(job.provider).run(() => {
+            this.assertConsent(job.provider.id, job.sample)
+            return this.llm.analyze(job.mail!.context.text, this.llmOptions(job))
+          }),
         (analysis) => (analysis ? this.deps.cache.set(key, JSON.stringify(analysis)) : undefined),
       )
     } catch {
@@ -507,7 +528,15 @@ export class TranslationService {
     const first = jobs[0]
     // Jobs carry a resolved provider, and resolving fails for unknown presets.
     const preset = getPreset(first.provider.id)!
-    const queue = this.queue(first.provider)
+    const providerQueue = this.queue(first.provider)
+    // The consent is checked again as each request leaves the queue.
+    const queue = {
+      run: <T>(task: () => Promise<T>) =>
+        providerQueue.run(() => {
+          this.assertConsent(first.provider.id, first.sample)
+          return task()
+        }),
+    }
     const lang = getLanguage(first.targetLang)
     const source = first.sourceLang === "auto" ? undefined : getLanguage(first.sourceLang)
     const texts = jobs.map((j) => j.text)

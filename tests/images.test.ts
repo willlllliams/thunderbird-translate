@@ -18,7 +18,7 @@ import { createMailContext } from "../src/shared/mail-context"
 import type { ImageRequest, ImageResponse } from "../src/shared/messages"
 import { createDefaultSettings, defaultImageSettings, resolveProviderConfig, type Settings, toPublicSettings } from "../src/shared/settings"
 import { backgroundPort, stubBrowser } from "./fixtures/browser"
-import { anthropicMessage, chatCompletion, createService, jsonResponse, memoryStorage, nextTask, until } from "./helpers"
+import { allowed, anthropicMessage, chatCompletion, createService, jsonResponse, memoryStorage, nextTask, until } from "./helpers"
 
 const ascii = (s: string) => Array.from(s, (c) => c.charCodeAt(0))
 
@@ -175,6 +175,8 @@ function settingsWithImages(over: (s: Settings) => void = () => {}): Settings {
   s.imageConsent = ["openai"]
   s.targetLang = "en"
   over(s)
+  // Each with the host it sends to, as the settings record the consent.
+  s.imageConsent = allowed(s, ...s.imageConsent)
   return s
 }
 
@@ -198,7 +200,7 @@ function service({ settings = settingsWithImages(), file = new File([png()], "ch
   const cache = new PersistentCache(memoryStorage(), 100, 10)
   const read = vi.fn(answer)
   const part = vi.fn(async (_message: number, _part: string) => file)
-  const recordConsent = vi.fn(async (ids: string[]) => void (settings.imageConsent = [...settings.imageConsent, ...ids]))
+  const recordConsent = vi.fn(async (ids: string[]) => void (settings.imageConsent = [...settings.imageConsent, ...allowed(settings, ...ids)]))
   const glossary = vi.fn(async (_context: string) => [{ source: "Umsatz", target: "Revenue" }])
   const images = new ImageService({ getSettings: () => settings, cache, read, displayed: async () => 42, part, recordConsent, glossary, codec, sleep: async () => {}, ...deps })
   const ask = (over: Partial<ImageRequest> = {}, session = "s1") => images.request(session, 3, { source: { part: "1.2" }, width: 400, height: 200, index: 1, action: "translate", round: 1, ...over })
@@ -408,6 +410,25 @@ describe("the consent for images", () => {
     expect((await s.ask({ round: 1, fresh: true }, "s2")).status).toBe("error")
     s.images.forget("s1")
     expect((await s.ask({ fresh: true })).status).toBe("error")
+  })
+
+  it("B1: is checked again when the request leaves the queue: an image waiting there is not sent after the consent went", async () => {
+    let release!: () => void
+    const gate = new Promise<void>((r) => (release = r))
+    const s = service({ settings: settingsWithImages((x) => (x.image.concurrency = 1)) })
+    s.read.mockImplementationOnce(async () => {
+      await gate
+      return { text: TABLE, truncated: false }
+    })
+    const first = s.ask()
+    await until(() => expect(s.read).toHaveBeenCalledTimes(1))
+    const second = s.ask({ source: { data: `data:image/png;base64,${Buffer.from(png(6000)).toString("base64")}` }, index: 2 })
+    await new Promise((r) => setTimeout(r, 20))
+    s.settings.imageConsent = []
+    release()
+    expect((await first).status).toBe("done")
+    expect(await second).toEqual({ status: "error", error: expect.stringContaining(ENGLISH.t("errImageConsent", ["OpenAI"]).split(".")[0]) })
+    expect(s.read).toHaveBeenCalledTimes(1)
   })
 
   it("needs access to the endpoint of the service", async () => {

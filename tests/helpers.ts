@@ -5,7 +5,7 @@ import { type KeyValueStorage, PersistentCache } from "../src/background/cache"
 import { type ServiceDeps, TranslationService } from "../src/background/service"
 import type { TranslateRequest, TranslateResponse } from "../src/shared/messages"
 import { getPreset, PROVIDER_PRESETS, tierOf } from "../src/shared/providers"
-import { isOnlineService, type Settings } from "../src/shared/settings"
+import { consentEntry, isOnlineService, type Settings } from "../src/shared/settings"
 
 /**
  * Fake setTimeout and setInterval (and Date with `now`). setImmediate stays
@@ -74,6 +74,11 @@ export function fakeDictionary(gate?: Promise<void>) {
 
 const serviceSettings = new WeakMap<TranslationService, Settings>()
 
+/** The entries of onlineConsent or imageConsent that allow `ids` at the hosts they send to under `settings`. */
+export function allowed(settings: Settings, ...ids: string[]): string[] {
+  return ids.map((id) => consentEntry(settings, id))
+}
+
 /** Every online service, allowed to receive message text: what a user has after answering the consent panel once per service. */
 export const ALL_CONSENT = PROVIDER_PRESETS.map((p) => p.id).filter(isOnlineService)
 
@@ -83,9 +88,15 @@ export const ALL_CONSENT = PROVIDER_PRESETS.map((p) => p.id).filter(isOnlineServ
  */
 export function createService(settings: Settings, deps: Partial<ServiceDeps> = {}, { consent = true }: { consent?: boolean } = {}) {
   settings.batch.batchDelayMs = 5
-  if (consent) settings.onlineConsent = [...ALL_CONSENT]
   const cache = deps.cache ?? new PersistentCache(memoryStorage(), 100, 10)
-  const service = new TranslationService({ getSettings: () => settings, sleep: async () => {}, ...deps, cache })
+  // The consent follows the endpoints a test sets, until the test sets a list of its own.
+  let granted = consent ? allowed(settings, ...ALL_CONSENT) : settings.onlineConsent
+  settings.onlineConsent = granted
+  const getSettings = () => {
+    if (consent && settings.onlineConsent === granted) settings.onlineConsent = granted = allowed(settings, ...ALL_CONSENT)
+    return settings
+  }
+  const service = new TranslationService({ getSettings, sleep: async () => {}, ...deps, cache })
   serviceSettings.set(service, settings)
   return { settings, service, cache }
 }
