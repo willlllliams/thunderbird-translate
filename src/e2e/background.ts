@@ -43,12 +43,13 @@
 
 import { ext } from "../shared/ext"
 import { SETTINGS_KEY } from "../shared/settings"
-import { readSettings, updateSettings } from "../shared/settings-store"
+import { updateSettings } from "../shared/settings-store"
 import type { KeyValueStorage } from "../background/cache"
 import type { DictionaryManager } from "../offline/dictionary/manager"
 import { pairKey } from "../shared/languages"
 import { E2E_MARKER, WELCOME_PROBE_PARAM } from "./marker"
 import { DICT_TAG } from "./release"
+import { scenarioSettings } from "./scenario-settings"
 import { WORKER_FILE, type WorkerResponse } from "../offline/bergamot/protocol"
 
 declare const __E2E_SERVER__: string
@@ -211,14 +212,6 @@ async function uninstallDictionary(dictionary: DictionaryManager): Promise<void>
   }
 }
 
-/** The machine translators with a key of their own: the path of each on the mock server and the keys it checks (MACHINE_KEYS of e2e/mock-server.mjs). */
-const MACHINE = [
-  { id: "deepl", path: "/deepl", config: { apiKey: "e2e-deepl:fx" } },
-  { id: "baidu", path: "/baidu", config: { appId: "e2e-baidu-app", apiKey: "e2e-baidu-key", edition: "standard" as const } },
-  { id: "youdao", path: "/youdao", config: { appId: "e2e-youdao-app", apiKey: "e2e-youdao-secret" } },
-  { id: "caiyun", path: "/caiyun", config: { apiKey: "e2e-caiyun-token" } },
-]
-
 export interface E2eDeps {
   storage: KeyValueStorage
   dictionary: DictionaryManager
@@ -248,31 +241,10 @@ export async function setUpE2e({ storage, dictionary, runCommand }: E2eDeps): Pr
   const i18n = ext.i18n as typeof ext.i18n & { getPreferredSystemLanguages?: () => Promise<string[]> }
   const systemLanguagesApi = typeof i18n.getPreferredSystemLanguages === "function"
   try {
-    const settings = readSettings(await storage.get(SETTINGS_KEY))
     scenario = await (await fetch(`${__E2E_SERVER__}/scenario`)).text()
     const welcome = scenario.startsWith("welcome")
     const offline = welcome || scenario === "missing"
-    settings.sourceLang = scenario === "welcome" ? "en" : "auto"
-    settings.targetLang = "zh-CN"
-    settings.mode = "bilingual"
-    settings.autoTranslate = scenario.startsWith("auto")
-    settings.precise.enabled = false
-    settings.dictionary.releaseTag = DICT_TAG
-    settings.tiers = { dictionary: "dictionary", machine: offline ? "bergamot" : "google-free", ai: offline ? null : "custom" }
-    const machine = MACHINE.find((m) => scenario === `machine-${m.id}`)
-    if (machine) {
-      settings.tiers = { dictionary: null, machine: machine.id, ai: null }
-      settings.providers[machine.id] = { enabled: true, baseURL: `${__E2E_SERVER__}${machine.path}`, model: "", ...machine.config }
-    }
-    settings.providers["google-free"] = { ...settings.providers["google-free"], enabled: true, baseURL: `${__E2E_SERVER__}/google` }
-    settings.providers.custom = { enabled: true, apiKey: "e2e-test-key", baseURL: `${__E2E_SERVER__}/v1`, model: "e2e-model" }
-    settings.providers.dictionary = { ...settings.providers.dictionary, enabled: true }
-    if (offline) settings.providers.bergamot = { ...settings.providers.bergamot, enabled: true }
-    // The user allowed Google and the AI service in the consent panel of an earlier message; the "consent" and "subjects" runs start without.
-    settings.onlineConsent = scenario === "consent" || scenario === "subjects" ? [] : scenario === "summary" ? ["google-free"] : ["google-free", "custom", ...(machine ? [machine.id] : [])]
-    // The column of the experimental build translates what the earlier runs of its profile cached: none.
-    // The earlier runs share the profile: Google and the AI service have to answer this run themselves, not the cache.
-    if (scenario === "missing" || scenario.startsWith("auto") || scenario === "consent" || machine) settings.cache.enabled = false
+    const settings = scenarioSettings(await storage.get(SETTINGS_KEY), scenario, __E2E_SERVER__)
     await storage.set(SETTINGS_KEY, settings)
     if (offline) await uninstallDictionary(dictionary)
     if (welcome) {

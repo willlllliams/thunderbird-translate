@@ -351,7 +351,7 @@ The service answers with a JSON object, and the extension draws the panel from i
 
 The request carries the message text as the content script finds it (up to 20,000 characters, as for precise translation), with the sender, date and subject of the message, which the background script reads with `messageDisplay.getDisplayedMessage()`: the date of the message turns "next Wednesday" into a date. When precise translation has analyzed the same message, the glossary of the analysis goes with it, so that names and terms are written as in the translation.
 
-The summary uses the consent of the translation. Its service gets the message only once it is allowed to receive message text; otherwise the consent panel appears first, with the text of precise translation, since the whole message goes to the AI service. A summary that could be read is cached under the service, the model, the target language, the request and a hash of endpoint, prompt, part list, length limit, temperature and thinking switch.
+The summary uses the consent of the translation. Its service gets the message only once it is allowed to receive message text; otherwise the consent panel appears first, with the text of precise translation, since the whole message goes to the AI service. While the cache is on (see [Retranslate and the cache](#retranslate-and-the-cache)), a summary that could be read is cached under the service, the model, the target language, the request and a hash of endpoint, prompt, part list, length limit, temperature and thinking switch.
 
 | Setting | Default | Range | Meaning |
 | --- | --- | --- | --- |
