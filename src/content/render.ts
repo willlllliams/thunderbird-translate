@@ -8,8 +8,13 @@
  *
  * A translation can carry a mark: a provisional result of a lower tier while
  * the highest tier runs, or a lower result kept after the highest tier failed.
+ *
+ * A translation is shown as text, as the Markdown subset of shared/markdown.ts
+ * rendered into elements, or as text with the marks of that subset removed
+ * (TextFormat); the controller decides which.
  */
 
+import { markdownFragment, stripMarkdown } from "../shared/markdown"
 import type { DisplayMode, Settings, StylePreset } from "../shared/settings"
 import { CLS_STATUS, CLS_TRANSLATION, type Unit } from "./paragraphs"
 
@@ -39,6 +44,9 @@ export interface TranslationMark {
   onRetry?: () => void
   retryHint?: string
 }
+
+/** How the text of a translation is shown: as it is, with its Markdown rendered, or with the Markdown marks removed. */
+export type TextFormat = "text" | "markdown" | "strip"
 
 export class Renderer {
   private dom = new Map<Unit, UnitDom>()
@@ -102,7 +110,7 @@ export class Renderer {
     this.state(unit).added = span
   }
 
-  showTranslation(unit: Unit, text: string, mode: DisplayMode, lang?: string, mark?: TranslationMark): void {
+  showTranslation(unit: Unit, text: string, mode: DisplayMode, lang?: string, mark?: TranslationMark, format: TextFormat = "text"): void {
     this.clear(unit)
     const node = this.doc.createElement("span")
     node.className = [
@@ -112,7 +120,8 @@ export class Renderer {
       unit.pre ? "tt-pre" : "tt-flow",
       ...(mark ? [`tt-${mark.kind}`] : []),
     ].join(" ")
-    node.textContent = text
+    if (format === "markdown") node.appendChild(markdownFragment(this.doc, text))
+    else node.textContent = format === "strip" ? stripMarkdown(text) : text
     node.setAttribute("dir", "auto")
     if (lang) node.setAttribute("lang", lang)
     if (mark) {

@@ -32,6 +32,11 @@
  * already in the target language, puts it in a line above the body. That
  * line is one more unit, translated like a paragraph through the same tiers,
  * cache and consent rules, and removed by stop().
+ * A final translation of the AI tier shows its Markdown rendered while the
+ * Markdown switch is on (shared/markdown.ts); the subject line and the units
+ * of `plainText` show it as text without the marks. Every other result, the
+ * provisional ones included, is shown as text. The results keep the text as
+ * the service returned it, so a change of the switch only renders again.
  */
 
 import { describeError, type MissingData } from "../shared/errors"
@@ -43,7 +48,7 @@ import { type Tier, TIER_NAME_KEYS, TIERS } from "../shared/providers"
 import type { ConsentNeed, DisplayMode, PublicSettings } from "../shared/settings"
 import { splitSubject } from "../shared/subject"
 import { CLS_SUBJECT, type Collected, collectParagraphs, extractText, type Unit } from "./paragraphs"
-import { Renderer, type TranslationMark } from "./render"
+import { Renderer, type TextFormat, type TranslationMark } from "./render"
 import { hasTranslatableText } from "./text"
 
 export interface ControllerDeps {
@@ -67,6 +72,8 @@ export interface ControllerDeps {
   collect?: (root: HTMLElement) => Collected
   /** A display mode of its own instead of the one of the settings: the page of translated subjects shows the translations in their own column. */
   mode?: DisplayMode
+  /** The units show plain text: an AI translation appears without its Markdown marks. The page of translated subjects. */
+  plainText?: boolean
 }
 
 /** What one tier has for one paragraph. */
@@ -75,7 +82,7 @@ type TierState = { status: "pending" } | { status: "ok"; text: string } | { stat
 /** What a paragraph shows. */
 type View =
   | { kind: "loading" }
-  | { kind: "done"; text: string }
+  | { kind: "done"; text: string; tier: Tier }
   /** A lower tier while the highest one runs. */
   | { kind: "provisional"; text: string; tier: Tier }
   /** A lower tier after the highest one failed. */
@@ -94,6 +101,8 @@ export class TranslationController {
   private units: Unit[] = []
   /** The line above the body with the subject, while the message is translated. */
   private subjectLine: HTMLElement | null = null
+  /** The unit of the subject line. */
+  private subjectUnit: Unit | null = null
   private context: MailContext | null = null
   private results = new Map<Unit, Partial<Record<Tier, TierState>>>()
   private renderer: Renderer | null = null
@@ -160,7 +169,7 @@ export class TranslationController {
       return
     }
     for (const state of this.results.values()) for (const tier of changed) delete state[tier]
-    if (changed.length > 0 || prev.mode !== next.mode || prev.style.preset !== next.style.preset) this.rerender()
+    if (changed.length > 0 || prev.mode !== next.mode || prev.style.preset !== next.style.preset || prev.renderMarkdown !== next.renderMarkdown) this.rerender()
     if (changed.length > 0) {
       this.report()
       await Promise.all(this.units.map((unit) => this.translateUnit(unit, this.session)))
@@ -274,7 +283,8 @@ export class TranslationController {
     line.append(el)
     root.prepend(line)
     this.subjectLine = line
-    return { id: 0, el, text, pre: false }
+    this.subjectUnit = { id: 0, el, text, pre: false }
+    return this.subjectUnit
   }
 
   /** `again`: a retranslation follows. */
@@ -285,6 +295,7 @@ export class TranslationController {
     this.renderer?.clearAll()
     this.subjectLine?.remove()
     this.subjectLine = null
+    this.subjectUnit = null
     this.collected?.restore()
     this.collected = null
     this.renderer = null
@@ -374,7 +385,7 @@ export class TranslationController {
     const best = [...tiers].reverse().find((tier) => state[tier]?.status === "ok")
     if (best) {
       const text = (state[best] as { text: string }).text
-      if (best === tiers.at(-1)) return { kind: "done", text }
+      if (best === tiers.at(-1)) return { kind: "done", text, tier: best }
       return top?.status === "error" ? { kind: "fallback", text, error: top.error } : { kind: "provisional", text, tier: best }
     }
     if (tiers.some((tier) => state[tier]?.status === "pending")) return { kind: "loading" }
@@ -418,7 +429,13 @@ export class TranslationController {
       else this.renderer.clear(unit)
       return
     }
-    this.renderer.showTranslation(unit, view.text, this.deps.mode ?? s.mode, s.targetLang, mark)
+    this.renderer.showTranslation(unit, view.text, this.deps.mode ?? s.mode, s.targetLang, mark, this.format(unit, view))
+  }
+
+  /** Markdown only for a final AI translation with the switch on; the subject line and plain-text units without the marks. */
+  private format(unit: Unit, view: View): TextFormat {
+    if (view.kind !== "done" || view.tier !== "ai" || !this.settings?.renderMarkdown) return "text"
+    return this.deps.plainText || unit === this.subjectUnit ? "strip" : "markdown"
   }
 
   private rerender(): void {

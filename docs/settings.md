@@ -27,6 +27,7 @@ This page describes every setting of Multi Translate for Thunderbird and how the
 - [Missing offline data](#missing-offline-data)
 - [Retranslate and the cache](#retranslate-and-the-cache)
 - [Translation style](#translation-style)
+- [Markdown in AI translations](#markdown-in-ai-translations)
 - [Settings from older versions](#settings-from-older-versions)
 - [Permissions](#permissions)
 - [Privacy details](#privacy-details)
@@ -72,7 +73,7 @@ Resting the mouse on any control of the settings page, the popup or the setup gu
 | Offline translation models (Bergamot) | Every direction of the Bergamot models with size and version, those of the recommended languages first; filter; "Download common languages"; download, update, cancel and delete; the directions the current languages need |
 | Prompts (AI tier) | The preset library; the prompts for bilingual display, translation-only display and precise translation, each with "Restore built-in prompt" |
 | Request batching | Collection window, maximum characters and paragraphs per request, concurrency, retries, request timeout, whether to merge AI requests |
-| Translation style | Left border, dashed left border, highlight or plain; accent color, text color, text opacity, font size ratio; live preview |
+| Translation style | Left border, dashed left border, highlight or plain; accent color, text color, text opacity, font size ratio; live preview; the switch "Render Markdown in AI translations" |
 | Cache | Cache on or off, maximum cached paragraphs, current number of entries, clear cache |
 
 "Test connection" sends one test sentence with the values currently in the input fields. On success it shows the translation. On failure it shows the error returned by the service, for example an invalid key or an unknown model name.
@@ -278,6 +279,8 @@ The settings store only prompts you changed. An unchanged prompt is stored as em
 
 `{{to}}` is replaced by the English name of the target language. The extension adds the source language and the batch format to every request itself.
 
+The built-in prompts do not mention Markdown. The paragraphs reach the AI service as plain text: bold text and links of an HTML message arrive without their markup, so the only marks the model can carry over are those written in the text itself, and the rule "Keep line breaks and list markers" already covers them. An instruction naming Markdown syntax invites a model to add bold text where the original has none. [Markdown in AI translations](#markdown-in-ai-translations) describes what the extension renders from an answer.
+
 Cache keys and batch keys contain the kind of prompt and a hash of its text. Editing a prompt therefore never returns translations made with the old text.
 
 ## Prompt presets
@@ -431,6 +434,46 @@ The Translation style section sets how translations look in the message:
 
 A live preview shows a sample paragraph with its translation. The bilingual block stays readable in dark themes.
 
+## Markdown in AI translations
+
+AI services often format their answers in Markdown: `**important**` for bold text, `- ` in front of the items of a list, `[text](address)` for a link. With "Render Markdown in AI translations" on (the default, in the Translation style section of the settings page), a translation of the AI tier shows this markup formatted. With the switch off, every translation shows the text exactly as the service returned it, as in version 2.1.
+
+Only the final translation of the AI tier is rendered. The dictionary and machine translation return the characters of the original: an asterisk in the message that Google Translate keeps stays an asterisk, and `snake_case` in a translation by Bergamot stays as it is. A provisional translation comes from a lower tier and is therefore text too, and so is a lower result kept after the AI tier failed. This holds in both display modes and for precise translation.
+
+The renderer reads this subset:
+
+| Markup | Shown as |
+| --- | --- |
+| `**text**`, `__text__` | bold |
+| `*text*`, `_text_` | italics |
+| `` `text` `` | code; markup inside it is not read |
+| `~~text~~` | struck through |
+| `[text](https://…)` | a link, for addresses that start with `http:`, `https:` or `mailto:` |
+| consecutive lines starting with `- `, `* ` or `+ ` | a bulleted list |
+| consecutive lines starting with `1. `, `2. `… | a numbered list, starting at the first number |
+| a single line break | a line break |
+| a backslash before ASCII punctuation, such as `\*` | the character itself |
+
+The asterisks, underscores and tildes open and close by the delimiter rules of CommonMark, with Unicode whitespace and Unicode punctuation. Some consequences:
+
+- `这是**重要**的` shows 重要 in bold: Chinese, Japanese and Korean need no spaces around the marks.
+- `snake_case` and `file_name.txt` stay as they are, since an underscore between two letters never opens or closes.
+- `请**注意：**明天` stays as it is: after the full-width colon, a punctuation mark, the closing marks would need a space or another punctuation mark after them. `请**注意：** 明天` is bold.
+- One rule goes beyond CommonMark: an asterisk with an ASCII letter or digit right before and right after it neither opens nor closes, so `2*3*4` stays arithmetic.
+- A numbered list that follows a line of text without a blank line starts only at 1, so a line such as "3. October" inside a paragraph stays text.
+
+Headings, tables, images, block quotes and HTML are not read; their characters stay in the translation, and so do unclosed or invalid marks such as a single `**`.
+
+The rendered translation consists of text and these elements only: `strong`, `em`, `code`, `del`, `a`, `ul`, `ol` (with `start` for a list that does not start at 1), `li` and `br`. The extension creates each element with the DOM API and never parses the text of a translation as HTML, so `<script>` or `<img onerror=…>` in a translation stays visible text. A link carries only its address and `rel="noopener noreferrer"`. A link to any other address, such as `javascript:`, `data:` or a relative path, stays as its whole source text, and so does an image. Elements nest at most 16 levels deep; deeper markup keeps its text without the elements.
+
+Thunderbird handles a click on such a link like a click on any other link in a message; the extension adds no handler of its own. In the message pane Thunderbird's link handler (`StrictLinkClickHandlerChild` for browsers of the group `mail-message`) stops the navigation of an `http:` or `https:` link and opens it in the default web browser, after the phishing check that asks when the text of a link names another host than its address. A `mailto:` link opens a new message to that address, since Thunderbird handles `mailto:` itself.
+
+Subjects are shown as plain text: the subject line above the body, the page of translated subjects and the column of the experimental build show an AI translation of a subject with the marks removed, the text of a link without its address. `**Budget** 2027` becomes "Budget 2027" there.
+
+The rendered elements sit inside the translation block, so the style of the translations applies to them: text color, opacity and font size ratio. A link takes the text color of the translations when one is set, otherwise the link color of the system, and stays underlined; code uses a monospace font at 92 % of the translation's size.
+
+The cache and the memory of the page keep each translation as the service returned it; the renderer formats it when it is shown. Turning the switch on or off therefore redraws the message on screen at once and sends no request, and the switch is part of no cache key.
+
 ## Settings from older versions
 
 Settings saved by older versions are converted once when they are read.
@@ -448,6 +491,8 @@ When settings from version 1.1 or earlier are loaded, a service counts as added 
 Settings saved by version 1.3 and earlier have no tiers. An AI service as current service becomes tier 3, together with the fast service of race translation as tier 2 when race translation was on. Any other current service becomes tier 2. The dictionary tier starts unused. A custom system prompt saved by version 1.3 or earlier becomes the prompt of both display modes; the precise prompt starts with its built-in text.
 
 Settings saved before version 1.9.0 have no text color; translations keep the color of the message text, as before. A text color that is not a hex color such as `#202124` is ignored in the same way.
+
+Settings saved before version 2.2.0 have no switch for the Markdown of AI translations; it is on.
 
 ## Permissions
 

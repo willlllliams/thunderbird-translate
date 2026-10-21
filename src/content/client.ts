@@ -27,7 +27,7 @@ export interface ClientOptions {
   /**
    * The page of translated subjects: it connects under its own Port name, so that the background script applies the
    * consent rules of real messages; asks through the consent panel (with the title of the subjects) before subjects
-   * first go to an online service; and translates the units of `collect` in display mode `mode`.
+   * first go to an online service; and translates the units of `collect` in display mode `mode`, as plain text.
    */
   subjects?: { collect: NonNullable<ControllerDeps["collect"]>; mode: NonNullable<ControllerDeps["mode"]> }
   /** Gets every progress report of the controller, as the background script does; the page of translated subjects shows it. */
@@ -87,7 +87,7 @@ export function connectContent({ root, contentScript = false, probe, subjects, o
     notice,
     consent,
     root,
-    ...(subjects ? { collect: subjects.collect, mode: subjects.mode } : {}),
+    ...(subjects ? { collect: subjects.collect, mode: subjects.mode, plainText: true } : {}),
     translate: (request, onTier) =>
       new Promise((resolve) => {
         const id = ++nextId

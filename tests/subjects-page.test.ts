@@ -147,6 +147,23 @@ describe("the list", () => {
     expect(translated(rows()[0])!.classList.contains("tt-only")).toBe(true)
   })
 
+  it("shows an AI translation without its Markdown marks, and a machine translation as it is", async () => {
+    const settings = allowed((s) => {
+      s.tiers = { dictionary: null, machine: "google-free", ai: "openai" }
+      s.onlineConsent = ["google-free", "openai"]
+    })
+    const { port } = await subjectsPage({ settings, folders: { Inbox: [message(1, "Re: Budget")] }, answer: () => null })
+    await vi.waitFor(() => expect(port.posted("translate")).toHaveLength(1))
+    const { id } = port.posted("translate")[0]
+    port.push({ type: "tier", id, tier: "machine", result: { ok: true, text: "**G** Budget" } })
+    await vi.waitFor(() => expect(translated(rows()[0])?.firstChild?.textContent).toBe("**G** Budget"))
+    port.push({ type: "tier", id, tier: "ai", result: { ok: true, text: "**Budget** [2027](https://e.com)" } })
+    port.push({ type: "done", id })
+    await vi.waitFor(() => expect(translated(rows()[0])?.textContent).toBe("Budget 2027"))
+    expect(translated(rows()[0])!.children).toHaveLength(0)
+    expect(rows()[0].cells[3].textContent).toBe("Re: Budget 2027")
+  })
+
   it("says so when the active tab is no mail tab, when the folder is empty and when the list cannot be read", async () => {
     await subjectsPage({ folders: { Inbox: [] }, current: null })
     await vi.waitFor(() => expect($("status").textContent).toBe(ENGLISH.t("subjectsNoMailTab")))
