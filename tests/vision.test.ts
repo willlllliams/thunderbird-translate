@@ -212,7 +212,7 @@ describe("image settings", () => {
     expect(s.prompts.image).toBe("")
   })
 
-  it("take the defaults for settings saved before 2.4.0", () => {
+  it("take the defaults for settings saved before 3.0.0", () => {
     const s = normalizeSettings({ tiers: { dictionary: null, machine: "google-free", ai: null }, prompts: { bilingual: "", translationOnly: "", precise: "", summary: "" } })
     expect(s.image).toEqual(defaultImageSettings())
     expect(s.imageConsent).toEqual([])

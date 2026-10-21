@@ -299,7 +299,7 @@ describe("consent to online services", () => {
   })
 
   it("B9: asks again when the endpoint of an allowed service moves to another host", () => {
-    // Saved before 2.4.0: the id alone stands for the endpoint the service has now.
+    // Saved before 3.0.0: the id alone stands for the endpoint the service has now.
     const s = normalizeSettings({ tiers: { machine: "google-free", ai: "ollama" }, onlineConsent: ["ollama"], imageConsent: ["ollama"] })
     expect([s.onlineConsent, s.imageConsent]).toEqual([["ollama@localhost"], ["ollama@localhost"]])
     expect(consentNeeds(s)).toEqual([{ id: "google-free", host: "translate.googleapis.com" }])

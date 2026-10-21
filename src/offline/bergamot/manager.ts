@@ -44,7 +44,7 @@ function errorText(error: unknown): string {
   return String(error)
 }
 
-/** The model list as it is saved; a copy saved before 2.4.0 also has the time it was read, which nothing reads. */
+/** The model list as it is saved; a copy saved before 3.0.0 also has the time it was read, which nothing reads. */
 interface CachedRecords {
   attachmentsBase: string
   records: ModelRecord[]

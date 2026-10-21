@@ -517,7 +517,7 @@ describe("service panel", () => {
 
 describe("online services allowed to receive message text", () => {
   it("lists them with the host each was allowed for and a button that takes the consent back, and says when there is none", async () => {
-    // Saved before 2.4.0: the ids alone stand for the endpoints the services have now.
+    // Saved before 3.0.0: the ids alone stand for the endpoints the services have now.
     const page = await options((s) => (s.onlineConsent = ["google-free", "openai"]))
     const items = () => Array.from($("consentList").querySelectorAll("li"))
     expect(items().map((li) => li.querySelector("span")?.textContent)).toEqual([

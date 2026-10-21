@@ -2,9 +2,11 @@
 
 All notable changes to this project are documented in this file, with the date of each version. It lists what users of the extension notice. The record up to 1.12.0 with the internal changes is kept in [docs/archive/CHANGELOG-full.md](docs/archive/CHANGELOG-full.md). Versions follow [Semantic Versioning](https://semver.org/).
 
-## 2.4.0 - 2026-10-21
+## 3.0.0 - 2026-10-21
 
-Version 2.4 translates the text in the images of a message. With precise translation on, an AI service reads an image and the text appears under it: the original and its translation side by side. The extension draws nothing on an image and generates no image.
+Version 3.0 translates the text in the images of a message. With precise translation on, an AI service reads an image and the text appears under it: the original and its translation side by side. The extension draws nothing on an image and generates no image. The summary can now open by itself, and with precise translation one request writes the analysis of the message and its summary.
+
+Version 3.0 also removes subject translation in all its forms and the experimental build; "Removed" below says what happens to your settings. Version 2.4.0 was never released: its changes are part of 3.0.0.
 
 ### Text in images
 
@@ -12,7 +14,7 @@ Version 2.4 translates the text in the images of a message. With precise transla
 - Ask under each image: a "Translate image text" button appears under every image that passes the filters; a click sends that image only.
 - On: when you translate a message, its first images go to the service by themselves, five per message by default, in the order of the message; the images after them get the button. The limit counts for the message on screen, also when a setting changes or the translation is turned off and on; Alt+R counts anew. Copies of one image count once.
 - A result already in the cache appears at once, without a button.
-- The popup switches the mode while precise translation is on. The message on screen follows at once, without loading it again and without translating the paragraphs again.
+- The popup always shows the three modes. While precise translation is off they are greyed out, with the note "Requires precise translation" and a button that turns precise translation on; without a service in the AI tier the note names that tier instead. A change of the mode applies to the message on screen at once, without loading it again and without translating the paragraphs again.
 - Alt+R also forgets the image results of the message: "Ask" shows the buttons again, "On" sends the images again.
 - Only the images of the body and the image attachments Thunderbird shows under it. Remote images are never translated. Tracking pixels, icons and small logos, divider lines, logos in the signature, files under 4 KB and animated images are left out; the size limits can be changed.
 - The result is a collapsible block under the image with a table of the original and its translation; its title names the service and the tokens of the request. Of a chart only the labels are translated, without describing its trends. Text the model cannot read is marked [?]. An image without text shows nothing.
@@ -28,10 +30,18 @@ Version 2.4 translates the text in the images of a message. With precise transla
 
 ### Settings
 
-- The settings page has the image settings under precise translation: the mode, the vision service and model, a line that names a model that does not accept images together with one that does, an estimate of the tokens of one image, and "Test image", which sends a built-in test image.
+- The settings page has the image settings under precise translation, always on screen and greyed out while precise translation is off, with the same note and button as the popup: the mode, the vision service and model, a line that names a model that does not accept images together with one that does, an estimate of the tokens of one image, and "Test image", which sends a built-in test image.
 - "Advanced image settings" holds the sources, the size and file limits, animated images, the upload size, format and quality, the limits per image and per message, the image detail, the answer, the length limit, the timeout, the concurrent requests, and how the result opens.
 - The image prompt can be edited and restored in the Prompts section.
 - The AI step of the setup guide offers the three modes under precise translation, and names a model of the AI service that reads no images.
+
+### Summary
+
+- "Automatic summary" in the "Summary and to-dos" section of the settings page has three choices: Off (the default), When the message is translated, and For every opened message. The summary then opens without a click on "Summary", once per message.
+- "When the message is translated" opens it when a translation of the message starts, by itself or by your click. "For every opened message" opens it for every message on screen, also for a message already in your language.
+- A summary that opens by itself asks for the consent of its service the first time, as a click on "Summary" does. "Cancel" holds for that message. A message without readable text, such as one with only a picture or a date, gets no summary.
+- With precise translation, a message too long for one request needs an analysis before its paragraphs are translated. When the summary uses the same service and model as the AI tier, one request now writes the analysis and the summary together, instead of two requests. Both are remembered on their own, so a later summary of the same message comes from the cache. When the summary uses another service or model, the two requests stay apart.
+- When one part of such an answer cannot be read, the other part is kept: an unreadable summary is asked for again on its own, and the paragraphs are translated without an unreadable analysis.
 
 ### Connection check of the free routes
 
@@ -42,8 +52,14 @@ Version 2.4 translates the text in the images of a message. With precise transla
 
 - Translation-only display keeps the images of a paragraph: copies of them follow its translation. Before, an image inside a translated paragraph disappeared until the original was shown again. Remote images are not copied.
 
+### Removed
+
+- Subject translation is gone in all its forms: the line with the translated subject above the message body and its setting "Translate the subject as well", and the page of translated subjects that the extension button in the main toolbar opened. That button is gone; the button in the message header stays. Version 3.0 removes the setting from your settings when it starts; every other setting stays as it was.
+- The experimental build `multi-translate-experimental-<version>.xpi` with its column "Translated subject" is no longer published. It has an add-on id of its own, so it does not update to 3.0. Remove it in the Add-ons Manager and install `thunderbird-translate-3.0.0.xpi` or the version on addons.thunderbird.net. Its settings, consents and offline data belong to that add-on id: the regular build starts with its own, so set up the tiers again in the setup guide.
+
 ### Permissions
 
+- "See your mail accounts and their folders" (`accountsRead`) is no longer requested: only the page of translated subjects used it.
 - No new permission and no new address. The extension reads the image parts of the displayed message with the permission "Read your email messages" it already has.
 
 ### Fixed
@@ -68,7 +84,6 @@ Version 2.4 translates the text in the images of a message. With precise transla
 - After an update of the extension, a message that was translated on screen showed every translation twice, or in translation-only display could not show its original again. The new version now restores such a message first. A message that 2.3 showed in translation-only display keeps its translation as text; opening it again shows the original.
 - Translations into Arabic and other right-to-left languages have their line and spacing on the side where the text starts.
 - German, French, Spanish and Portuguese interfaces write megabytes with their own decimal mark, lists of languages are joined as the interface language joins them, and counts no longer read "1 items".
-- Experimental build: a change of the settings while the folder list was read could leave subjects untranslated in the column until the next change.
 - The result of an image no longer breaks a table or a list of the message: in a table cell or a list item it goes inside it.
 - An image with more than 40 megapixels is no longer decoded: its size is read from its file first, and the images of a message are decoded one at a time.
 - An image request of a message you were leaving could read the image parts of the next message. A content script now reads only from the message it was started for.

@@ -394,7 +394,7 @@ function normalizePrompts(stored: Partial<Settings> & LegacySettings): Record<Pr
   const prompts: Record<PromptName, string> = { bilingual: "", translationOnly: "", precise: "", summary: "", image: "" }
   const own = (kind: PromptName, value: unknown) => (typeof value === "string" && value.trim() && !isBuiltInPrompt(kind, value) ? value : "")
   if (stored.prompts && typeof stored.prompts === "object") {
-    // Settings saved before 2.3.0 have no summary prompt, those before 2.4.0 no image prompt: each stands for the built-in one.
+    // Settings saved before 2.3.0 have no summary prompt, those before 3.0.0 no image prompt: each stands for the built-in one.
     for (const kind of PROMPT_NAMES) prompts[kind] = own(kind, (stored.prompts as Partial<Record<PromptName, unknown>>)[kind])
   } else {
     prompts.bilingual = own("bilingual", stored.systemPrompt)
@@ -465,7 +465,7 @@ export function normalizeSettings(stored: unknown, uiLang?: string): Settings {
       maxOutputTokens: int(sum.maxOutputTokens, d.summary.maxOutputTokens, 200, 4000),
       display: sum.display === "collapsed" ? "collapsed" : "expanded",
     },
-    // Settings saved before 2.4.0 have no image settings and no image consent: the defaults.
+    // Settings saved before 3.0.0 have no image settings and no image consent: the defaults.
     image: normalizeImage(s.image),
     imageConsent: [],
     batch: {
@@ -491,7 +491,7 @@ export function normalizeSettings(stored: unknown, uiLang?: string): Settings {
     },
   }
   addProvidersInUse(settings)
-  // Settings saved before 2.4.0 hold the ids alone: the consent stands for the endpoint the service has now.
+  // Settings saved before 3.0.0 hold the ids alone: the consent stands for the endpoint the service has now.
   settings.onlineConsent = normalizeConsent(settings, s.onlineConsent, isOnlineService)
   settings.imageConsent = normalizeConsent(settings, s.imageConsent, (id) => isOnlineService(id) && isAiProvider(getPreset(id)))
   return settings
