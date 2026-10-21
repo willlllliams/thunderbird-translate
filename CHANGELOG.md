@@ -49,10 +49,10 @@ Version 2.4 translates the text in the images of a message. With precise transla
 ### Fixed
 
 - When the consent panel of the translation was open and you asked for the summary, or the other way round, allowing recorded a service the panel had not named. The panel now lists the services of both questions and says when the whole message goes to the summary.
-- A consent is now recorded with the address of the service; changing the address of an allowed service asks again. Consents of earlier versions apply to the address the service has after the update.
+- A consent is now recorded with the address of the service; changing the address of an allowed service asks again, also in a message already open. Consents of earlier versions apply to the address the service has after the update.
 - Revoking the consent of a service, turning image translation off or leaving a message no longer lets what already waits in a queue go to the service; a request still on its way for images is aborted.
 - With the source language "Automatic", Baidu translated the paragraphs of a mixed-language message, such as a Japanese message with an English signature, as if all were in one language. Each detected language now goes in a request of its own.
-- Paragraphs of a message you have already left are no longer translated, at your cost, before those of the message on screen.
+- Paragraphs of a message you have already left are no longer translated, at your cost, before those of the message on screen, and precise translation no longer sends such a message for its analysis.
 - A server that asks to wait more than 30 seconds (a spent daily quota) now makes the request fail at once with its message, instead of each attempt waiting 30 seconds.
 - An endpoint without `https://`, such as `localhost:1188/translate`, now says that it is not a valid address, instead of being retried as a network failure.
 - An error answer whose body stalled could hold a request slot of a service until Thunderbird was restarted; the timeout now covers it.
@@ -63,7 +63,7 @@ Version 2.4 translates the text in the images of a message. With precise transla
 - After you corrected a key or an app ID, the failed paragraphs of the message on screen stayed failed; they are now asked again, without asking the tiers that succeeded.
 - A paragraph that no tier answered kept its spinner for good; it now fails with a retry marker.
 - A number with a fraction in the settings, such as 850.5 tokens, made every summary or image request fail; counts and sizes are now whole numbers.
-- While a download ran, the offline lists took the keyboard focus away four times a second; the focus now stays on its control.
+- While a download ran, the offline lists drew their rows anew four times a second, which moved the keyboard focus and made screen readers announce it again; now only the progress text changes.
 - The services of the settings page can now be selected with the keyboard, and the retry marker of a failed paragraph can be pressed with Enter or Space.
 - After an update of the extension, a message that was translated on screen showed every translation twice, or in translation-only display could not show its original again. The new version now restores such a message first. A message that 2.3 showed in translation-only display keeps its translation as text; opening it again shows the original.
 - Translations into Arabic and other right-to-left languages have their line and spacing on the side where the text starts.

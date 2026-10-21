@@ -225,7 +225,7 @@ Switching the display mode re-renders the dictionary and machine translations as
 
 ## Consent before online translation
 
-Before the text of a message first goes to an online service, the extension asks once per service and host: a service whose endpoint moves to another host asks again. Images have a consent of their own, see [Consent for images](#consent-for-images). The online services are Google Translate, Microsoft Translator, DeepLX, DeepL, Baidu, Youdao, Caiyun and every AI service; the dictionary and Bergamot translate on the computer and need no consent.
+Before the text of a message first goes to an online service, the extension asks once per service and host: a service whose endpoint moves to another host asks again, also in a message already open. Each request is checked against the host it goes to when it leaves the queue, so a request made for the old host is not sent to it once only the new host is allowed. The panel records a service only for the host it named: a service whose endpoint changed while the panel was open is asked for again. Images have a consent of their own, see [Consent for images](#consent-for-images). The online services are Google Translate, Microsoft Translator, DeepLX, DeepL, Baidu, Youdao, Caiyun and every AI service; the dictionary and Bergamot translate on the computer and need no consent.
 
 When a translation starts (the toolbar button, Alt+A, automatic translation, Retranslate) and a tier in use has an online service that is not allowed yet, a panel appears above the message instead of the translation:
 
@@ -236,7 +236,7 @@ When a translation starts (the toolbar button, Alt+A, automatic translation, Ret
 
 Until a service is allowed, no request reaches it: the background script refuses a request for it as well, also a request that already waits in its queue when the consent is revoked, and reports "<service> has not been allowed to receive message text yet. Translate the message again and choose “Allow and translate”.". A tier changed to a service not allowed yet, while a message is translated, makes the panel appear again.
 
-The allowed services are listed in the Translation tiers section of the settings page, each with its host and "Revoke"; after a revocation the panel asks again, and the requests of the service still waiting in a queue are not sent. Settings saved before 2.4.0 hold the services alone; they count as allowed for the endpoint the service has when the settings are read. The sample message of the setup guide is built into the extension and is no mail of yours, so its trial translation asks nothing.
+The allowed services are listed in the Translation tiers section of the settings page, each with its host and "Revoke"; after a revocation the panel asks again, also in the message on screen, and the requests of the service still waiting in a queue are not sent. Settings saved before 2.4.0 hold the services alone; they count as allowed for the endpoint the service has when the settings are read. The sample message of the setup guide is built into the extension and is no mail of yours, so its trial translation asks nothing.
 
 Settings of version 1.x hold no consent: after the update to 2.0 the first translation with an online service asks once.
 
@@ -329,7 +329,7 @@ The flow depends on the size of the paragraphs to translate:
 2. Otherwise one extra request first analyzes the whole message. It returns a summary of two to three sentences, a glossary of names, products and other proper nouns with the translation to use, and the tone and form of address.
 3. Every request then starts with the same prefix: the system prompt, the analysis and, for messages up to about 8,000 characters, the full text. After the prefix come the paragraphs of the batch, each with the paragraph before and after it as reference that is not translated.
 
-If the analysis answer cannot be read, translation goes on without it, and the message is not analyzed again. If the analysis request fails (network error, timeout, HTTP error), translation also goes on without it, and the next batch of the same translation asks again.
+If the analysis answer cannot be read, translation goes on without it, and the message is not analyzed again. If the analysis request fails (network error, timeout, HTTP error), translation also goes on without it, and the next batch of the same translation asks again. An analysis that waits in the queue is not sent once no page waits for any of the batches that asked for it, for example after you moved to the next message; the glossary for images only reuses an analysis and never asks for one.
 
 The prefix is identical, character for character, for every request of one message, so providers that cache repeated prompt prefixes can serve it from their cache. For Anthropic the prefix is marked with `cacheControl: { type: "ephemeral" }`. Prompt caching is up to the provider: Anthropic caches only prefixes above a minimum length that depends on the model, and shorter prefixes are sent and billed normally.
 
@@ -422,7 +422,7 @@ The content script filters by the natural size of an image, not its displayed si
 | inside a signature (`.moz-signature`, `.moz-txt-sig`), with "Leave out images in signatures" | on | signature logos |
 | not loaded yet | waits until it has loaded | blocked or broken images |
 
-The background script reads the bytes of an image that passes: an image of the body or an attachment with `messages.getAttachmentFile()` and the part number of its address, a `data:` image from its address. It reads the parts of the message that was displayed when the content script of the message started, only while the tab still shows it, so a request of a message being replaced never reads the next one; a part whose file name differs from the one in its address, or that is not an image, counts as unreadable. It then filters by the bytes:
+The background script reads the bytes of an image that passes: an image of the body or an attachment with `messages.getAttachmentFile()` and the part number of its address, a `data:` image from its address. It reads the parts of the message that was displayed when the content script of the message started, only while the tab still shows it, so a request of a message being replaced never reads the next one; a part whose file name differs from the one in its address, or that is not an image, counts as unreadable. Thunderbird 128 gives a part without `Content-Disposition`, such as an inline image of `multipart/related`, no file name; such a part is compared by its part number and type only. It then filters by the bytes:
 
 | Rule | Default | Effect |
 | --- | --- | --- |
