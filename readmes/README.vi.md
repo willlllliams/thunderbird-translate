@@ -108,7 +108,7 @@ Các mẫu có sẵn thêm quy tắc vào lời nhắc: biến thể vùng miề
 ## Quyền riêng tư
 
 - Văn bản thư chỉ đến các dịch vụ của những tầng đang dùng. Từ điển và Bergamot dịch ngay trên máy của bạn. Tiêu đề của thư cũng tuân theo quy tắc này. Bản tóm tắt bạn yêu cầu gửi toàn bộ thư cùng người gửi và ngày gửi đến dịch vụ AI của bản tóm tắt.
-- Trước khi nội dung thư lần đầu được gửi đến một dịch vụ trực tuyến, bảng phía trên thư nêu tên dịch vụ và địa chỉ của nó, rồi hỏi một lần cho mỗi dịch vụ. Không có gì được gửi trước khi bạn bấm "Cho phép và dịch"; trang cài đặt liệt kê các dịch vụ đã cho phép và cho phép thu hồi. Nếu chỉ dùng từ điển và Bergamot thì không có câu hỏi nào.
+- Trước khi nội dung thư lần đầu được gửi đến một dịch vụ trực tuyến, bảng phía trên thư nêu tên dịch vụ và địa chỉ của nó, rồi hỏi một lần cho mỗi dịch vụ và địa chỉ. Không có gì được gửi trước khi bạn bấm "Cho phép và dịch"; trang cài đặt liệt kê các dịch vụ đã cho phép và cho phép thu hồi. Nếu chỉ dùng từ điển và Bergamot thì không có câu hỏi nào.
 - Ảnh chỉ được gửi đến dịch vụ AI khi dịch chính xác đang bật: sau khi bạn nhấn nút dưới ảnh, hoặc tự động khi dịch hình ảnh ở chế độ "Bật". Trước ảnh đầu tiên, bảng dưới ảnh hỏi một lần cho mỗi dịch vụ, tách khỏi văn bản. Ảnh được thu nhỏ và mã hóa lại, không kèm tên tệp và siêu dữ liệu. Ảnh từ xa không bao giờ được dịch.
 - Địa chỉ bạn tự nhập (Ollama, LM Studio, DeepLX, dịch vụ tùy chỉnh, địa chỉ đã đổi) cần được cấp quyền kết nối một lần, bằng nút "Cho phép truy cập" hoặc "Kiểm tra kết nối" trong phần cài đặt.
 - Khóa API chỉ được lưu trong hồ sơ Thunderbird của bạn và chỉ được gửi đến endpoint của chính dịch vụ đó.

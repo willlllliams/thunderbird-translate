@@ -108,7 +108,7 @@ Presets add rules to a prompt: a regional variety such as British English or Tai
 ## Privacy
 
 - Message text goes only to the services of the tiers in use. The dictionary and Bergamot translate on your computer. The subjects of messages follow the same rule. A summary you ask for sends the whole message with its sender and date to its AI service.
-- Before the text of a message first goes to an online service, a panel above the message names the service and its address and asks once per service. Nothing is sent until you click “Allow and translate”; the settings page lists the allowed services and takes them back. With only the dictionary and Bergamot, nothing is asked.
+- Before the text of a message first goes to an online service, a panel above the message names the service and its address and asks once per service and address. Nothing is sent until you click “Allow and translate”; the settings page lists the allowed services and takes them back. With only the dictionary and Bergamot, nothing is asked.
 - An image goes to an AI service only while precise translation is on: after a click on the button under it, or by itself when image translation is “On”. Before the first image, a panel under it asks once per service, apart from the text. The image is scaled down and encoded again, without its file name and metadata. Remote images are never translated.
 - An endpoint you type (Ollama, LM Studio, DeepLX, a custom service, a changed endpoint) needs your permission to connect, given once with “Allow access” or “Test connection” in the settings.
 - API keys are stored only in your Thunderbird profile and are sent only to the endpoint of their own service.
