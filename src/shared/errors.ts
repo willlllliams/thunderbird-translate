@@ -315,12 +315,17 @@ function httpFailure(e: AnyError): HttpFailure | null {
   }
 }
 
+/** A TypeError of fetch() that reached no server, by the wording of Gecko, Chromium, Node and WebKit. */
+export function isFetchTypeError(error: unknown): boolean {
+  const e = asObject(error)
+  return e !== null && str(e.name) === "TypeError" && /networkerror|failed to fetch|fetch failed|load failed|network/i.test(str(e.message))
+}
+
 function isNetworkFailure(e: AnyError): boolean {
   const name = str(e.name)
-  const message = str(e.message)
   if (name === "NetworkError") return true
   if (name === "AI_APICallError" && typeof e.statusCode !== "number") return true
-  return name === "TypeError" && /networkerror|failed to fetch|fetch failed|load failed|network/i.test(message)
+  return isFetchTypeError(e)
 }
 
 function serviceLabel(ctx: ErrorContext, url?: string): string {

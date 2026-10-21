@@ -600,7 +600,7 @@ describe("B12: instructions inside the message", () => {
 })
 
 describe("B3: models that reason first", () => {
-  it("get room for their reasoning on top of the length of the summary, except with Anthropic, whose SDK adds it", async () => {
+  it("get room for their reasoning on top of the length of the summary, except where the SDK adds a budget", async () => {
     const run = async (provider: string, model: string, thinking: boolean) => {
       const settings = createDefaultSettings("en")
       settings.tiers.ai = provider
@@ -614,7 +614,10 @@ describe("B3: models that reason first", () => {
     // "Off" is still the smallest effort for gpt-5-mini; gpt-4.1 does not reason.
     expect(await run("openai", "gpt-5-mini", false)).toBe(800 + 4096)
     expect(await run("openai", "gpt-4.1-mini", false)).toBe(800)
-    expect(await run("anthropic", "claude-sonnet-5-5", true)).toBe(800)
+    // R4: Claude 5 thinks adaptively, and the SDK adds no budget for it; for the budget of Claude 4 it does.
+    expect(await run("anthropic", "claude-haiku-5-5", true)).toBe(800 + 4096)
+    expect(await run("anthropic", "claude-sonnet-5-5", false)).toBe(800 + 4096)
+    expect(await run("anthropic", "claude-sonnet-4-5", true)).toBe(800)
     expect(await run("deepseek", "deepseek-chat", false)).toBe(800)
   })
 

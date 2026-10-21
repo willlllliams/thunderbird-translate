@@ -180,9 +180,23 @@ const STILL_REASONS = /"reasoningEffort":"(?:minimal|low|medium)"|"thinkingBudge
  * output limit of the request.
  */
 export function reasons(presetId: string, model: string, on: boolean): boolean {
+  // Claude 5 thinks adaptively; some of these models refuse "disabled", which the SDK then leaves out.
+  if (presetId === "anthropic" && CLAUDE_ADAPTIVE.test(model)) return true
   const rule = CONTROLS[presetId]?.rules.find((r) => r.models.test(model))
   if (!rule) return false
   return on || rule.off === null || STILL_REASONS.test(JSON.stringify(rule.off))
+}
+
+/** Tokens a request adds to its output limit for a model that reasons first, which most services count within that limit. */
+export const REASONING_TOKENS = 4096
+
+/**
+ * The output limit of a request whose answer should have `answer` tokens: with room for the reasoning of a model
+ * that reasons first, except where the SDK adds the budget itself (Anthropic's thinking with a budget, Claude 3.7 and 4).
+ */
+export function outputLimit(presetId: string, model: string, on: boolean, answer: number): number {
+  const budgeted = presetId === "anthropic" && on && !CLAUDE_ADAPTIVE.test(model) && reasons(presetId, model, on)
+  return reasons(presetId, model, on) && !budgeted ? answer + REASONING_TOKENS : answer
 }
 
 /** Request options for the thinking switch of one provider and model. */

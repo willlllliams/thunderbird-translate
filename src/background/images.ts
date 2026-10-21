@@ -36,6 +36,7 @@ import type { ImageRequest, ImageResponse } from "../shared/messages"
 import { promptText } from "../shared/prompts"
 import { getPreset, providerDisplayName } from "../shared/providers"
 import { hasConsent, imageGlossary, imageStatus, type ImageSettings, type ProviderConfig, type ResolvedProvider, resolveProviderConfig, resolveVisionProvider, type Settings } from "../shared/settings"
+import { outputLimit } from "../shared/thinking"
 import { imageDetailOptions, uploadFormat } from "../shared/vision"
 import { cacheKey, LruCache, type PersistentCache } from "./cache"
 import { buildImageSystem, buildImageUserText, imageOutputTokens } from "../shared/image-prompt"
@@ -386,7 +387,8 @@ export class ImageService {
       targetLanguageName: getLanguage(settings.targetLang).english,
       fetchFn: this.deps.fetchFn,
       timeoutMs: settings.image.timeoutSeconds * 1000 * (local ? SLOW_MODEL_TIMEOUT_FACTOR : 1),
-      maxOutputTokens: imageOutputTokens(settings.image),
+      // A model that reasons even with thinking off (gpt-5-mini, Gemini 3, Claude 5) gets room for it beyond the answer.
+      maxOutputTokens: outputLimit(provider.id, provider.model, false, imageOutputTokens(settings.image)),
     }
   }
 

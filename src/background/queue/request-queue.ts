@@ -1,6 +1,6 @@
 /** Concurrency-limited task runner with retry and exponential backoff. */
 
-import { TimeoutError } from "../../shared/errors"
+import { isFetchTypeError, TimeoutError } from "../../shared/errors"
 import { parseRetryAfter } from "../../shared/http"
 
 /** Errors that should not be retried no matter what (bad key, bad request...). */
@@ -10,9 +10,10 @@ export function isRetryableError(error: unknown): boolean {
   if (typeof e.isRetryable === "boolean") return e.isRetryable
   const status = e.status ?? e.statusCode
   if (typeof status === "number") return status === 408 || status === 429 || status >= 500
-  // Network failures arrive as NetworkError (fetchOk()) or APICallError (AI SDK), timeouts as TimeoutError, each saying
-  // whether it is retryable; anything else (a TypeError of an address that is no URL, a bug) fails the same way again.
-  return false
+  // Network failures arrive as NetworkError (fetchOk()), APICallError (AI SDK) or, from the AI SDK in Gecko, as the
+  // TypeError of fetch() ("NetworkError when attempting to fetch resource."), which it does not wrap; timeouts as
+  // TimeoutError. Any other TypeError (an address that is no URL, a bug) fails the same way again.
+  return isFetchTypeError(e)
 }
 
 export function backoffDelay(attempt: number, baseMs = 500, maxMs = 8000, random: () => number = Math.random): number {

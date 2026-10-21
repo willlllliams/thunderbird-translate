@@ -34,7 +34,7 @@ import { appLang, findLanguage, getLanguage, languageTag } from "../shared/langu
 import type { MailContext } from "../shared/mail-context"
 import type { TranslateRequest, TranslateResponse } from "../shared/messages"
 import { promptText } from "../shared/prompts"
-import { reasons } from "../shared/thinking"
+import { outputLimit } from "../shared/thinking"
 import { getPreset, providerDisplayName, type Tier, TIERS } from "../shared/providers"
 import { hasConsent, isOnlineService, type ProviderConfig, type ResolvedProvider, resolveProvider, resolveProviderConfig, resultInputs, type Settings } from "../shared/settings"
 import type { SummaryResponse } from "../shared/summary"
@@ -114,9 +114,6 @@ const FREE_LIMITS: Record<string, BatchLimits> = {
 
 /** Messages kept for precise mode; a message is registered again when it is translated again. */
 const MAX_CONTEXTS = 20
-
-/** Tokens a summary request adds to its output limit for a model that reasons first, which most services count within that limit. */
-const REASONING_TOKENS = 4096
 
 /** Local models (Ollama, LM Studio) and models that reason first answer slowly: their requests get this multiple of the request timeout. */
 const SLOW_MODEL_TIMEOUT_FACTOR = 3
@@ -454,10 +451,8 @@ export class TranslationService {
       const variant = hashText(inputs.parts.join("\n"))
       const key = cacheKey(`summary:${id}`, provider.model, `auto>${settings.targetLang}`, prompt, variant)
       const cached = fresh ? undefined : await this.deps.cache.get(key)
-      // The setting is the length of the summary: a model that reasons first gets room for that as well, except with
-      // Anthropic, whose SDK adds the budget of thinking itself.
-      const reasoning = id !== "anthropic" && reasons(id, provider.model, provider.thinking)
-      const opts = { provider, systemPrompt, targetLanguageName, fetchFn: this.deps.fetchFn, timeoutMs: this.timeoutMs(provider), maxOutputTokens: maxOutputTokens + (reasoning ? REASONING_TOKENS : 0) }
+      // The setting is the length of the summary: a model that reasons first gets room for that as well.
+      const opts = { provider, systemPrompt, targetLanguageName, fetchFn: this.deps.fetchFn, timeoutMs: this.timeoutMs(provider), maxOutputTokens: outputLimit(id, provider.model, provider.thinking, maxOutputTokens) }
       const raw =
         cached ??
         (await this.queue(provider).run(() => {

@@ -442,6 +442,19 @@ describe("the consent for images", () => {
   })
 })
 
+describe("R5: models that reason even with thinking off", () => {
+  it("get room for their reasoning beyond the answer of an image", async () => {
+    const limit = async (id: string, model: string) => {
+      const s = service({ settings: settingsWithImages((x) => ((x.tiers.ai = id), (x.providers[id] = { enabled: true, apiKey: "k", baseURL: "", model }), (x.imageConsent = [id]))) })
+      await s.ask()
+      return s.read.mock.calls[0][2].maxOutputTokens
+    }
+    expect(await limit("gemini", "gemini-3-flash")).toBe(1024 + 4096)
+    expect(await limit("openai", "gpt-5-mini")).toBe(1024 + 4096)
+    expect(await limit("gemini", "gemini-2.5-flash-lite")).toBe(1024)
+  })
+})
+
 describe("the limits of a message", () => {
   const files = new Map<string, File>()
   const fileOf = (part: string) => {
