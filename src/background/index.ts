@@ -96,7 +96,7 @@ const images = new ImageService({
 
 const tabs = createTabRegistry({
   ready: settings.ready,
-  publicSettings: () => toPublicSettings(settings.current()),
+  publicSettings: () => toPublicSettings(settings.current(), settings.credentials()),
   setContext: (context, bypassCache) => service.setContext(context, bypassCache),
   translate: (request, onTier, options) => service.translateForPage(request, onTier, options),
   subject: displayedSubject,
@@ -139,7 +139,7 @@ const handlers = createHandlers({
 
 onStoredSettings((stored) => {
   settings.adopt(stored)
-  tabs.broadcast({ type: "settings", settings: toPublicSettings(settings.current()) })
+  tabs.broadcast({ type: "settings", settings: toPublicSettings(settings.current(), settings.credentials()) })
 })
 ext.runtime.onConnect.addListener((port) => tabs.connect(port))
 ext.runtime.onMessage.addListener(createDispatch(handlers, settings.ready))

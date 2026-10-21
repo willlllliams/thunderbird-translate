@@ -763,6 +763,11 @@ export interface PublicSettings {
    * results of the others.
    */
   signatures: Partial<Record<Tier, string>>
+  /**
+   * Counts the changes of the keys, app IDs, regions and editions of the services, which decide whether a request
+   * succeeds but not its result: a new count asks again the tiers that failed. It tells nothing of the values.
+   */
+  credentials: number
   /** Precise mode applies: the content script sends the message text as context. */
   precise: boolean
   style: StyleSettings
@@ -823,7 +828,13 @@ function publicImageSettings(settings: Settings): PublicImageSettings {
   }
 }
 
-export function toPublicSettings(settings: Settings): PublicSettings {
+/** What decides whether the requests of the services succeed without changing their results: the keys, app IDs, regions and editions. */
+export function credentialsOf(settings: Settings): string {
+  return JSON.stringify(Object.entries(settings.providers).map(([id, p]) => [id, p.apiKey, p.appId ?? "", p.region ?? "", p.edition ?? ""]))
+}
+
+/** `credentials`: the count of changes of credentialsOf() the background script keeps. */
+export function toPublicSettings(settings: Settings, credentials = 0): PublicSettings {
   const signatures: Partial<Record<Tier, string>> = {}
   for (const tier of enabledTiers(settings.tiers)) {
     const { provider, parts } = resultInputs(settings, settings.tiers[tier]!)
@@ -840,6 +851,7 @@ export function toPublicSettings(settings: Settings): PublicSettings {
     renderMarkdown: settings.renderMarkdown,
     tiers: enabledTiers(settings.tiers),
     signatures,
+    credentials,
     precise: settings.precise.enabled && settings.tiers.ai !== null,
     style: settings.style,
     offlineMutedPairs: settings.offlineMutedPairs,

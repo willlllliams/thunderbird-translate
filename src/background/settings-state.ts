@@ -10,7 +10,7 @@
  * the read returns, so the read neither applies nor writes back its result.
  */
 
-import { SETTINGS_KEY, type Settings } from "../shared/settings"
+import { credentialsOf, SETTINGS_KEY, type Settings } from "../shared/settings"
 import { readSettings } from "../shared/settings-store"
 import type { KeyValueStorage } from "./cache"
 
@@ -38,6 +38,8 @@ export interface SettingsState {
   ready(): Promise<void>
   /** Takes over settings written elsewhere. */
   adopt(stored: unknown): void
+  /** Counts the changes of the credentials of the services (credentialsOf()) it took over. */
+  credentials(): number
 }
 
 const defaultWarn = (message: string, error: unknown) => console.warn(`[thunderbird-translate] ${message}`, error)
@@ -49,8 +51,11 @@ export function createSettingsState({ storage, beforeRead, onAdopt, onUiLanguage
   /** The settings were read: no more reads. */
   let done = false
   let pending: Promise<void> | null = null
+  let credentials = 0
   const apply = (stored: unknown) => {
+    const before = credentialsOf(settings)
     settings = readSettings(stored)
+    if (credentialsOf(settings) !== before) credentials++
     onAdopt(settings)
   }
   const uiLanguage = () => onUiLanguage(settings).catch((error) => warn("could not apply the interface language", error))
@@ -90,6 +95,7 @@ export function createSettingsState({ storage, beforeRead, onAdopt, onUiLanguage
 
   return {
     current: () => settings,
+    credentials: () => credentials,
     ready,
     adopt(stored) {
       adopted = true

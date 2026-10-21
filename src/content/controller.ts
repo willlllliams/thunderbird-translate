@@ -178,8 +178,11 @@ export class TranslationController {
     }
     this.deps.images?.update(next.image, next.targetLang)
     for (const state of this.results.values()) for (const tier of changed) delete state[tier]
+    // A key or an app ID changed: the tiers that failed are asked again, the others keep their results.
+    const retry = prev.credentials !== next.credentials
+    if (retry) for (const state of this.results.values()) for (const tier of TIERS) if (state[tier]?.status === "error") delete state[tier]
     if (changed.length > 0 || prev.mode !== next.mode || prev.style.preset !== next.style.preset || prev.renderMarkdown !== next.renderMarkdown) this.rerender()
-    if (changed.length > 0) {
+    if (changed.length > 0 || retry) {
       this.report()
       await Promise.all(this.units.map((unit) => this.translateUnit(unit, this.session)))
     }

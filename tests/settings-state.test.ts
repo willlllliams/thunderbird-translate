@@ -2,7 +2,7 @@
 import { describe, expect, it, vi } from "vitest"
 import { createSettingsState } from "../src/background/settings-state"
 import { DEFAULT_PROMPTS } from "../src/shared/prompts"
-import { createDefaultSettings, type Settings, SETTINGS_KEY } from "../src/shared/settings"
+import { createDefaultSettings, type Settings, SETTINGS_KEY, toPublicSettings } from "../src/shared/settings"
 import { memoryStorage } from "./helpers"
 
 /** A settings state over an in-memory storage.local holding `stored` (nothing: a fresh installation); `get` and `set` can be replaced before it reads. */
@@ -34,6 +34,25 @@ describe("settings of the background script", () => {
     expect(stored().tiers).toEqual({ dictionary: null, machine: null, ai: "deepseek" })
     expect(stored().targetLang).toBe("ja")
     expect(settings.current().tiers.ai).toBe("deepseek")
+  })
+
+  it("B13: counts a change of a key or an app ID, which leaves the signatures alone, and no other change", async () => {
+    const { settings } = state(createDefaultSettings())
+    await settings.ready()
+    const start = settings.credentials()
+    const s = createDefaultSettings()
+    s.providers.baidu = { enabled: true, apiKey: "k", baseURL: "", model: "", appId: "1" }
+    s.tiers.machine = "baidu"
+    settings.adopt(s)
+    const signatures = toPublicSettings(settings.current(), settings.credentials()).signatures
+    s.providers.baidu.appId = "2"
+    settings.adopt(structuredClone(s))
+    expect(settings.credentials()).toBe(start + 2)
+    expect(toPublicSettings(settings.current(), settings.credentials())).toMatchObject({ signatures, credentials: start + 2 })
+    expect(JSON.stringify(toPublicSettings(settings.current(), settings.credentials()))).not.toContain('"2"')
+    s.targetLang = "fr"
+    settings.adopt(structuredClone(s))
+    expect(settings.credentials()).toBe(start + 2)
   })
 
   it("leaves current settings alone", async () => {

@@ -125,6 +125,20 @@ describe("tier combinations", () => {
 })
 
 describe("results", () => {
+  it("B13: asks the failed tiers again after a key changed, and keeps the results of the others", async () => {
+    let keyFixed = false
+    const translate = vi.fn(async (req: TranslateRequest, onTier: OnTier) => {
+      for (const tier of req.tiers) onTier(tier, tier === "machine" && !keyFixed ? fail("key rejected") : ok(`${tier}:${req.text}`))
+    })
+    const { c } = await mount("<p>Good morning</p>", tieredSettings(["dictionary", "machine"]), { translate })
+    await c.start()
+    expect(document.querySelector("p .tt-error")).not.toBeNull()
+    keyFixed = true
+    await c.updateSettings(tieredSettings(["dictionary", "machine"], { credentials: 1 }))
+    expect(translate.mock.calls.map(([req]) => req.tiers)).toEqual([["dictionary", "machine"], ["machine"]])
+    expect(document.querySelector(".tt-translation")!.textContent).toBe("machine:Good morning")
+  })
+
   it("U9: fails a paragraph no tier answered, with a retry that asks again", async () => {
     const translate = vi.fn(async () => {})
     const { c, reports } = await mount("<p>Good morning</p>", tieredSettings(["machine", "ai"]), { translate })

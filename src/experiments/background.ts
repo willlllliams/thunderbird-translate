@@ -38,7 +38,7 @@ const sync = createColumnSync({
     show: () => column().show(),
   },
   ready: settings.ready,
-  settings: () => toPublicSettings(settings.current()),
+  settings: () => toPublicSettings(settings.current(), settings.credentials()),
   columnName: () => header,
   translate: (request, onTier, options) => service.translateForPage(request, onTier, options),
   listed: listedMessages,
