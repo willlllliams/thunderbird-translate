@@ -5,13 +5,11 @@ This page describes every setting of Multi Translate for Thunderbird and how the
 ## Contents
 
 - [What is translated](#what-is-translated)
-  - [The subject](#the-subject)
 - [Settings page](#settings-page)
 - [Setup guide](#setup-guide)
   - [Demo and tour of the tiers](#demo-and-tour-of-the-tiers)
   - [Trial](#trial)
 - [Popup](#popup)
-- [Translated subjects](#translated-subjects)
 - [Adding and removing services](#adding-and-removing-services)
   - [Connection check of the free routes](#connection-check-of-the-free-routes)
 - [Translation tiers](#translation-tiers)
@@ -46,21 +44,6 @@ The content script looks for paragraph-level content in the message body:
 
 Code, paragraphs already in the target language, numbers, bare links and whitespace are skipped. Bilingual mode inserts a translation block under the original. Translation-only mode replaces the original with the translation; the original stays in the message, hidden, and comes back when translation is turned off. After an update of the extension the new version puts such an original back first; a message shown in translation-only mode by 2.3 or earlier keeps its translation as text until it is opened again, since those versions kept the original in memory only.
 
-### The subject
-
-With "Translate the subject as well" on (the default), the subject of the message is translated together with the body. It appears in a line at the top of the body:
-
-- in bilingual mode the subject, then its translation under it;
-- in translation-only mode the translation alone.
-
-Reply and forward prefixes such as "Re:", "Fwd:", "AW:" or "回复：" stay as they are, and only the rest is translated. "Re: Budget" and "Budget" therefore share one translation. A subject already in the target language gets no line, and neither does a subject made only of prefixes, numbers or links.
-
-The subject line goes through the same tiers as a paragraph: a lower tier shows a provisional translation, the highest tier replaces it, and a failed tier can be retried with a click on its mark. It uses the cache and the consent rules of the body, and the popup counts it as one more paragraph. Turning translation off removes the line.
-
-The content script runs inside the body of the message and cannot see the header. The background script reads the subject of the message on screen with `messageDisplay.getDisplayedMessage()`, which needs the `messagesRead` permission, and hands it to the content script. The paragraphs do not wait for the subject: the line appears once the subject has arrived.
-
-The subjects of a whole folder are translated on their own page, see [Translated subjects](#translated-subjects).
-
 ## Settings page
 
 Open the settings page with the "Options" button of this extension in the Add-ons Manager. Settings are saved automatically. "Saved" appears in the top right corner once they are written. When a save fails, the error appears in its place and the change goes with the next save. The "Setup guide" button next to it opens the setup guide.
@@ -69,13 +52,13 @@ Resting the mouse on any control of the settings page, the popup or the setup gu
 
 | Section | Contents |
 | --- | --- |
-| General | Interface language, source language, target language, default display mode, the switches "Automatically translate messages not in the target language" and "Translate the subject as well" |
-| Translation tiers | The service of each tier or "Not used", with the mark of an offline service that lacks data; precise translation; the muted notices about missing offline data, with "Remind me again"; the online services allowed to receive message text, each with "Revoke" |
+| General | Interface language, source language, target language, default display mode, the switch "Automatically translate messages not in the target language" |
+| Translation tiers | The service of each tier or "Not used", with the mark of an offline service that lacks data; precise translation with the image settings under it; the muted notices about missing offline data, with "Remind me again"; the online services allowed to receive message text, each with "Revoke" |
 | Translation services | Services in two groups, "Added" and "Available to add", filtered by tier; endpoint, API key, model, temperature and thinking mode of each service, the app ID and account edition of Baidu, the app ID of Youdao, formality and target variants of DeepL; "Test connection", "Add", "Use this service" and "Remove" buttons |
 | Dictionaries | Every pack of the release with size, license and attribution, those of the recommended languages first; filter; "Download common languages"; download and delete; release tag of the packs (advanced) |
 | Offline translation models (Bergamot) | Every direction of the Bergamot models with size and version, those of the recommended languages first; filter; "Download common languages"; download, update, cancel and delete; the directions the current languages need |
 | Prompts (AI tier) | The preset library; the prompts for bilingual display, translation-only display, precise translation and the summary, each with "Restore built-in prompt" |
-| Summary and to-dos | The service and model of the summary, the answer length limit, whether the panel opens expanded, the parts to include, and the "Summary" button above a translated message |
+| Summary and to-dos | The service and model of the summary, the answer length limit, whether the panel opens expanded, automatic summary, the parts to include, and the "Summary" button above a translated message |
 | Request batching | Collection window, maximum characters and paragraphs per request, concurrency, retries, request timeout, whether to merge AI requests |
 | Translation style | Left border, dashed left border, highlight or plain; accent color, text color, text opacity, font size ratio; live preview; the switch "Render Markdown in AI translations" |
 | Cache | Cache on or off, maximum cached paragraphs, current number of entries, clear cache |
@@ -99,7 +82,7 @@ Each step asks for one decision and saves it at once. "Back", "Next" and "Skip t
 | 5 Online machine translation | the fields of the machine translator: nothing to fill in for Google, free or Azure key mode for Microsoft, endpoint and token for DeepLX, the key of DeepL, Baidu, Youdao or Caiyun; "Test connection" | the machine tier uses an online service |
 | 6 AI translation | the AI provider, its API key, model, temperature and thinking mode, "Test connection", the precise translation switch and under it the mode of image translation (Off, Ask under each image, On; greyed out while precise translation is off) with a note on its cost and consent; a note that thinking mode and precise translation make translation slower and more expensive | the AI tier is used |
 | 7 Prompts | the three prompts and the preset library | the AI tier is used |
-| 8 Done | how to translate (toolbar button, Alt+A, Alt+S), the switches "Automatically translate messages not in the target language" and "Translate the subject as well" with a note on how the subject is shown, and "Translate the sample message" | always |
+| 8 Done | how to translate (toolbar button, Alt+A, Alt+S), the switch "Automatically translate messages not in the target language", and "Translate the sample message" | always |
 
 A step that the earlier choices do not need stays in the list, struck through, and the navigation passes over it. Choosing an AI service in step 3, for example, brings steps 6 and 7 back.
 
@@ -152,7 +135,8 @@ The "Translate message" button in the message header toolbar opens the popup.
 - Display switches between bilingual and translation-only. The change applies to the current message immediately.
 - Source language and target language: after a change of either, a message being translated is translated again. A note appears when both are the same language.
 - Translation tiers: one list per tier (1 dictionary, 2 machine translation, 3 AI translation), each with "Not used", the added services of that tier and, as last entry, "+ Add translation service…". That entry opens the settings page at the translation services of the tier and leaves the list at its value. At least one tier needs a service; choosing "Not used" for the last one is refused with a note.
-- Precise translation is shown while the AI tier has a service. While it is on, "Image translation" offers Off, Ask under each image and On, with a warning when the vision model does not accept images, see [Image translation](#image-translation).
+- Precise translation is shown while the AI tier has a service.
+- "Image translation" always shows its three modes, Off, Ask under each image and On, with a warning when the vision model does not accept images, see [Image translation](#image-translation). While precise translation is off, the modes are greyed out and cannot be chosen, and the note "Requires precise translation." follows them with the button "Turn on precise translation", which turns precise translation on with one click. Without a service in the AI tier the note says that precise translation needs a service in the "AI translation" tier, and there is no button.
 - "Automatically translate messages not in the target language": when checked, a message whose body is not in the target language is translated as soon as it is opened.
 - "Summary and to-dos" shows the summary of the message above it, see [Summary and to-dos](#summary-and-to-dos). It is disabled without an AI service for the summary.
 - "Setup guide" opens the setup guide in a new tab.
@@ -162,26 +146,6 @@ The popup shows the progress, for example "Translated 8 of 12". Paragraphs that 
 Changing the display mode or the target language while a message is translated re-renders the page without reopening the message. In translation-only mode, hovering over a translation shows the original text in a tooltip.
 
 The shortcuts Alt+A, Alt+S and Alt+R can be changed under "Manage Extension Shortcuts" in the gear menu of the Add-ons Manager, where the summary gets a shortcut of your choice. Alt+A pressed while the setup guide is the active tab translates or restores its sample message.
-
-## Translated subjects
-
-The "Translated subjects" button in the main toolbar of Thunderbird opens a page with the messages of the folder shown in the mail tab. Each row has the sender, the date, the subject and the translated subject. The page follows the mail tab of its window.
-
-- It lists the first 100 messages in the order of the message list. "Show more" adds the next 100.
-- The translated subjects go through the tiers in use like the paragraphs of a message: a lower tier appears first as a provisional translation, in italics with the label of its tier, and the highest tier replaces it. Hovering over a translation shows the subject.
-- Reply and forward prefixes stay as they are, and a subject already in the target language leaves its translation cell empty.
-- Clicking a row, or pressing Enter on it, selects its message in the mail tab, which shows it.
-- When the mail tab shows another folder, the page reads the new list at once and again one and three seconds later: a folder fills its list while Thunderbird reads its file for the first time or downloads its messages, and no event announces the end. When messages arrive, are deleted or are moved, it reads the list again half a second after the last change and keeps as many rows as it showed. A list that has not changed leaves the rows as they are.
-- "Open in a window" opens the page in a window of its own. That window follows the mail tab the page was opened from and stays open while you read messages in the main window.
-- The line under the title counts the listed messages, and a second line shows the translation progress, for example "Translated 37 of 80".
-
-The page sends the subjects to the background script, which merges them into batches as it does with paragraphs: one request carries many subjects, up to the limits under [Request batching and timeouts](#request-batching-and-timeouts). Subjects already in the cache are not requested again, and the page remembers what it translated while it is open, so "Show more" and a reload request only new subjects. With only the dictionary and Bergamot in use, nothing leaves the computer.
-
-The consent rules of a message apply. Before subjects first go to an online service that is not allowed yet, the page shows the consent panel above the list. The panel names each service with its host, says that the listed subjects go to these services, and offers "Allow and translate" and "Cancel". A service allowed here is allowed for messages as well, and the other way round.
-
-Thunderbird hands a message list over in pages of its own size, 100 messages by default. The page reads further pages as needed and stops reading a list it no longer needs.
-
-The experimental build shows the translated subjects in a column of the message list itself, see [experimental.md](experimental.md).
 
 ## Adding and removing services
 
@@ -236,7 +200,7 @@ When a translation starts (the toolbar button, Alt+A, automatic translation, Ret
 
 Until a service is allowed, no request reaches it: the background script refuses a request for it as well, also a request that already waits in its queue when the consent is revoked, and reports "<service> has not been allowed to receive message text yet. Translate the message again and choose “Allow and translate”.". A tier changed to a service not allowed yet, while a message is translated, makes the panel appear again.
 
-The allowed services are listed in the Translation tiers section of the settings page, each with its host and "Revoke"; after a revocation the panel asks again, also in the message on screen, and the requests of the service still waiting in a queue are not sent. Settings saved before 2.4.0 hold the services alone; they count as allowed for the endpoint the service has when the settings are read. The sample message of the setup guide is built into the extension and is no mail of yours, so its trial translation asks nothing.
+The allowed services are listed in the Translation tiers section of the settings page, each with its host and "Revoke"; after a revocation the panel asks again, also in the message on screen, and the requests of the service still waiting in a queue are not sent. Settings saved before 3.0.0 hold the services alone; they count as allowed for the endpoint the service has when the settings are read. The sample message of the setup guide is built into the extension and is no mail of yours, so its trial translation asks nothing.
 
 Settings of version 1.x hold no consent: after the update to 2.0 the first translation with an online service asks once.
 
@@ -337,9 +301,34 @@ The analysis is cached like translations. Its key contains the provider, model, 
 
 Translations made in precise mode are cached under a key that contains the message hash, and batches never mix paragraphs of different messages. The same sentence in another message is therefore translated again, with that message as context. The analysis request and the longer prompts make precise translation more expensive than normal translation.
 
+### Analysis and summary in one request
+
+A message that needs an analysis and a summary would cost two requests that both carry the whole message. One request writes both when all of these hold:
+
+- precise translation is on and the paragraphs to translate do not fit into one request, so the message needs an analysis;
+- the summary uses the same AI service and the same model as the AI tier;
+- that service is allowed to receive message text;
+- a summary of the message is wanted, and its analysis is neither running nor cached.
+
+The summary is wanted in two orders of events:
+
+1. The summary is asked for first, by a click, the shortcut or [Automatic summary](#automatic-summary). The summary request starts the combined request, and the batches of the paragraphs wait for its analysis instead of asking for one of their own.
+2. The analysis starts first, "Automatic summary" is not "Off", and no summary has been asked for that message yet. The background script then reads the sender, date and subject of the message through the tab of the content script and puts them into the request, as a summary request does.
+
+The request carries the message and a system prompt with both tasks. The answer is one JSON object, `{"analysis": {...}, "digest": {...}}`, with the analysis first: an answer cut at the length limit then still holds the analysis whole. The length limit is the "Answer length limit (tokens)" of the summary plus 1500 tokens for the analysis; a model that reasons first gets the room for its reasoning on top, as a summary does.
+
+Each part of the answer is read on its own:
+
+| Part | Read | Not readable |
+| --- | --- | --- |
+| Analysis | cached under the key of the analysis, as if it came from a request of its own | translation goes on without it and does not ask for it again, as with an analysis of its own |
+| Summary | kept under the key a summary request of the same message computes, which holds the glossary of this analysis and the header of the message; a copy stays in memory, so a later summary of the message finds it also with the cache off | the summary is asked for again, alone |
+
+A combined request that waits in the queue is not sent once every page waiting for it went away, the summary panel and the batches alike. When it leaves the queue, the consent of the service is checked again. When the summary uses another service or another model than the AI tier, or its service is not allowed to receive message text, the analysis and the summary go in two requests, as before. "Regenerate" in the summary panel asks for the summary alone.
+
 ## Summary and to-dos
 
-"Summary and to-dos" in the popup, or a shortcut you assign to the command "Summary and to-dos of the message", sends the message to an AI service and shows its summary in a panel at the top of the body, under the line with the subject. The command has no default key, because Thunderbird already uses many Alt combinations for its menus; it can be set under "Manage Extension Shortcuts" in the gear menu of the Add-ons Manager. With "Show a “Summary” button above a translated message" on, a small "Summary" button appears above the message while it is translated.
+"Summary and to-dos" in the popup, or a shortcut you assign to the command "Summary and to-dos of the message", sends the message to an AI service and shows its summary in a panel at the top of the body. The command has no default key, because Thunderbird already uses many Alt combinations for its menus; it can be set under "Manage Extension Shortcuts" in the gear menu of the Add-ons Manager. With "Show a “Summary” button above a translated message" on, a small "Summary" button appears above the message while it is translated.
 
 The panel has four parts, each a heading and a list. A part without entries is left out, and a panel without any entry says that the service found nothing:
 
@@ -364,12 +353,29 @@ The request carries the message text as the content script finds it (up to 20,00
 
 The summary uses the consent of the translation. Its service gets the message only once it is allowed to receive message text; otherwise the consent panel appears first, with the text of precise translation, since the whole message goes to the AI service. While the cache is on (see [Retranslate and the cache](#retranslate-and-the-cache)), a summary that could be read is cached under the service, the model, the target language, the request and a hash of endpoint, prompt, part list, length limit, temperature and thinking switch.
 
+### Automatic summary
+
+"Automatic summary" opens the summary without a click on "Summary":
+
+| Choice | When the summary opens |
+| --- | --- |
+| Off (default) | only when you ask for it: "Summary and to-dos" in the popup, the shortcut or the "Summary" button |
+| When the message is translated | when a translation of the message starts, by itself through automatic translation or by your click |
+| For every opened message | for every message on screen, also a message already in your language, which no translation starts for |
+
+The summary opens by itself once per message, and not while its panel is already open. A message without readable text, for example one with only a picture or a date, gets no summary. When a translation starts, the content script asks for the summary right away, before the paragraphs leave, so that precise translation can write the analysis and the summary in one request ([Analysis and summary in one request](#analysis-and-summary-in-one-request)).
+
+A summary that opens by itself asks for the consent of its service the first time, as a click on "Summary" does. "Cancel" holds for that message: the summary does not open by itself again while the message is on screen, and a click on "Summary" asks again. "For every opened message" costs one AI request for every message with text that you open.
+
+### Summary settings
+
 | Setting | Default | Range | Meaning |
 | --- | --- | --- | --- |
 | Service | Same as the AI tier | the added AI services | without an AI tier and without a service of its own, the popup button is disabled |
 | Model | empty | any model name | empty uses the model of the service |
 | Answer length limit (tokens) | 800 | 200–4000 | the length of the summary, sent as `maxOutputTokens`; a model that reasons first (thinking on, or a model that reasons with thinking off, such as `gpt-5-mini`) gets 4096 more for its reasoning, which most services count within the limit; Anthropic's SDK adds it by itself. An answer cut at the limit fails with a message that names the limit |
 | Panel | Expanded | Expanded, Collapsed | how the panel opens |
+| Automatic summary | Off | Off, When the message is translated, For every opened message | see [Automatic summary](#automatic-summary) |
 | Include | all four parts | Summary, To-dos, Questions to answer, Dates and meetings | the parts left out are asked as empty lists, which shortens the answer, and are not shown |
 | Show a “Summary” button above a translated message | off | | a button on every message is in the way of readers who only want the translation |
 
@@ -393,7 +399,7 @@ A mode takes effect only while the message is translated, with precise translati
 
 "Ask" is the default for three reasons. Images often hold identity documents, contracts or screenshots of internal systems, so you decide per image. One image costs about as much as a dozen paragraphs of text. Most images of a mail are decoration, which "On" would pay for.
 
-The popup shows the three modes while precise translation is on; the settings page has them under the switch of precise translation, and the setup guide on its AI step. A new mode applies to the message on screen at once, as a new display mode does, without translating the paragraphs again:
+The popup always shows the three modes; the settings page has them under the switch of precise translation, and the setup guide on its AI step. While precise translation is off, the popup and the settings page show the modes greyed out with the note "Requires precise translation." and the button "Turn on precise translation", which turns it on with one click; on the settings page the note and the button stand above the image settings, which are greyed out as a whole. Without a service in the AI tier the note says that precise translation needs one in the "AI translation" tier, and the button is missing, since precise translation has nothing to work with. A new mode applies to the message on screen at once, as a new display mode does, without translating the paragraphs again:
 
 - "Off" removes the buttons and results; the results stay in the cache.
 - "Ask" shows the buttons, and the results this message already has.
@@ -495,7 +501,7 @@ While the cache is on, a result is cached under the service, the vision model, t
 
 | Setting | Default | Range | Meaning |
 | --- | --- | --- | --- |
-| Image translation | Ask under each image | Off, Ask under each image, On | see [Modes](#modes); greyed out with "Needs precise translation" while precise translation is off, its value kept |
+| Image translation | Ask under each image | Off, Ask under each image, On | see [Modes](#modes); greyed out with "Requires precise translation." and "Turn on precise translation" while precise translation is off, its value kept |
 | Vision service | Same as the AI tier | the added AI services | another service needs its own consent and access to its endpoint |
 | Model | empty | any model name | empty uses the model of the service; the line under it names a model that does not accept images, with one that does |
 | Translate inline images of the body | on | | `cid:` and `data:` images |
@@ -698,8 +704,6 @@ The rendered translation consists of text and these elements only: `strong`, `em
 
 Thunderbird handles a click on such a link like a click on any other link in a message; the extension adds no handler of its own. In the message pane Thunderbird's link handler (`StrictLinkClickHandlerChild` for browsers of the group `mail-message`) stops the navigation of an `http:` or `https:` link and opens it in the default web browser, after the phishing check that asks when the text of a link names another host than its address. A `mailto:` link opens a new message to that address, since Thunderbird handles `mailto:` itself.
 
-Subjects are shown as plain text: while the switch is on, the subject line above the body, the page of translated subjects and the column of the experimental build show an AI translation of a subject with the marks removed, the text of a link without its address. `**Budget** 2027` becomes "Budget 2027" there. With the switch off, a subject shows the text exactly as the service returned it, marks included, like every other translation.
-
 The rendered elements sit inside the translation block, so the style of the translations applies to them: text color, opacity and font size ratio. A link takes the text color of the translations when one is set, otherwise the link color of the system, and stays underlined; code uses a monospace font at 92 % of the translation's size.
 
 The cache and the memory of the page keep each translation as the service returned it; the renderer formats it when it is shown. Turning the switch on or off therefore redraws the message on screen at once and sends no request, and the switch is part of no cache key.
@@ -726,15 +730,16 @@ Settings saved before version 2.2.0 have no switch for the Markdown of AI transl
 
 Settings saved before version 2.3.0 have no summary settings and no summary prompt: the summary uses the AI tier with the defaults of [Summary and to-dos](#summary-and-to-dos) and the built-in prompt. They have no app ID, Baidu edition or DeepL options either: Baidu starts as the standard edition, DeepL with default formality, American English and Brazilian Portuguese.
 
-Settings saved before version 2.4.0 have no image settings, no image prompt and no service allowed to receive images: image translation starts in mode "Ask under each image" with the defaults of [Image settings](#image-settings), which takes effect once precise translation is on, and the first image asks before it is sent. A service in the list of services allowed for images that is not an online AI service is dropped when the settings are read.
+Settings saved before version 3.0.0 have no automatic summary: it starts as "Off". The setting "Translate the subject as well" of earlier versions is dropped when 3.0 reads the settings, and the settings are written back without it at once; every other setting keeps its value.
+
+Settings saved before version 3.0.0 have no image settings, no image prompt and no service allowed to receive images: image translation starts in mode "Ask under each image" with the defaults of [Image settings](#image-settings), which takes effect once precise translation is on, and the first image asks before it is sent. A service in the list of services allowed for images that is not an online AI service is dropped when the settings are read.
 
 ## Permissions
 
 | Permission | What the extension uses it for |
 | --- | --- |
 | `messagesModify` | showing translations inside the displayed message: Thunderbird runs the content script of `messageDisplayScripts` and injects it into a message already on screen only with this permission. The extension changes no stored message. |
-| `messagesRead` | reading subjects: the subject of the displayed message for the line above the body, and its sender and date for its summary (`messageDisplay.getDisplayedMessage()`), and the sender, date and subject of the messages listed in a mail tab for the page of translated subjects (`mailTabs.getListedMessages()`, `messages.continueList()`, `messages.abortList()`), read again after new, deleted and moved messages. The extension reads no message body this way and stores no header. Image translation reads the id of the displayed message and, with `messages.getAttachmentFile()`, the image parts of that message whose images pass the filters of [Which images](#which-images): inline images of the body and image attachments, never another attachment. |
-| `accountsRead` | the page of translated subjects: Thunderbird requires it for `mailTabs.setSelectedMessages()`, which selects the message of a clicked row, and for `mailTabs.onDisplayedFolderChanged`, which tells the page that the mail tab shows another folder. The extension reads no account settings. |
+| `messagesRead` | reading the header of the displayed message with `messageDisplay.getDisplayedMessage()`: its sender, date and subject go with the request of its summary. The extension reads no message body this way and stores no header. Image translation reads the id of the displayed message and, with `messages.getAttachmentFile()`, the image parts of that message whose images pass the filters of [Which images](#which-images): inline images of the body and image attachments, never another attachment. |
 | `sensitiveDataUpload` | sending the paragraphs of a message to the online services of the tiers in use, the message to the AI service of its summary, and the images you ask to translate, or that mode "On" takes, to the vision service |
 | `storage` | the settings, the translation cache and the state of the setup guide in `storage.local` |
 | `unlimitedStorage` | the dictionary packs and Bergamot models in IndexedDB, 13 to 48 MB per direction, which the browser then neither evicts nor caps |
@@ -759,7 +764,7 @@ The endpoint field of a local service notes that `localhost` is this computer (t
   - URL path segments that look like a token (20 or more characters with letters and digits);
   - user names and passwords in URLs;
   - URL parameters whose names contain key, token, auth, secret, sig, pass, credential or session.
-- Message text is sent only to the services of the tiers in use and, when you ask for a summary, to the AI service of the summary, and to an online service only after you allowed it, see [Consent before online translation](#consent-before-online-translation). This includes the subjects: the subject of a displayed message and the subjects on the page of translated subjects go to the same services under the same consent. The dictionary and Bergamot translate on your computer and send no text anywhere.
+- Message text is sent only to the services of the tiers in use and, when you ask for a summary or "Automatic summary" opens one, to the AI service of the summary, and to an online service only after you allowed it, see [Consent before online translation](#consent-before-online-translation). The subject goes along only with the request of a summary, together with the sender and the date. The dictionary and Bergamot translate on your computer and send no text anywhere.
 - An image goes to the vision service only with precise translation on, after a click on its button or, in mode "On", by itself, and only once the service is allowed to receive images, see [Consent for images](#consent-for-images). It goes scaled down and encoded again, without its file name and metadata. Remote images and images under the filters of [Which images](#which-images) are never sent; images in signatures are left out by default, a filter the settings can turn off. To look up cached results, the first images that pass the filters are read on the computer when a translation starts.
 - The extension connects only to the hosts of its manifest and to the endpoints you allowed, see [Permissions](#permissions).
 - The settings page and the setup guide send the fixed test sentence of "Test connection" to Google Translate (free) and Microsoft Translator (free) when they show the service as added, once per page, to tell whether it can be reached ([Connection check of the free routes](#connection-check-of-the-free-routes)). No message text goes with it; the service sees the IP address of the computer.

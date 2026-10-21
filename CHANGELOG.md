@@ -162,7 +162,7 @@ Version 2.1 translates subjects: of the message you read, and of a whole folder 
 ### Experimental build
 
 - `multi-translate-experimental-2.1.0.xpi`, attached to the release on GitHub, adds a column "Translated subject" to the message list, filled for the first 100 messages of the folder on screen. It needs the table view of the message list.
-- The column uses an internal interface of Thunderbird through a WebExtension Experiment and may stop working with a later Thunderbird version. The build has its own add-on id and is not on addons.thunderbird.net; install either it or the regular build, not both. [docs/experimental.md](docs/experimental.md) describes installation, differences and risks.
+- The column uses an internal interface of Thunderbird through a WebExtension Experiment and may stop working with a later Thunderbird version. The build has its own add-on id and is not on addons.thunderbird.net; install either it or the regular build, not both. Version 3.0.0 removed the experimental build.
 
 ### Permissions
 

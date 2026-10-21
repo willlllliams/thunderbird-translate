@@ -25,14 +25,14 @@ Vorstellungsvideo: [YouTube](https://www.youtube.com/watch?v=OZmiMGeuhJ0) (1 Min
 
 ## Funktionen
 
-- Übersetzt Absätze, Listeneinträge, Tabellenzellen, Überschriften und Zitate von HTML-Nachrichten sowie durch Leerzeilen getrennte Absätze von Nur-Text-Nachrichten. Code, Zahlen, nackte Links und Absätze, die bereits in der Zielsprache verfasst sind, werden übersprungen. Auch der Betreff wird übersetzt, in einer Zeile über dem Nachrichtentext („Auch den Betreff übersetzen“, standardmäßig an).
+- Übersetzt Absätze, Listeneinträge, Tabellenzellen, Überschriften und Zitate von HTML-Nachrichten sowie durch Leerzeilen getrennte Absätze von Nur-Text-Nachrichten. Code, Zahlen, nackte Links und Absätze, die bereits in der Zielsprache verfasst sind, werden übersprungen.
 - Zwei Anzeigemodi: zweisprachig (die Übersetzung unter jedem Originalabsatz) oder nur Übersetzung, beide mit Fettdruck, Listen und Links von KI-Übersetzungen formatiert. Wird die Übersetzung ausgeschaltet, steht die Nachricht wieder exakt im Original da.
 - Drei Übersetzungsstufen arbeiten gleichzeitig: ein Offline-Wörterbuch, ein maschineller Übersetzer und ein KI-Dienst. Das schnellste Ergebnis erscheint zuerst, das der höchsten Stufe ersetzt es.
 - Maschinelle Übersetzung ohne Konto (Google Translate als Standard und Microsoft Translator) oder mit eigenem Schlüssel (DeepL, Baidu, Youdao, Caiyun).
 - Offline-Übersetzung mit Wörterbuchpaketen und den Bergamot-Modellen von Mozilla; kein Text verlässt den Computer.
 - 22 Voreinstellungen für KI-Anbieter, darunter OpenAI, Claude, Gemini, DeepSeek, Qwen, lokale Instanzen von Ollama und LM Studio sowie jeder OpenAI-kompatible Dienst.
 - Präzise Übersetzung: Die KI-Stufe sieht die gesamte Nachricht, sodass Namen und Fachbegriffe einheitlich bleiben. Damit kann ein KI-Dienst auch den Text in den Bildern einer Nachricht lesen und unter jedem Bild Original und Übersetzung zeigen.
-- Zusammenfassung und Aufgaben: Ein KI-Dienst listet über der Nachricht die Zusammenfassung, die Aufgaben, die zu beantwortenden Fragen und die Termine auf.
+- Zusammenfassung und Aufgaben: Ein KI-Dienst listet über der Nachricht die Zusammenfassung, die Aufgaben, die zu beantwortenden Fragen und die Termine auf. Die Einstellung „Automatische Zusammenfassung“ öffnet sie ohne Klick, wenn die Nachricht übersetzt wird oder für jede geöffnete Nachricht. Ist eine Nachricht bei präziser Übersetzung zu lang für eine Anfrage, braucht sie vor der Übersetzung eine Analyse; verwendet die Zusammenfassung denselben KI-Dienst und dasselbe Modell wie die KI-Stufe, schreibt eine einzige Anfrage Analyse und Zusammenfassung.
 - Drei bearbeitbare Prompts mit Vorlagen für regionale Varianten, Schreibstile und schwierige Wörter.
 - Optional: automatische Übersetzung jeder Nachricht, die nicht in der Zielsprache verfasst ist.
 - Benutzeroberfläche in 12 Sprachen und ein Einrichtungsassistent, der sich nach der Installation öffnet.
@@ -43,7 +43,7 @@ Vorstellungsvideo: [YouTube](https://www.youtube.com/watch?v=OZmiMGeuhJ0) (1 Min
 2. In Thunderbird Extras → Add-ons und Themes öffnen (auch über das Menü ≡ oben rechts erreichbar).
 3. Auf das Zahnradsymbol über der Liste der Erweiterungen klicken, „Add-on aus Datei installieren…“ wählen, die xpi-Datei auswählen und bestätigen.
 
-Erforderlich ist Thunderbird 128 oder neuer. Das Vorabrelease `nightly` ist ein automatischer Build des jeweils neuesten Commits und für Tests gedacht. Die experimentelle Version `multi-translate-experimental-<version>.xpi` fügt der Nachrichtenliste zusätzlich eine Spalte „Übersetzter Betreff“ hinzu; sie hängt von einer internen Schnittstelle von Thunderbird ab, und nur eine der beiden Versionen kann installiert sein ([docs/experimental.md](../docs/experimental.md), auf Englisch).
+Erforderlich ist Thunderbird 128 oder neuer. Das Vorabrelease `nightly` ist ein automatischer Build des jeweils neuesten Commits und für Tests gedacht.
 
 ## Schnellstart
 
@@ -55,7 +55,7 @@ Eine Nachricht öffnen und in der Symbolleiste des Nachrichtenkopfs auf „Nachr
 
 - „Diese Nachricht übersetzen“ startet die Übersetzung. Solange eine Übersetzung angezeigt wird, lautet die Schaltfläche „Original anzeigen“.
 - „Neu übersetzen“ fragt jede Stufe erneut und ignoriert den Cache; „Zusammenfassung und Aufgaben“ zeigt die Zusammenfassung der Nachricht über ihr.
-- Anzeigemodus, Ausgangssprache („Automatisch erkennen“ ist voreingestellt), Zielsprache, pro Stufe eine Liste der Dienste, „Präzise Übersetzung“ mit dem Modus der Bildübersetzung (aus, unter jedem Bild fragen, ein) und der Schalter „Nachrichten, die nicht in der Zielsprache verfasst sind, automatisch übersetzen“.
+- Anzeigemodus, Ausgangssprache („Automatisch erkennen“ ist voreingestellt), Zielsprache, pro Stufe eine Liste der Dienste, „Präzise Übersetzung“ mit dem Modus der Bildübersetzung (aus, unter jedem Bild fragen, ein; ausgegraut mit der Schaltfläche „Präzise Übersetzung einschalten“, solange die präzise Übersetzung aus ist) und der Schalter „Nachrichten, die nicht in der Zielsprache verfasst sind, automatisch übersetzen“.
 
 | Tastenkombination | Aktion |
 | --- | --- |
@@ -65,7 +65,7 @@ Eine Nachricht öffnen und in der Symbolleiste des Nachrichtenkopfs auf „Nachr
 
 Die Tastenkombinationen lassen sich im Zahnradmenü der Add-ons-Verwaltung unter „Tastenkombinationen für Erweiterungen verwalten“ ändern; dort erhält auch die Zusammenfassung eine Tastenkombination nach Wahl.
 
-Der zweisprachige Modus setzt jede Übersetzung unter ihren Originalabsatz. Der Modus „Nur Übersetzung“ ersetzt das Original; fährt man mit der Maus über eine Übersetzung, erscheint der Originaltext. Die Schaltfläche „Übersetzte Betreffs“ in der Hauptsymbolleiste listet die Nachrichten des aktuellen Ordners mit ihren übersetzten Betreffs auf; ein Klick auf eine Zeile zeigt die Nachricht an.
+Der zweisprachige Modus setzt jede Übersetzung unter ihren Originalabsatz. Der Modus „Nur Übersetzung“ ersetzt das Original; fährt man mit der Maus über eine Übersetzung, erscheint der Originaltext.
 
 Alle weiteren Einstellungen liegen auf der Einstellungsseite, die sich über die Schaltfläche „Einstellungen“ der Erweiterung in der Add-ons-Verwaltung öffnet. Änderungen werden automatisch gespeichert, und beim Zeigen mit der Maus auf ein Bedienelement erscheint, was es tut. Jede Einstellung ist in [docs/settings.md](../docs/settings.md) (auf Englisch) beschrieben.
 
@@ -107,7 +107,7 @@ Vorlagen fügen einem Prompt Regeln hinzu: eine regionale Variante wie britische
 
 ## Datenschutz
 
-- Der Nachrichtentext geht nur an die Dienste der verwendeten Stufen. Das Wörterbuch und Bergamot übersetzen auf dem eigenen Computer. Für die Betreffs der Nachrichten gilt dieselbe Regel. Eine angeforderte Zusammenfassung schickt die ganze Nachricht mit Absender und Datum an ihren KI-Dienst.
+- Der Nachrichtentext geht nur an die Dienste der verwendeten Stufen. Das Wörterbuch und Bergamot übersetzen auf dem eigenen Computer. Eine Zusammenfassung, per Klick oder automatisch geöffnet, schickt die ganze Nachricht mit Absender, Datum und Betreff an ihren KI-Dienst.
 - Bevor der Text einer Nachricht zum ersten Mal an einen Online-Dienst geht, nennt ein Feld über der Nachricht den Dienst und seine Adresse und fragt einmal pro Dienst und Adresse nach. Vor einem Klick auf „Erlauben und übersetzen“ wird nichts gesendet; die Einstellungsseite listet die erlaubten Dienste auf und kann die Erlaubnis widerrufen. Mit Wörterbuch und Bergamot allein wird nichts gefragt.
 - Ein Bild geht nur bei eingeschalteter präziser Übersetzung an einen KI-Dienst: nach einem Klick auf die Schaltfläche darunter oder von selbst, wenn die Bildübersetzung auf „Ein“ steht. Vor dem ersten Bild fragt ein Feld darunter einmal pro Dienst nach, getrennt vom Text. Das Bild wird verkleinert und neu codiert, ohne Dateinamen und Metadaten. Externe Bilder werden nie übersetzt.
 - Eine selbst eingetragene Adresse (Ollama, LM Studio, DeepLX, ein eigener Dienst, eine geänderte Adresse) braucht einmal die Erlaubnis zur Verbindung, erteilt mit „Zugriff erlauben“ oder „Verbindung testen“ in den Einstellungen.
@@ -136,7 +136,6 @@ Die folgenden Dokumente sind auf Englisch, außer dictionary-packs.md, das auf C
 - [docs/bergamot.md](../docs/bergamot.md): die Offline-Engine Bergamot, Auswahl und Speicherung ihrer Modelle und ihr Build.
 - [docs/dictionary-packs.md](../docs/dictionary-packs.md): Datenquellen, Format und Erstellung der Wörterbuchpakete (auf Chinesisch).
 - [docs/development.md](../docs/development.md): Erstellen aus dem Quellcode, Tests, Projektstruktur, Übersetzen der Benutzeroberfläche und Release-Prozess.
-- [docs/experimental.md](../docs/experimental.md): die experimentelle Version mit der Spalte „Übersetzter Betreff“, ihre Installation und ihre Risiken.
 
 ## Danksagung
 

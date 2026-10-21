@@ -25,14 +25,14 @@ Video giới thiệu: [YouTube](https://www.youtube.com/watch?v=OZmiMGeuhJ0) (1 
 
 ## Tính năng
 
-- Dịch đoạn văn, mục danh sách, ô bảng, tiêu đề và khối trích dẫn của thư HTML, cùng các đoạn cách nhau bằng dòng trống của thư văn bản thuần. Mã nguồn, con số, liên kết trơn và các đoạn đã ở ngôn ngữ đích được bỏ qua. Tiêu đề thư cũng được dịch, hiện trên một dòng phía trên nội dung thư ("Dịch cả tiêu đề thư", bật theo mặc định).
+- Dịch đoạn văn, mục danh sách, ô bảng, tiêu đề và khối trích dẫn của thư HTML, cùng các đoạn cách nhau bằng dòng trống của thư văn bản thuần. Mã nguồn, con số, liên kết trơn và các đoạn đã ở ngôn ngữ đích được bỏ qua.
 - Hai chế độ hiển thị: song ngữ (bản dịch nằm dưới từng đoạn gốc) hoặc chỉ bản dịch, cả hai đều hiển thị chữ đậm, danh sách và liên kết của bản dịch AI có định dạng. Khi tắt dịch, thư gốc được khôi phục nguyên vẹn.
 - Ba tầng dịch chạy cùng lúc: từ điển ngoại tuyến, dịch máy và dịch vụ AI. Kết quả nhanh nhất hiện trước, và kết quả của tầng cao nhất thay thế nó.
 - Dịch máy không cần tài khoản (Google Translate, mặc định, và Microsoft Translator) hoặc bằng khóa của riêng bạn (DeepL, Baidu, Youdao, Caiyun).
 - Dịch ngoại tuyến bằng gói từ điển và các mô hình Bergamot của Mozilla; không có văn bản nào rời khỏi máy của bạn.
 - 22 cấu hình sẵn cho nhà cung cấp AI, trong đó có OpenAI, Claude, Gemini, DeepSeek, Qwen, Ollama và LM Studio chạy cục bộ, cùng mọi dịch vụ tương thích OpenAI.
 - Dịch chính xác: tầng AI nhận toàn bộ thư làm ngữ cảnh, nên tên riêng và thuật ngữ nhất quán. Khi bật, dịch vụ AI còn đọc được chữ trong ảnh của thư và hiện bản gốc cùng bản dịch dưới mỗi ảnh.
-- Tóm tắt và việc cần làm: một dịch vụ AI liệt kê phía trên thư bản tóm tắt, các việc cần làm, các câu hỏi cần trả lời và các ngày.
+- Tóm tắt và việc cần làm: một dịch vụ AI liệt kê phía trên thư bản tóm tắt, các việc cần làm, các câu hỏi cần trả lời và các ngày. Thiết lập "Tự động tóm tắt" mở bản tóm tắt mà không cần bấm, khi dịch thư hoặc cho mọi thư được mở. Với dịch chính xác, thư quá dài cho một yêu cầu cần được phân tích trước khi dịch; khi bản tóm tắt dùng cùng dịch vụ AI và mô hình với tầng AI, một yêu cầu duy nhất viết cả phần phân tích và bản tóm tắt.
 - Ba lời nhắc có thể chỉnh sửa, kèm mẫu có sẵn cho biến thể vùng miền, văn phong và từ khó.
 - Tùy chọn tự động dịch mọi thư không ở ngôn ngữ đích.
 - Giao diện có 12 ngôn ngữ và hướng dẫn thiết lập tự mở sau khi cài đặt.
@@ -43,7 +43,7 @@ Video giới thiệu: [YouTube](https://www.youtube.com/watch?v=OZmiMGeuhJ0) (1 
 2. Trong Thunderbird, mở Công cụ → Tiện ích và chủ đề (cũng mở được từ menu ≡ ở góc trên bên phải).
 3. Nhấn biểu tượng bánh răng phía trên danh sách tiện ích, chọn "Cài đặt tiện ích từ tập tin…", chọn tệp xpi và xác nhận.
 
-Cần Thunderbird 128 trở lên. Bản tiền phát hành `nightly` là bản dựng tự động của commit mới nhất, dùng để thử nghiệm. Bản thử nghiệm `multi-translate-experimental-<version>.xpi` còn thêm cột "Tiêu đề đã dịch" vào danh sách thư; bản này phụ thuộc vào giao diện nội bộ của Thunderbird, và chỉ cài được một trong hai bản ([docs/experimental.md](../docs/experimental.md), tiếng Anh).
+Cần Thunderbird 128 trở lên. Bản tiền phát hành `nightly` là bản dựng tự động của commit mới nhất, dùng để thử nghiệm.
 
 ## Bắt đầu nhanh
 
@@ -55,7 +55,7 @@ Mở một thư và nhấn nút "Dịch thư" trên thanh công cụ ở phần 
 
 - "Dịch thư này" bắt đầu dịch. Khi bản dịch đang hiển thị, nút này đổi thành "Hiện bản gốc".
 - "Dịch lại" hỏi lại mọi tầng và bỏ qua bộ nhớ đệm; "Tóm tắt và việc cần làm" hiện bản tóm tắt của thư phía trên thư.
-- Chế độ hiển thị, ngôn ngữ nguồn (mặc định là "Tự động phát hiện"), ngôn ngữ đích, danh sách dịch vụ của từng tầng, dịch chính xác cùng chế độ dịch hình ảnh (tắt, hỏi dưới mỗi ảnh, bật), và công tắc "Tự động dịch thư không ở ngôn ngữ đích".
+- Chế độ hiển thị, ngôn ngữ nguồn (mặc định là "Tự động phát hiện"), ngôn ngữ đích, danh sách dịch vụ của từng tầng, dịch chính xác cùng chế độ dịch hình ảnh (tắt, hỏi dưới mỗi ảnh, bật; bị làm mờ kèm nút "Bật dịch chính xác" khi dịch chính xác đang tắt), và công tắc "Tự động dịch thư không ở ngôn ngữ đích".
 
 | Phím tắt | Tác dụng |
 | --- | --- |
@@ -65,7 +65,7 @@ Mở một thư và nhấn nút "Dịch thư" trên thanh công cụ ở phần 
 
 Có thể đổi các phím tắt trong mục "Quản lý phím tắt tiện ích mở rộng" ở menu bánh răng của Trình quản lý tiện ích, nơi bản tóm tắt cũng nhận một phím tắt tùy bạn chọn.
 
-Chế độ song ngữ đặt mỗi bản dịch dưới đoạn gốc của nó. Chế độ chỉ bản dịch thay thế đoạn gốc; di chuột lên bản dịch để xem văn bản gốc. Nút "Tiêu đề đã dịch" trên thanh công cụ chính liệt kê các thư của thư mục hiện tại cùng tiêu đề đã dịch; bấm vào một dòng để hiện thư đó.
+Chế độ song ngữ đặt mỗi bản dịch dưới đoạn gốc của nó. Chế độ chỉ bản dịch thay thế đoạn gốc; di chuột lên bản dịch để xem văn bản gốc.
 
 Mọi cài đặt khác nằm trên trang cài đặt: nút "Tùy chọn" của tiện ích trong Trình quản lý tiện ích. Thay đổi được lưu tự động, và khi rê chuột lên một điều khiển sẽ hiện chú thích về chức năng của nó. Từng cài đặt được mô tả trong [docs/settings.md](../docs/settings.md) (tiếng Anh).
 
@@ -107,7 +107,7 @@ Các mẫu có sẵn thêm quy tắc vào lời nhắc: biến thể vùng miề
 
 ## Quyền riêng tư
 
-- Văn bản thư chỉ đến các dịch vụ của những tầng đang dùng. Từ điển và Bergamot dịch ngay trên máy của bạn. Tiêu đề của thư cũng tuân theo quy tắc này. Bản tóm tắt bạn yêu cầu gửi toàn bộ thư cùng người gửi và ngày gửi đến dịch vụ AI của bản tóm tắt.
+- Văn bản thư chỉ đến các dịch vụ của những tầng đang dùng. Từ điển và Bergamot dịch ngay trên máy của bạn. Bản tóm tắt, dù mở bằng cú bấm hay tự động, gửi toàn bộ thư cùng người gửi, ngày gửi và tiêu đề đến dịch vụ AI của bản tóm tắt.
 - Trước khi nội dung thư lần đầu được gửi đến một dịch vụ trực tuyến, bảng phía trên thư nêu tên dịch vụ và địa chỉ của nó, rồi hỏi một lần cho mỗi dịch vụ và địa chỉ. Không có gì được gửi trước khi bạn bấm "Cho phép và dịch"; trang cài đặt liệt kê các dịch vụ đã cho phép và cho phép thu hồi. Nếu chỉ dùng từ điển và Bergamot thì không có câu hỏi nào.
 - Ảnh chỉ được gửi đến dịch vụ AI khi dịch chính xác đang bật: sau khi bạn nhấn nút dưới ảnh, hoặc tự động khi dịch hình ảnh ở chế độ "Bật". Trước ảnh đầu tiên, bảng dưới ảnh hỏi một lần cho mỗi dịch vụ, tách khỏi văn bản. Ảnh được thu nhỏ và mã hóa lại, không kèm tên tệp và siêu dữ liệu. Ảnh từ xa không bao giờ được dịch.
 - Địa chỉ bạn tự nhập (Ollama, LM Studio, DeepLX, dịch vụ tùy chỉnh, địa chỉ đã đổi) cần được cấp quyền kết nối một lần, bằng nút "Cho phép truy cập" hoặc "Kiểm tra kết nối" trong phần cài đặt.
@@ -136,7 +136,6 @@ Các tài liệu dưới đây viết bằng tiếng Anh, riêng dictionary-pack
 - [docs/bergamot.md](../docs/bergamot.md): bộ máy dịch ngoại tuyến Bergamot, cách chọn và lưu mô hình, quy trình build.
 - [docs/dictionary-packs.md](../docs/dictionary-packs.md): nguồn dữ liệu, định dạng và cách tạo các gói từ điển (tiếng Trung).
 - [docs/development.md](../docs/development.md): build từ mã nguồn, kiểm thử, cấu trúc dự án, dịch giao diện và quy trình phát hành.
-- [docs/experimental.md](../docs/experimental.md): bản thử nghiệm có cột "Tiêu đề đã dịch", cách cài đặt và các rủi ro.
 
 ## Ghi công
 

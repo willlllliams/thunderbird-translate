@@ -25,14 +25,14 @@ Tanıtım videosu: [YouTube](https://www.youtube.com/watch?v=OZmiMGeuhJ0) (1 dk)
 
 ## Özellikler
 
-- HTML iletilerdeki paragrafları, liste öğelerini, tablo hücrelerini, başlıkları ve alıntıları; düz metin iletilerde ise boş satırlarla ayrılmış paragrafları çevirir. Kod, sayılar, çıplak bağlantılar ve zaten hedef dilde olan paragraflar atlanır. Konu da çevrilir ve gövdenin üstündeki bir satırda gösterilir ("Konuyu da çevir", varsayılan olarak açık).
+- HTML iletilerdeki paragrafları, liste öğelerini, tablo hücrelerini, başlıkları ve alıntıları; düz metin iletilerde ise boş satırlarla ayrılmış paragrafları çevirir. Kod, sayılar, çıplak bağlantılar ve zaten hedef dilde olan paragraflar atlanır.
 - İki görünüm modu: iki dilli (çeviri her özgün paragrafın altında) veya yalnızca çeviri; ikisinde de yapay zekâ çevirilerindeki kalın yazı, listeler ve bağlantılar biçimli görünür. Çeviri kapatıldığında özgün ileti olduğu gibi geri gelir.
 - Üç çeviri kademesi aynı anda çalışır: çevrimdışı sözlük, makine çevirisi ve yapay zekâ hizmeti. En hızlı sonuç önce görünür, en yüksek kademenin sonucu gelince onun yerini alır.
 - Hesap gerektirmeyen makine çevirisi (varsayılan Google Translate ve Microsoft Translator) veya kendi anahtarınızla DeepL, Baidu, Youdao ve Caiyun.
 - Sözlük paketleri ve Mozilla'nın Bergamot modelleriyle çevrimdışı çeviri; hiçbir metin bilgisayarınızdan çıkmaz.
 - OpenAI, Claude, Gemini, DeepSeek, Qwen, yerel Ollama ve LM Studio ile OpenAI uyumlu her hizmeti içeren 22 yapay zekâ sağlayıcısı ön ayarı.
 - Hassas çeviri: yapay zekâ kademesi iletinin tamamını görür, bu yüzden adlar ve terimler tutarlı kalır. Bununla bir yapay zekâ hizmeti iletinin görsellerindeki metni de okuyup her görselin altında özgün metni ve çevirisini gösterebilir.
-- Özet ve yapılacaklar: bir yapay zekâ hizmeti iletinin üstünde özeti, yapılacakları, yanıtlanacak soruları ve tarihleri listeler.
+- Özet ve yapılacaklar: bir yapay zekâ hizmeti iletinin üstünde özeti, yapılacakları, yanıtlanacak soruları ve tarihleri listeler. "Otomatik özet" ayarı özeti tıklamadan açar: ileti çevrildiğinde ya da açılan her ileti için. Hassas çeviride tek isteğe sığmayan uzun bir ileti, çeviriden önce bir analiz gerektirir; özet, yapay zekâ kademesiyle aynı yapay zekâ hizmetini ve modeli kullanıyorsa analizi ve özeti tek bir istek yazar.
 - Bölgesel çeşitler, yazım üslupları ve zor sözcükler için hazır ayarları olan, düzenlenebilir üç istem.
 - Hedef dilde olmayan her iletinin isteğe bağlı otomatik çevirisi.
 - 12 dilde arayüz ve kurulumdan sonra açılan bir kurulum rehberi.
@@ -43,7 +43,7 @@ Tanıtım videosu: [YouTube](https://www.youtube.com/watch?v=OZmiMGeuhJ0) (1 dk)
 2. Thunderbird'de Araçlar → Eklentiler ve temalar'ı açın (sağ üst köşedeki ≡ menüsünde de bulunur).
 3. Eklenti listesinin üstündeki dişli simgesine tıklayın, "Dosyadan eklenti yükle…" seçeneğini seçin, xpi dosyasını seçip onaylayın.
 
-Thunderbird 128 veya daha yeni bir sürüm gerekir. `nightly` ön sürümü, en son commit'in otomatik derlemesidir ve test amaçlıdır. Deneysel sürüm `multi-translate-experimental-<version>.xpi`, ileti listesine ayrıca "Çevrilmiş konu" sütununu ekler; Thunderbird'ün iç arayüzüne dayanır ve iki sürümden yalnızca biri yüklenebilir ([docs/experimental.md](../docs/experimental.md), İngilizce).
+Thunderbird 128 veya daha yeni bir sürüm gerekir. `nightly` ön sürümü, en son commit'in otomatik derlemesidir ve test amaçlıdır.
 
 ## Hızlı başlangıç
 
@@ -55,7 +55,7 @@ Bir ileti açın ve ileti başlığı araç çubuğundaki "İletiyi çevir" dü�
 
 - "Bu iletiyi çevir" çeviriyi başlatır. Çeviri gösterilirken düğmenin adı "Özgün metni göster" olur.
 - "Yeniden çevir" her kademeye yeniden sorar ve önbelleği yok sayar; "Özet ve yapılacaklar" iletinin özetini iletinin üstünde gösterir.
-- Görünüm modu, kaynak dil (varsayılan "Otomatik algıla"), hedef dil, her kademe için bir hizmet listesi, görsel çevirisinin moduyla (kapalı, her görselin altında sor, açık) hassas çeviri ve "Hedef dilde olmayan iletileri otomatik olarak çevir" anahtarı.
+- Görünüm modu, kaynak dil (varsayılan "Otomatik algıla"), hedef dil, her kademe için bir hizmet listesi, görsel çevirisinin moduyla (kapalı, her görselin altında sor, açık; hassas çeviri kapalıyken soluk gösterilir ve yanında "Hassas çeviriyi aç" düğmesi bulunur) hassas çeviri ve "Hedef dilde olmayan iletileri otomatik olarak çevir" anahtarı.
 
 | Kısayol | İşlem |
 | --- | --- |
@@ -65,7 +65,7 @@ Bir ileti açın ve ileti başlığı araç çubuğundaki "İletiyi çevir" dü�
 
 Kısayollar, Eklenti yöneticisinin dişli menüsündeki "Eklenti kısayollarını yönet" bölümünden değiştirilebilir; özete de orada istediğiniz bir kısayol atanır.
 
-İki dilli modda her çeviri kendi özgün paragrafının altına konur. Yalnızca çeviri modunda çeviri özgün metnin yerini alır; özgün metni görmek için çevirinin üzerine gelin. Ana araç çubuğundaki "Çevrilmiş konular" düğmesi geçerli klasördeki iletileri çevrilmiş konularıyla listeler; bir satıra tıklamak iletiyi gösterir.
+İki dilli modda her çeviri kendi özgün paragrafının altına konur. Yalnızca çeviri modunda çeviri özgün metnin yerini alır; özgün metni görmek için çevirinin üzerine gelin.
 
 Diğer tüm ayarlar, Eklenti yöneticisinde eklentinin "Seçenekler" düğmesiyle açılan ayarlar sayfasındadır. Değişiklikler otomatik kaydedilir; fareyle bir denetimin üzerine gelindiğinde ne işe yaradığı görünür. Her ayar [docs/settings.md](../docs/settings.md) dosyasında (İngilizce) açıklanmıştır.
 
@@ -107,7 +107,7 @@ Hazır ayarlar isteme kural ekler: Britanya İngilizcesi veya Tayvan kullanımı
 
 ## Gizlilik
 
-- İleti metni yalnızca kullanılan kademelerin hizmetlerine gider. Sözlük ve Bergamot bilgisayarınızda çeviri yapar. İletilerin konuları da aynı kurala uyar. İstediğiniz bir özet, iletinin tamamını gönderen ve tarihiyle birlikte özetin yapay zekâ hizmetine gönderir.
+- İleti metni yalnızca kullanılan kademelerin hizmetlerine gider. Sözlük ve Bergamot bilgisayarınızda çeviri yapar. Tıklayarak ya da otomatik olarak açılan bir özet, iletinin tamamını göndereni, tarihi ve konusuyla birlikte özetin yapay zekâ hizmetine gönderir.
 - Bir iletinin metni bir çevrimiçi hizmete ilk kez gitmeden önce iletinin üstündeki bir panel hizmeti ve adresini gösterir ve her hizmet ve adres için bir kez sorar. "İzin ver ve çevir" düğmesine tıklanana kadar hiçbir şey gönderilmez; ayarlar sayfası izin verilen hizmetleri listeler ve izni geri almayı sağlar. Yalnızca sözlük ve Bergamot kullanılırsa hiçbir şey sorulmaz.
 - Bir görsel yalnızca hassas çeviri açıkken bir yapay zekâ hizmetine gider: altındaki düğmeye tıklandıktan sonra ya da görsel çevirisi "Açık" olduğunda kendiliğinden. İlk görselden önce altındaki panel, metinden ayrı olarak her hizmet için bir kez sorar. Görsel küçültülüp yeniden kodlanır; dosya adı ve üst verileri gönderilmez. Uzak görseller asla çevrilmez.
 - Elle girilen bir adres (Ollama, LM Studio, DeepLX, özel bir hizmet, değiştirilmiş bir adres) bağlantı için bir kez izin ister; izin ayarlarda "Erişime izin ver" veya "Bağlantıyı test et" ile verilir.
@@ -136,7 +136,6 @@ Aşağıdaki belgeler İngilizcedir; yalnızca dictionary-packs.md Çincedir.
 - [docs/bergamot.md](../docs/bergamot.md): çevrimdışı Bergamot motoru, modellerinin seçimi ve saklanması, derlenmesi.
 - [docs/dictionary-packs.md](../docs/dictionary-packs.md): sözlük paketlerinin veri kaynakları, biçimi ve derlenmesi (Çince).
 - [docs/development.md](../docs/development.md): kaynaktan derleme, testler, proje yapısı, arayüzün çevrilmesi ve sürüm süreci.
-- [docs/experimental.md](../docs/experimental.md): "Çevrilmiş konu" sütunlu deneysel sürüm, kurulumu ve riskleri.
 
 ## Teşekkürler
 

@@ -25,14 +25,14 @@ Video: [YouTube](https://www.youtube.com/watch?v=OZmiMGeuhJ0) (1 min) · [Bilibi
 
 ## Features
 
-- Translates paragraphs, list items, table cells, headings and quotes of HTML mail, and blank-line separated paragraphs of plain-text mail. Code, numbers, bare links and paragraphs already in the target language are skipped. The subject is translated too, in a line above the body ("Translate the subject as well", on by default).
+- Translates paragraphs, list items, table cells, headings and quotes of HTML mail, and blank-line separated paragraphs of plain-text mail. Code, numbers, bare links and paragraphs already in the target language are skipped.
 - Two display modes: bilingual (the translation under each original paragraph) or translation only, both showing the bold text, lists and links of AI translations formatted. Turning translation off restores the original message exactly.
 - Three translation tiers run at the same time: an offline dictionary, a machine translator and an AI service. The fastest result appears first, and the highest tier replaces it.
 - Machine translation without an account (Google Translate, the default, and Microsoft Translator), or with a key of your own (DeepL, Baidu, Youdao, Caiyun).
 - Offline translation with dictionary packs and Mozilla's Bergamot models; no text leaves your computer.
 - 22 AI provider presets, including OpenAI, Claude, Gemini, DeepSeek, Qwen, local Ollama and LM Studio, and any OpenAI-compatible service.
 - Precise translation: the AI tier sees the whole message, so names and terms stay consistent. With it, an AI service can read the text in the images of a message and show the original and its translation under each image.
-- Summary and to-dos: an AI service lists the summary, the to-dos, the questions to answer and the dates of a message in a panel above it.
+- Summary and to-dos: an AI service lists the summary, the to-dos, the questions to answer and the dates of a message in a panel above it. The "Automatic summary" setting opens it without a click, when the message is translated or for every opened message. With precise translation, a message too long for one request needs an analysis before translation; when the summary uses the same AI service and model as the AI tier, one request writes the analysis and the summary.
 - Three editable prompts with presets for regional varieties, writing styles and difficult words.
 - Optional automatic translation of every message not in the target language.
 - Interface in 12 languages and a setup guide that opens after installation.
@@ -43,7 +43,7 @@ Video: [YouTube](https://www.youtube.com/watch?v=OZmiMGeuhJ0) (1 min) · [Bilibi
 2. In Thunderbird, open Tools → Add-ons and Themes (also in the ≡ menu in the top right corner).
 3. Click the gear icon above the extension list, choose "Install Add-on From File", select the xpi file and confirm.
 
-Thunderbird 128 or later is required. The `nightly` pre-release is an automatic build of the latest commit, meant for testing. The experimental build `multi-translate-experimental-<version>.xpi` also adds a column "Translated subject" to the message list; it depends on an internal interface of Thunderbird, and only one of the two builds can be installed ([docs/experimental.md](docs/experimental.md)).
+Thunderbird 128 or later is required. The `nightly` pre-release is an automatic build of the latest commit, meant for testing.
 
 ## Quick start
 
@@ -55,7 +55,7 @@ Open a message and click the "Translate message" button in the message header to
 
 - "Translate this message" starts translating. While a translation is shown, the button reads "Show original".
 - "Retranslate" asks every tier again and ignores the cache; "Summary and to-dos" shows the summary of the message above it.
-- Display mode, source language ("Detect automatically" by default), target language, one service list per tier, precise translation with the mode of image translation (off, ask under each image, on), and the switch "Automatically translate messages not in the target language".
+- Display mode, source language ("Detect automatically" by default), target language, one service list per tier, precise translation with the mode of image translation (off, ask under each image, on; greyed out with a "Turn on precise translation" button while precise translation is off), and the switch "Automatically translate messages not in the target language".
 
 | Shortcut | Action |
 | --- | --- |
@@ -65,7 +65,7 @@ Open a message and click the "Translate message" button in the message header to
 
 The shortcuts can be changed under "Manage Extension Shortcuts" in the gear menu of the Add-ons Manager, where the summary gets a shortcut of your choice.
 
-Bilingual mode puts each translation under its original paragraph. Translation-only mode replaces the original; hover over a translation to see the original text. The "Translated subjects" button in the main toolbar lists the messages of the current folder with their translated subjects; clicking a row shows the message.
+Bilingual mode puts each translation under its original paragraph. Translation-only mode replaces the original; hover over a translation to see the original text.
 
 All other settings are on the settings page: the "Options" button of the extension in the Add-ons Manager. Changes are saved automatically, and hovering over a control shows what it does. Every setting is described in [docs/settings.md](docs/settings.md).
 
@@ -107,7 +107,7 @@ Presets add rules to a prompt: a regional variety such as British English or Tai
 
 ## Privacy
 
-- Message text goes only to the services of the tiers in use. The dictionary and Bergamot translate on your computer. The subjects of messages follow the same rule. A summary you ask for sends the whole message with its sender and date to its AI service.
+- Message text goes only to the services of the tiers in use. The dictionary and Bergamot translate on your computer. A summary, opened by a click or automatically, sends the whole message with its sender, date and subject to its AI service.
 - Before the text of a message first goes to an online service, a panel above the message names the service and its address and asks once per service and address. Nothing is sent until you click “Allow and translate”; the settings page lists the allowed services and takes them back. With only the dictionary and Bergamot, nothing is asked.
 - An image goes to an AI service only while precise translation is on: after a click on the button under it, or by itself when image translation is “On”. Before the first image, a panel under it asks once per service, apart from the text. The image is scaled down and encoded again, without its file name and metadata. Remote images are never translated.
 - An endpoint you type (Ollama, LM Studio, DeepLX, a custom service, a changed endpoint) needs your permission to connect, given once with “Allow access” or “Test connection” in the settings.
@@ -136,7 +136,6 @@ The documents below are in English, except dictionary-packs.md, which is in Chin
 - [docs/bergamot.md](docs/bergamot.md): the Bergamot offline engine, the choice and storage of its models, and its build.
 - [docs/dictionary-packs.md](docs/dictionary-packs.md): data sources, format and build of the dictionary packs (in Chinese).
 - [docs/development.md](docs/development.md): building from source, tests, project structure, translating the interface and the release process.
-- [docs/experimental.md](docs/experimental.md): the experimental build with the column "Translated subject", its installation and its risks.
 
 ## Acknowledgements
 

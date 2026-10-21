@@ -25,14 +25,14 @@ Vídeo de presentación: [YouTube](https://www.youtube.com/watch?v=OZmiMGeuhJ0) 
 
 ## Funciones
 
-- Traduce los párrafos, elementos de lista, celdas de tabla, encabezados y citas del correo HTML, y los párrafos separados por líneas en blanco del correo de texto sin formato. Se omiten el código, los números, los enlaces sueltos y los párrafos que ya están en el idioma de destino. El asunto también se traduce, en una línea sobre el cuerpo del mensaje ("Traducir también el asunto", activado por defecto).
+- Traduce los párrafos, elementos de lista, celdas de tabla, encabezados y citas del correo HTML, y los párrafos separados por líneas en blanco del correo de texto sin formato. Se omiten el código, los números, los enlaces sueltos y los párrafos que ya están en el idioma de destino.
 - Dos modos de visualización: bilingüe (la traducción debajo de cada párrafo original) o solo traducción, y en ambos la negrita, las listas y los enlaces de las traducciones de IA aparecen con formato. Al desactivar la traducción, el mensaje original se restaura exactamente.
 - Tres niveles de traducción trabajan a la vez: un diccionario sin conexión, un traductor automático y un servicio de IA. El resultado más rápido aparece primero y el del nivel más alto lo sustituye.
 - Traducción automática sin cuenta (Google Translate, el predeterminado, y Microsoft Translator) o con una clave propia (DeepL, Baidu, Youdao, Caiyun).
 - Traducción sin conexión con paquetes de diccionario y los modelos Bergamot de Mozilla; ningún texto sale de su equipo.
 - 22 configuraciones predefinidas de proveedores de IA, entre ellas OpenAI, Claude, Gemini, DeepSeek, Qwen, Ollama y LM Studio en local, y cualquier servicio compatible con OpenAI.
 - Traducción precisa: el nivel de IA ve el mensaje completo, de modo que los nombres y los términos se mantienen coherentes. Con ella, un servicio de IA puede leer el texto de las imágenes de un mensaje y mostrar el original y su traducción bajo cada imagen.
-- Resumen y tareas: un servicio de IA enumera, encima del mensaje, el resumen, las tareas, las preguntas por responder y las fechas.
+- Resumen y tareas: un servicio de IA enumera, encima del mensaje, el resumen, las tareas, las preguntas por responder y las fechas. El ajuste "Resumen automático" lo abre sin un clic, cuando se traduce el mensaje o para cada mensaje abierto. Con la traducción precisa, un mensaje demasiado largo para una sola solicitud necesita un análisis antes de traducirse; cuando el resumen usa el mismo servicio de IA y el mismo modelo que el nivel de IA, una sola solicitud escribe el análisis y el resumen.
 - Tres prompts editables con preajustes para variedades regionales, estilos de redacción y palabras difíciles.
 - Traducción automática opcional de todo mensaje que no esté en el idioma de destino.
 - Interfaz en 12 idiomas y una guía de configuración que se abre después de la instalación.
@@ -43,7 +43,7 @@ Vídeo de presentación: [YouTube](https://www.youtube.com/watch?v=OZmiMGeuhJ0) 
 2. En Thunderbird, abra Herramientas → Complementos y temas (también accesible desde el menú ≡ de la esquina superior derecha).
 3. Haga clic en el icono de engranaje situado encima de la lista de extensiones, elija "Instalar complemento desde archivo…", seleccione el archivo xpi y confirme.
 
-Se requiere Thunderbird 128 o posterior. La versión preliminar `nightly` es una compilación automática de la última confirmación y está pensada para pruebas. La versión experimental `multi-translate-experimental-<version>.xpi` añade además una columna "Asunto traducido" a la lista de mensajes; depende de una interfaz interna de Thunderbird, y solo se puede instalar una de las dos versiones ([docs/experimental.md](../docs/experimental.md), en inglés).
+Se requiere Thunderbird 128 o posterior. La versión preliminar `nightly` es una compilación automática de la última confirmación y está pensada para pruebas.
 
 ## Inicio rápido
 
@@ -55,7 +55,7 @@ Abra un mensaje y haga clic en el botón "Traducir mensaje" de la barra de herra
 
 - "Traducir este mensaje" inicia la traducción. Mientras se muestra una traducción, el botón dice "Mostrar original".
 - "Volver a traducir" consulta de nuevo a todos los niveles e ignora la caché; "Resumen y tareas" muestra el resumen del mensaje encima de él.
-- Modo de visualización, idioma de origen ("Detectar automáticamente" de forma predeterminada), idioma de destino, una lista de servicios por nivel, la traducción precisa con el modo de la traducción de imágenes (desactivada, preguntar bajo cada imagen, activada) y el interruptor "Traducir automáticamente los mensajes que no estén en el idioma de destino".
+- Modo de visualización, idioma de origen ("Detectar automáticamente" de forma predeterminada), idioma de destino, una lista de servicios por nivel, la traducción precisa con el modo de la traducción de imágenes (desactivada, preguntar bajo cada imagen, activada; en gris y con el botón "Activar la traducción precisa" mientras la traducción precisa está desactivada) y el interruptor "Traducir automáticamente los mensajes que no estén en el idioma de destino".
 
 | Atajo | Acción |
 | --- | --- |
@@ -65,7 +65,7 @@ Abra un mensaje y haga clic en el botón "Traducir mensaje" de la barra de herra
 
 Los atajos se pueden cambiar en "Administrar atajos de teclado de extensiones", dentro del menú de engranaje del Administrador de complementos, donde el resumen recibe un atajo a su elección.
 
-El modo bilingüe coloca cada traducción debajo de su párrafo original. El modo solo traducción sustituye el original; al pasar el ratón sobre una traducción se ve el texto original. El botón "Asuntos traducidos" de la barra de herramientas principal muestra los mensajes de la carpeta actual con sus asuntos traducidos; un clic en una fila muestra el mensaje.
+El modo bilingüe coloca cada traducción debajo de su párrafo original. El modo solo traducción sustituye el original; al pasar el ratón sobre una traducción se ve el texto original.
 
 El resto de la configuración está en la página de configuración: el botón "Opciones" de la extensión en el Administrador de complementos. Los cambios se guardan automáticamente, y al pasar el ratón sobre un control se muestra para qué sirve. Cada ajuste se describe en [docs/settings.md](../docs/settings.md) (en inglés).
 
@@ -107,7 +107,7 @@ Los preajustes añaden reglas a un prompt: una variedad regional, como el inglé
 
 ## Privacidad
 
-- El texto del mensaje solo va a los servicios de los niveles en uso. El diccionario y Bergamot traducen en su equipo. Los asuntos de los mensajes siguen la misma regla. Un resumen que usted pida envía el mensaje completo, con su remitente y su fecha, a su servicio de IA.
+- El texto del mensaje solo va a los servicios de los niveles en uso. El diccionario y Bergamot traducen en su equipo. Un resumen, abierto con un clic o automáticamente, envía el mensaje completo, con su remitente, su fecha y su asunto, a su servicio de IA.
 - Antes de que el texto de un mensaje vaya por primera vez a un servicio en línea, un panel sobre el mensaje indica el servicio y su dirección y pregunta una vez por servicio y dirección. No se envía nada hasta hacer clic en «Permitir y traducir»; la página de configuración muestra los servicios permitidos y permite revocarlos. Con solo el diccionario y Bergamot no se pregunta nada.
 - Una imagen solo va a un servicio de IA con la traducción precisa activada: tras un clic en el botón que tiene debajo, o sola cuando la traducción de imágenes está «Activada». Antes de la primera imagen, un panel bajo ella pregunta una vez por servicio, aparte del texto. La imagen se reduce y se codifica de nuevo, sin su nombre de archivo ni sus metadatos. Las imágenes remotas nunca se traducen.
 - Una dirección que usted escribe (Ollama, LM Studio, DeepLX, un servicio personalizado, una dirección modificada) necesita permiso de conexión, que se da una vez con «Permitir acceso» o «Probar conexión» en la configuración.
@@ -136,7 +136,6 @@ Los documentos siguientes están en inglés, salvo dictionary-packs.md, que est�
 - [docs/bergamot.md](../docs/bergamot.md): el motor sin conexión Bergamot, la elección y el almacenamiento de sus modelos y su compilación.
 - [docs/dictionary-packs.md](../docs/dictionary-packs.md): fuentes de datos, formato y compilación de los paquetes de diccionario (en chino).
 - [docs/development.md](../docs/development.md): compilar desde el código fuente, pruebas, estructura del proyecto, traducir la interfaz y el proceso de publicación.
-- [docs/experimental.md](../docs/experimental.md): la versión experimental con la columna "Asunto traducido", su instalación y sus riesgos.
 
 ## Agradecimientos
 

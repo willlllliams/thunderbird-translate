@@ -25,14 +25,14 @@ Vidéo de présentation : [YouTube](https://www.youtube.com/watch?v=OZmiMGeuhJ0)
 
 ## Fonctionnalités
 
-- Traduction des paragraphes, éléments de liste, cellules de tableau, titres et citations des messages HTML, ainsi que des paragraphes séparés par une ligne vide dans les messages en texte brut. Le code, les nombres, les liens nus et les paragraphes déjà dans la langue cible sont ignorés. L’objet est traduit lui aussi, sur une ligne au-dessus du corps du message (« Traduire aussi l’objet », activé par défaut).
+- Traduction des paragraphes, éléments de liste, cellules de tableau, titres et citations des messages HTML, ainsi que des paragraphes séparés par une ligne vide dans les messages en texte brut. Le code, les nombres, les liens nus et les paragraphes déjà dans la langue cible sont ignorés.
 - Deux modes d’affichage : bilingue (la traduction sous chaque paragraphe original) ou traduction seule, avec dans les deux le gras, les listes et les liens des traductions par l’IA mis en forme. Désactiver la traduction restaure exactement le message original.
 - Trois niveaux de traduction fonctionnent en même temps : un dictionnaire hors ligne, un traducteur automatique et un service d’IA. Le résultat le plus rapide s’affiche en premier, puis celui du niveau le plus élevé le remplace.
 - Traduction automatique sans compte (Google Translate, par défaut, et Microsoft Translator) ou avec votre propre clé (DeepL, Baidu, Youdao, Caiyun).
 - Traduction hors ligne avec des paquets de dictionnaires et les modèles Bergamot de Mozilla ; aucun texte ne quitte votre ordinateur.
 - 22 préréglages de fournisseurs d’IA, dont OpenAI, Claude, Gemini, DeepSeek, Qwen, Ollama et LM Studio en local, ainsi que tout service compatible OpenAI.
 - Traduction précise : le niveau IA voit le message entier, si bien que les noms et les termes restent cohérents. Avec elle, un service d’IA peut aussi lire le texte des images d’un message et afficher l’original et sa traduction sous chaque image.
-- Résumé et tâches : un service d’IA liste au-dessus du message le résumé, les tâches, les questions auxquelles répondre et les dates.
+- Résumé et tâches : un service d’IA liste au-dessus du message le résumé, les tâches, les questions auxquelles répondre et les dates. Le réglage « Résumé automatique » l’ouvre sans clic, quand le message est traduit ou pour chaque message ouvert. Avec la traduction précise, un message trop long pour une seule requête demande une analyse avant la traduction ; quand le résumé utilise le même service d’IA et le même modèle que le niveau IA, une seule requête rédige l’analyse et le résumé.
 - Trois invites modifiables, avec des préréglages pour les variantes régionales, les styles d’écriture et les mots difficiles.
 - Traduction automatique facultative de chaque message qui n’est pas dans la langue cible.
 - Interface en 12 langues et guide de configuration qui s’ouvre après l’installation.
@@ -43,7 +43,7 @@ Vidéo de présentation : [YouTube](https://www.youtube.com/watch?v=OZmiMGeuhJ0)
 2. Dans Thunderbird, ouvrez Outils → Modules complémentaires et thèmes (aussi accessible depuis le menu ≡ en haut à droite).
 3. Cliquez sur l’icône d’engrenage au-dessus de la liste des extensions, choisissez « Installer un module depuis un fichier… », sélectionnez le fichier xpi et confirmez.
 
-Thunderbird 128 ou une version ultérieure est nécessaire. La préversion `nightly` est une compilation automatique du dernier commit, destinée aux tests. La version expérimentale `multi-translate-experimental-<version>.xpi` ajoute en plus une colonne « Objet traduit » à la liste des messages ; elle dépend d’une interface interne de Thunderbird, et une seule des deux versions peut être installée ([docs/experimental.md](../docs/experimental.md), en anglais).
+Thunderbird 128 ou une version ultérieure est nécessaire. La préversion `nightly` est une compilation automatique du dernier commit, destinée aux tests.
 
 ## Démarrage rapide
 
@@ -55,7 +55,7 @@ Ouvrez un message et cliquez sur le bouton « Traduire le message » de la barre
 
 - « Traduire ce message » lance la traduction. Tant qu’une traduction est affichée, le bouton indique « Afficher l’original ».
 - « Retraduire » interroge de nouveau tous les niveaux et ignore le cache ; « Résumé et tâches » affiche le résumé du message au-dessus de lui.
-- Le mode d’affichage, la langue source (« Détecter automatiquement » par défaut), la langue cible, une liste de services par niveau, la traduction précise avec le mode de la traduction des images (désactivée, demander sous chaque image, activée) et l’interrupteur « Traduire automatiquement les messages qui ne sont pas dans la langue cible ».
+- Le mode d’affichage, la langue source (« Détecter automatiquement » par défaut), la langue cible, une liste de services par niveau, la traduction précise avec le mode de la traduction des images (désactivée, demander sous chaque image, activée ; grisé, avec le bouton « Activer la traduction précise », tant que la traduction précise est désactivée) et l’interrupteur « Traduire automatiquement les messages qui ne sont pas dans la langue cible ».
 
 | Raccourci | Action |
 | --- | --- |
@@ -65,7 +65,7 @@ Ouvrez un message et cliquez sur le bouton « Traduire le message » de la barre
 
 Les raccourcis se modifient via « Gérer les raccourcis d’extensions » dans le menu d’engrenage du gestionnaire de modules complémentaires, où le résumé reçoit le raccourci de votre choix.
 
-Le mode bilingue place chaque traduction sous son paragraphe original. Le mode traduction seule remplace l’original ; survolez une traduction pour voir le texte original. Le bouton « Objets traduits » de la barre d’outils principale liste les messages du dossier courant avec leurs objets traduits ; un clic sur une ligne affiche le message.
+Le mode bilingue place chaque traduction sous son paragraphe original. Le mode traduction seule remplace l’original ; survolez une traduction pour voir le texte original.
 
 Tous les autres paramètres se trouvent sur la page de paramètres : le bouton « Options » de l’extension dans le gestionnaire de modules complémentaires. Les modifications sont enregistrées automatiquement, et le survol d’un contrôle affiche ce qu’il fait. Chaque paramètre est décrit dans [docs/settings.md](../docs/settings.md) (en anglais).
 
@@ -107,7 +107,7 @@ Les préréglages ajoutent des règles à une invite : une variante régionale c
 
 ## Confidentialité
 
-- Le texte des messages va uniquement aux services des niveaux utilisés. Le dictionnaire et Bergamot traduisent sur votre ordinateur. Les objets des messages suivent la même règle. Un résumé que vous demandez envoie le message entier, avec son expéditeur et sa date, à son service d’IA.
+- Le texte des messages va uniquement aux services des niveaux utilisés. Le dictionnaire et Bergamot traduisent sur votre ordinateur. Un résumé, ouvert d’un clic ou automatiquement, envoie le message entier, avec son expéditeur, sa date et son objet, à son service d’IA.
 - Avant que le texte d’un message parte pour la première fois vers un service en ligne, un panneau au-dessus du message nomme le service et son adresse et demande une fois par service et par adresse. Rien n’est envoyé avant un clic sur « Autoriser et traduire » ; la page de paramètres liste les services autorisés et permet de les révoquer. Avec le dictionnaire et Bergamot seuls, rien n’est demandé.
 - Une image ne part vers un service d’IA qu’avec la traduction précise activée : après un clic sur le bouton placé dessous, ou d’elle-même quand la traduction des images est « Activée ». Avant la première image, un panneau sous celle-ci demande une fois par service, à part du texte. L’image est réduite et réencodée, sans son nom de fichier ni ses métadonnées. Les images distantes ne sont jamais traduites.
 - Une adresse que vous saisissez (Ollama, LM Studio, DeepLX, un service personnalisé, une adresse modifiée) demande une autorisation de connexion, donnée une fois avec « Autoriser l’accès » ou « Tester la connexion » dans les paramètres.
@@ -136,7 +136,6 @@ Les documents ci-dessous sont en anglais, sauf dictionary-packs.md, qui est en c
 - [docs/bergamot.md](../docs/bergamot.md) : le moteur hors ligne Bergamot, le choix et le stockage de ses modèles et sa compilation.
 - [docs/dictionary-packs.md](../docs/dictionary-packs.md) : sources des données, format et construction des paquets de dictionnaire (en chinois).
 - [docs/development.md](../docs/development.md) : compilation depuis les sources, tests, structure du projet, traduction de l’interface et processus de publication.
-- [docs/experimental.md](../docs/experimental.md) : la version expérimentale avec la colonne « Objet traduit », son installation et ses risques.
 
 ## Remerciements
 
