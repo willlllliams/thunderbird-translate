@@ -164,7 +164,7 @@ describe("content script ports", () => {
     expect(page.posted.at(-2)).toEqual({ type: "tier", id: 1, tier: "machine", result: { ok: true, text: "G(Hello)" } })
   })
 
-  it("registers the message for precise mode, for a retranslation with a new analysis", async () => {
+  it("registers the message for precise mode with a reader of the header of its tab, for a retranslation with a new analysis", async () => {
     const bg = stubBackgroundApi({ stored: stored(createDefaultSettings()) })
     vi.resetModules()
     // Spy on the module instance the background script is about to load.
@@ -172,9 +172,9 @@ describe("content script ports", () => {
     await import("../src/background/index")
     const context = createMailContext(["Hello", "World"], [0, 1])
     bg.connect(4).send({ type: "context", context })
-    expect(setContext).toHaveBeenCalledWith(context, false)
+    expect(setContext).toHaveBeenCalledWith(context, false, expect.any(Function))
     bg.connect(4).send({ type: "context", context, bypassCache: true })
-    expect(setContext).toHaveBeenLastCalledWith(context, true)
+    expect(setContext).toHaveBeenLastCalledWith(context, true, expect.any(Function))
     setContext.mockRestore()
   })
 })

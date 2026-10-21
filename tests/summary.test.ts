@@ -7,7 +7,7 @@
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 import { createCommandRunner } from "../src/background/commands"
-import { buildSummaryPrompt, buildSummarySystem, MAX_SUMMARY_ITEMS, parseSummary } from "../src/background/summary"
+import { buildCombinedSystem, buildSummaryPrompt, buildSummarySystem, MAX_SUMMARY_ITEMS, parseCombined, parseSummary } from "../src/background/summary"
 import { displayedHeader, localIso } from "../src/background/displayed"
 import { createTabRegistry } from "../src/background/tabs"
 import type { LlmCallOptions } from "../src/background/translators/llm"
@@ -240,6 +240,176 @@ describe("the summary request of the translation service", () => {
     settings.precise.enabled = true
     await later.summarize("Another message", null, true)
     expect(llm.summarize.mock.calls[3][0]).not.toContain("Acme-Wolke")
+  })
+})
+
+describe("one request for the analysis of precise translation and the summary", () => {
+  const header = { author: "Anna <anna@example.de>", date: "2026-10-21T07:12:00+02:00", subject: "Abnahme" }
+  const paragraphs = ["Hallo Tom, danke für das Angebot von Acme Cloud.", "你好", "Could we move the acceptance to Thursday?", "Viele Grüße, Anna"]
+  const analysis: MailAnalysis = { summary: "Anna asks to move the acceptance.", glossary: [{ source: "Acme Cloud", target: "Acme-Wolke" }], tone: "Friendly." }
+  const COMBINED = JSON.stringify({ analysis, digest: JSON.parse(ANSWER) })
+
+  /** The AI tier with precise translation; the paragraphs do not fit into one request, so the message needs an analysis. */
+  function setup(answer = COMBINED, over: (s: Settings) => void = () => {}) {
+    const llm = {
+      batch: vi.fn(async (segments: Segment[], _opts: LlmCallOptions) => segments.map((s) => `AI(${s.text})`)),
+      single: vi.fn(async (segment: Segment, _opts: LlmCallOptions) => `AI(${segment.text})`),
+      analyze: vi.fn(async () => analysis),
+      summarize: vi.fn(async (_prompt: string, _opts: LlmCallOptions) => ANSWER),
+      analyzeAndSummarize: vi.fn(async (_prompt: string, _opts: LlmCallOptions) => answer),
+    }
+    const settings = createDefaultSettings("en")
+    settings.tiers.ai = "openai"
+    settings.providers.openai.apiKey = "sk-test"
+    settings.precise.enabled = true
+    settings.targetLang = "zh-CN"
+    settings.batch.maxCharsPerBatch = 60
+    over(settings)
+    const { service, cache } = createService(settings, { llm })
+    const context = createMailContext(paragraphs, [0, 2, 3])
+    const translate = () => Promise.all([0, 2, 3].map((i) => translateOne(service, { providerId: "openai", text: paragraphs[i], context: { id: context.id, index: i } })))
+    return { service, cache, settings, llm, context, translate }
+  }
+
+  it("a summary asked for before the analysis: one request writes both, and the paragraphs and the next summary find them", async () => {
+    const { service, llm, context, translate } = setup()
+    service.setContext(context)
+    expect(await service.summarize(context.text, header)).toMatchObject({ ok: true, service: "OpenAI", summary: { summary: SUMMARY.summary } })
+    expect(llm.analyzeAndSummarize).toHaveBeenCalledTimes(1)
+    const [prompt, opts] = llm.analyzeAndSummarize.mock.calls[0]
+    expect(prompt).toBe(buildSummaryPrompt(context.text, header))
+    expect(opts.systemPrompt).toContain('{"analysis": {...}, "digest": {...}}')
+    expect(opts.systemPrompt).toContain(buildSummarySystem(DEFAULT_PROMPTS.summary, "Simplified Chinese", SUMMARY_PARTS))
+    // The length of the summary and room for the analysis.
+    expect(opts.maxOutputTokens).toBe(800 + 1500)
+    await translate()
+    expect(llm.batch.mock.calls[0][1].contextPrefix).toContain("Acme Cloud → Acme-Wolke")
+    expect(await service.summarize(context.text, header)).toMatchObject({ ok: true, summary: { summary: SUMMARY.summary } })
+    expect([llm.analyze, llm.summarize].map((fn) => fn.mock.calls.length)).toEqual([0, 0])
+    // "Regenerate" asks for the summary alone, with the glossary of the analysis.
+    await service.summarize(context.text, header, true)
+    expect(llm.summarize).toHaveBeenCalledTimes(1)
+    expect(llm.summarize.mock.calls[0][0]).toContain("- Acme Cloud → Acme-Wolke")
+    expect(llm.analyzeAndSummarize).toHaveBeenCalledTimes(1)
+  })
+
+  it("caches both parts under their own keys: a new background script asks nothing; with the cache off the summary still comes from the request", async () => {
+    const first = setup()
+    first.service.setContext(first.context)
+    await first.service.summarize(first.context.text, header)
+    const later = createService(first.settings, { llm: first.llm, cache: first.cache }).service
+    later.setContext(first.context)
+    expect(await later.summarize(first.context.text, header)).toMatchObject({ ok: true, summary: { summary: SUMMARY.summary } })
+    await Promise.all([0, 2, 3].map((i) => translateOne(later, { providerId: "openai", text: paragraphs[i], context: { id: first.context.id, index: i } })))
+    expect([first.llm.analyzeAndSummarize, first.llm.analyze, first.llm.summarize].map((fn) => fn.mock.calls.length)).toEqual([1, 0, 0])
+    const off = setup()
+    off.cache.configure(false, 0)
+    off.service.setContext(off.context)
+    expect(await off.service.summarize(off.context.text, header)).toMatchObject({ ok: true, summary: { summary: SUMMARY.summary } })
+    expect([off.llm.analyzeAndSummarize, off.llm.summarize].map((fn) => fn.mock.calls.length)).toEqual([1, 0])
+  })
+
+  it("a translation that starts with the summary set to open by itself writes the summary with its analysis, with the header of the message", async () => {
+    const { service, llm, context, translate } = setup(undefined, (s) => (s.summary.auto = "translated"))
+    const readHeader = vi.fn(async () => header)
+    service.setContext(context, false, readHeader)
+    await translate()
+    expect(llm.analyzeAndSummarize).toHaveBeenCalledTimes(1)
+    expect(llm.analyzeAndSummarize.mock.calls[0][0]).toBe(buildSummaryPrompt(context.text, header))
+    expect(await service.summarize(context.text, header)).toMatchObject({ ok: true, summary: { summary: SUMMARY.summary } })
+    expect([llm.analyze, llm.summarize, readHeader].map((fn) => fn.mock.calls.length)).toEqual([0, 0, 1])
+    // Off: the translation asks for its analysis alone.
+    const plain = setup()
+    plain.service.setContext(plain.context, false, readHeader)
+    await plain.translate()
+    expect([plain.llm.analyze, plain.llm.analyzeAndSummarize].map((fn) => fn.mock.calls.length)).toEqual([1, 0])
+    // A message whose summary was asked for already gets no second one from its analysis.
+    const asked = setup(undefined, (s) => (s.summary.auto = "always"))
+    await asked.service.summarize(asked.context.text, header)
+    asked.service.setContext(asked.context, false, readHeader)
+    await asked.translate()
+    expect([asked.llm.summarize, asked.llm.analyze, asked.llm.analyzeAndSummarize].map((fn) => fn.mock.calls.length)).toEqual([1, 1, 0])
+  })
+
+  it.each<[string, (s: Settings) => void]>([
+    ["the summary uses another model", (s) => (s.summary.model = "gpt-5-mini")],
+    ["the summary uses another service", (s) => {
+      s.providers.anthropic = { enabled: true, apiKey: "k", baseURL: "", model: "" }
+      s.summary.provider = "anthropic"
+    }],
+    ["the message fits into one request", (s) => (s.batch.maxCharsPerBatch = 3000)],
+    ["precise translation is off", (s) => (s.precise.enabled = false)],
+  ])("two requests, or the summary alone, when %s", async (_name, over) => {
+    const { service, llm, context, translate, settings } = setup(undefined, over)
+    service.setContext(context)
+    expect((await service.summarize(context.text, header)).ok).toBe(true)
+    await translate()
+    expect(llm.analyzeAndSummarize).not.toHaveBeenCalled()
+    expect(llm.summarize).toHaveBeenCalledTimes(1)
+    expect(llm.analyze).toHaveBeenCalledTimes(settings.precise.enabled && settings.batch.maxCharsPerBatch < 3000 ? 1 : 0)
+  })
+
+  it("keeps the analysis when the summary cannot be read, and asks for the summary alone", async () => {
+    const cut = `{"analysis": ${JSON.stringify(analysis)}, "digest": {"summary": ["Anna asks to mo`
+    for (const answer of [JSON.stringify({ analysis, digest: "n/a" }), cut]) {
+      const { service, llm, context, translate } = setup(answer)
+      service.setContext(context)
+      expect(await service.summarize(context.text, header)).toMatchObject({ ok: true, summary: { summary: SUMMARY.summary } })
+      expect(llm.summarize).toHaveBeenCalledTimes(1)
+      expect(llm.summarize.mock.calls[0][0]).toContain("- Acme Cloud → Acme-Wolke")
+      await translate()
+      expect(llm.analyze).not.toHaveBeenCalled()
+      expect(llm.batch.mock.calls[0][1].contextPrefix).toContain("Acme Cloud → Acme-Wolke")
+    }
+  })
+
+  it("keeps the summary when the analysis cannot be read; the paragraphs go without one", async () => {
+    const { service, llm, context, translate } = setup(JSON.stringify({ analysis: "none", digest: JSON.parse(ANSWER) }))
+    service.setContext(context)
+    expect(await service.summarize(context.text, header)).toMatchObject({ ok: true, summary: { summary: SUMMARY.summary } })
+    await translate()
+    expect([llm.summarize, llm.analyze, llm.analyzeAndSummarize].map((fn) => fn.mock.calls.length)).toEqual([0, 0, 1])
+    expect(llm.batch.mock.calls[0][1].contextPrefix ?? "").not.toContain("Glossary")
+  })
+
+  it("sends nothing for a page that went away, and gives a model that reasons first room for that", async () => {
+    const gone = setup()
+    gone.service.setContext(gone.context)
+    const signal = AbortSignal.abort()
+    expect((await gone.service.summarize(gone.context.text, header, false, signal)).ok).toBe(false)
+    expect([gone.llm.analyzeAndSummarize, gone.llm.summarize].map((fn) => fn.mock.calls.length)).toEqual([0, 0])
+    const reasoning = setup(undefined, (s) => (s.providers.openai = { enabled: true, apiKey: "sk-test", baseURL: "", model: "gpt-5-mini", thinking: true }))
+    reasoning.service.setContext(reasoning.context)
+    await reasoning.service.summarize(reasoning.context.text, header)
+    expect(reasoning.llm.analyzeAndSummarize.mock.calls[0][1].maxOutputTokens).toBe(800 + 1500 + 4096)
+  })
+
+  it("goes out as one chat request of the AI SDK, also when the answer was cut after the analysis", async () => {
+    const settings = createDefaultSettings("en")
+    settings.tiers.ai = "custom"
+    settings.providers.custom = { enabled: true, apiKey: "k", baseURL: "https://llm.example/v1", model: "m" }
+    settings.precise.enabled = true
+    settings.batch.maxCharsPerBatch = 60
+    const fetchFn = vi.fn(async () => chatCompletion(`{"analysis": ${JSON.stringify(analysis)}, "digest": {"summary": ["Anna`, "length"))
+    const { service } = createService(settings, { fetchFn: fetchFn as unknown as typeof fetch, i18n: () => ENGLISH })
+    const context = createMailContext(paragraphs, [0, 2, 3])
+    service.setContext(context)
+    fetchFn.mockResolvedValueOnce(chatCompletion(`{"analysis": ${JSON.stringify(analysis)}, "digest": {"summary": ["Anna`, "length"))
+    fetchFn.mockResolvedValueOnce(chatCompletion(ANSWER))
+    expect(await service.summarize(context.text, header)).toMatchObject({ ok: true, summary: { summary: SUMMARY.summary } })
+    // The combined request, then the summary alone with the glossary of the analysis it kept.
+    expect(fetchFn).toHaveBeenCalledTimes(2)
+    const bodies = (fetchFn.mock.calls as unknown as [string, RequestInit][]).map(([, init]) => String(init.body))
+    expect(bodies[0]).toContain('\\"digest\\"')
+    expect(bodies[1]).toContain("Acme Cloud → Acme-Wolke")
+  })
+
+  it("reads each part of an answer on its own: fences, chatter and a cut after the analysis", () => {
+    expect(parseCombined(`Here you go:\n\`\`\`json\n${COMBINED}\n\`\`\``)).toEqual({ analysis, digest: JSON.stringify(JSON.parse(ANSWER)) })
+    expect(parseCombined(`{"analysis": ${JSON.stringify(analysis)}, "digest": {"summary": ["cut`)).toEqual({ analysis, digest: null })
+    expect(parseCombined(`{"analysis": {"summary": "a } in \\"quotes\\"", "tone": "dry"}, "dig`)).toEqual({ analysis: { summary: 'a } in "quotes"', glossary: [], tone: "dry" }, digest: null })
+    expect(parseCombined("I cannot help with that.")).toEqual({ analysis: null, digest: null })
+    expect(buildCombinedSystem("Summarize into {{to}}.", "German")).toContain("translation of an email into German")
   })
 })
 

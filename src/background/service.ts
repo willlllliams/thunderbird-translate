@@ -16,7 +16,10 @@
  * when the message does not fit into one request. A retranslation
  * (bypassCache) asks every tier again: neither the cache nor a running
  * request answers, the new results replace the cached ones, and in precise
- * mode the message is analysed again. Only the request that started last for
+ * mode the message is analysed again. When a message needs both the
+ * analysis and its summary, and the summary uses the service and model of the
+ * AI tier, one request writes both, and each is cached under its own key.
+ * Only the request that started last for
  * a paragraph or an analysis writes the cache, so an older answer arriving
  * late does not replace a retranslation. A dictionary or Bergamot result is
  * cached only when the installed packs or models are still those it started
@@ -42,7 +45,7 @@ import { cacheKey, LruCache, type PersistentCache } from "./cache"
 import { Dictionary } from "../offline/dictionary"
 import { type BatchLimits, BatchQueue, joinParts, splitText } from "./queue/batch-queue"
 import { RequestQueue } from "./queue/request-queue"
-import { buildSummaryPrompt, type MailHeader, parseSummary, summaryInputs } from "./summary"
+import { buildCombinedSystem, buildSummaryPrompt, type MailHeader, parseCombined, parseSummary, type SummaryInputs, summaryInputs } from "./summary"
 import { BAIDU_LIMITS, baiduTranslateBatch, baiduTranslateSingle } from "./translators/baidu"
 import { bergamotTranslateBatch } from "./translators/bergamot"
 import { caiyunTranslateBatch } from "./translators/caiyun"
@@ -115,6 +118,21 @@ const FREE_LIMITS: Record<string, BatchLimits> = {
 /** Messages kept for precise mode; a message is registered again when it is translated again. */
 const MAX_CONTEXTS = 20
 
+/** Room in the answer for the analysis when one request writes the analysis and the summary: up to 30 glossary entries and a few sentences. */
+const ANALYSIS_OUTPUT_TOKENS = 1500
+
+/** Who waits for an analysis: the paragraphs of a batch, or a summary. Once each of them went away, it is not sent. */
+interface Waiter {
+  signal?: AbortSignal
+}
+
+/** One analysis request: of precise translation alone, or together with the summary of the message (analysisWithSummary()). */
+interface AnalysisRequest {
+  provider: ResolvedProvider
+  sample?: boolean
+  run: () => Promise<MailAnalysis | null>
+}
+
 /** Local models (Ollama, LM Studio) and models that reason first answer slowly: their requests get this multiple of the request timeout. */
 const SLOW_MODEL_TIMEOUT_FACTOR = 3
 
@@ -123,6 +141,7 @@ export interface LlmImpl {
   single: (segment: Segment, opts: LlmCallOptions) => Promise<string>
   analyze: (text: string, opts: LlmCallOptions) => Promise<MailAnalysis | null>
   summarize: (prompt: string, opts: LlmCallOptions) => Promise<string>
+  analyzeAndSummarize: (prompt: string, opts: LlmCallOptions) => Promise<string>
   readImage: (image: ImageInput, text: string, opts: LlmCallOptions) => Promise<ImageAnswer>
 }
 
@@ -133,6 +152,7 @@ export const LAZY_LLM: LlmImpl = {
   single: async (segment, opts) => (await loadLlm()).llmTranslateSingle(segment, opts),
   analyze: async (text, opts) => (await loadLlm()).llmAnalyzeMail(text, opts),
   summarize: async (prompt, opts) => (await loadLlm()).llmSummarize(prompt, opts),
+  analyzeAndSummarize: async (prompt, opts) => (await loadLlm()).llmAnalyzeAndSummarize(prompt, opts),
   readImage: async (image, text, opts) => (await loadLlm()).llmReadImage(image, text, opts),
 }
 
@@ -184,8 +204,14 @@ export class TranslationService {
   private readonly contexts = new LruCache<MailContext>(MAX_CONTEXTS)
   /** Analyses by cache key, finished or running, so the batches of one message share one request. */
   private readonly analyses = new LruCache<Promise<MailAnalysis | null>>(MAX_CONTEXTS)
-  /** The paragraphs of the batches that wait for an analysis on its way, by its key: once no page waits for any of them, it is not sent. */
-  private readonly analysisWaiters = new Map<string, Job[]>()
+  /** Who waits for an analysis on its way, by its key: once no page waits for any of them, it is not sent. */
+  private readonly analysisWaiters = new Map<string, Waiter[]>()
+  /** How to read the header of each registered message, for a request that writes its summary as well. */
+  private readonly headers = new LruCache<() => Promise<MailHeader | null>>(MAX_CONTEXTS)
+  /** Summaries written together with an analysis, by their cache key: they answer summarize() also with the cache off. */
+  private readonly summaries = new LruCache<string>(MAX_CONTEXTS)
+  /** Messages whose summary was asked for or written, by the hash of their text: an analysis writes no second one. */
+  private readonly summarized = new LruCache<true>(MAX_CONTEXTS)
   /** Messages registered for a retranslation, by context id: their next analysis is made again. */
   private readonly freshContexts = new LruCache<true>(MAX_CONTEXTS)
   private readonly llm: LlmImpl
@@ -244,10 +270,14 @@ export class TranslationService {
     return describeError(error, this.deps.i18n?.() ?? ENGLISH, provider ? errorContext(provider) : {})
   }
 
-  /** Precise mode: register a message before its paragraphs are requested; for a retranslation (fresh) its analysis is made again. */
-  setContext(context: MailContext, fresh = false): void {
+  /**
+   * Precise mode: register a message before its paragraphs are requested; for a retranslation (fresh) its analysis is
+   * made again. `header` reads the sender, date and subject of the message on screen, for a summary written with the analysis.
+   */
+  setContext(context: MailContext, fresh = false, header?: () => Promise<MailHeader | null>): void {
     this.contexts.set(context.id, context)
     if (fresh) this.freshContexts.set(context.id, true)
+    if (header) this.headers.set(context.id, header)
   }
 
   /**
@@ -435,10 +465,12 @@ export class TranslationService {
    * it, `header` its sender, date and subject. The AI service of the summary
    * (summaryProvider()) gets the message once the user allowed it to receive
    * message text, with the glossary of the analysis that precise translation
-   * made of the message, if there is one. An answer the summary could be
-   * read from is cached; `fresh` asks again.
+   * made of the message, if there is one. When that analysis is still to be
+   * made, one request may write both (preciseAnalysis()). An answer the
+   * summary could be read from is cached; `fresh` asks again, alone.
+   * `signal` aborts once the page that asked went away.
    */
-  async summarize(text: string, header: MailHeader | null, fresh = false): Promise<SummaryResponse> {
+  async summarize(text: string, header: MailHeader | null, fresh = false, signal?: AbortSignal): Promise<SummaryResponse> {
     const settings = this.deps.getSettings()
     const i18n = this.deps.i18n?.() ?? ENGLISH
     const inputs = summaryInputs(settings)
@@ -449,15 +481,17 @@ export class TranslationService {
       this.assertConsent(provider)
       await this.checkOrigin(provider)
       const { parts, maxOutputTokens } = settings.summary
-      const prompt = buildSummaryPrompt(text, header, (await this.preciseAnalysis(text, settings))?.glossary)
-      const variant = hashText(inputs.parts.join("\n"))
-      const key = cacheKey(`summary:${id}`, provider.model, `auto>${settings.targetLang}`, prompt, variant)
-      const cached = fresh ? undefined : await this.deps.cache.get(key)
+      this.summarized.set(hashText(text), true)
+      const analysis = await this.preciseAnalysis(text, settings, fresh ? undefined : { inputs, header, signal })
+      const prompt = buildSummaryPrompt(text, header, analysis?.glossary)
+      const key = this.summaryKey(inputs, settings.targetLang, prompt)
+      const cached = fresh ? undefined : (this.summaries.get(key) ?? (await this.deps.cache.get(key)))
       // The setting is the length of the summary: a model that reasons first gets room for that as well.
       const opts = { provider, systemPrompt, targetLanguageName, fetchFn: this.deps.fetchFn, timeoutMs: this.timeoutMs(provider), maxOutputTokens: outputLimit(id, provider.model, provider.thinking, maxOutputTokens) }
       const raw =
         cached ??
         (await this.queue(provider).run(() => {
+          if (signal?.aborted) throw aborted()
           this.assertConsent(provider)
           return this.llm.summarize(prompt, opts)
         }))
@@ -469,21 +503,45 @@ export class TranslationService {
     }
   }
 
+  /** The cache key of the summary of `prompt`, which holds the message, its header and the glossary of its analysis. */
+  private summaryKey(inputs: SummaryInputs, targetLang: string, prompt: string): string {
+    return cacheKey(`summary:${inputs.id}`, inputs.provider.model, `auto>${targetLang}`, prompt, hashText(inputs.parts.join("\n")))
+  }
+
   /** The glossary of the analysis precise translation made of the registered message `contextId`, for its images; empty without one: no analysis is made for them. */
   async glossaryOf(contextId: string): Promise<MailAnalysis["glossary"]> {
     const context = this.contexts.get(contextId)
     return (context && (await this.preciseAnalysis(context.text, this.deps.getSettings()))?.glossary) || []
   }
 
-  /** The analysis that precise translation made of the message `text`: finished, running or cached; null without one. */
-  private async preciseAnalysis(text: string, settings: Settings): Promise<MailAnalysis | null> {
+  /**
+   * The analysis that precise translation made of the message `text`: finished, running or cached; null without one.
+   * With `summary`, for a summary asked for: when the registered message on screen needs an analysis not made yet,
+   * and the summary uses the service and model of the AI tier, one request makes both.
+   */
+  private async preciseAnalysis(text: string, settings: Settings, summary?: { inputs: SummaryInputs; header: MailHeader | null; signal?: AbortSignal }): Promise<MailAnalysis | null> {
     if (!settings.precise.enabled || !settings.tiers.ai) return null
     const { provider, parts } = resultInputs(settings, settings.tiers.ai)
     const key = analysisKey(provider, `${settings.sourceLang}>${settings.targetLang}`, text, variantOf(parts))
     const known = this.analyses.get(key)
     if (known) return known
     const cached = await this.deps.cache.get(key)
-    return cached === undefined ? null : parseAnalysis(cached)
+    if (cached !== undefined) return parseAnalysis(cached)
+    const context = summary && this.contexts.entries().find(([, c]) => c.text === text)?.[1]
+    if (!context || !this.needsAnalysis(context, provider) || !this.writesSummary(settings, summary.inputs, provider)) return null
+    return this.shareAnalysis(key, false, [{ signal: summary.signal }], () => this.analysisWithSummary(text, provider, summary.inputs, async () => summary.header))
+  }
+
+  /** Whether a request of `provider` for the analysis can write the summary of `inputs` as well: the same service and model, allowed to receive message text. */
+  private writesSummary(settings: Settings, inputs: SummaryInputs, provider: ResolvedProvider): boolean {
+    return inputs.id === provider.id && inputs.provider.model === provider.model && allowsRequest(settings, "onlineConsent", inputs.provider)
+  }
+
+  /** Whether the paragraphs of `context` to translate do not fit into one request of `provider`, so that precise translation analyses the message first. */
+  private needsAnalysis(context: MailContext, provider: ResolvedProvider): boolean {
+    const limits = this.limitsFor(provider)
+    const chars = context.targets.reduce((n, i) => n + (context.paragraphs[i]?.length ?? 0), 0)
+    return chars > limits.maxChars || context.targets.length > limits.maxItems
   }
 
   private llmOptions(job: Job): LlmCallOptions {
@@ -523,41 +581,89 @@ export class TranslationService {
     // The first request of a retranslation takes the mark; the requests after it share the new analysis.
     const fresh = this.freshContexts.get(context.id) !== undefined
     this.freshContexts.delete(context.id)
-    const limits = this.limitsFor(job.provider)
-    const chars = context.targets.reduce((n, i) => n + (context.paragraphs[i]?.length ?? 0), 0)
-    if (chars <= limits.maxChars && context.targets.length <= limits.maxItems) return ""
+    if (!this.needsAnalysis(context, job.provider)) return ""
     const analysis = await this.analysis(job, fresh, batch)
     return buildContextBlock(analysis, context.text.length <= MAX_PREFIX_TEXT_CHARS ? context.text : "")
   }
 
-  /** The analysis of the message, shared by the requests of one configuration (endpoint, thinking, temperature, languages). */
+  /**
+   * The analysis of the message, shared by the requests of one configuration (endpoint, thinking, temperature,
+   * languages). A summary that opens by itself comes with the translation: when it has not been asked for yet and
+   * uses the service and model of the AI tier, the request writes it as well.
+   */
   private analysis(job: Job, fresh: boolean, batch: Job[]): Promise<MailAnalysis | null> {
-    const key = analysisKey(job.provider, `${job.sourceLang}>${job.targetLang}`, job.mail!.context.text, job.variant)
+    const { context } = job.mail!
+    const key = analysisKey(job.provider, `${job.sourceLang}>${job.targetLang}`, context.text, job.variant)
+    return this.shareAnalysis(key, fresh, batch, () => {
+      const settings = this.deps.getSettings()
+      const inputs = summaryInputs(settings)
+      const header = this.headers.get(context.id)
+      const withSummary = !job.sample && header && inputs && settings.summary.auto !== "off" && !this.summarized.get(hashText(context.text)) && this.writesSummary(settings, inputs, job.provider)
+      if (withSummary) return this.analysisWithSummary(context.text, job.provider, inputs, header)
+      return { provider: job.provider, sample: job.sample, run: () => this.llm.analyze(context.text, this.llmOptions(job)) }
+    })
+  }
+
+  /** The analysis under `key`, running or new (`request`); `waiters` wait for it as well. */
+  private shareAnalysis(key: string, fresh: boolean, waiters: Waiter[], request: () => AnalysisRequest): Promise<MailAnalysis | null> {
     let analysis = fresh ? undefined : this.analyses.get(key)
-    if (analysis) this.analysisWaiters.get(key)?.push(...batch)
+    if (analysis) this.analysisWaiters.get(key)?.push(...waiters)
     else {
-      const waiters = [...batch]
-      this.analysisWaiters.set(key, waiters)
-      analysis = this.loadAnalysis(key, job, fresh, waiters)
+      const list = [...waiters]
+      this.analysisWaiters.set(key, list)
+      analysis = this.loadAnalysis(key, request(), fresh, list)
       this.analyses.set(key, analysis)
-      const done = () => void (this.analysisWaiters.get(key) === waiters && this.analysisWaiters.delete(key))
+      const done = () => void (this.analysisWaiters.get(key) === list && this.analysisWaiters.delete(key))
       void analysis.then(done, done)
     }
     return analysis
   }
 
-  private async loadAnalysis(key: string, job: Job, fresh: boolean, waiters: Job[]): Promise<MailAnalysis | null> {
+  /**
+   * One request for the analysis of the message `text` and its summary. The analysis is returned, and cached by
+   * loadAnalysis(); a readable summary is kept under the key summarize() looks up, with the glossary of this analysis.
+   * A summary that cannot be read is left out, and summarize() asks for it alone.
+   */
+  private analysisWithSummary(text: string, provider: ResolvedProvider, inputs: SummaryInputs, header: () => Promise<MailHeader | null>): AnalysisRequest {
+    return {
+      provider,
+      run: async () => {
+        this.assertConsent(inputs.provider)
+        this.summarized.set(hashText(text), true)
+        const settings = this.deps.getSettings()
+        const head = await header().catch(() => null)
+        const raw = await this.llm.analyzeAndSummarize(buildSummaryPrompt(text, head), {
+          provider,
+          systemPrompt: buildCombinedSystem(inputs.systemPrompt, inputs.targetLanguageName),
+          targetLanguageName: inputs.targetLanguageName,
+          fetchFn: this.deps.fetchFn,
+          timeoutMs: this.timeoutMs(provider),
+          // The length setting of the summary, room for the analysis, and for a model that reasons first room for that.
+          maxOutputTokens: outputLimit(provider.id, provider.model, provider.thinking, settings.summary.maxOutputTokens + ANALYSIS_OUTPUT_TOKENS),
+        })
+        const { analysis, digest } = parseCombined(raw)
+        if (digest && parseSummary(digest, settings.summary.parts, text)) {
+          const key = this.summaryKey(inputs, settings.targetLang, buildSummaryPrompt(text, head, analysis?.glossary))
+          this.summaries.set(key, digest)
+          await this.deps.cache.set(key, digest)
+        }
+        return analysis
+      },
+    }
+  }
+
+  private async loadAnalysis(key: string, request: AnalysisRequest, fresh: boolean, waiters: Waiter[]): Promise<MailAnalysis | null> {
     const cached = fresh ? undefined : await this.deps.cache.get(key)
     if (cached !== undefined) return parseAnalysis(cached)
     try {
       return await this.latest(
         key,
         () =>
-          this.queue(job.provider).run(() => {
+          this.queue(request.provider).run(() => {
             // The glossary for images reuses an analysis and never asks for one of its own.
             if (waiters.every((waiter) => waiter.signal?.aborted)) throw aborted()
-            this.assertConsent(job.provider, job.sample)
-            return this.llm.analyze(job.mail!.context.text, this.llmOptions(job))
+            this.assertConsent(request.provider, request.sample)
+            return request.run()
           }),
         (analysis) => (analysis ? this.deps.cache.set(key, JSON.stringify(analysis)) : undefined),
       )

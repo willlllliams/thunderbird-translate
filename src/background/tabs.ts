@@ -20,15 +20,15 @@ export interface TabRegistryDeps {
   ready: () => Promise<void>
   /** The settings a content script gets. */
   publicSettings: () => PublicSettings
-  /** Registers the message of a tab for precise translation. */
-  setContext: (context: MailContext, bypassCache: boolean) => void
+  /** Registers the message of a tab for precise translation; `tabId` of a content script, none for the sample of a page. */
+  setContext: (context: MailContext, bypassCache: boolean, tabId?: number) => void
   /**
    * Translates one paragraph and reports each tier; `sample`: the request comes from a page of the extension (the trial
    * of the setup guide), not from a message; `signal` aborts once its Port went away, so nothing more is sent for it.
    */
   translate: (request: TranslateRequest, onTier: (tier: Tier, result: TranslateResponse) => void, options: { sample: boolean; signal: AbortSignal }) => Promise<void>
-  /** The summary of the message displayed in a tab, of its text; `fresh`: past the cache. */
-  summarize: (text: string, tabId: number, fresh: boolean) => Promise<SummaryResponse>
+  /** The summary of the message displayed in a tab, of its text; `fresh`: past the cache; `signal` aborts once its Port went away. */
+  summarize: (text: string, tabId: number, fresh: boolean, signal: AbortSignal) => Promise<SummaryResponse>
   /** A content script connected in a tab: the session of its images. */
   openSession?: (session: string, tabId: number) => void
   /** An image of the message displayed in a tab, for the content script `session`; without it every image request fails. */
@@ -79,7 +79,7 @@ export function createTabRegistry({ ready, publicSettings, setContext, translate
   function serve(port: browser.runtime.Port, msg: PortReport, sample: boolean, tabId: number | undefined, signal: AbortSignal, session?: string): void {
     switch (msg.type) {
       case "context":
-        setContext(msg.context, msg.bypassCache === true)
+        setContext(msg.context, msg.bypassCache === true, sample ? undefined : tabId)
         break
       case "translate":
         // A failure of the translation itself, not of a tier (each tier reports its own): the request still ends.
@@ -90,7 +90,7 @@ export function createTabRegistry({ ready, publicSettings, setContext, translate
         break
       case "summary": {
         // Only the message on screen has a summary.
-        const result = sample || tabId === undefined ? Promise.reject(new Error("no message")) : ready().then(() => summarize(msg.text, tabId, msg.bypassCache === true))
+        const result = sample || tabId === undefined ? Promise.reject(new Error("no message")) : ready().then(() => summarize(msg.text, tabId, msg.bypassCache === true, signal))
         void result.catch((): SummaryResponse => ({ ok: false, error: t("errUnknown") })).then((answer) => safePost(port, { type: "summary", id: msg.id, result: answer }))
         break
       }

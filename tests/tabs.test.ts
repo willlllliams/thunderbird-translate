@@ -163,13 +163,15 @@ describe("content script ports", () => {
     await nextTask()
   })
 
-  it("registers the message for precise mode, for a retranslation with a new analysis", () => {
+  it("registers the message for precise mode with its tab, for a retranslation with a new analysis; the sample of a page without a tab", () => {
     const { connect, setContext } = registry()
     const context = createMailContext(["Hello", "World"], [0, 1])
     connect(4).send({ type: "context", context })
-    expect(setContext).toHaveBeenCalledWith(context, false)
+    expect(setContext).toHaveBeenCalledWith(context, false, 4)
     connect(4).send({ type: "context", context, bypassCache: true })
-    expect(setContext).toHaveBeenLastCalledWith(context, true)
+    expect(setContext).toHaveBeenLastCalledWith(context, true, 4)
+    connect(6, undefined, "moz-extension://test/welcome.html").send({ type: "context", context })
+    expect(setContext).toHaveBeenLastCalledWith(context, false, undefined)
   })
 
   it("forgets a tab when its last content script disconnects", async () => {

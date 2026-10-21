@@ -76,11 +76,15 @@ export interface MailAnalysis {
 /** The whole message goes into the prefix only up to this length; longer messages rely on the analysis. */
 export const MAX_PREFIX_TEXT_CHARS = 8000
 
-export const ANALYSIS_SYSTEM_PROMPT = `You prepare the translation of an email into {{to}}. Read the whole email and answer with ONLY a JSON object, without Markdown:
-{"summary": "...", "glossary": [{"source": "...", "target": "..."}], "tone": "..."}
+/** The task of the analysis, and the object it answers with; also a part of the request that writes the summary as well (background/summary.ts). */
+export const ANALYSIS_TASK = "You prepare the translation of an email into {{to}}. Read the whole email"
+export const ANALYSIS_OBJECT = `{"summary": "...", "glossary": [{"source": "...", "target": "..."}], "tone": "..."}
 - summary: 2 to 3 sentences in English on what the email is about.
 - glossary: names of people, companies and products, other proper nouns and recurring terms, each with the {{to}} form to use every time (repeat the original when it stays untranslated). At most 30 entries.
 - tone: the tone and register of the email, and how to address the reader in {{to}}.`
+
+export const ANALYSIS_SYSTEM_PROMPT = `${ANALYSIS_TASK} and answer with ONLY a JSON object, without Markdown:
+${ANALYSIS_OBJECT}`
 
 export function buildAnalysisPrompt(text: string): string {
   return `<email>\n${text}\n</email>`
@@ -95,9 +99,38 @@ export function parseJsonObject(raw: string): Record<string, unknown> | null {
   return value && typeof value === "object" && !Array.isArray(value) ? (value as Record<string, unknown>) : null
 }
 
+/**
+ * The object under `key` of the JSON object of an answer, also when the answer was cut after it: the text from the
+ * key to the end of its object, read like a JSON object of its own. Null without such an object.
+ */
+export function parseJsonMember(raw: string, key: string): Record<string, unknown> | null {
+  const whole = parseJsonObject(raw)?.[key]
+  if (whole !== undefined) return whole && typeof whole === "object" && !Array.isArray(whole) ? (whole as Record<string, unknown>) : null
+  const s = cleanModelOutput(raw)
+  const start = new RegExp(String.raw`"${key}"\s*:\s*\{`).exec(s)
+  if (!start) return null
+  const from = start.index + start[0].length - 1
+  let depth = 0
+  let inString = false
+  for (let i = from; i < s.length; i++) {
+    const ch = s[i]
+    if (inString) {
+      if (ch === "\\") i++
+      else if (ch === '"') inString = false
+    } else if (ch === '"') inString = true
+    else if (ch === "{") depth++
+    else if (ch === "}" && --depth === 0) return parseJsonObject(s.slice(from, i + 1))
+  }
+  return null
+}
+
 /** Read the analysis JSON, tolerating fences and chatter; null when nothing usable is found. */
 export function parseAnalysis(raw: string): MailAnalysis | null {
-  const o = parseJsonObject(raw)
+  return analysisOf(parseJsonObject(raw))
+}
+
+/** The analysis in the object of an answer; null when nothing usable is found. */
+export function analysisOf(o: Record<string, unknown> | null): MailAnalysis | null {
   if (!o) return null
   const str = (v: unknown) => (typeof v === "string" ? v.trim() : "")
   const glossary = (Array.isArray(o.glossary) ? (o.glossary as Record<string, unknown>[]) : [])

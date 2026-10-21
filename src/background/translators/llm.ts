@@ -114,6 +114,17 @@ export async function llmSummarize(prompt: string, opts: LlmCallOptions): Promis
   return raw
 }
 
+/**
+ * One request for the analysis of precise translation and the summary of a message (background/summary.ts,
+ * buildCombinedSystem()): the answer as the model wrote it, also when it was cut at the output limit, since the
+ * analysis comes first and may be whole. `opts.systemPrompt` is the complete system prompt.
+ */
+export async function llmAnalyzeAndSummarize(prompt: string, opts: LlmCallOptions): Promise<string> {
+  const { text: raw } = await generate({ role: "system", content: opts.systemPrompt }, { prompt }, opts)
+  if (!raw.trim()) throw new LocalizedError("errEmptyAnswer")
+  return raw
+}
+
 /** An image for the model: its bytes and media type, and the provider options of its part (the detail of OpenAI and DeepSeek). */
 export interface ImageInput {
   bytes: Uint8Array

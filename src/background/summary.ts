@@ -5,13 +5,18 @@
  * by field, and the content script draws it (content/summary.ts). The AI
  * SDK's structured output is not used: it depends on a JSON mode of the
  * server, which OpenAI-compatible and local services offer unevenly.
+ *
+ * When precise translation needs an analysis of the same message from the
+ * same service and model, one request asks for both (buildCombinedSystem()):
+ * the answer holds the analysis under "analysis" and the summary under
+ * "digest", and parseCombined() reads each part on its own.
  */
 
 import { getLanguage } from "../shared/languages"
 import { promptText } from "../shared/prompts"
 import { resolveProvider, type ResolvedProvider, type Settings, SUMMARY_PARTS, type SummaryPart, summaryProvider } from "../shared/settings"
 import type { MailSummary } from "../shared/summary"
-import { type MailAnalysis, parseJsonObject } from "./translators/llm-prompt"
+import { ANALYSIS_OBJECT, ANALYSIS_TASK, analysisOf, type MailAnalysis, parseJsonMember, parseJsonObject } from "./translators/llm-prompt"
 
 /** What the header of the message tells the model: who wrote it and when, so that "next Wednesday" becomes a date. */
 export interface MailHeader {
@@ -57,6 +62,28 @@ export function summaryInputs(settings: Settings): SummaryInputs | null {
   const targetLanguageName = getLanguage(settings.targetLang).english
   const systemPrompt = buildSummarySystem(promptText(settings.prompts, "summary"), targetLanguageName, settings.summary.parts)
   return { id, provider, systemPrompt, targetLanguageName, parts: [provider.baseURL, systemPrompt, settings.summary.maxOutputTokens, provider.temperature, provider.thinking] }
+}
+
+/**
+ * The system prompt of one request for the analysis of precise translation and the summary: both tasks, each object
+ * under its key, the analysis first, so that an answer cut at the length limit still holds it whole.
+ */
+export function buildCombinedSystem(summarySystem: string, targetLanguage: string): string {
+  const analysis = `${ANALYSIS_TASK}. Its object:
+${ANALYSIS_OBJECT}`.replaceAll("{{to}}", targetLanguage)
+  return `You do two tasks for the same email in one answer. Answer with ONLY a JSON object, without Markdown:
+{"analysis": {...}, "digest": {...}}
+Write "analysis" first. Each task describes its object: put the object under the key of its task instead of answering with it alone.
+
+Task "analysis": ${analysis}
+
+Task "digest": ${summarySystem}`
+}
+
+/** The two parts of an answer to buildCombinedSystem(): the analysis, and the JSON of the summary for parseSummary(); each null when it cannot be read. */
+export function parseCombined(raw: string): { analysis: MailAnalysis | null; digest: string | null } {
+  const digest = parseJsonMember(raw, "digest")
+  return { analysis: analysisOf(parseJsonMember(raw, "analysis")), digest: digest ? JSON.stringify(digest) : null }
 }
 
 const attribute = (value: string) => value.replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/</g, "&lt;")

@@ -97,9 +97,10 @@ const images = new ImageService({
 const tabs = createTabRegistry({
   ready: settings.ready,
   publicSettings: () => toPublicSettings(settings.current(), settings.credentials()),
-  setContext: (context, bypassCache) => service.setContext(context, bypassCache),
+  // The header of the message is read once a request writes its summary together with the analysis.
+  setContext: (context, bypassCache, tabId) => service.setContext(context, bypassCache, tabId === undefined ? undefined : () => displayedHeader(tabId)),
   translate: (request, onTier, options) => service.translateForPage(request, onTier, options),
-  summarize: async (text, tabId, fresh) => service.summarize(text, await displayedHeader(tabId).catch(() => null), fresh),
+  summarize: async (text, tabId, fresh, signal) => service.summarize(text, await displayedHeader(tabId).catch(() => null), fresh, signal),
   openSession: (session, tabId) => images.open(session, tabId),
   image: (session, tabId, request) => images.request(session, tabId, request),
   imageConsent: (session, ids, message, hosts) => images.grant(session, ids, message, hosts),
