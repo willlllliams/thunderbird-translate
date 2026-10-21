@@ -44,6 +44,11 @@ describe("general settings", () => {
     $<HTMLInputElement>("translateSubject").click()
     await flushSave()
     expect(page.stored()).toMatchObject({ sourceLang: "en", mode: "translation-only", autoTranslate: true, translateSubject: false })
+    // The switch of the Markdown of AI translations sits under the translation style.
+    expect($<HTMLInputElement>("renderMarkdown").checked).toBe(true)
+    $<HTMLInputElement>("renderMarkdown").click()
+    await flushSave()
+    expect(page.stored()).toMatchObject({ renderMarkdown: false })
     set("sourceLang", "auto")
     expect($("sameLanguage").hidden).toBe(true)
   })

@@ -75,6 +75,8 @@ export interface Settings {
   autoTranslate: boolean
   /** Translate the subject of a message with its body, shown in a line above the body. */
   translateSubject: boolean
+  /** Show the Markdown of AI translations formatted (shared/markdown.ts); off shows the text as the service wrote it. */
+  renderMarkdown: boolean
   tiers: TierSettings
   providers: Record<string, ProviderConfig>
   /** System prompts of the AI tier; `{{to}}` is the target language. Empty = default. */
@@ -122,6 +124,7 @@ export function createDefaultSettings(uiLang?: string): Settings {
     mode: "bilingual",
     autoTranslate: false,
     translateSubject: true,
+    renderMarkdown: true,
     tiers: { ...DEFAULT_TIERS },
     providers,
     prompts: { bilingual: "", translationOnly: "", precise: "" },
@@ -249,6 +252,8 @@ export function normalizeSettings(stored: unknown, uiLang?: string): Settings {
     autoTranslate: s.autoTranslate === true,
     // On unless switched off: settings saved before 2.1.0 have no such field.
     translateSubject: s.translateSubject !== false,
+    // On unless switched off: settings saved before 2.2.0 have no such field.
+    renderMarkdown: s.renderMarkdown !== false,
     tiers: normalizeTiers(s),
     providers,
     prompts: normalizePrompts(s),
@@ -432,6 +437,8 @@ export interface PublicSettings {
   autoTranslate: boolean
   /** The content script translates the subject of the message as well, in a line above the body. */
   translateSubject: boolean
+  /** AI translations show their Markdown formatted; it decides only how a result is shown, so it is not part of any signature. */
+  renderMarkdown: boolean
   /** Tiers in use, lowest first. */
   tiers: Tier[]
   /**
@@ -462,6 +469,7 @@ export function toPublicSettings(settings: Settings): PublicSettings {
     mode: settings.mode,
     autoTranslate: settings.autoTranslate,
     translateSubject: settings.translateSubject,
+    renderMarkdown: settings.renderMarkdown,
     tiers: enabledTiers(settings.tiers),
     signatures,
     precise: settings.precise.enabled && settings.tiers.ai !== null,

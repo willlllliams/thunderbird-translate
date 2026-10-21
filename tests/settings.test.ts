@@ -11,6 +11,7 @@ import {
   promptKindFor,
   type ProviderConfig,
   removalBlocker,
+  resultInputs,
   tiersValid,
   toPublicSettings,
 } from "../src/shared/settings"
@@ -210,6 +211,19 @@ describe("public settings", () => {
     expect(b.signatures.dictionary).toBe(a.signatures.dictionary)
     s.prompts.translationOnly = "Other {{to}}"
     expect(toPublicSettings(s).signatures.ai).not.toBe(b.signatures.ai)
+  })
+
+  it("carry the Markdown switch, which changes no signature and no input of a result", () => {
+    const s = createDefaultSettings()
+    s.tiers = { dictionary: "dictionary", machine: "google-free", ai: "openai" }
+    const on = toPublicSettings(s)
+    expect(on.renderMarkdown).toBe(true)
+    const parts = resultInputs(s, "openai").parts
+    s.renderMarkdown = false
+    const off = toPublicSettings(s)
+    expect(off.renderMarkdown).toBe(false)
+    expect(off.signatures).toEqual(on.signatures)
+    expect(resultInputs(s, "openai").parts).toEqual(parts)
   })
 
   it("hold no key, token or endpoint that may carry one, in any field; only the host of a service awaiting consent", () => {

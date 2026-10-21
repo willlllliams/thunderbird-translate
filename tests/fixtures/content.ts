@@ -14,6 +14,7 @@ export const publicSettings = (over: Partial<PublicSettings> = {}): PublicSettin
   mode: "bilingual",
   autoTranslate: false,
   translateSubject: true,
+  renderMarkdown: true,
   tiers: ["machine"],
   signatures: { machine: "google-free" },
   precise: false,

@@ -206,6 +206,10 @@ describe("normalization of each field", () => {
     ["translateSubject", undefined, true],
     ["translateSubject", "false", true],
     ["translateSubject", false, false],
+    // On for settings saved before 2.2.0, which have no such field, and for anything but false.
+    ["renderMarkdown", undefined, true],
+    ["renderMarkdown", 0, true],
+    ["renderMarkdown", false, false],
     ["precise.enabled", 1, false],
     ["dictionary.releaseTag", "  dicts-v2 ", "dicts-v2"],
     ["dictionary.releaseTag", "  ", "dicts-v1"],

@@ -346,6 +346,7 @@ async function main(): Promise<void> {
   session.bindCheck("llmBatchEnabled", () => b.llmBatchEnabled, (v) => (b.llmBatchEnabled = v))
 
   applyPreview()
+  session.bindCheck("renderMarkdown", () => settings.renderMarkdown, (v) => (settings.renderMarkdown = v))
 
   // Cache
   session.bindCheck("cacheEnabled", () => settings.cache.enabled, (v) => (settings.cache.enabled = v))
