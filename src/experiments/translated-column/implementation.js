@@ -106,9 +106,12 @@ var translatedColumn = class extends ExtensionCommon.ExtensionAPI {
           })
         },
 
-        /** Take over translations ([subject, translation] pairs) and fill the rows of every message list again. */
+        /** Take over translations ([subject, translation] pairs, an empty one removes) and fill the rows of every message list again. */
         async set(entries) {
-          for (const [subject, translation] of entries) translations.set(subject, translation)
+          for (const [subject, translation] of entries) {
+            if (translation) translations.set(subject, translation)
+            else translations.delete(subject)
+          }
           threadPaneColumns().refreshCustomColumn(COLUMN_ID)
         },
 

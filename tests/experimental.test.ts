@@ -7,7 +7,7 @@ import { readFileSync } from "node:fs"
 import { join } from "node:path"
 import { runInNewContext } from "node:vm"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
-import { type ColumnApi, type ColumnDeps, createColumnSync, LIST_SIZE, listedMessages, PUSH_DELAY_MS, SETTLE_DELAYS_MS } from "../src/experiments/column"
+import { type ColumnApi, type ColumnDeps, createColumnSync, LIST_SIZE, listedMessages, MAX_SUBJECTS, PUSH_DELAY_MS, SETTLE_DELAYS_MS } from "../src/experiments/column"
 import type { TranslateRequest, TranslateResponse } from "../src/shared/messages"
 import type { Tier } from "../src/shared/providers"
 import { createDefaultSettings, SETTINGS_KEY, type Settings, toPublicSettings } from "../src/shared/settings"
@@ -25,12 +25,12 @@ afterEach(() => {
 
 const root = join(__dirname, "..")
 
-/** A column API that records what it got. */
+/** A column API that records what it got; an empty translation removes the subject, as in the parent implementation. */
 function columnApi() {
   const shown = new Map<string, string>()
   const api = {
     add: vi.fn(async (_name: string) => {}),
-    set: vi.fn(async (entries: [string, string][]) => void entries.forEach(([s, t]) => shown.set(s, t))),
+    set: vi.fn(async (entries: [string, string][]) => void entries.forEach(([s, t]) => (t ? shown.set(s, t) : shown.delete(s)))),
     clear: vi.fn(async () => shown.clear()),
     show: vi.fn(async () => 1),
   } satisfies ColumnApi
@@ -128,6 +128,30 @@ describe("column sync", () => {
     // Emptied once, when the column was first filled.
     expect(s.api.clear).toHaveBeenCalledTimes(1)
     expect(s.translate).toHaveBeenCalledTimes(2)
+  })
+
+  it("keeps the subjects listed last, removes the others from the column and asks again for one listed again", async () => {
+    const page = (n: number) => Array.from({ length: LIST_SIZE }, (_, i) => `Subject ${n * LIST_SIZE + i}`)
+    const pages = MAX_SUBJECTS / LIST_SIZE
+    const s = sync()
+    for (let n = 0; n < pages; n++) {
+      s.list.subjects = page(n)
+      await s.sync.translateTab(5)
+    }
+    // Listed again, the first page moves past the second.
+    s.list.subjects = page(0)
+    await s.sync.translateTab(5)
+    s.list.subjects = page(pages)
+    await s.sync.translateTab(5)
+    await flush()
+    expect(s.shown.size).toBe(MAX_SUBJECTS)
+    expect(s.api.set.mock.lastCall![0]).toContainEqual([`Subject ${LIST_SIZE}`, ""])
+    expect(s.shown.has(`Subject ${LIST_SIZE}`)).toBe(false)
+    expect(s.shown.get("Subject 0")).toBe("machine(Subject 0)")
+    expect(s.translate).toHaveBeenCalledTimes(MAX_SUBJECTS + LIST_SIZE)
+    s.list.subjects = page(1)
+    await s.sync.translateTab(5)
+    expect(s.translate).toHaveBeenCalledTimes(MAX_SUBJECTS + 2 * LIST_SIZE)
   })
 
   it("asks again for a subject whose translation failed as a whole", async () => {
@@ -367,6 +391,9 @@ describe("experiment API translatedColumn (parent implementation)", () => {
     await x.api.set([["Budget", "预算"]])
     expect(added.textCallback({ mime2DecodedSubject: "Budget" })).toBe("预算")
     expect(x.ThreadPaneColumns.refreshCustomColumn).toHaveBeenCalledWith("multiTranslateSubjectCol")
+    await x.api.set([["下周的会议安排", "Schedule"], ["Budget", ""]])
+    expect(await x.api.inspect(1, 0)).toMatchObject({ translations: 1 })
+    await x.api.set([["下周的会议安排", ""], ["Budget", "预算"]])
     expect(await x.api.inspect(1, 5)).toEqual({
       registered: true,
       visible: false,
