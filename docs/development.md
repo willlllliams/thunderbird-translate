@@ -15,7 +15,7 @@ This page covers building Multi Translate for Thunderbird from source, the tests
 
 ## Build from source
 
-Node.js 22 or later is required. Development and CI use Node 24 and npm 11.
+The build needs Node.js 22 or later. The tests need Node.js 22.22.2 or later, 24.15.0 or later, or 26 and later, as jsdom and vitest require (`engines` in `package.json`); they also use `zlib.zstdCompressSync`, which Node 22 has since 22.15.0. Development and CI use Node 24 and npm 11.
 
 ```bash
 npm ci
