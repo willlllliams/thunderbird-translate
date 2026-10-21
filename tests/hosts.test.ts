@@ -4,12 +4,13 @@ import { join } from "node:path"
 import { describe, expect, it } from "vitest"
 import { DEFAULT_ATTACHMENTS_BASE, DEFAULT_SERVER_URL } from "../src/offline/bergamot/manager"
 import { RELEASES } from "../src/offline/dictionary/download"
-import { FIXED_HOSTS, isFixedHost, isLoopback, MS_EDGE_TRANSLATE_URL, OPTIONAL_HOSTS, originPattern, patternHost, providerOrigin, requestUrl } from "../src/shared/hosts"
+import { FIXED_HOSTS, isLoopback, MS_EDGE_TRANSLATE_URL, originPattern, patternHost, providerOrigin, requestUrl } from "../src/shared/hosts"
 import { PROVIDER_PRESETS } from "../src/shared/providers"
 import { emptyProviderConfig, resolveProviderConfig } from "../src/shared/settings"
 
 const manifest = JSON.parse(readFileSync(join(__dirname, "..", "static", "manifest.json"), "utf8")) as { permissions: string[]; optional_permissions: string[] }
 const hostPermissions = manifest.permissions.filter((p) => p.includes("://"))
+const isFixedHost = (pattern: string) => FIXED_HOSTS.includes(pattern)
 const resolved = (id: string, over: Partial<ReturnType<typeof emptyProviderConfig>> = {}) => resolveProviderConfig(id, { ...emptyProviderConfig(), ...over })
 
 describe("host permissions of the manifest", () => {
@@ -17,7 +18,8 @@ describe("host permissions of the manifest", () => {
     expect(hostPermissions).toEqual([...FIXED_HOSTS])
     expect(manifest.permissions.filter((p) => !p.includes("://"))).toEqual(["accountsRead", "messagesModify", "messagesRead", "sensitiveDataUpload", "storage", "unlimitedStorage"])
     for (const host of hostPermissions) expect(host).toMatch(/^https:\/\/[a-z0-9.-]+\.[a-z]+\/\*$/)
-    expect(manifest.optional_permissions).toEqual([...OPTIONAL_HOSTS])
+    // Any address the user types.
+    expect(manifest.optional_permissions).toEqual(["http://*/*", "https://*/*"])
   })
 
   it("cover the default endpoint of every preset that is not on this computer", () => {

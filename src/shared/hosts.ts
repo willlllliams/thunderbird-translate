@@ -54,9 +54,6 @@ export const FIXED_HOSTS: readonly string[] = [
   "https://objects.githubusercontent.com/*",
 ]
 
-/** The optional host permissions of the manifest: any address the user types. */
-export const OPTIONAL_HOSTS: readonly string[] = ["http://*/*", "https://*/*"]
-
 /** The match pattern of the host of `url` ("https://example.com/*", any port); null for a URL that is not http(s). */
 export function originPattern(url: string): string | null {
   try {
@@ -71,11 +68,6 @@ export function originPattern(url: string): string | null {
 /** Host of a match pattern, for the interface: "https://example.com/*" → "example.com". */
 export function patternHost(pattern: string): string {
   return pattern.replace(/^[a-z]+:\/\//, "").replace(/\/\*$/, "")
-}
-
-/** Whether `pattern` is one of the host permissions of the manifest. */
-export function isFixedHost(pattern: string): boolean {
-  return FIXED_HOSTS.includes(pattern)
 }
 
 /** The URL that requests of a service go to; null for the offline services. */
