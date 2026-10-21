@@ -28,10 +28,11 @@ Vorstellungsvideo: [YouTube](https://www.youtube.com/watch?v=OZmiMGeuhJ0) (1 Min
 - Übersetzt Absätze, Listeneinträge, Tabellenzellen, Überschriften und Zitate von HTML-Nachrichten sowie durch Leerzeilen getrennte Absätze von Nur-Text-Nachrichten. Code, Zahlen, nackte Links und Absätze, die bereits in der Zielsprache verfasst sind, werden übersprungen. Auch der Betreff wird übersetzt, in einer Zeile über dem Nachrichtentext („Auch den Betreff übersetzen“, standardmäßig an).
 - Zwei Anzeigemodi: zweisprachig (die Übersetzung unter jedem Originalabsatz) oder nur Übersetzung, beide mit Fettdruck, Listen und Links von KI-Übersetzungen formatiert. Wird die Übersetzung ausgeschaltet, steht die Nachricht wieder exakt im Original da.
 - Drei Übersetzungsstufen arbeiten gleichzeitig: ein Offline-Wörterbuch, ein maschineller Übersetzer und ein KI-Dienst. Das schnellste Ergebnis erscheint zuerst, das der höchsten Stufe ersetzt es.
-- Kostenlose Dienste ohne Konto: Google Translate (Standard) und Microsoft Translator.
+- Maschinelle Übersetzung ohne Konto (Google Translate als Standard und Microsoft Translator) oder mit eigenem Schlüssel (DeepL, Baidu, Youdao, Caiyun).
 - Offline-Übersetzung mit Wörterbuchpaketen und den Bergamot-Modellen von Mozilla; kein Text verlässt den Computer.
 - 22 Voreinstellungen für KI-Anbieter, darunter OpenAI, Claude, Gemini, DeepSeek, Qwen, lokale Instanzen von Ollama und LM Studio sowie jeder OpenAI-kompatible Dienst.
 - Präzise Übersetzung: Die KI-Stufe sieht die gesamte Nachricht, sodass Namen und Fachbegriffe einheitlich bleiben.
+- Zusammenfassung und Aufgaben: Ein KI-Dienst listet über der Nachricht die Zusammenfassung, die Aufgaben, die zu beantwortenden Fragen und die Termine auf.
 - Drei bearbeitbare Prompts mit Vorlagen für regionale Varianten, Schreibstile und schwierige Wörter.
 - Optional: automatische Übersetzung jeder Nachricht, die nicht in der Zielsprache verfasst ist.
 - Benutzeroberfläche in 12 Sprachen und ein Einrichtungsassistent, der sich nach der Installation öffnet.
@@ -46,18 +47,15 @@ Erforderlich ist Thunderbird 128 oder neuer. Das Vorabrelease `nightly` ist ein 
 
 ## Schnellstart
 
-Nach der Installation öffnet sich der Einrichtungsassistent in einem neuen Tab. Jeder Schritt stellt eine Frage: Sprachen, Anzeigemodus und Darstellung der Übersetzung, Dienst jeder Stufe (mit einer kurzen Vorführung des Ergebnisses), Offline-Downloads, Schlüssel der Dienste und Prompts. Jede Auswahl wird sofort gespeichert, und jeder Schritt lässt sich überspringen. Im letzten Schritt wird eine Beispielnachricht mit den gewählten Einstellungen übersetzt.
-
-Den Assistenten öffnet man später über den Link „Einrichtungsassistent“ im Pop-up oder die Schaltfläche oben auf der Einstellungsseite. Ohne jede Einstellung genügt es, eine Nachricht zu öffnen und Alt+A zu drücken: Google Translate übersetzt sie.
+Nach der Installation öffnet sich der Einrichtungsassistent in einem neuen Tab. Jeder Schritt stellt eine Frage: Sprachen, Anzeigemodus und Darstellung der Übersetzung, Dienst jeder Stufe (mit einer kurzen Vorführung des Ergebnisses), Offline-Downloads, Schlüssel der Dienste und Prompts. Jede Auswahl wird sofort gespeichert, und jeder Schritt lässt sich überspringen. Im letzten Schritt wird eine Beispielnachricht mit den gewählten Einstellungen übersetzt. Den Assistenten öffnet man später über den Link „Einrichtungsassistent“ im Pop-up oder die Schaltfläche oben auf der Einstellungsseite. Ohne jede Einstellung genügt es, eine Nachricht zu öffnen und Alt+A zu drücken: Google Translate übersetzt sie.
 
 ## Verwendung
 
 Eine Nachricht öffnen und in der Symbolleiste des Nachrichtenkopfs auf „Nachricht übersetzen“ klicken. Das Pop-up enthält diese Bedienelemente:
 
 - „Diese Nachricht übersetzen“ startet die Übersetzung. Solange eine Übersetzung angezeigt wird, lautet die Schaltfläche „Original anzeigen“.
-- „Neu übersetzen“ fragt jede Stufe erneut und ignoriert den Cache.
-- Anzeigemodus, Ausgangssprache („Automatisch erkennen“ ist voreingestellt) und Zielsprache.
-- Pro Stufe eine Liste der Dienste, „Präzise Übersetzung“ und der Schalter „Nachrichten, die nicht in der Zielsprache verfasst sind, automatisch übersetzen“.
+- „Neu übersetzen“ fragt jede Stufe erneut und ignoriert den Cache; „Zusammenfassung und Aufgaben“ zeigt die Zusammenfassung der Nachricht über ihr.
+- Anzeigemodus, Ausgangssprache („Automatisch erkennen“ ist voreingestellt), Zielsprache, pro Stufe eine Liste der Dienste, „Präzise Übersetzung“ und der Schalter „Nachrichten, die nicht in der Zielsprache verfasst sind, automatisch übersetzen“.
 
 | Tastenkombination | Aktion |
 | --- | --- |
@@ -65,7 +63,7 @@ Eine Nachricht öffnen und in der Symbolleiste des Nachrichtenkopfs auf „Nachr
 | Alt+S | Zwischen „Zweisprachig“ und „Nur Übersetzung“ umschalten |
 | Alt+R | Ohne Cache neu übersetzen (nur solange die Nachricht übersetzt ist) |
 
-Die Tastenkombinationen lassen sich im Zahnradmenü der Add-ons-Verwaltung unter „Tastenkombinationen für Erweiterungen verwalten“ ändern.
+Die Tastenkombinationen lassen sich im Zahnradmenü der Add-ons-Verwaltung unter „Tastenkombinationen für Erweiterungen verwalten“ ändern; dort erhält auch die Zusammenfassung eine Tastenkombination nach Wahl.
 
 Der zweisprachige Modus setzt jede Übersetzung unter ihren Originalabsatz. Der Modus „Nur Übersetzung“ ersetzt das Original; fährt man mit der Maus über eine Übersetzung, erscheint der Originaltext. Die Schaltfläche „Übersetzte Betreffs“ in der Hauptsymbolleiste listet die Nachrichten des aktuellen Ordners mit ihren übersetzten Betreffs auf; ein Klick auf eine Zeile zeigt die Nachricht an.
 
@@ -76,7 +74,7 @@ Alle weiteren Einstellungen liegen auf der Einstellungsseite, die sich über die
 | Stufe | Dienste | Geschwindigkeit | Qualität | Offline | Kosten |
 | --- | --- | --- | --- | --- | --- |
 | 1 Wörterbuch | Wörterbuch | einige Millisekunden | Wort für Wort, ohne Grammatik | ja | kostenlos; einige MB pro Sprachpaar |
-| 2 Maschinelle Übersetzung | Google, Microsoft, DeepLX, Bergamot | ein bis zwei Sekunden pro Nachricht | vollständig und gut lesbar | nur Bergamot | kostenlos; Bergamot lädt 13–48 MB pro Richtung |
+| 2 Maschinelle Übersetzung | Google, Microsoft, DeepL, Baidu, Youdao, Caiyun, DeepLX, Bergamot | ein bis zwei Sekunden pro Nachricht | vollständig und gut lesbar | nur Bergamot | kostenlos, die Dienste mit eigenem Schlüssel bis zu ihrem Freikontingent; Bergamot lädt 13–48 MB pro Richtung |
 | 3 KI-Übersetzung | 22 KI-Anbieter | einige Sekunden bis eine Minute | am natürlichsten; folgt den eigenen Prompts | nur lokale Modelle | nach Verbrauch über den eigenen API-Schlüssel abgerechnet; lokale Modelle kostenlos |
 
 Jede Stufe verwendet einen Dienst oder „Nicht verwendet“; mindestens eine Stufe braucht einen Dienst. Standardmäßig ist nur Stufe 2 mit Google Translate belegt.
@@ -92,6 +90,7 @@ Fehlen dem gewählten Wörterbuch oder Bergamot die Daten für die Sprachen eine
 | Kostenlos | Google Translate | keine |
 | | Microsoft Translator | keine; optional der Modus „Eigenen Schlüssel verwenden (Azure Translator)“ mit Azure-Schlüssel und Region |
 | | DeepLX | die Adresse eines DeepLX-Servers; Token optional |
+| Mit eigenem Schlüssel | DeepL API, Baidu Translate, Youdao, Caiyun | ein Schlüssel des eigenen Kontos; Baidu und Youdao zusätzlich eine App-ID |
 | Offline | Wörterbuch | Sprachpaare im Abschnitt „Wörterbücher“ herunterladen; je einige MB |
 | | Bergamot (Mozilla) | Richtungen im Abschnitt „Offline-Übersetzungsmodelle (Bergamot)“ herunterladen; je 13–48 MB, jedes Modell hat Englisch auf einer Seite |
 | KI | 22 Voreinstellungen | ein API-Schlüssel; Ollama, LM Studio und eigene OpenAI-kompatible Dienste brauchen keinen |
@@ -108,7 +107,7 @@ Vorlagen fügen einem Prompt Regeln hinzu: eine regionale Variante wie britische
 
 ## Datenschutz
 
-- Der Nachrichtentext geht nur an die Dienste der verwendeten Stufen. Das Wörterbuch und Bergamot übersetzen auf dem eigenen Computer. Für die Betreffs der Nachrichten gilt dieselbe Regel.
+- Der Nachrichtentext geht nur an die Dienste der verwendeten Stufen. Das Wörterbuch und Bergamot übersetzen auf dem eigenen Computer. Für die Betreffs der Nachrichten gilt dieselbe Regel. Eine angeforderte Zusammenfassung schickt die ganze Nachricht mit Absender und Datum an ihren KI-Dienst.
 - Bevor der Text einer Nachricht zum ersten Mal an einen Online-Dienst geht, nennt ein Feld über der Nachricht den Dienst und seine Adresse und fragt einmal pro Dienst nach. Vor einem Klick auf „Erlauben und übersetzen“ wird nichts gesendet; die Einstellungsseite listet die erlaubten Dienste auf und kann die Erlaubnis widerrufen. Mit Wörterbuch und Bergamot allein wird nichts gefragt.
 - Eine selbst eingetragene Adresse (Ollama, LM Studio, DeepLX, ein eigener Dienst, eine geänderte Adresse) braucht einmal die Erlaubnis zur Verbindung, erteilt mit „Zugriff erlauben“ oder „Verbindung testen“ in den Einstellungen.
 - API-Schlüssel werden nur im eigenen Thunderbird-Profil gespeichert und nur an die Adresse des jeweiligen Dienstes gesendet.
@@ -121,8 +120,7 @@ Vorlagen fügen einem Prompt Regeln hinzu: eine regionale Variante wie britische
 
 - Links und Formatierungen innerhalb von Zeilen aus dem Original werden nicht in die Übersetzung übernommen. Fett, Listen und Links erscheinen in einer Übersetzung nur, wenn ein KI-Dienst sie als Markdown schreibt; Übersetzungen des Wörterbuchs und der maschinellen Übersetzung sowie vorläufige Übersetzungen sind reiner Text.
 - Die kostenlosen Schnittstellen von Google und Microsoft sind nicht dokumentiert und können sich ändern oder in der Rate begrenzt werden.
-- Das Wörterbuch liefert eine Wort-für-Wort-Glosse in der Wortfolge der Ausgangssprache.
-- Das Wörterbuch und Bergamot übersetzen nicht zwischen vereinfachtem und traditionellem Chinesisch.
+- Das Wörterbuch liefert eine Wort-für-Wort-Glosse in der Wortfolge der Ausgangssprache, und weder es noch Bergamot übersetzt zwischen vereinfachtem und traditionellem Chinesisch.
 - Jede verwendete Stufe sendet ihre eigenen Anfragen; deshalb zählt die Stufe der maschinellen Übersetzung auch dann gegen die Grenzen der kostenlosen Schnittstellen, wenn zusätzlich die KI-Stufe verwendet wird.
 - Fehlertexte eines Dienstes werden unverändert angezeigt, meist auf Englisch.
 

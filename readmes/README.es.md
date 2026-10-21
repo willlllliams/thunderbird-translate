@@ -28,10 +28,11 @@ Vídeo de presentación: [YouTube](https://www.youtube.com/watch?v=OZmiMGeuhJ0) 
 - Traduce los párrafos, elementos de lista, celdas de tabla, encabezados y citas del correo HTML, y los párrafos separados por líneas en blanco del correo de texto sin formato. Se omiten el código, los números, los enlaces sueltos y los párrafos que ya están en el idioma de destino. El asunto también se traduce, en una línea sobre el cuerpo del mensaje ("Traducir también el asunto", activado por defecto).
 - Dos modos de visualización: bilingüe (la traducción debajo de cada párrafo original) o solo traducción, y en ambos la negrita, las listas y los enlaces de las traducciones de IA aparecen con formato. Al desactivar la traducción, el mensaje original se restaura exactamente.
 - Tres niveles de traducción trabajan a la vez: un diccionario sin conexión, un traductor automático y un servicio de IA. El resultado más rápido aparece primero y el del nivel más alto lo sustituye.
-- Servicios gratuitos sin cuenta: Google Translate (el predeterminado) y Microsoft Translator.
+- Traducción automática sin cuenta (Google Translate, el predeterminado, y Microsoft Translator) o con una clave propia (DeepL, Baidu, Youdao, Caiyun).
 - Traducción sin conexión con paquetes de diccionario y los modelos Bergamot de Mozilla; ningún texto sale de su equipo.
 - 22 configuraciones predefinidas de proveedores de IA, entre ellas OpenAI, Claude, Gemini, DeepSeek, Qwen, Ollama y LM Studio en local, y cualquier servicio compatible con OpenAI.
 - Traducción precisa: el nivel de IA ve el mensaje completo, de modo que los nombres y los términos se mantienen coherentes.
+- Resumen y tareas: un servicio de IA enumera, encima del mensaje, el resumen, las tareas, las preguntas por responder y las fechas.
 - Tres prompts editables con preajustes para variedades regionales, estilos de redacción y palabras difíciles.
 - Traducción automática opcional de todo mensaje que no esté en el idioma de destino.
 - Interfaz en 12 idiomas y una guía de configuración que se abre después de la instalación.
@@ -46,18 +47,15 @@ Se requiere Thunderbird 128 o posterior. La versión preliminar `nightly` es una
 
 ## Inicio rápido
 
-Después de la instalación, la guía de configuración se abre en una pestaña nueva. Hace una pregunta por paso: idiomas, modo de visualización y estilo de la traducción, servicio de cada nivel (con una breve demostración del resultado), descargas sin conexión, claves de los servicios y prompts. Cada elección se guarda al instante y se puede omitir cualquier paso. El último paso traduce un mensaje de ejemplo con su configuración.
-
-Puede volver a abrir la guía desde el enlace "Guía de configuración" de la ventana emergente o desde el botón de la parte superior de la página de configuración. Sin cambiar nada, abra un mensaje y pulse Alt+A: Google Translate lo traduce.
+Después de la instalación, la guía de configuración se abre en una pestaña nueva. Hace una pregunta por paso: idiomas, modo de visualización y estilo de la traducción, servicio de cada nivel (con una breve demostración del resultado), descargas sin conexión, claves de los servicios y prompts. Cada elección se guarda al instante y se puede omitir cualquier paso. El último paso traduce un mensaje de ejemplo con su configuración. Puede volver a abrir la guía desde el enlace "Guía de configuración" de la ventana emergente o desde el botón de la parte superior de la página de configuración. Sin cambiar nada, abra un mensaje y pulse Alt+A: Google Translate lo traduce.
 
 ## Uso
 
 Abra un mensaje y haga clic en el botón "Traducir mensaje" de la barra de herramientas de la cabecera del mensaje. La ventana emergente tiene estos controles:
 
 - "Traducir este mensaje" inicia la traducción. Mientras se muestra una traducción, el botón dice "Mostrar original".
-- "Volver a traducir" consulta de nuevo a todos los niveles e ignora la caché.
-- Modo de visualización, idioma de origen ("Detectar automáticamente" de forma predeterminada) e idioma de destino.
-- Una lista de servicios por nivel, la traducción precisa y el interruptor "Traducir automáticamente los mensajes que no estén en el idioma de destino".
+- "Volver a traducir" consulta de nuevo a todos los niveles e ignora la caché; "Resumen y tareas" muestra el resumen del mensaje encima de él.
+- Modo de visualización, idioma de origen ("Detectar automáticamente" de forma predeterminada), idioma de destino, una lista de servicios por nivel, la traducción precisa y el interruptor "Traducir automáticamente los mensajes que no estén en el idioma de destino".
 
 | Atajo | Acción |
 | --- | --- |
@@ -65,7 +63,7 @@ Abra un mensaje y haga clic en el botón "Traducir mensaje" de la barra de herra
 | Alt+S | Cambiar entre bilingüe y solo traducción |
 | Alt+R | Volver a traducir ignorando la caché (solo mientras el mensaje está traducido) |
 
-Los atajos se pueden cambiar en "Administrar atajos de teclado de extensiones", dentro del menú de engranaje del Administrador de complementos.
+Los atajos se pueden cambiar en "Administrar atajos de teclado de extensiones", dentro del menú de engranaje del Administrador de complementos, donde el resumen recibe un atajo a su elección.
 
 El modo bilingüe coloca cada traducción debajo de su párrafo original. El modo solo traducción sustituye el original; al pasar el ratón sobre una traducción se ve el texto original. El botón "Asuntos traducidos" de la barra de herramientas principal muestra los mensajes de la carpeta actual con sus asuntos traducidos; un clic en una fila muestra el mensaje.
 
@@ -76,7 +74,7 @@ El resto de la configuración está en la página de configuración: el botón "
 | Nivel | Servicios | Velocidad | Calidad | Sin conexión | Coste |
 | --- | --- | --- | --- | --- | --- |
 | 1 Diccionario | Diccionario | unos milisegundos | palabra por palabra, sin gramática | sí | gratuito; unos MB por par de idiomas |
-| 2 Traducción automática | Google, Microsoft, DeepLX, Bergamot | de uno a dos segundos por mensaje | completa y legible | solo Bergamot | gratuito; Bergamot descarga de 13 a 48 MB por dirección |
+| 2 Traducción automática | Google, Microsoft, DeepL, Baidu, Youdao, Caiyun, DeepLX, Bergamot | de uno a dos segundos por mensaje | completa y legible | solo Bergamot | gratuito, los servicios con su clave hasta su cuota gratuita; Bergamot descarga de 13 a 48 MB por dirección |
 | 3 Traducción de IA | 22 proveedores de IA | de unos segundos a un minuto | la más natural; sigue sus prompts | solo modelos locales | se factura por uso a su clave de API; los modelos locales son gratuitos |
 
 Cada nivel usa un servicio o "No se usa"; al menos un nivel necesita un servicio. La configuración predeterminada es Google Translate en el nivel 2 y nada más.
@@ -92,6 +90,7 @@ Cuando el diccionario o el Bergamot seleccionado no tiene los datos de los idiom
 | Gratuitos | Google Translate | nada |
 | | Microsoft Translator | nada; modo opcional "Usar mi clave (Azure Translator)" con una clave y una región de Azure |
 | | DeepLX | el punto de conexión de un servidor DeepLX; el token es opcional |
+| Con su clave | DeepL API, Baidu Translate, Youdao, Caiyun | una clave de su propia cuenta; Baidu y Youdao, también un ID de aplicación |
 | Sin conexión | Diccionario | descargar pares de idiomas en la sección Diccionarios; unos MB cada uno |
 | | Bergamot (Mozilla) | descargar direcciones en "Modelos de traducción sin conexión (Bergamot)"; de 13 a 48 MB cada una, todos los modelos tienen el inglés en un lado |
 | IA | 22 configuraciones predefinidas | una clave de API; Ollama, LM Studio y los servicios personalizados compatibles con OpenAI no necesitan ninguna |
@@ -108,7 +107,7 @@ Los preajustes añaden reglas a un prompt: una variedad regional, como el inglé
 
 ## Privacidad
 
-- El texto del mensaje solo va a los servicios de los niveles en uso. El diccionario y Bergamot traducen en su equipo. Los asuntos de los mensajes siguen la misma regla.
+- El texto del mensaje solo va a los servicios de los niveles en uso. El diccionario y Bergamot traducen en su equipo. Los asuntos de los mensajes siguen la misma regla. Un resumen que usted pida envía el mensaje completo, con su remitente y su fecha, a su servicio de IA.
 - Antes de que el texto de un mensaje vaya por primera vez a un servicio en línea, un panel sobre el mensaje indica el servicio y su dirección y pregunta una vez por servicio. No se envía nada hasta hacer clic en «Permitir y traducir»; la página de configuración muestra los servicios permitidos y permite revocarlos. Con solo el diccionario y Bergamot no se pregunta nada.
 - Una dirección que usted escribe (Ollama, LM Studio, DeepLX, un servicio personalizado, una dirección modificada) necesita permiso de conexión, que se da una vez con «Permitir acceso» o «Probar conexión» en la configuración.
 - Las claves de API se guardan solo en su perfil de Thunderbird y se envían solo al punto de conexión de su propio servicio.
@@ -121,8 +120,7 @@ Los preajustes añaden reglas a un prompt: una variedad regional, como el inglé
 
 - Los enlaces y el formato en línea del original no pasan a la traducción. La negrita, las listas y los enlaces aparecen en una traducción solo cuando un servicio de IA los escribe en Markdown; las traducciones del diccionario y de la traducción automática, y las traducciones provisionales, son texto sin formato.
 - Los puntos de conexión gratuitos de Google y Microsoft no están documentados y pueden cambiar o tener límite de frecuencia.
-- El diccionario da una glosa palabra por palabra en el orden de las palabras de origen.
-- El diccionario y Bergamot no traducen entre chino simplificado y chino tradicional.
+- El diccionario da una glosa palabra por palabra en el orden de las palabras de origen, y ni él ni Bergamot traducen entre chino simplificado y chino tradicional.
 - Cada nivel en uso envía sus propias solicitudes, de modo que el nivel de traducción automática también cuenta para los límites de frecuencia gratuitos cuando se usa el nivel de IA.
 - Los textos de error que devuelve un servicio se muestran tal como llegan, normalmente en inglés.
 

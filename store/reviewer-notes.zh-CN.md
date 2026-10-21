@@ -13,7 +13,26 @@
 5. 文件夹的标题：显示某个文件夹时，点击主工具栏中的“标题翻译”。页面列出各封邮件及其标题译文；点击一行即在邮件标签页中选中这封邮件。
 6. 离线翻译：在设置页（附加组件管理器中的“选项”）为第 1 层选择“词典（离线）”，在“词典”部分下载德语 → 英语词典包（2.0 MB，来自本项目的 GitHub Releases），再翻译一次。词典结果先显示，随后被谷歌翻译的结果替换。
 
-AI 服务需要审核员自己的 API 密钥；扩展的其他部分都不依赖 AI 服务。
+AI 服务需要审核员自己的 API 密钥；扩展的其他部分都不依赖 AI 服务。下文所述的摘要和四个需要自有账户的机器翻译服务同样如此。
+
+## 2.3.0 起：使用用户自己密钥的机器翻译服务
+
+DeepL、百度翻译、有道智云和彩云小译属于第 2 层机器翻译，各自需要用户在设置页填写自己账户的密钥；没有密钥时预设不会被添加，也不发送任何内容。密钥保存在 `storage.local` 中，只发给它所属的服务，与 AI 服务的密钥处理相同。请求只发往清单中的固定主机：
+
+| 主机 | 服务 | 请求 |
+| --- | --- | --- |
+| `api.deepl.com`、`api-free.deepl.com` | DeepL API（Pro 密钥，以及以 `:fx` 结尾的免费计划密钥） | `POST /v2/translate`，请求头 `Authorization: DeepL-Auth-Key <key>`；“测试连接”读取 `GET /v2/usage`（`src/background/translators/deepl.ts`） |
+| `fanyi-api.baidu.com` | 百度翻译 | `POST /api/trans/vip/translate`，签名为应用 ID、文本、salt 和密钥拼接后的 MD5（`baidu.ts`） |
+| `openapi.youdao.com` | 有道智云 | `POST /v2/api`，用 Web Crypto 计算 SHA-256 签名（`youdao.ts`） |
+| `api.interpreter.caiyunai.com` | 彩云小译 | `POST /v1/translator`，请求头 `X-Authorization: token <token>`（`caiyun.ts`） |
+
+Web Crypto 不提供 MD5，所以 `src/shared/md5.ts` 按 RFC 1321 直接实现（48 行，源代码包中未压缩，用 RFC 的测试向量测试），只用于百度请求的签名。扩展在后台脚本中凭主机权限调用 DeepL，不改动任何请求头，不涉及 `webRequest` 权限。
+
+## 2.3.0 起：摘要与待办
+
+弹出面板中的“摘要与待办”把当前显示的邮件（正文最多 20,000 个字符，以及通过 `messageDisplay.getDisplayedMessage()` 读取的发件人、日期和标题）发给摘要所用的 AI 服务；用户没有另选时就是第 3 层的服务。摘要沿用翻译的同意：该服务第一次收到邮件文字之前，邮件上方的面板会询问；没有同意时后台脚本拒绝请求（`src/background/service.ts` 的 `summarize()`）。服务返回 JSON 对象，面板（`src/content/summary.ts`）只用 `createElement` 和文本节点构建。“复制为 Markdown”在用户点击时用 `navigator.clipboard.writeText()` 写入剪贴板，失败时改用 `document.execCommand("copy")`；不申请剪贴板权限。清单中的命令 `summarize` 没有默认快捷键。
+
+用自己的 AI 密钥测试：在设置中为第 3 层选择一个 AI 服务，打开第 2 步的德语邮件，在弹出面板中点击“摘要与待办”，并在面板中允许该服务。邮件上方的面板列出摘要、待办、需要回复的问题和日期。
 
 ## 源代码与构建
 
@@ -23,13 +42,13 @@ xpi 中的脚本由 esbuild 打包并压缩，因此随提交附上源代码包�
 
 | 权限 | 用途 |
 | --- | --- |
-| `messagesRead` | 标题：内容脚本运行在邮件正文中，看不到邮件头，所以后台脚本用 `messageDisplay.getDisplayedMessage()`（`src/background/subject.ts`）读取当前显示邮件的标题，供正文上方的标题译文使用。标题翻译页面（`src/subjects/`，即 `browser_action` 的弹出页）用 `mailTabs.getListedMessages()`、`messages.continueList()` 和 `messages.abortList()` 列出邮件标签页中的邮件，并在 `messages.onNewMailReceived`、`onDeleted` 和 `onMoved` 时重新读取列表。只显示发件人、日期和标题；不借此读取邮件正文，也不保存任何内容。 |
+| `messagesRead` | 标题：内容脚本运行在邮件正文中，看不到邮件头，所以后台脚本用 `messageDisplay.getDisplayedMessage()`（`src/background/subject.ts`）读取当前显示邮件的标题，供正文上方的标题译文使用；用户请求摘要时还读取它的发件人和日期。标题翻译页面（`src/subjects/`，即 `browser_action` 的弹出页）用 `mailTabs.getListedMessages()`、`messages.continueList()` 和 `messages.abortList()` 列出邮件标签页中的邮件，并在 `messages.onNewMailReceived`、`onDeleted` 和 `onMoved` 时重新读取列表。只显示发件人、日期和标题；不借此读取邮件正文，也不保存任何内容。 |
 | `accountsRead` | 仅用于标题翻译页面：Thunderbird 要求 `mailTabs.setSelectedMessages()`（点击一行即在邮件标签页中显示该邮件）、`mailTabs.onDisplayedFolderChanged`（页面跟随文件夹切换）和上面三个 `messages` 事件具备这项权限。不读取任何账户或文件夹数据。 |
 | `messagesModify` | 后台脚本用 `messageDisplayScripts.register()`（`src/background/content-scripts.ts`）在显示的邮件中显示译文，并用 `tabs.executeScript()`/`insertCSS()` 把同一脚本注入扩展启动时已经打开的邮件。Thunderbird 只在有这项权限时允许这两种操作（没有它时 `messenger.messageDisplayScripts` 不存在，已在 Thunderbird 156 中验证）。扩展不修改任何已保存的邮件。 |
 | `sensitiveDataUpload` | 显示的邮件文字会发往用户选定的翻译服务；第一次发往每个在线服务之前，用户在邮件上方的面板中确认 |
 | `storage` | 设置、翻译缓存和新手引导的状态，保存在 `storage.local` 中（通过 `src/shared/ext.ts` 的封装调用，所以 linter 看不到这些调用） |
 | `unlimitedStorage` | IndexedDB 中的离线词典包（每个 0.3 至 3.6 MB）和 Bergamot 模型（每个方向 13 至 48 MB），不能被浏览器清除 |
-| 主机权限 | 只列出各服务的固定地址：谷歌翻译、微软翻译的两个地址、18 个 AI 预设的默认接口地址、Mozilla Remote Settings 及其附件 CDN（Bergamot 模型），以及 GitHub 和它的两个发布下载主机（词典包）。列表在 `src/shared/hosts.ts` 中，单元测试保证它与清单和预设一致。 |
+| 主机权限 | 只列出各服务的固定地址：谷歌翻译、微软翻译的两个地址、DeepL 的两个地址、百度翻译、有道智云和彩云小译（使用用户密钥的机器翻译，见上文）、18 个 AI 预设的默认接口地址、Mozilla Remote Settings 及其附件 CDN（Bergamot 模型），以及 GitHub 和它的两个发布下载主机（词典包）。列表在 `src/shared/hosts.ts` 中，单元测试保证它与清单和预设一致。 |
 | 可选的 `http://*/*`、`https://*/*` | 用户填写的接口地址（Ollama、LM Studio、DeepLX、Azure、自定义 OpenAI 兼容服务）。用户点击“授权访问”或“测试连接”时，设置页用 `permissions.request()` 只申请这一个主机；没有权限的主机，后台脚本拒绝发送。 |
 
 2.0 版删除了 `messagesRead`、`tabs` 和 `<all_urls>`；2.1 版为翻译标题重新需要 `messagesRead`，并为标题翻译页面需要 `accountsRead`。`tabs` 和 `<all_urls>` 仍然不用。

@@ -28,10 +28,11 @@ Vidéo de présentation : [YouTube](https://www.youtube.com/watch?v=OZmiMGeuhJ0)
 - Traduction des paragraphes, éléments de liste, cellules de tableau, titres et citations des messages HTML, ainsi que des paragraphes séparés par une ligne vide dans les messages en texte brut. Le code, les nombres, les liens nus et les paragraphes déjà dans la langue cible sont ignorés. L’objet est traduit lui aussi, sur une ligne au-dessus du corps du message (« Traduire aussi l’objet », activé par défaut).
 - Deux modes d’affichage : bilingue (la traduction sous chaque paragraphe original) ou traduction seule, avec dans les deux le gras, les listes et les liens des traductions par l’IA mis en forme. Désactiver la traduction restaure exactement le message original.
 - Trois niveaux de traduction fonctionnent en même temps : un dictionnaire hors ligne, un traducteur automatique et un service d’IA. Le résultat le plus rapide s’affiche en premier, puis celui du niveau le plus élevé le remplace.
-- Services gratuits sans compte : Google Translate (par défaut) et Microsoft Translator.
+- Traduction automatique sans compte (Google Translate, par défaut, et Microsoft Translator) ou avec votre propre clé (DeepL, Baidu, Youdao, Caiyun).
 - Traduction hors ligne avec des paquets de dictionnaires et les modèles Bergamot de Mozilla ; aucun texte ne quitte votre ordinateur.
 - 22 préréglages de fournisseurs d’IA, dont OpenAI, Claude, Gemini, DeepSeek, Qwen, Ollama et LM Studio en local, ainsi que tout service compatible OpenAI.
 - Traduction précise : le niveau IA voit le message entier, si bien que les noms et les termes restent cohérents.
+- Résumé et tâches : un service d’IA liste au-dessus du message le résumé, les tâches, les questions auxquelles répondre et les dates.
 - Trois invites modifiables, avec des préréglages pour les variantes régionales, les styles d’écriture et les mots difficiles.
 - Traduction automatique facultative de chaque message qui n’est pas dans la langue cible.
 - Interface en 12 langues et guide de configuration qui s’ouvre après l’installation.
@@ -46,18 +47,15 @@ Thunderbird 128 ou une version ultérieure est nécessaire. La préversion `nigh
 
 ## Démarrage rapide
 
-Après l’installation, le guide de configuration s’ouvre dans un nouvel onglet. Chaque étape pose une seule question : langues, mode d’affichage et style de traduction, service de chaque niveau (avec une courte démonstration du résultat), téléchargements hors ligne, clés des services et invites. Chaque choix est enregistré immédiatement, et toute étape peut être ignorée. La dernière étape traduit un message d’exemple avec vos paramètres.
-
-Vous pouvez rouvrir le guide depuis le lien « Guide de configuration » de la fenêtre contextuelle ou depuis le bouton en haut de la page de paramètres. Sans rien modifier, ouvrez un message et appuyez sur Alt+A : Google Translate le traduit.
+Après l’installation, le guide de configuration s’ouvre dans un nouvel onglet. Chaque étape pose une seule question : langues, mode d’affichage et style de traduction, service de chaque niveau (avec une courte démonstration du résultat), téléchargements hors ligne, clés des services et invites. Chaque choix est enregistré immédiatement, et toute étape peut être ignorée. La dernière étape traduit un message d’exemple avec vos paramètres. Vous pouvez rouvrir le guide depuis le lien « Guide de configuration » de la fenêtre contextuelle ou depuis le bouton en haut de la page de paramètres. Sans rien modifier, ouvrez un message et appuyez sur Alt+A : Google Translate le traduit.
 
 ## Utilisation
 
 Ouvrez un message et cliquez sur le bouton « Traduire le message » de la barre d’outils de l’en-tête du message. La fenêtre contextuelle contient ces commandes :
 
 - « Traduire ce message » lance la traduction. Tant qu’une traduction est affichée, le bouton indique « Afficher l’original ».
-- « Retraduire » interroge de nouveau tous les niveaux et ignore le cache.
-- Le mode d’affichage, la langue source (« Détecter automatiquement » par défaut) et la langue cible.
-- Une liste de services par niveau, la traduction précise et l’interrupteur « Traduire automatiquement les messages qui ne sont pas dans la langue cible ».
+- « Retraduire » interroge de nouveau tous les niveaux et ignore le cache ; « Résumé et tâches » affiche le résumé du message au-dessus de lui.
+- Le mode d’affichage, la langue source (« Détecter automatiquement » par défaut), la langue cible, une liste de services par niveau, la traduction précise et l’interrupteur « Traduire automatiquement les messages qui ne sont pas dans la langue cible ».
 
 | Raccourci | Action |
 | --- | --- |
@@ -65,7 +63,7 @@ Ouvrez un message et cliquez sur le bouton « Traduire le message » de la barre
 | Alt+S | Basculer entre bilingue et traduction seule |
 | Alt+R | Retraduire en ignorant le cache (seulement lorsque le message est traduit) |
 
-Les raccourcis se modifient via « Gérer les raccourcis d’extensions » dans le menu d’engrenage du gestionnaire de modules complémentaires.
+Les raccourcis se modifient via « Gérer les raccourcis d’extensions » dans le menu d’engrenage du gestionnaire de modules complémentaires, où le résumé reçoit le raccourci de votre choix.
 
 Le mode bilingue place chaque traduction sous son paragraphe original. Le mode traduction seule remplace l’original ; survolez une traduction pour voir le texte original. Le bouton « Objets traduits » de la barre d’outils principale liste les messages du dossier courant avec leurs objets traduits ; un clic sur une ligne affiche le message.
 
@@ -76,7 +74,7 @@ Tous les autres paramètres se trouvent sur la page de paramètres : le bouton �
 | Niveau | Services | Vitesse | Qualité | Hors ligne | Coût |
 | --- | --- | --- | --- | --- | --- |
 | 1 Dictionnaire | Dictionnaire | quelques millisecondes | mot à mot, sans grammaire | oui | gratuit ; quelques Mo par paire de langues |
-| 2 Traduction automatique | Google, Microsoft, DeepLX, Bergamot | une à deux secondes par message | complète et lisible | Bergamot seulement | gratuit ; Bergamot télécharge 13 à 48 Mo par direction |
+| 2 Traduction automatique | Google, Microsoft, DeepL, Baidu, Youdao, Caiyun, DeepLX, Bergamot | une à deux secondes par message | complète et lisible | Bergamot seulement | gratuit, les services avec votre clé jusqu’à leur quota gratuit ; Bergamot télécharge 13 à 48 Mo par direction |
 | 3 Traduction par l’IA | 22 fournisseurs d’IA | de quelques secondes à une minute | la plus naturelle ; suit vos invites | modèles locaux seulement | facturé à l’usage sur votre clé d’API ; gratuit avec les modèles locaux |
 
 Chaque niveau utilise un service ou « Non utilisé » ; au moins un niveau a besoin d’un service. Par défaut, seul le niveau 2 est actif, avec Google Translate.
@@ -92,6 +90,7 @@ Lorsque le dictionnaire ou le modèle Bergamot sélectionné n’a pas les donn�
 | Gratuit | Google Translate | rien |
 | | Microsoft Translator | rien ; mode facultatif « Utiliser ma clé (Azure Translator) » avec une clé et une région Azure |
 | | DeepLX | l’adresse d’un serveur DeepLX ; jeton facultatif |
+| Avec votre clé | DeepL API, Baidu Translate, Youdao, Caiyun | une clé de votre propre compte ; Baidu et Youdao demandent aussi un ID d’application |
 | Hors ligne | Dictionnaire | télécharger des paires de langues dans la section « Dictionnaires » ; quelques Mo chacune |
 | | Bergamot (Mozilla) | télécharger des directions dans « Modèles de traduction hors ligne (Bergamot) » ; 13 à 48 Mo chacune, chaque modèle a l’anglais d’un côté |
 | IA | 22 préréglages | une clé d’API ; Ollama, LM Studio et les services personnalisés compatibles OpenAI n’en demandent pas |
@@ -108,7 +107,7 @@ Les préréglages ajoutent des règles à une invite : une variante régionale c
 
 ## Confidentialité
 
-- Le texte des messages va uniquement aux services des niveaux utilisés. Le dictionnaire et Bergamot traduisent sur votre ordinateur. Les objets des messages suivent la même règle.
+- Le texte des messages va uniquement aux services des niveaux utilisés. Le dictionnaire et Bergamot traduisent sur votre ordinateur. Les objets des messages suivent la même règle. Un résumé que vous demandez envoie le message entier, avec son expéditeur et sa date, à son service d’IA.
 - Avant que le texte d’un message parte pour la première fois vers un service en ligne, un panneau au-dessus du message nomme le service et son adresse et demande une fois par service. Rien n’est envoyé avant un clic sur « Autoriser et traduire » ; la page de paramètres liste les services autorisés et permet de les révoquer. Avec le dictionnaire et Bergamot seuls, rien n’est demandé.
 - Une adresse que vous saisissez (Ollama, LM Studio, DeepLX, un service personnalisé, une adresse modifiée) demande une autorisation de connexion, donnée une fois avec « Autoriser l’accès » ou « Tester la connexion » dans les paramètres.
 - Les clés d’API sont stockées uniquement dans votre profil Thunderbird et ne sont envoyées qu’à l’adresse de leur propre service.
@@ -121,8 +120,7 @@ Les préréglages ajoutent des règles à une invite : une variante régionale c
 
 - Les liens et la mise en forme interne de l’original ne passent pas dans la traduction. Le gras, les listes et les liens n’apparaissent dans une traduction que si un service d’IA les écrit en Markdown ; les traductions du dictionnaire et de la traduction automatique, ainsi que les traductions provisoires, sont du texte brut.
 - Les points d’accès gratuits de Google et de Microsoft ne sont pas documentés ; ils peuvent changer ou être soumis à une limitation de débit.
-- Le dictionnaire donne une glose mot à mot dans l’ordre des mots de la langue source.
-- Le dictionnaire et Bergamot ne traduisent pas entre le chinois simplifié et le chinois traditionnel.
+- Le dictionnaire donne une glose mot à mot dans l’ordre des mots de la langue source, et ni lui ni Bergamot ne traduisent entre le chinois simplifié et le chinois traditionnel.
 - Chaque niveau utilisé envoie ses propres requêtes ; le niveau de traduction automatique compte donc aussi dans les limites de débit gratuites lorsque le niveau IA est utilisé.
 - Les messages d’erreur renvoyés par un service sont affichés tels quels, généralement en anglais.
 

@@ -28,10 +28,11 @@ Video: [YouTube](https://www.youtube.com/watch?v=OZmiMGeuhJ0) (1 min) · [Bilibi
 - Translates paragraphs, list items, table cells, headings and quotes of HTML mail, and blank-line separated paragraphs of plain-text mail. Code, numbers, bare links and paragraphs already in the target language are skipped. The subject is translated too, in a line above the body ("Translate the subject as well", on by default).
 - Two display modes: bilingual (the translation under each original paragraph) or translation only, both showing the bold text, lists and links of AI translations formatted. Turning translation off restores the original message exactly.
 - Three translation tiers run at the same time: an offline dictionary, a machine translator and an AI service. The fastest result appears first, and the highest tier replaces it.
-- Free services without an account: Google Translate (the default) and Microsoft Translator.
+- Machine translation without an account (Google Translate, the default, and Microsoft Translator), or with a key of your own (DeepL, Baidu, Youdao, Caiyun).
 - Offline translation with dictionary packs and Mozilla's Bergamot models; no text leaves your computer.
 - 22 AI provider presets, including OpenAI, Claude, Gemini, DeepSeek, Qwen, local Ollama and LM Studio, and any OpenAI-compatible service.
 - Precise translation: the AI tier sees the whole message, so names and terms stay consistent.
+- Summary and to-dos: an AI service lists the summary, the to-dos, the questions to answer and the dates of a message in a panel above it.
 - Three editable prompts with presets for regional varieties, writing styles and difficult words.
 - Optional automatic translation of every message not in the target language.
 - Interface in 12 languages and a setup guide that opens after installation.
@@ -46,18 +47,15 @@ Thunderbird 128 or later is required. The `nightly` pre-release is an automatic 
 
 ## Quick start
 
-After installation the setup guide opens in a new tab. It asks one question per step: languages, display mode and translation style, the service of each tier (with a short demo of the result), offline downloads, service keys and prompts. Every choice is saved at once, and any step can be skipped. The last step translates a sample message with your settings.
-
-You can open the guide again from the "Setup guide" link in the popup or the button at the top of the settings page. Without changing anything, open a message and press Alt+A: Google Translate translates it.
+After installation the setup guide opens in a new tab. It asks one question per step: languages, display mode and translation style, the service of each tier (with a short demo of the result), offline downloads, service keys and prompts. Every choice is saved at once, and any step can be skipped. The last step translates a sample message with your settings. You can open the guide again from the "Setup guide" link in the popup or the button at the top of the settings page. Without changing anything, open a message and press Alt+A: Google Translate translates it.
 
 ## Usage
 
 Open a message and click the "Translate message" button in the message header toolbar. The popup has these controls:
 
 - "Translate this message" starts translating. While a translation is shown, the button reads "Show original".
-- "Retranslate" asks every tier again and ignores the cache.
-- Display mode, source language ("Detect automatically" by default) and target language.
-- One service list per tier, precise translation, and the switch "Automatically translate messages not in the target language".
+- "Retranslate" asks every tier again and ignores the cache; "Summary and to-dos" shows the summary of the message above it.
+- Display mode, source language ("Detect automatically" by default), target language, one service list per tier, precise translation, and the switch "Automatically translate messages not in the target language".
 
 | Shortcut | Action |
 | --- | --- |
@@ -65,7 +63,7 @@ Open a message and click the "Translate message" button in the message header to
 | Alt+S | Switch between bilingual and translation only |
 | Alt+R | Retranslate, ignoring the cache (only while the message is translated) |
 
-The shortcuts can be changed under "Manage Extension Shortcuts" in the gear menu of the Add-ons Manager.
+The shortcuts can be changed under "Manage Extension Shortcuts" in the gear menu of the Add-ons Manager, where the summary gets a shortcut of your choice.
 
 Bilingual mode puts each translation under its original paragraph. Translation-only mode replaces the original; hover over a translation to see the original text. The "Translated subjects" button in the main toolbar lists the messages of the current folder with their translated subjects; clicking a row shows the message.
 
@@ -76,7 +74,7 @@ All other settings are on the settings page: the "Options" button of the extensi
 | Tier | Services | Speed | Quality | Offline | Cost |
 | --- | --- | --- | --- | --- | --- |
 | 1 Dictionary | Dictionary | a few milliseconds | word by word, without grammar | yes | free; a few MB per language pair |
-| 2 Machine translation | Google, Microsoft, DeepLX, Bergamot | one to two seconds per message | complete and readable | Bergamot only | free; Bergamot downloads 13–48 MB per direction |
+| 2 Machine translation | Google, Microsoft, DeepL, Baidu, Youdao, Caiyun, DeepLX, Bergamot | one to two seconds per message | complete and readable | Bergamot only | free, the services with your key up to their free quota; Bergamot downloads 13–48 MB per direction |
 | 3 AI translation | 22 AI providers | a few seconds to a minute | the most natural; follows your prompts | local models only | billed per use to your API key; local models are free |
 
 Each tier uses one service or "Not used"; at least one tier needs a service. The default is Google Translate in tier 2 and nothing else.
@@ -92,6 +90,7 @@ When a selected dictionary or Bergamot lacks the data for a message's languages,
 | Free | Google Translate | nothing |
 | | Microsoft Translator | nothing; optional "Use my key (Azure Translator)" mode with an Azure key and region |
 | | DeepLX | the endpoint of a DeepLX server; token optional |
+| With your key | DeepL API, Baidu Translate, Youdao, Caiyun | a key of your own account; Baidu and Youdao also an app ID |
 | Offline | Dictionary | download language pairs in the Dictionaries section; a few MB each |
 | | Bergamot (Mozilla) | download directions in "Offline translation models (Bergamot)"; 13–48 MB each, every model has English on one side |
 | AI | 22 presets | an API key; Ollama, LM Studio and custom OpenAI-compatible services need none |
@@ -108,7 +107,7 @@ Presets add rules to a prompt: a regional variety such as British English or Tai
 
 ## Privacy
 
-- Message text goes only to the services of the tiers in use. The dictionary and Bergamot translate on your computer. The subjects of messages follow the same rule.
+- Message text goes only to the services of the tiers in use. The dictionary and Bergamot translate on your computer. The subjects of messages follow the same rule. A summary you ask for sends the whole message with its sender and date to its AI service.
 - Before the text of a message first goes to an online service, a panel above the message names the service and its address and asks once per service. Nothing is sent until you click “Allow and translate”; the settings page lists the allowed services and takes them back. With only the dictionary and Bergamot, nothing is asked.
 - An endpoint you type (Ollama, LM Studio, DeepLX, a custom service, a changed endpoint) needs your permission to connect, given once with “Allow access” or “Test connection” in the settings.
 - API keys are stored only in your Thunderbird profile and are sent only to the endpoint of their own service.
@@ -121,8 +120,7 @@ Presets add rules to a prompt: a regional variety such as British English or Tai
 
 - Links and inline formatting of the original are not carried into the translation. Bold text, lists and links appear in a translation only when an AI service writes them as Markdown; translations of the dictionary and of machine translation, and provisional translations, are plain text.
 - The free Google and Microsoft endpoints are undocumented and may change or be rate-limited.
-- The dictionary gives a word-by-word gloss in the source word order.
-- The dictionary and Bergamot do not translate between Simplified and Traditional Chinese.
+- The dictionary gives a word-by-word gloss in the source word order, and neither it nor Bergamot translates between Simplified and Traditional Chinese.
 - Every tier in use sends its own requests, so the machine tier also counts against free rate limits when the AI tier is in use.
 - Error texts returned by a service are shown as received, usually in English.
 

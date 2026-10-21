@@ -8,16 +8,16 @@ Multi Translate for Thunderbird
 
 ## Summary
 
-At most 250 characters; this one has 249.
+At most 250 characters; this one has 247.
 
 ```text
-Translate the message you are reading, in place: bilingual or translation only. Up to three tiers at once: offline dictionary, machine translation (Google, Microsoft, DeepLX, offline Bergamot) and 22 AI services. Text goes only to services you pick.
+Translate the message you read, in place: bilingual or translation only. Three tiers at once: offline dictionary, machine translation (Google, DeepL, Baidu, Bergamot…) and 22 AI services; AI summary and to-dos. Text goes only to services you pick.
 ```
 
 ## Description
 
 ```text
-Your message text goes only to the translation services you choose. Google Translate, Microsoft Translator, DeepLX and the AI services receive the paragraphs and the subject of the message you translate (with precise translation, the whole message as context) and the subjects you translate on the page of translated subjects, and the extension asks once per service before it sends anything there. The offline dictionary and the offline Bergamot models translate on your computer and send nothing. API keys stay in your Thunderbird profile and go only to their own service. The extension collects no statistics.
+Your message text goes only to the translation services you choose. The online machine translators and the AI services receive the paragraphs and the subject of the message you translate (with precise translation, the whole message as context) and the subjects you translate on the page of translated subjects; the AI service of a summary you ask for receives the whole message with its sender and date. The extension asks once per service before it sends anything there. The offline dictionary and the offline Bergamot models translate on your computer and send nothing. API keys stay in your Thunderbird profile and go only to their own service. The extension collects no statistics.
 
 Multi Translate for Thunderbird translates the body of the message you are reading, directly in the message pane. It works right after installation with the free Google Translate, and you can add offline translation and AI services when you want them.
 
@@ -29,9 +29,11 @@ What it does
 - The "Translated subjects" button in the main toolbar lists the messages of the current folder with their translated subjects; a click on a row shows the message.
 - Runs up to three tiers at the same time: an offline dictionary, a machine translator and an AI service. The fastest result appears first as a provisional translation, and the highest tier replaces it. A tier that fails can be retried with a click.
 - Machine translation without an account: Google Translate and Microsoft Translator (also with your own Azure Translator key), or your DeepLX server.
+- Machine translation with your own account: DeepL API (free and Pro keys), Baidu Translate, Youdao and Caiyun.
 - Offline translation: dictionary packs built from Wiktionary and ECDICT, and Mozilla's Bergamot models, the engine of Firefox Translations. Downloads run in the background, and a pack or model is used as soon as it is stored.
 - 22 AI presets: OpenAI, Anthropic Claude, Google Gemini, DeepSeek, xAI Grok, Groq, Mistral AI, OpenRouter, Together AI, Fireworks AI, DeepInfra, Cerebras, Perplexity, Moonshot/Kimi, Zhipu GLM, Qwen (DashScope), SiliconFlow, Volcengine Ark, Azure OpenAI, local Ollama and LM Studio, and any OpenAI-compatible service. Thinking mode and temperature per service, and a connection test.
 - Precise translation: the AI service sees the whole message, so names and terms stay consistent.
+- Summary and to-dos: an AI service lists the summary, who has to do what by when, the questions to answer and the dates of a message, in a panel above it, with "Copy as Markdown".
 - Three editable prompts with presets for regional varieties, writing styles and difficult words.
 - Optional automatic translation of every message that is not in your language.
 
@@ -55,7 +57,7 @@ Suggested: "Language Support" as the main category, and "Message and News Readin
 
 ## Tags
 
-translate, translation, bilingual, ai, offline, deeplx, google translate, llm
+translate, translation, bilingual, ai, offline, deepl, deeplx, google translate, llm
 
 ## Links
 

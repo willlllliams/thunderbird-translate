@@ -17,7 +17,26 @@ Multi Translate for Thunderbird translates the body of the displayed message in 
 5. Subjects of a folder: click "Translated subjects" in the main toolbar while a folder is shown. The page lists the messages with their translated subjects; a click on a row selects the message in the mail tab.
 6. Offline translation: in the settings ("Options" in the Add-ons Manager), choose "Dictionary (offline)" for tier 1 and download the pack German → English under Dictionaries (2.0 MB from the GitHub releases of the project), then translate again. The dictionary result appears first and is replaced by Google's.
 
-The AI services need the reviewer's own API key; nothing else in the extension depends on them.
+The AI services need the reviewer's own API key; nothing else in the extension depends on them. The same holds for the summary and the four machine translators with an account of their own, described below.
+
+### Since 2.3.0: machine translators with the user's own key
+
+DeepL, Baidu Translate, Youdao and Caiyun are machine translators of tier 2. Each needs a key of the user's own account, entered on the settings page; without a key the preset is not added and sends nothing. The key is stored in `storage.local` and sent only to its own service, like the keys of the AI services. The requests go to fixed hosts of the manifest:
+
+| Host | Service | Request |
+| --- | --- | --- |
+| `api.deepl.com`, `api-free.deepl.com` | DeepL API (Pro keys, and the keys of the free plan, which end in `:fx`) | `POST /v2/translate` with `Authorization: DeepL-Auth-Key <key>`; "Test connection" reads `GET /v2/usage` (`src/background/translators/deepl.ts`) |
+| `fanyi-api.baidu.com` | Baidu Translate | `POST /api/trans/vip/translate`, signed with MD5 of app ID, text, salt and key (`baidu.ts`) |
+| `openapi.youdao.com` | Youdao | `POST /v2/api`, signed with SHA-256 through Web Crypto (`youdao.ts`) |
+| `api.interpreter.caiyunai.com` | Caiyun | `POST /v1/translator` with `X-Authorization: token <token>` (`caiyun.ts`) |
+
+Web Crypto has no MD5, so `src/shared/md5.ts` is a plain implementation of RFC 1321 (48 lines, not minified in the source archive, tested with the test suite of the RFC). It signs Baidu requests and is used for nothing else. The extension calls DeepL from its background script with the host permission and changes no request header; no `webRequest` permission is involved.
+
+### Since 2.3.0: summary and to-dos
+
+"Summary and to-dos" in the popup sends the displayed message (its text up to 20,000 characters, with sender, date and subject from `messageDisplay.getDisplayedMessage()`) to the AI service of the summary, which is the AI tier unless the user chose another AI service for it. It uses the consent of the translation: before the service first receives message text, the panel above the message asks, and the background script refuses the request without it (`src/background/service.ts`, `summarize()`). The answer is a JSON object; the panel (`src/content/summary.ts`) builds it with `createElement` and text nodes only. "Copy as Markdown" writes the summary to the clipboard with `navigator.clipboard.writeText()` from the click of the user, falling back to `document.execCommand("copy")`; no clipboard permission is requested. The command `summarize` of the manifest has no default key.
+
+To test it with an AI key of your own: choose an AI service for tier 3 in the settings, open the German message of step 2, click "Summary and to-dos" in the popup and allow the service in the panel. The panel above the message lists the summary, the to-dos, the questions to answer and the dates.
 
 ### Source code and build
 
@@ -27,13 +46,13 @@ The xpi contains bundles made with esbuild (minified), so the source code archiv
 
 | Permission | Why |
 | --- | --- |
-| `messagesRead` | subjects: `messageDisplay.getDisplayedMessage()` (`src/background/subject.ts`) reads the subject of the displayed message for the translated line above the body, since the content script runs inside the body and cannot see the header. The page of translated subjects (`src/subjects/`, the popup of `browser_action`) lists the messages of the mail tab with `mailTabs.getListedMessages()`, `messages.continueList()` and `messages.abortList()`, and reads the list again on `messages.onNewMailReceived`, `onDeleted` and `onMoved`. Only sender, date and subject are shown; no message body is read this way, nothing is stored. |
+| `messagesRead` | subjects: `messageDisplay.getDisplayedMessage()` (`src/background/subject.ts`) reads the subject of the displayed message for the translated line above the body, and its sender and date for the summary the user asks for, since the content script runs inside the body and cannot see the header. The page of translated subjects (`src/subjects/`, the popup of `browser_action`) lists the messages of the mail tab with `mailTabs.getListedMessages()`, `messages.continueList()` and `messages.abortList()`, and reads the list again on `messages.onNewMailReceived`, `onDeleted` and `onMoved`. Only sender, date and subject are shown; no message body is read this way, nothing is stored. |
 | `accountsRead` | the page of translated subjects only: Thunderbird requires it for `mailTabs.setSelectedMessages()` (a click on a row shows that message in the mail tab), for `mailTabs.onDisplayedFolderChanged` (the page follows the folder) and for the three `messages` events above. No account or folder data is read. |
 | `messagesModify` | `messageDisplayScripts.register()` (background, `src/background/content-scripts.ts`) shows the translations inside the displayed message, and `tabs.executeScript()`/`insertCSS()` add the same script to a message already open when the extension starts. Thunderbird allows both only with this permission (without it `messenger.messageDisplayScripts` is undefined; tested in Thunderbird 156). No stored message is changed. |
 | `sensitiveDataUpload` | the text of the displayed message goes to the translation services the user chose; before the first transfer to each online service the user confirms it in a panel above the message |
 | `storage` | settings, translation cache and the state of the setup guide in `storage.local` (through the wrapper in `src/shared/ext.ts`, which is why the linter does not see the calls) |
 | `unlimitedStorage` | the offline dictionary packs (0.3 to 3.6 MB each) and Bergamot models (13 to 48 MB per direction) in IndexedDB, which must not be evicted |
-| host permissions | only the fixed addresses of the services: Google Translate, the two Microsoft Translator addresses, the default endpoints of 18 AI presets, Mozilla Remote Settings and its attachment CDN (Bergamot models), and GitHub with its two release download hosts (dictionary packs). The list is in `src/shared/hosts.ts`; a unit test keeps it equal to the manifest and to the presets. |
+| host permissions | only the fixed addresses of the services: Google Translate, the two Microsoft Translator addresses, the two DeepL addresses, Baidu Translate, Youdao and Caiyun (machine translators with the user's key, see above), the default endpoints of 18 AI presets, Mozilla Remote Settings and its attachment CDN (Bergamot models), and GitHub with its two release download hosts (dictionary packs). The list is in `src/shared/hosts.ts`; a unit test keeps it equal to the manifest and to the presets. |
 | optional `http://*/*`, `https://*/*` | an endpoint the user types (Ollama, LM Studio, DeepLX, Azure, a custom OpenAI-compatible service). The settings page asks for the single host with `permissions.request()` when the user clicks "Allow access" or "Test connection"; the background script refuses to send to a host without permission. |
 
 Version 2.0 had removed `messagesRead` together with `tabs` and `<all_urls>`; 2.1 needs `messagesRead` again for the subjects, and `accountsRead` for the page of translated subjects. `tabs` and `<all_urls>` stay removed.

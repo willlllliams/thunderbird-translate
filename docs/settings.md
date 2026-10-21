@@ -20,6 +20,7 @@ This page describes every setting of Multi Translate for Thunderbird and how the
 - [Prompts](#prompts)
 - [Prompt presets](#prompt-presets)
 - [Precise translation](#precise-translation)
+- [Summary and to-dos](#summary-and-to-dos)
 - [Request batching and timeouts](#request-batching-and-timeouts)
 - [Offline services](#offline-services)
 - [Offline lists](#offline-lists)
@@ -68,15 +69,16 @@ Resting the mouse on any control of the settings page, the popup or the setup gu
 | --- | --- |
 | General | Interface language, source language, target language, default display mode, the switches "Automatically translate messages not in the target language" and "Translate the subject as well" |
 | Translation tiers | The service of each tier or "Not used", with the mark of an offline service that lacks data; precise translation; the muted notices about missing offline data, with "Remind me again"; the online services allowed to receive message text, each with "Revoke" |
-| Translation services | Services in two groups, "Added" and "Available to add", filtered by tier; endpoint, API key, model, temperature and thinking mode of each service; "Test connection", "Add", "Use this service" and "Remove" buttons |
+| Translation services | Services in two groups, "Added" and "Available to add", filtered by tier; endpoint, API key, model, temperature and thinking mode of each service, the app ID and account edition of Baidu, the app ID of Youdao, formality and target variants of DeepL; "Test connection", "Add", "Use this service" and "Remove" buttons |
 | Dictionaries | Every pack of the release with size, license and attribution, those of the recommended languages first; filter; "Download common languages"; download and delete; release tag of the packs (advanced) |
 | Offline translation models (Bergamot) | Every direction of the Bergamot models with size and version, those of the recommended languages first; filter; "Download common languages"; download, update, cancel and delete; the directions the current languages need |
-| Prompts (AI tier) | The preset library; the prompts for bilingual display, translation-only display and precise translation, each with "Restore built-in prompt" |
+| Prompts (AI tier) | The preset library; the prompts for bilingual display, translation-only display, precise translation and the summary, each with "Restore built-in prompt" |
+| Summary and to-dos | The service and model of the summary, the answer length limit, whether the panel opens expanded, the parts to include, and the "Summary" button above a translated message |
 | Request batching | Collection window, maximum characters and paragraphs per request, concurrency, retries, request timeout, whether to merge AI requests |
 | Translation style | Left border, dashed left border, highlight or plain; accent color, text color, text opacity, font size ratio; live preview; the switch "Render Markdown in AI translations" |
 | Cache | Cache on or off, maximum cached paragraphs, current number of entries, clear cache |
 
-"Test connection" sends one test sentence with the values currently in the input fields. On success it shows the translation. On failure it shows the error returned by the service, for example an invalid key or an unknown model name.
+"Test connection" sends one test sentence with the values currently in the input fields; for DeepL it reads the characters used instead, which costs nothing. On success it shows the translation, or for DeepL the characters used and the limit of the billing period. On failure it shows the error returned by the service, for example an invalid key or an unknown model name.
 
 The endpoints, default models and thinking parameters of every service are listed in [providers.md](providers.md).
 
@@ -92,7 +94,7 @@ Each step asks for one decision and saves it at once. "Back", "Next" and "Skip t
 | 2 Display | bilingual or translation only, and the controls of the translation style, with a preview of a sample message in the current mode and style | always |
 | 3 Translation tiers | speed, quality, privacy and cost of the dictionary, machine translation and AI tiers; the service of each tier or "Not used", at least one tier with a service; a note that the first online translation asks once per service; a demo of the chosen tiers on a sample paragraph and a tour of the three selectors | always |
 | 4 Offline translation | every dictionary pack and Bergamot direction with size, license and attribution, those of your languages first and ticked; "Download selected" with progress, or "Download common languages" | the dictionary tier is used or the machine tier uses Bergamot |
-| 5 Online machine translation | the fields of the machine translator: nothing to fill in for Google, free or Azure key mode for Microsoft, endpoint and token for DeepLX; "Test connection" | the machine tier uses Google, Microsoft or DeepLX |
+| 5 Online machine translation | the fields of the machine translator: nothing to fill in for Google, free or Azure key mode for Microsoft, endpoint and token for DeepLX, the key of DeepL, Baidu, Youdao or Caiyun; "Test connection" | the machine tier uses an online service |
 | 6 AI translation | the AI provider, its API key, model, temperature and thinking mode, "Test connection", and the precise translation switch; a note that thinking mode and precise translation make translation slower and more expensive | the AI tier is used |
 | 7 Prompts | the three prompts and the preset library | the AI tier is used |
 | 8 Done | how to translate (toolbar button, Alt+A, Alt+S), the switches "Automatically translate messages not in the target language" and "Translate the subject as well" with a note on how the subject is shown, and "Translate the sample message" | always |
@@ -150,13 +152,14 @@ The "Translate message" button in the message header toolbar opens the popup.
 - Translation tiers: one list per tier (1 dictionary, 2 machine translation, 3 AI translation), each with "Not used", the added services of that tier and, as last entry, "+ Add translation service…". That entry opens the settings page at the translation services of the tier and leaves the list at its value. At least one tier needs a service; choosing "Not used" for the last one is refused with a note.
 - Precise translation is shown while the AI tier has a service.
 - "Automatically translate messages not in the target language": when checked, a message whose body is not in the target language is translated as soon as it is opened.
+- "Summary and to-dos" shows the summary of the message above it, see [Summary and to-dos](#summary-and-to-dos). It is disabled without an AI service for the summary.
 - "Setup guide" opens the setup guide in a new tab.
 
 The popup shows the progress, for example "Translated 8 of 12". Paragraphs that still show a provisional translation of a lower tier are counted separately, for example "Translated 7 of 9 (2 provisional)". When every tier fails for a paragraph, a red "Translation failed, click to retry" appears after it. Hovering shows the error, and clicking retries that paragraph.
 
 Changing the display mode or the target language while a message is translated re-renders the page without reopening the message. In translation-only mode, hovering over a translation shows the original text in a tooltip.
 
-The shortcuts Alt+A, Alt+S and Alt+R can be changed under "Manage Extension Shortcuts" in the gear menu of the Add-ons Manager. Alt+A pressed while the setup guide is the active tab translates or restores its sample message.
+The shortcuts Alt+A, Alt+S and Alt+R can be changed under "Manage Extension Shortcuts" in the gear menu of the Add-ons Manager, where the summary gets a shortcut of your choice. Alt+A pressed while the setup guide is the active tab translates or restores its sample message.
 
 ## Translated subjects
 
@@ -193,7 +196,7 @@ A fresh installation starts with Google Translate and Microsoft Translator added
 | Tier | Services | What it gives |
 | --- | --- | --- |
 | 1 Dictionary | Dictionary (offline) | a word-by-word gloss from the installed dictionary packs, available at once and without network |
-| 2 Machine translation | Google Translate, Microsoft Translator, DeepLX, Bergamot (offline) | a full translation within a second or two |
+| 2 Machine translation | Google Translate, Microsoft Translator, DeepLX, DeepL API, Baidu Translate, Youdao, Caiyun, Bergamot (offline) | a full translation within a second or two |
 | 3 AI translation | the 22 AI providers | the best translation, following the prompt of the display mode |
 
 Each tier has one service or "Not used", and at least one tier has a service. The default is Google Translate in tier 2 and nothing else.
@@ -212,7 +215,7 @@ Switching the display mode re-renders the dictionary and machine translations as
 
 ## Consent before online translation
 
-Before the text of a message first goes to an online service, the extension asks once per service. The online services are Google Translate, Microsoft Translator, DeepLX and every AI service; the dictionary and Bergamot translate on the computer and need no consent.
+Before the text of a message first goes to an online service, the extension asks once per service. The online services are Google Translate, Microsoft Translator, DeepLX, DeepL, Baidu, Youdao, Caiyun and every AI service; the dictionary and Bergamot translate on the computer and need no consent.
 
 When a translation starts (the toolbar button, Alt+A, automatic translation, Retranslate) and a tier in use has an online service that is not allowed yet, a panel appears above the message instead of the translation:
 
@@ -323,6 +326,44 @@ The analysis is cached like translations. Its key contains the provider, model, 
 
 Translations made in precise mode are cached under a key that contains the message hash, and batches never mix paragraphs of different messages. The same sentence in another message is therefore translated again, with that message as context. The analysis request and the longer prompts make precise translation more expensive than normal translation.
 
+## Summary and to-dos
+
+"Summary and to-dos" in the popup, or a shortcut you assign to the command "Summary and to-dos of the message", sends the message to an AI service and shows its summary in a panel at the top of the body, under the line with the subject. The command has no default key, because Thunderbird already uses many Alt combinations for its menus; it can be set under "Manage Extension Shortcuts" in the gear menu of the Add-ons Manager. With "Show a “Summary” button above a translated message" on, a small "Summary" button appears above the message while it is translated.
+
+The panel has four parts, each a heading and a list. A part without entries is left out, and a panel without any entry says that the service found nothing:
+
+| Part | What it lists |
+| --- | --- |
+| Summary | one to three sentences on what the message is about and what is expected of the reader |
+| To-dos | who has to do what, by when: "Me" for the reader, a name, or nobody when the message leaves it open; the deadline as a date when the message makes it certain, and as the message states it. Hovering over a to-do shows the words of the message it rests on |
+| Questions to answer | the questions the reader is asked, with who asks them |
+| Dates and meetings | meetings, appointments and deadlines, with date, time and place |
+
+The title line reads "Summary and to-dos · <service>" and holds three buttons:
+
+- "Copy as Markdown" puts the summary on the clipboard as Markdown, a heading per part and a list item per entry.
+- "Regenerate" asks the service again, past the cache.
+- "Close" removes the panel. Turning the translation off leaves it on screen.
+
+The panel is collapsible and opens expanded, or collapsed when the settings say so.
+
+The service answers with a JSON object, and the extension draws the panel from it with DOM elements: the text of the answer never becomes markup. An entry without its main field (the task, the question, what is due) is left out, a date that is not of the form `YYYY-MM-DD` or `YYYY-MM-DD HH:MM` stays empty, and each list keeps at most 10 entries. An answer without such an object is shown as it came, under "The answer could not be read as a summary.". The extension does not use the structured output of the AI SDK, because it depends on a JSON mode of the server, which OpenAI-compatible and local services offer unevenly. Thunderbird has no calendar API for extensions, so dates are listed and copied, not added to a calendar.
+
+The request carries the message text as the content script finds it (up to 20,000 characters, as for precise translation), with the sender, date and subject of the message, which the background script reads with `messageDisplay.getDisplayedMessage()`: the date of the message turns "next Wednesday" into a date. When precise translation has analyzed the same message, the glossary of the analysis goes with it, so that names and terms are written as in the translation.
+
+The summary uses the consent of the translation. Its service gets the message only once it is allowed to receive message text; otherwise the consent panel appears first, with the text of precise translation, since the whole message goes to the AI service. A summary that could be read is cached under the service, the model, the target language, the request and a hash of endpoint, prompt, part list, length limit, temperature and thinking switch.
+
+| Setting | Default | Range | Meaning |
+| --- | --- | --- | --- |
+| Service | Same as the AI tier | the added AI services | without an AI tier and without a service of its own, the popup button is disabled |
+| Model | empty | any model name | empty uses the model of the service |
+| Answer length limit (tokens) | 800 | 200–4000 | sent as `maxOutputTokens` |
+| Panel | Expanded | Expanded, Collapsed | how the panel opens |
+| Include | all four parts | Summary, To-dos, Questions to answer, Dates and meetings | the parts left out are asked as empty lists, which shortens the answer, and are not shown |
+| Show a “Summary” button above a translated message | off | | a button on every message is in the way of readers who only want the translation |
+
+The summary prompt is the fourth box of the Prompts section, with its own "Restore built-in prompt". `{{to}}` stands for the target language, in which the summary is written.
+
 ## Request batching and timeouts
 
 | Setting | Default | Range | Meaning |
@@ -345,6 +386,11 @@ The services other than AI cap a request regardless of these values; a request t
 | Microsoft Translator, free | 100 | 5000 |
 | Microsoft Translator, Azure key | 1000 | 50000 |
 | DeepLX | 50 (sent one paragraph per request) | 5000 |
+| DeepL API | 50 | 30000 |
+| Baidu Translate, standard edition | 50 | 950, and at most one request per second |
+| Baidu Translate, advanced and premium edition | 50 | 5950, and at most 10 requests per second in the advanced edition |
+| Youdao | 50 | 5000 |
+| Caiyun | 40 | 5000 |
 
 The AI services follow the settings alone.
 
@@ -494,17 +540,19 @@ Settings saved before version 1.9.0 have no text color; translations keep the co
 
 Settings saved before version 2.2.0 have no switch for the Markdown of AI translations; it is on.
 
+Settings saved before version 2.3.0 have no summary settings and no summary prompt: the summary uses the AI tier with the defaults of [Summary and to-dos](#summary-and-to-dos) and the built-in prompt. They have no app ID, Baidu edition or DeepL options either: Baidu starts as the standard edition, DeepL with default formality, American English and Brazilian Portuguese.
+
 ## Permissions
 
 | Permission | What the extension uses it for |
 | --- | --- |
 | `messagesModify` | showing translations inside the displayed message: Thunderbird runs the content script of `messageDisplayScripts` and injects it into a message already on screen only with this permission. The extension changes no stored message. |
-| `messagesRead` | reading subjects: the subject of the displayed message for the line above the body (`messageDisplay.getDisplayedMessage()`), and the sender, date and subject of the messages listed in a mail tab for the page of translated subjects (`mailTabs.getListedMessages()`, `messages.continueList()`, `messages.abortList()`), read again after new, deleted and moved messages. The extension reads no message body this way and stores no header. |
+| `messagesRead` | reading subjects: the subject of the displayed message for the line above the body, and its sender and date for its summary (`messageDisplay.getDisplayedMessage()`), and the sender, date and subject of the messages listed in a mail tab for the page of translated subjects (`mailTabs.getListedMessages()`, `messages.continueList()`, `messages.abortList()`), read again after new, deleted and moved messages. The extension reads no message body this way and stores no header. |
 | `accountsRead` | the page of translated subjects: Thunderbird requires it for `mailTabs.setSelectedMessages()`, which selects the message of a clicked row, and for `mailTabs.onDisplayedFolderChanged`, which tells the page that the mail tab shows another folder. The extension reads no account settings. |
-| `sensitiveDataUpload` | sending the paragraphs of a message to the online services of the tiers in use |
+| `sensitiveDataUpload` | sending the paragraphs of a message to the online services of the tiers in use, and the message to the AI service of its summary |
 | `storage` | the settings, the translation cache and the state of the setup guide in `storage.local` |
 | `unlimitedStorage` | the dictionary packs and Bergamot models in IndexedDB, 13 to 48 MB per direction, which the browser then neither evicts nor caps |
-| host permissions | the fixed addresses the extension connects to, listed in `src/shared/hosts.ts`: Google Translate, both Microsoft Translator addresses, the default endpoint of every AI preset, Mozilla Remote Settings with its attachment CDN, and the GitHub releases with the two hosts GitHub redirects downloads to |
+| host permissions | the fixed addresses the extension connects to, listed in `src/shared/hosts.ts`: Google Translate, both Microsoft Translator addresses, both DeepL addresses (free and Pro keys), Baidu Translate, Youdao, Caiyun, the default endpoint of every AI preset, Mozilla Remote Settings with its attachment CDN, and the GitHub releases with the two hosts GitHub redirects downloads to |
 
 An address you type needs your permission once: the endpoint of Ollama, LM Studio, DeepLX, Azure OpenAI, a custom OpenAI-compatible service or Azure Translator, and a changed endpoint of any preset. The manifest declares these as optional host permissions (`http://*/*`, `https://*/*`), and the extension asks only for the host of the endpoint:
 
@@ -525,7 +573,7 @@ The endpoint field of a local service notes that `localhost` is this computer (t
   - URL path segments that look like a token (20 or more characters with letters and digits);
   - user names and passwords in URLs;
   - URL parameters whose names contain key, token, auth, secret, sig, pass, credential or session.
-- Message text is sent only to the services of the tiers in use, and to an online service only after you allowed it, see [Consent before online translation](#consent-before-online-translation). This includes the subjects: the subject of a displayed message and the subjects on the page of translated subjects go to the same services under the same consent. The dictionary and Bergamot translate on your computer and send no text anywhere.
+- Message text is sent only to the services of the tiers in use and, when you ask for a summary, to the AI service of the summary, and to an online service only after you allowed it, see [Consent before online translation](#consent-before-online-translation). This includes the subjects: the subject of a displayed message and the subjects on the page of translated subjects go to the same services under the same consent. The dictionary and Bergamot translate on your computer and send no text anywhere.
 - The extension connects only to the hosts of its manifest and to the endpoints you allowed, see [Permissions](#permissions).
 - Two lists come from the network, without any message text: the list of dictionary packs from this repository's GitHub releases and the list of Bergamot models from Mozilla. The background script reads them and keeps the copy it read; the settings page and the setup guide show the offline lists from that copy.
 - The background script reads a list when a page shows it and, while the dictionary or Bergamot is the service of a tier, when Thunderbird starts, when the settings change, and when the popup or the settings page asks what is missing. It reads either list again once the copy in memory is older than 6 hours (the dictionary list per release tag). After a failed read, either list is read again 10 minutes later at the earliest; until then it answers with the copy in memory, and the Bergamot list also with the copy saved by an earlier session, if there is one. "Reload list" in either offline section of the settings page reads its list at once. Translating a message reads neither list, also when a pack or model is missing.

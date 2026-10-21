@@ -7,6 +7,7 @@ This page lists every translation service of Multi Translate for Thunderbird wit
 - [Free and offline services](#free-and-offline-services)
 - [Microsoft Translator with an Azure key](#microsoft-translator-with-an-azure-key)
 - [DeepLX](#deeplx)
+- [Machine translators with a key of your own](#machine-translators-with-a-key-of-your-own)
 - [AI providers](#ai-providers)
 - [Provider notes](#provider-notes)
 - [Thinking mode](#thinking-mode)
@@ -45,6 +46,101 @@ DeepLX needs the endpoint of a DeepLX server ([deeplx.owo.network](https://deepl
 - Otherwise the token is sent as `Authorization: Bearer <token>`.
 
 The endpoint accepts one paragraph per request, so the paragraphs of a batch are requested concurrently.
+
+## Machine translators with a key of your own
+
+DeepL, Baidu Translate, Youdao and Caiyun are machine translators of tier 2 that need an account. Each preset counts as added once its key is filled in. All four send message text over the network, so the consent panel above a message asks before their first request, as for every online service.
+
+| Service | Endpoint (fixed host permission) | Fields | Paragraphs and characters per request |
+| --- | --- | --- | --- |
+| DeepL API | `https://api.deepl.com`, or `https://api-free.deepl.com` for a key ending in `:fx` | API key; endpoint (optional); formality; English and Portuguese variant | 50 and 30000 |
+| 百度翻译 (Baidu Translate) | `https://fanyi-api.baidu.com/api/trans/vip/translate` | App ID; secret key; account edition | 50 and 950 (standard edition), 50 and 5950 (advanced and premium) |
+| 有道智云 (Youdao) | `https://openapi.youdao.com/v2/api` | App ID; app secret | 50 and 5000 |
+| 彩云小译 (Caiyun) | `https://api.interpreter.caiyunai.com/v1/translator` | Token | 40 and 5000 |
+
+The keys stay in `storage.local` of the Thunderbird profile and go only to the endpoint of their own service. The four limits apply on top of the batch settings, see [batching.md](batching.md).
+
+### DeepL API
+
+The extension calls `POST /v2/translate` with a JSON body. The key goes in the header `Authorization: DeepL-Auth-Key <key>`; DeepL stopped accepting the `auth_key` parameter in 2026. All paragraphs of a batch go in the `text` array of one request, and the answer lists their translations in the same order. The request body may have 128 KiB, and 30000 characters of at most 4 bytes each stay below that with the JSON around them.
+
+The target language codes differ from those of DeepLX: Simplified Chinese is `ZH-HANS`, Traditional Chinese `ZH-HANT`. English is written as `EN-US` or `EN-GB`, Portuguese as `PT-BR` or `PT-PT`, as set in the panel. Source languages carry no variant (`ZH`, `EN`, `PT`); with automatic detection no `source_lang` is sent.
+
+Formality "More formal" and "Less formal" are sent as `prefer_more` and `prefer_less`. DeepL ignores these two values for target languages without formality, while `more` and `less` would make such a request fail.
+
+"Test connection" calls `GET /v2/usage`, which costs no characters, and shows the characters used and the limit of the billing period. DeepL answers a refused key with HTTP 403 and a used-up quota with HTTP 456; the extension names both. HTTP 429 is tried again with the retries of the batch settings.
+
+Formality and the two variants are part of the cache key of every DeepL translation, so changing them translates again.
+
+### Requests of the extension and DeepL's rule on browsers
+
+DeepL's documentation states that the API "does not allow calls directly from browser-based applications" ([CORS requests](https://developers.deepl.com/docs/best-practices/cors-requests)). Before DeepL was added, this was checked on 2026-10-21 with an invalid key, against both hosts, without and with the `Origin: moz-extension://<uuid>` header that Thunderbird sends from the background page of an extension (the same header for which Ollama needs `OLLAMA_ORIGINS=moz-extension://*`).
+
+| Request | Without Origin | With `Origin: moz-extension://…` |
+| --- | --- | --- |
+| `GET /v2/usage`, invalid key | 403 "Authentication failed, provided API key is invalid" | the same |
+| `POST /v2/translate`, invalid key | 403 "Forbidden" | the same |
+| `POST /v2/translate`, no key | 403 "Missing Authorization header" | the same |
+| `OPTIONS /v2/translate` (CORS preflight) | 204 | 204 |
+
+The answers are identical with and without the Origin header, also with `Origin: https://example.com`, and every one is an authentication error. DeepL therefore does not refuse a request for its origin. A web page fails because DeepL sends no `Access-Control-Allow-Origin` header, and the browser keeps the answer from the page. An extension with a host permission for the address reads the answer without CORS checks ([MDN: host_permissions](https://developer.mozilla.org/en-US/docs/Mozilla/Add-ons/WebExtensions/manifest.json/host_permissions)). So the extension calls DeepL from its background script without `webRequest` and without changing any header. DeepLX stays in the list for users without a DeepL account.
+
+### Baidu Translate
+
+The general text translation is called with `POST` and form fields `q`, `from`, `to`, `appid`, `salt` and `sign`. The signature is the MD5 of app ID, `q`, salt and secret key joined, in lower-case hex, with `q` not URL-encoded. Web Crypto has no MD5, so the extension has its own implementation in `src/shared/md5.ts`, tested with the test suite of RFC 1321 and with the example of Baidu's documentation (`appid` 2015063000000001, `q` apple, salt 1435660288, key 12345678 give `f89f9594663708c1605f3d736d01d2d4`).
+
+The paragraphs of a batch are the lines of one `q`, and `trans_result` has one entry per line. A line break inside a paragraph travels as `⁂` (U+2042) and comes back as a line break. When the answer has another number of lines, or lost a `⁂`, the batch is asked again one paragraph per request.
+
+| Edition | Free characters a month | Requests per second | Characters per request | Languages |
+| --- | --- | --- | --- | --- |
+| Standard | 50,000 | 1 | 1000 | 28 common languages |
+| Advanced (personal verification) | 1,000,000 | 10 | 6000 | 28 common languages |
+| Premium (business verification) | 2,000,000 | 100 | 6000 | also Ukrainian, Turkish, Indonesian and Hindi |
+
+The request queue of Baidu starts two requests at least 1100 ms apart in the standard edition and 110 ms apart in the advanced edition. The character limit of the extension is the one of the edition less 50, one line break for each of up to 50 paragraphs. A pair with Ukrainian, Turkish, Indonesian or Hindi outside the premium edition fails before any request.
+
+Baidu blocks an IP address that uses several app IDs on the same day (code 58003); the panel asks for one app ID only. Baidu's FAQ advises against entering the key into third-party software. The extension stores it in the profile and sends it only to Baidu, as it does with every key.
+
+### Youdao
+
+The batch interface takes one `q` field per paragraph, with `signType=v3` and `curtime` in UTC seconds. The signature is the SHA-256 of app ID, input, salt, curtime and app secret, computed with Web Crypto. The input is the joined `q` values when they have at most 20 characters, else their first 10 characters, their length and their last 10. The characters are counted in code points, as the official Python example does, so an emoji counts as one character. A paragraph listed in `errorIndex` fails alone; the other paragraphs of the batch keep their translations.
+
+Automatic detection of the batch interface knows 13 languages. A paragraph in another language fails and keeps the translation of another tier.
+
+### Caiyun
+
+The token goes in the header `X-Authorization: token <token>`. The paragraphs go in the `source` array, and `target` holds the translations in the same order. Caiyun translates only these directions:
+
+- Simplified or Traditional Chinese with English, Japanese and Korean, both ways, and between the two scripts of Chinese.
+- German, Spanish, French, Italian, Portuguese, Russian, Turkish and Vietnamese into Chinese.
+
+Any other pair, English to Japanese for example, fails before a request. With automatic detection the target has to be Chinese, English, Japanese or Korean.
+
+### Language codes and error codes
+
+| Extension | DeepL target | Baidu | Youdao | Caiyun |
+| --- | --- | --- | --- | --- |
+| zh-CN | `ZH-HANS` | `zh` | `zh-CHS` | `zh` |
+| zh-TW | `ZH-HANT` | `cht` | `zh-CHT` | `zh-Hant` |
+| en | `EN-US` / `EN-GB` | `en` | `en` | `en` |
+| ja | `JA` | `jp` | `ja` | `ja` |
+| ko | `KO` | `kor` | `ko` | `ko` |
+| fr, es, vi, ar | `FR`, `ES`, `VI`, `AR` | `fra`, `spa`, `vie`, `ara` | `fr`, `es`, `vi`, `ar` | `fr`, `es`, `vi` into Chinese; no Arabic |
+| pt | `PT-BR` / `PT-PT` | `pt` | `pt` | `pt` into Chinese |
+| uk, tr, id, hi | `UK`, `TR`, `ID`, `HI` | `ukr`, `tr`, `id`, `hi` (premium edition) | `uk`, `tr`, `id`, `hi` | `tr` into Chinese; no Ukrainian, Indonesian, Hindi |
+
+The other languages of the list keep their code in all four services, where the service has them.
+
+| Meaning | DeepL | Baidu | Youdao | What the user reads |
+| --- | --- | --- | --- | --- |
+| Key, app ID or signature refused | 403 | 52003, 54001, 90107 | 108, 110, 202 | "<service> rejected the key. Check the key and the app ID." |
+| Quota used up | 456 | 54004 | 401 | "<service>: the quota of this account is used up." |
+| Too many requests (tried again) | 429 | 54003, 54005 | 411, 412 | the code, with the advice to wait |
+| Language pair not offered | | 58001 | 102 | "<service> does not translate this language pair." |
+| Time stamp refused | | | 206 | "<service> refused the time stamp. Check the clock of this computer." |
+| IP address blocked | | 58003 | | "<service> blocked this IP address for today. Use only one app ID." |
+
+Baidu 52001 and 52002 and Youdao 207 are passing failures and are tried again. Any other code is shown with the message of the service.
 
 ## AI providers
 
@@ -145,6 +241,9 @@ The source language is "Detect automatically" by default, or one of the 20 langu
 | Google Translate | `sl=auto` | `sl=<code>` |
 | Microsoft Translator, free and with key | no `from` parameter | `from=<code>` |
 | DeepLX | `source_lang: "auto"` | `source_lang: "<code>"` (Chinese variants as `ZH`) |
+| DeepL API | no `source_lang` | `source_lang: "<code>"` without variant |
+| Baidu, Youdao | `from=auto` | `from=<code>` of the service |
+| Caiyun | `trans_type: "auto2<target>"` with `detect: true` | `trans_type: "<source>2<target>"` |
 | AI services | "Detect the source language of … and translate it into …" | "Translate … from <language> into …" |
 | Dictionary | detected per paragraph | the language as set |
 | Bergamot | detected per paragraph; the paragraphs of each language are translated together | the language as set |

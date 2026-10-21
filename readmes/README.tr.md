@@ -28,10 +28,11 @@ Tanıtım videosu: [YouTube](https://www.youtube.com/watch?v=OZmiMGeuhJ0) (1 dk)
 - HTML iletilerdeki paragrafları, liste öğelerini, tablo hücrelerini, başlıkları ve alıntıları; düz metin iletilerde ise boş satırlarla ayrılmış paragrafları çevirir. Kod, sayılar, çıplak bağlantılar ve zaten hedef dilde olan paragraflar atlanır. Konu da çevrilir ve gövdenin üstündeki bir satırda gösterilir ("Konuyu da çevir", varsayılan olarak açık).
 - İki görünüm modu: iki dilli (çeviri her özgün paragrafın altında) veya yalnızca çeviri; ikisinde de yapay zekâ çevirilerindeki kalın yazı, listeler ve bağlantılar biçimli görünür. Çeviri kapatıldığında özgün ileti olduğu gibi geri gelir.
 - Üç çeviri kademesi aynı anda çalışır: çevrimdışı sözlük, makine çevirisi ve yapay zekâ hizmeti. En hızlı sonuç önce görünür, en yüksek kademenin sonucu gelince onun yerini alır.
-- Hesap gerektirmeyen ücretsiz hizmetler: Google Translate (varsayılan) ve Microsoft Translator.
+- Hesap gerektirmeyen makine çevirisi (varsayılan Google Translate ve Microsoft Translator) veya kendi anahtarınızla DeepL, Baidu, Youdao ve Caiyun.
 - Sözlük paketleri ve Mozilla'nın Bergamot modelleriyle çevrimdışı çeviri; hiçbir metin bilgisayarınızdan çıkmaz.
 - OpenAI, Claude, Gemini, DeepSeek, Qwen, yerel Ollama ve LM Studio ile OpenAI uyumlu her hizmeti içeren 22 yapay zekâ sağlayıcısı ön ayarı.
 - Hassas çeviri: yapay zekâ kademesi iletinin tamamını görür, bu yüzden adlar ve terimler tutarlı kalır.
+- Özet ve yapılacaklar: bir yapay zekâ hizmeti iletinin üstünde özeti, yapılacakları, yanıtlanacak soruları ve tarihleri listeler.
 - Bölgesel çeşitler, yazım üslupları ve zor sözcükler için hazır ayarları olan, düzenlenebilir üç istem.
 - Hedef dilde olmayan her iletinin isteğe bağlı otomatik çevirisi.
 - 12 dilde arayüz ve kurulumdan sonra açılan bir kurulum rehberi.
@@ -46,18 +47,15 @@ Thunderbird 128 veya daha yeni bir sürüm gerekir. `nightly` ön sürümü, en 
 
 ## Hızlı başlangıç
 
-Kurulumdan sonra kurulum rehberi yeni bir sekmede açılır. Her adımda tek bir soru sorar: diller, görünüm modu ve çeviri stili, her kademenin hizmeti (sonucun kısa bir gösterimiyle), çevrimdışı indirmeler, hizmet anahtarları ve istemler. Her seçim hemen kaydedilir ve her adım atlanabilir. Son adım, ayarlarınızla örnek bir ileti çevirir.
-
-Rehberi daha sonra açılır penceredeki "Kurulum rehberi" bağlantısından veya ayarlar sayfasının üstündeki düğmeden yeniden açabilirsiniz. Hiçbir şeyi değiştirmeden bir ileti açıp Alt+A'ya basarsanız ileti Google Translate ile çevrilir.
+Kurulumdan sonra kurulum rehberi yeni bir sekmede açılır. Her adımda tek bir soru sorar: diller, görünüm modu ve çeviri stili, her kademenin hizmeti (sonucun kısa bir gösterimiyle), çevrimdışı indirmeler, hizmet anahtarları ve istemler. Her seçim hemen kaydedilir ve her adım atlanabilir. Son adım, ayarlarınızla örnek bir ileti çevirir. Rehberi daha sonra açılır penceredeki "Kurulum rehberi" bağlantısından veya ayarlar sayfasının üstündeki düğmeden yeniden açabilirsiniz. Hiçbir şeyi değiştirmeden bir ileti açıp Alt+A'ya basarsanız ileti Google Translate ile çevrilir.
 
 ## Kullanım
 
 Bir ileti açın ve ileti başlığı araç çubuğundaki "İletiyi çevir" düğmesine tıklayın. Açılır pencerede şu denetimler bulunur:
 
 - "Bu iletiyi çevir" çeviriyi başlatır. Çeviri gösterilirken düğmenin adı "Özgün metni göster" olur.
-- "Yeniden çevir" her kademeye yeniden sorar ve önbelleği yok sayar.
-- Görünüm modu, kaynak dil (varsayılan "Otomatik algıla") ve hedef dil.
-- Her kademe için bir hizmet listesi, hassas çeviri ve "Hedef dilde olmayan iletileri otomatik olarak çevir" anahtarı.
+- "Yeniden çevir" her kademeye yeniden sorar ve önbelleği yok sayar; "Özet ve yapılacaklar" iletinin özetini iletinin üstünde gösterir.
+- Görünüm modu, kaynak dil (varsayılan "Otomatik algıla"), hedef dil, her kademe için bir hizmet listesi, hassas çeviri ve "Hedef dilde olmayan iletileri otomatik olarak çevir" anahtarı.
 
 | Kısayol | İşlem |
 | --- | --- |
@@ -65,7 +63,7 @@ Bir ileti açın ve ileti başlığı araç çubuğundaki "İletiyi çevir" dü�
 | Alt+S | İki dilli ile yalnızca çeviri arasında geçiş yapar |
 | Alt+R | Önbelleği yok sayarak yeniden çevirir (yalnızca ileti çevrilmişken) |
 
-Kısayollar, Eklenti yöneticisinin dişli menüsündeki "Eklenti kısayollarını yönet" bölümünden değiştirilebilir.
+Kısayollar, Eklenti yöneticisinin dişli menüsündeki "Eklenti kısayollarını yönet" bölümünden değiştirilebilir; özete de orada istediğiniz bir kısayol atanır.
 
 İki dilli modda her çeviri kendi özgün paragrafının altına konur. Yalnızca çeviri modunda çeviri özgün metnin yerini alır; özgün metni görmek için çevirinin üzerine gelin. Ana araç çubuğundaki "Çevrilmiş konular" düğmesi geçerli klasördeki iletileri çevrilmiş konularıyla listeler; bir satıra tıklamak iletiyi gösterir.
 
@@ -76,7 +74,7 @@ Diğer tüm ayarlar, Eklenti yöneticisinde eklentinin "Seçenekler" düğmesiyl
 | Kademe | Hizmetler | Hız | Kalite | Çevrimdışı | Maliyet |
 | --- | --- | --- | --- | --- | --- |
 | 1 Sözlük | Sözlük | birkaç milisaniye | sözcük sözcük, dilbilgisi yok | evet | ücretsiz; dil çifti başına birkaç MB |
-| 2 Makine çevirisi | Google, Microsoft, DeepLX, Bergamot | ileti başına bir ila iki saniye | eksiksiz ve okunaklı | yalnızca Bergamot | ücretsiz; Bergamot yön başına 13–48 MB indirir |
+| 2 Makine çevirisi | Google, Microsoft, DeepL, Baidu, Youdao, Caiyun, DeepLX, Bergamot | ileti başına bir ila iki saniye | eksiksiz ve okunaklı | yalnızca Bergamot | ücretsiz, kendi anahtarınızla kullanılan hizmetler ücretsiz kotaları kadar; Bergamot yön başına 13–48 MB indirir |
 | 3 Yapay zekâ çevirisi | 22 yapay zekâ sağlayıcısı | birkaç saniye ile bir dakika arası | en doğal; istemlerinizi izler | yalnızca yerel modeller | API anahtarınıza kullanım başına faturalanır; yerel modeller ücretsizdir |
 
 Her kademe bir hizmet kullanır veya "Kullanılmıyor" olarak kalır; en az bir kademede hizmet olmalıdır. Varsayılan, 2. kademede Google Translate olması ve başka hiçbir şey olmamasıdır.
@@ -92,6 +90,7 @@ Seçilen bir sözlükte veya Bergamot'ta iletinin dilleri için veri yoksa ileti
 | Ücretsiz | Google Translate | hiçbir şey |
 | | Microsoft Translator | hiçbir şey; isteğe bağlı "Kendi anahtarımı kullan (Azure Translator)" modu için Azure anahtarı ve bölge |
 | | DeepLX | bir DeepLX sunucusunun uç noktası; belirteç isteğe bağlı |
+| Kendi anahtarınızla | DeepL API, Baidu Translate, Youdao, Caiyun | kendi hesabınızın anahtarı; Baidu ve Youdao için ayrıca uygulama kimliği |
 | Çevrimdışı | Sözlük | Sözlükler bölümünden dil çiftlerini indirin; her biri birkaç MB |
 | | Bergamot (Mozilla) | "Çevrimdışı çeviri modelleri (Bergamot)" bölümünden yönleri indirin; her biri 13–48 MB, her modelin bir tarafı İngilizcedir |
 | Yapay zekâ | 22 ön ayar | bir API anahtarı; Ollama, LM Studio ve özel OpenAI uyumlu hizmetler için gerekmez |
@@ -108,7 +107,7 @@ Hazır ayarlar isteme kural ekler: Britanya İngilizcesi veya Tayvan kullanımı
 
 ## Gizlilik
 
-- İleti metni yalnızca kullanılan kademelerin hizmetlerine gider. Sözlük ve Bergamot bilgisayarınızda çeviri yapar. İletilerin konuları da aynı kurala uyar.
+- İleti metni yalnızca kullanılan kademelerin hizmetlerine gider. Sözlük ve Bergamot bilgisayarınızda çeviri yapar. İletilerin konuları da aynı kurala uyar. İstediğiniz bir özet, iletinin tamamını gönderen ve tarihiyle birlikte özetin yapay zekâ hizmetine gönderir.
 - Bir iletinin metni bir çevrimiçi hizmete ilk kez gitmeden önce iletinin üstündeki bir panel hizmeti ve adresini gösterir ve her hizmet için bir kez sorar. "İzin ver ve çevir" düğmesine tıklanana kadar hiçbir şey gönderilmez; ayarlar sayfası izin verilen hizmetleri listeler ve izni geri almayı sağlar. Yalnızca sözlük ve Bergamot kullanılırsa hiçbir şey sorulmaz.
 - Elle girilen bir adres (Ollama, LM Studio, DeepLX, özel bir hizmet, değiştirilmiş bir adres) bağlantı için bir kez izin ister; izin ayarlarda "Erişime izin ver" veya "Bağlantıyı test et" ile verilir.
 - API anahtarları yalnızca Thunderbird profilinizde saklanır ve yalnızca kendi hizmetlerinin uç noktasına gönderilir.
@@ -121,8 +120,7 @@ Hazır ayarlar isteme kural ekler: Britanya İngilizcesi veya Tayvan kullanımı
 
 - Özgün metindeki bağlantılar ve satır içi biçimlendirme çeviriye taşınmaz. Kalın yazı, listeler ve bağlantılar bir çeviride yalnızca bir yapay zekâ hizmeti bunları Markdown olarak yazarsa görünür; sözlük ve makine çevirisi çevirileri ile geçici çeviriler düz metindir.
 - Google ve Microsoft'un ücretsiz uç noktaları belgelenmemiştir; değişebilir veya hız sınırına takılabilir.
-- Sözlük, kaynak sözcük sırasında sözcük sözcük karşılık verir.
-- Sözlük ve Bergamot, Basitleştirilmiş ile Geleneksel Çince arasında çeviri yapmaz.
+- Sözlük, kaynak sözcük sırasında sözcük sözcük karşılık verir; ne sözlük ne de Bergamot Basitleştirilmiş ile Geleneksel Çince arasında çeviri yapar.
 - Kullanılan her kademe kendi isteklerini gönderir; bu yüzden yapay zekâ kademesi kullanılırken makine kademesi de ücretsiz hız sınırlarına sayılır.
 - Bir hizmetin döndürdüğü hata metinleri, genellikle İngilizce olarak, alındıkları gibi gösterilir.
 

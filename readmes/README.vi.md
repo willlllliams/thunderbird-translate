@@ -28,10 +28,11 @@ Video giới thiệu: [YouTube](https://www.youtube.com/watch?v=OZmiMGeuhJ0) (1 
 - Dịch đoạn văn, mục danh sách, ô bảng, tiêu đề và khối trích dẫn của thư HTML, cùng các đoạn cách nhau bằng dòng trống của thư văn bản thuần. Mã nguồn, con số, liên kết trơn và các đoạn đã ở ngôn ngữ đích được bỏ qua. Tiêu đề thư cũng được dịch, hiện trên một dòng phía trên nội dung thư ("Dịch cả tiêu đề thư", bật theo mặc định).
 - Hai chế độ hiển thị: song ngữ (bản dịch nằm dưới từng đoạn gốc) hoặc chỉ bản dịch, cả hai đều hiển thị chữ đậm, danh sách và liên kết của bản dịch AI có định dạng. Khi tắt dịch, thư gốc được khôi phục nguyên vẹn.
 - Ba tầng dịch chạy cùng lúc: từ điển ngoại tuyến, dịch máy và dịch vụ AI. Kết quả nhanh nhất hiện trước, và kết quả của tầng cao nhất thay thế nó.
-- Dịch vụ miễn phí, không cần tài khoản: Google Translate (mặc định) và Microsoft Translator.
+- Dịch máy không cần tài khoản (Google Translate, mặc định, và Microsoft Translator) hoặc bằng khóa của riêng bạn (DeepL, Baidu, Youdao, Caiyun).
 - Dịch ngoại tuyến bằng gói từ điển và các mô hình Bergamot của Mozilla; không có văn bản nào rời khỏi máy của bạn.
 - 22 cấu hình sẵn cho nhà cung cấp AI, trong đó có OpenAI, Claude, Gemini, DeepSeek, Qwen, Ollama và LM Studio chạy cục bộ, cùng mọi dịch vụ tương thích OpenAI.
 - Dịch chính xác: tầng AI nhận toàn bộ thư làm ngữ cảnh, nên tên riêng và thuật ngữ nhất quán.
+- Tóm tắt và việc cần làm: một dịch vụ AI liệt kê phía trên thư bản tóm tắt, các việc cần làm, các câu hỏi cần trả lời và các ngày.
 - Ba lời nhắc có thể chỉnh sửa, kèm mẫu có sẵn cho biến thể vùng miền, văn phong và từ khó.
 - Tùy chọn tự động dịch mọi thư không ở ngôn ngữ đích.
 - Giao diện có 12 ngôn ngữ và hướng dẫn thiết lập tự mở sau khi cài đặt.
@@ -46,18 +47,15 @@ Cần Thunderbird 128 trở lên. Bản tiền phát hành `nightly` là bản d
 
 ## Bắt đầu nhanh
 
-Sau khi cài đặt, hướng dẫn thiết lập mở trong một thẻ mới. Mỗi bước hỏi một câu: ngôn ngữ, chế độ hiển thị và kiểu bản dịch, dịch vụ của từng tầng (kèm bản minh họa ngắn về kết quả), dữ liệu tải về cho dịch ngoại tuyến, khóa dịch vụ và lời nhắc. Mọi lựa chọn được lưu ngay, và có thể bỏ qua bất kỳ bước nào. Bước cuối dịch một thư mẫu bằng cài đặt hiện tại.
-
-Bạn có thể mở lại hướng dẫn từ liên kết "Hướng dẫn thiết lập" trong cửa sổ bật lên hoặc nút ở đầu trang cài đặt. Khi chưa đổi gì, hãy mở một thư và nhấn Alt+A: Google Translate sẽ dịch thư đó.
+Sau khi cài đặt, hướng dẫn thiết lập mở trong một thẻ mới. Mỗi bước hỏi một câu: ngôn ngữ, chế độ hiển thị và kiểu bản dịch, dịch vụ của từng tầng (kèm bản minh họa ngắn về kết quả), dữ liệu tải về cho dịch ngoại tuyến, khóa dịch vụ và lời nhắc. Mọi lựa chọn được lưu ngay, và có thể bỏ qua bất kỳ bước nào. Bước cuối dịch một thư mẫu bằng cài đặt hiện tại. Bạn có thể mở lại hướng dẫn từ liên kết "Hướng dẫn thiết lập" trong cửa sổ bật lên hoặc nút ở đầu trang cài đặt. Khi chưa đổi gì, hãy mở một thư và nhấn Alt+A: Google Translate sẽ dịch thư đó.
 
 ## Sử dụng
 
 Mở một thư và nhấn nút "Dịch thư" trên thanh công cụ ở phần đầu thư. Cửa sổ bật lên có các điều khiển sau:
 
 - "Dịch thư này" bắt đầu dịch. Khi bản dịch đang hiển thị, nút này đổi thành "Hiện bản gốc".
-- "Dịch lại" hỏi lại mọi tầng và bỏ qua bộ nhớ đệm.
-- Chế độ hiển thị, ngôn ngữ nguồn (mặc định là "Tự động phát hiện") và ngôn ngữ đích.
-- Danh sách dịch vụ của từng tầng, dịch chính xác, và công tắc "Tự động dịch thư không ở ngôn ngữ đích".
+- "Dịch lại" hỏi lại mọi tầng và bỏ qua bộ nhớ đệm; "Tóm tắt và việc cần làm" hiện bản tóm tắt của thư phía trên thư.
+- Chế độ hiển thị, ngôn ngữ nguồn (mặc định là "Tự động phát hiện"), ngôn ngữ đích, danh sách dịch vụ của từng tầng, dịch chính xác, và công tắc "Tự động dịch thư không ở ngôn ngữ đích".
 
 | Phím tắt | Tác dụng |
 | --- | --- |
@@ -65,7 +63,7 @@ Mở một thư và nhấn nút "Dịch thư" trên thanh công cụ ở phần 
 | Alt+S | Chuyển giữa song ngữ và chỉ bản dịch |
 | Alt+R | Dịch lại, bỏ qua bộ nhớ đệm (chỉ khi thư đã được dịch) |
 
-Có thể đổi các phím tắt trong mục "Quản lý phím tắt tiện ích mở rộng" ở menu bánh răng của Trình quản lý tiện ích.
+Có thể đổi các phím tắt trong mục "Quản lý phím tắt tiện ích mở rộng" ở menu bánh răng của Trình quản lý tiện ích, nơi bản tóm tắt cũng nhận một phím tắt tùy bạn chọn.
 
 Chế độ song ngữ đặt mỗi bản dịch dưới đoạn gốc của nó. Chế độ chỉ bản dịch thay thế đoạn gốc; di chuột lên bản dịch để xem văn bản gốc. Nút "Tiêu đề đã dịch" trên thanh công cụ chính liệt kê các thư của thư mục hiện tại cùng tiêu đề đã dịch; bấm vào một dòng để hiện thư đó.
 
@@ -76,7 +74,7 @@ Mọi cài đặt khác nằm trên trang cài đặt: nút "Tùy chọn" của 
 | Tầng | Dịch vụ | Tốc độ | Chất lượng | Ngoại tuyến | Chi phí |
 | --- | --- | --- | --- | --- | --- |
 | 1 Từ điển | Từ điển | vài mili giây | từng từ một, không có ngữ pháp | có | miễn phí; vài MB cho mỗi cặp ngôn ngữ |
-| 2 Dịch máy | Google, Microsoft, DeepLX, Bergamot | một đến hai giây mỗi thư | đầy đủ và dễ đọc | chỉ Bergamot | miễn phí; Bergamot tải 13–48 MB cho mỗi chiều dịch |
+| 2 Dịch máy | Google, Microsoft, DeepL, Baidu, Youdao, Caiyun, DeepLX, Bergamot | một đến hai giây mỗi thư | đầy đủ và dễ đọc | chỉ Bergamot | miễn phí, các dịch vụ dùng khóa của bạn trong hạn mức miễn phí; Bergamot tải 13–48 MB cho mỗi chiều dịch |
 | 3 Dịch bằng AI | 22 nhà cung cấp AI | vài giây đến một phút | tự nhiên nhất; theo lời nhắc của bạn | chỉ mô hình cục bộ | tính theo mức dùng trên khóa API của bạn; mô hình cục bộ miễn phí |
 
 Mỗi tầng dùng một dịch vụ hoặc "Không dùng"; ít nhất một tầng cần có dịch vụ. Mặc định là Google Translate ở tầng 2 và không có gì khác.
@@ -92,6 +90,7 @@ Khi từ điển hoặc Bergamot đã chọn thiếu dữ liệu cho các ngôn 
 | Miễn phí | Google Translate | không cần gì |
 | | Microsoft Translator | không cần gì; có chế độ tùy chọn "Dùng khóa của tôi (Azure Translator)" với khóa và khu vực Azure |
 | | DeepLX | địa chỉ endpoint của máy chủ DeepLX; token là tùy chọn |
+| Với khóa của bạn | DeepL API, Baidu Translate, Youdao, Caiyun | khóa của tài khoản riêng; Baidu và Youdao cần thêm ID ứng dụng |
 | Ngoại tuyến | Từ điển | tải các cặp ngôn ngữ trong phần "Từ điển"; vài MB mỗi cặp |
 | | Bergamot (Mozilla) | tải các chiều dịch trong "Mô hình dịch ngoại tuyến (Bergamot)"; 13–48 MB mỗi chiều, mọi mô hình đều có tiếng Anh ở một phía |
 | AI | 22 cấu hình sẵn | khóa API; Ollama, LM Studio và các dịch vụ tương thích OpenAI tùy chỉnh không cần |
@@ -108,7 +107,7 @@ Các mẫu có sẵn thêm quy tắc vào lời nhắc: biến thể vùng miề
 
 ## Quyền riêng tư
 
-- Văn bản thư chỉ đến các dịch vụ của những tầng đang dùng. Từ điển và Bergamot dịch ngay trên máy của bạn. Tiêu đề của thư cũng tuân theo quy tắc này.
+- Văn bản thư chỉ đến các dịch vụ của những tầng đang dùng. Từ điển và Bergamot dịch ngay trên máy của bạn. Tiêu đề của thư cũng tuân theo quy tắc này. Bản tóm tắt bạn yêu cầu gửi toàn bộ thư cùng người gửi và ngày gửi đến dịch vụ AI của bản tóm tắt.
 - Trước khi nội dung thư lần đầu được gửi đến một dịch vụ trực tuyến, bảng phía trên thư nêu tên dịch vụ và địa chỉ của nó, rồi hỏi một lần cho mỗi dịch vụ. Không có gì được gửi trước khi bạn bấm "Cho phép và dịch"; trang cài đặt liệt kê các dịch vụ đã cho phép và cho phép thu hồi. Nếu chỉ dùng từ điển và Bergamot thì không có câu hỏi nào.
 - Địa chỉ bạn tự nhập (Ollama, LM Studio, DeepLX, dịch vụ tùy chỉnh, địa chỉ đã đổi) cần được cấp quyền kết nối một lần, bằng nút "Cho phép truy cập" hoặc "Kiểm tra kết nối" trong phần cài đặt.
 - Khóa API chỉ được lưu trong hồ sơ Thunderbird của bạn và chỉ được gửi đến endpoint của chính dịch vụ đó.
@@ -121,8 +120,7 @@ Các mẫu có sẵn thêm quy tắc vào lời nhắc: biến thể vùng miề
 
 - Liên kết và định dạng nội dòng của bản gốc không được đưa vào bản dịch. Chữ đậm, danh sách và liên kết chỉ xuất hiện trong bản dịch khi dịch vụ AI viết chúng bằng Markdown; bản dịch của từ điển và của dịch máy, cùng các bản dịch tạm, là văn bản thuần.
 - Các endpoint miễn phí của Google và Microsoft không có tài liệu công khai, có thể thay đổi hoặc bị giới hạn tần suất.
-- Từ điển chú giải từng từ theo thứ tự từ của bản gốc.
-- Từ điển và Bergamot không dịch giữa tiếng Trung giản thể và phồn thể.
+- Từ điển chú giải từng từ theo thứ tự từ của bản gốc, và cả từ điển lẫn Bergamot đều không dịch giữa tiếng Trung giản thể và phồn thể.
 - Mỗi tầng đang dùng gửi yêu cầu riêng, nên khi dùng tầng AI, tầng dịch máy vẫn tính vào giới hạn tần suất miễn phí.
 - Nội dung lỗi do dịch vụ trả về được hiển thị nguyên văn, thường bằng tiếng Anh.
 
