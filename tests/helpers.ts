@@ -122,5 +122,8 @@ export async function translateOne(service: TranslationService, { providerId, ..
   return result.text
 }
 
+/** The text of an element as it shows: without the hidden originals of translation-only units (render.ts). */
+export const shownText = (el: Node): string => Array.from(el.childNodes, (node) => ((node as Element).classList?.contains("tt-original") ? "" : node.nodeType === 1 ? shownText(node) : (node.textContent ?? ""))).join("")
+
 /** Moved to tests/fixtures/pages.ts; imported from here until the test files import it from there. */
 export { openPage } from "./fixtures/pages"

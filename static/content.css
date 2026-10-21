@@ -45,14 +45,15 @@
   margin: 0.3em 0 0.4em;
 }
 
+/* Logical sides: the line stands at the start of the text, on the right of a translation into Arabic. */
 .tt-translation.tt-bilingual.tt-style-border {
-  border-left: 3px solid var(--tt-color, var(--tt-color-fallback));
-  padding-left: 0.6em;
+  border-inline-start: 3px solid var(--tt-color, var(--tt-color-fallback));
+  padding-inline-start: 0.6em;
 }
 
 .tt-translation.tt-bilingual.tt-style-dashed {
-  border-left: 2px dashed var(--tt-color, var(--tt-color-fallback));
-  padding-left: 0.6em;
+  border-inline-start: 2px dashed var(--tt-color, var(--tt-color-fallback));
+  padding-inline-start: 0.6em;
 }
 
 .tt-translation.tt-bilingual.tt-style-highlight {
@@ -70,7 +71,7 @@
 
 .tt-status {
   display: inline-block;
-  margin-left: 0.4em;
+  margin-inline-start: 0.4em;
   vertical-align: middle;
   font-size: 0.85em;
   user-select: none;
@@ -89,6 +90,15 @@
   to {
     transform: rotate(360deg);
   }
+}
+
+/* The retry mark is a button: it looks like the other marks; the rules after this one still apply. */
+:where(button).tt-status {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
 }
 
 .tt-error {
@@ -131,7 +141,7 @@
 .tt-notice {
   margin: 0 0 1em;
   padding: 0.5em 0.9em;
-  border-left: 3px solid var(--tt-color, #4c8bf5);
+  border-inline-start: 3px solid var(--tt-color, #4c8bf5);
   border-radius: 4px;
   background: color-mix(in srgb, var(--tt-color, #4c8bf5) 10%, transparent);
   color: inherit;
@@ -218,8 +228,9 @@
 }
 
 .tt-image-result {
-  padding: 0.2em 0 0.2em 0.6em;
-  border-left: 3px solid var(--tt-color, #4c8bf5);
+  padding-block: 0.2em;
+  padding-inline-start: 0.6em;
+  border-inline-start: 3px solid var(--tt-color, #4c8bf5);
 }
 
 .tt-image-result > summary {

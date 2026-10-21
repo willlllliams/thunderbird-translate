@@ -1,7 +1,9 @@
 /**
  * Content script injected into the message display (messageDisplayScripts):
  * a translation controller on the message body, connected to the background
- * script (see client.ts).
+ * script (see client.ts). An update or a reload of the extension injects it
+ * again into the messages on screen, in a new sandbox; the client first undoes
+ * what the content script before it left in the message.
  */
 
 import { contentProbe } from "../hooks/content"

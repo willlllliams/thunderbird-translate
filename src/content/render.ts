@@ -3,10 +3,13 @@
  *
  * - bilingual: a block with the translation is appended inside the unit, so
  *   it stays in the same list item / table cell / quote as the original.
- * - translation-only: the unit's children are swapped for the translation;
- *   the original nodes are kept in memory and put back on clear(). The
- *   images of the unit stay: copies of them follow the translation, except
- *   remote ones, whose copies would be fetched again.
+ * - translation-only: the translation goes in front of the unit's children,
+ *   which move into a hidden span (CLS_ORIGINAL) and come back on clear().
+ *   They stay in the document, so a content script that replaces this one
+ *   (the extension was updated) finds them (restoreLeftovers()). The images
+ *   of the unit stay: copies of them follow the translation, except remote
+ *   ones, whose copies would be fetched again. What images.ts put under an
+ *   image inside the unit stays where it is.
  *
  * A translation can carry a mark: a provisional result of a lower tier while
  * the highest tier runs, or a lower result kept after the highest tier failed.
@@ -18,7 +21,7 @@
 
 import { markdownFragment, stripMarkdown } from "../shared/markdown"
 import type { DisplayMode, Settings, StylePreset } from "../shared/settings"
-import { CLS_STATUS, CLS_TRANSLATION, type Unit } from "./paragraphs"
+import { CLS_IMAGE, CLS_ORIGINAL, CLS_STATUS, CLS_TRANSLATION, type Unit } from "./paragraphs"
 
 /** The colours, opacity and size of the translations as CSS variables; without a text colour they keep the colour of the message. */
 export function styleVars(style: Settings["style"]): Record<string, string> {
@@ -33,7 +36,8 @@ export function setStyleVars(el: HTMLElement, style: Settings["style"]): void {
 
 interface UnitDom {
   added: HTMLElement | null
-  original: Node[] | null
+  /** Translation only: the hidden span with the original children. */
+  original: HTMLElement | null
 }
 
 /**
@@ -70,8 +74,8 @@ export class Renderer {
   clear(unit: Unit): void {
     const s = this.dom.get(unit)
     if (!s) return
-    if (s.original) unit.el.replaceChildren(...s.original)
-    else s.added?.remove()
+    if (s.original) s.original.replaceWith(...Array.from(s.original.childNodes))
+    s.added?.remove()
     this.dom.delete(unit)
   }
 
@@ -89,22 +93,21 @@ export class Renderer {
     this.state(unit).added = span
   }
 
-  /** Status label; with onRetry it is a button that retries the paragraph. */
+  /** Status label; with onRetry it is a button that retries the paragraph, which the keyboard reaches as well. */
   private status(className: string, label: string, title: string, onRetry?: () => void): HTMLElement {
-    const span = this.doc.createElement("span")
-    span.className = `${CLS_STATUS} ${className}`
-    span.textContent = label
-    span.title = title
+    const el = this.doc.createElement(onRetry ? "button" : "span")
+    el.className = `${CLS_STATUS} ${className}`
+    el.textContent = label
+    el.title = title
     if (onRetry) {
-      span.setAttribute("role", "button")
-      span.tabIndex = 0
-      span.addEventListener("click", (e) => {
+      ;(el as HTMLButtonElement).type = "button"
+      el.addEventListener("click", (e) => {
         e.preventDefault()
         e.stopPropagation()
         onRetry()
       })
     }
-    return span
+    return el
   }
 
   showError(unit: Unit, message: string, label: string, onRetry: () => void): void {
@@ -139,9 +142,13 @@ export class Renderer {
       s.added = node
     } else {
       node.title = unit.text.length > 600 ? `${unit.text.slice(0, 600)}…` : unit.text
-      for (const img of Array.from(unit.el.querySelectorAll("img"))) if (!/^https?:/i.test(img.getAttribute("src") ?? "")) node.appendChild(img.cloneNode(false))
-      s.original = Array.from(unit.el.childNodes)
-      unit.el.replaceChildren(node)
+      for (const img of Array.from(unit.el.querySelectorAll("img"))) if (!/^https?:/i.test(img.getAttribute("src") ?? "") && !img.closest(`.${CLS_IMAGE}`)) node.appendChild(img.cloneNode(false))
+      const original = this.doc.createElement("span")
+      original.className = CLS_ORIGINAL
+      original.hidden = true
+      original.append(...Array.from(unit.el.childNodes).filter((child) => !(child.nodeType === 1 && (child as Element).classList.contains(CLS_IMAGE))))
+      unit.el.prepend(node, original)
+      s.original = original
       s.added = node
     }
   }

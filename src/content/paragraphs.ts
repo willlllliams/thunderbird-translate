@@ -23,6 +23,8 @@ export const CLS_NOTICE = "tt-notice"
 export const CLS_SUBJECT = "tt-subject"
 /** The button, panel or text under an image (images.ts). */
 export const CLS_IMAGE = "tt-image"
+/** Translation only: the hidden span that keeps the original children of a unit (render.ts). */
+export const CLS_ORIGINAL = "tt-original"
 
 export interface Unit {
   /** Element that holds the paragraph and receives the translation. */
@@ -56,7 +58,19 @@ const SKIP_TAGS = new Set([
 const CODE_TAGS = new Set(["CODE", "KBD", "SAMP", "VAR", "TT"])
 
 function isOurs(el: Element): boolean {
-  return el.classList.contains(CLS_TRANSLATION) || el.classList.contains(CLS_STATUS) || el.classList.contains(CLS_NOTICE) || el.classList.contains(CLS_SUBJECT) || el.classList.contains(CLS_IMAGE)
+  return [CLS_TRANSLATION, CLS_STATUS, CLS_NOTICE, CLS_SUBJECT, CLS_IMAGE, CLS_ORIGINAL].some((cls) => el.classList.contains(cls))
+}
+
+/**
+ * Undo what an earlier content script of this message left behind: after an update or a reload of the extension, its
+ * sandbox is gone and its nodes are still there. The original children of translation-only units come back, every
+ * added element goes, and every wrapper span gives its children back.
+ */
+export function restoreLeftovers(root: HTMLElement): void {
+  for (const original of Array.from(root.querySelectorAll(`.${CLS_ORIGINAL}`))) original.replaceWith(...Array.from(original.childNodes))
+  for (const el of Array.from(root.querySelectorAll(`.${CLS_TRANSLATION}, .${CLS_STATUS}, .${CLS_SUBJECT}, .${CLS_NOTICE}, .${CLS_IMAGE}`))) el.remove()
+  for (const seg of Array.from(root.querySelectorAll(`.${CLS_SEG}`))) seg.replaceWith(...Array.from(seg.childNodes))
+  root.ownerDocument.getElementById("tt-style-vars")?.remove()
 }
 
 function computedDisplay(el: Element): string | null {

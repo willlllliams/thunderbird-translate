@@ -11,7 +11,7 @@ import type { TabState, TranslateRequest, TranslateResponse } from "../src/share
 import type { Tier } from "../src/shared/providers"
 import type { PublicSettings } from "../src/shared/settings"
 import { answering, manualTranslate, publicSettings, tieredSettings } from "./fixtures/content"
-import { until } from "./helpers"
+import { shownText, until } from "./helpers"
 
 const HTML_MAIL = `
 <div class="moz-text-html">
@@ -136,12 +136,12 @@ describe("rendering", () => {
     expect(h1.el.textContent).toContain("Quarterly update")
 
     renderer.showTranslation(p, "大家好，报告已附上。", "translation-only")
-    expect(p.el.textContent).toBe("大家好，报告已附上。")
-    expect(p.el.querySelector("b")).toBeNull()
+    expect(shownText(p.el)).toBe("大家好，报告已附上。")
+    expect(p.el.querySelector("b")!.closest<HTMLElement>(".tt-original")!.hidden).toBe(true)
 
     // Switch modes in place.
     renderer.showTranslation(h1, "季度更新", "translation-only")
-    expect(h1.el.textContent).toBe("季度更新")
+    expect(shownText(h1.el)).toBe("季度更新")
     renderer.showTranslation(p, "大家好，报告已附上。", "bilingual")
     expect(p.el.querySelector("b")?.textContent).toBe("report")
 
@@ -156,7 +156,7 @@ describe("rendering", () => {
     const collected = collectParagraphs(document.body)
     const r = new Renderer(document)
     r.showTranslation(collected.units[0], "点击此处继续", "translation-only")
-    expect(document.querySelector("a")).toBeNull()
+    expect(link.closest<HTMLElement>(".tt-original")!.hidden).toBe(true)
     r.clearAll()
     collected.restore()
     expect(document.querySelector("a")).toBe(link)
@@ -206,7 +206,7 @@ describe("controller", () => {
     await c.updateSettings(settings({ mode: "translation-only" }))
     expect(translate).toHaveBeenCalledTimes(12)
     expect(document.querySelectorAll(".tt-translation.tt-only").length).toBe(12)
-    expect(document.body.textContent).not.toMatch(/(?<!ZH:)Hello team, the report is attached./)
+    expect(shownText(document.body)).not.toMatch(/(?<!ZH:)Hello team, the report is attached./)
 
     await c.updateSettings(settings({ mode: "bilingual" }))
     expect(document.querySelectorAll(".tt-translation.tt-bilingual").length).toBe(12)

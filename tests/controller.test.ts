@@ -8,7 +8,7 @@ import type { TabState, TranslateRequest, TranslateResponse } from "../src/share
 import type { Tier } from "../src/shared/providers"
 import type { PublicSettings } from "../src/shared/settings"
 import { answering, manualTranslate, type OnTier, publicSettings, tieredSettings } from "./fixtures/content"
-import { until } from "./helpers"
+import { shownText, until } from "./helpers"
 
 type Reports = Omit<TabState, "connected">[]
 
@@ -457,7 +457,7 @@ describe("subject line", () => {
     const translate = answering((text) => ok(`T:${text}`))
     const { c } = await mount("<p>Good morning</p>", publicSettings({ mode: "translation-only" }), { translate, subject: async () => "AW: Meeting" })
     await c.start()
-    expect(line()!.textContent).toBe("AW: T:Meeting")
+    expect(shownText(line()!)).toBe("AW: T:Meeting")
   })
 
   it.each<[string, Partial<PublicSettings>, (() => Promise<string | null>) | undefined]>([

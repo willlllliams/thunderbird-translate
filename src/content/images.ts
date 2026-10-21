@@ -37,7 +37,7 @@ import { markdownFragment } from "../shared/markdown"
 import type { ImageRequest, ImageResponse } from "../shared/messages"
 import { getPreset, providerDisplayName } from "../shared/providers"
 import type { ConsentNeed, PublicImageSettings } from "../shared/settings"
-import { CLS_IMAGE, CLS_NOTICE, type Unit } from "./paragraphs"
+import { CLS_IMAGE, CLS_NOTICE, CLS_ORIGINAL, type Unit } from "./paragraphs"
 
 /** How long the line about an image without text stays. */
 export const NO_TEXT_MS = 3000
@@ -104,7 +104,8 @@ export class ImageTranslator {
     if (run.settings.mode === "off") return
     const root = this.deps.root()
     if (!root) return
-    for (const img of Array.from(root.querySelectorAll("img"))) this.consider(img)
+    // In translation-only mode the originals of a unit are hidden and their copies follow the translation.
+    for (const img of Array.from(root.querySelectorAll("img"))) if (!img.closest(`.${CLS_ORIGINAL}`)) this.consider(img)
     void this.peekAll(this.entries.slice(), this.round)
   }
 

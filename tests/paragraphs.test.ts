@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 /** Paragraph detection on quotes, tables, lists, code and plain text, and exact restoration after rendering. */
 import { beforeEach, describe, expect, it, vi } from "vitest"
-import { collectParagraphs, extractText } from "../src/content/paragraphs"
+import { collectParagraphs, extractText, restoreLeftovers } from "../src/content/paragraphs"
 import { Renderer } from "../src/content/render"
 import { unwrapPlainText } from "../src/shared/text"
 
@@ -148,15 +148,36 @@ describe("rendering and restoring", () => {
     document.body.addEventListener("click", onPage)
     r.showTranslation(a, "早上好", "bilingual", undefined, { kind: "fallback", label: "AI failed", title: "HTTP 401", onRetry })
     r.showTranslation(b, "再见", "bilingual", undefined, { kind: "provisional", label: "Dictionary", title: "waiting" })
-    const retry = a.el.querySelector<HTMLElement>(".tt-error")!
-    expect(retry.getAttribute("role")).toBe("button")
+    // U3: a button, which Enter and Space press as well.
+    const retry = a.el.querySelector<HTMLButtonElement>(".tt-error")!
+    expect([retry.tagName, retry.type]).toEqual(["BUTTON", "button"])
     expect(a.el.querySelector<HTMLElement>(".tt-fallback")!.title).toBe("HTTP 401")
+    retry.focus()
+    expect(document.activeElement).toBe(retry)
     retry.click()
     expect(onRetry).toHaveBeenCalledTimes(1)
     expect(onPage).not.toHaveBeenCalled()
     const tag = b.el.querySelector<HTMLElement>(".tt-tag")!
-    expect(tag.hasAttribute("role")).toBe(false)
+    expect([tag.tagName, tag.hasAttribute("tabindex"), tag.hasAttribute("role")]).toEqual(["SPAN", false, false])
     expect(tag.textContent).toBe("Dictionary")
+  })
+
+  it("U4: a later content script finds the message as it was, from what an earlier one left in either mode", () => {
+    const html = `<p>Good <b>morning</b></p><div>Intro<p>Block</p>tail text</div><pre>one
+
+two</pre>`
+    for (const mode of ["bilingual", "translation-only"] as const) {
+      document.head.innerHTML = '<style id="tt-style-vars"></style>'
+      document.body.innerHTML = html
+      const before = document.body.innerHTML
+      const r = new Renderer(document)
+      for (const unit of collectParagraphs(document.body).units) r.showTranslation(unit, `T(${unit.text})`, mode)
+      // The hidden originals count as ours: nothing is found to translate twice.
+      if (mode === "translation-only") expect(collectParagraphs(document.body).units).toEqual([])
+      restoreLeftovers(document.body)
+      expect([mode, document.body.innerHTML]).toEqual([mode, before])
+      expect(document.getElementById("tt-style-vars")).toBeNull()
+    }
   })
 
   it("clearing a paragraph that shows nothing changes nothing", () => {

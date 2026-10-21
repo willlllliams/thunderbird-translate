@@ -1,5 +1,7 @@
 // @vitest-environment jsdom
 /** Popup and settings page: tiers, source language, added services, prompts, dictionaries and offline models. */
+import { readFileSync } from "node:fs"
+import { join } from "node:path"
 import { IDBFactory } from "fake-indexeddb"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 import { ENGLISH } from "../src/shared/i18n"
@@ -716,5 +718,15 @@ describe("settings changed in another page", () => {
     select("targetLang").dispatchEvent(new Event("change"))
     await until(() => expect(page.stored().targetLang).toBe("fr"))
     expect(page.stored().providers.openai.apiKey).toBe("sk-newer")
+  })
+})
+
+describe("U10: the styles of the message", () => {
+  it("use logical sides, so lines and gaps stand at the start of a right-to-left translation", () => {
+    const css = readFileSync(join(__dirname, "..", "static", "content.css"), "utf8")
+    const rules = Array.from(css.matchAll(/([^{}]+)\{([^}]*)\}/g), ([, selector, body]) => [selector.trim(), body] as const)
+    const physical = rules.flatMap(([selector, body]) => (body.match(/^\s*[\w-]*-(?:left|right)[\w-]*\s*:/gm) ?? []).map((property) => `${selector.split("\n").at(-1)} ${property.trim()}`))
+    // The spinner turns a circle with one transparent side.
+    expect(physical).toEqual([".tt-loading border-right-color:"])
   })
 })

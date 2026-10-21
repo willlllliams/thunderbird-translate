@@ -76,6 +76,9 @@ function translationText(el: HTMLElement): string {
   return Array.from(el.childNodes, (node) => ((node as Element).classList?.contains("tt-status") ? "" : (node.textContent ?? ""))).join("")
 }
 
+/** The text of an element as it shows: without the hidden originals of translation-only units. */
+const shownText = (el: Node): string => Array.from(el.childNodes, (node) => ((node as Element).classList?.contains("tt-original") ? "" : node.nodeType === 1 ? shownText(node) : (node.textContent ?? ""))).join("")
+
 /** The elements inside a translation, without its mark. */
 const markup = (el: HTMLElement) => Array.from(el.querySelectorAll("*")).filter((child) => !child.closest(".tt-status"))
 
@@ -112,7 +115,7 @@ function subjectLine() {
   const translation = line.querySelector<HTMLElement>(".tt-translation")
   return {
     first: line === line.parentElement?.firstElementChild,
-    text: line.textContent,
+    text: shownText(line),
     prefix: line.querySelector(".tt-subject-prefix")?.textContent ?? "",
     translation: translation ? translationText(translation) : null,
     tags: translation ? markup(translation).map((child) => child.tagName.toLowerCase()) : [],
@@ -408,7 +411,7 @@ export function createContentProbe(): ContentProbe {
       report.restored = {
         state: last,
         identical: body.innerHTML === original,
-        leftovers: body.querySelectorAll(".tt-translation, .tt-status, .tt-seg, .tt-subject").length,
+        leftovers: body.querySelectorAll(".tt-translation, .tt-status, .tt-seg, .tt-subject, .tt-original").length,
         styleLeft: document.getElementById("tt-style-vars") !== null,
         ...(body.innerHTML === original ? {} : { original: original.slice(0, 4000), after: body.innerHTML.slice(0, 4000) }),
       }

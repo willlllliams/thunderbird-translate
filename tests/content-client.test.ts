@@ -332,6 +332,37 @@ describe("connectContent", () => {
   })
 })
 
+describe("U4: a content script after an update of the extension", () => {
+  it("takes over the message an earlier one translated: each paragraph has one translation, and the originals come back", async () => {
+    document.body.innerHTML = "<p>Good morning everyone</p><p>See you tomorrow</p>"
+    const before = document.body.innerHTML
+    const answer = (p: ReturnType<typeof pagePort>) =>
+      p.postMessage.mockImplementation((msg: { type: string; id?: number; request?: { text: string; tiers: string[] } }) => {
+        if (msg.type !== "translate") return
+        queueMicrotask(() => {
+          p.push({ type: "tier", id: msg.id!, tier: "machine", result: { ok: true, text: `T(${msg.request!.text})` } })
+          p.push({ type: "done", id: msg.id! })
+        })
+      })
+    answer(port)
+    // The earlier one, translation only; its sandbox goes away without stop().
+    const first = connectContent({ root: () => document.body, contentScript: true })
+    settingsPush(publicSettings({ mode: "translation-only" }))
+    await first.ready
+    port.push({ type: "toggle" })
+    await until(() => expect(document.querySelectorAll(".tt-only")).toHaveLength(2))
+    port = pagePort()
+    answer(port)
+    const second = connectContent({ root: () => document.body, contentScript: true })
+    expect(document.body.innerHTML).toBe(before)
+    settingsPush(publicSettings())
+    await second.ready
+    port.push({ type: "toggle" })
+    await until(() => expect(document.querySelectorAll(".tt-translation")).toHaveLength(2))
+    expect(Array.from(document.querySelectorAll("p"), (p) => p.querySelectorAll(".tt-translation").length)).toEqual([1, 1])
+  })
+})
+
 describe("content script entry", () => {
   it("connects once per window, also when injected twice", async () => {
     delete window.__thunderbirdTranslateLoaded

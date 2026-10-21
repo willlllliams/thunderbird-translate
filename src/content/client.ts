@@ -18,6 +18,7 @@ import { ConsentPanel } from "./consent"
 import { type ControllerDeps, TranslationController } from "./controller"
 import { ImageTranslator } from "./images"
 import { MissingNotice } from "./notice"
+import { restoreLeftovers } from "./paragraphs"
 import { SummaryButton, SummaryPanel } from "./summary"
 
 declare const __DEBUG__: boolean
@@ -55,6 +56,9 @@ async function loadLabels(uiLanguage: UiLanguageSetting): Promise<void> {
 }
 
 export function connectContent({ root, contentScript = false, probe, subjects, onState }: ClientOptions): ContentClient {
+  // The content script of an earlier version of the extension may have left its translations in the message.
+  const body = contentScript ? root() : null
+  if (body) restoreLeftovers(body)
   const port = ext.runtime.connect({ name: subjects ? SUBJECTS_PORT_NAME : CONTENT_PORT_NAME })
   /** False when the background went away (extension reloaded): the Port then throws. */
   const post = (msg: PortReport): boolean => {
