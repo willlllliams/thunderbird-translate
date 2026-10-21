@@ -48,7 +48,7 @@ import { caiyunTranslateBatch } from "./translators/caiyun"
 import { deeplTranslateBatch, deeplUsage } from "./translators/deepl"
 import { deeplxTranslate } from "./translators/deeplx"
 import { googleTranslateBatch, googleTranslateSingle } from "./translators/google"
-import type { LlmCallOptions } from "./translators/llm"
+import type { ImageAnswer, ImageInput, LlmCallOptions } from "./translators/llm"
 import { BatchParseError, buildContextBlock, type MailAnalysis, MAX_PREFIX_TEXT_CHARS, parseAnalysis, type Segment } from "./translators/llm-prompt"
 import { AZURE_LIMITS, microsoftTranslateBatch } from "./translators/microsoft"
 import { youdaoTranslateBatch } from "./translators/youdao"
@@ -107,15 +107,17 @@ export interface LlmImpl {
   single: (segment: Segment, opts: LlmCallOptions) => Promise<string>
   analyze: (text: string, opts: LlmCallOptions) => Promise<MailAnalysis | null>
   summarize: (prompt: string, opts: LlmCallOptions) => Promise<string>
+  readImage: (image: ImageInput, text: string, opts: LlmCallOptions) => Promise<ImageAnswer>
 }
 
 /** The AI SDK, loaded with the first AI request: the background script starts without it (scripts/build.mjs makes it a chunk). */
 const loadLlm = () => import("./translators/llm")
-const LAZY_LLM: LlmImpl = {
+export const LAZY_LLM: LlmImpl = {
   batch: async (segments, opts) => (await loadLlm()).llmTranslateBatch(segments, opts),
   single: async (segment, opts) => (await loadLlm()).llmTranslateSingle(segment, opts),
   analyze: async (text, opts) => (await loadLlm()).llmAnalyzeMail(text, opts),
   summarize: async (prompt, opts) => (await loadLlm()).llmSummarize(prompt, opts),
+  readImage: async (image, text, opts) => (await loadLlm()).llmReadImage(image, text, opts),
 }
 
 export interface ServiceDeps {
@@ -410,6 +412,12 @@ export class TranslationService {
     } catch (error) {
       return { ok: false, service, error: this.errorMessage(error, provider) }
     }
+  }
+
+  /** The glossary of the analysis precise translation made of the registered message `contextId`, for its images; empty without one: no analysis is made for them. */
+  async glossaryOf(contextId: string): Promise<MailAnalysis["glossary"]> {
+    const context = this.contexts.get(contextId)
+    return (context && (await this.preciseAnalysis(context.text, this.deps.getSettings()))?.glossary) || []
   }
 
   /** The analysis that precise translation made of the message `text`: finished, running or cached; null without one. */

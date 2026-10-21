@@ -132,6 +132,14 @@ export class PersistentCache {
     this.scheduleSave()
   }
 
+  /** Forget one entry, e.g. the result of an image before it is read again. */
+  async delete(key: string): Promise<void> {
+    if (!this.enabled) return
+    await this.ensureLoaded()
+    this.lru.delete(key)
+    this.scheduleSave()
+  }
+
   async clear(): Promise<void> {
     // A load still running would bring the old entries back after clearing.
     await this.ensureLoaded()

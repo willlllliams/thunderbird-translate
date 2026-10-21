@@ -19,7 +19,9 @@ import { createLocaleTables } from "./locale-tables"
 import { createOfflineStatus } from "./offline-status"
 import { createDispatch, createHandlers } from "./router"
 import { createSettingsState } from "./settings-state"
-import { displayedHeader, displayedSubject } from "./subject"
+import { displayedHeader, displayedMessageId, displayedSubject, messagePart } from "./subject"
+import { ImageService } from "./images"
+import { updateSettings } from "../shared/settings-store"
 import { createTabRegistry } from "./tabs"
 import { getBergamot } from "../offline/bergamot"
 import { DictionaryManager } from "../offline/dictionary/manager"
@@ -79,6 +81,19 @@ const service = new TranslationService({
   hasOrigin: (origin) => ext.permissions.contains({ origins: [origin] }),
 })
 
+// Images go to their own queue per service; the AI SDK is loaded with the first of them, as with text.
+const images = new ImageService({
+  getSettings: () => settings.current(),
+  cache,
+  displayed: displayedMessageId,
+  part: messagePart,
+  // Written by the request: taken over at once, so the image that waits for it sees the consent.
+  recordConsent: async (ids) => settings.adopt(await updateSettings((s) => void (s.imageConsent = [...new Set([...s.imageConsent, ...ids])]))),
+  glossary: (contextId) => service.glossaryOf(contextId),
+  i18n: getI18n,
+  hasOrigin: (origin) => ext.permissions.contains({ origins: [origin] }),
+})
+
 const tabs = createTabRegistry({
   ready: settings.ready,
   publicSettings: () => toPublicSettings(settings.current()),
@@ -86,6 +101,9 @@ const tabs = createTabRegistry({
   translate: (request, onTier, options) => service.translateForPage(request, onTier, options),
   subject: displayedSubject,
   summarize: async (text, tabId, fresh) => service.summarize(text, await displayedHeader(tabId).catch(() => null), fresh),
+  image: (session, tabId, request) => images.request(session, tabId, request),
+  imageConsent: (session, ids, message) => images.grant(session, ids, message),
+  forgetSession: (session) => images.forget(session),
 })
 
 async function applyUiLanguage(uiLanguage: string): Promise<void> {
@@ -107,6 +125,7 @@ const commandRunner = createCommandRunner({ ready: settings.ready, postToTab: ta
 const handlers = createHandlers({
   tabs,
   service,
+  images,
   localeMessages: createLocaleTables(uiLang),
   offlineManager,
   offlineStatus: offline.status,

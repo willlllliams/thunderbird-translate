@@ -25,6 +25,8 @@ declare namespace browser.mailTabs {
 
 /** Needs the messagesRead permission. */
 declare namespace browser.messages {
+  /** A part of a message by its part name, e.g. "1.2"; Thunderbird 88 and later. */
+  function getAttachmentFile(messageId: number, partName: string): Promise<File>
   function continueList(messageListId: string): Promise<import("./ext").MessageList>
   function abortList(messageListId: string): Promise<void>
   const onNewMailReceived: WebExtEvent<(folder: unknown, messages: import("./ext").MessageList) => void>

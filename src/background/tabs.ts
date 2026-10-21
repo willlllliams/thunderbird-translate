@@ -2,7 +2,10 @@
  * The content scripts connected to the background script, by tab: their
  * Ports, the translation state each tab reports, the badge of the header
  * button that shows whether a tab is translated, and the messages to one
- * tab or to every content script. The page of translated subjects
+ * tab or to every content script. Each content script is a session of its
+ * own for the translation of images: its rounds, the limits of its message
+ * and the consent given for its message alone; an image request waits for a
+ * consent the same content script sent before it. The page of translated subjects
  * (subjects.html) connects the same way under its own Port name; it has no
  * tab state and no badge, and its subjects come from real messages, so the
  * consent rules apply to them.
@@ -11,7 +14,7 @@
 import { ext } from "../shared/ext"
 import { t } from "../shared/i18n"
 import type { MailContext } from "../shared/mail-context"
-import { CONTENT_PORT_NAME, IDLE_TAB_STATE, isPortReport, type PortPush, type PortReport, SUBJECTS_PORT_NAME, type TabState, type TranslateRequest, type TranslateResponse } from "../shared/messages"
+import { CONTENT_PORT_NAME, IDLE_TAB_STATE, type ImageRequest, type ImageResponse, isPortReport, type PortPush, type PortReport, SUBJECTS_PORT_NAME, type TabState, type TranslateRequest, type TranslateResponse } from "../shared/messages"
 import type { Tier } from "../shared/providers"
 import type { PublicSettings } from "../shared/settings"
 import type { SummaryResponse } from "../shared/summary"
@@ -29,6 +32,12 @@ export interface TabRegistryDeps {
   subject: (tabId: number) => Promise<string | null>
   /** The summary of the message displayed in a tab, of its text; `fresh`: past the cache. */
   summarize: (text: string, tabId: number, fresh: boolean) => Promise<SummaryResponse>
+  /** An image of the message displayed in a tab, for the content script `session`; without it every image request fails. */
+  image?: (session: string, tabId: number, request: ImageRequest) => Promise<ImageResponse>
+  /** The user allowed services to receive images in the panel of the content script `session`; `message`: for its message only. */
+  imageConsent?: (session: string, ids: string[], message: boolean) => Promise<void>
+  /** The content script `session` went away. */
+  forgetSession?: (session: string) => void
 }
 
 export interface TabRegistry {
@@ -52,8 +61,15 @@ function safePost(port: browser.runtime.Port, msg: PortPush): void {
   }
 }
 
-export function createTabRegistry({ ready, publicSettings, setContext, translate, subject, summarize }: TabRegistryDeps): TabRegistry {
+/** A content script as the translation of images knows it: its session, and the consent it sent last, which its image requests wait for. */
+interface ImageSession {
+  id: string
+  consent: Promise<void>
+}
+
+export function createTabRegistry({ ready, publicSettings, setContext, translate, subject, summarize, image, imageConsent, forgetSession }: TabRegistryDeps): TabRegistry {
   const ports = new Map<number, Set<browser.runtime.Port>>()
+  let sessions = 0
   const tabStates = new Map<number, TabState>()
   /** The Ports of the pages of translated subjects. */
   const subjectPages = new Set<browser.runtime.Port>()
@@ -68,8 +84,8 @@ export function createTabRegistry({ ready, publicSettings, setContext, translate
     }
   }
 
-  /** The requests every Port may send: translations, the message as context, the subject and the summary of its tab. */
-  function serve(port: browser.runtime.Port, msg: PortReport, sample: boolean, tabId: number | undefined): void {
+  /** The requests every Port may send: translations, the message as context, the subject, the summary and the images of its tab; images only with a session. */
+  function serve(port: browser.runtime.Port, msg: PortReport, sample: boolean, tabId: number | undefined, images?: ImageSession): void {
     switch (msg.type) {
       case "context":
         setContext(msg.context, msg.bypassCache === true)
@@ -91,6 +107,15 @@ export function createTabRegistry({ ready, publicSettings, setContext, translate
         void result.catch((): SummaryResponse => ({ ok: false, error: t("errUnknown") })).then((answer) => safePost(port, { type: "summary", id: msg.id, result: answer }))
         break
       }
+      case "image": {
+        // Only the message on screen has images; a consent sent before the request is recorded first.
+        const result = images && tabId !== undefined && image ? ready().then(() => images.consent).then(() => image(images.id, tabId, msg.image)) : Promise.reject(new Error("no message"))
+        void result.catch((): ImageResponse => ({ status: "error", error: t("errUnknown") })).then((answer) => safePost(port, { type: "imageResult", id: msg.id, result: answer }))
+        break
+      }
+      case "imageConsent":
+        if (images && imageConsent) images.consent = images.consent.then(() => imageConsent(images.id, msg.ids, msg.message === true)).catch(() => {})
+        break
     }
   }
 
@@ -118,6 +143,7 @@ export function createTabRegistry({ ready, publicSettings, setContext, translate
     if (tabId === undefined) return
     // A page of the extension translates its own sample message; a content script, the message on screen.
     const sample = fromPage
+    const images: ImageSession | undefined = sample ? undefined : { id: `${tabId}:${++sessions}`, consent: Promise.resolve() }
     if (!ports.has(tabId)) ports.set(tabId, new Set())
     ports.get(tabId)!.add(port)
     tabStates.set(tabId, { ...IDLE_TAB_STATE, connected: true })
@@ -125,13 +151,14 @@ export function createTabRegistry({ ready, publicSettings, setContext, translate
 
     port.onMessage.addListener((msg) => {
       if (!isPortReport(msg)) return
-      if (msg.type !== "state") return serve(port, msg, sample, tabId)
+      if (msg.type !== "state") return serve(port, msg, sample, tabId, images)
       const wasActive = tabStates.get(tabId)?.active
       tabStates.set(tabId, { connected: true, ...msg.state })
       // Progress reports come many times a second; the badge only shows whether the tab is translated.
       if (msg.state.active !== wasActive) void updateBadge(tabId)
     })
     port.onDisconnect.addListener(() => {
+      if (images) forgetSession?.(images.id)
       const set = ports.get(tabId)
       set?.delete(port)
       if (!set || set.size === 0) {

@@ -1,6 +1,6 @@
 // First: zod reads its configuration when the AI SDK below builds its first schema, and ES modules run in import order.
 import "./zod-config"
-import { generateText, type SystemModelMessage } from "ai"
+import { generateText, type ModelMessage, type SystemModelMessage } from "ai"
 import { LocalizedError, TimeoutError } from "../../shared/errors"
 import { timeoutSignal } from "../../shared/http"
 import { getPreset } from "../../shared/providers"
@@ -37,17 +37,20 @@ export interface LlmCallOptions {
   maxOutputTokens?: number
 }
 
-async function callModel(instructions: SystemModelMessage, prompt: string, opts: LlmCallOptions): Promise<string> {
+/** What one request asks: a prompt, or messages with the parts of an image. */
+type ModelInput = { prompt: string } | { messages: ModelMessage[] }
+
+async function generate(instructions: SystemModelMessage, input: ModelInput, opts: LlmCallOptions) {
   const { id, model, temperature, thinking } = opts.provider
   const reasoning = thinkingOptions(id, model, thinking)
   const sendTemperature = temperature !== null && !reasoning.dropTemperature && !modelRejectsTemperature(id, model)
   const timeout = opts.timeoutMs ? timeoutSignal(opts.timeoutMs) : undefined
   const abortSignal = timeout?.signal
   try {
-    const result = await generateText({
+    return await generateText({
       model: createLanguageModel(opts.provider, opts.fetchFn),
       instructions,
-      prompt,
+      ...input,
       ...(sendTemperature ? { temperature } : {}),
       ...(opts.maxOutputTokens ? { maxOutputTokens: opts.maxOutputTokens } : {}),
       ...(reasoning.providerOptions ? { providerOptions: reasoning.providerOptions } : {}),
@@ -55,13 +58,16 @@ async function callModel(instructions: SystemModelMessage, prompt: string, opts:
       // Retries are handled by our RequestQueue.
       maxRetries: 0,
     })
-    return result.text
   } catch (error) {
     if (abortSignal?.aborted) throw new TimeoutError(getPreset(id)?.name ?? id, opts.timeoutMs!)
     throw error
   } finally {
     timeout?.clear()
   }
+}
+
+async function callModel(instructions: SystemModelMessage, prompt: string, opts: LlmCallOptions): Promise<string> {
+  return (await generate(instructions, { prompt }, opts)).text
 }
 
 /** System message of a translation request: the system prompt, then the message context in precise mode. */
@@ -98,6 +104,32 @@ export async function llmSummarize(prompt: string, opts: LlmCallOptions): Promis
   const raw = await callModel({ role: "system", content: opts.systemPrompt }, prompt, opts)
   if (!raw.trim()) throw new LocalizedError("errEmptyAnswer")
   return raw
+}
+
+/** An image for the model: its bytes and media type, and the provider options of its part (the detail of OpenAI and DeepSeek). */
+export interface ImageInput {
+  bytes: Uint8Array
+  mediaType: string
+  providerOptions?: Record<string, Record<string, string>>
+}
+
+/** What the model wrote about an image, its tokens, and whether it stopped at the length limit. */
+export interface ImageAnswer {
+  text: string
+  usage?: { input: number; output: number }
+  truncated: boolean
+}
+
+/**
+ * The text of one image (background/images.ts): the image as a file part with its media type, the user text after it;
+ * `opts.systemPrompt` is the complete system prompt. ImagePart is deprecated in this version of the AI SDK.
+ */
+export async function llmReadImage(image: ImageInput, text: string, opts: LlmCallOptions): Promise<ImageAnswer> {
+  const file = { type: "file" as const, mediaType: image.mediaType, data: { type: "data" as const, data: image.bytes }, ...(image.providerOptions ? { providerOptions: image.providerOptions } : {}) }
+  const result = await generate({ role: "system", content: opts.systemPrompt }, { messages: [{ role: "user", content: [file, { type: "text", text }] }] }, opts)
+  if (!result.text.trim()) throw new LocalizedError("errEmptyAnswer")
+  const { inputTokens, outputTokens } = result.usage
+  return { text: result.text, truncated: result.finishReason === "length", ...(inputTokens !== undefined && outputTokens !== undefined ? { usage: { input: inputTokens, output: outputTokens } } : {}) }
 }
 
 /** Precise mode: summary, glossary and tone of the whole message; null when the answer is not usable. */

@@ -14,6 +14,7 @@ import { updateSettings } from "../shared/settings-store"
 import type { OfflineManager } from "../offline/manager"
 import type { OfflineService } from "../shared/offline-needs"
 import type { PersistentCache } from "./cache"
+import type { ImageService } from "./images"
 import { offlineHandlers } from "./offline-admin"
 import type { TranslationService } from "./service"
 import type { TabRegistry } from "./tabs"
@@ -21,6 +22,8 @@ import type { TabRegistry } from "./tabs"
 export interface RouterDeps {
   tabs: Pick<TabRegistry, "postToTab" | "stateOf" | "broadcast">
   service: Pick<TranslationService, "testProvider">
+  /** The test image of the settings page; without it the test fails. */
+  images?: Pick<ImageService, "test">
   /** The interface messages of a language for a content script. */
   localeMessages: (setting: unknown) => Promise<LocaleMessages>
   /** The manager of an offline service. */
@@ -32,7 +35,7 @@ export interface RouterDeps {
   adoptSettings?: (stored: unknown) => void
 }
 
-export function createHandlers({ tabs, service, localeMessages, offlineManager, offlineStatus, cache, adoptSettings }: RouterDeps): BackgroundHandlers {
+export function createHandlers({ tabs, service, images, localeMessages, offlineManager, offlineStatus, cache, adoptSettings }: RouterDeps): BackgroundHandlers {
   /** A notice to the extension pages; without an open page it goes nowhere. */
   const toPages = (notice: PageNotice) => void ext.runtime.sendMessage(notice).catch(() => {})
   return {
@@ -43,6 +46,14 @@ export function createHandlers({ tabs, service, localeMessages, offlineManager, 
     testProvider: async (req) => {
       try {
         return { ok: true, text: await service.testProvider(req.providerId, req.config, req.targetLang) }
+      } catch (error) {
+        return { ok: false, error: describeError(error, getI18n()) }
+      }
+    },
+    testVision: async (req) => {
+      if (!images) return { ok: false, error: getI18n().t("errUnknown") }
+      try {
+        return { ok: true, text: await images.test(req.providerId, req.config, req.model) }
       } catch (error) {
         return { ok: false, error: describeError(error, getI18n()) }
       }
