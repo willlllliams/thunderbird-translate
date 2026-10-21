@@ -24,7 +24,7 @@ Multi-Übersetzer für Thunderbird ist eine Erweiterung für Thunderbird, die de
 ## Funktionen
 
 - Übersetzt Absätze, Listeneinträge, Tabellenzellen, Überschriften und Zitate von HTML-Nachrichten sowie durch Leerzeilen getrennte Absätze von Nur-Text-Nachrichten. Code, Zahlen, nackte Links und Absätze, die bereits in der Zielsprache verfasst sind, werden übersprungen. Auch der Betreff wird übersetzt, in einer Zeile über dem Nachrichtentext („Auch den Betreff übersetzen“, standardmäßig an).
-- Zwei Anzeigemodi: zweisprachig (die Übersetzung unter jedem Originalabsatz) oder nur Übersetzung. Wird die Übersetzung ausgeschaltet, steht die Nachricht wieder exakt im Original da.
+- Zwei Anzeigemodi: zweisprachig (die Übersetzung unter jedem Originalabsatz) oder nur Übersetzung, beide mit Fettdruck, Listen und Links von KI-Übersetzungen formatiert. Wird die Übersetzung ausgeschaltet, steht die Nachricht wieder exakt im Original da.
 - Drei Übersetzungsstufen arbeiten gleichzeitig: ein Offline-Wörterbuch, ein maschineller Übersetzer und ein KI-Dienst. Das schnellste Ergebnis erscheint zuerst, das der höchsten Stufe ersetzt es.
 - Kostenlose Dienste ohne Konto: Google Translate (Standard) und Microsoft Translator.
 - Offline-Übersetzung mit Wörterbuchpaketen und den Bergamot-Modellen von Mozilla; kein Text verlässt den Computer.

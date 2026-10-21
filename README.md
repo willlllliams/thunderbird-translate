@@ -24,7 +24,7 @@ English | [简体中文](readmes/README.zh-CN.md) | [繁體中文](readmes/READM
 ## Features
 
 - Translates paragraphs, list items, table cells, headings and quotes of HTML mail, and blank-line separated paragraphs of plain-text mail. Code, numbers, bare links and paragraphs already in the target language are skipped. The subject is translated too, in a line above the body ("Translate the subject as well", on by default).
-- Two display modes: bilingual (the translation under each original paragraph) or translation only. Turning translation off restores the original message exactly.
+- Two display modes: bilingual (the translation under each original paragraph) or translation only, both showing the bold text, lists and links of AI translations formatted. Turning translation off restores the original message exactly.
 - Three translation tiers run at the same time: an offline dictionary, a machine translator and an AI service. The fastest result appears first, and the highest tier replaces it.
 - Free services without an account: Google Translate (the default) and Microsoft Translator.
 - Offline translation with dictionary packs and Mozilla's Bergamot models; no text leaves your computer.

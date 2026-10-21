@@ -24,6 +24,7 @@ Multi Translate for Thunderbird translates the body of the message you are readi
 What it does
 - Translates paragraphs, list items, table cells, headings and quotes of HTML mail, and the paragraphs of plain-text mail. Code, numbers, bare links and paragraphs already in your language are skipped.
 - Shows the translation under each paragraph (bilingual) or in place of it (translation only). Turning translation off restores the original message exactly.
+- Bold text, lists and links that an AI service writes in Markdown appear formatted. Only http, https and mailto addresses become links, and Thunderbird opens them as any link in a message.
 - Translates the subject too, in a line above the body.
 - The "Translated subjects" button in the main toolbar lists the messages of the current folder with their translated subjects; a click on a row shows the message.
 - Runs up to three tiers at the same time: an offline dictionary, a machine translator and an AI service. The fastest result appears first as a provisional translation, and the highest tier replaces it. A tier that fails can be retried with a click.

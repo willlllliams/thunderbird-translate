@@ -24,7 +24,7 @@ Dịch Đa Nguồn cho Thunderbird là một tiện ích của Thunderbird, dị
 ## Tính năng
 
 - Dịch đoạn văn, mục danh sách, ô bảng, tiêu đề và khối trích dẫn của thư HTML, cùng các đoạn cách nhau bằng dòng trống của thư văn bản thuần. Mã nguồn, con số, liên kết trơn và các đoạn đã ở ngôn ngữ đích được bỏ qua. Tiêu đề thư cũng được dịch, hiện trên một dòng phía trên nội dung thư ("Dịch cả tiêu đề thư", bật theo mặc định).
-- Hai chế độ hiển thị: song ngữ (bản dịch nằm dưới từng đoạn gốc) hoặc chỉ bản dịch. Khi tắt dịch, thư gốc được khôi phục nguyên vẹn.
+- Hai chế độ hiển thị: song ngữ (bản dịch nằm dưới từng đoạn gốc) hoặc chỉ bản dịch, cả hai đều hiển thị chữ đậm, danh sách và liên kết của bản dịch AI có định dạng. Khi tắt dịch, thư gốc được khôi phục nguyên vẹn.
 - Ba tầng dịch chạy cùng lúc: từ điển ngoại tuyến, dịch máy và dịch vụ AI. Kết quả nhanh nhất hiện trước, và kết quả của tầng cao nhất thay thế nó.
 - Dịch vụ miễn phí, không cần tài khoản: Google Translate (mặc định) và Microsoft Translator.
 - Dịch ngoại tuyến bằng gói từ điển và các mô hình Bergamot của Mozilla; không có văn bản nào rời khỏi máy của bạn.

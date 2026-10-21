@@ -24,7 +24,7 @@ Multitraductor para Thunderbird es una extensión de Thunderbird que traduce el 
 ## Funciones
 
 - Traduce los párrafos, elementos de lista, celdas de tabla, encabezados y citas del correo HTML, y los párrafos separados por líneas en blanco del correo de texto sin formato. Se omiten el código, los números, los enlaces sueltos y los párrafos que ya están en el idioma de destino. El asunto también se traduce, en una línea sobre el cuerpo del mensaje ("Traducir también el asunto", activado por defecto).
-- Dos modos de visualización: bilingüe (la traducción debajo de cada párrafo original) o solo traducción. Al desactivar la traducción, el mensaje original se restaura exactamente.
+- Dos modos de visualización: bilingüe (la traducción debajo de cada párrafo original) o solo traducción, y en ambos la negrita, las listas y los enlaces de las traducciones de IA aparecen con formato. Al desactivar la traducción, el mensaje original se restaura exactamente.
 - Tres niveles de traducción trabajan a la vez: un diccionario sin conexión, un traductor automático y un servicio de IA. El resultado más rápido aparece primero y el del nivel más alto lo sustituye.
 - Servicios gratuitos sin cuenta: Google Translate (el predeterminado) y Microsoft Translator.
 - Traducción sin conexión con paquetes de diccionario y los modelos Bergamot de Mozilla; ningún texto sale de su equipo.

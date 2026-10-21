@@ -24,7 +24,7 @@ Multi-traduction pour Thunderbird est une extension Thunderbird qui traduit le c
 ## Fonctionnalités
 
 - Traduction des paragraphes, éléments de liste, cellules de tableau, titres et citations des messages HTML, ainsi que des paragraphes séparés par une ligne vide dans les messages en texte brut. Le code, les nombres, les liens nus et les paragraphes déjà dans la langue cible sont ignorés. L’objet est traduit lui aussi, sur une ligne au-dessus du corps du message (« Traduire aussi l’objet », activé par défaut).
-- Deux modes d’affichage : bilingue (la traduction sous chaque paragraphe original) ou traduction seule. Désactiver la traduction restaure exactement le message original.
+- Deux modes d’affichage : bilingue (la traduction sous chaque paragraphe original) ou traduction seule, avec dans les deux le gras, les listes et les liens des traductions par l’IA mis en forme. Désactiver la traduction restaure exactement le message original.
 - Trois niveaux de traduction fonctionnent en même temps : un dictionnaire hors ligne, un traducteur automatique et un service d’IA. Le résultat le plus rapide s’affiche en premier, puis celui du niveau le plus élevé le remplace.
 - Services gratuits sans compte : Google Translate (par défaut) et Microsoft Translator.
 - Traduction hors ligne avec des paquets de dictionnaires et les modèles Bergamot de Mozilla ; aucun texte ne quitte votre ordinateur.

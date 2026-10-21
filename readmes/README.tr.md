@@ -24,7 +24,7 @@
 ## Özellikler
 
 - HTML iletilerdeki paragrafları, liste öğelerini, tablo hücrelerini, başlıkları ve alıntıları; düz metin iletilerde ise boş satırlarla ayrılmış paragrafları çevirir. Kod, sayılar, çıplak bağlantılar ve zaten hedef dilde olan paragraflar atlanır. Konu da çevrilir ve gövdenin üstündeki bir satırda gösterilir ("Konuyu da çevir", varsayılan olarak açık).
-- İki görünüm modu: iki dilli (çeviri her özgün paragrafın altında) veya yalnızca çeviri. Çeviri kapatıldığında özgün ileti olduğu gibi geri gelir.
+- İki görünüm modu: iki dilli (çeviri her özgün paragrafın altında) veya yalnızca çeviri; ikisinde de yapay zekâ çevirilerindeki kalın yazı, listeler ve bağlantılar biçimli görünür. Çeviri kapatıldığında özgün ileti olduğu gibi geri gelir.
 - Üç çeviri kademesi aynı anda çalışır: çevrimdışı sözlük, makine çevirisi ve yapay zekâ hizmeti. En hızlı sonuç önce görünür, en yüksek kademenin sonucu gelince onun yerini alır.
 - Hesap gerektirmeyen ücretsiz hizmetler: Google Translate (varsayılan) ve Microsoft Translator.
 - Sözlük paketleri ve Mozilla'nın Bergamot modelleriyle çevrimdışı çeviri; hiçbir metin bilgisayarınızdan çıkmaz.
