@@ -27,12 +27,15 @@ Vídeo de presentación: [YouTube](https://www.youtube.com/watch?v=OZmiMGeuhJ0) 
 
 - Traduce los párrafos, elementos de lista, celdas de tabla, encabezados y citas del correo HTML, y los párrafos separados por líneas en blanco del correo de texto sin formato. Se omiten el código, los números, los enlaces sueltos y los párrafos que ya están en el idioma de destino.
 - Dos modos de visualización: bilingüe (la traducción debajo de cada párrafo original) o solo traducción, y en ambos la negrita, las listas y los enlaces de las traducciones de IA aparecen con formato. Al desactivar la traducción, el mensaje original se restaura exactamente.
+  ![Cambio entre la vista bilingüe y solo traducción en la ventana emergente; al desactivar la traducción vuelve el original](../docs/media/modes-en.gif)
 - Tres niveles de traducción trabajan a la vez: un diccionario sin conexión, un traductor automático y un servicio de IA. El resultado más rápido aparece primero y el del nivel más alto lo sustituye.
 - Traducción automática sin cuenta (Google Translate, el predeterminado, y Microsoft Translator) o con una clave propia (DeepL, Baidu, Youdao, Caiyun).
 - Traducción sin conexión con paquetes de diccionario y los modelos Bergamot de Mozilla; ningún texto sale de su equipo.
 - 22 configuraciones predefinidas de proveedores de IA, entre ellas OpenAI, Claude, Gemini, DeepSeek, Qwen, Ollama y LM Studio en local, y cualquier servicio compatible con OpenAI.
 - Traducción precisa: el nivel de IA ve el mensaje completo, de modo que los nombres y los términos se mantienen coherentes. Con ella, un servicio de IA puede leer el texto de las imágenes de un mensaje y mostrar el original y su traducción bajo cada imagen.
+  ![El botón bajo la imagen de un gráfico, el consentimiento único y la tabla de sus etiquetas con su traducción](../docs/media/images-en.gif)
 - Resumen y tareas: un servicio de IA enumera, encima del mensaje, el resumen, las tareas, las preguntas por responder y las fechas. El ajuste "Resumen automático" lo abre sin un clic, cuando se traduce el mensaje o para cada mensaje abierto. Con la traducción precisa, un mensaje demasiado largo para una sola solicitud necesita un análisis antes de traducirse; cuando el resumen usa el mismo servicio de IA y el mismo modelo que el nivel de IA, una sola solicitud escribe el análisis y el resumen.
+  !["Resumen" encima de un mensaje traducido abre el panel con el resumen, las tareas, las preguntas y las fechas; "Copiar como Markdown" lo copia](../docs/media/summary-en.gif)
 - Tres prompts editables con preajustes para variedades regionales, estilos de redacción y palabras difíciles.
 - Traducción automática opcional de todo mensaje que no esté en el idioma de destino.
 - Interfaz en 12 idiomas y una guía de configuración que se abre después de la instalación.

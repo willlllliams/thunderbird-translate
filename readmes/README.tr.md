@@ -27,12 +27,15 @@ Tanıtım videosu: [YouTube](https://www.youtube.com/watch?v=OZmiMGeuhJ0) (1 dk)
 
 - HTML iletilerdeki paragrafları, liste öğelerini, tablo hücrelerini, başlıkları ve alıntıları; düz metin iletilerde ise boş satırlarla ayrılmış paragrafları çevirir. Kod, sayılar, çıplak bağlantılar ve zaten hedef dilde olan paragraflar atlanır.
 - İki görünüm modu: iki dilli (çeviri her özgün paragrafın altında) veya yalnızca çeviri; ikisinde de yapay zekâ çevirilerindeki kalın yazı, listeler ve bağlantılar biçimli görünür. Çeviri kapatıldığında özgün ileti olduğu gibi geri gelir.
+  ![Açılır pencerede iki dilli görünüm ile yalnızca çeviri arasında geçiş; çeviri kapatılınca özgün ileti geri gelir](../docs/media/modes-en.gif)
 - Üç çeviri kademesi aynı anda çalışır: çevrimdışı sözlük, makine çevirisi ve yapay zekâ hizmeti. En hızlı sonuç önce görünür, en yüksek kademenin sonucu gelince onun yerini alır.
 - Hesap gerektirmeyen makine çevirisi (varsayılan Google Translate ve Microsoft Translator) veya kendi anahtarınızla DeepL, Baidu, Youdao ve Caiyun.
 - Sözlük paketleri ve Mozilla'nın Bergamot modelleriyle çevrimdışı çeviri; hiçbir metin bilgisayarınızdan çıkmaz.
 - OpenAI, Claude, Gemini, DeepSeek, Qwen, yerel Ollama ve LM Studio ile OpenAI uyumlu her hizmeti içeren 22 yapay zekâ sağlayıcısı ön ayarı.
 - Hassas çeviri: yapay zekâ kademesi iletinin tamamını görür, bu yüzden adlar ve terimler tutarlı kalır. Bununla bir yapay zekâ hizmeti iletinin görsellerindeki metni de okuyup her görselin altında özgün metni ve çevirisini gösterebilir.
+  ![Bir grafik görselinin altındaki düğme, bir kez istenen onay ve etiketlerin çevirileriyle tablosu](../docs/media/images-en.gif)
 - Özet ve yapılacaklar: bir yapay zekâ hizmeti iletinin üstünde özeti, yapılacakları, yanıtlanacak soruları ve tarihleri listeler. "Otomatik özet" ayarı özeti tıklamadan açar: ileti çevrildiğinde ya da açılan her ileti için. Hassas çeviride tek isteğe sığmayan uzun bir ileti, çeviriden önce bir analiz gerektirir; özet, yapay zekâ kademesiyle aynı yapay zekâ hizmetini ve modeli kullanıyorsa analizi ve özeti tek bir istek yazar.
+  ![Çevrilmiş iletinin üstündeki "Özet" özeti, yapılacakları, soruları ve tarihleri içeren paneli açar; "Markdown olarak kopyala" onu kopyalar](../docs/media/summary-en.gif)
 - Bölgesel çeşitler, yazım üslupları ve zor sözcükler için hazır ayarları olan, düzenlenebilir üç istem.
 - Hedef dilde olmayan her iletinin isteğe bağlı otomatik çevirisi.
 - 12 dilde arayüz ve kurulumdan sonra açılan bir kurulum rehberi.

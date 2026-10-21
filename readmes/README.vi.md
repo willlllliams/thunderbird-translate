@@ -27,12 +27,15 @@ Video giới thiệu: [YouTube](https://www.youtube.com/watch?v=OZmiMGeuhJ0) (1 
 
 - Dịch đoạn văn, mục danh sách, ô bảng, tiêu đề và khối trích dẫn của thư HTML, cùng các đoạn cách nhau bằng dòng trống của thư văn bản thuần. Mã nguồn, con số, liên kết trơn và các đoạn đã ở ngôn ngữ đích được bỏ qua.
 - Hai chế độ hiển thị: song ngữ (bản dịch nằm dưới từng đoạn gốc) hoặc chỉ bản dịch, cả hai đều hiển thị chữ đậm, danh sách và liên kết của bản dịch AI có định dạng. Khi tắt dịch, thư gốc được khôi phục nguyên vẹn.
+  ![Chuyển giữa hiển thị song ngữ và chỉ bản dịch trong cửa sổ bật lên; tắt dịch thì bản gốc trở lại](../docs/media/modes-en.gif)
 - Ba tầng dịch chạy cùng lúc: từ điển ngoại tuyến, dịch máy và dịch vụ AI. Kết quả nhanh nhất hiện trước, và kết quả của tầng cao nhất thay thế nó.
 - Dịch máy không cần tài khoản (Google Translate, mặc định, và Microsoft Translator) hoặc bằng khóa của riêng bạn (DeepL, Baidu, Youdao, Caiyun).
 - Dịch ngoại tuyến bằng gói từ điển và các mô hình Bergamot của Mozilla; không có văn bản nào rời khỏi máy của bạn.
 - 22 cấu hình sẵn cho nhà cung cấp AI, trong đó có OpenAI, Claude, Gemini, DeepSeek, Qwen, Ollama và LM Studio chạy cục bộ, cùng mọi dịch vụ tương thích OpenAI.
 - Dịch chính xác: tầng AI nhận toàn bộ thư làm ngữ cảnh, nên tên riêng và thuật ngữ nhất quán. Khi bật, dịch vụ AI còn đọc được chữ trong ảnh của thư và hiện bản gốc cùng bản dịch dưới mỗi ảnh.
+  ![Nút dưới ảnh biểu đồ, lần xác nhận duy nhất và bảng các nhãn kèm bản dịch](../docs/media/images-en.gif)
 - Tóm tắt và việc cần làm: một dịch vụ AI liệt kê phía trên thư bản tóm tắt, các việc cần làm, các câu hỏi cần trả lời và các ngày. Thiết lập "Tự động tóm tắt" mở bản tóm tắt mà không cần bấm, khi dịch thư hoặc cho mọi thư được mở. Với dịch chính xác, thư quá dài cho một yêu cầu cần được phân tích trước khi dịch; khi bản tóm tắt dùng cùng dịch vụ AI và mô hình với tầng AI, một yêu cầu duy nhất viết cả phần phân tích và bản tóm tắt.
+  ![Nút "Tóm tắt" phía trên thư đã dịch mở bảng gồm tóm tắt, việc cần làm, câu hỏi và ngày; "Sao chép dạng Markdown" sao chép bảng đó](../docs/media/summary-en.gif)
 - Ba lời nhắc có thể chỉnh sửa, kèm mẫu có sẵn cho biến thể vùng miền, văn phong và từ khó.
 - Tùy chọn tự động dịch mọi thư không ở ngôn ngữ đích.
 - Giao diện có 12 ngôn ngữ và hướng dẫn thiết lập tự mở sau khi cài đặt.

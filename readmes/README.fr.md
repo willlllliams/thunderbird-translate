@@ -27,12 +27,15 @@ Vidéo de présentation : [YouTube](https://www.youtube.com/watch?v=OZmiMGeuhJ0)
 
 - Traduction des paragraphes, éléments de liste, cellules de tableau, titres et citations des messages HTML, ainsi que des paragraphes séparés par une ligne vide dans les messages en texte brut. Le code, les nombres, les liens nus et les paragraphes déjà dans la langue cible sont ignorés.
 - Deux modes d’affichage : bilingue (la traduction sous chaque paragraphe original) ou traduction seule, avec dans les deux le gras, les listes et les liens des traductions par l’IA mis en forme. Désactiver la traduction restaure exactement le message original.
+  ![Passage de l’affichage bilingue à la traduction seule dans la fenêtre contextuelle ; la désactivation de la traduction rétablit l’original](../docs/media/modes-en.gif)
 - Trois niveaux de traduction fonctionnent en même temps : un dictionnaire hors ligne, un traducteur automatique et un service d’IA. Le résultat le plus rapide s’affiche en premier, puis celui du niveau le plus élevé le remplace.
 - Traduction automatique sans compte (Google Translate, par défaut, et Microsoft Translator) ou avec votre propre clé (DeepL, Baidu, Youdao, Caiyun).
 - Traduction hors ligne avec des paquets de dictionnaires et les modèles Bergamot de Mozilla ; aucun texte ne quitte votre ordinateur.
 - 22 préréglages de fournisseurs d’IA, dont OpenAI, Claude, Gemini, DeepSeek, Qwen, Ollama et LM Studio en local, ainsi que tout service compatible OpenAI.
 - Traduction précise : le niveau IA voit le message entier, si bien que les noms et les termes restent cohérents. Avec elle, un service d’IA peut aussi lire le texte des images d’un message et afficher l’original et sa traduction sous chaque image.
+  ![Le bouton sous l’image d’un graphique, l’autorisation unique et le tableau de ses libellés avec leur traduction](../docs/media/images-en.gif)
 - Résumé et tâches : un service d’IA liste au-dessus du message le résumé, les tâches, les questions auxquelles répondre et les dates. Le réglage « Résumé automatique » l’ouvre sans clic, quand le message est traduit ou pour chaque message ouvert. Avec la traduction précise, un message trop long pour une seule requête demande une analyse avant la traduction ; quand le résumé utilise le même service d’IA et le même modèle que le niveau IA, une seule requête rédige l’analyse et le résumé.
+  ![« Résumé » au-dessus d’un message traduit ouvre le panneau avec le résumé, les tâches, les questions et les dates ; « Copier en Markdown » le copie](../docs/media/summary-en.gif)
 - Trois invites modifiables, avec des préréglages pour les variantes régionales, les styles d’écriture et les mots difficiles.
 - Traduction automatique facultative de chaque message qui n’est pas dans la langue cible.
 - Interface en 12 langues et guide de configuration qui s’ouvre après l’installation.

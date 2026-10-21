@@ -27,12 +27,15 @@ Video: [YouTube](https://www.youtube.com/watch?v=OZmiMGeuhJ0) (1 min) · [Bilibi
 
 - Translates paragraphs, list items, table cells, headings and quotes of HTML mail, and blank-line separated paragraphs of plain-text mail. Code, numbers, bare links and paragraphs already in the target language are skipped.
 - Two display modes: bilingual (the translation under each original paragraph) or translation only, both showing the bold text, lists and links of AI translations formatted. Turning translation off restores the original message exactly.
+  ![Switching between bilingual and translation-only display in the popup; turning translation off restores the original](docs/media/modes-en.gif)
 - Three translation tiers run at the same time: an offline dictionary, a machine translator and an AI service. The fastest result appears first, and the highest tier replaces it.
 - Machine translation without an account (Google Translate, the default, and Microsoft Translator), or with a key of your own (DeepL, Baidu, Youdao, Caiyun).
 - Offline translation with dictionary packs and Mozilla's Bergamot models; no text leaves your computer.
 - 22 AI provider presets, including OpenAI, Claude, Gemini, DeepSeek, Qwen, local Ollama and LM Studio, and any OpenAI-compatible service.
 - Precise translation: the AI tier sees the whole message, so names and terms stay consistent. With it, an AI service can read the text in the images of a message and show the original and its translation under each image.
+  ![The button under a chart image, the one-time consent and the table of its labels with their translations](docs/media/images-en.gif)
 - Summary and to-dos: an AI service lists the summary, the to-dos, the questions to answer and the dates of a message in a panel above it. The "Automatic summary" setting opens it without a click, when the message is translated or for every opened message. With precise translation, a message too long for one request needs an analysis before translation; when the summary uses the same AI service and model as the AI tier, one request writes the analysis and the summary.
+  ![The “Summary” button above a translated message opens the panel with the summary, the to-dos, the questions and the dates; “Copy as Markdown” copies it](docs/media/summary-en.gif)
 - Three editable prompts with presets for regional varieties, writing styles and difficult words.
 - Optional automatic translation of every message not in the target language.
 - Interface in 12 languages and a setup guide that opens after installation.

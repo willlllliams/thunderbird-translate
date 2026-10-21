@@ -27,12 +27,15 @@ Vorstellungsvideo: [YouTube](https://www.youtube.com/watch?v=OZmiMGeuhJ0) (1 Min
 
 - Übersetzt Absätze, Listeneinträge, Tabellenzellen, Überschriften und Zitate von HTML-Nachrichten sowie durch Leerzeilen getrennte Absätze von Nur-Text-Nachrichten. Code, Zahlen, nackte Links und Absätze, die bereits in der Zielsprache verfasst sind, werden übersprungen.
 - Zwei Anzeigemodi: zweisprachig (die Übersetzung unter jedem Originalabsatz) oder nur Übersetzung, beide mit Fettdruck, Listen und Links von KI-Übersetzungen formatiert. Wird die Übersetzung ausgeschaltet, steht die Nachricht wieder exakt im Original da.
+  ![Wechsel zwischen zweisprachiger Anzeige und nur Übersetzung im Pop-up; nach dem Ausschalten der Übersetzung erscheint das Original](../docs/media/modes-en.gif)
 - Drei Übersetzungsstufen arbeiten gleichzeitig: ein Offline-Wörterbuch, ein maschineller Übersetzer und ein KI-Dienst. Das schnellste Ergebnis erscheint zuerst, das der höchsten Stufe ersetzt es.
 - Maschinelle Übersetzung ohne Konto (Google Translate als Standard und Microsoft Translator) oder mit eigenem Schlüssel (DeepL, Baidu, Youdao, Caiyun).
 - Offline-Übersetzung mit Wörterbuchpaketen und den Bergamot-Modellen von Mozilla; kein Text verlässt den Computer.
 - 22 Voreinstellungen für KI-Anbieter, darunter OpenAI, Claude, Gemini, DeepSeek, Qwen, lokale Instanzen von Ollama und LM Studio sowie jeder OpenAI-kompatible Dienst.
 - Präzise Übersetzung: Die KI-Stufe sieht die gesamte Nachricht, sodass Namen und Fachbegriffe einheitlich bleiben. Damit kann ein KI-Dienst auch den Text in den Bildern einer Nachricht lesen und unter jedem Bild Original und Übersetzung zeigen.
+  ![Die Schaltfläche unter einem Diagramm, die einmalige Zustimmung und die Tabelle seiner Beschriftungen mit ihren Übersetzungen](../docs/media/images-en.gif)
 - Zusammenfassung und Aufgaben: Ein KI-Dienst listet über der Nachricht die Zusammenfassung, die Aufgaben, die zu beantwortenden Fragen und die Termine auf. Die Einstellung „Automatische Zusammenfassung“ öffnet sie ohne Klick, wenn die Nachricht übersetzt wird oder für jede geöffnete Nachricht. Ist eine Nachricht bei präziser Übersetzung zu lang für eine Anfrage, braucht sie vor der Übersetzung eine Analyse; verwendet die Zusammenfassung denselben KI-Dienst und dasselbe Modell wie die KI-Stufe, schreibt eine einzige Anfrage Analyse und Zusammenfassung.
+  ![„Zusammenfassung“ über einer übersetzten Nachricht öffnet das Feld mit Zusammenfassung, Aufgaben, Fragen und Terminen; „Als Markdown kopieren“ kopiert es](../docs/media/summary-en.gif)
 - Drei bearbeitbare Prompts mit Vorlagen für regionale Varianten, Schreibstile und schwierige Wörter.
 - Optional: automatische Übersetzung jeder Nachricht, die nicht in der Zielsprache verfasst ist.
 - Benutzeroberfläche in 12 Sprachen und ein Einrichtungsassistent, der sich nach der Installation öffnet.
