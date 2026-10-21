@@ -429,14 +429,6 @@ describe("experiment API translatedColumn (parent implementation)", () => {
     expect(await x.api.show()).toBe(0)
   })
 
-  it("takes the module of Thunderbird 115 when the newer one is missing, and says which modules it tried", async () => {
-    const old = experiment({ modules: ["chrome://messenger/content/thread-pane-columns.mjs"] })
-    await old.api.add("Translated subject")
-    expect(old.custom.size).toBe(1)
-    const none = experiment({ modules: [] })
-    await expect(none.api.add("Translated subject")).rejects.toThrow(/ThreadPaneColumns not found .*ThreadPaneColumns\.mjs.*thread-pane-columns\.mjs/)
-  })
-
   it("removes the column when the extension shuts down, but not when Thunderbird closes", async () => {
     const x = experiment()
     await x.api.add("Translated subject")

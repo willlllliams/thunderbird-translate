@@ -4,14 +4,14 @@
  *
  * It adds the column "Translated subject" to the message list (thread pane)
  * with Thunderbird's internal module ThreadPaneColumns, which Thunderbird
- * 128 to 160 load from chrome://messenger/content/ThreadPaneColumns.mjs
- * (115 from thread-pane-columns.mjs). Thunderbird asks the column for the
- * text of a row synchronously, through textCallback, so the translations
- * live here: the background script of the extension pushes them with set(),
- * keyed by the subject as the message database holds it
- * (nsIMsgDBHdr.mime2DecodedSubject, the same text as MessageHeader.subject of
- * the WebExtension API), and refreshCustomColumn() makes every message list
- * fill its rows again. A message without a translation shows an empty cell.
+ * 128 to 160 load from chrome://messenger/content/ThreadPaneColumns.mjs.
+ * Thunderbird asks the column for the text of a row synchronously, through
+ * textCallback, so the translations live here: the background script of the
+ * extension pushes them with set(), keyed by the subject as the message
+ * database holds it (nsIMsgDBHdr.mime2DecodedSubject, the same text as
+ * MessageHeader.subject of the WebExtension API), and refreshCustomColumn()
+ * makes every message list fill its rows again. A message without a
+ * translation shows an empty cell.
  *
  * The column is removed when the extension is disabled, removed or updated
  * (onShutdown), and before it is added again, so that a reload of the
@@ -28,24 +28,11 @@ var { ExtensionError } = ExtensionUtils
 /** The id of the column; Thunderbird also uses it, in lower case, as the class of its cells. */
 const COLUMN_ID = "multiTranslateSubjectCol"
 
-/** The module URLs of ThreadPaneColumns, newest first. */
-const MODULE_URLS = ["chrome://messenger/content/ThreadPaneColumns.mjs", "chrome://messenger/content/thread-pane-columns.mjs"]
-
 /** Translations by subject; read by the column for every row it draws. */
 const translations = new Map()
 
 /** ThreadPaneColumns of this Thunderbird. */
-function threadPaneColumns() {
-  const errors = []
-  for (const url of MODULE_URLS) {
-    try {
-      return ChromeUtils.importESModule(url).ThreadPaneColumns
-    } catch (error) {
-      errors.push(`${url}: ${error}`)
-    }
-  }
-  throw new Error(`ThreadPaneColumns not found (${errors.join("; ")})`)
-}
+const threadPaneColumns = () => ChromeUtils.importESModule("chrome://messenger/content/ThreadPaneColumns.mjs").ThreadPaneColumns
 
 /** Whether the column is registered. */
 function registered(columns) {
