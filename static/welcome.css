@@ -244,3 +244,19 @@ textarea:focus-visible {
     font-size: 12px;
   }
 }
+
+/* The mode of image translation under precise translation on the AI step, greyed out while precise translation is off. */
+.image-mode {
+  margin: 0.6em 0;
+  padding: 0;
+  border: 0;
+}
+
+.image-mode legend {
+  margin-bottom: 0.3em;
+  font-weight: 600;
+}
+
+.image-mode:disabled {
+  opacity: 0.55;
+}

@@ -66,11 +66,106 @@
           <span data-i18n="labelPrecise"></span>
         </label>
         <p class="hint" data-i18n="hintPrecise"></p>
+        <fieldset id="imageGroup" class="subgroup">
+          <div class="grid">
+            <label data-i18n-title="tipImageMode">
+              <span data-i18n="labelImageMode"></span>
+              <select id="imageMode">
+                <option value="off" data-i18n="imageModeOff"></option>
+                <option value="ask" data-i18n="imageModeAsk"></option>
+                <option value="auto" data-i18n="imageModeAuto"></option>
+              </select>
+            </label>
+            <label data-i18n-title="tipImageProvider"><span data-i18n="labelImageProvider"></span><select id="imageProvider"></select></label>
+            <label data-i18n-title="tipImageModel"><span data-i18n="labelModel"></span><input type="text" id="imageModel" list="imageModels" spellcheck="false" /><datalist id="imageModels"></datalist></label>
+          </div>
+          <p id="imagePreciseOff" class="field-warning" data-i18n="hintImageNeedsPrecise" hidden></p>
+          <p class="hint" data-i18n="hintImage"></p>
+          <p id="imageSupport" class="field-warning" hidden></p>
+          <p class="hint"><span id="imageCost"></span> <a id="imagePrices" target="_blank" rel="noopener" data-i18n="linkPrices" data-i18n-title="tipPrices" hidden></a></p>
+          <div class="row"><button type="button" id="imageTest" data-i18n="buttonTestImage" data-i18n-title="tipTestImage"></button></div>
+          <div id="imageTestResult" class="test-result" aria-live="polite"></div>
+          <details id="imageAdvanced">
+            <summary data-i18n="imageAdvanced" data-i18n-title="tipImageAdvanced"></summary>
+          <label class="check" data-i18n-title="tipImageInline"><input type="checkbox" id="imageInline" /><span data-i18n="labelImageInline"></span></label>
+          <label class="check" data-i18n-title="tipImageAttachments"><input type="checkbox" id="imageAttachments" /><span data-i18n="labelImageAttachments"></span></label>
+          <p class="hint" data-i18n="hintImageRemote"></p>
+          <div class="grid">
+            <label data-i18n-title="tipImageMax"><span data-i18n="labelImageMax"></span><input type="number" id="imageMax" min="1" max="20" /></label>
+            <label data-i18n-title="tipImageMinSide"><span data-i18n="labelImageMinSide"></span><input type="number" id="imageMinSide" min="16" max="1000" /></label>
+            <label data-i18n-title="tipImageMinArea"><span data-i18n="labelImageMinArea"></span><input type="number" id="imageMinArea" min="0" max="4000000" step="1000" /></label>
+            <label data-i18n-title="tipImageMaxAspect"><span data-i18n="labelImageMaxAspect"></span><input type="number" id="imageMaxAspect" min="2" max="30" step="0.5" /></label>
+            <label data-i18n-title="tipImageMinKB"><span data-i18n="labelImageMinKB"></span><input type="number" id="imageMinKB" min="0" max="200" /></label>
+            <label data-i18n-title="tipImageAnimated">
+              <span data-i18n="labelImageAnimated"></span>
+              <select id="imageAnimated">
+                <option value="skip" data-i18n="imageAnimatedSkip"></option>
+                <option value="firstFrame" data-i18n="imageAnimatedFirst"></option>
+              </select>
+            </label>
+            <label data-i18n-title="tipImageLongEdge"><span data-i18n="labelImageLongEdge"></span><input type="number" id="imageLongEdge" min="512" max="2576" step="8" /></label>
+            <label data-i18n-title="tipImageFormat">
+              <span data-i18n="labelImageFormat"></span>
+              <select id="imageFormat"></select>
+            </label>
+            <label data-i18n-title="tipImageQuality"><span data-i18n="labelImageQuality"></span><input type="number" id="imageQuality" min="0.5" max="0.95" step="0.05" /></label>
+            <label data-i18n-title="tipImageMaxKB"><span data-i18n="labelImageMaxKB"></span><input type="number" id="imageMaxKB" min="200" max="8000" step="100" /></label>
+            <label data-i18n-title="tipImageMaxMB"><span data-i18n="labelImageMaxMB"></span><input type="number" id="imageMaxMB" min="1" max="30" step="0.5" /></label>
+            <label data-i18n-title="tipImageDetail">
+              <span data-i18n="labelImageDetail"></span>
+              <select id="imageDetail">
+                <option value="auto" data-i18n="imageDetailAuto"></option>
+                <option value="low" data-i18n="imageDetailLow"></option>
+                <option value="high" data-i18n="imageDetailHigh"></option>
+              </select>
+            </label>
+            <label data-i18n-title="tipImageOutput">
+              <span data-i18n="labelImageOutput"></span>
+              <select id="imageOutput">
+                <option value="table" data-i18n="imageOutputTable"></option>
+                <option value="summary" data-i18n="imageOutputSummary"></option>
+                <option value="both" data-i18n="imageOutputBoth"></option>
+              </select>
+            </label>
+            <label data-i18n-title="tipImageNoText">
+              <span data-i18n="labelImageNoText"></span>
+              <select id="imageNoText">
+                <option value="skip" data-i18n="imageNoTextSkip"></option>
+                <option value="describe" data-i18n="imageNoTextDescribe"></option>
+              </select>
+            </label>
+            <label data-i18n-title="tipImageMaxTokens"><span data-i18n="labelSummaryMaxTokens"></span><input type="number" id="imageMaxTokens" min="128" max="4096" step="64" /></label>
+            <label data-i18n-title="tipImageTimeout"><span data-i18n="labelTimeout"></span><input type="number" id="imageTimeout" min="10" max="600" step="5" /></label>
+            <label data-i18n-title="tipImageConcurrency"><span data-i18n="labelConcurrency"></span><input type="number" id="imageConcurrency" min="1" max="6" /></label>
+            <label data-i18n-title="tipImageDisplay">
+              <span data-i18n="labelImageDisplay"></span>
+              <select id="imageDisplay">
+                <option value="expanded" data-i18n="summaryExpanded"></option>
+                <option value="collapsed" data-i18n="summaryCollapsed"></option>
+              </select>
+            </label>
+          </div>
+          <label class="check" data-i18n-title="tipImageSignature"><input type="checkbox" id="imageSignature" /><span data-i18n="labelImageSignature"></span></label>
+          <label class="check" data-i18n-title="tipImageShowSource"><input type="checkbox" id="imageShowSource" /><span data-i18n="labelImageShowSource"></span></label>
+          <label class="check" data-i18n-title="tipImageContext"><input type="checkbox" id="imageContext" /><span data-i18n="labelImageContext"></span></label>
+          <label class="check" data-i18n-title="tipImageUsage"><input type="checkbox" id="imageUsage" /><span data-i18n="labelImageUsage"></span></label>
+          <label class="check" data-i18n-title="tipImageConfirm"><input type="checkbox" id="imageConfirm" /><span data-i18n="labelImageConfirm"></span></label>
+          </details>
+        </fieldset>
         <h3 data-i18n="mutedPairsTitle"></h3>
         <p class="row"><span id="mutedPairs" class="hint"></span> <button type="button" id="clearMuted" data-i18n="buttonClearMuted" data-i18n-title="tipClearMuted"></button></p>
         <h3 data-i18n="consentListTitle"></h3>
         <p class="hint" data-i18n="consentListHint"></p>
-        <ul id="consentList" class="consent-list"></ul>
+        <div class="consent-columns">
+          <div>
+            <h4 data-i18n="consentListText"></h4>
+            <ul id="consentList" class="consent-list"></ul>
+          </div>
+          <div>
+            <h4 data-i18n="consentListImages"></h4>
+            <ul id="imageConsentList" class="consent-list"></ul>
+          </div>
+        </div>
       </section>
 
       <section id="providers">

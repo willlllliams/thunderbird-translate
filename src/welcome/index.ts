@@ -18,7 +18,7 @@ import { normalizeUiLanguageSetting } from "../shared/locales"
 import { $, fillSelect, fillTierSelects, languageOptions, onTierChange, showSaved, showSaveError, sourceLanguageOptions, tierOptions, uiLanguageOptions } from "../shared/page"
 import { PROMPT_KINDS } from "../shared/prompts"
 import { getPreset, type Tier } from "../shared/providers"
-import { addProvidersInUse, type DisplayMode, type Settings } from "../shared/settings"
+import { addProvidersInUse, type DisplayMode, type ImageMode, type Settings } from "../shared/settings"
 import { BergamotSection } from "../options/bergamot"
 import { DictionarySection } from "../options/dictionaries"
 import { h } from "../shared/dom"
@@ -116,6 +116,7 @@ function enterStep(): void {
       return renderServicePanel($("machinePanel"), settings.tiers.machine)
     case "ai":
       fillAiServices()
+      showImageMode()
       return renderServicePanel($("aiPanel"), settings.tiers.ai)
     case "prompts":
       return prompts.refresh()
@@ -251,6 +252,12 @@ function renderServicePanel(box: HTMLElement, id: string | null): void {
 /** Every AI service; the AI tier uses the chosen one. */
 function fillAiServices(): void {
   fillSelect($<HTMLSelectElement>("aiService"), tierOptions(settings, "ai", getI18n(), true).slice(1), settings.tiers.ai ?? "")
+}
+
+/** The mode of image translation under precise translation, greyed out while precise translation is off. */
+function showImageMode(): void {
+  $<HTMLFieldSetElement>("imageModeGroup").disabled = !settings.precise.enabled
+  for (const radio of Array.from(document.querySelectorAll<HTMLInputElement>('input[name="imageMode"]'))) radio.checked = radio.value === settings.image.mode
 }
 
 /* ---------- step 8: trial ---------- */
@@ -394,7 +401,18 @@ async function main(): Promise<void> {
     setTier("ai", aiService.value)
     renderServicePanel($("aiPanel"), settings.tiers.ai)
   })
-  session.bindCheck("preciseEnabled", () => settings.precise.enabled, (v) => (settings.precise.enabled = v))
+  session.bindCheck("preciseEnabled", () => settings.precise.enabled, (v) => {
+    settings.precise.enabled = v
+    showImageMode()
+  })
+  session.track($("imageModeGroup"), showImageMode)
+  for (const radio of Array.from(document.querySelectorAll<HTMLInputElement>('input[name="imageMode"]'))) {
+    radio.addEventListener("change", () => {
+      if (!radio.checked) return
+      settings.image.mode = radio.value as ImageMode
+      session.save()
+    })
+  }
 
   // Step 8
   session.bindCheck("autoTranslate", () => settings.autoTranslate, (v) => (settings.autoTranslate = v))

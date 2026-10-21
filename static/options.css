@@ -494,3 +494,35 @@ details summary {
   cursor: pointer;
   margin: 8px 0;
 }
+
+/* The image settings under the switch of precise translation (image-settings.ts): indented, greyed out while precise translation is off. */
+.subgroup {
+  margin: 0.4em 0 1em 1.6em;
+  padding: 0.6em 0.9em;
+  border: 1px solid color-mix(in srgb, currentColor 18%, transparent);
+  border-radius: 6px;
+}
+
+.subgroup:disabled {
+  opacity: 0.55;
+}
+
+.subgroup details {
+  margin-top: 0.6em;
+}
+
+.subgroup summary {
+  cursor: pointer;
+  font-weight: 600;
+}
+
+/* The services allowed to receive text and those allowed to receive images, side by side. */
+.consent-columns {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 0 2em;
+}
+
+.consent-columns h4 {
+  margin: 0.4em 0 0.2em;
+}

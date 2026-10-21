@@ -12,6 +12,7 @@ import { BergamotSection } from "./bergamot"
 import { DictionarySection } from "./dictionaries"
 import { button, h } from "../shared/dom"
 import { loadSystemLanguages, recommendedFor } from "./offline-list"
+import { ImageSettingsSection } from "./image-settings"
 import { PromptEditor } from "./prompt-editor"
 import { type PanelState, providerConfig, providerFields, providerTitle, testButton, testResult } from "./provider-panel"
 import { SettingsSession } from "./session"
@@ -24,6 +25,7 @@ let selectedProvider = ""
 let dictionaries: DictionarySection
 let bergamot: BergamotSection
 let prompts: PromptEditor
+let images: ImageSettingsSection
 /** The service list shows the services of this tier; "" = all. */
 let providerTier: Tier | "" = ""
 /** What the selected offline services lack for the languages. */
@@ -70,23 +72,27 @@ function renderMuted(): void {
   $<HTMLButtonElement>("clearMuted").disabled = entries.length === 0
 }
 
-/** The online services allowed to receive message text, each with a button that takes the consent back. */
+/** The online services allowed to receive the text of messages and those allowed to receive their images, each with a button that takes the consent back. */
 function renderConsent(): void {
-  const items = settings.onlineConsent.map((id) => {
-    const preset = getPreset(id)
-    const revoke = button(
-      t("buttonRevokeConsent"),
-      () => {
-        settings.onlineConsent = settings.onlineConsent.filter((other) => other !== id)
-        renderConsent()
-        session.save()
-      },
-      false,
-      t("tipRevokeConsent"),
-    )
-    return h("li", { className: "row" }, h("span", { text: preset ? providerDisplayName(preset) : id }), revoke)
-  })
-  $("consentList").replaceChildren(...(items.length > 0 ? items : [h("li", { className: "hint", text: t("consentListNone") })]))
+  const list = (listId: string, key: "onlineConsent" | "imageConsent") => {
+    const items = settings[key].map((id) => {
+      const preset = getPreset(id)
+      const revoke = button(
+        t("buttonRevokeConsent"),
+        () => {
+          settings[key] = settings[key].filter((other) => other !== id)
+          renderConsent()
+          session.save()
+        },
+        false,
+        t(key === "onlineConsent" ? "tipRevokeConsent" : "tipRevokeImageConsent"),
+      )
+      return h("li", { className: "row" }, h("span", { text: preset ? providerDisplayName(preset) : id }), revoke)
+    })
+    $(listId).replaceChildren(...(items.length > 0 ? items : [h("li", { className: "hint", text: t("consentListNone") })]))
+  }
+  list("consentList", "onlineConsent")
+  list("imageConsentList", "imageConsent")
 }
 
 /** The services the summary can use: the one of the AI tier, then every added AI service; under the model, the model of the service in use. */
@@ -107,6 +113,7 @@ function remoteChanged(before: Settings): void {
   if (settings.uiLanguage !== before.uiLanguage) return void changeUiLanguage(settings.uiLanguage)
   renderMuted()
   renderConsent()
+  images.refresh()
   const languages = (s: Settings) => JSON.stringify([s.sourceLang, s.targetLang, s.tiers])
   if (languages(settings) !== languages(before)) void refreshOffline()
   if (providerState(settings) === providerState(before)) return
@@ -154,6 +161,7 @@ function providersChanged(): void {
 function showTierControls(): void {
   $<HTMLInputElement>("preciseEnabled").disabled = !settings.tiers.ai
   $("sameLanguage").hidden = settings.sourceLang !== settings.targetLang
+  images.refresh()
 }
 
 function renderProviderPanel(): void {
@@ -232,6 +240,7 @@ function applyLanguage(): void {
   renderProviderList()
   renderProviderPanel()
   fillSummaryProviders()
+  images.refresh()
   dictionaries.render()
   bergamot.render()
   prompts.refresh()
@@ -272,6 +281,7 @@ async function main(): Promise<void> {
     filter: $<HTMLInputElement>("bergamotFilter"),
   })
   prompts = new PromptEditor($("promptEditor"), session)
+  images = new ImageSettingsSection(session)
   mountStyleControls($("styleControls"), session, applyPreview)
   await Promise.all([loadExtensionI18n(settings.uiLanguage), loadSystemLanguages()])
   // The popup, the notice above a message and the tier selectors link to a place: options.html?dict=…&bergamot=…&tier=…#section.
@@ -325,7 +335,10 @@ async function main(): Promise<void> {
     renderMuted()
     session.save()
   })
-  session.bindCheck("preciseEnabled", () => settings.precise.enabled, (v) => (settings.precise.enabled = v))
+  session.bindCheck("preciseEnabled", () => settings.precise.enabled, (v) => {
+    settings.precise.enabled = v
+    images.refresh()
+  })
   session.track($("sameLanguage"), showTierControls)
 
   // Dictionaries

@@ -53,6 +53,16 @@
       <span data-i18n="labelPrecise"></span>
     </label>
 
+    <div class="field" id="imageRow" hidden>
+      <span class="label" data-i18n="labelImageMode"></span>
+      <div class="segmented" role="radiogroup" data-i18n-aria-label="labelImageMode">
+        <label data-i18n-title="tipImageOff"><input type="radio" name="imageMode" value="off" /><span data-i18n="imageModeOff"></span></label>
+        <label data-i18n-title="tipImageAsk"><input type="radio" name="imageMode" value="ask" /><span data-i18n="imageModeAsk"></span></label>
+        <label data-i18n-title="tipImageAuto"><input type="radio" name="imageMode" value="auto" /><span data-i18n="imageModeAuto"></span></label>
+      </div>
+      <p id="imageUnsupported" class="warning" hidden></p>
+    </div>
+
     <label class="check" data-i18n-title="tipAutoTranslate">
       <input type="checkbox" id="autoTranslate" />
       <span data-i18n="labelAutoTranslate"></span>

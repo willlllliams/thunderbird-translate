@@ -4,8 +4,8 @@ import { t } from "../shared/i18n"
 import { localizeDocument } from "../shared/i18n-dom"
 import { loadExtensionI18n } from "../shared/i18n-ext"
 import { IDLE_TAB_STATE, type OfflineStatus, type OptionsPlace, optionsPath, type PageNotice, send, type TabState } from "../shared/messages"
-import { $, fillSelect, fillTierSelects, languageOptions, offlineStatus, onTierChange, showOfflineHint, sourceLanguageOptions } from "../shared/page"
-import { type DisplayMode, summaryProvider } from "../shared/settings"
+import { $, fillSelect, fillTierSelects, languageOptions, offlineStatus, onTierChange, showOfflineHint, sourceLanguageOptions, visionHint } from "../shared/page"
+import { type DisplayMode, type ImageMode, imageStatus, summaryProvider } from "../shared/settings"
 import { loadSettings, onStoredSettings, readSettings, updateSettings } from "../shared/settings-store"
 import { REFRESH_AFTER_ACTION_MS, REFRESH_INTERVAL_MS } from "./timing"
 
@@ -45,12 +45,20 @@ async function main(): Promise<void> {
     fillSelects()
   }
   const modeRadios = Array.from(document.querySelectorAll<HTMLInputElement>('input[name="mode"]'))
+  const imageRadios = Array.from(document.querySelectorAll<HTMLInputElement>('input[name="imageMode"]'))
   // The switches follow settings changed elsewhere, e.g. on the settings page. Precise translation applies to the AI tier only.
   const showSwitches = () => {
     autoTranslate.checked = settings.autoTranslate
     for (const radio of modeRadios) radio.checked = radio.value === settings.mode
     $("preciseRow").hidden = !settings.tiers.ai
     preciseEnabled.checked = settings.precise.enabled
+    // Image translation belongs to precise translation; a model that refuses images is named under the switch.
+    $("imageRow").hidden = !settings.tiers.ai || !settings.precise.enabled
+    for (const radio of imageRadios) radio.checked = radio.value === settings.image.mode
+    const status = imageStatus(settings)
+    const hint = status.support === "no" ? visionHint(status) : ""
+    $("imageUnsupported").hidden = !hint
+    $("imageUnsupported").textContent = hint
     $("sameLanguage").hidden = settings.sourceLang !== settings.targetLang
   }
   fillSelects()
@@ -58,6 +66,11 @@ async function main(): Promise<void> {
   for (const radio of modeRadios) {
     radio.addEventListener("change", () => {
       if (radio.checked) void updateSettings((s) => (s.mode = radio.value as DisplayMode))
+    })
+  }
+  for (const radio of imageRadios) {
+    radio.addEventListener("change", () => {
+      if (radio.checked) void updateSettings((s) => (s.image.mode = radio.value as ImageMode))
     })
   }
 
