@@ -78,17 +78,27 @@ export interface KeyValueStorage {
 
 export const CACHE_STORAGE_KEY = "translationCache"
 
+/** A write goes to storage this long after it, and the whole list goes there at most once per SAVE_INTERVAL_MS. */
+const SAVE_DELAY_MS = 5000
+const SAVE_INTERVAL_MS = 30_000
+
 export class PersistentCache {
   private lru: LruCache<string>
   /** The read of the stored entries; resolves to whether it succeeded. */
   private loaded: Promise<boolean> | null = null
   private saveTimer: ReturnType<typeof setTimeout> | null = null
+  private lastSave = -Infinity
   private enabled = true
 
+  /**
+   * Every save writes the whole list (up to 100000 entries, tens of MB), so a translation that brings results every
+   * second saves after `saveDelayMs` and then at most once per `saveIntervalMs`; the last results follow once more.
+   */
   constructor(
     private readonly storage: KeyValueStorage,
     maxEntries: number,
-    private readonly saveDelayMs = 1000,
+    private readonly saveDelayMs = SAVE_DELAY_MS,
+    private readonly saveIntervalMs = saveDelayMs && SAVE_INTERVAL_MS,
   ) {
     this.lru = new LruCache(maxEntries)
   }
@@ -156,9 +166,11 @@ export class PersistentCache {
 
   private scheduleSave(): void {
     if (this.saveTimer) return
+    const delay = Math.max(this.saveDelayMs, this.lastSave + this.saveIntervalMs - Date.now())
     this.saveTimer = setTimeout(async () => {
       this.saveTimer = null
+      this.lastSave = Date.now()
       if (await this.ensureLoaded()) await this.storage.set(CACHE_STORAGE_KEY, this.lru.entries()).catch(() => {})
-    }, this.saveDelayMs)
+    }, delay)
   }
 }

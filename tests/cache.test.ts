@@ -46,6 +46,23 @@ describe("PersistentCache", () => {
     expect(storage.data.get(CACHE_STORAGE_KEY)).toEqual([["a", "A"], ["b", "B"], ["c", "C"]])
   })
 
+  it("B11: saves the whole list 5 s after a write and then at most every 30 s, and the last results once more", async () => {
+    useFakeTimers()
+    const storage = memoryStorage()
+    const set = vi.spyOn(storage, "set")
+    const cache = new PersistentCache(storage, 100)
+    for (let i = 0; i < 120; i++) {
+      await cache.set(`k${i}`, "v")
+      await vi.advanceTimersByTimeAsync(500)
+    }
+    expect(set.mock.calls.length).toBeLessThanOrEqual(3)
+    await vi.advanceTimersByTimeAsync(30_000)
+    expect((storage.data.get(CACHE_STORAGE_KEY) as unknown[]).length).toBe(100)
+    const saves = set.mock.calls.length
+    await vi.advanceTimersByTimeAsync(60_000)
+    expect(set.mock.calls.length).toBe(saves)
+  })
+
   it("keeps only the newest entries on reload and drops malformed ones", async () => {
     const storage = memoryStorage()
     storage.data.set(CACHE_STORAGE_KEY, [["old", "1"], ["k", 2], "junk", ["mid", "2"], ["new", "3"]])
