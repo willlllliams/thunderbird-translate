@@ -4,7 +4,10 @@
  * - `code`: our own identifier, stored in settings (BCP-47 style).
  * - `google`: code for translate.googleapis.com (`tl` parameter).
  * - `microsoft`: code for the Microsoft translator (`to` parameter).
- * - `deepl`: code for DeepL / DeepLX (`target_lang`).
+ * - `deepl`: code for DeepLX (`target_lang`), and the source code of DeepL without its variant.
+ * - `deeplTarget`: target code of DeepL, which names the Chinese scripts (English and Portuguese take the variant of the settings).
+ * - `baidu`, `youdao`, `caiyun`: codes of Baidu, Youdao and Caiyun; null where the service does not translate the
+ *   language. `baiduPremiumOnly`: only the premium edition of Baidu translates it.
  * - `english`: English name used inside LLM prompts.
  * - `native`: name shown in the UI.
  */
@@ -13,32 +16,42 @@ export interface LanguageInfo {
   google: string
   microsoft: string
   deepl: string
+  deeplTarget: string
+  baidu: string | null
+  baiduPremiumOnly?: true
+  youdao: string
+  caiyun: string | null
   english: string
   native: string
 }
 
 export const LANGUAGES: LanguageInfo[] = [
-  { code: "zh-CN", google: "zh-CN", microsoft: "zh-Hans", deepl: "ZH", english: "Simplified Chinese", native: "简体中文" },
-  { code: "zh-TW", google: "zh-TW", microsoft: "zh-Hant", deepl: "ZH-HANT", english: "Traditional Chinese", native: "繁體中文" },
-  { code: "en", google: "en", microsoft: "en", deepl: "EN", english: "English", native: "English" },
-  { code: "ja", google: "ja", microsoft: "ja", deepl: "JA", english: "Japanese", native: "日本語" },
-  { code: "ko", google: "ko", microsoft: "ko", deepl: "KO", english: "Korean", native: "한국어" },
-  { code: "fr", google: "fr", microsoft: "fr", deepl: "FR", english: "French", native: "Français" },
-  { code: "de", google: "de", microsoft: "de", deepl: "DE", english: "German", native: "Deutsch" },
-  { code: "es", google: "es", microsoft: "es", deepl: "ES", english: "Spanish", native: "Español" },
-  { code: "pt", google: "pt", microsoft: "pt", deepl: "PT", english: "Portuguese", native: "Português" },
-  { code: "it", google: "it", microsoft: "it", deepl: "IT", english: "Italian", native: "Italiano" },
-  { code: "ru", google: "ru", microsoft: "ru", deepl: "RU", english: "Russian", native: "Русский" },
-  { code: "uk", google: "uk", microsoft: "uk", deepl: "UK", english: "Ukrainian", native: "Українська" },
-  { code: "pl", google: "pl", microsoft: "pl", deepl: "PL", english: "Polish", native: "Polski" },
-  { code: "nl", google: "nl", microsoft: "nl", deepl: "NL", english: "Dutch", native: "Nederlands" },
-  { code: "tr", google: "tr", microsoft: "tr", deepl: "TR", english: "Turkish", native: "Türkçe" },
-  { code: "vi", google: "vi", microsoft: "vi", deepl: "VI", english: "Vietnamese", native: "Tiếng Việt" },
-  { code: "th", google: "th", microsoft: "th", deepl: "TH", english: "Thai", native: "ไทย" },
-  { code: "id", google: "id", microsoft: "id", deepl: "ID", english: "Indonesian", native: "Bahasa Indonesia" },
-  { code: "ar", google: "ar", microsoft: "ar", deepl: "AR", english: "Arabic", native: "العربية" },
-  { code: "hi", google: "hi", microsoft: "hi", deepl: "HI", english: "Hindi", native: "हिन्दी" },
+  { code: "zh-CN", google: "zh-CN", microsoft: "zh-Hans", deepl: "ZH", deeplTarget: "ZH-HANS", baidu: "zh", youdao: "zh-CHS", caiyun: "zh", english: "Simplified Chinese", native: "简体中文" },
+  { code: "zh-TW", google: "zh-TW", microsoft: "zh-Hant", deepl: "ZH-HANT", deeplTarget: "ZH-HANT", baidu: "cht", youdao: "zh-CHT", caiyun: "zh-Hant", english: "Traditional Chinese", native: "繁體中文" },
+  { code: "en", google: "en", microsoft: "en", deepl: "EN", deeplTarget: "EN", baidu: "en", youdao: "en", caiyun: "en", english: "English", native: "English" },
+  { code: "ja", google: "ja", microsoft: "ja", deepl: "JA", deeplTarget: "JA", baidu: "jp", youdao: "ja", caiyun: "ja", english: "Japanese", native: "日本語" },
+  { code: "ko", google: "ko", microsoft: "ko", deepl: "KO", deeplTarget: "KO", baidu: "kor", youdao: "ko", caiyun: "ko", english: "Korean", native: "한국어" },
+  { code: "fr", google: "fr", microsoft: "fr", deepl: "FR", deeplTarget: "FR", baidu: "fra", youdao: "fr", caiyun: "fr", english: "French", native: "Français" },
+  { code: "de", google: "de", microsoft: "de", deepl: "DE", deeplTarget: "DE", baidu: "de", youdao: "de", caiyun: "de", english: "German", native: "Deutsch" },
+  { code: "es", google: "es", microsoft: "es", deepl: "ES", deeplTarget: "ES", baidu: "spa", youdao: "es", caiyun: "es", english: "Spanish", native: "Español" },
+  { code: "pt", google: "pt", microsoft: "pt", deepl: "PT", deeplTarget: "PT", baidu: "pt", youdao: "pt", caiyun: "pt", english: "Portuguese", native: "Português" },
+  { code: "it", google: "it", microsoft: "it", deepl: "IT", deeplTarget: "IT", baidu: "it", youdao: "it", caiyun: "it", english: "Italian", native: "Italiano" },
+  { code: "ru", google: "ru", microsoft: "ru", deepl: "RU", deeplTarget: "RU", baidu: "ru", youdao: "ru", caiyun: "ru", english: "Russian", native: "Русский" },
+  { code: "uk", google: "uk", microsoft: "uk", deepl: "UK", deeplTarget: "UK", baidu: "ukr", baiduPremiumOnly: true, youdao: "uk", caiyun: null, english: "Ukrainian", native: "Українська" },
+  { code: "pl", google: "pl", microsoft: "pl", deepl: "PL", deeplTarget: "PL", baidu: "pl", youdao: "pl", caiyun: null, english: "Polish", native: "Polski" },
+  { code: "nl", google: "nl", microsoft: "nl", deepl: "NL", deeplTarget: "NL", baidu: "nl", youdao: "nl", caiyun: null, english: "Dutch", native: "Nederlands" },
+  { code: "tr", google: "tr", microsoft: "tr", deepl: "TR", deeplTarget: "TR", baidu: "tr", baiduPremiumOnly: true, youdao: "tr", caiyun: "tr", english: "Turkish", native: "Türkçe" },
+  { code: "vi", google: "vi", microsoft: "vi", deepl: "VI", deeplTarget: "VI", baidu: "vie", youdao: "vi", caiyun: "vi", english: "Vietnamese", native: "Tiếng Việt" },
+  { code: "th", google: "th", microsoft: "th", deepl: "TH", deeplTarget: "TH", baidu: "th", youdao: "th", caiyun: null, english: "Thai", native: "ไทย" },
+  { code: "id", google: "id", microsoft: "id", deepl: "ID", deeplTarget: "ID", baidu: "id", baiduPremiumOnly: true, youdao: "id", caiyun: null, english: "Indonesian", native: "Bahasa Indonesia" },
+  { code: "ar", google: "ar", microsoft: "ar", deepl: "AR", deeplTarget: "AR", baidu: "ara", youdao: "ar", caiyun: null, english: "Arabic", native: "العربية" },
+  { code: "hi", google: "hi", microsoft: "hi", deepl: "HI", deeplTarget: "HI", baidu: "hi", baiduPremiumOnly: true, youdao: "hi", caiyun: null, english: "Hindi", native: "हिन्दी" },
 ]
+
+/** The language of `code`; undefined for a code the extension does not offer. */
+export function findLanguage(code: string): LanguageInfo | undefined {
+  return LANGUAGES.find((l) => l.code === code)
+}
 
 export function getLanguage(code: string): LanguageInfo {
   return LANGUAGES.find((l) => l.code === code) ?? LANGUAGES[0]

@@ -14,30 +14,30 @@
  */
 
 import { LocalizedError } from "../../shared/errors"
-import { type FetchOptions, fetchOk, type RequestSpec } from "../../shared/http"
+import { type FetchOptions, type RequestSpec } from "../../shared/http"
+import { findLanguage } from "../../shared/languages"
 import type { ResolvedProvider } from "../../shared/settings"
+import { fetchJson, type Languages, readTranslations, requireCredentials } from "./common"
 
 type CaiyunProvider = Pick<ResolvedProvider, "apiKey" | "baseURL">
 
 const SERVICE = "Caiyun"
 
-/** Caiyun's codes of the languages of the extension it translates. */
-const CAIYUN_LANGS: Partial<Record<string, string>> = { "zh-CN": "zh", "zh-TW": "zh-Hant", en: "en", ja: "ja", ko: "ko", fr: "fr", de: "de", es: "es", pt: "pt", it: "it", ru: "ru", tr: "tr", vi: "vi" }
 const CHINESE = new Set(["zh", "zh-Hant"])
 /** The languages Chinese translates into. */
 const FROM_CHINESE = new Set(["en", "ja", "ko"])
 
 /** The trans_type of a pair of language codes of the extension ("auto2zh", "en2zh-Hant"); null when Caiyun does not translate it. */
 export function caiyunDirection(source: string, target: string): string | null {
-  const to = CAIYUN_LANGS[target]
-  const from = source === "auto" ? "auto" : CAIYUN_LANGS[source]
+  const to = findLanguage(target)?.caiyun
+  const from = source === "auto" ? "auto" : findLanguage(source)?.caiyun
   if (!to || !from || from === to) return null
   if (CHINESE.has(to) || ((from === "auto" || CHINESE.has(from)) && FROM_CHINESE.has(to))) return `${from}2${to}`
   return null
 }
 
 export function buildCaiyunRequest(texts: string[], direction: string, provider: CaiyunProvider, requestId: string): RequestSpec {
-  if (!provider.apiKey) throw new LocalizedError("errApiKeyRequired", [SERVICE])
+  requireCredentials(SERVICE, provider)
   const body = { source: texts, trans_type: direction, request_id: requestId, detect: direction.startsWith("auto2") }
   return {
     url: provider.baseURL,
@@ -46,19 +46,13 @@ export function buildCaiyunRequest(texts: string[], direction: string, provider:
 }
 
 export function parseCaiyunResponse(json: unknown, expected: number): string[] {
-  const target = (json as { target?: unknown } | null)?.target
-  if (!Array.isArray(target)) throw new LocalizedError("errUnexpectedResponse", [SERVICE])
-  if (target.length !== expected) throw new LocalizedError("errResultCount", [SERVICE, String(expected), String(target.length)])
-  return target.map((text, i) => {
-    if (typeof text !== "string") throw new LocalizedError("errMissingTranslation", [SERVICE, String(i + 1)])
-    return text
-  })
+  return readTranslations(SERVICE, (json as { target?: unknown } | null)?.target, expected)
 }
 
-/** Every paragraph in one request; `target` and `source` are language codes of the extension. */
-export async function caiyunTranslateBatch(texts: string[], target: string, source: string, provider: CaiyunProvider, opts: FetchOptions = {}): Promise<string[]> {
+/** Every paragraph in one request. */
+export async function caiyunTranslateBatch(texts: string[], { source, target }: Languages, provider: CaiyunProvider, opts: FetchOptions = {}): Promise<string[]> {
   const direction = caiyunDirection(source, target)
   if (!direction) throw new LocalizedError("errUnsupportedPair", [SERVICE])
   const spec = buildCaiyunRequest(texts, direction, provider, crypto.randomUUID())
-  return parseCaiyunResponse(await (await fetchOk(opts, spec, SERVICE)).json(), texts.length)
+  return parseCaiyunResponse(await fetchJson(opts, spec, SERVICE), texts.length)
 }

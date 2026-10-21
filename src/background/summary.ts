@@ -7,7 +7,9 @@
  * server, which OpenAI-compatible and local services offer unevenly.
  */
 
-import { SUMMARY_PARTS, type SummaryPart } from "../shared/settings"
+import { getLanguage } from "../shared/languages"
+import { promptText } from "../shared/prompts"
+import { resolveProvider, type ResolvedProvider, type Settings, SUMMARY_PARTS, type SummaryPart, summaryProvider } from "../shared/settings"
 import type { MailSummary } from "../shared/summary"
 import { type MailAnalysis, parseJsonObject } from "./translators/llm-prompt"
 
@@ -30,6 +32,31 @@ export function buildSummarySystem(template: string, targetLanguage: string, par
   const base = template.replaceAll("{{to}}", targetLanguage)
   const left = SUMMARY_PARTS.filter((part) => !parts.includes(part))
   return left.length > 0 ? `${base}\nLeave ${left.map((part) => `"${part}"`).join(", ")} as [].` : base
+}
+
+/** What decides the summary of a message under the settings, besides the message: the service, the model, the system prompt. */
+export interface SummaryInputs {
+  id: string
+  /** The service of the summary with the model of the summary. */
+  provider: ResolvedProvider
+  systemPrompt: string
+  targetLanguageName: string
+  /**
+   * Endpoint, system prompt (with the parts and the target language), length limit, temperature and thinking,
+   * joined with line breaks into the cache key of the summary. The order is fixed: stored cache keys depend on it.
+   */
+  parts: readonly unknown[]
+}
+
+/** The inputs of the summary under `settings`; null without an AI service for it. */
+export function summaryInputs(settings: Settings): SummaryInputs | null {
+  const id = summaryProvider(settings)
+  if (!id) return null
+  const configured = resolveProvider(settings, id)
+  const provider = { ...configured, model: settings.summary.model || configured.model }
+  const targetLanguageName = getLanguage(settings.targetLang).english
+  const systemPrompt = buildSummarySystem(promptText(settings.prompts, "summary"), targetLanguageName, settings.summary.parts)
+  return { id, provider, systemPrompt, targetLanguageName, parts: [provider.baseURL, systemPrompt, settings.summary.maxOutputTokens, provider.temperature, provider.thinking] }
 }
 
 const attribute = (value: string) => value.replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/</g, "&lt;")

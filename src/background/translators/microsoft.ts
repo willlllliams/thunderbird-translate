@@ -12,12 +12,12 @@
  */
 
 import { LocalizedError } from "../../shared/errors"
-import { type BatchLimits, groupIntoBatches } from "../queue/batch-queue"
+import type { BatchLimits } from "../queue/batch-queue"
 import { MS_EDGE_TRANSLATE_URL } from "../../shared/hosts"
-import { type FetchOptions, fetchOk, type RequestSpec } from "../../shared/http"
-
-export { MS_EDGE_TRANSLATE_URL }
-
+import { type FetchOptions, type RequestSpec } from "../../shared/http"
+import { findLanguage } from "../../shared/languages"
+import type { ResolvedProvider } from "../../shared/settings"
+import { fetchJson, type Languages, readTranslations, requireCredentials } from "./common"
 
 /** Azure Translator, key mode. An empty region is valid for a global resource. */
 export interface AzureConfig {
@@ -27,14 +27,10 @@ export interface AzureConfig {
   endpoint: string
 }
 
-export interface MicrosoftOptions extends FetchOptions {
-  /** Present in key mode. */
-  azure?: AzureConfig
-  /** Source language code; absent = detect. */
-  from?: string
-}
-
-/** Request limits of the translate method (service-limits): 1000 array elements and 50,000 characters per request. */
+/**
+ * Request limits of the translate method (service-limits): 1000 array elements and 50,000 characters per request.
+ * The batches of the translation service keep within them (service.ts), so a batch is one request.
+ */
 export const AZURE_LIMITS: BatchLimits = { maxItems: 1000, maxChars: 50_000 }
 
 export function buildAzureRequest(texts: string[], targetLang: string, azure: AzureConfig, from?: string): RequestSpec {
@@ -66,13 +62,8 @@ export function buildMicrosoftEdgeRequest(texts: string[], targetLang: string, f
 
 /** Both modes answer `[{ translations: [{ text, to }] }, ...]`. */
 export function parseMicrosoftResponse(json: unknown, expected: number, decode = false): string[] {
-  if (!Array.isArray(json)) throw new LocalizedError("errUnexpectedResponse", ["Microsoft"])
-  if (json.length !== expected) throw new LocalizedError("errResultCount", ["Microsoft", String(expected), String(json.length)])
-  return json.map((item, i) => {
-    const text = (item as { translations?: { text?: unknown }[] })?.translations?.[0]?.text
-    if (typeof text !== "string") throw new LocalizedError("errMissingTranslation", ["Microsoft", String(i + 1)])
-    return decode ? decodeHtml(text) : text
-  })
+  const texts = readTranslations("Microsoft", json, expected, (item) => (item as { translations?: { text?: unknown }[] })?.translations?.[0]?.text)
+  return decode ? texts.map(decodeHtml) : texts
 }
 
 function escapeHtml(s: string): string {
@@ -90,24 +81,16 @@ export function decodeHtml(s: string): string {
     .replace(/&amp;/g, "&")
 }
 
-/** Send one translate request and read its `expected` translations. */
-async function translate(spec: RequestSpec, expected: number, opts: FetchOptions, decode = false): Promise<string[]> {
-  const resp = await fetchOk(opts, spec, "Microsoft")
-  return parseMicrosoftResponse(await resp.json(), expected, decode)
-}
+type MicrosoftProvider = Pick<ResolvedProvider, "mode" | "apiKey" | "region" | "baseURL">
 
-/** One request per group within the Azure limits, in order. */
-export async function azureTranslateBatch(texts: string[], targetLang: string, azure: AzureConfig, opts: MicrosoftOptions): Promise<string[]> {
-  if (!azure.apiKey) throw new LocalizedError("errApiKeyRequired", ["Microsoft Translator"])
-  const out: string[] = []
-  for (const group of groupIntoBatches(texts, (text) => text.length, AZURE_LIMITS)) {
-    out.push(...(await translate(buildAzureRequest(group, targetLang, azure, opts.from), group.length, opts)))
-  }
-  return out
-}
-
-export async function microsoftTranslateBatch(texts: string[], targetLang: string, opts: MicrosoftOptions = {}): Promise<string[]> {
+/** Every paragraph in one request: the Edge route, or Azure Translator in key mode; the source is detected for "auto". */
+export async function microsoftTranslateBatch(texts: string[], { source, target }: Languages, provider: MicrosoftProvider, opts: FetchOptions = {}): Promise<string[]> {
   if (texts.length === 0) return []
-  if (opts.azure) return azureTranslateBatch(texts, targetLang, opts.azure, opts)
-  return translate(buildMicrosoftEdgeRequest(texts, targetLang, opts.from), texts.length, opts, true)
+  const to = findLanguage(target)?.microsoft
+  if (!to) throw new LocalizedError("errUnsupportedPair", ["Microsoft"])
+  const from = source === "auto" ? undefined : findLanguage(source)?.microsoft
+  if (provider.mode !== "key") return parseMicrosoftResponse(await fetchJson(opts, buildMicrosoftEdgeRequest(texts, to, from), "Microsoft"), texts.length, true)
+  requireCredentials("Microsoft Translator", provider)
+  const azure = { apiKey: provider.apiKey, region: provider.region, endpoint: provider.baseURL }
+  return parseMicrosoftResponse(await fetchJson(opts, buildAzureRequest(texts, to, azure, from), "Microsoft"), texts.length)
 }

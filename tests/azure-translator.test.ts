@@ -1,19 +1,18 @@
 import { describe, expect, it, vi } from "vitest"
 import { errorContext } from "../src/background/service"
-import {
-  AZURE_LIMITS,
-  azureTranslateBatch,
-  buildAzureRequest,
-  MS_EDGE_TRANSLATE_URL,
-  microsoftTranslateBatch,
-} from "../src/background/translators/microsoft"
+import { AZURE_LIMITS, buildAzureRequest, microsoftTranslateBatch } from "../src/background/translators/microsoft"
 import { describeError } from "../src/shared/errors"
+import { MS_EDGE_TRANSLATE_URL } from "../src/shared/hosts"
 import { ENGLISH } from "../src/shared/i18n"
 import { createDefaultSettings, normalizeSettings, resolveProvider, type Settings, toPublicSettings } from "../src/shared/settings"
 import { asFetch, createService, jsonResponse, translateOne } from "./helpers"
 
 const AZURE_URL = "https://api.cognitive.microsofttranslator.com/translate"
 const azure = { apiKey: "KEY", region: "westeurope", endpoint: AZURE_URL }
+const keyMode = { mode: "key" as const, apiKey: "KEY", region: "westeurope", baseURL: AZURE_URL }
+const freeMode = { mode: "free" as const, apiKey: "", region: "", baseURL: "" }
+const toChinese = { source: "auto", target: "zh-CN" }
+const toGerman = { source: "auto", target: "de" }
 
 /** An Azure-style fake: answers every `{Text}` with `ZH(Text)`. */
 function azureFetch() {
@@ -54,23 +53,23 @@ describe("Azure Translator request", () => {
 
   it("parses the response of the batch and keeps text as it is (no HTML decoding)", async () => {
     const f = vi.fn(async () => jsonResponse([{ translations: [{ text: "a &lt; b", to: "de" }] }, { translations: [{ text: "x", to: "de" }] }]))
-    expect(await azureTranslateBatch(["a", "b"], "de", azure, { fetchFn: asFetch(f) })).toEqual(["a &lt; b", "x"])
+    expect(await microsoftTranslateBatch(["a", "b"], toGerman, keyMode, { fetchFn: asFetch(f) })).toEqual(["a &lt; b", "x"])
   })
 
   it("rejects an answer with the wrong number of results", async () => {
     const f = vi.fn(async () => jsonResponse([{ translations: [{ text: "x" }] }]))
-    await expect(azureTranslateBatch(["a", "b"], "de", azure, { fetchFn: asFetch(f) })).rejects.toThrow(/expected 2/)
+    await expect(microsoftTranslateBatch(["a", "b"], toGerman, keyMode, { fetchFn: asFetch(f) })).rejects.toThrow(/expected 2/)
   })
 
   it("asks for a key before sending anything", async () => {
     const f = azureFetch()
-    await expect(azureTranslateBatch(["a"], "de", { ...azure, apiKey: "" }, { fetchFn: asFetch(f) })).rejects.toThrow(/API key is required/)
+    await expect(microsoftTranslateBatch(["a"], toGerman, { ...keyMode, apiKey: "" }, { fetchFn: asFetch(f) })).rejects.toThrow(/API key is required/)
     expect(f).not.toHaveBeenCalled()
   })
 
   it("surfaces HTTP errors with their status and URL", async () => {
     const f = vi.fn(async () => new Response('{"error":{"code":401000,"message":"The request is not authorized because credentials are missing or invalid."}}', { status: 401 }))
-    await expect(azureTranslateBatch(["a"], "de", azure, { fetchFn: asFetch(f) })).rejects.toMatchObject({ status: 401, url: expect.stringContaining(AZURE_URL) })
+    await expect(microsoftTranslateBatch(["a"], toGerman, keyMode, { fetchFn: asFetch(f) })).rejects.toMatchObject({ status: 401, url: expect.stringContaining(AZURE_URL) })
   })
 })
 
@@ -79,29 +78,22 @@ describe("Azure Translator limits", () => {
     expect(AZURE_LIMITS).toEqual({ maxItems: 1000, maxChars: 50_000 })
   })
 
-  it("splits more than 1000 paragraphs into several requests and keeps the order", async () => {
+  it("B26: get batches within them and within the settings from the translation service, each one request, in order", async () => {
     const f = azureFetch()
-    const texts = Array.from({ length: 2500 }, (_, i) => `t${i}`)
-    const out = await azureTranslateBatch(texts, "zh-Hans", azure, { fetchFn: asFetch(f) })
-    expect(out).toEqual(texts.map((t) => `ZH(${t})`))
-    expect(f.mock.calls.map(([, init]) => JSON.parse(String(init.body)).length)).toEqual([1000, 1000, 500])
-  })
-
-  it("splits requests that would exceed 50,000 characters", async () => {
-    const f = azureFetch()
-    const texts = ["a".repeat(30_000), "b".repeat(30_000), "c".repeat(20_000), "d".repeat(30_000)]
-    const out = await azureTranslateBatch(texts, "zh-Hans", azure, { fetchFn: asFetch(f) })
-    expect(out).toEqual(texts.map((t) => `ZH(${t})`))
-    const sizes = f.mock.calls.map(([, init]) => (JSON.parse(String(init.body)) as { Text: string }[]).reduce((n, i) => n + i.Text.length, 0))
-    expect(sizes).toEqual([30_000, 50_000, 30_000])
-    expect(Math.max(...sizes)).toBeLessThanOrEqual(50_000)
+    const settings = createDefaultSettings("en")
+    settings.providers["microsoft-free"] = { ...settings.providers["microsoft-free"], mode: "key", apiKey: "KEY", baseURL: AZURE_URL }
+    settings.batch.maxItemsPerBatch = 200
+    const { service } = createService(settings, { fetchFn: asFetch(f) })
+    const texts = Array.from({ length: 450 }, (_, i) => `t${i}`)
+    expect(await Promise.all(texts.map((text) => translateOne(service, { text, providerId: "microsoft-free" })))).toEqual(texts.map((t) => `ZH(${t})`))
+    expect(f.mock.calls.map(([, init]) => JSON.parse(String(init.body)).length)).toEqual([200, 200, 50])
   })
 })
 
 describe("Microsoft free mode", () => {
   it("without Azure options it uses the direct route only", async () => {
     const f = vi.fn(async (_url: string) => jsonResponse([{ translations: [{ text: "你好" }] }]))
-    expect(await microsoftTranslateBatch(["Hello"], "zh-Hans", { fetchFn: asFetch(f) })).toEqual(["你好"])
+    expect(await microsoftTranslateBatch(["Hello"], toChinese, freeMode, { fetchFn: asFetch(f) })).toEqual(["你好"])
     expect(f.mock.calls.map(([url]) => url.split("?")[0])).toEqual([MS_EDGE_TRANSLATE_URL])
   })
 
@@ -112,7 +104,7 @@ describe("Microsoft free mode", () => {
 
   it("with Azure options it does not touch the Edge endpoints", async () => {
     const f = azureFetch()
-    expect(await microsoftTranslateBatch(["Hello"], "zh-Hans", { fetchFn: asFetch(f), azure })).toEqual(["ZH(Hello)"])
+    expect(await microsoftTranslateBatch(["Hello"], toChinese, keyMode, { fetchFn: asFetch(f) })).toEqual(["ZH(Hello)"])
     expect(f.mock.calls.map(([url]) => String(url).split("?")[0])).toEqual([AZURE_URL])
   })
 })

@@ -11,7 +11,10 @@
 
 import { type ErrorText, LocalizedError, renderErrorText } from "../../shared/errors"
 import { ENGLISH } from "../../shared/i18n"
-import { type FetchOptions, fetchOk, HttpError, type RequestSpec } from "../../shared/http"
+import { type FetchOptions, HttpError, type RequestSpec } from "../../shared/http"
+import { findLanguage } from "../../shared/languages"
+import type { ResolvedProvider } from "../../shared/settings"
+import { fetchJson, type Languages } from "./common"
 
 export function buildDeepLXRequest(text: string, targetDeepl: string, endpoint: string, token = "", sourceDeepl = "auto"): RequestSpec {
   if (!endpoint) throw new LocalizedError("errEndpointRequired", ["DeepLX"])
@@ -47,13 +50,10 @@ export function parseDeepLXResponse(json: unknown): string {
   throw new LocalizedError("errUnexpectedResponse", ["DeepLX"])
 }
 
-export async function deeplxTranslate(
-  text: string,
-  targetDeepl: string,
-  endpoint: string,
-  token: string,
-  opts: FetchOptions & { source?: string } = {},
-): Promise<string> {
-  const resp = await fetchOk(opts, buildDeepLXRequest(text, targetDeepl, endpoint, token, opts.source), "DeepLX")
-  return parseDeepLXResponse(await resp.json())
+/** One paragraph; the endpoint and the token are the base URL and the key of the provider. DeepL source codes have no variants: "ZH", not "ZH-HANT". */
+export async function deeplxTranslate(text: string, { source, target }: Languages, provider: Pick<ResolvedProvider, "baseURL" | "apiKey">, opts: FetchOptions = {}): Promise<string> {
+  const to = findLanguage(target)?.deepl
+  if (!to) throw new LocalizedError("errUnsupportedPair", ["DeepLX"])
+  const from = source === "auto" ? undefined : findLanguage(source)?.deepl.split("-")[0]
+  return parseDeepLXResponse(await fetchJson(opts, buildDeepLXRequest(text, to, provider.baseURL, provider.apiKey, from), "DeepLX"))
 }

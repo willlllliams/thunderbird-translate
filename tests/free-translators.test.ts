@@ -9,13 +9,17 @@ import {
 import {
   buildMicrosoftEdgeRequest,
   decodeHtml,
-  MS_EDGE_TRANSLATE_URL,
   microsoftTranslateBatch,
   parseMicrosoftResponse,
 } from "../src/background/translators/microsoft"
-import { BatchParseError } from "../src/background/translators/llm-prompt"
+import { BatchParseError } from "../src/background/translators/common"
+import { MS_EDGE_TRANSLATE_URL } from "../src/shared/hosts"
 import { createDefaultSettings } from "../src/shared/settings"
 import { asFetch, createService, jsonResponse, translateOne } from "./helpers"
+
+const toChinese = { source: "auto", target: "zh-CN" }
+const google = { baseURL: "https://translate.googleapis.com" }
+const edge = { mode: "free" as const, apiKey: "", region: "", baseURL: "" }
 
 describe("Google (gtx)", () => {
   it("builds one POST with a q parameter per paragraph", () => {
@@ -49,14 +53,14 @@ describe("Google (gtx)", () => {
 
   it("sends one request for a batch (mock fetch)", async () => {
     const fetchFn = vi.fn(async () => jsonResponse([["你好", "en"], ["世界", "en"], ["再见", "en"]]))
-    const out = await googleTranslateBatch(["Hello", "World", "Bye"], "zh-CN", { fetchFn: asFetch(fetchFn) })
+    const out = await googleTranslateBatch(["Hello", "World", "Bye"], toChinese, google, { fetchFn: asFetch(fetchFn) })
     expect(out).toEqual(["你好", "世界", "再见"])
     expect(fetchFn).toHaveBeenCalledTimes(1)
   })
 
   it("reports an unexpected batch shape as BatchParseError, so the service can ask paragraph by paragraph", async () => {
     const fetchFn = vi.fn(async () => jsonResponse({ unexpected: true }))
-    await expect(googleTranslateBatch(["a", "b"], "zh-CN", { fetchFn: asFetch(fetchFn) })).rejects.toBeInstanceOf(BatchParseError)
+    await expect(googleTranslateBatch(["a", "b"], toChinese, google, { fetchFn: asFetch(fetchFn) })).rejects.toBeInstanceOf(BatchParseError)
     expect(fetchFn).toHaveBeenCalledTimes(1)
   })
 
@@ -86,7 +90,7 @@ describe("Google (gtx)", () => {
 
   it("surfaces HTTP errors with their status", async () => {
     const fetchFn = vi.fn(async () => new Response("Too Many Requests", { status: 429 }))
-    await expect(googleTranslateBatch(["a"], "zh-CN", { fetchFn: asFetch(fetchFn) })).rejects.toMatchObject({ status: 429 })
+    await expect(googleTranslateBatch(["a"], toChinese, google, { fetchFn: asFetch(fetchFn) })).rejects.toMatchObject({ status: 429 })
   })
 })
 
@@ -114,8 +118,8 @@ describe("Microsoft", () => {
   it("sends every request to the direct route only", async () => {
     const fetchFn = vi.fn(async (_url: string) => jsonResponse([{ translations: [{ text: "你好" }] }, { translations: [{ text: "世界" }] }]))
     const f = asFetch(fetchFn)
-    expect(await microsoftTranslateBatch(["Hello", "World"], "zh-Hans", { fetchFn: f })).toEqual(["你好", "世界"])
-    expect(await microsoftTranslateBatch(["Hello", "World"], "zh-Hans", { fetchFn: f })).toEqual(["你好", "世界"])
+    expect(await microsoftTranslateBatch(["Hello", "World"], toChinese, edge, { fetchFn: f })).toEqual(["你好", "世界"])
+    expect(await microsoftTranslateBatch(["Hello", "World"], toChinese, edge, { fetchFn: f })).toEqual(["你好", "世界"])
     expect(fetchFn.mock.calls.map(([url]) => String(url).split("?")[0])).toEqual([MS_EDGE_TRANSLATE_URL, MS_EDGE_TRANSLATE_URL])
   })
 })
@@ -145,7 +149,7 @@ describe("DeepLX", () => {
 
   it("translates through fetch", async () => {
     const fetchFn = vi.fn(async () => jsonResponse({ code: 200, data: "你好" }))
-    expect(await deeplxTranslate("Hello", "ZH", "https://d.example/translate", "", { fetchFn: asFetch(fetchFn) })).toBe("你好")
+    expect(await deeplxTranslate("Hello", toChinese, { baseURL: "https://d.example/translate", apiKey: "" }, { fetchFn: asFetch(fetchFn) })).toBe("你好")
   })
 })
 
@@ -154,8 +158,8 @@ describe("edge cases of the free translators", () => {
 
   it("send nothing for no paragraphs", async () => {
     const fetchFn = never()
-    expect(await googleTranslateBatch([], "zh-CN", { fetchFn: asFetch(fetchFn) })).toEqual([])
-    expect(await microsoftTranslateBatch([], "zh-Hans", { fetchFn: asFetch(fetchFn) })).toEqual([])
+    expect(await googleTranslateBatch([], toChinese, google, { fetchFn: asFetch(fetchFn) })).toEqual([])
+    expect(await microsoftTranslateBatch([], toChinese, edge, { fetchFn: asFetch(fetchFn) })).toEqual([])
     expect(fetchFn).not.toHaveBeenCalled()
   })
 

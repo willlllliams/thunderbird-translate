@@ -87,26 +87,6 @@ export function joinParts(parts: readonly TextPart[], translations: readonly str
   return translations.map((text, i) => (i === parts.length - 1 ? text : text + gap(parts[i]))).join("")
 }
 
-/** Pure grouping used by the queue and by tests: split a list into batches within limits. */
-export function groupIntoBatches<T>(items: T[], size: (item: T) => number, limits: BatchLimits): T[][] {
-  const batches: T[][] = []
-  let current: T[] = []
-  let chars = 0
-  for (const item of items) {
-    const n = size(item)
-    const wouldOverflow = current.length > 0 && (chars + n > limits.maxChars || current.length >= limits.maxItems)
-    if (wouldOverflow) {
-      batches.push(current)
-      current = []
-      chars = 0
-    }
-    current.push(item)
-    chars += n
-  }
-  if (current.length > 0) batches.push(current)
-  return batches
-}
-
 export interface BatchQueueOptions<T, R> {
   delayMs: () => number
   /** Limits of the group an item joins. */

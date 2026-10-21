@@ -15,18 +15,14 @@
 
 import { LocalizedError } from "../../shared/errors"
 import { sha256Hex } from "../../shared/hash"
-import { type FetchOptions, fetchOk, type RequestSpec } from "../../shared/http"
+import { type FetchOptions, type RequestSpec } from "../../shared/http"
+import { findLanguage } from "../../shared/languages"
 import type { ResolvedProvider } from "../../shared/settings"
-import { type CodeMeaning, codeError } from "./codes"
+import { type CodeMeaning, codeError, fetchJson, type Languages, requireCredentials } from "./common"
 
 type YoudaoProvider = Pick<ResolvedProvider, "apiKey" | "appId" | "baseURL">
 
 const SERVICE = "Youdao"
-
-/** Youdao's codes where they differ from the codes of the extension; every other language keeps its code. */
-const YOUDAO_LANGS: Partial<Record<string, string>> = { "zh-CN": "zh-CHS", "zh-TW": "zh-CHT" }
-
-export const youdaoLang = (code: string) => YOUDAO_LANGS[code] ?? code
 
 const CODES: Partial<Record<string, CodeMeaning>> = {
   "108": "key",
@@ -84,11 +80,12 @@ export function parseYoudaoResponse(json: unknown, expected: number): PromiseSet
   })
 }
 
-/** Every paragraph in one request; `target` and `source` are language codes of the extension. */
-export async function youdaoTranslateBatch(texts: string[], target: string, source: string, provider: YoudaoProvider, opts: YoudaoOptions = {}): Promise<PromiseSettledResult<string>[]> {
-  if (!provider.appId) throw new LocalizedError("errAppIdRequired", [SERVICE])
-  if (!provider.apiKey) throw new LocalizedError("errApiKeyRequired", [SERVICE])
-  const from = source === "auto" ? "auto" : youdaoLang(source)
-  const spec = await buildYoudaoRequest(texts, from, youdaoLang(target), provider, opts.salt ?? crypto.randomUUID(), opts.curtime ?? Math.floor(Date.now() / 1000))
-  return parseYoudaoResponse(await (await fetchOk(opts, spec, SERVICE)).json(), texts.length)
+/** Every paragraph in one request. */
+export async function youdaoTranslateBatch(texts: string[], { source, target }: Languages, provider: YoudaoProvider, opts: YoudaoOptions = {}): Promise<PromiseSettledResult<string>[]> {
+  requireCredentials(SERVICE, provider, true)
+  const to = findLanguage(target)?.youdao
+  const from = source === "auto" ? "auto" : findLanguage(source)?.youdao
+  if (!to || !from) throw new LocalizedError("errUnsupportedPair", [SERVICE])
+  const spec = await buildYoudaoRequest(texts, from, to, provider, opts.salt ?? crypto.randomUUID(), opts.curtime ?? Math.floor(Date.now() / 1000))
+  return parseYoudaoResponse(await fetchJson(opts, spec, SERVICE), texts.length)
 }

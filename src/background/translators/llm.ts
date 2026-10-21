@@ -7,9 +7,9 @@ import { getPreset } from "../../shared/providers"
 import type { ResolvedProvider } from "../../shared/settings"
 import { createLanguageModel } from "../providers/factory"
 import { modelRejectsTemperature, thinkingOptions } from "../../shared/thinking"
+import { BatchParseError } from "./common"
 import {
   ANALYSIS_SYSTEM_PROMPT,
-  BatchParseError,
   buildAnalysisPrompt,
   buildBatchPrompt,
   buildSinglePrompt,

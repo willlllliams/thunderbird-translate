@@ -10,15 +10,24 @@
  */
 
 import { LocalizedError } from "../../shared/errors"
-import { type FetchOptions, fetchOk, type RequestSpec } from "../../shared/http"
-import { BatchParseError } from "./llm-prompt"
+import { type FetchOptions, type RequestSpec } from "../../shared/http"
+import { findLanguage } from "../../shared/languages"
+import type { ResolvedProvider } from "../../shared/settings"
+import { BatchParseError, fetchJson, type Languages, readTranslations } from "./common"
 
 const DEFAULT_BASE = "https://translate.googleapis.com"
 
-interface GoogleOptions extends FetchOptions {
+interface GoogleOptions {
   baseURL?: string
   /** Source language code; absent = "auto". */
   source?: string
+}
+
+/** Google's codes of a request: "auto" for automatic detection. */
+function googleCodes({ source, target }: Languages): { sl: string; tl: string } {
+  const tl = findLanguage(target)?.google
+  if (!tl) throw new LocalizedError("errUnsupportedPair", ["Google"])
+  return { sl: source === "auto" ? "auto" : (findLanguage(source)?.google ?? "auto"), tl }
 }
 
 function formPost(baseURL: string, path: string, params: Record<string, string>, body: string): RequestSpec {
@@ -40,17 +49,7 @@ export function buildGoogleBatchRequest(texts: string[], targetLang: string, { b
  * - some single-q cases: "译文"
  */
 export function parseGoogleBatchResponse(json: unknown, expected: number): string[] {
-  const list = typeof json === "string" ? [json] : json
-  if (!Array.isArray(list)) throw new LocalizedError("errUnexpectedResponse", ["Google"])
-  const out = list.map((entry, i) => {
-    if (typeof entry === "string") return entry
-    if (Array.isArray(entry) && typeof entry[0] === "string") return entry[0]
-    throw new LocalizedError("errMissingTranslation", ["Google", String(i + 1)])
-  })
-  if (out.length !== expected) {
-    throw new LocalizedError("errResultCount", ["Google", String(expected), String(out.length)])
-  }
-  return out
+  return readTranslations("Google", typeof json === "string" ? [json] : json, expected, (entry) => (Array.isArray(entry) ? entry[0] : entry))
 }
 
 function buildGoogleSingleRequest(text: string, targetLang: string, { baseURL = DEFAULT_BASE, source = "auto" }: GoogleOptions): RequestSpec {
@@ -66,11 +65,13 @@ export function parseGoogleSingleResponse(json: unknown): string {
     .join("")
 }
 
+type GoogleProvider = Pick<ResolvedProvider, "baseURL">
+
 /** One request for all texts. Throws BatchParseError when the answer has an unexpected shape. */
-export async function googleTranslateBatch(texts: string[], targetLang: string, opts: GoogleOptions = {}): Promise<string[]> {
+export async function googleTranslateBatch(texts: string[], languages: Languages, provider: GoogleProvider, opts: FetchOptions = {}): Promise<string[]> {
   if (texts.length === 0) return []
-  const resp = await fetchOk(opts, buildGoogleBatchRequest(texts, targetLang, opts), "Google")
-  const json = await resp.json()
+  const { sl, tl } = googleCodes(languages)
+  const json = await fetchJson(opts, buildGoogleBatchRequest(texts, tl, { baseURL: provider.baseURL, source: sl }), "Google")
   try {
     return parseGoogleBatchResponse(json, texts.length)
   } catch (error) {
@@ -78,7 +79,7 @@ export async function googleTranslateBatch(texts: string[], targetLang: string, 
   }
 }
 
-export async function googleTranslateSingle(text: string, targetLang: string, opts: GoogleOptions): Promise<string> {
-  const resp = await fetchOk(opts, buildGoogleSingleRequest(text, targetLang, opts), "Google")
-  return parseGoogleSingleResponse(await resp.json())
+export async function googleTranslateSingle(text: string, languages: Languages, provider: GoogleProvider, opts: FetchOptions = {}): Promise<string> {
+  const { sl, tl } = googleCodes(languages)
+  return parseGoogleSingleResponse(await fetchJson(opts, buildGoogleSingleRequest(text, tl, { baseURL: provider.baseURL, source: sl }), "Google"))
 }

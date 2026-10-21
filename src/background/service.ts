@@ -30,27 +30,28 @@ import { patternHost, providerOrigin, requestUrl } from "../shared/hosts"
 import { hashText } from "../shared/hash"
 import { ENGLISH, type I18n } from "../shared/i18n"
 import { detectSourceLanguage, type LanguageDetector } from "../shared/lang-detect"
-import { appLang, getLanguage, languageTag } from "../shared/languages"
+import { appLang, findLanguage, getLanguage, languageTag } from "../shared/languages"
 import type { MailContext } from "../shared/mail-context"
 import type { TranslateRequest, TranslateResponse } from "../shared/messages"
 import { promptText } from "../shared/prompts"
 import { reasons } from "../shared/thinking"
 import { getPreset, providerDisplayName, type Tier, TIERS } from "../shared/providers"
-import { hasConsent, isOnlineService, type ProviderConfig, type ResolvedProvider, resolveProvider, resolveProviderConfig, resultInputs, type Settings, summaryProvider } from "../shared/settings"
+import { hasConsent, isOnlineService, type ProviderConfig, type ResolvedProvider, resolveProvider, resolveProviderConfig, resultInputs, type Settings } from "../shared/settings"
 import type { SummaryResponse } from "../shared/summary"
 import { cacheKey, LruCache, type PersistentCache } from "./cache"
 import { Dictionary } from "../offline/dictionary"
 import { type BatchLimits, BatchQueue, joinParts, splitText } from "./queue/batch-queue"
 import { RequestQueue } from "./queue/request-queue"
-import { buildSummaryPrompt, buildSummarySystem, type MailHeader, parseSummary } from "./summary"
-import { BAIDU_LANGS, BAIDU_LIMITS, baiduTranslateBatch, baiduTranslateSingle } from "./translators/baidu"
+import { buildSummaryPrompt, type MailHeader, parseSummary, summaryInputs } from "./summary"
+import { BAIDU_LIMITS, baiduTranslateBatch, baiduTranslateSingle } from "./translators/baidu"
 import { bergamotTranslateBatch } from "./translators/bergamot"
 import { caiyunTranslateBatch } from "./translators/caiyun"
 import { deeplTranslateBatch, deeplUsage } from "./translators/deepl"
 import { deeplxTranslate } from "./translators/deeplx"
 import { googleTranslateBatch, googleTranslateSingle } from "./translators/google"
 import type { ImageAnswer, ImageInput, LlmCallOptions } from "./translators/llm"
-import { BatchParseError, buildContextBlock, type MailAnalysis, MAX_PREFIX_TEXT_CHARS, parseAnalysis, type Segment } from "./translators/llm-prompt"
+import { BatchParseError } from "./translators/common"
+import { buildContextBlock, type MailAnalysis, MAX_PREFIX_TEXT_CHARS, parseAnalysis, type Segment } from "./translators/llm-prompt"
 import { AZURE_LIMITS, microsoftTranslateBatch } from "./translators/microsoft"
 import { youdaoTranslateBatch } from "./translators/youdao"
 
@@ -176,11 +177,6 @@ export function errorContext(provider: ResolvedProvider): ErrorContext {
   }
 }
 
-/** Key mode of Microsoft Translator: what the Azure request needs. */
-function azureConfig({ mode, apiKey, region, baseURL }: ResolvedProvider) {
-  return mode === "key" ? { apiKey, region, endpoint: baseURL } : undefined
-}
-
 export class TranslationService {
   /** One request queue per provider: its concurrency limit and retries apply to that provider only. */
   private readonly queues = new Map<string, RequestQueue>()
@@ -294,7 +290,7 @@ export class TranslationService {
   private async baiduGroup(text: string): Promise<string> {
     const detected = await detectSourceLanguage(text, this.deps.detect).catch(() => null)
     const lang = detected ? appLang(languageTag(detected)) : ""
-    return BAIDU_LANGS[lang] ? lang : "?"
+    return findLanguage(lang)?.baidu ? lang : "?"
   }
 
   /** Throws errEndpointInvalid for an endpoint that is no http(s) URL, errHostPermission when the extension may not connect to it. */
@@ -444,19 +440,16 @@ export class TranslationService {
   async summarize(text: string, header: MailHeader | null, fresh = false): Promise<SummaryResponse> {
     const settings = this.deps.getSettings()
     const i18n = this.deps.i18n?.() ?? ENGLISH
-    const id = summaryProvider(settings)
-    if (!id) return { ok: false, error: i18n.t("errSummaryService") }
+    const inputs = summaryInputs(settings)
+    if (!inputs) return { ok: false, error: i18n.t("errSummaryService") }
+    const { id, provider, systemPrompt, targetLanguageName } = inputs
     const service = providerDisplayName(getPreset(id)!, i18n)
-    const configured = resolveProvider(settings, id)
-    const provider = { ...configured, model: settings.summary.model || configured.model }
     try {
       this.assertConsent(id)
       await this.checkOrigin(provider)
       const { parts, maxOutputTokens } = settings.summary
-      const targetLanguageName = getLanguage(settings.targetLang).english
-      const systemPrompt = buildSummarySystem(promptText(settings.prompts, "summary"), targetLanguageName, parts)
       const prompt = buildSummaryPrompt(text, header, (await this.preciseAnalysis(text, settings))?.glossary)
-      const variant = hashText([provider.baseURL, systemPrompt, maxOutputTokens, provider.temperature, provider.thinking].join("\n"))
+      const variant = hashText(inputs.parts.join("\n"))
       const key = cacheKey(`summary:${id}`, provider.model, `auto>${settings.targetLang}`, prompt, variant)
       const cached = fresh ? undefined : await this.deps.cache.get(key)
       // The setting is the length of the summary: a model that reasons first gets room for that as well, except with
@@ -584,8 +577,6 @@ export class TranslationService {
           return task()
         }),
     }
-    const lang = getLanguage(first.targetLang)
-    const source = first.sourceLang === "auto" ? undefined : getLanguage(first.sourceLang)
     const texts = jobs.map((j) => j.text)
     const fetchOpts = { fetchFn: this.deps.fetchFn, timeoutMs: this.timeoutMs(first.provider) }
 
@@ -610,36 +601,28 @@ export class TranslationService {
       return each(single)
     }
 
+    // Each translator takes the languages of the extension and the provider, and makes its own codes.
+    const languages = { source: first.sourceLang, target: first.targetLang }
+    const p = first.provider
     switch (preset.kind) {
       case "dictionary":
-        return settled(() => this.dictionary.translate(texts, first.sourceLang, first.targetLang))
+        return settled(() => this.dictionary.translate(texts, languages.source, languages.target))
       case "bergamot":
-        return settled(() => bergamotTranslateBatch(texts, first.sourceLang, first.targetLang, this.deps.detect))
-      case "google": {
-        const opts = { ...fetchOpts, baseURL: first.provider.baseURL, source: source?.google }
-        return batchOrEach(
-          () => googleTranslateBatch(texts, lang.google, opts),
-          (job) => googleTranslateSingle(job.text, lang.google, opts),
-        )
-      }
+        return settled(() => bergamotTranslateBatch(texts, languages.source, languages.target, this.deps.detect))
+      case "google":
+        return batchOrEach(() => googleTranslateBatch(texts, languages, p, fetchOpts), (job) => googleTranslateSingle(job.text, languages, p, fetchOpts))
       case "microsoft":
-        return all(() => microsoftTranslateBatch(texts, lang.microsoft, { ...fetchOpts, azure: azureConfig(first.provider), from: source?.microsoft }))
-      case "deeplx": {
-        // DeepL source codes have no variants: "ZH", not "ZH-HANT".
-        const deeplSource = source?.deepl.split("-")[0]
-        return each((job) => deeplxTranslate(job.text, lang.deepl, job.provider.baseURL, job.provider.apiKey, { ...fetchOpts, source: deeplSource }))
-      }
+        return all(() => microsoftTranslateBatch(texts, languages, p, fetchOpts))
+      case "deeplx":
+        return each((job) => deeplxTranslate(job.text, languages, p, fetchOpts))
       case "deepl":
-        return all(() => deeplTranslateBatch(texts, first.targetLang, first.sourceLang, first.provider, fetchOpts))
+        return all(() => deeplTranslateBatch(texts, languages, p, fetchOpts))
       case "baidu":
-        return batchOrEach(
-          () => baiduTranslateBatch(texts, first.targetLang, first.sourceLang, first.provider, fetchOpts),
-          (job) => baiduTranslateSingle(job.text, first.targetLang, first.sourceLang, first.provider, fetchOpts),
-        )
+        return batchOrEach(() => baiduTranslateBatch(texts, languages, p, fetchOpts), (job) => baiduTranslateSingle(job.text, languages, p, fetchOpts))
       case "youdao":
-        return settled(() => youdaoTranslateBatch(texts, first.targetLang, first.sourceLang, first.provider, fetchOpts))
+        return settled(() => youdaoTranslateBatch(texts, languages, p, fetchOpts))
       case "caiyun":
-        return all(() => caiyunTranslateBatch(texts, first.targetLang, first.sourceLang, first.provider, fetchOpts))
+        return all(() => caiyunTranslateBatch(texts, languages, p, fetchOpts))
       case "llm": {
         const opts = this.llmOptions(first)
         if (first.mail) opts.contextPrefix = await this.contextPrefix(first)

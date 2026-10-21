@@ -1,32 +1,9 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
-import { BatchQueue, groupIntoBatches, joinParts, splitText } from "../src/background/queue/batch-queue"
+import { BatchQueue, joinParts, splitText } from "../src/background/queue/batch-queue"
 import { backoffDelay, isRetryableError, RequestQueue } from "../src/background/queue/request-queue"
 import { NetworkError } from "../src/shared/errors"
 import { HttpError } from "../src/shared/http"
 import { useFakeTimers } from "./helpers"
-
-describe("groupIntoBatches", () => {
-  const size = (s: string) => s.length
-
-  it("respects maxItems", () => {
-    const items = ["a", "b", "c", "d", "e"]
-    expect(groupIntoBatches(items, size, { maxItems: 2, maxChars: 100 })).toEqual([["a", "b"], ["c", "d"], ["e"]])
-  })
-
-  it("respects maxChars and keeps order", () => {
-    const items = ["aaaa", "bbbb", "cc", "dddddd", "e"]
-    expect(groupIntoBatches(items, size, { maxItems: 10, maxChars: 8 })).toEqual([["aaaa", "bbbb"], ["cc", "dddddd"], ["e"]])
-  })
-
-  it("sends an oversized item alone", () => {
-    const items = ["aa", "x".repeat(50), "bb"]
-    expect(groupIntoBatches(items, size, { maxItems: 10, maxChars: 10 })).toEqual([["aa"], ["x".repeat(50)], ["bb"]])
-  })
-
-  it("returns nothing for no input", () => {
-    expect(groupIntoBatches([], size, { maxItems: 3, maxChars: 3 })).toEqual([])
-  })
-})
 
 describe("BatchQueue", () => {
   beforeEach(() => useFakeTimers())

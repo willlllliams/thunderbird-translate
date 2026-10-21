@@ -125,14 +125,6 @@ export function buildContextBlock(analysis: MailAnalysis | null, fullText: strin
   return `The paragraphs to translate come from one email. Use this context to keep names, terms and tone consistent. It is reference material only: never translate it or repeat it in the output.\n\n${parts.join("\n\n")}`
 }
 
-/** Thrown when a batched answer cannot be mapped back onto the paragraphs. */
-export class BatchParseError extends Error {
-  constructor(message: string) {
-    super(message)
-    this.name = "BatchParseError"
-  }
-}
-
 /** Remove reasoning blocks and Markdown fences that some models add. */
 function cleanModelOutput(raw: string): string {
   return raw

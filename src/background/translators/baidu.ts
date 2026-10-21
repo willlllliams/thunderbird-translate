@@ -12,50 +12,23 @@
  * answer does not have one line per paragraph with its marks, the batch is
  * asked again one paragraph per request. The standard edition takes one
  * request per second and 1000 characters per request; the other editions
- * take more (service.ts). The four languages of BAIDU_PREMIUM_ONLY need the
- * premium edition. The answer has one "from" for the whole of q, so with
+ * take more (service.ts). The four languages outside Baidu's 28 common ones
+ * (LanguageInfo.baiduPremiumOnly) need the premium edition. The answer has one "from" for the whole of q, so with
  * source language "auto" service.ts puts the paragraphs of each language it
  * detects in batches of their own.
  */
 
 import { LocalizedError } from "../../shared/errors"
-import { type FetchOptions, fetchOk, type RequestSpec } from "../../shared/http"
+import { type FetchOptions, type RequestSpec } from "../../shared/http"
+import { findLanguage } from "../../shared/languages"
 import { md5 } from "../../shared/md5"
 import type { BaiduEdition, ResolvedProvider } from "../../shared/settings"
 import type { BatchLimits } from "../queue/batch-queue"
-import { type CodeMeaning, codeError } from "./codes"
-import { BatchParseError } from "./llm-prompt"
+import { BatchParseError, type CodeMeaning, codeError, fetchJson, type Languages, requireCredentials } from "./common"
 
 type BaiduProvider = Pick<ResolvedProvider, "apiKey" | "appId" | "baseURL" | "edition">
 
 const SERVICE = "Baidu"
-
-/** Baidu's codes of the languages of the extension. */
-export const BAIDU_LANGS: Record<string, string> = {
-  "zh-CN": "zh",
-  "zh-TW": "cht",
-  en: "en",
-  ja: "jp",
-  ko: "kor",
-  fr: "fra",
-  de: "de",
-  es: "spa",
-  pt: "pt",
-  it: "it",
-  ru: "ru",
-  uk: "ukr",
-  pl: "pl",
-  nl: "nl",
-  tr: "tr",
-  vi: "vie",
-  th: "th",
-  id: "id",
-  ar: "ara",
-  hi: "hi",
-}
-
-/** Languages outside Baidu's 28 common ones: only the premium edition translates them, the others answer 58001. */
-export const BAIDU_PREMIUM_ONLY: readonly string[] = ["uk", "tr", "id", "hi"]
 
 const CODES: Partial<Record<string, CodeMeaning>> = {
   "52001": "retry",
@@ -82,7 +55,7 @@ export const BAIDU_LIMITS: Record<BaiduEdition, BatchLimits & { intervalMs: numb
 }
 
 /** Stands for a line break inside a paragraph, since a line break of q separates the paragraphs. */
-export const BAIDU_NEWLINE = "⁂"
+const BAIDU_NEWLINE = "⁂"
 
 export function buildBaiduRequest(q: string, from: string, to: string, provider: BaiduProvider, salt: string): RequestSpec {
   const sign = md5(provider.appId + q + salt + provider.apiKey)
@@ -109,23 +82,22 @@ export interface BaiduOptions extends FetchOptions {
   salt?: string
 }
 
-/** The lines of q translated; `target` and `source` are language codes of the extension. */
-async function translateLines(q: string, target: string, source: string, provider: BaiduProvider, opts: BaiduOptions): Promise<string[]> {
-  if (!provider.appId) throw new LocalizedError("errAppIdRequired", [SERVICE])
-  if (!provider.apiKey) throw new LocalizedError("errApiKeyRequired", [SERVICE])
-  const to = BAIDU_LANGS[target]
-  const from = source === "auto" ? "auto" : BAIDU_LANGS[source]
-  const premiumOnly = provider.edition !== "premium" && [source, target].some((code) => BAIDU_PREMIUM_ONLY.includes(code))
-  if (!to || !from || premiumOnly) throw new LocalizedError("errUnsupportedPair", [SERVICE])
-  const spec = buildBaiduRequest(q, from, to, provider, opts.salt ?? crypto.randomUUID().replaceAll("-", ""))
-  return parseBaiduResponse(await (await fetchOk(opts, spec, SERVICE)).json())
+/** The lines of q translated. */
+async function translateLines(q: string, { source, target }: Languages, provider: BaiduProvider, opts: BaiduOptions): Promise<string[]> {
+  requireCredentials(SERVICE, provider, true)
+  const to = findLanguage(target)
+  const from = source === "auto" ? { baidu: "auto" } : findLanguage(source)
+  const premiumOnly = provider.edition !== "premium" && [to, from].some((language) => language !== undefined && "baiduPremiumOnly" in language)
+  if (!to?.baidu || !from?.baidu || premiumOnly) throw new LocalizedError("errUnsupportedPair", [SERVICE])
+  const spec = buildBaiduRequest(q, from.baidu, to.baidu, provider, opts.salt ?? crypto.randomUUID().replaceAll("-", ""))
+  return parseBaiduResponse(await fetchJson(opts, spec, SERVICE))
 }
 
 /** Every paragraph in one request; BatchParseError when the answer does not line up. */
-export async function baiduTranslateBatch(texts: string[], target: string, source: string, provider: BaiduProvider, opts: BaiduOptions = {}): Promise<string[]> {
+export async function baiduTranslateBatch(texts: string[], languages: Languages, provider: BaiduProvider, opts: BaiduOptions = {}): Promise<string[]> {
   const marks = (text: string) => text.split(BAIDU_NEWLINE).length
   const sent = texts.map((text) => text.replace(/\r?\n/g, BAIDU_NEWLINE))
-  const lines = await translateLines(sent.join("\n"), target, source, provider, opts)
+  const lines = await translateLines(sent.join("\n"), languages, provider, opts)
   if (lines.length !== texts.length || lines.some((line, i) => marks(line) !== marks(sent[i]))) {
     throw new BatchParseError(`${SERVICE}: ${lines.length} lines for ${texts.length} paragraphs`)
   }
@@ -133,6 +105,6 @@ export async function baiduTranslateBatch(texts: string[], target: string, sourc
 }
 
 /** One paragraph; its lines are translated as lines. */
-export async function baiduTranslateSingle(text: string, target: string, source: string, provider: BaiduProvider, opts: BaiduOptions = {}): Promise<string> {
-  return (await translateLines(text, target, source, provider, opts)).join("\n")
+export async function baiduTranslateSingle(text: string, languages: Languages, provider: BaiduProvider, opts: BaiduOptions = {}): Promise<string> {
+  return (await translateLines(text, languages, provider, opts)).join("\n")
 }

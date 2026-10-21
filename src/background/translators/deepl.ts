@@ -16,32 +16,29 @@
  */
 
 import { LocalizedError } from "../../shared/errors"
-import { type FetchOptions, fetchOk, type RequestSpec } from "../../shared/http"
-import { getLanguage } from "../../shared/languages"
+import { type FetchOptions, type RequestSpec } from "../../shared/http"
+import { findLanguage } from "../../shared/languages"
 import type { DeeplOptions, ResolvedProvider } from "../../shared/settings"
-import { httpCodeError } from "./codes"
+import { fetchJson, httpCodeError, type Languages, readTranslations, requireCredentials } from "./common"
 
 type DeeplProvider = Pick<ResolvedProvider, "apiKey" | "baseURL" | "deepl">
 
 const SERVICE = "DeepL"
 
-/** Target languages whose DeepL code differs from the one of DeepLX in LanguageInfo.deepl. */
-const TARGETS: Partial<Record<string, string>> = { "zh-CN": "ZH-HANS", "zh-TW": "ZH-HANT" }
-
-/** The DeepL code of a target language; English and Portuguese in the variant of the options. */
-export function deeplTarget(code: string, options: DeeplOptions): string {
+/** The DeepL code of a target language; English and Portuguese in the variant of the options; undefined for a code the extension does not offer. */
+export function deeplTarget(code: string, options: DeeplOptions): string | undefined {
   if (code === "en") return options.english
   if (code === "pt") return options.portuguese
-  return TARGETS[code] ?? getLanguage(code).deepl
+  return findLanguage(code)?.deeplTarget
 }
 
 /** The DeepL code of a source language, which has no variants ("ZH", not "ZH-HANT"); undefined for "auto". */
 export function deeplSource(code: string): string | undefined {
-  return code === "auto" ? undefined : getLanguage(code).deepl.split("-")[0]
+  return code === "auto" ? undefined : findLanguage(code)?.deepl.split("-")[0]
 }
 
 function authorized(provider: DeeplProvider): Record<string, string> {
-  if (!provider.apiKey) throw new LocalizedError("errApiKeyRequired", [SERVICE])
+  requireCredentials(SERVICE, provider)
   return { Authorization: `DeepL-Auth-Key ${provider.apiKey}` }
 }
 
@@ -61,27 +58,23 @@ export function buildDeeplRequest(texts: string[], target: string, provider: Dee
 }
 
 export function parseDeeplResponse(json: unknown, expected: number): string[] {
-  const list = (json as { translations?: { text?: unknown }[] } | null)?.translations
-  if (!Array.isArray(list)) throw new LocalizedError("errUnexpectedResponse", [SERVICE])
-  if (list.length !== expected) throw new LocalizedError("errResultCount", [SERVICE, String(expected), String(list.length)])
-  return list.map((item, i) => {
-    if (typeof item?.text !== "string") throw new LocalizedError("errMissingTranslation", [SERVICE, String(i + 1)])
-    return item.text
-  })
+  return readTranslations(SERVICE, (json as { translations?: unknown } | null)?.translations, expected, (item) => (item as { text?: unknown } | null)?.text)
 }
 
 /** fetchOk() with a refused key and a used-up quota told apart. */
 async function request(spec: RequestSpec, opts: FetchOptions): Promise<unknown> {
   try {
-    return await (await fetchOk(opts, spec, SERVICE)).json()
+    return await fetchJson(opts, spec, SERVICE)
   } catch (error) {
     throw httpCodeError(error, SERVICE, { 403: "key", 456: "quota" })
   }
 }
 
-/** One request for every paragraph; `target` and `source` are language codes of the extension. */
-export async function deeplTranslateBatch(texts: string[], target: string, source: string, provider: DeeplProvider, opts: FetchOptions = {}): Promise<string[]> {
-  const spec = buildDeeplRequest(texts, deeplTarget(target, provider.deepl), provider, deeplSource(source))
+/** One request for every paragraph. */
+export async function deeplTranslateBatch(texts: string[], { source, target }: Languages, provider: DeeplProvider, opts: FetchOptions = {}): Promise<string[]> {
+  const to = deeplTarget(target, provider.deepl)
+  if (!to) throw new LocalizedError("errUnsupportedPair", [SERVICE])
+  const spec = buildDeeplRequest(texts, to, provider, deeplSource(source))
   return parseDeeplResponse(await request(spec, opts), texts.length)
 }
 

@@ -177,7 +177,7 @@ describe("describeError: other errors", () => {
 
   it("describes HTTP errors of the free translators like API errors", async () => {
     const fetchFn = vi.fn(async () => new Response("<html><body>blocked</body></html>", { status: 403 }))
-    const error = await googleTranslateBatch(["a"], "zh-CN", { fetchFn: asFetch(fetchFn) }).catch((e: unknown) => e)
+    const error = await googleTranslateBatch(["a"], { source: "auto", target: "zh-CN" }, { baseURL: "https://translate.googleapis.com" }, { fetchFn: asFetch(fetchFn) }).catch((e: unknown) => e)
     expect(error).toBeInstanceOf(HttpError)
     const text = describeError(error, ENGLISH, { service: "Google Translate", kind: "google" })
     expect(text).toContain("HTTP 403 Forbidden")
@@ -189,7 +189,7 @@ describe("describeError: other errors", () => {
     const fetchFn = vi.fn(async () => {
       throw new TypeError("NetworkError when attempting to fetch resource.")
     })
-    const error = await googleTranslateBatch(["a"], "zh-CN", { fetchFn: asFetch(fetchFn) }).catch((e: unknown) => e)
+    const error = await googleTranslateBatch(["a"], { source: "auto", target: "zh-CN" }, { baseURL: "https://translate.googleapis.com" }, { fetchFn: asFetch(fetchFn) }).catch((e: unknown) => e)
     expect(error).toBeInstanceOf(NetworkError)
     expect(describeError(error, ENGLISH, { service: "Google Translate", kind: "google" })).toContain("translate.googleapis.com")
   })

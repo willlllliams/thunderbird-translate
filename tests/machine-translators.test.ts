@@ -6,16 +6,15 @@
 import { createHash } from "node:crypto"
 import { describe, expect, it, vi } from "vitest"
 import { isRetryableError } from "../src/background/queue/request-queue"
-import { BAIDU_LANGS, BAIDU_LIMITS, BAIDU_PREMIUM_ONLY, baiduTranslateBatch, baiduTranslateSingle, buildBaiduRequest, parseBaiduResponse } from "../src/background/translators/baidu"
+import { BAIDU_LIMITS, baiduTranslateBatch, baiduTranslateSingle, buildBaiduRequest, parseBaiduResponse } from "../src/background/translators/baidu"
 import { buildCaiyunRequest, caiyunDirection, caiyunTranslateBatch, parseCaiyunResponse } from "../src/background/translators/caiyun"
-import { codeError, httpCodeError } from "../src/background/translators/codes"
+import { BatchParseError, codeError, httpCodeError } from "../src/background/translators/common"
 import { buildDeeplRequest, deeplSource, deeplTarget, deeplTranslateBatch, deeplUsage, parseDeeplResponse } from "../src/background/translators/deepl"
-import { BatchParseError } from "../src/background/translators/llm-prompt"
-import { buildYoudaoRequest, parseYoudaoResponse, youdaoInput, youdaoLang, youdaoTranslateBatch } from "../src/background/translators/youdao"
+import { buildYoudaoRequest, parseYoudaoResponse, youdaoInput, youdaoTranslateBatch } from "../src/background/translators/youdao"
 import { describeError, LocalizedError } from "../src/shared/errors"
 import { HttpError } from "../src/shared/http"
 import { ENGLISH } from "../src/shared/i18n"
-import { LANGUAGES } from "../src/shared/languages"
+import { getLanguage, LANGUAGES } from "../src/shared/languages"
 import { md5 } from "../src/shared/md5"
 import { getPreset } from "../src/shared/providers"
 import { addedByDefault, type BaiduEdition, createDefaultSettings, DEEPL_FREE_URL, DEFAULT_DEEPL, emptyProviderConfig, normalizeSettings, resolveProviderConfig, resultInputs, toPublicSettings } from "../src/shared/settings"
@@ -60,24 +59,25 @@ describe("Baidu Translate", () => {
   })
 
   it("has a code for every language of the extension; four need the premium edition", () => {
-    expect(LANGUAGES.map((l) => l.code).filter((code) => !BAIDU_LANGS[code])).toEqual([])
-    expect([BAIDU_LANGS["zh-TW"], BAIDU_LANGS.ja, BAIDU_LANGS.ko, BAIDU_LANGS.fr, BAIDU_LANGS.es, BAIDU_LANGS.vi, BAIDU_LANGS.ar, BAIDU_LANGS.uk]).toEqual(["cht", "jp", "kor", "fra", "spa", "vie", "ara", "ukr"])
-    expect(BAIDU_PREMIUM_ONLY).toEqual(["uk", "tr", "id", "hi"])
+    const baidu = (code: string) => getLanguage(code).baidu
+    expect(LANGUAGES.map((l) => l.code).filter((code) => !baidu(code))).toEqual([])
+    expect(["zh-TW", "ja", "ko", "fr", "es", "vi", "ar", "uk"].map(baidu)).toEqual(["cht", "jp", "kor", "fra", "spa", "vie", "ara", "ukr"])
+    expect(LANGUAGES.filter((l) => l.baiduPremiumOnly).map((l) => l.code)).toEqual(["uk", "tr", "id", "hi"])
   })
 
   it("sends the paragraphs as the lines of one q, a line break inside a paragraph as ⁂", async () => {
     const fetchFn = stub((_url, init) => ({ trans_result: form(init.body).get("q")!.split("\n").map((line) => ({ src: line, dst: `T:${line}` })) }))
-    expect(await baiduTranslateBatch(["One", "Two\nlines"], "zh-CN", "en", provider, { fetchFn: asFetch(fetchFn), salt: "1" })).toEqual(["T:One", "T:Two\nlines"])
+    expect(await baiduTranslateBatch(["One", "Two\nlines"], { source: "en", target: "zh-CN" }, provider, { fetchFn: asFetch(fetchFn), salt: "1" })).toEqual(["T:One", "T:Two\nlines"])
     const sent = form(fetchFn.mock.calls[0][1].body)
     expect([sent.get("q"), sent.get("from"), sent.get("to"), sent.get("sign")]).toEqual(["One\nTwo⁂lines", "en", "zh", md5(`${provider.appId}One\nTwo⁂lines1${provider.apiKey}`)])
   })
 
   it("gives up the batch when the answer has another number of lines or lost a ⁂", async () => {
     const lines = (dst: string[]) => asFetch(stub(() => ({ trans_result: dst.map((d) => ({ dst: d })) })))
-    await expect(baiduTranslateBatch(["a", "b"], "zh-CN", "auto", provider, { fetchFn: lines(["A"]) })).rejects.toBeInstanceOf(BatchParseError)
-    await expect(baiduTranslateBatch(["a\nb"], "zh-CN", "auto", provider, { fetchFn: lines(["A B"]) })).rejects.toBeInstanceOf(BatchParseError)
+    await expect(baiduTranslateBatch(["a", "b"], { source: "auto", target: "zh-CN" }, provider, { fetchFn: lines(["A"]) })).rejects.toBeInstanceOf(BatchParseError)
+    await expect(baiduTranslateBatch(["a\nb"], { source: "auto", target: "zh-CN" }, provider, { fetchFn: lines(["A B"]) })).rejects.toBeInstanceOf(BatchParseError)
     // One paragraph alone keeps its line breaks as lines.
-    expect(await baiduTranslateSingle("a\nb", "zh-CN", "auto", provider, { fetchFn: lines(["A", "B"]) })).toBe("A\nB")
+    expect(await baiduTranslateSingle("a\nb", { source: "auto", target: "zh-CN" }, provider, { fetchFn: lines(["A", "B"]) })).toBe("A\nB")
   })
 
   it("names the meaning of its error codes, and tries the passing ones again", () => {
@@ -106,7 +106,7 @@ describe("Baidu Translate", () => {
 
   it("needs app ID and key, and sends nothing for a language the edition lacks", async () => {
     const fetchFn = vi.fn()
-    const run = (over: Partial<typeof provider>, target = "zh-CN", source = "en") => fails(baiduTranslateBatch(["a"], target, source, { ...provider, ...over }, { fetchFn: asFetch(fetchFn) }))
+    const run = (over: Partial<typeof provider>, target = "zh-CN", source = "en") => fails(baiduTranslateBatch(["a"], { source, target }, { ...provider, ...over }, { fetchFn: asFetch(fetchFn) }))
     expect(await run({ appId: "" })).toBe(ENGLISH.t("errAppIdRequired", ["Baidu"]))
     expect(await run({ apiKey: "" })).toBe(ENGLISH.t("errApiKeyRequired", ["Baidu"]))
     expect(await run({}, "uk")).toBe(ENGLISH.t("errUnsupportedPair", ["Baidu"]))
@@ -114,7 +114,7 @@ describe("Baidu Translate", () => {
     expect(await run({}, "xx")).toBe(ENGLISH.t("errUnsupportedPair", ["Baidu"]))
     expect(fetchFn).not.toHaveBeenCalled()
     const premium = stub(() => ({ trans_result: [{ dst: "Так" }] }))
-    expect(await baiduTranslateBatch(["Yes"], "uk", "auto", { ...provider, edition: "premium" }, { fetchFn: asFetch(premium) })).toEqual(["Так"])
+    expect(await baiduTranslateBatch(["Yes"], { source: "auto", target: "uk" }, { ...provider, edition: "premium" }, { fetchFn: asFetch(premium) })).toEqual(["Так"])
     expect(form(premium.mock.calls[0][1].body).get("from")).toBe("auto")
   })
 
@@ -193,14 +193,14 @@ describe("Youdao", () => {
   })
 
   it("maps the languages: Chinese by script, the others by their own code, automatic detection as auto", async () => {
-    expect([youdaoLang("zh-CN"), youdaoLang("zh-TW"), youdaoLang("ja"), youdaoLang("pt")]).toEqual(["zh-CHS", "zh-CHT", "ja", "pt"])
+    expect(["zh-CN", "zh-TW", "ja", "pt"].map((code) => getLanguage(code).youdao)).toEqual(["zh-CHS", "zh-CHT", "ja", "pt"])
     const fetchFn = stub(() => ({ errorCode: "0", translateResults: [{ translation: "你好" }] }))
-    expect(await youdaoTranslateBatch(["Hi"], "zh-CN", "auto", provider, { fetchFn: asFetch(fetchFn) })).toEqual([{ status: "fulfilled", value: "你好" }])
+    expect(await youdaoTranslateBatch(["Hi"], { source: "auto", target: "zh-CN" }, provider, { fetchFn: asFetch(fetchFn) })).toEqual([{ status: "fulfilled", value: "你好" }])
     const body = form(fetchFn.mock.calls[0][1].body)
     expect([body.get("from"), body.get("to")]).toEqual(["auto", "zh-CHS"])
     expect(body.get("salt")).toMatch(/^[0-9a-f-]{36}$/)
     expect(Number(body.get("curtime"))).toBeCloseTo(Date.now() / 1000, -2)
-    await youdaoTranslateBatch(["Hi"], "ja", "zh-TW", provider, { fetchFn: asFetch(fetchFn) })
+    await youdaoTranslateBatch(["Hi"], { source: "zh-TW", target: "ja" }, provider, { fetchFn: asFetch(fetchFn) })
     expect(form(fetchFn.mock.calls[1][1].body).get("from")).toBe("zh-CHT")
   })
 
@@ -232,8 +232,8 @@ describe("Youdao", () => {
   })
 
   it("needs app ID and secret", async () => {
-    expect(await fails(youdaoTranslateBatch(["a"], "zh-CN", "en", { ...provider, appId: "" }))).toBe(ENGLISH.t("errAppIdRequired", ["Youdao"]))
-    expect(await fails(youdaoTranslateBatch(["a"], "zh-CN", "en", { ...provider, apiKey: "" }))).toBe(ENGLISH.t("errApiKeyRequired", ["Youdao"]))
+    expect(await fails(youdaoTranslateBatch(["a"], { source: "en", target: "zh-CN" }, { ...provider, appId: "" }))).toBe(ENGLISH.t("errAppIdRequired", ["Youdao"]))
+    expect(await fails(youdaoTranslateBatch(["a"], { source: "en", target: "zh-CN" }, { ...provider, apiKey: "" }))).toBe(ENGLISH.t("errApiKeyRequired", ["Youdao"]))
   })
 
   it("gives each paragraph of a batch its own result in the translation service", async () => {
@@ -277,7 +277,7 @@ describe("DeepL API", () => {
 
   it("reads the translations in order and checks their number", async () => {
     const fetchFn = stub(() => ({ translations: [{ detected_source_language: "EN", text: "Hallo" }, { text: "Welt" }] }))
-    expect(await deeplTranslateBatch(["Hello", "World"], "de", "auto", provider, { fetchFn: asFetch(fetchFn) })).toEqual(["Hallo", "Welt"])
+    expect(await deeplTranslateBatch(["Hello", "World"], { source: "auto", target: "de" }, provider, { fetchFn: asFetch(fetchFn) })).toEqual(["Hallo", "Welt"])
     expect(JSON.parse(fetchFn.mock.calls[0][1].body as string).target_lang).toBe("DE")
     expect(() => parseDeeplResponse({ translations: [] }, 1)).toThrow(ENGLISH.t("errResultCount", ["DeepL", "1", "0"]))
     expect(() => parseDeeplResponse({ translations: [{}] }, 1)).toThrow(ENGLISH.t("errMissingTranslation", ["DeepL", "1"]))
@@ -286,10 +286,10 @@ describe("DeepL API", () => {
 
   it("tells a refused key and a used-up quota apart from other HTTP errors", async () => {
     const status = (code: number, message: string) => asFetch(vi.fn(async () => jsonResponse({ message }, code)))
-    expect(await fails(deeplTranslateBatch(["a"], "de", "auto", provider, { fetchFn: status(403, "Wrong auth") }))).toBe(`${ENGLISH.t("errKeyRejected", ["DeepL"])} - Wrong auth\n${ENGLISH.t("hintAuth")}`)
-    expect(await fails(deeplTranslateBatch(["a"], "de", "auto", provider, { fetchFn: status(456, "Quota exceeded") }))).toBe(`${ENGLISH.t("errQuotaExceeded", ["DeepL"])} - Quota exceeded`)
-    expect(await fails(deeplTranslateBatch(["a"], "de", "auto", provider, { fetchFn: asFetch(vi.fn(async () => new Response("", { status: 403 }))) }))).toBe(`${ENGLISH.t("errKeyRejected", ["DeepL"])}\n${ENGLISH.t("hintAuth")}`)
-    const busy = await deeplTranslateBatch(["a"], "de", "auto", provider, { fetchFn: status(429, "Too many requests") }).catch((error: unknown) => error)
+    expect(await fails(deeplTranslateBatch(["a"], { source: "auto", target: "de" }, provider, { fetchFn: status(403, "Wrong auth") }))).toBe(`${ENGLISH.t("errKeyRejected", ["DeepL"])} - Wrong auth\n${ENGLISH.t("hintAuth")}`)
+    expect(await fails(deeplTranslateBatch(["a"], { source: "auto", target: "de" }, provider, { fetchFn: status(456, "Quota exceeded") }))).toBe(`${ENGLISH.t("errQuotaExceeded", ["DeepL"])} - Quota exceeded`)
+    expect(await fails(deeplTranslateBatch(["a"], { source: "auto", target: "de" }, provider, { fetchFn: asFetch(vi.fn(async () => new Response("", { status: 403 }))) }))).toBe(`${ENGLISH.t("errKeyRejected", ["DeepL"])}\n${ENGLISH.t("hintAuth")}`)
+    const busy = await deeplTranslateBatch(["a"], { source: "auto", target: "de" }, provider, { fetchFn: status(429, "Too many requests") }).catch((error: unknown) => error)
     expect(busy).toBeInstanceOf(HttpError)
     expect(isRetryableError(busy)).toBe(true)
     expect(httpCodeError(new Error("x"), "DeepL", { 403: "key" })).toBeInstanceOf(Error)
@@ -362,9 +362,9 @@ describe("Caiyun", () => {
 
   it("sends nothing for a pair it does not translate, and checks the answer", async () => {
     const fetchFn = stub(() => ({ target: ["你好", "那里"] }))
-    expect(await fails(caiyunTranslateBatch(["Hallo"], "en", "de", provider, { fetchFn: asFetch(fetchFn) }))).toBe(ENGLISH.t("errUnsupportedPair", ["Caiyun"]))
+    expect(await fails(caiyunTranslateBatch(["Hallo"], { source: "de", target: "en" }, provider, { fetchFn: asFetch(fetchFn) }))).toBe(ENGLISH.t("errUnsupportedPair", ["Caiyun"]))
     expect(fetchFn).not.toHaveBeenCalled()
-    expect(await caiyunTranslateBatch(["Hi", "there"], "zh-CN", "en", provider, { fetchFn: asFetch(fetchFn) })).toEqual(["你好", "那里"])
+    expect(await caiyunTranslateBatch(["Hi", "there"], { source: "en", target: "zh-CN" }, provider, { fetchFn: asFetch(fetchFn) })).toEqual(["你好", "那里"])
     expect(JSON.parse(fetchFn.mock.calls[0][1].body as string).request_id).toMatch(/^[0-9a-f-]{36}$/)
     expect(() => parseCaiyunResponse({ rc: 1 }, 1)).toThrow(ENGLISH.t("errUnexpectedResponse", ["Caiyun"]))
     expect(() => parseCaiyunResponse({ target: ["a"] }, 2)).toThrow(ENGLISH.t("errResultCount", ["Caiyun", "2", "1"]))
