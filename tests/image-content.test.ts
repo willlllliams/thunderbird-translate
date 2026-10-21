@@ -110,7 +110,7 @@ describe("the images of a translated message", () => {
   })
 
   it("shows a cached result at once, without a button", async () => {
-    const { images, run } = mount((req) => (req.source.part === "1.2" ? { ...DONE, cached: true } : { status: "ready" }))
+    const { images, run } = mount((req) => ("part" in req.source && req.source.part === "1.2" ? { ...DONE, cached: true } : { status: "ready" }))
     images.start(run({ collapsed: true }))
     await until(() => expect(document.querySelector(".tt-image-result")).not.toBeNull())
     const result = document.querySelector<HTMLDetailsElement>(".tt-image-result")!
@@ -267,6 +267,22 @@ describe("settings changes, retranslation and stop", () => {
     // update() of a translator that never started does nothing.
     const idle = new ImageTranslator({ root: () => document.body, request, grant: vi.fn() })
     idle.update(run().settings, "zh-CN")
+  })
+
+  it("keeps an image on its way when the settings record the consent it was sent with", async () => {
+    let answer!: (r: ImageResponse) => void
+    const { images, request, run } = mount((req) => (req.action === "peek" ? { status: "ready" } : new Promise<ImageResponse>((resolve) => (answer = resolve))))
+    const need = { id: "openai", host: "api.openai.com" }
+    images.start(run({ consent: need }))
+    await until(() => expect(buttons()).toHaveLength(3))
+    buttons()[0].click()
+    await until(() => expect(document.querySelector(".tt-image-consent")).not.toBeNull())
+    document.querySelector<HTMLButtonElement>(".tt-image-consent button")!.click()
+    await until(() => expect(sent(request, "translate")).toHaveLength(1))
+    images.update(run({ consent: null }).settings, "zh-CN")
+    answer(DONE)
+    await until(() => expect(document.querySelector(".tt-image-result")).not.toBeNull())
+    expect(sent(request, "peek")).toHaveLength(3)
   })
 
   it("forgets what it showed for a retranslation and asks past the cache", async () => {

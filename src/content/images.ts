@@ -108,11 +108,16 @@ export class ImageTranslator {
     void this.peekAll(this.entries.slice(), this.round)
   }
 
-  /** New settings while the message is translated: everything is drawn again when anything of the images changed. */
+  /**
+   * New settings while the message is translated: everything is drawn again when anything of the images changed,
+   * except the consent, which the settings record after a panel of this page allowed it while images are on their way.
+   */
   update(next: PublicImageSettings, targetLang: string): void {
     const run = this.run
-    if (!run || (JSON.stringify(run.settings) === JSON.stringify(next) && run.targetLang === targetLang)) return
-    this.start({ ...run, settings: next, targetLang, fresh: false })
+    if (!run) return
+    const drawn = ({ consent: _consent, ...rest }: PublicImageSettings) => JSON.stringify(rest)
+    if (drawn(run.settings) !== drawn(next) || run.targetLang !== targetLang) return this.start({ ...run, settings: next, targetLang, fresh: false })
+    run.settings = next
   }
 
   /** The translation stopped: every added element goes, answers still on their way are dropped. */
