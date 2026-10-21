@@ -137,6 +137,23 @@ describe("Baidu Translate", () => {
     expect(service).toBeDefined()
   })
 
+  it("B2: with source language auto, sends the paragraphs of each detected language in a request of their own", async () => {
+    const settings = createDefaultSettings("en")
+    settings.providers.baidu = { ...emptyProviderConfig(), enabled: true, appId: "id", apiKey: "key", edition: "premium" }
+    const fetchFn = stub((_url, init) => ({ from: "auto", trans_result: form(init.body).get("q")!.split("\n").map((line) => ({ dst: `T(${line})` })) }))
+    const detect = vi.fn(async (text: string) => (/[ぁ-ん]/.test(text) ? "ja" : "en"))
+    const { service } = createService(settings, { fetchFn: asFetch(fetchFn), detect })
+    const texts = ["これは日本語です。", "今日はいい天気ですね。", "明日また会いましょう。", "Best regards from the English signature"]
+    expect(await Promise.all(texts.map((text) => translateOne(service, { providerId: "baidu", text })))).toEqual(texts.map((text) => `T(${text})`))
+    const sent = fetchFn.mock.calls.map(([, init]) => form(init.body))
+    expect(sent.map((body) => body.get("q")!.split("\n").length).sort()).toEqual([1, 3])
+    for (const body of sent) {
+      expect(body.get("from")).toBe("auto")
+      const lines = body.get("q")!.split("\n")
+      expect(new Set(lines.map((line) => /[ぁ-ん]/.test(line))).size).toBe(1)
+    }
+  })
+
   it("translates one paragraph per request when the batch does not line up", async () => {
     const settings = createDefaultSettings("en")
     settings.providers.baidu = { ...emptyProviderConfig(), enabled: true, appId: "id", apiKey: "key", edition: "premium" }

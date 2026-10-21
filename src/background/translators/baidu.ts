@@ -13,7 +13,9 @@
  * asked again one paragraph per request. The standard edition takes one
  * request per second and 1000 characters per request; the other editions
  * take more (service.ts). The four languages of BAIDU_PREMIUM_ONLY need the
- * premium edition.
+ * premium edition. The answer has one "from" for the whole of q, so with
+ * source language "auto" service.ts puts the paragraphs of each language it
+ * detects in batches of their own.
  */
 
 import { LocalizedError } from "../../shared/errors"

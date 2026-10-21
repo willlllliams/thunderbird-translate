@@ -29,8 +29,8 @@ import { describeError, type ErrorContext, LocalizedError, type MissingData, mis
 import { patternHost, providerOrigin } from "../shared/hosts"
 import { hashText } from "../shared/hash"
 import { ENGLISH, type I18n } from "../shared/i18n"
-import type { LanguageDetector } from "../shared/lang-detect"
-import { getLanguage } from "../shared/languages"
+import { detectSourceLanguage, type LanguageDetector } from "../shared/lang-detect"
+import { appLang, getLanguage, languageTag } from "../shared/languages"
 import type { MailContext } from "../shared/mail-context"
 import type { TranslateRequest, TranslateResponse } from "../shared/messages"
 import { promptText } from "../shared/prompts"
@@ -42,7 +42,7 @@ import { Dictionary } from "../offline/dictionary"
 import { type BatchLimits, BatchQueue, joinParts, splitText } from "./queue/batch-queue"
 import { RequestQueue } from "./queue/request-queue"
 import { buildSummaryPrompt, buildSummarySystem, type MailHeader, parseSummary } from "./summary"
-import { BAIDU_LIMITS, baiduTranslateBatch, baiduTranslateSingle } from "./translators/baidu"
+import { BAIDU_LANGS, BAIDU_LIMITS, baiduTranslateBatch, baiduTranslateSingle } from "./translators/baidu"
 import { bergamotTranslateBatch } from "./translators/bergamot"
 import { caiyunTranslateBatch } from "./translators/caiyun"
 import { deeplTranslateBatch, deeplUsage } from "./translators/deepl"
@@ -129,7 +129,7 @@ export interface ServiceDeps {
   /** Injection points for tests; a call of the AI SDK left out of `llm` loads the AI SDK. */
   llm?: Partial<LlmImpl>
   dictionary?: Pick<Dictionary, "translate" | "signature">
-  /** Detector of sourceDetector() for the offline models, with source language "auto". */
+  /** Detector of sourceDetector() for the offline models and the batches of Baidu, with source language "auto". */
   detect?: LanguageDetector
   sleep?: (ms: number) => Promise<void>
   /** Language of error messages; English when absent. */
@@ -269,6 +269,16 @@ export class TranslationService {
     }
   }
 
+  /**
+   * Baidu detects one language for a whole request, not one per line: with source language "auto", the paragraphs go
+   * in batches of the language detected here, and "from" stays "auto". "?" groups the paragraphs no detector places.
+   */
+  private async baiduGroup(text: string): Promise<string> {
+    const detected = await detectSourceLanguage(text, this.deps.detect).catch(() => null)
+    const lang = detected ? appLang(languageTag(detected)) : ""
+    return BAIDU_LANGS[lang] ? lang : "?"
+  }
+
   /** Throws errHostPermission when the extension may not connect to the endpoint of `provider`. */
   private async checkOrigin(provider: ResolvedProvider): Promise<void> {
     const origin = providerOrigin(provider)
@@ -360,6 +370,7 @@ export class TranslationService {
         const id = settings.tiers[tier]!
         this.assertConsent(id, sample)
         const job = this.job(req, id, settings, data[tier], sample)
+        if (req.sourceLang === "auto" && getPreset(id)?.kind === "baidu") job.batchKey += `|auto:${await this.baiduGroup(req.text)}`
         await this.checkOrigin(job.provider)
         jobs.push([tier, job])
       } catch (error) {
