@@ -31,11 +31,13 @@ import type { PublicSettings } from "../shared/settings"
 import type { E2eMessage } from "./background"
 import { E2E_MARKER } from "./marker"
 
-/** One translation element on screen. */
+/** One translation element on screen: its text without the mark, and the elements the Markdown of an AI translation added. */
 interface Shown {
   text: string
   mode: "bilingual" | "only"
   mark: "provisional" | "fallback" | null
+  tags: string[]
+  links: { href: string; rel: string }[]
 }
 
 /** One tier result received from the background, with what the page showed right after it. */
@@ -55,14 +57,36 @@ const TIMEOUT_MS = 30_000
 /** How long the "auto-skip" scenario waits for a translation that must not start. */
 const SKIP_WAIT_MS = 2500
 
+/** The text of a translation element without its mark, the label element after the text. */
+function translationText(el: HTMLElement): string {
+  return Array.from(el.childNodes, (node) => ((node as Element).classList?.contains("tt-status") ? "" : (node.textContent ?? ""))).join("")
+}
+
+/** The elements inside a translation, without its mark. */
+const markup = (el: HTMLElement) => Array.from(el.querySelectorAll("*")).filter((child) => !child.closest(".tt-status"))
+
 /** The translations of the paragraphs on screen; the line with the subject is reported on its own (subjectLine()). */
 function snapshot(root: HTMLElement): Shown[] {
   return Array.from(root.querySelectorAll<HTMLElement>(".tt-translation:not(.tt-subject .tt-translation)"), (el) => ({
-    // The first child is the text; a mark adds a label element after it.
-    text: el.firstChild?.nodeType === Node.TEXT_NODE ? (el.firstChild.textContent ?? "") : "",
+    text: translationText(el),
     mode: el.classList.contains("tt-only") ? ("only" as const) : ("bilingual" as const),
     mark: el.classList.contains("tt-provisional") ? ("provisional" as const) : el.classList.contains("tt-fallback") ? ("fallback" as const) : null,
+    tags: markup(el).map((child) => child.tagName.toLowerCase()),
+    links: Array.from(el.querySelectorAll("a"), (a) => ({ href: a.getAttribute("href") ?? "", rel: a.rel })),
   }))
+}
+
+/** The computed style of the first bold text of an AI translation and of its translation element: the style of the translations reaches the rendered elements. */
+function renderedStyle(root: HTMLElement) {
+  const strong = root.querySelector<HTMLElement>(".tt-translation:not(.tt-subject .tt-translation) strong")
+  const block = strong?.closest<HTMLElement>(".tt-translation")
+  if (!strong || !block) return null
+  const style = (el: Element) => {
+    const cs = getComputedStyle(el)
+    return { color: cs.color, fontSize: cs.fontSize, fontWeight: cs.fontWeight }
+  }
+  const parent = block.parentElement ? getComputedStyle(block.parentElement).fontSize : ""
+  return { block: style(block), strong: style(strong), parentFontSize: parent, scale: getComputedStyle(block).getPropertyValue("--tt-scale").trim() }
 }
 
 const send = (msg: E2eMessage) => ext.runtime.sendMessage(msg)
@@ -76,7 +100,8 @@ function subjectLine() {
     first: line === line.parentElement?.firstElementChild,
     text: line.textContent,
     prefix: line.querySelector(".tt-subject-prefix")?.textContent ?? "",
-    translation: translation?.firstChild?.nodeType === Node.TEXT_NODE ? (translation.firstChild.textContent ?? "") : null,
+    translation: translation ? translationText(translation) : null,
+    tags: translation ? markup(translation).map((child) => child.tagName.toLowerCase()) : [],
     mode: translation?.classList.contains("tt-only") ? "only" : translation ? "bilingual" : null,
     mark: translation?.classList.contains("tt-provisional") ? "provisional" : translation?.classList.contains("tt-fallback") ? "fallback" : null,
   }
@@ -202,7 +227,7 @@ export function createContentProbe(): ContentProbe {
       // Progress reports are throttled: wait for the one of the finished translation.
       await until("the final progress report", () => last !== null && last.total > 0 && last.done + last.failed === last.total)
       await until("the translated subject", () => subjectLine()?.translation?.startsWith("[AI ") === true)
-      report.translated = { state: last, shown: snapshot(body), subject: subjectLine() }
+      report.translated = { state: last, shown: snapshot(body), subject: subjectLine(), style: renderedStyle(body) }
       // The message window with the header and the translated body, the subject line on top.
       const fixture = location.href.includes("plain") ? "plain" : "html"
       await send({ e2e: "screenshot", name: `subject-line-${fixture}-bilingual`, windowType: "mail:messageWindow" })

@@ -1,7 +1,8 @@
 // Local stand-in for every service the e2e build talks to:
-// - Google's free endpoint (translate_a/t, translate_a/single): "[G] <text>"
-// - an OpenAI-compatible chat completions API: "[AI <mode>] <text>", the mode read from the system prompt;
-//   the same text in the same mode asked again gets "[AI <mode> #<n>] <text>", n counting the requests
+// - Google's free endpoint (translate_a/t, translate_a/single): "[G] *<text>*", whose asterisks a machine translation keeps as text
+// - an OpenAI-compatible chat completions API: "**[AI <mode>]** <text>" in Markdown, the mode read from the system prompt,
+//   the first "report" of the text as a link to https://example.com/report (aiAnswer());
+//   the same text in the same mode asked again gets "**[AI <mode> #<n>]** <text>", n counting the requests
 // - the dictionary packs of a GitHub release (dict-index.json and the packs en -> zh-Hans and zh-Hans -> en built from fixtures/)
 // - Mozilla Remote Settings for Bergamot (/bergamot/v1/): the server root, the model records of en -> zh-Hans and
 //   zh-Hans -> en and the zstd-compressed attachments, all made of fake bytes
@@ -22,6 +23,9 @@ const PROMPT_MODES = [
 export function aiMode(system) {
   return PROMPT_MODES.find(([, phrase]) => system.includes(phrase))?.[0] ?? "other"
 }
+
+/** The AI translation of `text`: the label in bold and the first "report" as a link, so that the rendered text reads "[AI <label>] <text>". */
+export const aiAnswer = (label, text) => `**[AI ${label}]** ${text.replace(/\breport\b/,"[report](https://example.com/report)")}`
 
 /** Text of a chat message, whether a string or a list of parts. */
 const messageText = (content) => (typeof content === "string" ? content : (content ?? []).map((p) => p.text ?? "").join(""))
@@ -156,7 +160,7 @@ export async function startMockServer({ fixtures, screenshots, googleDelayMs = 3
         const single = url.pathname.endsWith("single")
         calls.push({ type: "google", single, sl: url.searchParams.get("sl"), tl: url.searchParams.get("tl"), count: texts.length, at: Date.now() })
         await sleep(googleDelayMs)
-        const out = texts.map((t) => `[G] ${t}`)
+        const out = texts.map((t) => `[G] *${t}*`)
         return send(res, 200, single ? [[[out[0], texts[0]]], null, "en"] : out.map((t) => [t, "en"]))
       }
       if (url.pathname === "/v1/chat/completions") {
@@ -170,7 +174,7 @@ export async function startMockServer({ fixtures, screenshots, googleDelayMs = 3
         const out = texts.map((t) => {
           const n = (aiAsked.get(`${mode}\n${t}`) ?? 0) + 1
           aiAsked.set(`${mode}\n${t}`, n)
-          return `[AI ${mode}${n > 1 ? ` #${n}` : ""}] ${t}`
+          return aiAnswer(`${mode}${n > 1 ? ` #${n}` : ""}`, t)
         })
         const content = batch ? JSON.stringify(out) : out[0]
         return send(res, 200, {

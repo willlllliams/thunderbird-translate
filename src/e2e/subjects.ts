@@ -48,6 +48,8 @@ function rows() {
     return {
       subject: tr.querySelector(".subject")?.textContent ?? "",
       translation: translation?.firstChild?.nodeType === Node.TEXT_NODE ? (translation.firstChild.textContent ?? "") : null,
+      // The page shows plain text: an AI translation without the elements of its Markdown.
+      elements: translation ? translation.querySelectorAll("*:not(.tt-status, .tt-status *)").length : 0,
       mark: translation?.classList.contains("tt-provisional") ? "provisional" : translation?.classList.contains("tt-fallback") ? "fallback" : null,
       loading: tr.querySelector(".tt-loading") !== null,
       selected: tr.getAttribute("aria-selected") === "true",

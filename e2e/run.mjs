@@ -128,9 +128,20 @@ function check(c, ready, report, calls) {
     const ok = s.mode === "bilingual" && s.mark === null && s.text.startsWith("[AI bilingual] ") && original.includes(words(s.text.slice(15)).slice(0, 40))
     expect(ok, "final bilingual translation is not the AI translation of a paragraph", s)
   }
-  // The subject in a line above the body, with its AI translation under it.
+  // The subject in a line above the body, with its AI translation under it, as plain text without the marks of its Markdown.
   const line = translated?.subject
   expect(line?.first === true && line.mode === "bilingual" && line.mark === null && line.translation === `[AI bilingual] ${subject}` && line.text.startsWith(subject), "the subject line above the body does not show the subject and its AI translation", line)
+  expect(line?.tags?.length === 0, "the subject line shows elements of the Markdown of its translation", line)
+
+  // The Markdown of the AI translations: the label in bold, the link where the paragraph has "report", a line break where a
+  // paragraph of the plain-text message keeps one (the quote), no other element.
+  const rendered = translated?.shown ?? []
+  expect(rendered.length > 0 && rendered.every((s) => s.tags[0] === "strong" && s.tags.every((tag) => ["strong", "a", "br"].includes(tag))), "an AI translation does not show its Markdown as bold text, links and line breaks", rendered.map((s) => s.tags))
+  const links = rendered.flatMap((s) => s.links)
+  expect(links.length > 0 && links.every((l) => l.href === "https://example.com/report" && l.rel === "noopener noreferrer"), "no AI translation shows the link of its Markdown", links)
+  // The style of the translations reaches the rendered elements.
+  const style = translated?.style
+  expect(style && style.strong.color === style.block.color && style.strong.fontSize === style.block.fontSize && Number(style.strong.fontWeight) >= 600, "the bold text of an AI translation does not take the colour and size of its translation", style)
 
   // Tier order per paragraph request: dictionary, then Google, then AI.
   const first = report.events.filter((e) => e.phase === "translate")
@@ -146,6 +157,9 @@ function check(c, ready, report, calls) {
   const provisional = first.flatMap((e) => e.shown).filter((s) => s.mark === "provisional")
   expect(provisional.some((s) => CJK.test(s.text) && !s.text.startsWith("[")), "no provisional dictionary translation was shown", provisional.slice(0, 3))
   expect(provisional.some((s) => s.text.startsWith("[G] ")), "no provisional Google translation was shown", provisional.slice(0, 3))
+  // Machine translation keeps the asterisks of its answer as text.
+  const google = provisional.filter((s) => s.text.startsWith("[G] "))
+  expect(google.every((s) => s.tags.length === 0 && /^\[G\] \*[\s\S]*\*$/.test(s.text)), "a provisional Google translation does not show its asterisks as text", google.slice(0, 3))
 
   // Translation-only: only the AI tier is requested again, with the translation-only prompt.
   const second = report.events.filter((e) => e.phase === "mode")
@@ -153,7 +167,7 @@ function check(c, ready, report, calls) {
   const only = report.translationOnly
   expect(only?.shown?.length === c.paragraphs, "translation-only: wrong number of translations", only?.shown?.length)
   for (const s of only?.shown ?? []) {
-    expect(s.mode === "only" && s.mark === null && s.text.startsWith("[AI translation-only] "), "translation-only shows something other than the AI translation", s)
+    expect(s.mode === "only" && s.mark === null && s.text.startsWith("[AI translation-only] ") && s.tags[0] === "strong", "translation-only shows something other than the rendered AI translation", s)
   }
   const onlyLine = only?.subject
   expect(onlyLine?.mode === "only" && onlyLine.translation === `[AI translation-only] ${subject}` && onlyLine.text === onlyLine.translation, "translation-only: the subject line shows something other than the translation alone", onlyLine)
@@ -199,7 +213,7 @@ function check(c, ready, report, calls) {
   const again = report.retranslated
   expect(again?.state?.done === units && again.state.failed === 0 && again.shown?.length === c.paragraphs, "retranslation: not every paragraph has the AI translation", again?.state)
   for (const s of again?.shown ?? []) {
-    expect(s.mode === "only" && s.mark === null && /^\[AI translation-only #\d+\] /.test(s.text), "retranslation shows something other than the new AI translation", s)
+    expect(s.mode === "only" && s.mark === null && /^\[AI translation-only #\d+\] /.test(s.text) && s.tags[0] === "strong", "retranslation shows something other than the new AI translation", s)
   }
   expect(/^\[AI translation-only #\d+\] /.test(again?.subject?.translation ?? ""), "retranslation: the subject line shows something other than the new AI translation", again?.subject)
   return failures
@@ -297,7 +311,7 @@ function checkSubjects(ready, report, calls) {
   for (const row of rows) {
     const text = row.subject.replace(/^Fwd: /, "")
     if (row.subject === "下周的会议安排") expect(row.translation === null, "a subject in the target language was translated", row)
-    else expect(row.translation === `[AI bilingual] ${text}` && row.mark === null, "a subject does not show its AI translation", row)
+    else expect(row.translation === `[AI bilingual] ${text}` && row.mark === null && row.elements === 0, "a subject does not show its AI translation as plain text", row)
   }
   // Few requests: the subjects are batched.
   const ai = online.filter((x) => x.type === "ai")
