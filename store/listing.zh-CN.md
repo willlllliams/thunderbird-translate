@@ -53,10 +53,12 @@
 
 | 文件 | 说明 |
 | --- | --- |
-| `store/screenshots/1-bilingual.png` | 双语对照：译文显示在每个段落下方 |
-| `store/screenshots/2-translation-only.png` | 仅译文：邮件以你的语言显示 |
+| `store/screenshots/1-bilingual.png` | 双语对照：标题和每个段落下方显示译文，AI 译文中的列表和加粗日期按格式显示 |
+| `store/screenshots/2-translation-only.png` | 仅译文：标题和邮件以你的语言显示 |
 | `store/screenshots/3-provisional-tiers.png` | AI 服务还在翻译时，机器翻译的结果先显示 |
 | `store/screenshots/4-popup.png` | 弹出面板：显示方式、语言和每个层级的服务 |
-| `store/screenshots/5-settings-tiers.png` | 设置页：三个层级和已允许的在线服务 |
+| `store/screenshots/5-settings-tiers.png` | 设置页：语言、标题翻译和三个层级 |
 | `store/screenshots/6-setup-guide.png` | 新手引导对比三个层级 |
 | `store/screenshots/7-consent.png` | 你允许之前不发送任何内容 |
+| `store/screenshots/8-subjects.png` | 标题翻译：当前文件夹的邮件及其标题译文 |
+| `store/screenshots/9-settings-markdown.png` | 设置页：译文样式和 AI 译文的 Markdown 渲染 |

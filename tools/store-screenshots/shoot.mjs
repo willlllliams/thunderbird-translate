@@ -1,9 +1,13 @@
-// Screenshots for the listing on addons.thunderbird.net: node tools/store-screenshots/shoot.mjs
+// Screenshots for the listing on addons.thunderbird.net: node tools/store-screenshots/shoot.mjs [name ...]
 //
 // Serves dist/ (run npm run build first) on 127.0.0.1 with the pages of this folder and a stand-in for Thunderbird's
 // WebExtension API (stub.js), opens each page in headless Chrome at 1280×800 and writes store/screenshots/*.png.
-// The message is a made-up German email with made-up names and example.com addresses; the pages are the real
-// pages of the extension. No Thunderbird or Mozilla logo appears. CHROME_BIN selects the browser.
+// Names of shots as arguments (1-bilingual 8-subjects) take only those again. The message is a made-up German email
+// with made-up names and example.com addresses, the sample of the README animation (tools/readme-gif/): the content
+// script puts its subject in a line above the body, and the AI tier answers in Markdown, with a list and a bold date.
+// The page of translated subjects is the popup of the main toolbar button over a mail tab with an invented inbox
+// (main.html). The pages are the real pages of the extension. No Thunderbird or Mozilla logo appears. CHROME_BIN
+// selects the browser; SHOTS_DEBUG=1 prints the exceptions and console output of the pages.
 import { spawn } from "node:child_process"
 import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs"
 import { createServer } from "node:http"
@@ -58,6 +62,8 @@ async function openPage() {
       const pending = new Map()
       ws.onmessage = (event) => {
         const msg = JSON.parse(event.data)
+        if (process.env.SHOTS_DEBUG && msg.method === "Runtime.exceptionThrown") console.log("EXC", JSON.stringify(msg.params.exceptionDetails).slice(0, 800))
+        if (process.env.SHOTS_DEBUG && msg.method === "Runtime.consoleAPICalled") console.log("CON", JSON.stringify(msg.params.args).slice(0, 400))
         if (msg.id && pending.has(msg.id)) {
           const { ok, fail } = pending.get(msg.id)
           pending.delete(msg.id)
@@ -78,19 +84,27 @@ async function openPage() {
   throw new Error("Chrome did not open its debugging port")
 }
 
+/** The body of the sample message: the subject line and the five paragraphs. */
+const UNITS = 6
 const SHOTS = [
-  { name: "1-bilingual", url: "/__shots/mail.html?shot=bilingual", ready: "frame('body').querySelectorAll('.tt-translation').length === 5 && !frame('body').querySelector('.tt-loading')" },
-  { name: "2-translation-only", url: "/__shots/mail.html?shot=translation-only", ready: "frame('body').querySelectorAll('.tt-translation.tt-only').length === 5" },
-  { name: "3-provisional-tiers", url: "/__shots/mail.html?shot=provisional", ready: "frame('body').querySelectorAll('.tt-translation.tt-provisional').length >= 4" },
-  { name: "4-popup", url: "/__shots/mail.html?shot=popup", ready: "frame('body').querySelectorAll('.tt-translation').length === 5 && document.querySelector('iframe.popup').contentDocument.getElementById('status')?.textContent.trim().length > 0" },
-  { name: "5-settings-tiers", url: "/options.html?shot=settings", ready: "document.querySelector('#providerPanel h3') !== null && document.getElementById('tier-ai').value === 'openai'", after: "window.scrollTo(0, document.getElementById('tiers').getBoundingClientRect().top + window.scrollY - 76)" },
+  { name: "1-bilingual", url: "/__shots/mail.html?shot=bilingual", ready: `frame('body').querySelectorAll('.tt-translation').length === ${UNITS} && frame('body').querySelector('.tt-subject') !== null && frame('body').querySelector('.tt-translation strong') !== null && !frame('body').querySelector('.tt-loading, .tt-provisional')` },
+  { name: "2-translation-only", url: "/__shots/mail.html?shot=translation-only", ready: `frame('body').querySelectorAll('.tt-translation.tt-only').length === ${UNITS} && frame('body').querySelector('.tt-translation strong') !== null && !frame('body').querySelector('.tt-loading, .tt-provisional')` },
+  { name: "3-provisional-tiers", url: "/__shots/mail.html?shot=provisional", ready: `frame('body').querySelectorAll('.tt-translation.tt-provisional').length >= ${UNITS - 1}` },
+  { name: "4-popup", url: "/__shots/mail.html?shot=popup", ready: `frame('body').querySelectorAll('.tt-translation').length === ${UNITS} && !frame('body').querySelector('.tt-loading, .tt-provisional') && document.querySelector('iframe.popup').contentDocument.getElementById('status')?.textContent.trim().length > 0` },
+  { name: "5-settings-tiers", url: "/options.html?shot=settings", ready: "document.querySelector('#providerPanel h3') !== null && document.getElementById('tier-ai').value === 'openai' && document.getElementById('translateSubject').checked", after: "window.scrollTo(0, document.querySelector('main section').getBoundingClientRect().top + window.scrollY - 76)" },
   { name: "6-setup-guide", url: "/welcome.html?shot=welcome", ready: "/OpenAI/.test(document.getElementById('demoStatus')?.textContent ?? '')" },
   { name: "7-consent", url: "/__shots/mail.html?shot=consent", ready: "frame('body').querySelector('.tt-consent') !== null" },
+  { name: "8-subjects", url: "/__shots/main.html?shot=subjects", ready: "[...frame('popup').querySelectorAll('.subject-translation')].every((cell) => cell.textContent.trim()) && frame('popup').querySelectorAll('.subject-translation').length > 0 && !frame('popup').querySelector('.tt-loading, .tt-provisional') && frame('popup').getElementById('progress').hidden" },
+  // The style section is at the end of the settings page: the space below it lets the page scroll it to the top.
+  { name: "9-settings-markdown", url: "/options.html?shot=settings", ready: "document.querySelector('#providerPanel h3') !== null && document.getElementById('renderMarkdown').checked", after: "document.body.style.paddingBottom = '400px'; window.scrollTo(0, document.getElementById('renderMarkdown').closest('section').getBoundingClientRect().top + window.scrollY - 76)" },
 ]
 
 const FRAME = "const frame = (id) => document.getElementById(id).contentDocument;"
 
 async function main() {
+  const only = process.argv.slice(2)
+  const unknown = only.filter((name) => !SHOTS.some((s) => s.name === name))
+  if (unknown.length > 0) throw new Error(`no such shot: ${unknown.join(", ")}`)
   if (!existsSync(join(dist, "manifest.json"))) throw new Error("dist/ is missing: run npm run build first")
   if (!CHROME) throw new Error("no Chrome or Edge found; set CHROME_BIN")
   mkdirSync(out, { recursive: true })
@@ -99,11 +113,12 @@ async function main() {
   rmSync(profile, { recursive: true, force: true })
   const chrome = spawn(CHROME, ["--headless", "--disable-gpu", "--hide-scrollbars", "--no-first-run", "--no-default-browser-check", `--user-data-dir=${profile}`, `--remote-debugging-port=${PORT + 1}`, "--force-device-scale-factor=1", "about:blank"], { stdio: "ignore" })
   try {
-    for (const shot of SHOTS) {
+    for (const shot of SHOTS.filter((s) => only.length === 0 || only.includes(s.name))) {
       const page = await openPage()
       await page.send("Emulation.setDeviceMetricsOverride", { width: WIDTH, height: HEIGHT, deviceScaleFactor: 1, mobile: false })
       await page.send("Emulation.setEmulatedMedia", { features: [{ name: "prefers-color-scheme", value: "light" }] })
       await page.send("Page.enable")
+      if (process.env.SHOTS_DEBUG) await page.send("Runtime.enable")
       await page.send("Page.navigate", { url: `http://127.0.0.1:${PORT}${shot.url}` })
       const deadline = Date.now() + 20_000
       for (;;) {

@@ -74,15 +74,17 @@ translate, translation, bilingual, ai, offline, deeplx, google translate, llm
 
 | File | Caption |
 | --- | --- |
-| `store/screenshots/1-bilingual.png` | Bilingual display: the translation under each paragraph |
-| `store/screenshots/2-translation-only.png` | Translation only: the message in your language |
+| `store/screenshots/1-bilingual.png` | Bilingual display: the subject and each paragraph with its translation; the list and bold date of the AI translation appear formatted |
+| `store/screenshots/2-translation-only.png` | Translation only: the subject and the message in your language |
 | `store/screenshots/3-provisional-tiers.png` | The machine translation appears first, while the AI service is still working |
 | `store/screenshots/4-popup.png` | The popup: display, languages and the service of each tier |
-| `store/screenshots/5-settings-tiers.png` | Settings: the three tiers and the online services you allowed |
+| `store/screenshots/5-settings-tiers.png` | Settings: languages, the subject line and the three tiers |
 | `store/screenshots/6-setup-guide.png` | The setup guide compares the tiers |
 | `store/screenshots/7-consent.png` | Nothing is sent before you allow it |
+| `store/screenshots/8-subjects.png` | Translated subjects: the messages of the current folder with their subjects in your language |
+| `store/screenshots/9-settings-markdown.png` | Settings: the translation style and Markdown in AI translations |
 
-The message in the screenshots is invented; its names and addresses are examples. `tools/store-screenshots/shoot.mjs` renders the pages of the built extension with a stand-in for the Thunderbird API and takes the screenshots again after `npm run build`.
+The message and the folder in the screenshots are invented; their names and addresses are examples. `tools/store-screenshots/shoot.mjs` renders the pages of the built extension with a stand-in for the Thunderbird API and takes the screenshots again after `npm run build`.
 
 ## Icons
 
