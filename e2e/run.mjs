@@ -368,8 +368,11 @@ function checkSummary(ready, report, calls) {
   return failures
 }
 
-/** The parts of image.eml that get a button: the chart (cid:) and the receipt (attachment); what each part is otherwise. */
-const IMAGE_PARTS = { chart: "1.2", pixel: "1.3", gif: "1.4", logo: "1.5", receipt: "2" }
+/**
+ * The parts of image.eml that get a button: the chart (cid:) and the receipt (attachment); what each part is otherwise.
+ * Thunderbird numbers them from the top multipart/mixed (part 1), as in the address of each image (part=1.1.2).
+ */
+const IMAGE_PARTS = { chart: "1.1.2", pixel: "1.1.3", gif: "1.1.4", logo: "1.1.5", receipt: "1.2" }
 
 /** Check the report of an image run; returns the failures. */
 function checkImage(c, ready, report, calls) {

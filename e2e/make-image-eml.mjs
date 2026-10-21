@@ -1,12 +1,13 @@
 // Writes e2e/fixtures/image.eml, the message of the image runs of e2e/run.mjs: node e2e/make-image-eml.mjs
 //
-// The message holds what the filters of image translation have to tell apart:
-// - part 1.2, a chart (cid:, PNG, 400 × 200) and part 2, a receipt attached as an image (PNG, 300 × 300): the two
+// The message holds what the filters of image translation have to tell apart. Thunderbird numbers the parts from
+// the top multipart/mixed, which is part 1: the multipart/related is 1.1, its HTML 1.1.1, the attachment 1.2.
+// - part 1.1.2, a chart (cid:, PNG, 400 × 200) and part 1.2, a receipt attached as an image (PNG, 300 × 300): the two
 //   images that get a button;
-// - part 1.3, a tracking pixel (1 × 1): left out by the content script;
-// - part 1.4, an animated GIF (two frames on a 200 × 200 screen, with a comment that makes the file larger than the
+// - part 1.1.3, a tracking pixel (1 × 1): left out by the content script;
+// - part 1.1.4, an animated GIF (two frames on a 200 × 200 screen, with a comment that makes the file larger than the
 //   smallest file of the settings): left out by the background script, which reads the frames;
-// - part 1.5, a logo in the signature (240 × 240): left out by the content script.
+// - part 1.1.5, a logo in the signature (240 × 240): left out by the content script.
 // The pixels are deterministic, so the file is the same on every run.
 import { writeFileSync } from "node:fs"
 import { dirname, join } from "node:path"
