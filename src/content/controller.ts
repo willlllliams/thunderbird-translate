@@ -98,6 +98,8 @@ export class TranslationController {
   private settings: PublicSettings | null = null
   private session = 0
   private collected: Collected | null = null
+  /** The position of each collected unit in the message, for the context of precise mode. */
+  private positions = new Map<Unit, number>()
   private units: Unit[] = []
   /** The line above the body with the subject, while the message is translated. */
   private subjectLine: HTMLElement | null = null
@@ -233,19 +235,18 @@ export class TranslationController {
     this.collected = (this.deps.collect ?? collectParagraphs)(root)
 
     const all = this.collected.units
+    this.positions = new Map(all.map((unit, i) => [unit, i]))
     // The subject comes from the background script and is translated beside the paragraphs, which do not wait for it.
     const subject = this.subjectToTranslate(s)
     const inTarget = await Promise.all(all.map((unit) => isInTargetLanguage(unit.text, s.targetLang, this.deps.detect, s.sourceLang)))
     // Stopped or restarted while the language was detected.
     if (session !== this.session) return
-    const candidates = all.filter((_, i) => !inTarget[i])
+    const targets = all.flatMap((_, i) => (inTarget[i] ? [] : [i]))
+    const candidates = targets.map((i) => all[i])
     this.units = candidates
     this.deps.notice?.begin()
     if (s.precise && candidates.length > 0) {
-      this.context = createMailContext(
-        all.map((u) => u.text),
-        candidates.map((u) => all.indexOf(u)),
-      )
+      this.context = createMailContext(all.map((u) => u.text), targets)
       this.deps.setContext?.(this.context, bypassCache)
     }
     this.report()
@@ -295,6 +296,7 @@ export class TranslationController {
     this.subjectUnit = null
     this.collected?.restore()
     this.collected = null
+    this.positions.clear()
     this.renderer = null
     this.units = []
     this.context = null
@@ -316,7 +318,7 @@ export class TranslationController {
 
   private request(unit: Unit, tiers: Tier[]): TranslateRequest {
     const s = this.settings!
-    const index = this.collected?.units.indexOf(unit) ?? -1
+    const index = this.positions.get(unit) ?? -1
     return {
       text: unit.text,
       sourceLang: s.sourceLang,
