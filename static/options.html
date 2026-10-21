@@ -61,6 +61,10 @@
           <span data-i18n="labelPrecise"></span>
         </label>
         <p class="hint" data-i18n="hintPrecise"></p>
+        <p id="imagePreciseOff" class="field-warning" hidden>
+          <span id="imagePreciseOffText"></span>
+          <span><button type="button" id="imagePreciseOn" data-i18n="buttonPreciseOn" data-i18n-title="tipPreciseOn"></button></span>
+        </p>
         <fieldset id="imageGroup" class="subgroup">
           <div class="grid">
             <label data-i18n-title="tipImageMode">
@@ -74,7 +78,6 @@
             <label data-i18n-title="tipImageProvider"><span data-i18n="labelImageProvider"></span><select id="imageProvider"></select></label>
             <label data-i18n-title="tipImageModel"><span data-i18n="labelModel"></span><input type="text" id="imageModel" list="imageModels" spellcheck="false" /><datalist id="imageModels"></datalist></label>
           </div>
-          <p id="imagePreciseOff" class="field-warning" data-i18n="hintImageNeedsPrecise" hidden></p>
           <p class="hint" data-i18n="hintImage"></p>
           <p id="imageSupport" class="field-warning" hidden></p>
           <p class="hint"><span id="imageCost"></span> <a id="imagePrices" target="_blank" rel="noopener" data-i18n="linkPrices" data-i18n-title="tipPrices" hidden></a></p>

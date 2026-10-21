@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 /**
- * Image translation on the extension pages: the three modes in the popup while precise translation is on, the group
- * under precise translation on the settings page with its advanced settings, model hints, token estimate, test image
+ * Image translation on the extension pages: the three modes in the popup, greyed out with a note and a button for
+ * precise translation while that is off, the group under precise translation on the settings page with its advanced settings, model hints, token estimate, test image
  * and the consent for images, and the choice on the AI step of the setup guide.
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
@@ -31,16 +31,31 @@ function precise(change: (s: Settings) => void = () => {}): Settings {
 describe("popup", () => {
   const radios = () => Array.from(document.querySelectorAll<HTMLInputElement>('input[name="imageMode"]'))
 
+  const greyed = () => [$("imageModes").getAttribute("aria-disabled"), radios().every((r) => r.disabled), $("imagePreciseOff").hidden]
+
   it("shows the three modes while precise translation is on and stores the choice", async () => {
     const page = await openPage("popup", precise(), { activeTab: { id: 3 }, respond: (req) => (req.type === "getTabState" ? IDLE_TAB_STATE : undefined) })
-    await until(() => expect($("imageRow").hidden).toBe(false))
-    expect(radios().map((r) => [r.value, r.checked])).toEqual([["off", false], ["ask", true], ["auto", false]])
+    await until(() => expect(radios().map((r) => [r.value, r.checked])).toEqual([["off", false], ["ask", true], ["auto", false]]))
+    expect($("imageRow").hidden).toBe(false)
+    expect(greyed()).toEqual(["false", false, true])
     expect($("imageUnsupported").hidden).toBe(true)
     radios()[2].click()
     await until(() => expect(page.stored().image.mode).toBe("auto"))
-    // Precise translation off elsewhere: the switch goes.
+    // Precise translation off elsewhere: the modes stay on screen, greyed out, with the note.
     page.external((s) => (s.precise.enabled = false))
-    await until(() => expect($("imageRow").hidden).toBe(true))
+    await until(() => expect(greyed()).toEqual(["true", true, false]))
+    expect($("imageRow").hidden).toBe(false)
+  })
+
+  it("greys the modes out while precise translation is off, and turns it on with one click", async () => {
+    const page = await openPage("popup", precise((s) => (s.precise.enabled = false)), { activeTab: { id: 3 }, respond: (req) => (req.type === "getTabState" ? IDLE_TAB_STATE : undefined) })
+    await until(() => expect(greyed()).toEqual(["true", true, false]))
+    expect($("imagePreciseOffText").textContent).toBe(ENGLISH.t("hintImageNeedsPrecise"))
+    expect([$("imagePreciseOn").hidden, $("imagePreciseOn").textContent, $("imagePreciseOn").title]).toEqual([false, ENGLISH.t("buttonPreciseOn"), ENGLISH.t("tipPreciseOn")])
+    $("imagePreciseOn").click()
+    await until(() => expect(page.stored().precise.enabled).toBe(true))
+    await until(() => expect(greyed()).toEqual(["false", false, true]))
+    expect(page.stored().image.mode).toBe("ask")
   })
 
   it("names a model that does not accept images", async () => {
@@ -49,10 +64,12 @@ describe("popup", () => {
     expect($("imageUnsupported").textContent).toBe(ENGLISH.t("hintVisionNo", ["glm-4-flash", "glm-4.6v-flash"]))
   })
 
-  it("hides the modes without precise translation", async () => {
+  it("without an AI tier names the tier that precise translation needs, without the button", async () => {
     await openPage("popup", createDefaultSettings("en"), { activeTab: { id: 3 }, respond: (req) => (req.type === "getTabState" ? IDLE_TAB_STATE : undefined) })
     await until(() => expect($("status").textContent).not.toBe(""))
-    expect($("imageRow").hidden).toBe(true)
+    expect([$("imageRow").hidden, ...greyed()]).toEqual([false, "true", true, false])
+    expect($("imagePreciseOffText").textContent).toBe(ENGLISH.t("hintImageNeedsAi"))
+    expect($("imagePreciseOn").hidden).toBe(true)
   })
 })
 
@@ -71,13 +88,26 @@ describe("settings page", () => {
   it("greys the group out without precise translation and keeps its values", async () => {
     const page = await options(precise((s) => ((s.precise.enabled = false), (s.image.mode = "auto"))))
     expect($<HTMLFieldSetElement>("imageGroup").disabled).toBe(true)
-    expect($("imagePreciseOff").hidden).toBe(false)
+    expect([$("imagePreciseOff").hidden, $("imagePreciseOffText").textContent, $("imagePreciseOn").hidden]).toEqual([false, ENGLISH.t("hintImageNeedsPrecise"), false])
     expect($<HTMLSelectElement>("imageMode").value).toBe("auto")
     $<HTMLInputElement>("preciseEnabled").click()
     expect($<HTMLFieldSetElement>("imageGroup").disabled).toBe(false)
     expect($("imagePreciseOff").hidden).toBe(true)
     await flushSave()
     expect(page.stored().image.mode).toBe("auto")
+    // Off again: the button of the note turns it on with one click.
+    $<HTMLInputElement>("preciseEnabled").click()
+    expect($("imagePreciseOff").hidden).toBe(false)
+    $("imagePreciseOn").click()
+    expect([$<HTMLInputElement>("preciseEnabled").checked, $<HTMLFieldSetElement>("imageGroup").disabled, $("imagePreciseOff").hidden]).toEqual([true, false, true])
+    await flushSave()
+    expect(page.stored().precise.enabled).toBe(true)
+  })
+
+  it("keeps the group on screen without an AI tier, and names the tier that precise translation needs", async () => {
+    await options(createDefaultSettings("en"))
+    expect([$<HTMLFieldSetElement>("imageGroup").hidden, $<HTMLFieldSetElement>("imageGroup").disabled]).toEqual([false, true])
+    expect([$("imagePreciseOff").hidden, $("imagePreciseOffText").textContent, $("imagePreciseOn").hidden]).toEqual([false, ENGLISH.t("hintImageNeedsAi"), true])
   })
 
   it("stores every image setting through its field", async () => {

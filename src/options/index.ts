@@ -328,6 +328,13 @@ async function main(): Promise<void> {
     settings.precise.enabled = v
     images.refresh()
   })
+  // The note of the image settings turns precise translation on with one click.
+  $("imagePreciseOn").addEventListener("click", () => {
+    settings.precise.enabled = true
+    $<HTMLInputElement>("preciseEnabled").checked = true
+    images.refresh()
+    session.save()
+  })
   session.track($("sameLanguage"), showTierControls)
 
   // Dictionaries

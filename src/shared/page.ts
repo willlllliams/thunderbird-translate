@@ -157,6 +157,19 @@ export function showSaveError(error: unknown): void {
   saved.classList.add("show", "error")
 }
 
+/**
+ * Whether image translation applies: it needs precise translation, which needs the AI tier. Otherwise the note
+ * #imagePreciseOff of the popup and the settings page says what is missing, and with an AI tier its button
+ * #imagePreciseOn turns precise translation on.
+ */
+export function showImagePreciseNote(settings: Pick<Settings, "precise" | "tiers">): boolean {
+  const precise = settings.precise.enabled && settings.tiers.ai !== null
+  $("imagePreciseOff").hidden = precise
+  $("imagePreciseOffText").textContent = t(settings.tiers.ai ? "hintImageNeedsPrecise" : "hintImageNeedsAi")
+  $("imagePreciseOn").hidden = !settings.tiers.ai
+  return precise
+}
+
 /** What a page says about the vision model: that it refuses images, with a model that reads them, or that it is not known; "" for a model that reads them. */
 export function visionHint({ id, model, support }: ImageStatus): string {
   if (!id || support === "yes" || support === null) return ""

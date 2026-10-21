@@ -53,13 +53,17 @@
       <span data-i18n="labelPrecise"></span>
     </label>
 
-    <div class="field" id="imageRow" hidden>
+    <div class="field" id="imageRow">
       <span class="label" data-i18n="labelImageMode"></span>
-      <div class="segmented" role="radiogroup" data-i18n-aria-label="labelImageMode">
+      <div class="segmented" id="imageModes" role="radiogroup" data-i18n-aria-label="labelImageMode">
         <label data-i18n-title="tipImageOff"><input type="radio" name="imageMode" value="off" /><span data-i18n="imageModeOff"></span></label>
         <label data-i18n-title="tipImageAsk"><input type="radio" name="imageMode" value="ask" /><span data-i18n="imageModeAsk"></span></label>
         <label data-i18n-title="tipImageAuto"><input type="radio" name="imageMode" value="auto" /><span data-i18n="imageModeAuto"></span></label>
       </div>
+      <p id="imagePreciseOff" class="warning" hidden>
+        <span id="imagePreciseOffText"></span>
+        <button type="button" id="imagePreciseOn" class="link" data-i18n="buttonPreciseOn" data-i18n-title="tipPreciseOn"></button>
+      </p>
       <p id="imageUnsupported" class="warning" hidden></p>
     </div>
 

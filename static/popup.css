@@ -198,6 +198,30 @@ select.missing option:not(.missing) {
   color: #fff;
 }
 
+/* Image translation while precise translation is off: visible, greyed out, with the note under it. */
+.segmented[aria-disabled="true"] {
+  opacity: 0.5;
+}
+
+.segmented[aria-disabled="true"] label {
+  cursor: default;
+}
+
+/* A button that reads as a link inside a note. */
+button.link {
+  padding: 0;
+  border: none;
+  background: none;
+  color: var(--accent);
+  font: inherit;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+#imagePreciseOff {
+  margin-top: 4px;
+}
+
 .check {
   display: flex;
   gap: 6px;

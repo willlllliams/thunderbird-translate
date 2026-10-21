@@ -11,7 +11,7 @@ import { getI18n, t } from "../shared/i18n"
 import { imagePromptTokens } from "../shared/image-prompt"
 import { getLanguage } from "../shared/languages"
 import { send } from "../shared/messages"
-import { $, fillSelect, visionHint } from "../shared/page"
+import { $, fillSelect, showImagePreciseNote, visionHint } from "../shared/page"
 import { promptText } from "../shared/prompts"
 import { getPreset, providerDisplayName, tierOf } from "../shared/providers"
 import { addedProviders, emptyProviderConfig, IMAGE_DECIMALS, type ImageSettings, imageStatus, type Settings } from "../shared/settings"
@@ -100,9 +100,7 @@ export class ImageSettingsSection {
   /** The services, the model hints and the estimate, from the settings of the page. */
   refresh(): void {
     const settings = this.session.settings
-    const precise = settings.precise.enabled && settings.tiers.ai !== null
-    $<HTMLFieldSetElement>("imageGroup").disabled = !precise
-    $("imagePreciseOff").hidden = precise
+    $<HTMLFieldSetElement>("imageGroup").disabled = !showImagePreciseNote(settings)
     const chosen = settings.image.provider
     const services = addedProviders(settings).filter((p) => tierOf(p) === "ai")
     fillSelect($<HTMLSelectElement>("imageProvider"), [new Option(t("summaryProviderTier"), ""), ...services.map((p) => new Option(providerDisplayName(p), p.id))], chosen && settings.providers[chosen]?.enabled ? chosen : "")

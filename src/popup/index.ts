@@ -4,7 +4,7 @@ import { t } from "../shared/i18n"
 import { localizeDocument } from "../shared/i18n-dom"
 import { followUiLanguage, loadExtensionI18n } from "../shared/i18n-ext"
 import { IDLE_TAB_STATE, type OfflineStatus, type OptionsPlace, optionsPath, type PageNotice, send, type TabState } from "../shared/messages"
-import { $, fillSelect, fillTierSelects, languageOptions, offlineStatus, onTierChange, showOfflineHint, sourceLanguageOptions, visionHint } from "../shared/page"
+import { $, fillSelect, fillTierSelects, languageOptions, offlineStatus, onTierChange, showImagePreciseNote, showOfflineHint, sourceLanguageOptions, visionHint } from "../shared/page"
 import { type DisplayMode, type ImageMode, imageStatus, summaryProvider } from "../shared/settings"
 import { loadSettings, onStoredSettings, readSettings, updateSettings } from "../shared/settings-store"
 import { REFRESH_AFTER_ACTION_MS, REFRESH_INTERVAL_MS } from "./timing"
@@ -51,11 +51,15 @@ async function main(): Promise<void> {
     for (const radio of modeRadios) radio.checked = radio.value === settings.mode
     $("preciseRow").hidden = !settings.tiers.ai
     preciseEnabled.checked = settings.precise.enabled
-    // Image translation belongs to precise translation; a model that refuses images is named under the switch.
-    $("imageRow").hidden = !settings.tiers.ai || !settings.precise.enabled
-    for (const radio of imageRadios) radio.checked = radio.value === settings.image.mode
+    // Image translation needs precise translation: always on screen, greyed out with a note while that is off; a model that refuses images is named under the switch.
+    const precise = showImagePreciseNote(settings)
+    $("imageModes").setAttribute("aria-disabled", String(!precise))
+    for (const radio of imageRadios) {
+      radio.checked = radio.value === settings.image.mode
+      radio.disabled = !precise
+    }
     const status = imageStatus(settings)
-    const hint = status.support === "no" ? visionHint(status) : ""
+    const hint = precise && status.support === "no" ? visionHint(status) : ""
     $("imageUnsupported").hidden = !hint
     $("imageUnsupported").textContent = hint
     $("sameLanguage").hidden = settings.sourceLang !== settings.targetLang
@@ -82,6 +86,7 @@ async function main(): Promise<void> {
   )
   autoTranslate.addEventListener("change", () => void updateSettings((s) => (s.autoTranslate = autoTranslate.checked)))
   preciseEnabled.addEventListener("change", () => void updateSettings((s) => (s.precise.enabled = preciseEnabled.checked)))
+  $("imagePreciseOn").addEventListener("click", () => void updateSettings((s) => (s.precise.enabled = true)))
   $("openOptions").addEventListener("click", (e) => {
     e.preventDefault()
     void ext.runtime.openOptionsPage()
