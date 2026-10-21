@@ -23,5 +23,5 @@ export async function displayedHeader(tabId: number): Promise<MailHeader | null>
   const message = await browser.messageDisplay.getDisplayedMessage(tabId)
   if (!message) return null
   const date = new Date(message.date)
-  return { author: message.author ?? "", date: Number.isNaN(date.getTime()) ? "" : date.toISOString(), subject: message.subject ?? "" }
+  return { author: message.author, date: Number.isNaN(date.getTime()) ? "" : date.toISOString(), subject: message.subject }
 }

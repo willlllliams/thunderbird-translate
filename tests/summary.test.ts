@@ -462,8 +462,14 @@ describe("the content script", () => {
     document.querySelectorAll<HTMLButtonElement>(".tt-summary summary button")[1].click()
     await until(() => expect(port.posted("summary")).toHaveLength(2))
     expect(port.posted("summary")[1].bypassCache).toBe(true)
-    // The background went away: the request ends with an error.
+    // The background went away: the request ends with an error, and so does the next one, which cannot be sent.
     port.disconnect()
+    await until(() => expect(document.querySelector(".tt-summary .tt-error")?.textContent).toBe(ENGLISH.t("errUnknown")))
+    port.postMessage.mockImplementation(() => {
+      throw new Error("Attempt to postMessage on disconnected port")
+    })
+    document.querySelectorAll<HTMLButtonElement>(".tt-summary summary button")[1].click()
+    expect(document.querySelector(".tt-summary .tt-error")).toBeNull()
     await until(() => expect(document.querySelector(".tt-summary .tt-error")?.textContent).toBe(ENGLISH.t("errUnknown")))
   })
 
