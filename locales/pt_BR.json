@@ -577,7 +577,7 @@
   "summaryCopied": "Copiado",
   "summaryCopyFailed": "Não foi possível copiar",
   "summaryUnverified": "não encontrado na mensagem",
-  "tipSummaryUnverified": "As palavras que o serviço deu para esta tarefa não estão na mensagem. Confira com a mensagem: uma instrução escondida em uma mensagem pode fazer um serviço inventar tarefas.",
+  "tipSummaryUnverified": "A citação não está na mensagem: confira a tarefa",
   "summaryRegenerate": "Gerar de novo",
   "tipSummaryRegenerate": "Perguntar de novo ao serviço, sem o cache",
   "tipSummaryClose": "Remover o resumo da mensagem",

@@ -577,7 +577,7 @@
   "summaryCopied": "已複製",
   "summaryCopyFailed": "複製失敗",
   "summaryUnverified": "原文中未找到",
-  "tipSummaryUnverified": "服務給出的這條待辦所依據的原話不在郵件裡。請對照郵件核實：郵件中隱藏的指令可能讓服務編造待辦。",
+  "tipSummaryUnverified": "所引原話不在郵件中，請核實這條待辦",
   "summaryRegenerate": "重新產生",
   "tipSummaryRegenerate": "略過快取，重新請求服務",
   "tipSummaryClose": "從郵件中移除摘要",

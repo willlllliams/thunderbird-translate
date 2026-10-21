@@ -577,7 +577,7 @@
   "summaryCopied": "Đã sao chép",
   "summaryCopyFailed": "Không sao chép được",
   "summaryUnverified": "không tìm thấy trong thư",
-  "tipSummaryUnverified": "Những từ mà dịch vụ đưa ra cho việc cần làm này không có trong thư. Hãy đối chiếu với thư: một chỉ dẫn ẩn trong thư có thể khiến dịch vụ bịa ra việc cần làm.",
+  "tipSummaryUnverified": "Trích dẫn không có trong thư: hãy kiểm tra",
   "summaryRegenerate": "Tạo lại",
   "tipSummaryRegenerate": "Hỏi lại dịch vụ, bỏ qua bộ nhớ đệm",
   "tipSummaryClose": "Gỡ bản tóm tắt khỏi thư",

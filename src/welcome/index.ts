@@ -14,10 +14,10 @@ import { getI18n, t } from "../shared/i18n"
 import { localizeDocument } from "../shared/i18n-dom"
 import { followUiLanguage, loadExtensionI18n } from "../shared/i18n-ext"
 import { normalizeUiLanguageSetting } from "../shared/locales"
-import { $, fillSelect, fillTierSelects, languageOptions, onTierChange, showSaved, showSaveError, sourceLanguageOptions, tierOptions, uiLanguageOptions } from "../shared/page"
+import { $, fillSelect, fillTierSelects, languageOptions, onTierChange, showSaved, showSaveError, sourceLanguageOptions, tierOptions, uiLanguageOptions, visionHint } from "../shared/page"
 import { PROMPT_KINDS } from "../shared/prompts"
 import { getPreset, type Tier } from "../shared/providers"
-import { addProvidersInUse, type DisplayMode, type ImageMode, type Settings } from "../shared/settings"
+import { addProvidersInUse, type DisplayMode, type ImageMode, imageStatus, type Settings } from "../shared/settings"
 import type { BergamotSection } from "../options/bergamot"
 import type { DictionarySection } from "../options/dictionaries"
 import { h } from "../shared/dom"
@@ -243,10 +243,14 @@ function fillAiServices(): void {
   fillSelect($<HTMLSelectElement>("aiService"), tierOptions(settings, "ai", getI18n(), true).slice(1), settings.tiers.ai ?? "")
 }
 
-/** The mode of image translation under precise translation, greyed out while precise translation is off. */
+/** The mode of image translation under precise translation, greyed out while precise translation is off; a model of the AI service that reads no images is named, as in the popup. */
 function showImageMode(): void {
   $<HTMLFieldSetElement>("imageModeGroup").disabled = !settings.precise.enabled
   for (const radio of Array.from(document.querySelectorAll<HTMLInputElement>('input[name="imageMode"]'))) radio.checked = radio.value === settings.image.mode
+  const status = imageStatus(settings)
+  const hint = status.support === "no" ? visionHint(status) : ""
+  $("imageUnsupported").hidden = !hint
+  $("imageUnsupported").textContent = hint
 }
 
 /* ---------- step 8: trial ---------- */

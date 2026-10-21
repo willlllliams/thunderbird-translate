@@ -577,7 +577,7 @@
   "summaryCopied": "Copié",
   "summaryCopyFailed": "Échec de la copie",
   "summaryUnverified": "introuvable dans le message",
-  "tipSummaryUnverified": "Les mots que le service a donnés pour cette tâche ne figurent pas dans le message. Vérifiez-la dans le message : une instruction cachée dans un message peut faire inventer des tâches à un service.",
+  "tipSummaryUnverified": "La citation n’est pas dans le message : à vérifier",
   "summaryRegenerate": "Régénérer",
   "tipSummaryRegenerate": "Interroger à nouveau le service, sans le cache",
   "tipSummaryClose": "Retirer le résumé du message",

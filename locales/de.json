@@ -577,7 +577,7 @@
   "summaryCopied": "Kopiert",
   "summaryCopyFailed": "Kopieren fehlgeschlagen",
   "summaryUnverified": "nicht in der Nachricht gefunden",
-  "tipSummaryUnverified": "Die Worte, die der Dienst für diese Aufgabe angab, stehen nicht in der Nachricht. Prüfen Sie sie anhand der Nachricht: Eine in einer Nachricht versteckte Anweisung kann einen Dienst Aufgaben erfinden lassen.",
+  "tipSummaryUnverified": "Das Zitat steht nicht in der Nachricht: bitte prüfen",
   "summaryRegenerate": "Neu erstellen",
   "tipSummaryRegenerate": "Den Dienst erneut fragen, am Cache vorbei",
   "tipSummaryClose": "Die Zusammenfassung aus der Nachricht entfernen",

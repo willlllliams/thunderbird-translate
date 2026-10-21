@@ -577,7 +577,7 @@
   "summaryCopied": "コピーしました",
   "summaryCopyFailed": "コピーできませんでした",
   "summaryUnverified": "メッセージ内に見当たりません",
-  "tipSummaryUnverified": "このタスクについてサービスが示した文言はメッセージにありません。メッセージと照らし合わせて確認してください。メッセージに隠された指示によって、サービスがタスクを作り出すことがあります。",
+  "tipSummaryUnverified": "引用がメッセージにありません。確認してください",
   "summaryRegenerate": "再生成",
   "tipSummaryRegenerate": "キャッシュを使わずにサービスへ再度問い合わせる",
   "tipSummaryClose": "メッセージから要約を取り除く",

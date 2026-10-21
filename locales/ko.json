@@ -577,7 +577,7 @@
   "summaryCopied": "복사됨",
   "summaryCopyFailed": "복사하지 못했습니다",
   "summaryUnverified": "메시지에서 찾을 수 없음",
-  "tipSummaryUnverified": "서비스가 이 할 일에 대해 제시한 문구가 메시지에 없습니다. 메시지와 대조해 확인하세요. 메시지에 숨겨진 지시 때문에 서비스가 할 일을 지어낼 수 있습니다.",
+  "tipSummaryUnverified": "인용이 메시지에 없습니다. 확인하세요",
   "summaryRegenerate": "다시 생성",
   "tipSummaryRegenerate": "캐시를 건너뛰고 서비스에 다시 요청",
   "tipSummaryClose": "메시지에서 요약 제거",

@@ -229,5 +229,13 @@ describe("setup guide", () => {
     expect(page.stored().precise.enabled).toBe(true)
     page.external((s) => (s.image.mode = "auto"))
     await until(() => expect(radios()[2].checked).toBe(true))
+    expect($("imageUnsupported").hidden).toBe(true)
+  })
+
+  it("S9: names a model of the AI service that reads no images, as the popup does", async () => {
+    await openPage("welcome", precise((s) => ((s.tiers.ai = "zhipu"), (s.providers.zhipu = { enabled: true, apiKey: "k", baseURL: "", model: "glm-4-flash" }))), { stored: { [WELCOME_KEY]: { step: "ai" } } })
+    await until(() => expect(document.querySelector<HTMLElement>('section[data-step="ai"]')!.hidden).toBe(false))
+    expect($("imageUnsupported").hidden).toBe(false)
+    expect($("imageUnsupported").textContent).toBe(ENGLISH.t("hintVisionNo", ["glm-4-flash", "glm-4.6v-flash"]))
   })
 })
