@@ -186,6 +186,22 @@ describe("column sync", () => {
     expect(s.api.clear).toHaveBeenCalledTimes(3)
   })
 
+  it("U5: translates in the new settings the subjects a list read during the change returned", async () => {
+    const s = sync()
+    let release!: () => void
+    const slow = new Promise<void>((r) => (release = r))
+    s.listed.mockImplementationOnce(async (_tab, count) => (await slow, s.list.subjects.slice(0, count).map((subject, i) => message(i + 1, subject))))
+    const first = s.sync.translateTab(5)
+    await until(() => expect(s.listed).toHaveBeenCalledTimes(1))
+    s.setSettings(publicSettings({ targetLang: "fr" }))
+    await s.sync.settingsChanged()
+    release()
+    await first
+    await flush()
+    expect(s.translate.mock.calls.map(([req]) => [req.text, req.targetLang])).toEqual([["Budget", "fr"]])
+    expect(s.shown.get("Budget")).toBe("machine(Budget)")
+  })
+
   it("drops answers that arrive after the settings changed", async () => {
     const waiting: OnTier[] = []
     const s = sync({ answer: (_req, onTier) => new Promise<void>(() => waiting.push(onTier)) })

@@ -143,6 +143,8 @@ export function createColumnSync({ api, ready, settings, columnName, translate, 
     if (columnKey(s) !== key) await reset(columnKey(s))
     const run = generation
     const messages = await listed(tabId, LIST_SIZE).catch(() => [])
+    // The settings changed while the list was read: the call for the new ones takes these subjects.
+    if (run !== generation) return
     const listedSubjects = new Set(messages.map((m) => m.subject).filter((subject): subject is string => typeof subject === "string"))
     const fresh = [...listedSubjects].filter((subject) => !subjects.has(subject))
     // The subjects listed now move to the end, past the ones that go first when there are too many.
