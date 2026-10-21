@@ -103,6 +103,7 @@
   "hintOllama": "Запустите Ollama с OLLAMA_ORIGINS=moz-extension://*, чтобы она принимала запросы от Thunderbird.",
   "hintDeeplx": "Если конечная точка содержит {{apiKey}}, на его место подставляется токен; иначе токен передаётся как Bearer-токен.",
   "warnBaseUrlInvalid": "Это недопустимый URL. Конечная точка начинается с https:// (или http:// для локальной службы).",
+  "errEndpointInvalid": "$1: адрес не является допустимым URL. Адрес начинается с https:// (или http:// для локальной службы).",
   "warnBaseUrlDefault": "Конечная точка по умолчанию: $1",
   "buttonRestoreBaseUrl": "Восстановить конечную точку по умолчанию",
   "buttonTest": "Проверить соединение",

@@ -105,6 +105,7 @@
   "hintOllama": "Start Ollama with OLLAMA_ORIGINS=moz-extension://* so it accepts requests from Thunderbird.",
   "hintDeeplx": "If the endpoint contains {{apiKey}}, the token replaces it; otherwise it is sent as a Bearer token.",
   "warnBaseUrlInvalid": "This is not a valid URL. An endpoint starts with https:// (or http:// for a local service).",
+  "errEndpointInvalid": "$1: the endpoint is not a valid URL. An endpoint starts with https:// (or http:// for a local service).",
   "warnBaseUrlDefault": "Default endpoint: $1",
   "buttonRestoreBaseUrl": "Restore default endpoint",
   "buttonTest": "Test connection",

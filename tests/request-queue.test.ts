@@ -76,6 +76,19 @@ describe("fetchOk", () => {
     expect(error.message).toBe(ENGLISH.t("errTimeout", ["Google", "1"]))
   })
 
+  it("B8: reports the body of an error that does not arrive within the timeout as TimeoutError, and leaves no timer", async () => {
+    useFakeTimers()
+    const fetchFn = async (_url: string, init: RequestInit) =>
+      new Response(new ReadableStream({ start: (c) => init.signal!.addEventListener("abort", () => c.error(init.signal!.reason)) }), { status: 502 })
+    const request = fetchOk({ fetchFn: asFetch(fetchFn), timeoutMs: 600 }, spec, "DeepLX").catch((e) => e)
+    await vi.advanceTimersByTimeAsync(600)
+    expect(await request).toBeInstanceOf(TimeoutError)
+    expect(vi.getTimerCount()).toBe(0)
+    // A complete error body is read as before.
+    const error = await fetchOk({ fetchFn: asFetch(async () => new Response("busy", { status: 503, headers: { "Retry-After": "2" } })), timeoutMs: 600 }, spec, "X").catch((e) => e)
+    expect(error).toMatchObject({ status: 503, responseBody: "busy", retryAfterMs: 2000 })
+  })
+
   it("reads Retry-After as an HTTP date", async () => {
     useFakeTimers(new Date("2026-10-11T12:00:00Z"))
     try {
@@ -157,6 +170,13 @@ describe("RequestQueue retries", () => {
     expect(delays).toEqual([expected])
   })
 
+  it("B7: runs a task that fails with a TypeError once", async () => {
+    const { queue, delays } = recordingQueue(3)
+    const task = flaky(new TypeError("x is not a function"), 5)
+    await expect(queue.run(task)).rejects.toThrow("x is not a function")
+    expect([task.mock.calls.length, delays]).toEqual([1, []])
+  })
+
   it("B6: fails at once when the server asks to wait longer than 30 s", async () => {
     const { queue, delays } = recordingQueue()
     const error = new HttpError("quota", 429, 120_000)
@@ -217,7 +237,8 @@ describe("RequestQueue retries", () => {
     ["429", { status: 429 }, true],
     ["500 as statusCode", { statusCode: 500 }, true],
     ["404", { status: 404 }, false],
-    ["fetch TypeError", new TypeError("Failed to fetch"), true],
+    ["fetch failure as fetchOk() reports it", new NetworkError("https://x.example", new TypeError("Failed to fetch")), true],
+    ["bare TypeError", new TypeError("Failed to fetch"), false],
     ["isRetryable wins over status", { status: 503, isRetryable: false }, false],
     ["plain Error", new Error("parse"), false],
     ["string", "boom", false],

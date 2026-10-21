@@ -69,6 +69,17 @@ describe("LRU cache", () => {
 })
 
 describe("TranslationService with Google", () => {
+  it("B7: names an endpoint that is no URL, without a request and without retries", async () => {
+    const fetchFn = vi.fn(async () => jsonResponse({ code: 200, data: "Hallo" }))
+    const sleep = vi.fn(async () => {})
+    const settings = createDefaultSettings()
+    settings.providers.deeplx = { enabled: true, apiKey: "", baseURL: "localhost:1188/translate", model: "" }
+    const { service } = createService(settings, { fetchFn: asFetch(fetchFn), sleep, i18n: () => ENGLISH })
+    await expect(translateOne(service, { text: "Hello", targetLang: "de", providerId: "deeplx" })).rejects.toThrow(ENGLISH.t("errEndpointInvalid", ["DeepLX"]))
+    expect(fetchFn).not.toHaveBeenCalled()
+    expect(sleep).not.toHaveBeenCalled()
+  })
+
   it("B5: drops the paragraphs of a page that went away, before and while they wait, unless another page waits too", async () => {
     let release!: () => void
     const gate = new Promise<void>((r) => (release = r))

@@ -103,6 +103,7 @@
   "hintOllama": "Lancez Ollama avec OLLAMA_ORIGINS=moz-extension://* pour qu’il accepte les requêtes de Thunderbird.",
   "hintDeeplx": "Si le point de terminaison contient {{apiKey}}, le jeton le remplace ; sinon, il est envoyé comme jeton Bearer.",
   "warnBaseUrlInvalid": "Cette URL n’est pas valide. Un point de terminaison commence par https:// (ou http:// pour un service local).",
+  "errEndpointInvalid": "$1 : le point de terminaison n’est pas une URL valide. Il commence par https:// (ou http:// pour un service local).",
   "warnBaseUrlDefault": "Point de terminaison par défaut : $1",
   "buttonRestoreBaseUrl": "Rétablir le point de terminaison par défaut",
   "buttonTest": "Tester la connexion",

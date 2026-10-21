@@ -10,8 +10,9 @@ export function isRetryableError(error: unknown): boolean {
   if (typeof e.isRetryable === "boolean") return e.isRetryable
   const status = e.status ?? e.statusCode
   if (typeof status === "number") return status === 408 || status === 429 || status >= 500
-  // fetch() network failures surface as TypeError; timeouts arrive as TimeoutError (fetchOk(), llm.ts), which says it is retryable.
-  return e.name === "TypeError"
+  // Network failures arrive as NetworkError (fetchOk()) or APICallError (AI SDK), timeouts as TimeoutError, each saying
+  // whether it is retryable; anything else (a TypeError of an address that is no URL, a bug) fails the same way again.
+  return false
 }
 
 export function backoffDelay(attempt: number, baseMs = 500, maxMs = 8000, random: () => number = Math.random): number {

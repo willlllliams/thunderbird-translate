@@ -103,6 +103,7 @@
   "hintOllama": "Thunderbird의 요청을 받을 수 있도록 OLLAMA_ORIGINS=moz-extension://* 설정으로 Ollama를 시작하세요.",
   "hintDeeplx": "엔드포인트에 {{apiKey}}가 있으면 토큰으로 대체하고, 없으면 Bearer 토큰으로 전송합니다.",
   "warnBaseUrlInvalid": "올바른 URL이 아닙니다. 엔드포인트는 https://(로컬 서비스는 http://)로 시작합니다.",
+  "errEndpointInvalid": "$1: 엔드포인트가 올바른 URL이 아닙니다. 엔드포인트는 https://(로컬 서비스는 http://)로 시작합니다.",
   "warnBaseUrlDefault": "기본 엔드포인트: $1",
   "buttonRestoreBaseUrl": "기본 엔드포인트로 복원",
   "buttonTest": "연결 테스트",

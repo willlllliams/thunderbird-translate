@@ -103,6 +103,7 @@
   "hintOllama": "Khởi động Ollama với OLLAMA_ORIGINS=moz-extension://* để Ollama chấp nhận yêu cầu từ Thunderbird.",
   "hintDeeplx": "Nếu điểm cuối chứa {{apiKey}}, token sẽ thay vào vị trí đó; nếu không, token được gửi dưới dạng Bearer token.",
   "warnBaseUrlInvalid": "Đây không phải URL hợp lệ. Điểm cuối bắt đầu bằng https:// (hoặc http:// với dịch vụ cục bộ).",
+  "errEndpointInvalid": "$1: điểm cuối không phải URL hợp lệ. Điểm cuối bắt đầu bằng https:// (hoặc http:// cho dịch vụ cục bộ).",
   "warnBaseUrlDefault": "Điểm cuối mặc định: $1",
   "buttonRestoreBaseUrl": "Khôi phục điểm cuối mặc định",
   "buttonTest": "Kiểm tra kết nối",

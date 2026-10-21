@@ -103,6 +103,7 @@
   "hintOllama": "Thunderbird からのリクエストを受け付けるよう、OLLAMA_ORIGINS=moz-extension://* を指定して Ollama を起動してください。",
   "hintDeeplx": "エンドポイントに {{apiKey}} が含まれる場合はその部分をトークンで置き換え、含まれない場合は Bearer トークンとして送信します。",
   "warnBaseUrlInvalid": "有効な URL ではありません。エンドポイントは https://（ローカルのサービスでは http://）で始まります。",
+  "errEndpointInvalid": "$1: エンドポイントが有効な URL ではありません。エンドポイントは https://（ローカルのサービスでは http://）で始まります。",
   "warnBaseUrlDefault": "既定のエンドポイント: $1",
   "buttonRestoreBaseUrl": "既定のエンドポイントに戻す",
   "buttonTest": "接続テスト",

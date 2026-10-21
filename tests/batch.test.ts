@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 import { BatchQueue, groupIntoBatches, joinParts, splitText } from "../src/background/queue/batch-queue"
 import { backoffDelay, isRetryableError, RequestQueue } from "../src/background/queue/request-queue"
+import { NetworkError } from "../src/shared/errors"
 import { HttpError } from "../src/shared/http"
 import { useFakeTimers } from "./helpers"
 
@@ -166,7 +167,9 @@ describe("RequestQueue", () => {
   it("classifies errors and computes exponential delays", () => {
     expect(isRetryableError(new HttpError("x", 503))).toBe(true)
     expect(isRetryableError(new HttpError("x", 400))).toBe(false)
-    expect(isRetryableError(new TypeError("NetworkError when attempting to fetch resource."))).toBe(true)
+    expect(isRetryableError(new NetworkError("https://x.example", new TypeError("NetworkError when attempting to fetch resource.")))).toBe(true)
+    // B7: an address that is no URL, or a bug, fails the same way again.
+    expect(isRetryableError(new TypeError("x is not a function"))).toBe(false)
     expect(isRetryableError({ name: "AI_APICallError", isRetryable: false, statusCode: 500 })).toBe(false)
     const fixed = () => 1
     expect([0, 1, 2, 3, 10].map((a) => backoffDelay(a, 500, 8000, fixed))).toEqual([500, 1000, 2000, 4000, 8000])

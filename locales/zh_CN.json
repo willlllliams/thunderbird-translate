@@ -103,6 +103,7 @@
   "hintOllama": "需以 OLLAMA_ORIGINS=moz-extension://* 启动 Ollama，否则它会拒绝来自 Thunderbird 的请求。",
   "hintDeeplx": "接口地址中含 {{apiKey}} 时用令牌替换该占位符，否则以 Bearer 令牌发送。",
   "warnBaseUrlInvalid": "这不是有效的网址。接口地址以 https:// 开头（本地服务可用 http://）。",
+  "errEndpointInvalid": "$1：接口地址不是有效的网址。接口地址以 https:// 开头（本地服务可用 http://）。",
   "warnBaseUrlDefault": "默认接口地址：$1",
   "buttonRestoreBaseUrl": "恢复默认地址",
   "buttonTest": "测试连接",

@@ -29,7 +29,7 @@
 
 import { describeError, LocalizedError } from "../shared/errors"
 import { hashText, sha256Hex } from "../shared/hash"
-import { patternHost, providerOrigin } from "../shared/hosts"
+import { patternHost, providerOrigin, requestUrl } from "../shared/hosts"
 import { ENGLISH, type I18n, type MessageKey } from "../shared/i18n"
 import { getLanguage } from "../shared/languages"
 import type { ImageRequest, ImageResponse } from "../shared/messages"
@@ -384,9 +384,10 @@ export class ImageService {
     }
   }
 
-  /** Throws errHostPermission when the extension may not connect to the endpoint of `provider`. */
+  /** Throws errEndpointInvalid for an endpoint that is no http(s) URL, errHostPermission when the extension may not connect to it. */
   private async checkOrigin(provider: ResolvedProvider): Promise<void> {
     const origin = providerOrigin(provider)
+    if (!origin && requestUrl(provider)) throw new LocalizedError("errEndpointInvalid", [providerDisplayName(getPreset(provider.id)!, this.i18n)])
     if (!origin || !this.deps.hasOrigin) return
     if (!(await this.deps.hasOrigin(origin).catch(() => false))) throw new LocalizedError("errHostPermission", [patternHost(origin)])
   }

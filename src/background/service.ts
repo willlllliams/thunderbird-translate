@@ -26,7 +26,7 @@
 
 import { getBergamot } from "../offline/bergamot"
 import { describeError, type ErrorContext, LocalizedError, type MissingData, missingData } from "../shared/errors"
-import { patternHost, providerOrigin } from "../shared/hosts"
+import { patternHost, providerOrigin, requestUrl } from "../shared/hosts"
 import { hashText } from "../shared/hash"
 import { ENGLISH, type I18n } from "../shared/i18n"
 import { detectSourceLanguage, type LanguageDetector } from "../shared/lang-detect"
@@ -293,9 +293,10 @@ export class TranslationService {
     return BAIDU_LANGS[lang] ? lang : "?"
   }
 
-  /** Throws errHostPermission when the extension may not connect to the endpoint of `provider`. */
+  /** Throws errEndpointInvalid for an endpoint that is no http(s) URL, errHostPermission when the extension may not connect to it. */
   private async checkOrigin(provider: ResolvedProvider): Promise<void> {
     const origin = providerOrigin(provider)
+    if (!origin && requestUrl(provider)) throw new LocalizedError("errEndpointInvalid", [providerDisplayName(getPreset(provider.id)!, this.deps.i18n?.() ?? ENGLISH)])
     if (!origin || !this.deps.hasOrigin) return
     const allowed = await this.deps.hasOrigin(origin).catch(() => false)
     if (!allowed) throw new LocalizedError("errHostPermission", [patternHost(origin)])

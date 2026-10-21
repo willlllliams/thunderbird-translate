@@ -103,6 +103,7 @@
   "hintOllama": "請以 OLLAMA_ORIGINS=moz-extension://* 啟動 Ollama，否則它會拒絕來自 Thunderbird 的請求。",
   "hintDeeplx": "端點中含有 {{apiKey}} 時，會以權杖取代該預留位置；否則以 Bearer 權杖傳送。",
   "warnBaseUrlInvalid": "這不是有效的網址。端點以 https:// 開頭（本機服務可用 http://）。",
+  "errEndpointInvalid": "$1：端點不是有效的網址。端點以 https:// 開頭（本機服務可用 http://）。",
   "warnBaseUrlDefault": "預設端點：$1",
   "buttonRestoreBaseUrl": "還原預設端點",
   "buttonTest": "測試連線",
