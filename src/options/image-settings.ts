@@ -14,7 +14,7 @@ import { send } from "../shared/messages"
 import { $, fillSelect, visionHint } from "../shared/page"
 import { promptText } from "../shared/prompts"
 import { getPreset, providerDisplayName, tierOf } from "../shared/providers"
-import { addedProviders, emptyProviderConfig, type ImageSettings, imageStatus, type Settings } from "../shared/settings"
+import { addedProviders, emptyProviderConfig, IMAGE_DECIMALS, type ImageSettings, imageStatus, type Settings } from "../shared/settings"
 import { imageTokens, PRICE_PAGES, SUGGESTED_VISION_MODELS } from "../shared/vision"
 import { h } from "../shared/dom"
 import { requestHostAccess } from "./host-access"
@@ -78,7 +78,7 @@ export class ImageSettingsSection {
     fillSelect($<HTMLSelectElement>("imageFormat"), FORMATS.map(([value, name]) => new Option(name, value)), session.settings.image.format)
     const s = () => session.settings.image
     const set = <K extends keyof ImageSettings>(key: K, value: ImageSettings[K]) => (s()[key] = value)
-    for (const [id, key] of NUMBERS) session.bindNumber(id, () => s()[key] as number, (v) => set(key, v as never))
+    for (const [id, key] of NUMBERS) session.bindNumber(id, () => s()[key] as number, (v) => set(key, v as never), IMAGE_DECIMALS.has(key))
     for (const [id, key] of CHOICES) session.bind(id, "change", (el) => (el.value = String(s()[key])), (el) => set(key, el.value as never))
     for (const [id, key] of SWITCHES) session.bindCheck(id, () => s()[key] as boolean, (v) => set(key, v as never))
     session.bindCheck("imageInline", () => s().sources.inline, (v) => (s().sources.inline = v))

@@ -616,6 +616,9 @@ describe("summary and to-dos", () => {
     expect($("summaryNone").hidden).toBe(true)
     expect($<HTMLInputElement>("summaryModel").placeholder).toBe("claude-haiku-5-5")
     set("summaryModel", " claude-sonnet-5-5 ", "input")
+    // U6: a fraction is rounded, a value below the range clamped.
+    set("summaryMaxTokens", "850.5")
+    expect($<HTMLInputElement>("summaryMaxTokens").value).toBe("851")
     set("summaryMaxTokens", "50")
     expect($<HTMLInputElement>("summaryMaxTokens").value).toBe("200")
     set("summaryDisplay", "collapsed")

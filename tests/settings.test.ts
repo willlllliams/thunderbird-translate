@@ -316,3 +316,17 @@ describe("consent to online services", () => {
     expect(consentParts("ollama@localhost")).toEqual({ id: "ollama", host: "localhost" })
   })
 })
+
+describe("numbers", () => {
+  it("U6, S3: round the counts and sizes to whole numbers, and keep the fractions of quality, ratio and megabytes", () => {
+    const s = normalizeSettings({
+      summary: { maxOutputTokens: 850.5 },
+      batch: { concurrency: 2.5, maxRetries: "1.4", maxItemsPerBatch: 9.6 },
+      cache: { maxEntries: 100.2 },
+      image: { maxOutputTokens: 1000.5, concurrency: 1.5, maxPerMessage: 2.5, quality: 0.72, maxAspect: 2.5, maxMessageMB: 1.5 },
+    })
+    expect([s.summary.maxOutputTokens, s.batch.concurrency, s.batch.maxRetries, s.batch.maxItemsPerBatch, s.cache.maxEntries]).toEqual([851, 3, 1, 10, 100])
+    expect([s.image.maxOutputTokens, s.image.concurrency, s.image.maxPerMessage]).toEqual([1001, 2, 3])
+    expect([s.image.quality, s.image.maxAspect, s.image.maxMessageMB]).toEqual([0.72, 2.5, 1.5])
+  })
+})

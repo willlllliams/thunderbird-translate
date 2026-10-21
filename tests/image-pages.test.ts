@@ -86,6 +86,9 @@ describe("settings page", () => {
     set("imageProvider", "gemini")
     set("imageModel", " gemini-2.5-flash ", "input")
     for (const [id, value] of [["imageMax", "3"], ["imageMinSide", "64"], ["imageMinArea", "0"], ["imageMaxAspect", "12"], ["imageMinKB", "10"], ["imageLongEdge", "9999"], ["imageQuality", "0.7"], ["imageMaxKB", "800"], ["imageMaxMB", "2"], ["imageMaxTokens", "512"], ["imageTimeout", "30"], ["imageConcurrency", "1"]]) set(id, value)
+    // S3: a count takes a whole number; the quality keeps its fraction.
+    set("imageMaxTokens", "511.6")
+    expect([$<HTMLInputElement>("imageMaxTokens").value, $<HTMLInputElement>("imageQuality").value]).toEqual(["512", "0.7"])
     for (const [id, value] of [["imageAnimated", "firstFrame"], ["imageFormat", "webp"], ["imageDetail", "high"], ["imageOutput", "both"], ["imageNoText", "describe"], ["imageDisplay", "collapsed"]]) set(id, value)
     for (const id of ["imageInline", "imageAttachments", "imageSignature", "imageShowSource", "imageContext", "imageUsage", "imageConfirm"]) $<HTMLInputElement>(id).click()
     await flushSave()

@@ -132,12 +132,16 @@ export class SettingsSession {
     this.bind(id, "change", (el) => (el.checked = get()), (el) => set(el.checked))
   }
 
-  /** Number field, clamped to its min and max. An empty field (also what a number field reports for invalid input) keeps the value. */
-  bindNumber(id: string, get: () => number, set: (v: number) => void): void {
+  /**
+   * Number field, clamped to its min and max and rounded to a whole number unless `decimal`: a number field takes
+   * 850.5 even with a step of 1. An empty field (also what a number field reports for invalid input) keeps the value.
+   */
+  bindNumber(id: string, get: () => number, set: (v: number) => void, decimal = false): void {
     const show = (el: Control) => (el.value = String(get()))
     this.bind(id, "change", show, (el) => {
       const v = el.value.trim() === "" ? Number.NaN : Number(el.value)
-      if (Number.isFinite(v)) set(Math.min(Number(el.max), Math.max(Number(el.min), v)))
+      const clamped = Math.min(Number(el.max), Math.max(Number(el.min), v))
+      if (Number.isFinite(v)) set(decimal ? clamped : Math.round(clamped))
       show(el)
     })
   }

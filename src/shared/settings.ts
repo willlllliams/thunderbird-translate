@@ -283,6 +283,9 @@ export const IMAGE_RANGES = {
   concurrency: [1, 6],
 } as const satisfies Partial<Record<keyof ImageSettings, readonly [number, number]>>
 
+/** The numbers of the image settings that may have a fraction; the others are counts and sizes, rounded to whole numbers. */
+export const IMAGE_DECIMALS: ReadonlySet<keyof ImageSettings> = new Set(["quality", "maxAspect", "maxMessageMB"])
+
 /** `value` when it is one of `values`, else the first of them. */
 const oneOf = <T extends string>(value: unknown, values: readonly T[]): T => (values.includes(value as T) ? (value as T) : values[0])
 
@@ -291,7 +294,9 @@ function normalizeImage(stored: unknown): ImageSettings {
   const d = defaultImageSettings()
   const s = (stored && typeof stored === "object" ? stored : {}) as Partial<Record<keyof ImageSettings, unknown>>
   const sources = (s.sources && typeof s.sources === "object" ? s.sources : {}) as Partial<Record<keyof ImageSettings["sources"], unknown>>
-  const numbers = Object.fromEntries(Object.entries(IMAGE_RANGES).map(([key, [min, max]]) => [key, num(s[key as keyof ImageSettings], d[key as keyof typeof IMAGE_RANGES], min, max)]))
+  const numbers = Object.fromEntries(
+    Object.entries(IMAGE_RANGES).map(([key, [min, max]]) => [key, (IMAGE_DECIMALS.has(key as keyof ImageSettings) ? num : int)(s[key as keyof ImageSettings], d[key as keyof typeof IMAGE_RANGES], min, max)]),
+  )
   return {
     ...d,
     ...(numbers as Pick<ImageSettings, keyof typeof IMAGE_RANGES>),
@@ -323,6 +328,9 @@ function num(value: unknown, fallback: number, min: number, max: number): number
   if (!Number.isFinite(n)) return fallback
   return Math.min(max, Math.max(min, n))
 }
+
+/** A count or a size: num() rounded to a whole number. The AI SDK refuses a fraction of a token, and the queues count whole requests. */
+const int = (value: unknown, fallback: number, min: number, max: number): number => Math.round(num(value, fallback, min, max))
 
 /** Fields of settings saved before 1.4.0: one current service, race mode and one system prompt. */
 interface LegacySettings {
@@ -447,24 +455,24 @@ export function normalizeSettings(stored: unknown, uiLang?: string): Settings {
       model: typeof sum.model === "string" ? sum.model.trim() : "",
       inlineButton: sum.inlineButton === true,
       parts: Array.isArray(sum.parts) ? SUMMARY_PARTS.filter((part) => (sum.parts as unknown[]).includes(part)) : [...SUMMARY_PARTS],
-      maxOutputTokens: num(sum.maxOutputTokens, d.summary.maxOutputTokens, 200, 4000),
+      maxOutputTokens: int(sum.maxOutputTokens, d.summary.maxOutputTokens, 200, 4000),
       display: sum.display === "collapsed" ? "collapsed" : "expanded",
     },
     // Settings saved before 2.4.0 have no image settings and no image consent: the defaults.
     image: normalizeImage(s.image),
     imageConsent: [],
     batch: {
-      batchDelayMs: num(b.batchDelayMs, d.batch.batchDelayMs, 0, 2000),
-      maxCharsPerBatch: num(b.maxCharsPerBatch, d.batch.maxCharsPerBatch, 200, 50000),
-      maxItemsPerBatch: num(b.maxItemsPerBatch, d.batch.maxItemsPerBatch, 1, 200),
-      concurrency: num(b.concurrency, d.batch.concurrency, 1, 20),
-      maxRetries: num(b.maxRetries, d.batch.maxRetries, 0, 10),
-      timeoutSeconds: num(b.timeoutSeconds, d.batch.timeoutSeconds, 5, 600),
+      batchDelayMs: int(b.batchDelayMs, d.batch.batchDelayMs, 0, 2000),
+      maxCharsPerBatch: int(b.maxCharsPerBatch, d.batch.maxCharsPerBatch, 200, 50000),
+      maxItemsPerBatch: int(b.maxItemsPerBatch, d.batch.maxItemsPerBatch, 1, 200),
+      concurrency: int(b.concurrency, d.batch.concurrency, 1, 20),
+      maxRetries: int(b.maxRetries, d.batch.maxRetries, 0, 10),
+      timeoutSeconds: int(b.timeoutSeconds, d.batch.timeoutSeconds, 5, 600),
       llmBatchEnabled: b.llmBatchEnabled !== false,
     },
     cache: {
       enabled: s.cache?.enabled !== false,
-      maxEntries: num(s.cache?.maxEntries, d.cache.maxEntries, 0, 100000),
+      maxEntries: int(s.cache?.maxEntries, d.cache.maxEntries, 0, 100000),
     },
     style: {
       preset: STYLE_PRESETS.includes(st.preset as StylePreset) ? (st.preset as StylePreset) : d.style.preset,
