@@ -2,7 +2,7 @@
 //
 // Serves dist/ (run npm run build first) on 127.0.0.1 with the pages of this folder and a stand-in for Thunderbird's
 // WebExtension API (stub.js), opens each page in headless Chrome at 1280×800 and writes store/screenshots/*.png.
-// Names of shots as arguments (1-bilingual 8-subjects) take only those again. The message is a made-up German email
+// Names of shots as arguments (1-bilingual 10-summary) take only those again. The message is a made-up German email
 // with made-up names and example.com addresses, the sample of the README animation (tools/readme-gif/): the content
 // script puts its subject in a line above the body, and the AI tier answers in Markdown, with a list and a bold date.
 // The page of translated subjects is the popup of the main toolbar button over a mail tab with an invented inbox
@@ -97,6 +97,7 @@ const SHOTS = [
   { name: "8-subjects", url: "/__shots/main.html?shot=subjects", ready: "[...frame('popup').querySelectorAll('.subject-translation')].every((cell) => cell.textContent.trim()) && frame('popup').querySelectorAll('.subject-translation').length > 0 && !frame('popup').querySelector('.tt-loading, .tt-provisional') && frame('popup').getElementById('progress').hidden" },
   // The style section is at the end of the settings page: the space below it lets the page scroll it to the top.
   { name: "9-settings-markdown", url: "/options.html?shot=settings", ready: "document.querySelector('#providerPanel h3') !== null && document.getElementById('renderMarkdown').checked", after: "document.body.style.paddingBottom = '400px'; window.scrollTo(0, document.getElementById('renderMarkdown').closest('section').getBoundingClientRect().top + window.scrollY - 76)" },
+  { name: "10-summary", url: "/__shots/mail.html?shot=summary", ready: `frame('body').querySelectorAll('.tt-translation').length === ${UNITS} && !frame('body').querySelector('.tt-loading, .tt-provisional') && frame('body').querySelector('.tt-summary li') !== null` },
 ]
 
 const FRAME = "const frame = (id) => document.getElementById(id).contentDocument;"

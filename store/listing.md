@@ -85,6 +85,7 @@ translate, translation, bilingual, ai, offline, deepl, deeplx, google translate,
 | `store/screenshots/7-consent.png` | Nothing is sent before you allow it |
 | `store/screenshots/8-subjects.png` | Translated subjects: the messages of the current folder with their subjects in your language |
 | `store/screenshots/9-settings-markdown.png` | Settings: the translation style and Markdown in AI translations |
+| `store/screenshots/10-summary.png` | Summary and to-dos: the summary, the to-dos with their owners and due dates, the questions to answer and the dates, in a panel above the translated message |
 
 The message and the folder in the screenshots are invented; their names and addresses are examples. `tools/store-screenshots/shoot.mjs` renders the pages of the built extension with a stand-in for the Thunderbird API and takes the screenshots again after `npm run build`.
 

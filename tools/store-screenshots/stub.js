@@ -62,6 +62,27 @@
   /** The subjects without their reply and forward prefixes, as the page sends them, with their language and translation. */
   const SUBJECTS = Object.fromEntries(MESSAGES.map((m) => [m.subject.replace(/^(?:(?:re|wg)\s*:\s*)+/i, ""), m]))
 
+  /**
+   * The summary and to-dos of the sample message, as the AI service answers the summary prompt (the JSON of
+   * e2e/mock-server.mjs SUMMARY_ANSWER, here for the sample message): the reader is "me", which the panel shows as "Me".
+   */
+  const SUMMARY = {
+    summary: [
+      "Katrin has uploaded the revised draft with the comments on the budget worked in. She asks for the final cost breakdown and the slides on the timeline by Friday, and proposes Tuesday afternoon for the sign-off.",
+    ],
+    actions: [
+      { who: "me", task: "Send Katrin the final cost breakdown and the slides on the timeline", due: "2026-10-23", dueText: "Friday", quote: "Bitte schickt mir bis Freitag, 23. Oktober" },
+      { who: "me", task: "Tell Katrin whether Tuesday at 3 pm suits for the sign-off", due: "", dueText: "", quote: "Die Abnahme selbst würde ich gern auf Dienstag, 27. Oktober, 15 Uhr, legen." },
+    ],
+    questions: [{ from: "Katrin Vogel", question: "Does Tuesday, 27 October, at 3 pm suit you for the sign-off?" }],
+    dates: [
+      { what: "Deadline for the cost breakdown and the slides", when: "2026-10-23", where: "" },
+      { what: "Sign-off of Project Nordlicht", when: "2026-10-27 15:00", where: "" },
+      { what: "Katrin at a trade fair, hard to reach", when: "2026-10-26", where: "Hamburg" },
+    ],
+  }
+  const summaryShot = shot === "summary"
+
   const translate = (tier, text) => TEXTS[text.trim()]?.[tier] ?? SUBJECTS[text.trim()]?.en ?? text
 
   const mode = shot === "translation-only" ? "translation-only" : "bilingual"
@@ -148,6 +169,11 @@
       onDisconnect,
       disconnect() {},
       postMessage(msg) {
+        if (msg.type === "summary") {
+          const result = { ok: true, service: "OpenAI", summary: SUMMARY, raw: JSON.stringify(SUMMARY) }
+          setTimeout(() => onMessage.fire({ type: "summary", id: msg.id, result }), 150)
+          return
+        }
         if (msg.type === "subject") {
           push({ type: "subject", id: msg.id, subject: SUBJECT })
           return
@@ -178,10 +204,13 @@
         style: { preset: "border", color: "#4c8bf5", textColor: "", opacity: 0.85, fontScale: 1 },
         offlineMutedPairs: [],
         consent,
+        summary: { available: summaryShot, inlineButton: false, collapsed: false, consent: null },
       },
     })
     // The translation of the message starts as with the toolbar button; the page of translated subjects starts by itself.
     if (!subjectsPage) setTimeout(() => onMessage.fire({ type: "toggle" }), 200)
+    // The summary shot asks for the summary once the message is translated, as "Summary and to-dos" in the popup does.
+    if (summaryShot) setTimeout(() => onMessage.fire({ type: "summarize" }), 600)
     return port
   }
 
@@ -190,7 +219,7 @@
   const api = {
     runtime: {
       getURL: (path) => `${origin}/${String(path).replace(/^\//, "")}`,
-      getManifest: () => ({ version: "2.2.0", name: "Multi Translate for Thunderbird" }),
+      getManifest: () => ({ version: "2.3.0", name: "Multi Translate for Thunderbird" }),
       sendMessage: (req) => respond(req),
       connect,
       onMessage: runtimeMessage,

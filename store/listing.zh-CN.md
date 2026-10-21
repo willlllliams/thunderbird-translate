@@ -64,3 +64,4 @@
 | `store/screenshots/7-consent.png` | 你允许之前不发送任何内容 |
 | `store/screenshots/8-subjects.png` | 标题翻译：当前文件夹的邮件及其标题译文 |
 | `store/screenshots/9-settings-markdown.png` | 设置页：译文样式和 AI 译文的 Markdown 渲染 |
+| `store/screenshots/10-summary.png` | 摘要与待办：摘要、带负责人和截止日期的待办、待回答的问题和日期，显示在译文上方的面板中 |
