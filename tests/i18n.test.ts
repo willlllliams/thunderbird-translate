@@ -531,6 +531,20 @@ describe("extension glue", () => {
     expect(fetch).toHaveBeenCalledWith("moz-extension://test/_locales/zh_TW/messages.json")
   })
 
+  it("U24: follows the interface language one load after the other, draws only the latest, and nothing for the same", async () => {
+    const slow = packagedFetch()
+    const { ext, i18n } = await glue(() => "en", async (url: string) => (url.includes("/de/") ? new Promise((r) => setTimeout(() => r(slow(url)), 20)) : slow(url)))
+    const drawn: string[] = []
+    const follow = ext.followUiLanguage("en", () => void drawn.push(i18n.getI18n().locale))
+    await follow("en")
+    expect(drawn).toEqual([])
+    const first = follow("de")
+    const second = follow("ja")
+    await Promise.all([first, second])
+    expect(drawn).toEqual(["ja"])
+    expect(i18n.getI18n().locale).toBe("ja")
+  })
+
   it("uses English when the file is missing or Thunderbird's language is unavailable", async () => {
     const { ext } = await glue(
       () => {

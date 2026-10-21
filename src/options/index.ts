@@ -2,7 +2,7 @@ import { setStyleVars } from "../content/render"
 import { ext } from "../shared/ext"
 import { getI18n, t } from "../shared/i18n"
 import { localizeDocument } from "../shared/i18n-dom"
-import { loadExtensionI18n } from "../shared/i18n-ext"
+import { followUiLanguage, loadExtensionI18n } from "../shared/i18n-ext"
 import { normalizeUiLanguageSetting } from "../shared/locales"
 import { type OfflineStatus, type OptionsPlace, type PageNotice, send } from "../shared/messages"
 import type { OfflineService } from "../shared/offline-needs"
@@ -253,10 +253,12 @@ function applyLanguage(): void {
   void refreshCacheCount()
 }
 
+/** Set once the page has its first language. */
+let followLanguage: (setting: unknown) => Promise<void> = async () => {}
+
 async function changeUiLanguage(value: unknown): Promise<void> {
   settings.uiLanguage = normalizeUiLanguageSetting(value)
-  await loadExtensionI18n(settings.uiLanguage)
-  applyLanguage()
+  await followLanguage(settings.uiLanguage)
 }
 
 async function main(): Promise<void> {
@@ -290,6 +292,7 @@ async function main(): Promise<void> {
   images = new ImageSettingsSection(session)
   mountStyleControls($("styleControls"), session, applyPreview)
   await Promise.all([loadExtensionI18n(settings.uiLanguage), loadSystemLanguages()])
+  followLanguage = followUiLanguage(settings.uiLanguage, applyLanguage)
   // The popup, the notice above a message and the tier selectors link to a place: options.html?dict=…&bergamot=…&tier=…#section.
   const query = new URLSearchParams(location.search)
   const terms = (name: string) => query.get(name)?.split(",").filter(Boolean)

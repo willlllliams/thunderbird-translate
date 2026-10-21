@@ -26,3 +26,23 @@ export async function loadExtensionI18n(setting: unknown): Promise<I18n> {
   setI18n(i18n)
   return i18n
 }
+
+/**
+ * Follow the interface language of a page that loaded the locale of `current`: the function it returns loads the
+ * locale of a new setting and runs `redraw`, and does nothing for the setting it has. Loads run one after the other
+ * and only the latest setting is drawn, so two quick changes cannot end in the first language.
+ */
+export function followUiLanguage(current: unknown, redraw: () => void | Promise<void>): (setting: unknown) => Promise<void> {
+  let latest = current
+  let done = Promise.resolve()
+  return (setting) => {
+    if (setting === latest) return done
+    latest = setting
+    done = done.then(async () => {
+      if (setting !== latest) return
+      await loadExtensionI18n(setting)
+      if (setting === latest) await redraw()
+    })
+    return done
+  }
+}

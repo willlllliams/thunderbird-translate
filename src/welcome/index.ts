@@ -13,7 +13,7 @@ import { Renderer, setStyleVars } from "../content/render"
 import { ext } from "../shared/ext"
 import { getI18n, t } from "../shared/i18n"
 import { localizeDocument } from "../shared/i18n-dom"
-import { loadExtensionI18n } from "../shared/i18n-ext"
+import { followUiLanguage, loadExtensionI18n } from "../shared/i18n-ext"
 import { normalizeUiLanguageSetting } from "../shared/locales"
 import { $, fillSelect, fillTierSelects, languageOptions, onTierChange, showSaved, showSaveError, sourceLanguageOptions, tierOptions, uiLanguageOptions } from "../shared/page"
 import { PROMPT_KINDS } from "../shared/prompts"
@@ -302,10 +302,12 @@ function applyLanguage(): void {
   enterStep()
 }
 
+/** Set once the page has its first language. */
+let followLanguage: (setting: unknown) => Promise<void> = async () => {}
+
 async function changeUiLanguage(value: unknown): Promise<void> {
   settings.uiLanguage = normalizeUiLanguageSetting(value)
-  await loadExtensionI18n(settings.uiLanguage)
-  applyLanguage()
+  await followLanguage(settings.uiLanguage)
 }
 
 /** Changes made elsewhere (popup, settings page) were taken over. */
@@ -356,6 +358,7 @@ async function main(): Promise<void> {
     void saveState({ step })
   })
   await Promise.all([loadExtensionI18n(settings.uiLanguage), loadSystemLanguages()])
+  followLanguage = followUiLanguage(settings.uiLanguage, applyLanguage)
 
   // Step 1
   const uiLanguage = $<HTMLSelectElement>("uiLanguage")

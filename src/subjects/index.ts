@@ -29,7 +29,7 @@ import type { MessageHeader } from "../shared/ext"
 import { ext } from "../shared/ext"
 import { getI18n, t } from "../shared/i18n"
 import { localizeDocument } from "../shared/i18n-dom"
-import { loadExtensionI18n } from "../shared/i18n-ext"
+import { followUiLanguage, loadExtensionI18n } from "../shared/i18n-ext"
 import { Listing, PAGE_SIZE, SETTLE_DELAYS_MS } from "../shared/message-list"
 import type { TabState } from "../shared/messages"
 import { $ } from "../shared/page"
@@ -44,8 +44,7 @@ const DATE_STYLE = { dateStyle: "short", timeStyle: "short" } as const
 
 async function main(): Promise<void> {
   const settings = await loadSettings()
-  let uiLanguage = settings.uiLanguage
-  await loadExtensionI18n(uiLanguage)
+  await loadExtensionI18n(settings.uiLanguage)
   localizeDocument()
 
   const params = new URLSearchParams(location.search)
@@ -215,16 +214,12 @@ async function main(): Promise<void> {
   }, { once: true })
 
   // A new interface language: the labels of the page and of its rows.
-  onStoredSettings((stored) => {
-    const next = readSettings(stored).uiLanguage
-    if (next === uiLanguage) return
-    uiLanguage = next
-    void loadExtensionI18n(uiLanguage).then(() => {
-      localizeDocument()
-      dateFormat = new Intl.DateTimeFormat(getI18n().lang, DATE_STYLE)
-      return render()
-    })
+  const followLanguage = followUiLanguage(settings.uiLanguage, () => {
+    localizeDocument()
+    dateFormat = new Intl.DateTimeFormat(getI18n().lang, DATE_STYLE)
+    return render()
   })
+  onStoredSettings((stored) => void followLanguage(readSettings(stored).uiLanguage))
 
   // Test build (npm run e2e): the probe reads the rows and clicks one.
   subjectsProbe?.({ client, tabId, reload })

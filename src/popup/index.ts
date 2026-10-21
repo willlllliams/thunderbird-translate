@@ -2,7 +2,7 @@ import { firstLine, truncate } from "../shared/errors"
 import { ext } from "../shared/ext"
 import { t } from "../shared/i18n"
 import { localizeDocument } from "../shared/i18n-dom"
-import { loadExtensionI18n } from "../shared/i18n-ext"
+import { followUiLanguage, loadExtensionI18n } from "../shared/i18n-ext"
 import { IDLE_TAB_STATE, type OfflineStatus, type OptionsPlace, optionsPath, type PageNotice, send, type TabState } from "../shared/messages"
 import { $, fillSelect, fillTierSelects, languageOptions, offlineStatus, onTierChange, showOfflineHint, sourceLanguageOptions, visionHint } from "../shared/page"
 import { type DisplayMode, type ImageMode, imageStatus, summaryProvider } from "../shared/settings"
@@ -11,8 +11,7 @@ import { REFRESH_AFTER_ACTION_MS, REFRESH_INTERVAL_MS } from "./timing"
 
 async function main(): Promise<void> {
   let settings = await loadSettings()
-  let uiLanguage = settings.uiLanguage
-  await loadExtensionI18n(uiLanguage)
+  await loadExtensionI18n(settings.uiLanguage)
   localizeDocument()
   const [tab] = await ext.tabs.query({ active: true, currentWindow: true })
   const tabId = tab?.id
@@ -129,6 +128,11 @@ async function main(): Promise<void> {
     render(await send({ type: "getTabState", tabId }))
   }
 
+  const followLanguage = followUiLanguage(settings.uiLanguage, () => {
+    localizeDocument()
+    fillSelects()
+    render(last)
+  })
   // The popup and the settings page change the settings; the interface language may change too.
   onStoredSettings((stored) => {
     const before = settings
@@ -136,16 +140,8 @@ async function main(): Promise<void> {
     showSwitches()
     const languages = (s: typeof settings) => JSON.stringify([s.sourceLang, s.targetLang, s.tiers])
     if (languages(settings) !== languages(before)) void refreshOffline()
-    if (settings.uiLanguage === uiLanguage) {
-      fillSelects()
-      return
-    }
-    uiLanguage = settings.uiLanguage
-    void loadExtensionI18n(uiLanguage).then(() => {
-      localizeDocument()
-      fillSelects()
-      render(last)
-    })
+    fillSelects()
+    void followLanguage(settings.uiLanguage)
   })
 
   for (const [button, type] of [
