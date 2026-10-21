@@ -39,17 +39,36 @@ export interface RequestQueueOptions {
    * attempt is charged.
    */
   timeoutRetries?: number
+  /** The starts of two attempts lie at least this far apart (ms): the rate limit of a service such as Baidu's standard edition, 1 request per second. None when absent. */
+  minIntervalMs?: () => number
   baseDelayMs?: number
   sleep?: (ms: number) => Promise<void>
+  now?: () => number
 }
 
 export class RequestQueue {
   private running = 0
   private waiting: (() => void)[] = []
   private readonly sleep: (ms: number) => Promise<void>
+  /** Start of the latest attempt, and the turn of the attempts that wait for minIntervalMs. */
+  private lastStart = -Infinity
+  private turn = Promise.resolve()
 
   constructor(private readonly options: RequestQueueOptions) {
     this.sleep = options.sleep ?? ((ms) => new Promise((r) => setTimeout(r, ms)))
+  }
+
+  /** Waits until minIntervalMs has passed since the start of the previous attempt; the attempts start in the order they asked. */
+  private spaced(): Promise<void> {
+    const interval = this.options.minIntervalMs?.() ?? 0
+    if (interval <= 0) return Promise.resolve()
+    const now = this.options.now ?? Date.now
+    this.turn = this.turn.then(async () => {
+      const wait = this.lastStart + interval - now()
+      if (wait > 0) await this.sleep(wait)
+      this.lastStart = now()
+    })
+    return this.turn
   }
 
   get activeCount(): number {
@@ -96,6 +115,7 @@ export class RequestQueue {
   private async withSlot<T>(task: () => Promise<T>): Promise<T> {
     await this.acquire()
     try {
+      await this.spaced()
       return await task()
     } finally {
       this.release()

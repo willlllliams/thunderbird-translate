@@ -521,3 +521,119 @@ describe("online services allowed to receive message text", () => {
     await until(() => expect(items().map((li) => li.querySelector("span")?.textContent)).toEqual(["DeepLX"]))
   })
 })
+
+describe("the machine translators with a key of their own", () => {
+  const pick = (name: string) => Array.from(document.querySelectorAll<HTMLLIElement>("#providerList li")).find((li) => li.firstChild?.textContent === name)!.click()
+  const panel = () => $("providerPanel")
+  const field = (label: string) => Array.from(panel().querySelectorAll("label.panel-field")).find((l) => l.firstChild?.textContent === label)!
+  const control = <T extends HTMLElement>(label: string) => field(label).querySelector<T>("input, select")!
+
+  it("DeepL: tells a free key from a Pro key, and saves formality and the variants of English and Portuguese", async () => {
+    const page = await options()
+    pick("DeepL API")
+    const key = control<HTMLInputElement>(ENGLISH.t("labelApiKey"))
+    const plan = () => field(ENGLISH.t("labelApiKey")).querySelectorAll(".hint")[1].textContent
+    expect(plan()).toBe("")
+    fire(key, "abc:fx")
+    expect(plan()).toBe(ENGLISH.t("hintDeeplFreeKey"))
+    fire(key, "abc")
+    expect(plan()).toBe(ENGLISH.t("hintDeeplProKey"))
+    expect(panel().textContent).toContain(ENGLISH.t("hintDeeplEndpoint"))
+    fire(control(ENGLISH.t("labelFormality")), "more", "change")
+    fire(control(ENGLISH.t("labelDeeplEnglish")), "EN-GB", "change")
+    fire(control(ENGLISH.t("labelDeeplPortuguese")), "PT-PT", "change")
+    await flushSave()
+    expect(page.stored().providers.deepl).toMatchObject({ enabled: true, apiKey: "abc", deepl: { formality: "more", english: "EN-GB", portuguese: "PT-PT" } })
+    pick("DeepLX")
+    pick("DeepL API")
+    expect(control<HTMLSelectElement>(ENGLISH.t("labelDeeplEnglish")).value).toBe("EN-GB")
+  })
+
+  it("Baidu: saves app ID, secret key and edition, with the quota and the languages of the edition", async () => {
+    const page = await options()
+    pick("百度翻译 (Baidu Translate)")
+    expect(panel().textContent).toContain(ENGLISH.t("hintBaiduAppId"))
+    const edition = control<HTMLInputElement>(ENGLISH.t("labelBaiduEdition"))
+    const hint = () => field(ENGLISH.t("labelBaiduEdition")).querySelector(".hint")!.textContent
+    expect([edition.value, hint()]).toEqual(["standard", ENGLISH.t("hintBaiduStandard")])
+    fire(control(ENGLISH.t("labelAppId")), " 20240101 ")
+    fire(control(ENGLISH.t("labelSecretKey")), "secret")
+    for (const [value, key] of [["advanced", "hintBaiduAdvanced"], ["premium", "hintBaiduPremium"]] as const) {
+      fire(edition, value, "change")
+      expect(hint()).toBe(ENGLISH.t(key))
+    }
+    await flushSave()
+    expect(page.stored().providers.baidu).toMatchObject({ enabled: true, appId: "20240101", apiKey: "secret", edition: "premium" })
+  })
+
+  it("Youdao and Caiyun: app ID and secret, a token and the directions", async () => {
+    const page = await options()
+    pick("有道智云 (Youdao)")
+    fire(control(ENGLISH.t("labelAppId")), "app")
+    fire(control(ENGLISH.t("labelAppSecret")), "secret")
+    pick("彩云小译 (Caiyun)")
+    expect(panel().textContent).toContain(ENGLISH.t("hintCaiyun"))
+    fire(control(ENGLISH.t("labelToken")), "token")
+    await flushSave()
+    expect(page.stored().providers.youdao).toMatchObject({ enabled: true, appId: "app", apiKey: "secret" })
+    expect(page.stored().providers.caiyun).toMatchObject({ enabled: true, apiKey: "token" })
+  })
+})
+
+describe("summary and to-dos", () => {
+  it("chooses the service among the AI tier and the added AI services, and saves model, length, panel, parts and button", async () => {
+    const page = await options((s) => {
+      s.providers.anthropic = { enabled: true, apiKey: "k", baseURL: "", model: "" }
+    })
+    const provider = $<HTMLSelectElement>("summaryProvider")
+    expect(Array.from(provider.options, (o) => [o.value, o.textContent])).toEqual([
+      ["", ENGLISH.t("summaryProviderTier")],
+      ["anthropic", "Anthropic Claude"],
+    ])
+    // Without an AI tier and with no service chosen there is no summary.
+    expect($("summaryNone").hidden).toBe(false)
+    expect($<HTMLInputElement>("summaryModel").placeholder).toBe("")
+    set("summaryProvider", "anthropic")
+    expect($("summaryNone").hidden).toBe(true)
+    expect($<HTMLInputElement>("summaryModel").placeholder).toBe("claude-haiku-5-5")
+    set("summaryModel", " claude-sonnet-5-5 ", "input")
+    set("summaryMaxTokens", "50")
+    expect($<HTMLInputElement>("summaryMaxTokens").value).toBe("200")
+    set("summaryDisplay", "collapsed")
+    $<HTMLInputElement>("summaryPart-questions").click()
+    $<HTMLInputElement>("summaryInline").click()
+    await flushSave()
+    expect(page.stored().summary).toEqual({ provider: "anthropic", model: "claude-sonnet-5-5", inlineButton: true, parts: ["summary", "actions", "dates"], maxOutputTokens: 200, display: "collapsed" })
+    set("summaryDisplay", "expanded")
+    $<HTMLInputElement>("summaryPart-questions").click()
+    set("summaryProvider", "")
+    await flushSave()
+    expect(page.stored().summary).toMatchObject({ provider: null, parts: ["summary", "actions", "questions", "dates"], display: "expanded" })
+  })
+
+  it("follows the services that are added and removed", async () => {
+    await options((s) => {
+      s.tiers.ai = "openai"
+      s.providers.openai.apiKey = "k"
+      s.summary.provider = "deepseek"
+    })
+    // A chosen service that is not added: the summary uses the AI tier.
+    expect($<HTMLSelectElement>("summaryProvider").value).toBe("")
+    expect($<HTMLInputElement>("summaryModel").placeholder).toBe("gpt-4.1-mini")
+    Array.from(document.querySelectorAll<HTMLLIElement>("#providerList li")).find((li) => li.firstChild?.textContent === "DeepSeek")!.click()
+    Array.from($("providerPanel").querySelectorAll("button")).find((b) => b.textContent === ENGLISH.t("buttonAddProvider"))!.click()
+    expect($<HTMLSelectElement>("summaryProvider").value).toBe("deepseek")
+  })
+
+  it("edits the summary prompt beside the prompts of the AI tier, with its Restore button", async () => {
+    const page = await options()
+    const box = $<HTMLTextAreaElement>("prompt-summary")
+    expect(box.value).toBe(box.placeholder)
+    set("prompt-summary", "Summarize in {{to}}.", "input")
+    await flushSave()
+    expect(page.stored().prompts.summary).toBe("Summarize in {{to}}.")
+    $("reset-summary").click()
+    await flushSave()
+    expect(page.stored().prompts.summary).toBe("")
+  })
+})

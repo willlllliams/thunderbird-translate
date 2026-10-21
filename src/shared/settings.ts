@@ -3,7 +3,7 @@ import { hashText } from "./hash"
 import { patternHost, providerOrigin } from "./hosts"
 import { appLang, LANGUAGES, languageTag } from "./languages"
 import { normalizeUiLanguageSetting, type UiLanguageSetting } from "./locales"
-import { DEFAULT_PROMPTS, PROMPT_KINDS, type PromptKind, promptText } from "./prompts"
+import { DEFAULT_PROMPTS, PROMPT_NAMES, type PromptKind, type PromptName, promptText } from "./prompts"
 import { DEFAULT_PROVIDER_ID, getPreset, isAiProvider, PROVIDER_PRESETS, type ProviderPreset, type Tier, TIERS, tierOf } from "./providers"
 
 export type DisplayMode = "bilingual" | "translation-only"
@@ -25,9 +25,48 @@ export interface ProviderConfig {
   mode?: MicrosoftMode
   /** Microsoft Translator, key mode: Azure region of the resource; empty for a global resource. */
   region?: string
+  /** Baidu and Youdao: the app ID (appid, appKey); apiKey holds the secret key. */
+  appId?: string
+  /** Baidu: the edition of the account, which sets the request size and the requests per second. */
+  edition?: BaiduEdition
+  /** DeepL: formality and the variants of English and Portuguese as target languages. */
+  deepl?: DeeplOptions
 }
 
 type MicrosoftMode = "free" | "key"
+
+export const BAIDU_EDITIONS = ["standard", "advanced", "premium"] as const
+export type BaiduEdition = (typeof BAIDU_EDITIONS)[number]
+
+export interface DeeplOptions {
+  formality: "default" | "more" | "less"
+  english: "EN-US" | "EN-GB"
+  portuguese: "PT-BR" | "PT-PT"
+}
+
+export const DEFAULT_DEEPL: DeeplOptions = { formality: "default", english: "EN-US", portuguese: "PT-BR" }
+
+/** Endpoint of the keys of DeepL's free plan, which end in ":fx". */
+export const DEEPL_FREE_URL = "https://api-free.deepl.com"
+
+/** The parts of a summary, in the order of the panel. */
+export const SUMMARY_PARTS = ["summary", "actions", "questions", "dates"] as const
+export type SummaryPart = (typeof SUMMARY_PARTS)[number]
+
+/** Summary and to-dos of the message on screen. */
+export interface SummarySettings {
+  /** AI service of the summary; null = the service of the AI tier. */
+  provider: string | null
+  /** Model of the summary; "" = the model of the service. */
+  model: string
+  /** A "Summary" button above the message while it is translated. */
+  inlineButton: boolean
+  /** The parts the model is asked for and the panel shows. */
+  parts: SummaryPart[]
+  maxOutputTokens: number
+  /** The panel opens expanded or collapsed. */
+  display: "expanded" | "collapsed"
+}
 
 export function emptyProviderConfig(): ProviderConfig {
   return { enabled: false, apiKey: "", baseURL: "", model: "" }
@@ -79,8 +118,8 @@ export interface Settings {
   renderMarkdown: boolean
   tiers: TierSettings
   providers: Record<string, ProviderConfig>
-  /** System prompts of the AI tier; `{{to}}` is the target language. Empty = default. */
-  prompts: Record<PromptKind, string>
+  /** System prompts of the AI tier and of the summary; `{{to}}` is the target language. Empty = default. */
+  prompts: Record<PromptName, string>
   /** AI tier only: translate with the whole message as context. */
   precise: { enabled: boolean }
   /** Release tag on GitHub that holds the dictionary packs. */
@@ -92,6 +131,7 @@ export interface Settings {
    * before it first sends message text there; the settings page lists them and takes them back.
    */
   onlineConsent: string[]
+  summary: SummarySettings
   batch: BatchSettings
   cache: { enabled: boolean; maxEntries: number }
   style: StyleSettings
@@ -127,11 +167,12 @@ export function createDefaultSettings(uiLang?: string): Settings {
     renderMarkdown: true,
     tiers: { ...DEFAULT_TIERS },
     providers,
-    prompts: { bilingual: "", translationOnly: "", precise: "" },
+    prompts: { bilingual: "", translationOnly: "", precise: "", summary: "" },
     precise: { enabled: false },
     dictionary: { releaseTag: DEFAULT_DICT_TAG },
     offlineMutedPairs: [],
     onlineConsent: [],
+    summary: { provider: null, model: "", inlineButton: false, parts: [...SUMMARY_PARTS], maxOutputTokens: 800, display: "expanded" },
     batch: { batchDelayMs: 50, maxCharsPerBatch: 3000, maxItemsPerBatch: 30, concurrency: 4, maxRetries: 3, timeoutSeconds: 60, llmBatchEnabled: true },
     cache: { enabled: true, maxEntries: 5000 },
     style: { preset: "border", color: "#4c8bf5", textColor: "", opacity: 0.85, fontScale: 1 },
@@ -196,7 +237,7 @@ function normalizeTiers(stored: Partial<Settings> & LegacySettings): TierSetting
  * included: a stored copy of one of them is not the user's own prompt. A
  * release that changes DEFAULT_PROMPTS adds the prompts it replaces here.
  */
-const isBuiltInPrompt = (kind: PromptKind, text: string) => [PROMPT_1_0, DEFAULT_PROMPTS[kind]].includes(text.trim())
+const isBuiltInPrompt = (kind: PromptName, text: string) => [PROMPT_1_0, DEFAULT_PROMPTS[kind]].includes(text.trim())
 
 /**
  * Prompts from stored settings; empty stands for the built-in prompt, so a
@@ -204,11 +245,12 @@ const isBuiltInPrompt = (kind: PromptKind, text: string) => [PROMPT_1_0, DEFAULT
  * their own. A custom system prompt of 1.3 and earlier becomes the prompt of
  * both display modes.
  */
-function normalizePrompts(stored: Partial<Settings> & LegacySettings): Record<PromptKind, string> {
-  const prompts: Record<PromptKind, string> = { bilingual: "", translationOnly: "", precise: "" }
-  const own = (kind: PromptKind, value: unknown) => (typeof value === "string" && value.trim() && !isBuiltInPrompt(kind, value) ? value : "")
+function normalizePrompts(stored: Partial<Settings> & LegacySettings): Record<PromptName, string> {
+  const prompts: Record<PromptName, string> = { bilingual: "", translationOnly: "", precise: "", summary: "" }
+  const own = (kind: PromptName, value: unknown) => (typeof value === "string" && value.trim() && !isBuiltInPrompt(kind, value) ? value : "")
   if (stored.prompts && typeof stored.prompts === "object") {
-    for (const kind of PROMPT_KINDS) prompts[kind] = own(kind, (stored.prompts as Partial<Record<PromptKind, unknown>>)[kind])
+    // Settings saved before 2.3.0 have no summary prompt, which stands for the built-in one.
+    for (const kind of PROMPT_NAMES) prompts[kind] = own(kind, (stored.prompts as Partial<Record<PromptName, unknown>>)[kind])
   } else {
     prompts.bilingual = own("bilingual", stored.systemPrompt)
     prompts.translationOnly = own("translationOnly", stored.systemPrompt)
@@ -235,6 +277,9 @@ export function normalizeSettings(stored: unknown, uiLang?: string): Settings {
       ...(cfg.thinking === true ? { thinking: true } : {}),
       ...(cfg.mode === "key" ? { mode: "key" as const } : {}),
       ...(typeof cfg.region === "string" && cfg.region ? { region: cfg.region } : {}),
+      ...(typeof cfg.appId === "string" && cfg.appId ? { appId: cfg.appId } : {}),
+      ...(BAIDU_EDITIONS.includes(cfg.edition as BaiduEdition) ? { edition: cfg.edition } : {}),
+      ...(cfg.deepl && typeof cfg.deepl === "object" ? { deepl: normalizeDeepl(cfg.deepl) } : {}),
     }
     // Settings saved before 1.2.0 have no "enabled": derive it from what the user configured.
     const preset = getPreset(id)
@@ -242,6 +287,7 @@ export function normalizeSettings(stored: unknown, uiLang?: string): Settings {
     providers[id] = next
   }
   const b = (s.batch ?? {}) as Partial<BatchSettings>
+  const sum = (s.summary ?? {}) as Partial<SummarySettings>
   const st = (s.style ?? {}) as Partial<StyleSettings>
   const tag = typeof s.dictionary?.releaseTag === "string" ? s.dictionary.releaseTag.trim() : ""
   const settings: Settings = {
@@ -261,6 +307,15 @@ export function normalizeSettings(stored: unknown, uiLang?: string): Settings {
     dictionary: { releaseTag: tag || d.dictionary.releaseTag },
     offlineMutedPairs: Array.isArray(s.offlineMutedPairs) ? [...new Set(s.offlineMutedPairs.filter((p): p is string => typeof p === "string" && MUTED_KEY.test(p)))] : [],
     onlineConsent: Array.isArray(s.onlineConsent) ? [...new Set(s.onlineConsent.filter((id): id is string => typeof id === "string" && isOnlineService(id)))] : [],
+    // Settings saved before 2.3.0 have no summary settings: the defaults.
+    summary: {
+      provider: isAiProvider(getPreset(String(sum.provider))) ? (sum.provider as string) : null,
+      model: typeof sum.model === "string" ? sum.model.trim() : "",
+      inlineButton: sum.inlineButton === true,
+      parts: Array.isArray(sum.parts) ? SUMMARY_PARTS.filter((part) => (sum.parts as unknown[]).includes(part)) : [...SUMMARY_PARTS],
+      maxOutputTokens: num(sum.maxOutputTokens, d.summary.maxOutputTokens, 200, 4000),
+      display: sum.display === "collapsed" ? "collapsed" : "expanded",
+    },
     batch: {
       batchDelayMs: num(b.batchDelayMs, d.batch.batchDelayMs, 0, 2000),
       maxCharsPerBatch: num(b.maxCharsPerBatch, d.batch.maxCharsPerBatch, 200, 50000),
@@ -287,10 +342,20 @@ export function normalizeSettings(stored: unknown, uiLang?: string): Settings {
   return settings
 }
 
+/** DeepL options from stored settings; a missing or unknown value takes the default. */
+function normalizeDeepl(stored: Partial<Record<keyof DeeplOptions, unknown>>): DeeplOptions {
+  const pick = <T extends string>(value: unknown, values: readonly T[]) => (values.includes(value as T) ? (value as T) : values[0])
+  return {
+    formality: pick(stored.formality, ["default", "more", "less"]),
+    english: pick(stored.english, ["EN-US", "EN-GB"]),
+    portuguese: pick(stored.portuguese, ["PT-BR", "PT-PT"]),
+  }
+}
+
 /**
  * Whether a provider counts as added when the settings carry no explicit
- * choice: the free translators always; DeepLX once it has an endpoint; AI
- * services once they have a key, keyless ones (Ollama, LM Studio, custom)
+ * choice: the free translators always; DeepLX once it has an endpoint; the
+ * other machine translators and AI services once they have a key, keyless ones (Ollama, LM Studio, custom)
  * once the user changed their configuration. The dictionary and the offline
  * translator need data the user installs, so they are added by hand.
  */
@@ -304,6 +369,11 @@ export function addedByDefault(preset: ProviderPreset, cfg: ProviderConfig): boo
       return false
     case "deeplx":
       return Boolean(cfg.baseURL)
+    case "deepl":
+    case "baidu":
+    case "youdao":
+    case "caiyun":
+      return Boolean(cfg.apiKey)
     case "llm":
       return Boolean(cfg.apiKey) || (!preset.requiresKey && Boolean(cfg.baseURL || cfg.model || cfg.temperature !== undefined))
   }
@@ -356,6 +426,12 @@ export interface ResolvedProvider {
   /** Microsoft Translator only; always "free" for other services. */
   mode: MicrosoftMode
   region: string
+  /** Baidu and Youdao. */
+  appId: string
+  /** Baidu; "standard" for other services. */
+  edition: BaiduEdition
+  /** DeepL; the defaults for other services. */
+  deepl: DeeplOptions
 }
 
 export function resolveProvider(settings: Settings, providerId: string): ResolvedProvider {
@@ -365,15 +441,20 @@ export function resolveProvider(settings: Settings, providerId: string): Resolve
 export function resolveProviderConfig(providerId: string, cfg: Omit<ProviderConfig, "enabled">): ResolvedProvider {
   const preset = getPreset(providerId)
   if (!preset) throw new LocalizedError("errUnknownProvider", [providerId])
+  const apiKey = cfg.apiKey.trim()
+  const defaultBaseURL = preset.kind === "deepl" && apiKey.endsWith(":fx") ? DEEPL_FREE_URL : preset.defaultBaseURL
   return {
     id: providerId,
-    apiKey: cfg.apiKey.trim(),
-    baseURL: (cfg.baseURL.trim() || preset.defaultBaseURL).replace(/\/+$/, ""),
+    apiKey,
+    baseURL: (cfg.baseURL.trim() || defaultBaseURL).replace(/\/+$/, ""),
     model: cfg.model.trim() || preset.defaultModel,
     temperature: cfg.temperature === undefined ? preset.defaultTemperature : cfg.temperature,
     thinking: cfg.thinking === true,
     mode: preset.kind === "microsoft" && cfg.mode === "key" ? "key" : "free",
     region: (cfg.region ?? "").trim(),
+    appId: (cfg.appId ?? "").trim(),
+    edition: cfg.edition ?? "standard",
+    deepl: cfg.deepl ?? DEFAULT_DEEPL,
   }
 }
 
@@ -386,7 +467,7 @@ export interface ResultInputs {
   prompt?: string
   /**
    * Endpoint and Microsoft mode; for AI services also prompt kind, prompt,
-   * thinking and temperature. Joined with line breaks, they are part of the cache
+   * thinking and temperature; for DeepL its formality and target variants. Joined with line breaks, they are part of the cache
    * key of every translation (TranslationService) and of the signature of
    * the tier the content script compares (toPublicSettings), so both change
    * together. The order is fixed: stored cache keys depend on it.
@@ -399,7 +480,9 @@ export function resultInputs(settings: Settings, providerId: string): ResultInpu
   const provider = resolveProvider(settings, providerId)
   const kind = isAiProvider(getPreset(providerId)) ? promptKindFor(settings) : undefined
   const prompt = kind ? promptText(settings.prompts, kind) : undefined
-  const parts = [provider.baseURL, provider.mode, ...(kind ? [kind, prompt, provider.thinking, provider.temperature] : [])]
+  const { formality, english, portuguese } = provider.deepl
+  const deepl = getPreset(providerId)?.kind === "deepl" ? [formality, english, portuguese] : []
+  const parts = [provider.baseURL, provider.mode, ...(kind ? [kind, prompt, provider.thinking, provider.temperature] : []), ...deepl]
   return { provider, kind, prompt, parts }
 }
 
@@ -416,16 +499,22 @@ export interface ConsentNeed {
   host: string
 }
 
+/** The consent `id` still needs before message text goes to it; null for an offline service and one already allowed. */
+function consentNeed(settings: Settings, id: string): ConsentNeed | null {
+  if (!isOnlineService(id) || settings.onlineConsent.includes(id)) return null
+  const origin = providerOrigin(resolveProvider(settings, id))
+  return { id, host: origin ? patternHost(origin) : "" }
+}
+
 /** The online services of the tiers in use that need the user's consent before message text goes to them, lowest tier first. */
 export function consentNeeds(settings: Settings): ConsentNeed[] {
-  const needs: ConsentNeed[] = []
-  for (const tier of enabledTiers(settings.tiers)) {
-    const id = settings.tiers[tier]!
-    if (!isOnlineService(id) || settings.onlineConsent.includes(id)) continue
-    const origin = providerOrigin(resolveProvider(settings, id))
-    needs.push({ id, host: origin ? patternHost(origin) : "" })
-  }
-  return needs
+  return enabledTiers(settings.tiers).flatMap((tier) => consentNeed(settings, settings.tiers[tier]!) ?? [])
+}
+
+/** The AI service of the summary: the added service chosen for it, else the service of the AI tier; null without either. */
+export function summaryProvider(settings: Settings): string | null {
+  const chosen = settings.summary.provider
+  return chosen && settings.providers[chosen]?.enabled ? chosen : settings.tiers.ai
 }
 
 /** Settings that content scripts may see. Never contains API keys, nor endpoints, which may hold a token; only the host of a service that awaits consent. */
@@ -454,6 +543,8 @@ export interface PublicSettings {
   offlineMutedPairs: string[]
   /** The online services that need consent before the message text goes to them, with their hosts (consentNeeds()). */
   consent: ConsentNeed[]
+  /** Summary and to-dos: whether a service is there, the button above a translated message, the panel collapsed, and the consent its service still needs. */
+  summary: { available: boolean; inlineButton: boolean; collapsed: boolean; consent: ConsentNeed | null }
 }
 
 export function toPublicSettings(settings: Settings): PublicSettings {
@@ -462,6 +553,7 @@ export function toPublicSettings(settings: Settings): PublicSettings {
     const { provider, parts } = resultInputs(settings, settings.tiers[tier]!)
     signatures[tier] = `${provider.id}|${provider.model}|${hashText(parts.join("\n"))}`
   }
+  const summarizer = summaryProvider(settings)
   return {
     uiLanguage: settings.uiLanguage,
     sourceLang: settings.sourceLang,
@@ -476,5 +568,11 @@ export function toPublicSettings(settings: Settings): PublicSettings {
     style: settings.style,
     offlineMutedPairs: settings.offlineMutedPairs,
     consent: consentNeeds(settings),
+    summary: {
+      available: summarizer !== null,
+      inlineButton: settings.summary.inlineButton,
+      collapsed: settings.summary.display === "collapsed",
+      consent: summarizer ? consentNeed(settings, summarizer) : null,
+    },
   }
 }

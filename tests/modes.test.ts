@@ -43,11 +43,11 @@ function fakeLlm(gate?: Promise<void>, analysis: MailAnalysis | null = null) {
       return `AI(${segment.text})`
     }),
     analyze: vi.fn(async (_text: string, _opts: LlmCallOptions): Promise<MailAnalysis | null> => analysis),
-  } satisfies LlmImpl
+  } satisfies Partial<LlmImpl>
   return { llm, calls }
 }
 
-type Extra = { llm?: LlmImpl; fetchFn?: unknown; dictionary?: ReturnType<typeof fakeDictionary> }
+type Extra = { llm?: Partial<LlmImpl>; fetchFn?: unknown; dictionary?: ReturnType<typeof fakeDictionary> }
 
 /** OpenAI as AI tier, Google as machine tier, no dictionary. */
 function setup(over: (s: Settings) => void, extra: Extra = {}) {
@@ -103,7 +103,7 @@ describe("tiers", () => {
   })
 
   it("reports the failure of the highest tier next to the result of a lower one", async () => {
-    const llm: LlmImpl = {
+    const llm: Partial<LlmImpl> = {
       ...fakeLlm().llm,
       single: vi.fn(async () => {
         throw Object.assign(new Error("Incorrect API key"), { statusCode: 401, isRetryable: false })
@@ -333,7 +333,7 @@ describe("precise mode", () => {
   })
 
   /** Precise mode with requests too small for the whole message, and no translation cache: every run asks again. */
-  const uncached = (llm: LlmImpl, over: (s: Settings) => void = () => {}) => {
+  const uncached = (llm: Partial<LlmImpl>, over: (s: Settings) => void = () => {}) => {
     const created = setup((s) => {
       preciseOn(s)
       s.batch.maxCharsPerBatch = 40

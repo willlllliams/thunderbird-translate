@@ -178,6 +178,20 @@ export class TranslationController {
     }
   }
 
+  /**
+   * The text of the message as precise translation registers it
+   * (MailContext.text), for its summary: of the paragraphs found when the
+   * translation started, else of those found now, whose DOM is put back at once.
+   */
+  messageText(): string {
+    const root = this.root()
+    if (!root) return ""
+    const collected = this.collected ?? (this.deps.collect ?? collectParagraphs)(root)
+    const text = createMailContext(collected.units.map((unit) => unit.text), []).text
+    if (collected !== this.collected) collected.restore()
+    return text
+  }
+
   /** Dictionary packs or offline models changed: the results kept from before are not shown again. */
   forgetResults(): void {
     this.memo.clear()

@@ -5,7 +5,7 @@ import { localizeDocument } from "../shared/i18n-dom"
 import { loadExtensionI18n } from "../shared/i18n-ext"
 import { IDLE_TAB_STATE, type OfflineStatus, type OptionsPlace, optionsPath, type PageNotice, send, type TabState } from "../shared/messages"
 import { $, fillSelect, fillTierSelects, languageOptions, offlineStatus, onTierChange, showOfflineHint, sourceLanguageOptions } from "../shared/page"
-import type { DisplayMode } from "../shared/settings"
+import { type DisplayMode, summaryProvider } from "../shared/settings"
 import { loadSettings, onStoredSettings, readSettings, updateSettings } from "../shared/settings-store"
 import { REFRESH_AFTER_ACTION_MS, REFRESH_INTERVAL_MS } from "./timing"
 
@@ -19,6 +19,7 @@ async function main(): Promise<void> {
 
   const toggle = $<HTMLButtonElement>("toggle")
   const retranslate = $<HTMLButtonElement>("retranslate")
+  const summarize = $<HTMLButtonElement>("summarize")
   const status = $<HTMLParagraphElement>("status")
   const lastError = $<HTMLParagraphElement>("lastError")
   const sourceLang = $<HTMLSelectElement>("sourceLang")
@@ -89,6 +90,10 @@ async function main(): Promise<void> {
     toggle.title = st.active ? t("tipShowOriginal") : t("tipTranslate")
     // Retranslating needs a translated message.
     retranslate.hidden = !(st.connected && st.active)
+    // The summary needs a message and an AI service, of its own or of the AI tier.
+    const summarizer = summaryProvider(settings) !== null
+    summarize.disabled = !st.connected || !summarizer
+    summarize.title = t(summarizer ? "tipSummarize" : "tipSummarizeNone")
     if (!st.connected) status.textContent = t("popupNotConnected")
     else if (!st.active) status.textContent = t("popupIdle")
     else if (st.total === 0) status.textContent = t("popupNothing")
@@ -133,6 +138,7 @@ async function main(): Promise<void> {
   for (const [button, type] of [
     [toggle, "toggleTab"],
     [retranslate, "retranslateTab"],
+    [summarize, "summarizeTab"],
   ] as const) {
     button.addEventListener("click", async () => {
       if (tabId === undefined) return

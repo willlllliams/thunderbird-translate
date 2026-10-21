@@ -544,20 +544,23 @@ describe("extension glue", () => {
 
 describe("keyboard shortcuts", () => {
   const manifest = JSON.parse(readFileSync(join(root, "static", "manifest.json"), "utf8"))
-  const commands = manifest.commands as Record<string, { suggested_key: { default: string }; description: string }>
+  const commands = manifest.commands as Record<string, { suggested_key?: { default: string }; description: string }>
+  const keys = Object.values(commands).flatMap((c) => (c.suggested_key ? [c.suggested_key.default] : []))
 
-  it("describe the three commands with their own keys", () => {
+  it("describe the four commands, three with their own keys; the summary has none", () => {
     expect(Object.fromEntries(Object.entries(commands).map(([id, c]) => [id, c.description]))).toEqual({
       "toggle-translation": "__MSG_commandToggle__",
       "toggle-display-mode": "__MSG_commandMode__",
       retranslate: "__MSG_commandRetranslate__",
+      summarize: "__MSG_commandSummarize__",
     })
-    expect(new Set(Object.values(commands).map((c) => c.suggested_key.default))).toEqual(new Set(["Alt+A", "Alt+S", "Alt+R"]))
+    expect(new Set(keys)).toEqual(new Set(["Alt+A", "Alt+S", "Alt+R"]))
+    expect(commands.summarize.suggested_key).toBeUndefined()
   })
 
   it.each(SUPPORTED_LOCALES)("%s: names the suggested keys in the popup hint and describes each command", (locale) => {
-    for (const c of Object.values(commands)) expect(sources[locale].popupShortcuts).toContain(c.suggested_key.default)
-    const descriptions = ["commandToggle", "commandMode", "commandRetranslate"].map((key) => sources[locale][key])
-    expect(new Set(descriptions).size).toBe(3)
+    for (const key of keys) expect(sources[locale].popupShortcuts).toContain(key)
+    const descriptions = ["commandToggle", "commandMode", "commandRetranslate", "commandSummarize"].map((key) => sources[locale][key])
+    expect(new Set(descriptions).size).toBe(4)
   })
 })

@@ -8,7 +8,7 @@ import { describeError } from "../shared/errors"
 import { getI18n, t } from "../shared/i18n"
 import { send } from "../shared/messages"
 import { checkBaseURL, type ProviderPreset, providerDisplayName } from "../shared/providers"
-import { emptyProviderConfig, type ProviderConfig } from "../shared/settings"
+import { type BaiduEdition, DEFAULT_DEEPL, emptyProviderConfig, type ProviderConfig } from "../shared/settings"
 import { button, h, setTitle } from "../shared/dom"
 import { isLoopback } from "../shared/hosts"
 import { hostAccessLine, requestHostAccess } from "./host-access"
@@ -98,14 +98,16 @@ function endpointField({ p, cfg, session, addWhileTyping }: PanelState, label: s
   return h("div", { className: "field-group" }, field(label, baseURL, tip, hint), loopback, warning, access.el)
 }
 
-/** Key / token field, hidden by default and with a button to show it. */
-function keyField({ cfg, session, addWhileTyping }: PanelState, label: string): HTMLElement {
+/** Key / token field, hidden by default and with a button to show it; `onKey` hears the key as typed, and once at the start. */
+function keyField({ cfg, session, addWhileTyping }: PanelState, label: string, onKey?: (key: string) => void): HTMLElement {
   const key = h("input", { type: "password", value: cfg.apiKey, autocomplete: "off", spellcheck: "false" })
   key.addEventListener("input", () => {
     cfg.apiKey = key.value.trim()
     addWhileTyping(cfg.apiKey)
+    onKey?.(cfg.apiKey)
     session.save()
   })
+  onKey?.(cfg.apiKey)
   const show = h("button", { type: "button", text: t("buttonShowKey"), title: t("tipShowKey") })
   show.addEventListener("click", () => {
     const hidden = key.type === "password"
@@ -148,6 +150,59 @@ function microsoftFields(state: PanelState): HTMLElement[] {
   }
   const modeSwitch = h("div", { className: "mode-switch" }, radio("free", t("microsoftModeFree"), t("tipMicrosoftFree")), radio("key", t("microsoftModeKey"), t("tipMicrosoftKey")))
   return [h("div", { className: "panel-field" }, h("span", { text: t("microsoftModeLabel") }), modeSwitch), freeHint, fields]
+}
+
+/** A list of choices, each a value and its label; `hint` the line under it. */
+function choiceField<T extends string>(session: SettingsSession, label: string, tip: string, choices: [T, string][], value: T, set: (value: T) => void, hint?: HTMLElement): HTMLElement {
+  const select = h("select", {}, ...choices.map(([v, text]) => h("option", { value: v, text, selected: v === value })))
+  select.addEventListener("change", () => {
+    set(select.value as T)
+    session.save()
+  })
+  const el = field(label, select, tip)
+  if (hint) el.append(hint)
+  return el
+}
+
+/** The app ID of Baidu and Youdao; `hint` the line under it. */
+function appIdField({ cfg, session }: PanelState, hint?: string): HTMLElement {
+  const appId = h("input", { type: "text", value: cfg.appId ?? "", autocomplete: "off", spellcheck: "false" })
+  appId.addEventListener("input", () => {
+    cfg.appId = appId.value.trim()
+    session.save()
+  })
+  return field(t("labelAppId"), appId, t("tipAppId"), hint)
+}
+
+/** DeepL: key (free or Pro), endpoint, formality and the target variants of English and Portuguese. */
+function deeplFields(state: PanelState): HTMLElement[] {
+  const { cfg, session } = state
+  const plan = h("span", { className: "hint" })
+  const options = () => (cfg.deepl ??= { ...DEFAULT_DEEPL })
+  const value = cfg.deepl ?? DEFAULT_DEEPL
+  const key = keyField(state, t("labelApiKey"), (k) => (plan.textContent = k ? t(k.endsWith(":fx") ? "hintDeeplFreeKey" : "hintDeeplProKey") : ""))
+  key.append(plan)
+  return [
+    key,
+    endpointField(state, t("labelBaseURL"), t("hintDeeplEndpoint")),
+    choiceField(session, t("labelFormality"), t("tipFormality"), [["default", t("formalityDefault")], ["more", t("formalityMore")], ["less", t("formalityLess")]], value.formality, (v) => (options().formality = v)),
+    choiceField(session, t("labelDeeplEnglish"), t("tipDeeplVariant"), [["EN-US", t("variantEnUs")], ["EN-GB", t("variantEnGb")]], value.english, (v) => (options().english = v)),
+    choiceField(session, t("labelDeeplPortuguese"), t("tipDeeplVariant"), [["PT-BR", t("variantPtBr")], ["PT-PT", t("variantPtPt")]], value.portuguese, (v) => (options().portuguese = v)),
+  ]
+}
+
+/** Baidu: app ID, secret key and the edition of the account, with its quota and the languages it lacks. */
+function baiduFields(state: PanelState): HTMLElement[] {
+  const { cfg, session } = state
+  const hint = h("span", { className: "hint" })
+  const showEdition = (edition: BaiduEdition) => (hint.textContent = t(edition === "premium" ? "hintBaiduPremium" : edition === "advanced" ? "hintBaiduAdvanced" : "hintBaiduStandard"))
+  showEdition(cfg.edition ?? "standard")
+  const editions: [BaiduEdition, string][] = [["standard", t("baiduStandard")], ["advanced", t("baiduAdvanced")], ["premium", t("baiduPremium")]]
+  return [
+    appIdField(state, t("hintBaiduAppId")),
+    keyField(state, t("labelSecretKey")),
+    choiceField(session, t("labelBaiduEdition"), t("tipBaiduEdition"), editions, cfg.edition ?? "standard", (v) => showEdition((cfg.edition = v)), hint),
+  ]
 }
 
 /** Model, temperature and thinking switch of an AI service. */
@@ -207,6 +262,14 @@ export function providerFields(state: PanelState): HTMLElement[] {
       return [h("p", { className: "hint", text: t("hintBergamot") })]
     case "microsoft":
       return microsoftFields(state)
+    case "deepl":
+      return deeplFields(state)
+    case "baidu":
+      return baiduFields(state)
+    case "youdao":
+      return [appIdField(state), keyField(state, t("labelAppSecret"))]
+    case "caiyun":
+      return [keyField(state, t("labelToken")), h("p", { className: "hint", text: t("hintCaiyun") })]
   }
   let baseHint: string | undefined
   if (p.id === "azure") baseHint = t("hintAzure")

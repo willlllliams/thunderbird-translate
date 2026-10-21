@@ -60,6 +60,8 @@ describe("steps", () => {
     expect(stepNeeded("offline", tiers({ machine: "bergamot" }))).toBe(true)
     expect(stepNeeded("machine", tiers({ machine: "bergamot" }))).toBe(false)
     expect(stepNeeded("machine", tiers({ machine: "deeplx" }))).toBe(true)
+    for (const machine of ["deepl", "baidu", "youdao", "caiyun"]) expect([machine, stepNeeded("machine", tiers({ machine }))]).toEqual([machine, true])
+    expect(stepNeeded("machine", tiers({}))).toBe(false)
     expect(stepNeeded("ai", tiers({ machine: "google-free" }))).toBe(false)
     expect(stepNeeded("prompts", tiers({ ai: "openai" }))).toBe(true)
     expect(stepNeeded("finish", tiers({}))).toBe(true)
@@ -418,6 +420,8 @@ describe("welcome page", () => {
     expect($("presetExample").textContent).toContain(ENGLISH.t("presetStylePlainExample"))
     $("presetApply").click()
     const preset = getPromptPreset("style")!
+    // The prompt of the summary stays on the settings page.
+    expect(document.getElementById("prompt-summary")).toBeNull()
     const expected = `${DEFAULT_PROMPTS.precise}\n\n${presetBlock(preset, preset.options!.find((o) => o.id === "plain"))}`
     expect($<HTMLTextAreaElement>("prompt-precise").value).toBe(expected)
     await flushSave()

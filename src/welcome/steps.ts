@@ -45,7 +45,7 @@ export function stepNeeded(step: StepId, settings: Pick<Settings, "tiers">): boo
     case "offline":
       return tiers.dictionary !== null || kindOf(tiers.machine) === "bergamot"
     case "machine":
-      return ["google", "microsoft", "deeplx"].includes(kindOf(tiers.machine) ?? "")
+      return tiers.machine !== null && kindOf(tiers.machine) !== "bergamot"
     case "ai":
     case "prompts":
       return tiers.ai !== null

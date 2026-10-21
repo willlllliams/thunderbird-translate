@@ -1,20 +1,24 @@
 /**
  * System prompts of the AI tier. Each display mode has its own prompt, and
- * precise translation has a third one. `{{to}}` stands for the target
- * language; the source language and the batch format are added to the
- * request by the extension.
+ * precise translation has a third one; the summary of a message has a
+ * fourth. `{{to}}` stands for the target language; the source language and
+ * the batch format are added to the request by the extension.
  */
 
 export type PromptKind = "bilingual" | "translationOnly" | "precise"
 
 export const PROMPT_KINDS: readonly PromptKind[] = ["bilingual", "translationOnly", "precise"]
 
+/** The prompts of the settings: the three of the AI tier and the one of the summary. */
+export type PromptName = PromptKind | "summary"
+export const PROMPT_NAMES: readonly PromptName[] = [...PROMPT_KINDS, "summary"]
+
 const COMMON_RULES = `- Keep names, email addresses, URLs, numbers, dates, code and product names unchanged unless they have an established translation.
 - Keep line breaks and list markers.
 - If a passage is already in {{to}}, return it unchanged.
 - Output only the translation. Do not add explanations, notes, quotes or labels.`
 
-export const DEFAULT_PROMPTS: Record<PromptKind, string> = {
+export const DEFAULT_PROMPTS: Record<PromptName, string> = {
   bilingual: `You are a professional translator working on email messages. The reader sees your translation right below the original paragraph and compares the two.
 Translate the user's text into {{to}}.
 Rules:
@@ -37,9 +41,17 @@ Rules:
 - Keep the tone and the form of address described in the analysis.
 - Keep the complete meaning; do not add, drop or merge information.
 ${COMMON_RULES}`,
+  // The summary and to-dos of a message (background/summary.ts), answered as JSON and drawn by the extension.
+  summary: `You read one email, or several emails of one conversation in date order, for the person who received them. Answer in {{to}} with ONLY a JSON object, without Markdown:
+{"summary": [...], "actions": [...], "questions": [...], "dates": [...]}
+- summary: 1 to 3 sentences on what the email is about and what is expected of the reader.
+- actions: things someone has to do. "who" is "me" for the reader, otherwise the person's name, or "" if unclear. "task" is a short imperative phrase. "due" is an ISO date (YYYY-MM-DD, or YYYY-MM-DD HH:MM) only when the email makes it certain; resolve relative dates against the date of the email. "due_text" is the deadline as the email states it. "quote" is the original words the item rests on, at most 120 characters.
+- questions: questions the reader is asked and should answer, with "from".
+- dates: meetings, appointments and deadlines with "what", "when" (same rule as "due") and "where".
+- Use [] for an empty list. Do not invent people, tasks or dates that the email does not contain.`,
 }
 
 /** The prompt of one kind; an empty prompt means the default. */
-export function promptText(prompts: Record<PromptKind, string>, kind: PromptKind): string {
+export function promptText(prompts: Record<PromptName, string>, kind: PromptName): string {
   return prompts[kind]?.trim() ? prompts[kind] : DEFAULT_PROMPTS[kind]
 }

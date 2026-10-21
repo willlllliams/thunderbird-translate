@@ -1,4 +1,4 @@
-/** The keyboard commands of the manifest: toggle the translation, retranslate, switch the display mode. */
+/** The keyboard commands of the manifest: toggle the translation, retranslate, switch the display mode, summarize. */
 
 import { ext } from "../shared/ext"
 import type { PortPush } from "../shared/messages"
@@ -8,6 +8,8 @@ import { updateSettings } from "../shared/settings-store"
 const TAB_COMMANDS = new Map<string, PortPush>([
   ["toggle-translation", { type: "toggle" }],
   ["retranslate", { type: "retranslate" }],
+  // Without a default key: the user sets one under "Manage Extension Shortcuts".
+  ["summarize", { type: "summarize" }],
 ])
 
 export interface CommandDeps {

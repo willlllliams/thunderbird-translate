@@ -167,6 +167,40 @@
   cursor: pointer;
 }
 
+/* The summary and to-dos of the message (summary.ts): a collapsible notice with its buttons in the title line. */
+.tt-summary > summary {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.4em 1em;
+  cursor: pointer;
+}
+
+.tt-summary > summary .tt-notice-actions {
+  margin-inline-start: auto;
+}
+
+.tt-summary h4 {
+  margin: 0.6em 0 0.1em;
+  font-size: 1em;
+}
+
+.tt-summary li[title] {
+  cursor: help;
+}
+
+.tt-summary pre {
+  white-space: pre-wrap;
+  font-size: 0.95em;
+}
+
+/* The "Summary" button above a translated message. */
+.tt-notice.tt-summary-button {
+  padding: 0;
+  border: 0;
+  background: none;
+}
+
 @media (prefers-color-scheme: dark) {
   .tt-notice {
     background: color-mix(in srgb, var(--tt-color, #4c8bf5) 18%, transparent);

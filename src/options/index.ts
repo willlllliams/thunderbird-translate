@@ -7,7 +7,7 @@ import { normalizeUiLanguageSetting } from "../shared/locales"
 import { type OfflineStatus, type OptionsPlace, type PageNotice, send } from "../shared/messages"
 import { $, fillSelect, fillTierSelects, languageOptions, offlineStatus, onTierChange, showOfflineHint, showSaved, showSaveError, sourceLanguageOptions, uiLanguageOptions } from "../shared/page"
 import { getPreset, PROVIDER_PRESETS, providerDisplayName, type ProviderPreset, type Tier, TIER_NAME_KEYS, TIERS, tierOf } from "../shared/providers"
-import { addedProviders, addProvidersInUse, type DisplayMode, enabledTiers, removalBlocker, type Settings } from "../shared/settings"
+import { addedProviders, addProvidersInUse, type DisplayMode, enabledTiers, removalBlocker, resolveProvider, type Settings, SUMMARY_PARTS, summaryProvider } from "../shared/settings"
 import { BergamotSection } from "./bergamot"
 import { DictionarySection } from "./dictionaries"
 import { button, h } from "../shared/dom"
@@ -89,6 +89,17 @@ function renderConsent(): void {
   $("consentList").replaceChildren(...(items.length > 0 ? items : [h("li", { className: "hint", text: t("consentListNone") })]))
 }
 
+/** The services the summary can use: the one of the AI tier, then every added AI service; under the model, the model of the service in use. */
+function fillSummaryProviders(): void {
+  const chosen = settings.summary.provider
+  const services = addedProviders(settings).filter((p) => tierOf(p) === "ai")
+  const value = chosen && settings.providers[chosen]?.enabled ? chosen : ""
+  fillSelect($<HTMLSelectElement>("summaryProvider"), [new Option(t("summaryProviderTier"), ""), ...services.map((p) => new Option(providerDisplayName(p), p.id))], value)
+  const id = summaryProvider(settings)
+  $("summaryNone").hidden = id !== null
+  $<HTMLInputElement>("summaryModel").placeholder = id ? resolveProvider(settings, id).model : ""
+}
+
 /** Changes made elsewhere were taken over: redraw what depends on them. */
 function remoteChanged(before: Settings): void {
   const providerState = (s: Settings) => JSON.stringify([s.providers, s.tiers])
@@ -100,6 +111,7 @@ function remoteChanged(before: Settings): void {
   if (languages(settings) !== languages(before)) void refreshOffline()
   if (providerState(settings) === providerState(before)) return
   fillTiers()
+  fillSummaryProviders()
   renderProviderList()
   if (!$("providerPanel").contains(document.activeElement)) renderProviderPanel()
 }
@@ -132,6 +144,7 @@ function providersChanged(): void {
   renderProviderList()
   renderProviderPanel()
   fillTiers()
+  fillSummaryProviders()
   showTierControls()
   session.save()
   void refreshOffline()
@@ -218,6 +231,7 @@ function applyLanguage(): void {
   renderConsent()
   renderProviderList()
   renderProviderPanel()
+  fillSummaryProviders()
   dictionaries.render()
   bergamot.render()
   prompts.refresh()
@@ -334,6 +348,21 @@ async function main(): Promise<void> {
     bergamot.render()
   })
   void bergamot.load()
+
+  // Summary and to-dos
+  session.bind("summaryProvider", "change", fillSummaryProviders, (el) => {
+    settings.summary.provider = el.value || null
+    fillSummaryProviders()
+  })
+  session.bind("summaryModel", "input", (el) => (el.value = settings.summary.model), (el) => (settings.summary.model = el.value.trim()))
+  session.bindNumber("summaryMaxTokens", () => settings.summary.maxOutputTokens, (v) => (settings.summary.maxOutputTokens = v))
+  session.bind("summaryDisplay", "change", (el) => (el.value = settings.summary.display), (el) => (settings.summary.display = el.value === "collapsed" ? "collapsed" : "expanded"))
+  for (const part of SUMMARY_PARTS) {
+    session.bindCheck(`summaryPart-${part}`, () => settings.summary.parts.includes(part), (v) => {
+      settings.summary.parts = SUMMARY_PARTS.filter((p) => (p === part ? v : settings.summary.parts.includes(p)))
+    })
+  }
+  session.bindCheck("summaryInline", () => settings.summary.inlineButton, (v) => (settings.summary.inlineButton = v))
 
   // Batching
   const b = settings.batch

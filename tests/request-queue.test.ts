@@ -283,3 +283,38 @@ it("waits with a real timer when no sleep function is given", async () => {
     vi.useRealTimers()
   }
 })
+
+describe("RequestQueue minimum interval", () => {
+  it("starts the attempts at least minIntervalMs apart, in the order they asked, and not at all apart without it", async () => {
+    let clock = 0
+    const slept: number[] = []
+    const started: number[] = []
+    let interval = 1100
+    const queue = new RequestQueue({
+      concurrency: () => 4,
+      maxRetries: () => 0,
+      minIntervalMs: () => interval,
+      now: () => clock,
+      sleep: async (ms) => {
+        slept.push(ms)
+        clock += ms
+      },
+    })
+    const task = (n: number) => async () => {
+      started.push(clock)
+      clock += 100
+      return n
+    }
+    expect(await Promise.all([queue.run(task(1)), queue.run(task(2)), queue.run(task(3))])).toEqual([1, 2, 3])
+    expect(started).toEqual([0, 1100, 2200])
+    // Each task takes 100 ms of the interval.
+    expect(slept).toEqual([1000, 1000])
+    // A later attempt after a pause waits only what is left of the interval.
+    clock += 2000
+    await queue.run(task(4))
+    expect(slept).toHaveLength(2)
+    interval = 0
+    await Promise.all([queue.run(task(5)), queue.run(task(6))])
+    expect(slept).toHaveLength(2)
+  })
+})

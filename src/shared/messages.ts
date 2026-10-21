@@ -6,6 +6,7 @@ import type { UiLanguageSetting, UiLocale } from "./locales"
 import type { MailContext } from "./mail-context"
 import type { Tier } from "./providers"
 import type { ProviderConfig, PublicSettings, TierSettings } from "./settings"
+import type { SummaryResponse } from "./summary"
 
 /** Fields of a request that carries nothing besides its type. */
 type NoFields = Record<never, never>
@@ -18,6 +19,8 @@ export interface BackgroundApi {
   toggleTab: { req: { tabId: number }; res: void }
   /** Translate the message of the tab again, past every cache; nothing happens while it is not translated. */
   retranslateTab: { req: { tabId: number }; res: void }
+  /** Show the summary and to-dos of the message of the tab. */
+  summarizeTab: { req: { tabId: number }; res: void }
   getTabState: { req: { tabId: number }; res: TabState }
   testProvider: { req: { providerId: string; config: ProviderConfig; targetLang: string }; res: TranslateResponse }
   clearCache: { req: NoFields; res: void }
@@ -196,6 +199,10 @@ export type PortPush =
   | { type: "toggle" }
   /** Translate the displayed message again, past every cache. */
   | { type: "retranslate" }
+  /** Show the summary and to-dos of the displayed message. */
+  | { type: "summarize" }
+  /** Answer to the summary request `id`. */
+  | { type: "summary"; id: number; result: SummaryResponse }
   /** The result of one tier for request `id`. */
   | { type: "tier"; id: number; tier: Tier; result: TranslateResponse }
   /** Request `id` is complete; tiers that did not report were not asked. */
@@ -213,6 +220,8 @@ export type PortReport =
   | { type: "translate"; id: number; request: TranslateRequest }
   /** The subject of the message displayed in the tab of the content script; answered with a "subject" push of the same id. */
   | { type: "subject"; id: number }
+  /** The summary of the message displayed in the tab of the content script, of its text (MailContext.text); answered with a "summary" push of the same id. `bypassCache`: generate it again. */
+  | { type: "summary"; id: number; text: string; bypassCache?: boolean }
 
 export const CONTENT_PORT_NAME = "tt-content"
 /** The Port of the page of translated subjects (subjects.html): its requests carry subjects of real messages, so the consent rules apply. */
@@ -225,7 +234,7 @@ function ofTypes<T extends { type: string }>(types: Record<T["type"], true>) {
 }
 
 /** A push of the background script, as the content script receives it over the Port. */
-export const isPortPush = /* @__PURE__ */ ofTypes<PortPush>({ settings: true, toggle: true, retranslate: true, tier: true, done: true, subject: true, offlineDataChanged: true })
+export const isPortPush = /* @__PURE__ */ ofTypes<PortPush>({ settings: true, toggle: true, retranslate: true, summarize: true, summary: true, tier: true, done: true, subject: true, offlineDataChanged: true })
 
 /** A report of a content script, as the background script receives it over the Port. */
-export const isPortReport = /* @__PURE__ */ ofTypes<PortReport>({ state: true, context: true, translate: true, subject: true })
+export const isPortReport = /* @__PURE__ */ ofTypes<PortReport>({ state: true, context: true, translate: true, subject: true, summary: true })

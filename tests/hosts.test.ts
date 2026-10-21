@@ -6,7 +6,7 @@ import { DEFAULT_ATTACHMENTS_BASE, DEFAULT_SERVER_URL } from "../src/offline/ber
 import { RELEASES } from "../src/offline/dictionary/download"
 import { FIXED_HOSTS, isLoopback, MS_EDGE_TRANSLATE_URL, originPattern, patternHost, providerOrigin, requestUrl } from "../src/shared/hosts"
 import { PROVIDER_PRESETS } from "../src/shared/providers"
-import { emptyProviderConfig, resolveProviderConfig } from "../src/shared/settings"
+import { DEEPL_FREE_URL, emptyProviderConfig, resolveProviderConfig } from "../src/shared/settings"
 
 const manifest = JSON.parse(readFileSync(join(__dirname, "..", "static", "manifest.json"), "utf8")) as { permissions: string[]; optional_permissions: string[] }
 const hostPermissions = manifest.permissions.filter((p) => p.includes("://"))
@@ -24,9 +24,11 @@ describe("host permissions of the manifest", () => {
 
   it("cover the default endpoint of every preset that is not on this computer", () => {
     const online = PROVIDER_PRESETS.filter((p) => p.defaultBaseURL && !isLoopback(p.defaultBaseURL))
-    // Google, Microsoft (Azure key mode) and 18 AI presets; Azure OpenAI, DeepLX and the custom endpoint have no default.
-    expect(online).toHaveLength(20)
+    // Google, Microsoft (Azure key mode), DeepL, Baidu, Youdao, Caiyun and 18 AI presets; Azure OpenAI, DeepLX and the custom endpoint have no default.
+    expect(online).toHaveLength(24)
     for (const preset of online) expect([preset.id, isFixedHost(originPattern(preset.defaultBaseURL)!)]).toEqual([preset.id, true])
+    // The other default of DeepL, for the keys of its free plan.
+    expect(isFixedHost(originPattern(DEEPL_FREE_URL)!)).toBe(true)
     for (const preset of PROVIDER_PRESETS.filter((p) => p.defaultBaseURL && isLoopback(p.defaultBaseURL))) expect(isFixedHost(originPattern(preset.defaultBaseURL)!)).toBe(false)
   })
 

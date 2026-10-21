@@ -60,8 +60,9 @@ describe("facts in the documents", () => {
   })
 
   it("name the keyboard shortcuts of the manifest, and no other", () => {
-    const commands = (JSON.parse(read("static/manifest.json")) as { commands: Record<string, { suggested_key: { default: string } }> }).commands
-    const keys = Object.values(commands).map((c) => c.suggested_key.default)
+    const commands = (JSON.parse(read("static/manifest.json")) as { commands: Record<string, { suggested_key?: { default: string } }> }).commands
+    // The summary has no key of its own.
+    const keys = Object.values(commands).flatMap((c) => (c.suggested_key ? [c.suggested_key.default] : []))
     expect(keys).toEqual(["Alt+A", "Alt+S", "Alt+R"])
     for (const file of READMES) {
       const table = [...read(file).matchAll(/^\| (Alt\+\w) \|/gm)].map((m) => m[1])

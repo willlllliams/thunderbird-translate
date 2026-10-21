@@ -5,6 +5,7 @@ import { createMailContext } from "../src/shared/mail-context"
 import { IDLE_TAB_STATE, SUBJECTS_PORT_NAME, type TranslateRequest, type TranslateResponse } from "../src/shared/messages"
 import type { Tier } from "../src/shared/providers"
 import { createDefaultSettings, toPublicSettings } from "../src/shared/settings"
+import type { SummaryResponse } from "../src/shared/summary"
 import { backgroundPort, stubBrowser } from "./fixtures/browser"
 import { localeText } from "./fixtures/locales"
 import { nextTask, until } from "./helpers"
@@ -22,14 +23,15 @@ function registry({
   const setContext = vi.fn()
   const translateFn = vi.fn(translate ?? (async (req: TranslateRequest, onTier: (tier: Tier, result: TranslateResponse) => void) => onTier("machine", { ok: true, text: `G(${req.text})` })))
   const subjectFn = vi.fn(subject)
-  const tabs = createTabRegistry({ ready: () => ready, publicSettings: () => settings, setContext, translate: translateFn, subject: subjectFn })
+  const summarize = vi.fn(async (text: string, tabId: number, fresh: boolean): Promise<SummaryResponse> => ({ ok: true, service: "AI", summary: null, raw: `${text}|${tabId}|${fresh}` }))
+  const tabs = createTabRegistry({ ready: () => ready, publicSettings: () => settings, setContext, translate: translateFn, subject: subjectFn, summarize })
   /** A content script of `tabId` connects; with `url`, a page of that address. */
   const connect = (tabId: number | undefined, name?: string, url?: string) => {
     const port = backgroundPort(tabId, name, url)
     tabs.connect(port as unknown as browser.runtime.Port)
     return port
   }
-  return { tabs, connect, setContext, translate: translateFn, subject: subjectFn, badge: api.messageDisplayAction }
+  return { tabs, connect, setContext, translate: translateFn, subject: subjectFn, summarize, badge: api.messageDisplayAction }
 }
 
 describe("content script ports", () => {

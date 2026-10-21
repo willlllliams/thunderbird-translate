@@ -7,10 +7,10 @@ import { ENGLISH } from "../src/shared/i18n"
 import { createMailContext } from "../src/shared/mail-context"
 import type { TranslateRequest, TranslateResponse } from "../src/shared/messages"
 import type { Tier } from "../src/shared/providers"
-import { createDefaultSettings, type ResolvedProvider, type Settings } from "../src/shared/settings"
+import { createDefaultSettings, DEFAULT_DEEPL, type ResolvedProvider, type Settings } from "../src/shared/settings"
 import { asFetch, chatCompletion, createService, jsonResponse, memoryStorage, translateOne, until } from "./helpers"
 
-function setup(over: (s: Settings) => void = () => {}, extra: { llm?: LlmImpl; fetchFn?: unknown; cache?: PersistentCache } = {}) {
+function setup(over: (s: Settings) => void = () => {}, extra: { llm?: Partial<LlmImpl>; fetchFn?: unknown; cache?: PersistentCache } = {}) {
   const settings = createDefaultSettings()
   over(settings)
   return createService(settings, { llm: extra.llm, fetchFn: asFetch(extra.fetchFn), ...(extra.cache ? { cache: extra.cache } : {}) })
@@ -121,7 +121,7 @@ describe("TranslationService with an LLM", () => {
   })
 
   it("sends one LLM call per batch", async () => {
-    const llm: LlmImpl = {
+    const llm: Partial<LlmImpl> = {
       batch: vi.fn(async (segs: Segment[]) => segs.map((g) => `ZH(${g.text})`)),
       single: vi.fn(async (g: Segment) => `ZH(${g.text})`),
       analyze: vi.fn(async () => null),
@@ -134,7 +134,7 @@ describe("TranslationService with an LLM", () => {
   })
 
   it("falls back to one call per paragraph when the batch answer cannot be parsed", async () => {
-    const llm: LlmImpl = {
+    const llm: Partial<LlmImpl> = {
       batch: vi.fn(async () => {
         throw new BatchParseError("count mismatch")
       }),
@@ -149,7 +149,7 @@ describe("TranslationService with an LLM", () => {
   })
 
   it("does not fall back on authentication errors", async () => {
-    const llm: LlmImpl = {
+    const llm: Partial<LlmImpl> = {
       batch: vi.fn(async () => {
         throw Object.assign(new Error("Incorrect API key"), { statusCode: 401, isRetryable: false })
       }),
@@ -163,7 +163,7 @@ describe("TranslationService with an LLM", () => {
   })
 
   it("translates one paragraph per call when LLM batching is disabled", async () => {
-    const llm: LlmImpl = {
+    const llm: Partial<LlmImpl> = {
       batch: vi.fn(async (segs: Segment[]) => segs.map((g) => g.text)),
       single: vi.fn(async (g: Segment) => `ZH(${g.text})`),
       analyze: vi.fn(async () => null),
@@ -269,7 +269,7 @@ describe("TranslationService: tiers, caps and precise mode details", () => {
   })
 
   it("falls back to one call per paragraph when the batch answer has the wrong length", async () => {
-    const llm: LlmImpl = {
+    const llm: Partial<LlmImpl> = {
       batch: vi.fn(async (segs: Segment[]) => segs.slice(1).map((g) => g.text)),
       single: vi.fn(async (g: Segment) => `ZH(${g.text})`),
       analyze: vi.fn(async () => null),
@@ -492,7 +492,7 @@ describe("retranslation (bypassCache)", () => {
 
   it("asks every tier again when the highest tier's result is cached", async () => {
     let n = 0
-    const llm: LlmImpl = {
+    const llm: Partial<LlmImpl> = {
       batch: vi.fn(async (segs: Segment[]) => segs.map((g) => `AI${++n}(${g.text})`)),
       single: vi.fn(async (g: Segment) => `AI${++n}(${g.text})`),
       analyze: vi.fn(async () => null),
@@ -525,6 +525,9 @@ describe("errorContext", () => {
     thinking: false,
     mode: "free",
     region: "",
+    appId: "",
+    edition: "standard",
+    deepl: DEFAULT_DEEPL,
     ...over,
   })
 

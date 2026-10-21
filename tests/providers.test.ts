@@ -5,7 +5,7 @@ import { supportsThinkingControl, thinkingOptions } from "../src/shared/thinking
 import { llmAnalyzeMail, llmTranslateBatch, llmTranslateSingle } from "../src/background/translators/llm"
 import { BatchParseError } from "../src/background/translators/llm-prompt"
 import { PROVIDER_PRESETS } from "../src/shared/providers"
-import { createDefaultSettings, resolveProvider, resolveProviderConfig } from "../src/shared/settings"
+import { createDefaultSettings, DEFAULT_DEEPL, resolveProvider, resolveProviderConfig } from "../src/shared/settings"
 import { anthropicMessage, chatCompletion, jsonResponse, useFakeTimers } from "./helpers"
 
 const LLM_PRESETS = PROVIDER_PRESETS.filter((p) => p.kind === "llm")
@@ -73,6 +73,9 @@ describe("provider presets", () => {
       thinking: false,
       mode: "free",
       region: "",
+      appId: "",
+      edition: "standard",
+      deepl: DEFAULT_DEEPL,
     })
   })
 })

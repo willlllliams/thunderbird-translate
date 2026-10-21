@@ -34,7 +34,7 @@ const googleEcho = () => vi.fn(echo)
 const sent = (fetchFn: ReturnType<typeof googleEcho>) => fetchFn.mock.calls.flatMap(([, init]) => queries(init))
 
 /** The AI SDK on the fetch of the service, instead of a stand-in. */
-const sdkLlm: LlmImpl = { batch: llmTranslateBatch, single: llmTranslateSingle, analyze: llmAnalyzeMail }
+const sdkLlm: Partial<LlmImpl> = { batch: llmTranslateBatch, single: llmTranslateSingle, analyze: llmAnalyzeMail }
 
 /** A fetch that never answers; it fails only when its signal is aborted. */
 const hanging = () =>
@@ -67,7 +67,7 @@ describe("tiers side by side", () => {
   it("delivers the machine and dictionary tiers while every AI request hangs: each service has its own request queue", async () => {
     let release!: () => void
     const gate = new Promise<void>((r) => (release = r))
-    const llm: LlmImpl = {
+    const llm: Partial<LlmImpl> = {
       batch: vi.fn(async (segments: Segment[]) => segments.map((s) => `AI(${s.text})`)),
       single: vi.fn(async (segment: Segment) => {
         await gate
@@ -233,7 +233,7 @@ describe("request timeout", () => {
     useFakeTimers()
     // Fails once every batch of the message has asked for the analysis.
     const timeout = () => new Promise<never>((_, reject) => setTimeout(() => reject(new TimeoutError("OpenAI", 60_000)), 30))
-    const llm: LlmImpl = { batch: vi.fn(timeout), single: vi.fn(timeout), analyze: vi.fn(timeout) }
+    const llm: Partial<LlmImpl> = { batch: vi.fn(timeout), single: vi.fn(timeout), analyze: vi.fn(timeout) }
     const { service } = setup((s) => {
       withOpenAI(s)
       s.precise.enabled = true
@@ -253,7 +253,7 @@ describe("request timeout", () => {
 
   it("H1: gives local models and thinking models three times the request timeout", async () => {
     const timeouts: Record<string, number | undefined> = {}
-    const llm: LlmImpl = {
+    const llm: Partial<LlmImpl> = {
       batch: vi.fn(),
       single: vi.fn(async (segment: Segment, opts: LlmCallOptions) => {
         timeouts[segment.text] = opts.timeoutMs

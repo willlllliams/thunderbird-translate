@@ -50,7 +50,7 @@ describe("settings of the background script", () => {
     const { settings, set, stored } = state(s)
     await settings.ready()
     expect(set).toHaveBeenCalledTimes(1)
-    expect(stored().prompts).toEqual({ bilingual: "", translationOnly: "", precise: "My own prompt for {{to}}." })
+    expect(stored().prompts).toEqual({ bilingual: "", translationOnly: "", precise: "My own prompt for {{to}}.", summary: "" })
   })
 
   it("adopts the settings it read and applies their interface language before it is ready", async () => {

@@ -86,14 +86,19 @@ export function buildAnalysisPrompt(text: string): string {
   return `<email>\n${text}\n</email>`
 }
 
-/** Read the analysis JSON, tolerating fences and chatter; null when nothing usable is found. */
-export function parseAnalysis(raw: string): MailAnalysis | null {
+/** The JSON object of a model's answer, tolerating reasoning blocks, fences, chatter around it and trailing commas; null without one. */
+export function parseJsonObject(raw: string): Record<string, unknown> | null {
   const s = cleanModelOutput(raw)
   const first = s.indexOf("{")
   const last = s.lastIndexOf("}")
   const value = tryParseJson(s) ?? (first !== -1 && last > first ? tryParseJson(s.slice(first, last + 1)) : undefined)
-  if (!value || typeof value !== "object" || Array.isArray(value)) return null
-  const o = value as Record<string, unknown>
+  return value && typeof value === "object" && !Array.isArray(value) ? (value as Record<string, unknown>) : null
+}
+
+/** Read the analysis JSON, tolerating fences and chatter; null when nothing usable is found. */
+export function parseAnalysis(raw: string): MailAnalysis | null {
+  const o = parseJsonObject(raw)
+  if (!o) return null
   const str = (v: unknown) => (typeof v === "string" ? v.trim() : "")
   const glossary = (Array.isArray(o.glossary) ? (o.glossary as Record<string, unknown>[]) : [])
     .map((e) => ({ source: str(e?.source), target: str(e?.target) }))

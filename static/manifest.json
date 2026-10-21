@@ -46,6 +46,9 @@
     "retranslate": {
       "suggested_key": { "default": "Alt+R" },
       "description": "__MSG_commandRetranslate__"
+    },
+    "summarize": {
+      "description": "__MSG_commandSummarize__"
     }
   },
   "permissions": [
@@ -58,6 +61,11 @@
     "https://translate.googleapis.com/*",
     "https://edge.microsoft.com/*",
     "https://api.cognitive.microsofttranslator.com/*",
+    "https://api-free.deepl.com/*",
+    "https://api.deepl.com/*",
+    "https://fanyi-api.baidu.com/*",
+    "https://openapi.youdao.com/*",
+    "https://api.interpreter.caiyunai.com/*",
     "https://api.openai.com/*",
     "https://api.anthropic.com/*",
     "https://generativelanguage.googleapis.com/*",

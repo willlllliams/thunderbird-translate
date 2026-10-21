@@ -16,6 +16,7 @@ import { localizeDocument } from "../shared/i18n-dom"
 import { loadExtensionI18n } from "../shared/i18n-ext"
 import { normalizeUiLanguageSetting } from "../shared/locales"
 import { $, fillSelect, fillTierSelects, languageOptions, onTierChange, showSaved, showSaveError, sourceLanguageOptions, tierOptions, uiLanguageOptions } from "../shared/page"
+import { PROMPT_KINDS } from "../shared/prompts"
 import { getPreset, type Tier } from "../shared/providers"
 import { addProvidersInUse, type DisplayMode, type Settings } from "../shared/settings"
 import { BergamotSection } from "../options/bergamot"
@@ -340,7 +341,7 @@ async function main(): Promise<void> {
     needed: $("bergamotNeeded"),
     filter: $<HTMLInputElement>("bergamotFilter"),
   })
-  prompts = new PromptEditor($("promptEditor"), session)
+  prompts = new PromptEditor($("promptEditor"), session, PROMPT_KINDS)
   mountStyleControls($("styleControls"), session, renderModePreview)
   demo = new TierDemo($("tierDemo"), $("demoStatus"))
   tour = new TierTour(() => {

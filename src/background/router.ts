@@ -38,6 +38,7 @@ export function createHandlers({ tabs, service, localeMessages, offlineManager, 
   return {
     toggleTab: (req) => tabs.postToTab(req.tabId, { type: "toggle" }),
     retranslateTab: (req) => tabs.postToTab(req.tabId, { type: "retranslate" }),
+    summarizeTab: (req) => tabs.postToTab(req.tabId, { type: "summarize" }),
     getTabState: (req) => tabs.stateOf(req.tabId),
     testProvider: async (req) => {
       try {

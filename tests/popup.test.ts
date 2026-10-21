@@ -203,3 +203,26 @@ describe("interface language", () => {
     expect($<HTMLInputElement>("autoTranslate").checked).toBe(false)
   })
 })
+
+describe("summary and to-dos", () => {
+  it("asks the content script for the summary, with an AI service of its own or of the AI tier", async () => {
+    const page = await popup(tabState({}))
+    const summarize = $<HTMLButtonElement>("summarize")
+    expect([summarize.disabled, summarize.title]).toEqual([true, ENGLISH.t("tipSummarizeNone")])
+    const settings = createDefaultSettings("en")
+    settings.tiers.ai = "openai"
+    const ready = await popup(tabState({}), settings)
+    await until(() => expect($<HTMLButtonElement>("summarize").disabled).toBe(false))
+    expect($("summarize").title).toBe(ENGLISH.t("tipSummarize"))
+    $("summarize").click()
+    await until(() => expect(ready.sendMessage).toHaveBeenCalledWith({ type: "summarizeTab", tabId: 3 }))
+    expect(page).toBeDefined()
+  })
+
+  it("is disabled without a content script", async () => {
+    const settings = createDefaultSettings("en")
+    settings.tiers.ai = "openai"
+    await popup(IDLE_TAB_STATE, settings)
+    expect($<HTMLButtonElement>("summarize").disabled).toBe(true)
+  })
+})

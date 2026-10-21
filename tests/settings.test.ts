@@ -153,17 +153,17 @@ describe("source language", () => {
 describe("prompts", () => {
   it("default to the three built-in prompts, stored as empty texts", () => {
     const s = createDefaultSettings()
-    expect(s.prompts).toEqual({ bilingual: "", translationOnly: "", precise: "" })
+    expect(s.prompts).toEqual({ bilingual: "", translationOnly: "", precise: "", summary: "" })
     expect(PROMPT_KINDS.map((kind) => promptText(s.prompts, kind))).toEqual(PROMPT_KINDS.map((kind) => DEFAULT_PROMPTS[kind]))
   })
 
   it("migrate a custom system prompt to both display modes", () => {
     const s = normalizeSettings({ systemPrompt: "Translate into {{to}} like a pirate." })
-    expect(s.prompts).toEqual({ precise: "", bilingual: "Translate into {{to}} like a pirate.", translationOnly: "Translate into {{to}} like a pirate." })
+    expect(s.prompts).toEqual({ precise: "", summary: "", bilingual: "Translate into {{to}} like a pirate.", translationOnly: "Translate into {{to}} like a pirate." })
   })
 
   it("do not migrate an empty system prompt or a copy of the old built-in one", () => {
-    const builtIn = { bilingual: "", translationOnly: "", precise: "" }
+    const builtIn = { bilingual: "", translationOnly: "", precise: "", summary: "" }
     expect(normalizeSettings({ systemPrompt: "" }).prompts).toEqual(builtIn)
     const oldDefault = `You are a professional translator working on email messages.
 Translate the user's text into {{to}}.
@@ -241,10 +241,13 @@ describe("public settings", () => {
       { id: "deeplx", host: "api.deeplx.org" },
       { id: "openai", host: "proxy.example" },
     ])
-    const { consent, ...rest } = pub
-    for (const value of [...leaves(rest), ...Object.keys(pub.signatures)]) for (const host of hosts) expect(value).not.toContain(host)
+    // So does the consent the summary of the AI tier still needs.
+    expect(pub.summary).toEqual({ available: true, inlineButton: false, collapsed: false, consent: { id: "openai", host: "proxy.example" } })
+    const { consent, summary, ...rest } = pub
+    for (const value of [...leaves(rest), ...leaves({ ...summary, consent: null }), ...Object.keys(pub.signatures)]) for (const host of hosts) expect(value).not.toContain(host)
     s.onlineConsent = ["deeplx", "openai"]
     expect(toPublicSettings(s).consent).toEqual([])
+    expect(toPublicSettings(s).summary.consent).toBeNull()
     // Another endpoint still changes the signature, so the page asks the tier again.
     s.providers.deeplx.baseURL = "https://other.example/translate"
     expect(toPublicSettings(s).signatures.machine).not.toBe(pub.signatures.machine)

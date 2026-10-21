@@ -1,6 +1,7 @@
 /**
- * The three prompts of the AI tier with their "Restore built-in prompt"
- * buttons, and the preset library that adds rules to one of them; its first
+ * The three prompts of the AI tier and the prompt of the summary, each with
+ * its "Restore built-in prompt" button, and the preset library that adds
+ * rules to one of the three; its first
  * entry, "Plain", removes the rules that presets added. Shared by
  * the settings page and the welcome page. Static texts carry data-i18n, so
  * localizeDocument() translates them; refresh() fills what depends on the
@@ -12,15 +13,16 @@
 import { type MessageKey, t } from "../shared/i18n"
 import { fillSelect } from "../shared/page"
 import { applyPreset, availablePresets, getPromptPreset, NO_PRESET, PRESET_EXAMPLE_SOURCE, type PresetOption, presetOptions, type PromptPreset, removePresets } from "../shared/prompt-presets"
-import { DEFAULT_PROMPTS, PROMPT_KINDS, type PromptKind, promptText } from "../shared/prompts"
+import { DEFAULT_PROMPTS, PROMPT_KINDS, PROMPT_NAMES, type PromptKind, type PromptName, promptText } from "../shared/prompts"
 import { promptKindFor } from "../shared/settings"
 import { h } from "../shared/dom"
 import type { SettingsSession } from "./session"
 
-const KIND_LABELS: Record<PromptKind, MessageKey> = {
+const KIND_LABELS: Record<PromptName, MessageKey> = {
   bilingual: "labelPromptBilingual",
   translationOnly: "labelPromptTranslationOnly",
   precise: "labelPromptPrecise",
+  summary: "labelPromptSummary",
 }
 
 /** Short names of the prompts in the "Apply to" list. */
@@ -36,11 +38,13 @@ export class PromptEditor {
   private readonly hint = h("p", { className: "hint", id: "presetHint" })
   private readonly example = h("p", { className: "preset-example", id: "presetExample" })
   private readonly status = h("p", { className: "hint", id: "presetStatus", role: "status" })
-  private readonly boxes = {} as Record<PromptKind, HTMLTextAreaElement>
+  private readonly boxes = {} as Record<PromptName, HTMLTextAreaElement>
 
   constructor(
     container: HTMLElement,
     private readonly session: SettingsSession,
+    /** The prompts shown; the setup guide leaves out the summary. */
+    names: readonly PromptName[] = PROMPT_NAMES,
   ) {
     const apply = h("button", { type: "button", className: "primary", id: "presetApply", "data-i18n": "buttonApplyPreset", "data-i18n-title": "tipApplyPreset" })
     apply.addEventListener("click", () => this.apply())
@@ -59,7 +63,7 @@ export class PromptEditor {
       this.example,
       h("div", { className: "row" }, apply, this.status),
     )
-    container.replaceChildren(presets, ...PROMPT_KINDS.map((kind) => this.promptBox(kind)))
+    container.replaceChildren(presets, ...names.map((kind) => this.promptBox(kind)))
     // A new target language from another page changes the options of the presets.
     let target = session.settings.targetLang
     session.track(this.preset, () => {
@@ -67,7 +71,7 @@ export class PromptEditor {
     })
   }
 
-  private promptBox(kind: PromptKind): HTMLElement {
+  private promptBox(kind: PromptName): HTMLElement {
     const s = this.session
     const box = h("textarea", { id: `prompt-${kind}`, rows: "9", spellcheck: "false", placeholder: DEFAULT_PROMPTS[kind], "data-i18n-title": "tipPrompt" })
     this.boxes[kind] = box
@@ -82,7 +86,7 @@ export class PromptEditor {
   }
 
   /** Store a prompt; "" stands for the built-in one. */
-  private setPrompt(kind: PromptKind, text: string): void {
+  private setPrompt(kind: PromptName, text: string): void {
     this.session.settings.prompts[kind] = text
     this.boxes[kind].value = promptText(this.session.settings.prompts, kind)
     this.session.save()

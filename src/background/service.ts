@@ -35,17 +35,23 @@ import type { MailContext } from "../shared/mail-context"
 import type { TranslateRequest, TranslateResponse } from "../shared/messages"
 import { promptText } from "../shared/prompts"
 import { getPreset, providerDisplayName, type Tier, TIERS } from "../shared/providers"
-import { isOnlineService, type ProviderConfig, type ResolvedProvider, resolveProviderConfig, resultInputs, type Settings } from "../shared/settings"
+import { isOnlineService, type ProviderConfig, type ResolvedProvider, resolveProvider, resolveProviderConfig, resultInputs, type Settings, summaryProvider } from "../shared/settings"
+import type { SummaryResponse } from "../shared/summary"
 import { cacheKey, LruCache, type PersistentCache } from "./cache"
 import { Dictionary } from "../offline/dictionary"
 import { type BatchLimits, BatchQueue, joinParts, splitText } from "./queue/batch-queue"
 import { RequestQueue } from "./queue/request-queue"
+import { buildSummaryPrompt, buildSummarySystem, type MailHeader, parseSummary } from "./summary"
+import { BAIDU_LIMITS, baiduTranslateBatch, baiduTranslateSingle } from "./translators/baidu"
 import { bergamotTranslateBatch } from "./translators/bergamot"
+import { caiyunTranslateBatch } from "./translators/caiyun"
+import { deeplTranslateBatch, deeplUsage } from "./translators/deepl"
 import { deeplxTranslate } from "./translators/deeplx"
 import { googleTranslateBatch, googleTranslateSingle } from "./translators/google"
 import type { LlmCallOptions } from "./translators/llm"
 import { BatchParseError, buildContextBlock, type MailAnalysis, MAX_PREFIX_TEXT_CHARS, parseAnalysis, type Segment } from "./translators/llm-prompt"
 import { AZURE_LIMITS, microsoftTranslateBatch } from "./translators/microsoft"
+import { youdaoTranslateBatch } from "./translators/youdao"
 
 /** Result of one paragraph; a failure for lack of a dictionary pack or offline model names what is missing. */
 type ItemResult = { ok: true; text: string } | { ok: false; error: string; missing?: MissingData }
@@ -76,13 +82,18 @@ interface OfflineData {
   current: () => Promise<string>
 }
 
-/** Hard caps for the free and local services, applied on top of the user's batch settings. Microsoft with a key has its own caps. */
+/** Hard caps of the machine translators, applied on top of the user's batch settings. Microsoft with a key and Baidu have caps of their own. */
 const FREE_LIMITS: Record<string, BatchLimits> = {
   dictionary: { maxItems: 100, maxChars: 50000 },
   bergamot: { maxItems: 100, maxChars: 5000 },
   google: { maxItems: 100, maxChars: 5000 },
   microsoft: { maxItems: 100, maxChars: 5000 },
   deeplx: { maxItems: 50, maxChars: 5000 },
+  // The request body may have 128 KiB; 30000 characters of up to 4 bytes in UTF-8 leave room for the JSON around them.
+  deepl: { maxItems: 50, maxChars: 30000 },
+  youdao: { maxItems: 50, maxChars: 5000 },
+  // Its old documentation suggests 20 to 40 sentences per request and names no character limit.
+  caiyun: { maxItems: 40, maxChars: 5000 },
 }
 
 /** Messages kept for precise mode; a message is registered again when it is translated again. */
@@ -95,6 +106,7 @@ export interface LlmImpl {
   batch: (segments: Segment[], opts: LlmCallOptions) => Promise<string[]>
   single: (segment: Segment, opts: LlmCallOptions) => Promise<string>
   analyze: (text: string, opts: LlmCallOptions) => Promise<MailAnalysis | null>
+  summarize: (prompt: string, opts: LlmCallOptions) => Promise<string>
 }
 
 /** The AI SDK, loaded with the first AI request: the background script starts without it (scripts/build.mjs makes it a chunk). */
@@ -103,14 +115,15 @@ const LAZY_LLM: LlmImpl = {
   batch: async (segments, opts) => (await loadLlm()).llmTranslateBatch(segments, opts),
   single: async (segment, opts) => (await loadLlm()).llmTranslateSingle(segment, opts),
   analyze: async (text, opts) => (await loadLlm()).llmAnalyzeMail(text, opts),
+  summarize: async (prompt, opts) => (await loadLlm()).llmSummarize(prompt, opts),
 }
 
 export interface ServiceDeps {
   getSettings: () => Settings
   cache: PersistentCache
   fetchFn?: typeof fetch
-  /** Injection points for tests. */
-  llm?: LlmImpl
+  /** Injection points for tests; a call of the AI SDK left out of `llm` loads the AI SDK. */
+  llm?: Partial<LlmImpl>
   dictionary?: Pick<Dictionary, "translate" | "signature">
   /** Detector of sourceDetector() for the offline models, with source language "auto". */
   detect?: LanguageDetector
@@ -120,6 +133,12 @@ export interface ServiceDeps {
   /** Whether the extension may connect to a host (a match pattern such as "https://example.com/*"); every host when absent. */
   hasOrigin?: (origin: string) => Promise<boolean>
 }
+
+/** Hash of everything besides the text and the languages that shapes a result: the parts of resultInputs() and the signature of the installed offline data. */
+const variantOf = (parts: readonly unknown[], signature = "") => hashText([...parts, signature].join("\n"))
+
+/** Cache key of the analysis of a message for precise translation. */
+const analysisKey = (provider: ResolvedProvider, languages: string, text: string, variant: string) => cacheKey(provider.id, provider.model, languages, text, `${variant}:analysis`)
 
 /** What describeError() needs to know about the provider of a failed request. */
 export function errorContext(provider: ResolvedProvider): ErrorContext {
@@ -158,7 +177,7 @@ export class TranslationService {
   private readonly dictionary: Pick<Dictionary, "translate" | "signature">
 
   constructor(private readonly deps: ServiceDeps) {
-    this.llm = deps.llm ?? LAZY_LLM
+    this.llm = { ...LAZY_LLM, ...deps.llm }
     this.dictionary = deps.dictionary ?? new Dictionary()
     this.batchQueue = new BatchQueue<Job, ItemResult>({
       delayMs: () => deps.getSettings().batch.batchDelayMs,
@@ -177,6 +196,8 @@ export class TranslationService {
         concurrency: () => batch().concurrency,
         maxRetries: () => batch().maxRetries,
         timeoutRetries: getPreset(provider.id)?.kind === "llm" ? 0 : 1,
+        // The requests per second of the edition of a Baidu account.
+        minIntervalMs: () => (getPreset(provider.id)?.kind === "baidu" ? BAIDU_LIMITS[resolveProvider(this.deps.getSettings(), provider.id).edition].intervalMs : 0),
         sleep: this.deps.sleep,
       })
       this.queues.set(provider.id, queue)
@@ -198,7 +219,7 @@ export class TranslationService {
     if (!preset) return user
     if (preset.kind === "llm") return s.llmBatchEnabled ? user : { ...user, maxItems: 1 }
     // Only Microsoft Translator has a key mode.
-    const cap = provider.mode === "key" ? AZURE_LIMITS : FREE_LIMITS[preset.kind]
+    const cap = provider.mode === "key" ? AZURE_LIMITS : preset.kind === "baidu" ? BAIDU_LIMITS[provider.edition] : FREE_LIMITS[preset.kind]
     return { maxItems: Math.min(cap.maxItems, user.maxItems), maxChars: Math.min(cap.maxChars, user.maxChars) }
   }
 
@@ -217,7 +238,7 @@ export class TranslationService {
     const { provider, kind, prompt, parts } = resultInputs(settings, providerId)
     const context = kind === "precise" && req.context ? this.contexts.get(req.context.id) : undefined
     // Everything besides the text that shapes the result keeps cache entries and batches apart.
-    const variant = hashText([...parts, data?.signature ?? ""].join("\n"))
+    const variant = variantOf(parts, data?.signature)
     const sig = context ? `${variant}:${context.id}` : variant
     return {
       text: req.text,
@@ -342,12 +363,64 @@ export class TranslationService {
   async testProvider(providerId: string, config: Omit<ProviderConfig, "enabled">, targetLang: string): Promise<string> {
     const provider = resolveProviderConfig(providerId, config)
     await this.checkOrigin(provider)
+    // DeepL tells the characters used, at no cost.
+    if (getPreset(providerId)?.kind === "deepl") {
+      const { used, limit } = await this.queue(provider).run(() => deeplUsage(provider, { fetchFn: this.deps.fetchFn, timeoutMs: this.timeoutMs(provider) }))
+      return (this.deps.i18n?.() ?? ENGLISH).t("testDeeplUsage", [used, limit])
+    }
     const sample = "Hello! This is a connection test from Multi Translate for Thunderbird."
     const prompt = promptText(this.deps.getSettings().prompts, "bilingual")
     const results = await this.executeBatch([{ text: sample, sourceLang: "auto", targetLang, provider, prompt, variant: "", batchKey: "test", key: "" }])
     const r = results[0]
     if (!r.ok) throw new Error(r.error)
     return r.text
+  }
+
+  /**
+   * The summary and to-dos of a message: `text` as the content script found
+   * it, `header` its sender, date and subject. The AI service of the summary
+   * (summaryProvider()) gets the message once the user allowed it to receive
+   * message text, with the glossary of the analysis that precise translation
+   * made of the message, if there is one. An answer the summary could be
+   * read from is cached; `fresh` asks again.
+   */
+  async summarize(text: string, header: MailHeader | null, fresh = false): Promise<SummaryResponse> {
+    const settings = this.deps.getSettings()
+    const i18n = this.deps.i18n?.() ?? ENGLISH
+    const id = summaryProvider(settings)
+    if (!id) return { ok: false, error: i18n.t("errSummaryService") }
+    const service = providerDisplayName(getPreset(id)!, i18n)
+    const configured = resolveProvider(settings, id)
+    const provider = { ...configured, model: settings.summary.model || configured.model }
+    try {
+      if (!settings.onlineConsent.includes(id)) throw new LocalizedError("errConsentRequired", [service])
+      await this.checkOrigin(provider)
+      const { parts, maxOutputTokens } = settings.summary
+      const targetLanguageName = getLanguage(settings.targetLang).english
+      const systemPrompt = buildSummarySystem(promptText(settings.prompts, "summary"), targetLanguageName, parts)
+      const prompt = buildSummaryPrompt(text, header, (await this.preciseAnalysis(text, settings))?.glossary)
+      const variant = hashText([provider.baseURL, systemPrompt, maxOutputTokens, provider.temperature, provider.thinking].join("\n"))
+      const key = cacheKey(`summary:${id}`, provider.model, `auto>${settings.targetLang}`, prompt, variant)
+      const cached = fresh ? undefined : await this.deps.cache.get(key)
+      const opts = { provider, systemPrompt, targetLanguageName, fetchFn: this.deps.fetchFn, timeoutMs: this.timeoutMs(provider), maxOutputTokens }
+      const raw = cached ?? (await this.queue(provider).run(() => this.llm.summarize(prompt, opts)))
+      const summary = parseSummary(raw, parts)
+      if (summary && cached === undefined) await this.deps.cache.set(key, raw)
+      return { ok: true, service, summary, raw }
+    } catch (error) {
+      return { ok: false, service, error: this.errorMessage(error, provider) }
+    }
+  }
+
+  /** The analysis that precise translation made of the message `text`: finished, running or cached; null without one. */
+  private async preciseAnalysis(text: string, settings: Settings): Promise<MailAnalysis | null> {
+    if (!settings.precise.enabled || !settings.tiers.ai) return null
+    const { provider, parts } = resultInputs(settings, settings.tiers.ai)
+    const key = analysisKey(provider, `${settings.sourceLang}>${settings.targetLang}`, text, variantOf(parts))
+    const known = this.analyses.get(key)
+    if (known) return known
+    const cached = await this.deps.cache.get(key)
+    return cached === undefined ? null : parseAnalysis(cached)
   }
 
   private llmOptions(job: Job): LlmCallOptions {
@@ -396,7 +469,7 @@ export class TranslationService {
 
   /** The analysis of the message, shared by the requests of one configuration (endpoint, thinking, temperature, languages). */
   private analysis(job: Job, fresh: boolean): Promise<MailAnalysis | null> {
-    const key = cacheKey(job.provider.id, job.provider.model, `${job.sourceLang}>${job.targetLang}`, job.mail!.context.text, `${job.variant}:analysis`)
+    const key = analysisKey(job.provider, `${job.sourceLang}>${job.targetLang}`, job.mail!.context.text, job.variant)
     let analysis = fresh ? undefined : this.analyses.get(key)
     if (!analysis) {
       analysis = this.loadAnalysis(key, job, fresh)
@@ -472,6 +545,17 @@ export class TranslationService {
         const deeplSource = source?.deepl.split("-")[0]
         return each((job) => deeplxTranslate(job.text, lang.deepl, job.provider.baseURL, job.provider.apiKey, { ...fetchOpts, source: deeplSource }))
       }
+      case "deepl":
+        return all(() => deeplTranslateBatch(texts, first.targetLang, first.sourceLang, first.provider, fetchOpts))
+      case "baidu":
+        return batchOrEach(
+          () => baiduTranslateBatch(texts, first.targetLang, first.sourceLang, first.provider, fetchOpts),
+          (job) => baiduTranslateSingle(job.text, first.targetLang, first.sourceLang, first.provider, fetchOpts),
+        )
+      case "youdao":
+        return settled(() => youdaoTranslateBatch(texts, first.targetLang, first.sourceLang, first.provider, fetchOpts))
+      case "caiyun":
+        return all(() => caiyunTranslateBatch(texts, first.targetLang, first.sourceLang, first.provider, fetchOpts))
       case "llm": {
         const opts = this.llmOptions(first)
         if (first.mail) opts.contextPrefix = await this.contextPrefix(first)

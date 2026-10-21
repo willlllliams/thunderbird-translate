@@ -5,7 +5,7 @@
 
 import { getI18n, type I18n, type MessageKey } from "./i18n"
 
-export type ProviderKind = "dictionary" | "bergamot" | "google" | "microsoft" | "deeplx" | "llm"
+export type ProviderKind = "dictionary" | "bergamot" | "google" | "microsoft" | "deeplx" | "deepl" | "baidu" | "youdao" | "caiyun" | "llm"
 
 /**
  * The three tiers of the translation pipeline, lowest first. Every paragraph
@@ -125,6 +125,55 @@ export const PROVIDER_PRESETS: ProviderPreset[] = [
     requiresBaseURL: true,
     defaultTemperature: null,
     docsUrl: "https://deeplx.owo.network/",
+  },
+  {
+    id: "deepl",
+    name: "DeepL API",
+    kind: "deepl",
+    // A free key (ending in ":fx") goes to https://api-free.deepl.com instead, see resolveProviderConfig().
+    defaultBaseURL: "https://api.deepl.com",
+    defaultModel: "",
+    models: [],
+    requiresKey: true,
+    defaultTemperature: null,
+    docsUrl: "https://www.deepl.com/your-account/keys",
+    webHosts: ["www.deepl.com", "deepl.com", "developers.deepl.com"],
+  },
+  {
+    id: "baidu",
+    name: "百度翻译 (Baidu Translate)",
+    kind: "baidu",
+    defaultBaseURL: "https://fanyi-api.baidu.com/api/trans/vip/translate",
+    defaultModel: "",
+    models: [],
+    requiresKey: true,
+    defaultTemperature: null,
+    docsUrl: "https://fanyi-api.baidu.com/manage/developer",
+    webHosts: ["fanyi.baidu.com"],
+  },
+  {
+    id: "youdao",
+    name: "有道智云 (Youdao)",
+    kind: "youdao",
+    defaultBaseURL: "https://openapi.youdao.com/v2/api",
+    defaultModel: "",
+    models: [],
+    requiresKey: true,
+    defaultTemperature: null,
+    docsUrl: "https://ai.youdao.com/",
+    webHosts: ["ai.youdao.com", "fanyi.youdao.com"],
+  },
+  {
+    id: "caiyun",
+    name: "彩云小译 (Caiyun)",
+    kind: "caiyun",
+    defaultBaseURL: "https://api.interpreter.caiyunai.com/v1/translator",
+    defaultModel: "",
+    models: [],
+    requiresKey: true,
+    defaultTemperature: null,
+    docsUrl: "https://docs.caiyunapp.com/lingocloud-api/index.html",
+    webHosts: ["docs.caiyunapp.com", "fanyi.caiyunapp.com", "dashboard.caiyunapp.com"],
   },
   {
     id: "openai",

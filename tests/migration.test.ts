@@ -6,6 +6,7 @@ import { getPreset, PROVIDER_PRESETS } from "../src/shared/providers"
 import {
   addedByDefault,
   createDefaultSettings,
+  DEFAULT_DEEPL,
   emptyProviderConfig,
   enabledTiers,
   normalizeSettings,
@@ -84,7 +85,7 @@ const SNAPSHOTS = {
 } as const
 
 /** Prompts as stored: empty stands for the built-in prompt. */
-const BUILT_IN = { bilingual: "", translationOnly: "", precise: "" }
+const BUILT_IN = { bilingual: "", translationOnly: "", precise: "", summary: "" }
 
 const migrated = Object.fromEntries(Object.entries(SNAPSHOTS).map(([v, s]) => [v, normalizeSettings(s, "en")])) as Record<keyof typeof SNAPSHOTS, Settings>
 
@@ -92,7 +93,7 @@ describe("settings of earlier versions", () => {
   it("1.0: the current machine translator becomes the machine tier; a custom prompt goes to both display modes; the rest is kept", () => {
     const s = migrated["1.0"]
     expect(s.tiers).toEqual({ dictionary: null, machine: "deeplx", ai: null })
-    expect(s.prompts).toEqual({ precise: "", bilingual: SNAPSHOTS["1.0"].systemPrompt, translationOnly: SNAPSHOTS["1.0"].systemPrompt })
+    expect(s.prompts).toEqual({ precise: "", summary: "", bilingual: SNAPSHOTS["1.0"].systemPrompt, translationOnly: SNAPSHOTS["1.0"].systemPrompt })
     expect(s).toMatchObject({ targetLang: "ja", mode: "translation-only", autoTranslate: true, sourceLang: "auto", uiLanguage: "auto" })
     expect(s.batch).toEqual({ ...batch, timeoutSeconds: 60, llmBatchEnabled: true })
     expect(s.cache).toEqual({ enabled: false, maxEntries: 800 })
@@ -134,7 +135,7 @@ describe("settings of earlier versions", () => {
   it("1.4: tiers, prompts, source language, precise mode and dictionary release are taken over as they are", () => {
     const s = migrated["1.4"]
     expect(s.tiers).toEqual(SNAPSHOTS["1.4"].tiers)
-    expect(s.prompts).toEqual(SNAPSHOTS["1.4"].prompts)
+    expect(s.prompts).toEqual({ ...SNAPSHOTS["1.4"].prompts, summary: "" })
     expect(s).toMatchObject({ uiLanguage: "zh_TW", sourceLang: "en", targetLang: "zh-TW", precise: { enabled: true }, dictionary: { releaseTag: "dicts-v2" } })
     // thinking: false is the default and is not written.
     expect(s.providers.deepseek).toEqual({ enabled: true, apiKey: "sk-ds", baseURL: "", model: "", temperature: 1 })
@@ -246,13 +247,16 @@ describe("normalization of each field", () => {
 
   it("takes the prompts that are strings, keeps the defaults for the others and ignores an old system prompt next to them", () => {
     const s = normalizeSettings({ prompts: { bilingual: "", translationOnly: 5, precise: "P" }, systemPrompt: "Old {{to}}" })
-    expect(s.prompts).toEqual({ bilingual: "", translationOnly: "", precise: "P" })
+    expect(s.prompts).toEqual({ bilingual: "", translationOnly: "", precise: "P", summary: "" })
   })
 
   it("stores no copy of a built-in prompt, current or earlier, so a new release brings its prompts; prompts of the user stay", () => {
     const stored = { bilingual: `  ${DEFAULT_PROMPTS.bilingual}\n`, translationOnly: DEFAULT_PROMPTS.precise, precise: `${DEFAULT_PROMPTS.precise} Be brief.` }
     // The precise prompt chosen for translation-only display is the user's choice.
-    expect(normalizeSettings({ prompts: stored }).prompts).toEqual({ bilingual: "", translationOnly: DEFAULT_PROMPTS.precise, precise: stored.precise })
+    expect(normalizeSettings({ prompts: stored }).prompts).toEqual({ bilingual: "", translationOnly: DEFAULT_PROMPTS.precise, precise: stored.precise, summary: "" })
+    // Settings of 2.3.0 and later: a copy of the built-in summary prompt is not stored, the user's own one is.
+    expect(normalizeSettings({ prompts: { ...stored, summary: ` ${DEFAULT_PROMPTS.summary}` } }).prompts.summary).toBe("")
+    expect(normalizeSettings({ prompts: { ...stored, summary: "Summarize in {{to}}." } }).prompts.summary).toBe("Summarize in {{to}}.")
     expect(normalizeSettings({ prompts: { ...BUILT_IN, bilingual: LEGACY_DEFAULT_PROMPT } }).prompts).toEqual(BUILT_IN)
   })
 
@@ -321,6 +325,9 @@ describe("resolved provider configuration", () => {
       thinking: false,
       mode: "free",
       region: "",
+      appId: "",
+      edition: "standard",
+      deepl: DEFAULT_DEEPL,
     })
   })
 

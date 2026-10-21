@@ -3,7 +3,8 @@
  * cover them.
  *
  * The manifest lists the fixed addresses as host permissions (FIXED_HOSTS):
- * Google and Microsoft, the default endpoint of every AI preset, Mozilla
+ * the machine translators (Google, Microsoft, DeepL with the hosts of its
+ * free and paid keys, Baidu, Youdao, Caiyun), the default endpoint of every AI preset, Mozilla
  * Remote Settings with its attachment CDN for the Bergamot models, and the
  * GitHub releases with their download hosts for the dictionary packs. An
  * address the user types (Ollama, LM Studio, DeepLX, a custom or Azure
@@ -26,6 +27,11 @@ export const FIXED_HOSTS: readonly string[] = [
   "https://translate.googleapis.com/*",
   "https://edge.microsoft.com/*",
   "https://api.cognitive.microsofttranslator.com/*",
+  "https://api-free.deepl.com/*",
+  "https://api.deepl.com/*",
+  "https://fanyi-api.baidu.com/*",
+  "https://openapi.youdao.com/*",
+  "https://api.interpreter.caiyunai.com/*",
   // AI presets: their default endpoints
   "https://api.openai.com/*",
   "https://api.anthropic.com/*",

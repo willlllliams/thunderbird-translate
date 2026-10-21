@@ -14,6 +14,7 @@ import type { MailContext } from "../shared/mail-context"
 import { CONTENT_PORT_NAME, IDLE_TAB_STATE, isPortReport, type PortPush, type PortReport, SUBJECTS_PORT_NAME, type TabState, type TranslateRequest, type TranslateResponse } from "../shared/messages"
 import type { Tier } from "../shared/providers"
 import type { PublicSettings } from "../shared/settings"
+import type { SummaryResponse } from "../shared/summary"
 
 export interface TabRegistryDeps {
   /** Settles once the settings are read: translations and the first settings of a content script wait for it. */
@@ -26,6 +27,8 @@ export interface TabRegistryDeps {
   translate: (request: TranslateRequest, onTier: (tier: Tier, result: TranslateResponse) => void, options: { sample: boolean }) => Promise<void>
   /** The subject of the message displayed in a tab; null when there is none or it cannot be read. */
   subject: (tabId: number) => Promise<string | null>
+  /** The summary of the message displayed in a tab, of its text; `fresh`: past the cache. */
+  summarize: (text: string, tabId: number, fresh: boolean) => Promise<SummaryResponse>
 }
 
 export interface TabRegistry {
@@ -49,7 +52,7 @@ function safePost(port: browser.runtime.Port, msg: PortPush): void {
   }
 }
 
-export function createTabRegistry({ ready, publicSettings, setContext, translate, subject }: TabRegistryDeps): TabRegistry {
+export function createTabRegistry({ ready, publicSettings, setContext, translate, subject, summarize }: TabRegistryDeps): TabRegistry {
   const ports = new Map<number, Set<browser.runtime.Port>>()
   const tabStates = new Map<number, TabState>()
   /** The Ports of the pages of translated subjects. */
@@ -65,7 +68,7 @@ export function createTabRegistry({ ready, publicSettings, setContext, translate
     }
   }
 
-  /** The requests every Port may send: translations, the message as context, the subject of its tab. */
+  /** The requests every Port may send: translations, the message as context, the subject and the summary of its tab. */
   function serve(port: browser.runtime.Port, msg: PortReport, sample: boolean, tabId: number | undefined): void {
     switch (msg.type) {
       case "context":
@@ -82,6 +85,12 @@ export function createTabRegistry({ ready, publicSettings, setContext, translate
         // Only a content script has a message on screen; a page of the extension has no subject to ask for.
         void (sample || tabId === undefined ? Promise.resolve(null) : subject(tabId).catch(() => null)).then((text) => safePost(port, { type: "subject", id: msg.id, subject: text }))
         break
+      case "summary": {
+        // Only the message on screen has a summary.
+        const result = sample || tabId === undefined ? Promise.reject(new Error("no message")) : ready().then(() => summarize(msg.text, tabId, msg.bypassCache === true))
+        void result.catch((): SummaryResponse => ({ ok: false, error: t("errUnknown") })).then((answer) => safePost(port, { type: "summary", id: msg.id, result: answer }))
+        break
+      }
     }
   }
 

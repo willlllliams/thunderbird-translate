@@ -120,6 +120,36 @@
         <div id="promptEditor"></div>
       </section>
 
+      <section id="summary">
+        <h2 data-i18n="sectionSummary"></h2>
+        <p class="hint" data-i18n="summaryHint"></p>
+        <div class="grid">
+          <label data-i18n-title="tipSummaryProvider"><span data-i18n="labelSummaryProvider"></span><select id="summaryProvider"></select></label>
+          <label data-i18n-title="tipSummaryModel"><span data-i18n="labelModel"></span><input type="text" id="summaryModel" spellcheck="false" /></label>
+          <label data-i18n-title="tipSummaryMaxTokens"><span data-i18n="labelSummaryMaxTokens"></span><input type="number" id="summaryMaxTokens" min="200" max="4000" step="100" /></label>
+          <label data-i18n-title="tipSummaryDisplay">
+            <span data-i18n="labelSummaryDisplay"></span>
+            <select id="summaryDisplay">
+              <option value="expanded" data-i18n="summaryExpanded"></option>
+              <option value="collapsed" data-i18n="summaryCollapsed"></option>
+            </select>
+          </label>
+        </div>
+        <p id="summaryNone" class="field-warning" data-i18n="tipSummarizeNone" hidden></p>
+        <div class="row" role="group" data-i18n-aria-label="labelSummaryParts">
+          <span data-i18n="labelSummaryParts"></span>
+          <label class="check" data-i18n-title="tipSummaryPart"><input type="checkbox" id="summaryPart-summary" /><span data-i18n="summaryPartSummary"></span></label>
+          <label class="check" data-i18n-title="tipSummaryPart"><input type="checkbox" id="summaryPart-actions" /><span data-i18n="summaryPartActions"></span></label>
+          <label class="check" data-i18n-title="tipSummaryPart"><input type="checkbox" id="summaryPart-questions" /><span data-i18n="summaryPartQuestions"></span></label>
+          <label class="check" data-i18n-title="tipSummaryPart"><input type="checkbox" id="summaryPart-dates" /><span data-i18n="summaryPartDates"></span></label>
+        </div>
+        <label class="check" data-i18n-title="tipSummaryInline">
+          <input type="checkbox" id="summaryInline" />
+          <span data-i18n="labelSummaryInline"></span>
+        </label>
+        <p class="hint" data-i18n="hintSummaryShortcut"></p>
+      </section>
+
       <section>
         <h2 data-i18n="sectionBatch"></h2>
         <div class="grid">

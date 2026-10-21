@@ -33,6 +33,8 @@ export interface LlmCallOptions {
   fetchFn?: typeof fetch
   /** A request without an answer after this long fails with TimeoutError. */
   timeoutMs?: number
+  /** Upper bound of the answer, sent as maxOutputTokens; none when absent. */
+  maxOutputTokens?: number
 }
 
 async function callModel(instructions: SystemModelMessage, prompt: string, opts: LlmCallOptions): Promise<string> {
@@ -47,6 +49,7 @@ async function callModel(instructions: SystemModelMessage, prompt: string, opts:
       instructions,
       prompt,
       ...(sendTemperature ? { temperature } : {}),
+      ...(opts.maxOutputTokens ? { maxOutputTokens: opts.maxOutputTokens } : {}),
       ...(reasoning.providerOptions ? { providerOptions: reasoning.providerOptions } : {}),
       abortSignal,
       // Retries are handled by our RequestQueue.
@@ -88,6 +91,13 @@ export async function llmTranslateBatch(segments: Segment[], opts: LlmCallOption
   const parsed = parseBatchOutput(raw, segments.length, segments.map((s) => s.text))
   if (!parsed) throw new BatchParseError(`Could not parse ${segments.length} translations from the model output`)
   return parsed
+}
+
+/** The summary and to-dos of a message (background/summary.ts): the answer as the model wrote it; `opts.systemPrompt` is the complete system prompt. */
+export async function llmSummarize(prompt: string, opts: LlmCallOptions): Promise<string> {
+  const raw = await callModel({ role: "system", content: opts.systemPrompt }, prompt, opts)
+  if (!raw.trim()) throw new LocalizedError("errEmptyAnswer")
+  return raw
 }
 
 /** Precise mode: summary, glossary and tone of the whole message; null when the answer is not usable. */

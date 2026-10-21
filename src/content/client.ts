@@ -9,12 +9,15 @@ import { ext } from "../shared/ext"
 import { ENGLISH, getI18n, I18n, setI18n } from "../shared/i18n"
 import { browserDetector } from "../shared/lang-detect"
 import type { UiLanguageSetting } from "../shared/locales"
+import type { PublicSettings } from "../shared/settings"
+import type { SummaryResponse } from "../shared/summary"
 import { CONTENT_PORT_NAME, isPortPush, type LocaleMessages, type PortReport, send, SUBJECTS_PORT_NAME, type TabState, type TranslateResponse } from "../shared/messages"
 import type { Tier } from "../shared/providers"
 import type { ContentProbe } from "../hooks/content"
 import { ConsentPanel } from "./consent"
 import { type ControllerDeps, TranslationController } from "./controller"
 import { MissingNotice } from "./notice"
+import { SummaryButton, SummaryPanel } from "./summary"
 
 declare const __DEBUG__: boolean
 
@@ -71,6 +74,8 @@ export function connectContent({ root, contentScript = false, probe, subjects, o
   }
   /** Subject requests without an answer yet. */
   const subjectRequests = new Map<number, (subject: string | null) => void>()
+  /** Summary requests without an answer yet. */
+  const summaryRequests = new Map<number, (result: SummaryResponse) => void>()
   let nextId = 0
   let mutedPairs: string[] = []
   const notice = contentScript
@@ -95,6 +100,37 @@ export function connectContent({ root, contentScript = false, probe, subjects, o
     },
     clear: () => consentPanel.clear(),
   }
+
+  /** The settings applied last. */
+  let current: PublicSettings | null = null
+  /** The service of the summary, allowed in the consent panel before the settings that record it arrive. */
+  const summaryAllowed = new Set<string>()
+  // Only the content script has a message to summarize.
+  const summaryPanel = contentScript
+    ? new SummaryPanel({
+        root,
+        collapsed: () => current?.summary.collapsed === true,
+        request: (fresh) =>
+          new Promise<SummaryResponse>((resolve) => {
+            const id = ++nextId
+            if (post({ type: "summary", id, text: controller.messageText(), ...(fresh ? { bypassCache: true } : {}) })) summaryRequests.set(id, resolve)
+            else resolve({ ok: false, error: getI18n().t("errUnknown") })
+          }),
+      })
+    : undefined
+  /** The summary of the message, once the user allowed its service to receive the text. */
+  const summarize = async () => {
+    const need = current?.summary.available ? current.summary.consent : undefined
+    if (!summaryPanel || need === undefined) return
+    if (need && !summaryAllowed.has(need.id)) {
+      // The summary sends the whole message, as precise translation does.
+      if (!(await consent!.ask([need], true))) return
+      summaryAllowed.add(need.id)
+    }
+    await summaryPanel.show()
+  }
+  const summaryButton = summaryPanel ? new SummaryButton({ root, onClick: () => void summarize() }) : undefined
+  const showSummaryButton = (active: boolean) => summaryButton?.sync(active && current?.summary.available === true && current.summary.inlineButton)
 
   const controller = new TranslationController({
     notice,
@@ -126,13 +162,14 @@ export function connectContent({ root, contentScript = false, probe, subjects, o
       }
       probe?.state(state)
       onState?.(state)
+      showSummaryButton(state.active)
       post({ type: "state", state })
     },
   })
 
   let markReady!: () => void
   const ready = new Promise<void>((resolve) => (markReady = resolve))
-  probe?.attach({ contentScript, root, controller, notice, consent: consentPanel, ready })
+  probe?.attach({ contentScript, root, controller, notice, consent: consentPanel, summary: summaryPanel, ready })
   let firstSettings = true
   let uiLanguage: UiLanguageSetting | null = null
   // Settings are applied in the order they arrive, each once its labels are loaded.
@@ -142,12 +179,14 @@ export function connectContent({ root, contentScript = false, probe, subjects, o
     if (msg.type === "settings") {
       const next = msg.settings
       mutedPairs = next.offlineMutedPairs
+      current = next
       settingsApplied = settingsApplied.then(async () => {
         if (contentScript && next.uiLanguage !== uiLanguage) {
           uiLanguage = next.uiLanguage
           await loadLabels(uiLanguage)
         }
         void controller.updateSettings(next)
+        showSummaryButton(controller.active)
         if (!firstSettings) return
         firstSettings = false
         markReady()
@@ -157,6 +196,11 @@ export function connectContent({ root, contentScript = false, probe, subjects, o
       void controller.toggle()
     } else if (msg.type === "retranslate") {
       void controller.retranslate()
+    } else if (msg.type === "summarize") {
+      void summarize()
+    } else if (msg.type === "summary") {
+      summaryRequests.get(msg.id)?.(msg.result)
+      summaryRequests.delete(msg.id)
     } else if (msg.type === "offlineDataChanged") {
       controller.forgetResults()
     } else if (msg.type === "tier") {
@@ -178,6 +222,8 @@ export function connectContent({ root, contentScript = false, probe, subjects, o
     pending.clear()
     for (const resolve of subjectRequests.values()) resolve(null)
     subjectRequests.clear()
+    for (const resolve of summaryRequests.values()) resolve({ ok: false, error: getI18n().t("errUnknown") })
+    summaryRequests.clear()
   })
   return { controller, ready }
 }
