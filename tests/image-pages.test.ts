@@ -7,7 +7,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 import { costHint } from "../src/options/image-settings"
 import { ENGLISH } from "../src/shared/i18n"
-import { IDLE_TAB_STATE } from "../src/shared/messages"
+import { type BackgroundRequest, IDLE_TAB_STATE } from "../src/shared/messages"
 import { createDefaultSettings, defaultImageSettings, type Settings } from "../src/shared/settings"
 import { WELCOME_KEY } from "../src/welcome/steps"
 import { flushSave } from "./fixtures/pages"
@@ -57,7 +57,7 @@ describe("popup", () => {
 })
 
 describe("settings page", () => {
-  async function options(settings: Settings, respond?: Parameters<typeof openPage>[2]["respond"]) {
+  async function options(settings: Settings, respond?: (req: BackgroundRequest) => unknown) {
     const page = await openPage("options", settings, { respond })
     await until(() => expect(document.querySelector("#providerPanel h3")).not.toBeNull())
     return page
