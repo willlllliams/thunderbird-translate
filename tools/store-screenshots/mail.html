@@ -99,6 +99,11 @@
     <script>
       const shot = new URLSearchParams(location.search).get("shot") || "bilingual"
       document.getElementById("body").src = `/__shots/body.html?shot=${shot}`
+      // The images shot shows the message with the chart of the README animations.
+      if (shot === "images") {
+        document.querySelector(".subject").textContent = "Quartalszahlen – Grafik für die Vorstandssitzung"
+        document.querySelectorAll(".line")[1].lastChild.textContent = " Jonas Weber <jonas.weber@example.com>"
+      }
       if (shot === "popup") {
         document.getElementById("button").classList.add("on")
         const popup = document.createElement("iframe")

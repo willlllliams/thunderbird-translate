@@ -17,6 +17,7 @@
         max-width: 860px;
       }
     </style>
+    <script src="/__gif/samples.js"></script>
     <script src="/__shots/stub.js"></script>
   </head>
   <body>
@@ -25,6 +26,26 @@
     <p>Bitte schickt mir bis Freitag, 23. Oktober:<br />- die finale Kostenaufstellung<br />- die Folien zum Zeitplan</p>
     <p>Die Abnahme selbst würde ich gern auf Dienstag, 27. Oktober, 15 Uhr, legen. Am Montag bin ich auf einer Messe in Hamburg und nur eingeschränkt erreichbar.</p>
     <p>Viele Grüße<br />Katrin</p>
+    <script>
+      // The images shot: the message with the chart of the README animations, the chart after its first paragraph.
+      if (new URLSearchParams(location.search).get("shot") === "images") {
+        const report = README_GIF_SAMPLES.en.report
+        document.body.replaceChildren()
+        report.paragraphs.forEach(({ text }, index) => {
+          const p = document.createElement("p")
+          text.split("\n").forEach((line, i) => {
+            if (i > 0) p.append(document.createElement("br"))
+            p.append(line)
+          })
+          document.body.append(p)
+          if (index === 0) {
+            const img = Object.assign(document.createElement("img"), { alt: "", src: report.chart })
+            img.style.cssText = "display: block; border: 1px solid #d8dbe0; margin-bottom: 4px"
+            document.body.append(img)
+          }
+        })
+      }
+    </script>
     <script src="/content.js"></script>
   </body>
 </html>

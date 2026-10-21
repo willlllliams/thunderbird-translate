@@ -1,7 +1,8 @@
 // A stand-in for Thunderbird's WebExtension API, loaded before the scripts of the extension's pages for the
 // listing screenshots (tools/store-screenshots/shoot.mjs). It answers the requests the pages send with fixed data:
-// the settings of the shot, a translated message tab, the offline lists, the summary and the translations of the
-// sample texts. Nothing is sent anywhere. The shot is chosen with ?shot=<name> in the address of the page.
+// the settings of the shot, a translated message tab, the offline lists, the summary, the text of the chart image and
+// the translations of the sample texts. Nothing is sent anywhere. The shot is chosen with ?shot=<name> in the address
+// of the page. The images shot uses the message with the chart of the README animations (tools/readme-gif/samples.js).
 ;(() => {
   const params = new URLSearchParams(location.search)
   const shot = params.get("shot") || "bilingual"
@@ -53,6 +54,10 @@
     ],
   }
   const summaryShot = shot === "summary"
+  const imagesShot = shot === "images"
+  /** The message with the chart and the answer of the AI service for the chart, from the samples of the README animations. */
+  const report = globalThis.README_GIF_SAMPLES?.en.report
+  if (report) for (const p of report.paragraphs) TEXTS[p.text] = { dictionary: p.ai, machine: p.ai, ai: p.ai }
 
   const translate = (tier, text) => TEXTS[text.trim()]?.[tier] ?? text
 
@@ -76,7 +81,8 @@
       bergamot: { enabled: true, apiKey: "", baseURL: "", model: "" },
       openai: { enabled: true, apiKey: "sk-example-key-for-screenshots", baseURL: "", model: "gpt-4.1-mini" },
     },
-    precise: { enabled: false },
+    precise: { enabled: imagesShot },
+    image: { mode: imagesShot ? "auto" : "ask" },
     onlineConsent: ["google-free", "openai"],
   }
   const stored = { settings, welcome: { step: "tiers", toured: true } }
@@ -139,6 +145,12 @@
           setTimeout(() => onMessage.fire({ type: "summary", id: msg.id, result }), 150)
           return
         }
+        if (msg.type === "image") {
+          // The chart passes the filters; sent by itself ("On"), it gets the table of its labels.
+          const result = msg.image.action === "peek" ? { status: "ready" } : { status: "done", text: report.table, service: "OpenAI", cached: false, usage: { input: 1214, output: 187 } }
+          setTimeout(() => onMessage.fire({ type: "imageResult", id: msg.id, result }), 50)
+          return
+        }
         if (msg.type !== "translate") return
         const { id, request } = msg
         request.tiers.forEach((tier, i) => {
@@ -160,12 +172,13 @@
         renderMarkdown: true,
         tiers,
         signatures: Object.fromEntries(tiers.map((tier) => [tier, tier])),
-        precise: false,
+        precise: imagesShot,
+        credentials: 0,
         style: { preset: "border", color: "#4c8bf5", textColor: "", opacity: 0.85, fontScale: 1 },
         offlineMutedPairs: [],
         consent,
         summary: { available: summaryShot, inlineButton: false, auto: "off", collapsed: false, consent: null },
-        image: { mode: "off", sources: { inline: true, attachments: true }, maxPerMessage: 5, minSide: 100, minArea: 40000, maxAspect: 8, skipSignature: true, collapsed: false, showUsage: true, consent: null, confirmEachMessage: false, maxLongEdge: 1568, format: "image/jpeg", glossary: false, signature: "" },
+        image: { mode: imagesShot ? "auto" : "off", sources: { inline: true, attachments: true }, maxPerMessage: 5, minSide: 100, minArea: 40000, maxAspect: 8, skipSignature: true, collapsed: false, showUsage: true, consent: null, confirmEachMessage: false, maxLongEdge: 1568, format: "image/jpeg", glossary: false, signature: "" },
       },
     })
     // The translation of the message starts as with the button in the message header.
@@ -180,7 +193,7 @@
   const api = {
     runtime: {
       getURL: (path) => `${origin}/${String(path).replace(/^\//, "")}`,
-      getManifest: () => ({ version: "2.3.0", name: "Multi Translate for Thunderbird" }),
+      getManifest: () => ({ version: "3.0.0", name: "Multi Translate for Thunderbird" }),
       sendMessage: (req) => respond(req),
       connect,
       onMessage: runtimeMessage,

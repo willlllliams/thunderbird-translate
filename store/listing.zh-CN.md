@@ -57,9 +57,10 @@
 | `store/screenshots/1-bilingual.png` | 双语对照：每个段落下方显示译文，AI 译文中的列表和加粗日期按格式显示 |
 | `store/screenshots/2-translation-only.png` | 仅译文：邮件以你的语言显示 |
 | `store/screenshots/3-provisional-tiers.png` | AI 服务还在翻译时，机器翻译的结果先显示 |
-| `store/screenshots/4-popup.png` | 弹出面板：显示方式、语言和每个层级的服务 |
+| `store/screenshots/4-popup.png` | 弹出面板：显示方式、语言、每个层级的服务、精翻和图片翻译方式 |
 | `store/screenshots/5-settings-tiers.png` | 设置页：语言、显示方式和三个层级 |
 | `store/screenshots/6-setup-guide.png` | 新手引导对比三个层级 |
 | `store/screenshots/7-consent.png` | 你允许之前不发送任何内容 |
-| `store/screenshots/9-settings-markdown.png` | 设置页：译文样式和 AI 译文的 Markdown 渲染 |
-| `store/screenshots/10-summary.png` | 摘要与待办：摘要、带负责人和截止日期的待办、待回答的问题和日期，显示在译文上方的面板中 |
+| `store/screenshots/8-settings-markdown.png` | 设置页：译文样式和 AI 译文的 Markdown 渲染 |
+| `store/screenshots/9-summary.png` | 摘要与待办：摘要、带负责人和截止日期的待办、待回答的问题和日期，显示在译文上方的面板中 |
+| `store/screenshots/10-images.png` | 图片翻译：图表下方列出图中标注与译文的对照表 |
