@@ -74,7 +74,7 @@ All other settings are on the settings page: the "Options" button of the extensi
 | Tier | Services | Speed | Quality | Offline | Cost |
 | --- | --- | --- | --- | --- | --- |
 | 1 Dictionary | Dictionary | a few milliseconds | word by word, without grammar | yes | free; a few MB per language pair |
-| 2 Machine translation | Google, Microsoft, DeepL, Baidu, Youdao, Caiyun, DeepLX, Bergamot | one to two seconds per message | complete and readable | Bergamot only | free, the services with your key up to their free quota; Bergamot downloads 13–48 MB per direction |
+| 2 Machine translation | Google, Microsoft, DeepL, Baidu, Youdao, Caiyun, DeepLX, Bergamot | one to two seconds per message | complete and readable | Bergamot only | free; DeepL and Baidu have a monthly free quota, Youdao and Caiyun bill by characters after the trial credit of a new account; Bergamot downloads 13–48 MB per direction |
 | 3 AI translation | 22 AI providers | a few seconds to a minute | the most natural; follows your prompts | local models only | billed per use to your API key; local models are free |
 
 Each tier uses one service or "Not used"; at least one tier needs a service. The default is Google Translate in tier 2 and nothing else.

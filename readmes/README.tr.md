@@ -74,7 +74,7 @@ Diğer tüm ayarlar, Eklenti yöneticisinde eklentinin "Seçenekler" düğmesiyl
 | Kademe | Hizmetler | Hız | Kalite | Çevrimdışı | Maliyet |
 | --- | --- | --- | --- | --- | --- |
 | 1 Sözlük | Sözlük | birkaç milisaniye | sözcük sözcük, dilbilgisi yok | evet | ücretsiz; dil çifti başına birkaç MB |
-| 2 Makine çevirisi | Google, Microsoft, DeepL, Baidu, Youdao, Caiyun, DeepLX, Bergamot | ileti başına bir ila iki saniye | eksiksiz ve okunaklı | yalnızca Bergamot | ücretsiz, kendi anahtarınızla kullanılan hizmetler ücretsiz kotaları kadar; Bergamot yön başına 13–48 MB indirir |
+| 2 Makine çevirisi | Google, Microsoft, DeepL, Baidu, Youdao, Caiyun, DeepLX, Bergamot | ileti başına bir ila iki saniye | eksiksiz ve okunaklı | yalnızca Bergamot | ücretsiz; DeepL ve Baidu'nun aylık ücretsiz kotası var, Youdao ve Caiyun yeni hesabın deneme kredisinden sonra karakter başına ücret alır; Bergamot yön başına 13–48 MB indirir |
 | 3 Yapay zekâ çevirisi | 22 yapay zekâ sağlayıcısı | birkaç saniye ile bir dakika arası | en doğal; istemlerinizi izler | yalnızca yerel modeller | API anahtarınıza kullanım başına faturalanır; yerel modeller ücretsizdir |
 
 Her kademe bir hizmet kullanır veya "Kullanılmıyor" olarak kalır; en az bir kademede hizmet olmalıdır. Varsayılan, 2. kademede Google Translate olması ve başka hiçbir şey olmamasıdır.

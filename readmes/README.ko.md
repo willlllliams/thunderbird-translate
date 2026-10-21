@@ -74,7 +74,7 @@ Thunderbird 128 이상이 필요합니다. 사전 릴리스인 `nightly`는 최�
 | 단계 | 서비스 | 속도 | 품질 | 오프라인 | 비용 |
 | --- | --- | --- | --- | --- | --- |
 | 1 사전 | 사전 | 몇 밀리초 | 문법 없이 단어 단위로 대응 | 가능 | 무료, 언어 쌍마다 몇 MB |
-| 2 기계 번역 | Google, Microsoft, DeepL, Baidu, Youdao, Caiyun, DeepLX, Bergamot | 메시지당 1~2초 | 완결된 읽기 쉬운 문장 | Bergamot만 가능 | 무료(내 키로 쓰는 서비스는 무료 한도까지), Bergamot은 방향마다 13~48 MB 내려받음 |
+| 2 기계 번역 | Google, Microsoft, DeepL, Baidu, Youdao, Caiyun, DeepLX, Bergamot | 메시지당 1~2초 | 완결된 읽기 쉬운 문장 | Bergamot만 가능 | 무료. DeepL과 Baidu는 매월 무료 한도가 있고, Youdao와 Caiyun은 새 계정의 체험 크레딧 이후 글자 수로 과금, Bergamot은 방향마다 13~48 MB 내려받음 |
 | 3 AI 번역 | 22개 AI 제공자 | 몇 초에서 1분 | 가장 자연스러우며 프롬프트를 따름 | 로컬 모델만 가능 | 사용자의 API 키로 사용량만큼 과금, 로컬 모델은 무료 |
 
 각 단계에서는 서비스 하나를 쓰거나 "사용 안 함"을 고르며, 하나 이상의 단계에는 서비스가 있어야 합니다. 기본값은 2단계의 Google 번역뿐입니다.

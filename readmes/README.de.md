@@ -74,7 +74,7 @@ Alle weiteren Einstellungen liegen auf der Einstellungsseite, die sich über die
 | Stufe | Dienste | Geschwindigkeit | Qualität | Offline | Kosten |
 | --- | --- | --- | --- | --- | --- |
 | 1 Wörterbuch | Wörterbuch | einige Millisekunden | Wort für Wort, ohne Grammatik | ja | kostenlos; einige MB pro Sprachpaar |
-| 2 Maschinelle Übersetzung | Google, Microsoft, DeepL, Baidu, Youdao, Caiyun, DeepLX, Bergamot | ein bis zwei Sekunden pro Nachricht | vollständig und gut lesbar | nur Bergamot | kostenlos, die Dienste mit eigenem Schlüssel bis zu ihrem Freikontingent; Bergamot lädt 13–48 MB pro Richtung |
+| 2 Maschinelle Übersetzung | Google, Microsoft, DeepL, Baidu, Youdao, Caiyun, DeepLX, Bergamot | ein bis zwei Sekunden pro Nachricht | vollständig und gut lesbar | nur Bergamot | kostenlos; DeepL und Baidu haben ein monatliches Freikontingent, Youdao und Caiyun rechnen nach dem Startguthaben eines neuen Kontos nach Zeichen ab; Bergamot lädt 13–48 MB pro Richtung |
 | 3 KI-Übersetzung | 22 KI-Anbieter | einige Sekunden bis eine Minute | am natürlichsten; folgt den eigenen Prompts | nur lokale Modelle | nach Verbrauch über den eigenen API-Schlüssel abgerechnet; lokale Modelle kostenlos |
 
 Jede Stufe verwendet einen Dienst oder „Nicht verwendet“; mindestens eine Stufe braucht einen Dienst. Standardmäßig ist nur Stufe 2 mit Google Translate belegt.

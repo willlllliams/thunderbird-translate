@@ -74,7 +74,7 @@ Mọi cài đặt khác nằm trên trang cài đặt: nút "Tùy chọn" của 
 | Tầng | Dịch vụ | Tốc độ | Chất lượng | Ngoại tuyến | Chi phí |
 | --- | --- | --- | --- | --- | --- |
 | 1 Từ điển | Từ điển | vài mili giây | từng từ một, không có ngữ pháp | có | miễn phí; vài MB cho mỗi cặp ngôn ngữ |
-| 2 Dịch máy | Google, Microsoft, DeepL, Baidu, Youdao, Caiyun, DeepLX, Bergamot | một đến hai giây mỗi thư | đầy đủ và dễ đọc | chỉ Bergamot | miễn phí, các dịch vụ dùng khóa của bạn trong hạn mức miễn phí; Bergamot tải 13–48 MB cho mỗi chiều dịch |
+| 2 Dịch máy | Google, Microsoft, DeepL, Baidu, Youdao, Caiyun, DeepLX, Bergamot | một đến hai giây mỗi thư | đầy đủ và dễ đọc | chỉ Bergamot | miễn phí; DeepL và Baidu có hạn mức miễn phí hằng tháng, Youdao và Caiyun tính phí theo ký tự sau phần dùng thử của tài khoản mới; Bergamot tải 13–48 MB cho mỗi chiều dịch |
 | 3 Dịch bằng AI | 22 nhà cung cấp AI | vài giây đến một phút | tự nhiên nhất; theo lời nhắc của bạn | chỉ mô hình cục bộ | tính theo mức dùng trên khóa API của bạn; mô hình cục bộ miễn phí |
 
 Mỗi tầng dùng một dịch vụ hoặc "Không dùng"; ít nhất một tầng cần có dịch vụ. Mặc định là Google Translate ở tầng 2 và không có gì khác.

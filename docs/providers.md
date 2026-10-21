@@ -29,6 +29,8 @@ A fresh installation starts with Google Translate and Microsoft Translator added
 
 The free Google and Microsoft endpoints are undocumented. They may change or be rate-limited. Microsoft retired the token endpoint `edge.microsoft.com/translate/auth` in July 2026; the extension uses only the direct endpoint.
 
+Some networks block these two routes; Google Translate is not available in mainland China. The settings page and the setup guide therefore check, when they show one of them as added, whether it answers the fixed sentence of "Test connection", and a failure that reached no server names the services that work without it ([settings.md](settings.md#connection-check-of-the-free-routes)).
+
 ## Microsoft Translator with an Azure key
 
 The panel option "Use my key (Azure Translator)" switches Microsoft Translator to the official API.
@@ -60,6 +62,13 @@ DeepL, Baidu Translate, Youdao and Caiyun are machine translators of tier 2 that
 | 彩云小译 (Caiyun) | `https://api.interpreter.caiyunai.com/v1/translator` | Token | 40 and 5000 |
 
 The keys stay in `storage.local` of the Thunderbird profile and go only to the endpoint of their own service. The four limits apply on top of the batch settings, see [batching.md](batching.md).
+
+What each account costs, from the pages of the services (October 2026):
+
+- DeepL API Free translates 500,000 characters a month at no cost (DeepL support, "Usage count and billing in DeepL API"); DeepL API Pro has no free characters.
+- Baidu gives a free quota every month by edition, from 50,000 characters in the standard edition to 2,000,000 with business verification (table below).
+- Youdao gives a new account 10 yuan of trial credit, 40 yuan more after identity verification (ai.youdao.com, price center), and then bills by use.
+- Caiyun gives a new account 1,000,000 characters valid for one month, then bills 39 yuan per million characters, counted on the source text with spaces and punctuation (docs.caiyunapp.com/lingocloud-api).
 
 ### DeepL API
 
@@ -104,7 +113,7 @@ Baidu blocks an IP address that uses several app IDs on the same day (code 58003
 
 ### Youdao
 
-The batch interface takes one `q` field per paragraph, with `signType=v3` and `curtime` in UTC seconds. The signature is the SHA-256 of app ID, input, salt, curtime and app secret, computed with Web Crypto. The input is the joined `q` values when they have at most 20 characters, else their first 10 characters, their length and their last 10. The characters are counted in code points, as the official Python example does, so an emoji counts as one character. A paragraph listed in `errorIndex` fails alone; the other paragraphs of the batch keep their translations.
+The batch interface takes one `q` field per paragraph, with `signType=v3` and `curtime` in UTC seconds. The signature is the SHA-256 of app ID, input, salt, curtime and app secret, computed with Web Crypto. The input is the joined `q` values when they have at most 20 characters, else their first 10 characters, their length and their last 10. The characters are counted in code points, as the official Python and PHP examples do, so an emoji counts as one character. The documentation itself says "characters" only, and its Java, JavaScript and C# examples count UTF-16 units, in which most emoji count two; which one the service checks is still to be confirmed with an account (a batch with an emoji answers 202 when the count is wrong). A paragraph listed in `errorIndex` fails alone; the other paragraphs of the batch keep their translations.
 
 Automatic detection of the batch interface knows 13 languages. A paragraph in another language fails and keeps the translation of another tier.
 
@@ -271,7 +280,7 @@ The image goes as a file part of the AI SDK with its media type (`{ type: "file"
 
 "Image detail" goes to two services, in the form their package puts into the image: `providerOptions.openai.imageDetail` for OpenAI and `providerOptions.deepseek.imageDetail` for DeepSeek. `@ai-sdk/openai-compatible` spreads its options beside the image part, not into `image_url`, so Doubao and SiliconFlow get no detail. Zhipu's own example puts bare base64 into the `url` field, while the SDK sends a data URL; "Test image" shows whether Zhipu takes it.
 
-The extension uploads JPEG unless the settings choose WebP or PNG; xAI and Zhipu take JPEG and PNG only, and get JPEG for a WebP choice. One request carries one image of at most 1500 KB by default, under the limit of every service below:
+An image with more than 40 megapixels, read from the header of its file before anything is decoded, is not sent; the images of a message are decoded one at a time. The extension uploads JPEG unless the settings choose WebP or PNG; xAI and Zhipu take JPEG and PNG only, and get JPEG for a WebP choice. One request carries one image of at most 1500 KB by default, under the limit of every service below:
 
 | Service | Formats | Limit per image | Other limits |
 | --- | --- | --- | --- |

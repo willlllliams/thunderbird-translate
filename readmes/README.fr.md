@@ -74,7 +74,7 @@ Tous les autres paramètres se trouvent sur la page de paramètres : le bouton �
 | Niveau | Services | Vitesse | Qualité | Hors ligne | Coût |
 | --- | --- | --- | --- | --- | --- |
 | 1 Dictionnaire | Dictionnaire | quelques millisecondes | mot à mot, sans grammaire | oui | gratuit ; quelques Mo par paire de langues |
-| 2 Traduction automatique | Google, Microsoft, DeepL, Baidu, Youdao, Caiyun, DeepLX, Bergamot | une à deux secondes par message | complète et lisible | Bergamot seulement | gratuit, les services avec votre clé jusqu’à leur quota gratuit ; Bergamot télécharge 13 à 48 Mo par direction |
+| 2 Traduction automatique | Google, Microsoft, DeepL, Baidu, Youdao, Caiyun, DeepLX, Bergamot | une à deux secondes par message | complète et lisible | Bergamot seulement | gratuit ; DeepL et Baidu ont un quota gratuit mensuel, Youdao et Caiyun facturent au caractère après le crédit d’essai d’un nouveau compte ; Bergamot télécharge 13 à 48 Mo par direction |
 | 3 Traduction par l’IA | 22 fournisseurs d’IA | de quelques secondes à une minute | la plus naturelle ; suit vos invites | modèles locaux seulement | facturé à l’usage sur votre clé d’API ; gratuit avec les modèles locaux |
 
 Chaque niveau utilise un service ou « Non utilisé » ; au moins un niveau a besoin d’un service. Par défaut, seul le niveau 2 est actif, avec Google Translate.

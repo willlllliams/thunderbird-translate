@@ -44,7 +44,7 @@ On Windows, `certutil -hashfile web-ext-artifacts\thunderbird-translate-<version
 4. writes `dist/THIRD-PARTY-NOTICES.txt` (`scripts/notices.mjs`) from the npm packages esbuild read;
 5. packs `dist/` into the xpi.
 
-The source of the end-to-end test build (`src/e2e/`) is left out of this archive; the regular build never reads it, and `scripts/build.mjs` stops if it ever does.
+The sources of the end-to-end test build (`src/e2e/`) and of the experimental build (`src/experiments/`) are left out of this archive; the regular build never reads them, and `scripts/build.mjs` stops if it ever does.
 
 ## Bergamot engine (WebAssembly and glue script)
 
