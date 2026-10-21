@@ -573,6 +573,7 @@
   "summaryCopy": "Markdown으로 복사",
   "tipSummaryCopy": "요약을 Markdown 텍스트로 복사",
   "summaryCopied": "복사됨",
+  "summaryCopyFailed": "복사하지 못했습니다",
   "summaryRegenerate": "다시 생성",
   "tipSummaryRegenerate": "캐시를 건너뛰고 서비스에 다시 요청",
   "tipSummaryClose": "메시지에서 요약 제거",

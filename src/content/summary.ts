@@ -47,17 +47,23 @@ export function summaryMarkdown(summary: MailSummary): string {
     .join("\n\n")
 }
 
-/** Text on the clipboard: the Clipboard API, else a selected text area and the copy command. */
-async function copyText(doc: Document, text: string): Promise<void> {
+/** Text on the clipboard: the Clipboard API, else a selected text area and the copy command; whether it got there. */
+async function copyText(doc: Document, text: string): Promise<boolean> {
   try {
     await navigator.clipboard.writeText(text)
+    return true
   } catch {
-    const area = doc.createElement("textarea")
-    area.value = text
+    const area = Object.assign(doc.createElement("textarea"), { value: text, readOnly: true })
+    area.style.cssText = "position:fixed;opacity:0"
     doc.body.append(area)
     area.select()
-    doc.execCommand("copy")
-    area.remove()
+    try {
+      return doc.execCommand("copy")
+    } catch {
+      return false
+    } finally {
+      area.remove()
+    }
   }
 }
 
@@ -115,7 +121,13 @@ export class SummaryPanel {
       return b
     }
     // Disabled without a summary.
-    const copy = action("summaryCopy", "tipSummaryCopy", () => void copyText(el.ownerDocument, summaryMarkdown(summary!)).then(() => (copy.textContent = t("summaryCopied"))))
+    const copy = action("summaryCopy", "tipSummaryCopy", () =>
+      void copyText(el.ownerDocument, summaryMarkdown(summary!)).then((ok) => {
+        copy.textContent = t(ok ? "summaryCopied" : "summaryCopyFailed")
+        // The text area of the copy command took the focus.
+        copy.focus()
+      }),
+    )
     copy.disabled = !summary
     const title = service ? t("summaryTitleService", [service]) : t("summaryTitle")
     el.replaceChildren(

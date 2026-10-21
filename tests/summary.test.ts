@@ -378,6 +378,18 @@ describe("the panel above the message", () => {
     buttons()[0].click()
     await until(() => expect(execCommand).toHaveReturnedWith(true))
     expect(document.querySelector("textarea")).toBeNull()
+    // U8: the copy command refused or failed: the button says so and keeps the focus.
+    for (const refuse of [() => false, () => {
+      throw new Error("denied")
+    }]) {
+      writeText.mockRejectedValueOnce(new Error("not allowed"))
+      document.execCommand = vi.fn(refuse) as typeof document.execCommand
+      buttons()[0].click()
+      await until(() => expect(buttons()[0].textContent).toBe(ENGLISH.t("summaryCopyFailed")))
+      expect(document.querySelector("textarea")).toBeNull()
+      expect(document.activeElement).toBe(buttons()[0])
+      buttons()[0].textContent = ENGLISH.t("summaryCopy")
+    }
   })
 
   it("shows the text of an answer it could not read, a failure line by line, and nothing found", async () => {

@@ -576,6 +576,7 @@
   "summaryCopy": "Copy as Markdown",
   "tipSummaryCopy": "Copy the summary as Markdown text",
   "summaryCopied": "Copied",
+  "summaryCopyFailed": "Copying failed",
   "summaryRegenerate": "Regenerate",
   "tipSummaryRegenerate": "Ask the service again, past the cache",
   "tipSummaryClose": "Remove the summary from the message",

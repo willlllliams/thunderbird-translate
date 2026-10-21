@@ -573,6 +573,7 @@
   "summaryCopy": "复制为 Markdown",
   "tipSummaryCopy": "把摘要复制为 Markdown 文本",
   "summaryCopied": "已复制",
+  "summaryCopyFailed": "复制失败",
   "summaryRegenerate": "重新生成",
   "tipSummaryRegenerate": "跳过缓存，重新请求服务",
   "tipSummaryClose": "从邮件中移除摘要",

@@ -576,6 +576,7 @@
   "summaryCopy": "Markdown olarak kopyala",
   "tipSummaryCopy": "Özeti Markdown metni olarak kopyala",
   "summaryCopied": "Kopyalandı",
+  "summaryCopyFailed": "Kopyalanamadı",
   "summaryRegenerate": "Yeniden oluştur",
   "tipSummaryRegenerate": "Önbelleği atlayarak hizmete yeniden sor",
   "tipSummaryClose": "Özeti iletiden kaldır",

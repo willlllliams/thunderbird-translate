@@ -573,6 +573,7 @@
   "summaryCopy": "Копировать как Markdown",
   "tipSummaryCopy": "Скопировать сводку как текст Markdown",
   "summaryCopied": "Скопировано",
+  "summaryCopyFailed": "Не удалось скопировать",
   "summaryRegenerate": "Создать заново",
   "tipSummaryRegenerate": "Снова спросить службу, минуя кэш",
   "tipSummaryClose": "Убрать сводку из сообщения",

@@ -573,6 +573,7 @@
   "summaryCopy": "Sao chép dạng Markdown",
   "tipSummaryCopy": "Sao chép bản tóm tắt dưới dạng văn bản Markdown",
   "summaryCopied": "Đã sao chép",
+  "summaryCopyFailed": "Không sao chép được",
   "summaryRegenerate": "Tạo lại",
   "tipSummaryRegenerate": "Hỏi lại dịch vụ, bỏ qua bộ nhớ đệm",
   "tipSummaryClose": "Gỡ bản tóm tắt khỏi thư",

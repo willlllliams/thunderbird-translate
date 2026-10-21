@@ -573,6 +573,7 @@
   "summaryCopy": "Copiar como Markdown",
   "tipSummaryCopy": "Copiar el resumen como texto Markdown",
   "summaryCopied": "Copiado",
+  "summaryCopyFailed": "No se pudo copiar",
   "summaryRegenerate": "Volver a generar",
   "tipSummaryRegenerate": "Preguntar de nuevo al servicio, sin la caché",
   "tipSummaryClose": "Quitar el resumen del mensaje",

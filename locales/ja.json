@@ -573,6 +573,7 @@
   "summaryCopy": "Markdown でコピー",
   "tipSummaryCopy": "要約を Markdown テキストとしてコピー",
   "summaryCopied": "コピーしました",
+  "summaryCopyFailed": "コピーできませんでした",
   "summaryRegenerate": "再生成",
   "tipSummaryRegenerate": "キャッシュを使わずにサービスへ再度問い合わせる",
   "tipSummaryClose": "メッセージから要約を取り除く",
