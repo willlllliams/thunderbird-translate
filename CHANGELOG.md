@@ -65,7 +65,7 @@ Version 2.4 translates the text in the images of a message. With precise transla
 - A number with a fraction in the settings, such as 850.5 tokens, made every summary or image request fail; counts and sizes are now whole numbers.
 - While a download ran, the offline lists took the keyboard focus away four times a second; the focus now stays on its control.
 - The services of the settings page can now be selected with the keyboard, and the retry marker of a failed paragraph can be pressed with Enter or Space.
-- After an update of the extension, a message that was translated on screen showed every translation twice, or in translation-only display could not show its original again. The new version now restores such a message first.
+- After an update of the extension, a message that was translated on screen showed every translation twice, or in translation-only display could not show its original again. The new version now restores such a message first. A message that 2.3 showed in translation-only display keeps its translation as text; opening it again shows the original.
 - Translations into Arabic and other right-to-left languages have their line and spacing on the side where the text starts.
 - German, French, Spanish and Portuguese interfaces write megabytes with their own decimal mark, lists of languages are joined as the interface language joins them, and counts no longer read "1 items".
 - Experimental build: a change of the settings while the folder list was read could leave subjects untranslated in the column until the next change.

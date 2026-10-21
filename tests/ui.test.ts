@@ -730,3 +730,10 @@ describe("U10: the styles of the message", () => {
     expect(physical).toEqual([".tt-loading border-right-color:"])
   })
 })
+
+describe("R52: the hidden originals of translation only", () => {
+  it("stay hidden whatever the styles of the message say about spans", () => {
+    const css = readFileSync(join(__dirname, "..", "static", "content.css"), "utf8")
+    expect(css).toMatch(/\.tt-original\[hidden\]\s*\{\s*display:\s*none\s*!important;?\s*\}/)
+  })
+})

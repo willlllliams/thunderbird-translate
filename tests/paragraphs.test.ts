@@ -180,6 +180,13 @@ two</pre>`
     }
   })
 
+  it("R51: keeps a translation-only translation of 2.3.0, whose original is gone, as plain text to translate again", () => {
+    document.body.innerHTML = '<p><span class="tt-translation tt-only tt-style-border tt-flow">你好<span class="tt-status tt-tag">Dictionary</span></span></p>'
+    restoreLeftovers(document.body)
+    expect(document.body.innerHTML).toBe("<p>你好</p>")
+    expect(collectParagraphs(document.body).units.map((unit) => unit.text)).toEqual(["你好"])
+  })
+
   it("clearing a paragraph that shows nothing changes nothing", () => {
     document.body.innerHTML = "<p>Good morning</p>"
     const original = document.body.innerHTML

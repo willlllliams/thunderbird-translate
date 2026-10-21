@@ -64,9 +64,16 @@ function isOurs(el: Element): boolean {
 /**
  * Undo what an earlier content script of this message left behind: after an update or a reload of the extension, its
  * sandbox is gone and its nodes are still there. The original children of translation-only units come back, every
- * added element goes, and every wrapper span gives its children back.
+ * added element goes, and every wrapper span gives its children back. Before 2.4.0 translation-only kept the
+ * originals in the memory of the content script: such a translation is all the unit still has, so it stays as plain
+ * text, which the new content script translates like any other.
  */
 export function restoreLeftovers(root: HTMLElement): void {
+  for (const only of Array.from(root.querySelectorAll<HTMLElement>(`.${CLS_TRANSLATION}.tt-only`))) {
+    if (only.nextElementSibling?.classList.contains(CLS_ORIGINAL)) continue
+    for (const mark of Array.from(only.querySelectorAll(`.${CLS_STATUS}`))) mark.remove()
+    only.replaceWith(...Array.from(only.childNodes))
+  }
   for (const original of Array.from(root.querySelectorAll(`.${CLS_ORIGINAL}`))) original.replaceWith(...Array.from(original.childNodes))
   for (const el of Array.from(root.querySelectorAll(`.${CLS_TRANSLATION}, .${CLS_STATUS}, .${CLS_SUBJECT}, .${CLS_NOTICE}, .${CLS_IMAGE}`))) el.remove()
   for (const seg of Array.from(root.querySelectorAll(`.${CLS_SEG}`))) seg.replaceWith(...Array.from(seg.childNodes))

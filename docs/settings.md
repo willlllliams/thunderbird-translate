@@ -44,7 +44,7 @@ The content script looks for paragraph-level content in the message body:
 - divs that contain only text;
 - blank-line separated paragraphs of plain-text mail, with hard-wrapped lines joined.
 
-Code, paragraphs already in the target language, numbers, bare links and whitespace are skipped. Bilingual mode inserts a translation block under the original. Translation-only mode replaces the original with the translation; the original is kept in memory and put back when translation is turned off.
+Code, paragraphs already in the target language, numbers, bare links and whitespace are skipped. Bilingual mode inserts a translation block under the original. Translation-only mode replaces the original with the translation; the original stays in the message, hidden, and comes back when translation is turned off. After an update of the extension the new version puts such an original back first; a message shown in translation-only mode by 2.3 or earlier keeps its translation as text until it is opened again, since those versions kept the original in memory only.
 
 ### The subject
 
