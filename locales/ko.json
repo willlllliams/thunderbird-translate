@@ -518,7 +518,7 @@
   "consentSubjectsTitle": "이 제목들을 온라인 서비스로 보낼까요?",
   "consentSubjectsBody": "번역을 위해 여기 나열된 제목을 아래 서비스로 보냅니다. 오프라인 단계는 아무것도 보내지 않습니다.",
   "consentService": "$1: $2",
-  "consentKey": "저장한 API 키는 해당 서비스로만 보내집니다. 서비스마다 한 번만 묻고, 허용한 서비스는 설정 페이지에 나열됩니다.",
+  "consentKey": "저장한 API 키는 해당 서비스로만 보내집니다. 서비스와 주소마다 한 번 묻고, 주소가 바뀌면 다시 묻습니다. 허용한 서비스는 설정 페이지에 나열됩니다.",
   "consentAllow": "허용하고 번역",
   "consentCancel": "취소",
   "tipConsentAllow": "이 서비스들을 허용하고 메시지를 번역합니다",

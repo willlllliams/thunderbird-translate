@@ -521,7 +521,7 @@
   "consentSubjectsTitle": "Bu konular çevrimiçi bir hizmete gönderilsin mi?",
   "consentSubjectsBody": "Çevirmek için burada listelenen konular aşağıdaki hizmetlere gönderilir. Çevrimdışı kademeler hiçbir şey göndermez.",
   "consentService": "$1: $2",
-  "consentKey": "Kaydedilen API anahtarı yalnızca kendi hizmetine gider. Eklenti her hizmet için bir kez sorar; izin verilen hizmetler ayarlar sayfasında listelenir.",
+  "consentKey": "Kaydedilen API anahtarı yalnızca kendi hizmetine gider. Eklenti her hizmet ve adres için bir kez, adres değişince yeniden sorar; izin verilen hizmetler ayarlar sayfasında listelenir.",
   "consentAllow": "İzin ver ve çevir",
   "consentCancel": "İptal",
   "tipConsentAllow": "Bu hizmetlere izin verir ve iletiyi çevirir",

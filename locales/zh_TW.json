@@ -518,7 +518,7 @@
   "consentSubjectsTitle": "要把這些主旨傳送給線上服務嗎？",
   "consentSubjectsBody": "翻譯時，這裡列出的主旨會傳送給下列服務。離線層級不會傳送任何內容。",
   "consentService": "$1：$2",
-  "consentKey": "你儲存的 API 金鑰只會傳送給它所屬的服務。每個服務只詢問一次，設定頁面列出了你允許的服務。",
+  "consentKey": "你儲存的 API 金鑰只會傳送給它所屬的服務。每個服務及其位址只詢問一次，位址改變後會再次詢問；設定頁面列出了你允許的服務。",
   "consentAllow": "允許並翻譯",
   "consentCancel": "取消",
   "tipConsentAllow": "允許這些服務並翻譯這封郵件",

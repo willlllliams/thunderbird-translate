@@ -518,7 +518,7 @@
   "consentSubjectsTitle": "把这些标题发送给在线服务？",
   "consentSubjectsBody": "翻译时，这里列出的标题会发送给下列服务。离线层级不发送任何内容。",
   "consentService": "$1：$2",
-  "consentKey": "你保存的 API 密钥只发送给它所属的服务。每个服务只询问一次，设置页列出了你允许的服务。",
+  "consentKey": "你保存的 API 密钥只发送给它所属的服务。每个服务及其地址只询问一次，地址改变后会再次询问；设置页列出了你允许的服务。",
   "consentAllow": "允许并翻译",
   "consentCancel": "取消",
   "tipConsentAllow": "允许这些服务并翻译这封邮件",

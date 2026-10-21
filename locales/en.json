@@ -521,7 +521,7 @@
   "consentSubjectsTitle": "Send these subjects to an online service?",
   "consentSubjectsBody": "To translate them, the subjects listed here go to the services below. The offline tiers send nothing.",
   "consentService": "$1: $2",
-  "consentKey": "An API key you saved goes only to its own service. The extension asks once per service; the settings page lists the services you allowed.",
+  "consentKey": "An API key you saved goes only to its own service. The extension asks once per service and address, and again when the address changes; the settings page lists the services you allowed.",
   "consentAllow": "Allow and translate",
   "consentCancel": "Cancel",
   "tipConsentAllow": "Allow these services and translate the message",

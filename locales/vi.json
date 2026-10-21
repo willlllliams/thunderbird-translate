@@ -518,7 +518,7 @@
   "consentSubjectsTitle": "Gửi các tiêu đề này đến dịch vụ trực tuyến?",
   "consentSubjectsBody": "Để dịch, các tiêu đề được liệt kê ở đây được gửi đến các dịch vụ dưới đây. Các tầng ngoại tuyến không gửi gì.",
   "consentService": "$1: $2",
-  "consentKey": "Khóa API đã lưu chỉ được gửi đến đúng dịch vụ của nó. Tiện ích chỉ hỏi một lần cho mỗi dịch vụ; trang cài đặt liệt kê các dịch vụ đã được cho phép.",
+  "consentKey": "Khóa API đã lưu chỉ được gửi đến đúng dịch vụ của nó. Tiện ích hỏi một lần cho mỗi dịch vụ và địa chỉ, và hỏi lại khi địa chỉ thay đổi; trang cài đặt liệt kê các dịch vụ đã được cho phép.",
   "consentAllow": "Cho phép và dịch",
   "consentCancel": "Hủy",
   "tipConsentAllow": "Cho phép các dịch vụ này và dịch thư",

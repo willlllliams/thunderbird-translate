@@ -518,7 +518,7 @@
   "consentSubjectsTitle": "Diese Betreffs an einen Online-Dienst senden?",
   "consentSubjectsBody": "Zum Übersetzen gehen die hier aufgelisteten Betreffs an die folgenden Dienste. Die Offline-Stufen senden nichts.",
   "consentService": "$1: $2",
-  "consentKey": "Ein gespeicherter API-Schlüssel geht nur an seinen eigenen Dienst. Die Erweiterung fragt einmal pro Dienst; die Einstellungsseite listet die erlaubten Dienste auf.",
+  "consentKey": "Ein gespeicherter API-Schlüssel geht nur an seinen eigenen Dienst. Die Erweiterung fragt einmal pro Dienst und Adresse und erneut, wenn sich die Adresse ändert; die Einstellungsseite listet die erlaubten Dienste auf.",
   "consentAllow": "Erlauben und übersetzen",
   "consentCancel": "Abbrechen",
   "tipConsentAllow": "Erlaubt diese Dienste und übersetzt die Nachricht",

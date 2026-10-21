@@ -518,7 +518,7 @@
   "consentSubjectsTitle": "¿Enviar estos asuntos a un servicio en línea?",
   "consentSubjectsBody": "Para traducirlos, los asuntos que aparecen aquí se envían a los servicios de abajo. Los niveles sin conexión no envían nada.",
   "consentService": "$1: $2",
-  "consentKey": "Una clave de API guardada solo se envía a su propio servicio. La extensión pregunta una vez por servicio; la página de configuración muestra los servicios permitidos.",
+  "consentKey": "Una clave de API guardada solo se envía a su propio servicio. La extensión pregunta una vez por servicio y dirección, y de nuevo si la dirección cambia; la página de configuración muestra los servicios permitidos.",
   "consentAllow": "Permitir y traducir",
   "consentCancel": "Cancelar",
   "tipConsentAllow": "Permite estos servicios y traduce el mensaje",

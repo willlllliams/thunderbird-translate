@@ -518,7 +518,7 @@
   "consentSubjectsTitle": "Enviar estes assuntos a um serviço on-line?",
   "consentSubjectsBody": "Para traduzi-los, os assuntos listados aqui vão para os serviços abaixo. Os níveis offline não enviam nada.",
   "consentService": "$1: $2",
-  "consentKey": "Uma chave de API salva só vai para o próprio serviço. A extensão pergunta uma vez por serviço; a página de configurações lista os serviços permitidos.",
+  "consentKey": "Uma chave de API salva só vai para o próprio serviço. A extensão pergunta uma vez por serviço e endereço, e de novo quando o endereço muda; a página de configurações lista os serviços permitidos.",
   "consentAllow": "Permitir e traduzir",
   "consentCancel": "Cancelar",
   "tipConsentAllow": "Permite estes serviços e traduz a mensagem",

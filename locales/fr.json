@@ -518,7 +518,7 @@
   "consentSubjectsTitle": "Envoyer ces objets à un service en ligne ?",
   "consentSubjectsBody": "Pour les traduire, les objets listés ici sont envoyés aux services ci-dessous. Les niveaux hors ligne n’envoient rien.",
   "consentService": "$1 : $2",
-  "consentKey": "Une clé d’API enregistrée n’est envoyée qu’à son propre service. L’extension demande une fois par service ; la page de paramètres liste les services autorisés.",
+  "consentKey": "Une clé d’API enregistrée n’est envoyée qu’à son propre service. L’extension demande une fois par service et par adresse, et de nouveau si l’adresse change ; la page de paramètres liste les services autorisés.",
   "consentAllow": "Autoriser et traduire",
   "consentCancel": "Annuler",
   "tipConsentAllow": "Autorise ces services et traduit le message",
