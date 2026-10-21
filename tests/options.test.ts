@@ -659,3 +659,43 @@ describe("summary and to-dos", () => {
     expect(page.stored().prompts.summary).toBe("")
   })
 })
+
+describe("G1: the connection check of the free routes", () => {
+  const reach = () => document.querySelector<HTMLElement>("#providerPanel .reach")
+  const tests = (page: Awaited<ReturnType<typeof options>>) => page.sendMessage.mock.calls.filter(([req]) => (req as BackgroundRequest).type === "testProvider")
+
+  it("checks Google with the fixed test sentence once per page a moment after it is shown, and says it is reachable", async () => {
+    const page = await options(undefined, { respond: (req) => (req.type === "testProvider" ? { ok: true, text: "你好！" } : undefined) })
+    expect(document.querySelector("#providerPanel h3")!.textContent).toContain("Google")
+    expect(reach()!.textContent).toBe(ENGLISH.t("reachRunning"))
+    expect(tests(page)).toEqual([])
+    await vi.advanceTimersByTimeAsync(600)
+    await until(() => expect(reach()!.classList.contains("ok")).toBe(true))
+    // The time of the answer, which fake timers make 0.
+    expect(reach()!.textContent).toBe(ENGLISH.t("reachOk", [0]))
+    expect(tests(page)).toEqual([[{ type: "testProvider", providerId: "google-free", config: expect.objectContaining({ apiKey: "" }), targetLang: "en" }]])
+    // Shown again: the result of the page, no second request. Another service in passing sends nothing.
+    Array.from(document.querySelectorAll<HTMLButtonElement>("#providerList button")).find((b) => b.firstChild?.textContent === "Microsoft Translator (free)")!.click()
+    Array.from(document.querySelectorAll<HTMLButtonElement>("#providerList button")).find((b) => b.firstChild?.textContent === "Google Translate (free)")!.click()
+    await vi.advanceTimersByTimeAsync(600)
+    await until(() => expect(reach()!.classList.contains("ok")).toBe(true))
+    expect(tests(page)).toHaveLength(1)
+    // A service with a key of its own is not checked.
+    Array.from(document.querySelectorAll<HTMLButtonElement>("#providerList button")).find((b) => b.firstChild?.textContent === "DeepL API")!.click()
+    expect(reach()).toBeNull()
+  })
+
+  it("names the reason and the services that work without the route when it cannot be reached, and checks nothing offline", async () => {
+    const error = `${ENGLISH.t("errNetwork", ["Google", "translate.googleapis.com"])}\n${ENGLISH.t("hintNetwork")}\n${ENGLISH.t("hintUnreachableGoogle")}`
+    await options(undefined, { respond: (req) => (req.type === "testProvider" ? { ok: false, error } : undefined) })
+    await vi.advanceTimersByTimeAsync(600)
+    await until(() => expect(reach()!.classList.contains("fail")).toBe(true))
+    expect(reach()!.querySelector(".test-title")!.textContent).toBe(ENGLISH.t("reachFailed"))
+    expect(reach()!.textContent).toContain("mainland China")
+    vi.spyOn(navigator, "onLine", "get").mockReturnValue(false)
+    const offline = await options(undefined, { respond: (req) => (req.type === "testProvider" ? { ok: true, text: "x" } : undefined) })
+    expect(reach()!.textContent).toBe(ENGLISH.t("reachOffline"))
+    await vi.advanceTimersByTimeAsync(600)
+    expect(tests(offline)).toEqual([])
+  })
+})

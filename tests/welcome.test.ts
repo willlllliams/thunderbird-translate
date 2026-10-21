@@ -623,3 +623,15 @@ describe("welcome page", () => {
     expect(requests.some((r) => r.type === "offlineInstall")).toBe(false)
   })
 })
+
+describe("G1: the machine translation step", () => {
+  it("checks the free Google route a moment after it is shown, with the test sentence", async () => {
+    const page = await openPage("welcome", createDefaultSettings("en"), { stored: { [WELCOME_KEY]: { step: "machine" } }, respond: (req) => (req.type === "testProvider" ? { ok: true, text: "Hallo" } : undefined) })
+    await until(() => expect(document.querySelector<HTMLElement>('section[data-step="machine"]')!.hidden).toBe(false))
+    const line = () => document.querySelector<HTMLElement>("#machinePanel .reach")!
+    expect(line().textContent).toBe(ENGLISH.t("reachRunning"))
+    await vi.advanceTimersByTimeAsync(600)
+    await until(() => expect(line().classList.contains("ok")).toBe(true))
+    expect(page.sendMessage.mock.calls.filter(([req]) => (req as BackgroundRequest).type === "testProvider").map(([req]) => (req as { providerId: string }).providerId)).toEqual(["google-free"])
+  })
+})

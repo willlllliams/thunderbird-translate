@@ -5,7 +5,7 @@
 
 import { supportsThinkingControl } from "../shared/thinking"
 import { describeError } from "../shared/errors"
-import { getI18n, t } from "../shared/i18n"
+import { getI18n, type MessageKey, t } from "../shared/i18n"
 import { send } from "../shared/messages"
 import { checkBaseURL, type ProviderPreset, providerDisplayName } from "../shared/providers"
 import { type BaiduEdition, DEFAULT_DEEPL, emptyProviderConfig, type ProviderConfig } from "../shared/settings"
@@ -56,12 +56,12 @@ function renderBaseUrlWarning(box: HTMLElement, p: ProviderPreset, input: HTMLIn
 }
 
 /** Failure of the connection test: a title, then reason, server message, suggestions and URL on their own lines. */
-function showTestFailure(box: HTMLElement, description: string | undefined): void {
+function showTestFailure(box: HTMLElement, description: string | undefined, title: MessageKey = "testFailed"): void {
   const text = description?.trim() ? description : describeError(undefined, getI18n())
   const [reason, ...rest] = text.split("\n").filter((line) => line.trim())
-  box.className = "test-result fail"
+  box.className = `test-result fail${box.classList.contains("reach") ? " reach" : ""}`
   box.replaceChildren(
-    h("div", { className: "test-title", text: t("testFailed") }),
+    h("div", { className: "test-title", text: t(title) }),
     h("div", { className: "test-reason", text: reason }),
     ...rest.map((line) => h("div", { className: "test-line", text: line })),
   )
@@ -313,14 +313,64 @@ function testResult(): HTMLElement {
   return h("div", { className: "test-result", "aria-live": "polite" })
 }
 
+/** The free routes the pages check by themselves when they show them: some networks block them, Google in mainland China. */
+const CHECKED_SERVICES: ReadonlySet<string> = new Set(["google-free", "microsoft-free"])
+
+/** The check starts this long after the panel was drawn, so that a service shown in passing sends nothing. */
+export const REACH_DELAY_MS = 600
+
+/** The check of each service, once per page view; a failed one is kept as well. */
+const reached = new Map<string, Promise<{ ok: true; ms: number } | { ok: false; error: string }>>()
+
+/** The check of `p`: the fixed sentence of "Test connection", never message text, with the time of the answer. */
+function checkReach({ p, cfg, session }: PanelState) {
+  let check = reached.get(p.id)
+  if (!check) {
+    const start = performance.now()
+    check = send({ type: "testProvider", providerId: p.id, config: { ...cfg }, targetLang: session.settings.targetLang }).then(
+      (r) => (r?.ok ? { ok: true as const, ms: Math.round(performance.now() - start) } : { ok: false as const, error: r?.error ?? "" }),
+      (error: unknown) => ({ ok: false as const, error: describeError(error, getI18n()) }),
+    )
+    reached.set(p.id, check)
+  }
+  return check
+}
+
 /**
- * The panel of a service, as the settings page and the setup guide show it: its title, its fields, a row with the
- * test button, followed by `actions` (the page's buttons, given the test button to put first) and `after` the row,
- * then the result of the test.
+ * The line with the connection check of a free route that is added: reachable with the time of the answer, or not
+ * with the reason, which for a network that blocks the route names the services that work without it. Nothing is
+ * sent while Thunderbird is offline; null for the other services and for Microsoft with an Azure key.
+ */
+function reachLine(state: PanelState): HTMLElement | null {
+  const { p, cfg } = state
+  if (!CHECKED_SERVICES.has(p.id) || !cfg.enabled || cfg.mode === "key") return null
+  const line = h("div", { className: "test-result reach", role: "status" })
+  if (!navigator.onLine) {
+    line.textContent = t("reachOffline")
+    return line
+  }
+  line.textContent = t("reachRunning")
+  setTimeout(() => {
+    if (!line.isConnected) return
+    void checkReach(state).then((r) => {
+      if (r.ok) {
+        line.className = "test-result reach ok"
+        line.textContent = t("reachOk", [r.ms])
+      } else showTestFailure(line, r.error, "reachFailed")
+    })
+  }, REACH_DELAY_MS)
+  return line
+}
+
+/**
+ * The panel of a service, as the settings page and the setup guide show it: its title, its fields, the check of a
+ * free route, a row with the test button, followed by `actions` (the page's buttons, given the test button to put
+ * first) and `after` the row, then the result of the test.
  */
 export function servicePanel(session: SettingsSession, p: ProviderPreset, addWhileTyping: PanelState["addWhileTyping"], actions?: (test: HTMLButtonElement) => HTMLElement, after: Node[] = []): Node[] {
   const state: PanelState = { p, cfg: providerConfig(session, p.id), session, addWhileTyping }
   const result = testResult()
   const test = testButton(state, result)
-  return [providerTitle(p), ...providerFields(state), actions ? actions(test) : h("div", { className: "row" }, test), ...after, result]
+  const reach = reachLine(state)
+  return [providerTitle(p), ...providerFields(state), ...(reach ? [reach] : []), actions ? actions(test) : h("div", { className: "row" }, test), ...after, result]
 }

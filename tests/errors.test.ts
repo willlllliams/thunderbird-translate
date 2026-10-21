@@ -3,7 +3,7 @@ import { APICallError, JSONParseError, NoContentGeneratedError, RetryError } fro
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 import { compileMessagesJson, ENGLISH, I18n } from "../src/shared/i18n"
 import { readLocaleSources, toMessagesJson } from "../scripts/locales.mjs"
-import { analyzeError, describeError, type ErrorContext, firstLine, httpStatusLine, LocalizedError, NetworkError, redactUrl, renderErrorText, summarizeResponseBody } from "../src/shared/errors"
+import { analyzeError, describeError, type ErrorContext, firstLine, httpStatusLine, isUnreachable, LocalizedError, NetworkError, redactUrl, renderErrorText, summarizeResponseBody, TimeoutError } from "../src/shared/errors"
 import { checkBaseURL, getPreset, PROVIDER_PRESETS, sameEndpoint, urlHost } from "../src/shared/providers"
 import { errorContext } from "../src/background/service"
 import { HttpError } from "../src/shared/http"
@@ -409,5 +409,19 @@ describe("describeError: remaining shapes", () => {
     expect(sameEndpoint("https://API.example.com/v1/", "https://api.example.com/v1")).toBe(true)
     expect(sameEndpoint(" not a url/ ", "not a url")).toBe(true)
     expect(sameEndpoint("https://a.example/v1", "https://a.example/v2")).toBe(false)
+  })
+})
+
+describe("G1: a free route that cannot be reached", () => {
+  it("names the services that work without it after a network failure or a timeout, Google with mainland China", () => {
+    const network = new NetworkError("https://translate.googleapis.com/translate_a/t", new TypeError("NetworkError when attempting to fetch resource."))
+    expect(describeError(network, ENGLISH, { service: "Google", kind: "google" })).toContain(ENGLISH.t("hintUnreachableGoogle"))
+    expect(describeError(new TimeoutError("Microsoft", 60_000), ENGLISH, { service: "Microsoft", kind: "microsoft" })).toContain(ENGLISH.t("hintUnreachableMicrosoft"))
+    // With an Azure key, another service, or another failure: no such hint.
+    expect(describeError(new TimeoutError("Microsoft", 60_000), ENGLISH, { kind: "microsoft", keyMode: true })).not.toContain(ENGLISH.t("hintUnreachableMicrosoft"))
+    expect(describeError(network, ENGLISH, { kind: "deepl" })).not.toContain("mainland China")
+    expect(describeError(new HttpError("x", 403, undefined, undefined, "https://translate.googleapis.com/x"), ENGLISH, { kind: "google" })).not.toContain("mainland China")
+    expect(isUnreachable(Object.assign(new Error("retry"), { name: "AI_RetryError", lastError: network }))).toBe(true)
+    expect(isUnreachable("text")).toBe(false)
   })
 })

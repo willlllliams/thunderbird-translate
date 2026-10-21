@@ -458,9 +458,29 @@ function analyze(error: unknown, ctx: ErrorContext, i18n: I18n, depth: number): 
   return { reason: fallback && fallback !== "[object Object]" && fallback !== "Error" ? fallback : i18n.t("errUnknown"), hints: [] }
 }
 
+/**
+ * Whether `error` says the service could not be reached: no connection, or no answer in time. The free Google and
+ * Microsoft routes are blocked on some networks (Google in mainland China), where every request fails so.
+ */
+export function isUnreachable(error: unknown): boolean {
+  const e = asObject(error)
+  if (!e) return false
+  const name = str(e.name)
+  return isNetworkFailure(e) || name === "TimeoutError" || (name === "AI_RetryError" && isUnreachable(e.lastError))
+}
+
+/** The hint of a free route that cannot be reached: the services that work without it. */
+function unreachableHint(ctx: ErrorContext, i18n: I18n): string | null {
+  if (ctx.kind === "google") return i18n.t("hintUnreachableGoogle")
+  if (ctx.kind === "microsoft" && !ctx.keyMode) return i18n.t("hintUnreachableMicrosoft")
+  return null
+}
+
 /** Structured description of an error; `reason` is never empty. */
 export function analyzeError(error: unknown, i18n: I18n, ctx: ErrorContext = {}): ErrorReport {
   const report = analyze(error, ctx, i18n, 0)
+  const unreachable = isUnreachable(error) ? unreachableHint(ctx, i18n) : null
+  if (unreachable) report.hints.push(unreachable)
   if (!report.reason.trim()) report.reason = i18n.t("errUnknown")
   if (report.url) report.url = redactUrl(report.url)
   return report
