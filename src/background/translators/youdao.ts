@@ -40,7 +40,12 @@ const CODES: Partial<Record<string, CodeMeaning>> = {
   "102": "pair",
 }
 
-/** The input of the signature: the text itself up to 20 code points, else its first 10, its length and its last 10. */
+/**
+ * The input of the signature: the text itself up to 20 code points, else its first 10, its length and its last 10.
+ * The documentation says "characters" only; its Python and PHP samples count code points, its Java, JavaScript and C#
+ * samples UTF-16 units. The two differ only for characters outside the Basic Multilingual Plane, such as most emoji;
+ * which one the service checks is to be confirmed with a real account (a batch with an emoji answers 202 if wrong).
+ */
 export function youdaoInput(q: string): string {
   const chars = Array.from(q)
   return chars.length <= 20 ? q : `${chars.slice(0, 10).join("")}${chars.length}${chars.slice(-10).join("")}`
