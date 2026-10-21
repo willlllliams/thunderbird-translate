@@ -86,11 +86,12 @@ export class BergamotEngine {
     this.clearTimer = options.clearTimer ?? ((h) => clearTimeout(h as ReturnType<typeof setTimeout>))
   }
 
-  /** Pair keys currently loaded in the worker, least recently used first. */
+  /** Pair keys currently loaded in the worker, least recently used first; read by the tests only. */
   get loadedPairs(): readonly string[] {
     return this.loaded
   }
 
+  /** Whether the worker runs; read by the tests only. */
   get running(): boolean {
     return this.worker !== null
   }

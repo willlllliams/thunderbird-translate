@@ -42,7 +42,10 @@ export class DictionaryManager implements OfflineManager<DictionaryPackInfo> {
   readonly service = "dictionary"
   private readonly store: DictionaryStore
   private readonly dictionary: Dictionary
-  /** The index of each release tag: read again after six hours, after a failed read not before ten minutes. */
+  /**
+   * The index of the release tag of the settings and of the tag a page asked for last: read again after six hours,
+   * after a failed read not before ten minutes. A page that tries tags one after the other keeps only the latest.
+   */
   private readonly indexes = new Map<string, CatalogCache<IndexedPack[]>>()
 
   constructor(private readonly deps: DictionaryManagerDeps) {
@@ -55,6 +58,8 @@ export class DictionaryManager implements OfflineManager<DictionaryPackInfo> {
     let index = this.indexes.get(tag)
     if (!index) {
       index = new CatalogCache({ load: () => fetchDictionaryIndex(tag, this.deps.fetch), now: this.deps.now })
+      const current = this.deps.releaseTag()
+      for (const other of this.indexes.keys()) if (other !== current) this.indexes.delete(other)
       this.indexes.set(tag, index)
     }
     return index

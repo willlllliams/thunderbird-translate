@@ -64,9 +64,18 @@ function phrases(segments: Intl.SegmentData[], i: number, spaced: boolean): [str
   return out
 }
 
+/** The word segmenter of each source language, made once: every paragraph of every pack uses one. */
+const segmenters = new Map<string, Intl.Segmenter>()
+
+function segmenter(lang: string): Intl.Segmenter {
+  let s = segmenters.get(lang)
+  if (!s) segmenters.set(lang, (s = new Intl.Segmenter(lang, { granularity: "word" })))
+  return s
+}
+
 /** Translate a text with one pack. */
 export function translateText(text: string, pack: DictPack): string {
-  const segments = [...new Intl.Segmenter(pack.src, { granularity: "word" }).segment(text)]
+  const segments = [...segmenter(pack.src).segment(text)]
   const spacedSource = !UNSPACED.has(baseLang(pack.src))
   const spacedTarget = !UNSPACED.has(baseLang(pack.tgt))
   let out = ""

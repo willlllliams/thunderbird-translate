@@ -44,9 +44,8 @@ function errorText(error: unknown): string {
   return String(error)
 }
 
+/** The model list as it is saved; a copy saved before 2.4.0 also has the time it was read, which nothing reads. */
 interface CachedRecords {
-  /** When the list was read; kept with the saved copy. */
-  fetchedAt: number
   attachmentsBase: string
   records: ModelRecord[]
 }
@@ -124,7 +123,7 @@ export class BergamotManager implements OfflineManager<BergamotPairInfo> {
     const [body, attachmentsBase] = await Promise.all([this.fetchJson(this.serverUrl + MODELS_PATH), this.attachmentsBase()])
     const data = (body as { data?: unknown })?.data
     if (!Array.isArray(data)) throw new Error("the model list has no data array")
-    const cached: CachedRecords = { fetchedAt: this.now(), attachmentsBase, records: (data as ModelRecord[]).map(slim) }
+    const cached: CachedRecords = { attachmentsBase, records: (data as ModelRecord[]).map(slim) }
     try {
       await this.deps.store.setMeta(RECORDS_META_KEY, cached)
     } catch {

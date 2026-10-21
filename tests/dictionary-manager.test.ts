@@ -87,6 +87,20 @@ describe("dictionary manager", () => {
     expect(refreshed.error).toBeDefined()
   })
 
+  it("S4: keeps the index of the tag of the settings and of the tag asked for last only", async () => {
+    const m = managerFor({ "dicts-v1": [EN_DE], "dicts-v2": [FR_EN], "dicts-v3": [EN_DE] })
+    await m.manager.list()
+    await m.manager.list({ tag: "dicts-v2" })
+    await m.manager.list({ tag: "dicts-v3" })
+    const reads = m.indexReads()
+    // Kept: the settings' tag and the last one. dicts-v2 is read again.
+    await m.manager.list()
+    await m.manager.list({ tag: "dicts-v3" })
+    expect(m.indexReads()).toBe(reads)
+    await m.manager.list({ tag: "dicts-v2" })
+    expect(m.indexReads()).toBe(reads + 1)
+  })
+
   it("keeps one index per release tag; a list or an installation may name its tag", async () => {
     const m = managerFor({ "dicts-v1": [EN_DE], "dicts-v2": [FR_EN] })
     expect(m.manager.knownCatalog()).toBeNull()
