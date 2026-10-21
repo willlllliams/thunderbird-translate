@@ -2,6 +2,32 @@
 
 All notable changes to this project are documented in this file, with the date of each version. It lists what users of the extension notice. The record up to 1.12.0 with the internal changes is kept in [docs/archive/CHANGELOG-full.md](docs/archive/CHANGELOG-full.md). Versions follow [Semantic Versioning](https://semver.org/).
 
+## 2.3.0 - 2026-10-21
+
+Version 2.3 adds four machine translators that work with an account of your own, and a summary of the message with its to-dos written by an AI service.
+
+### Machine translators with your own key
+
+- DeepL API, 百度翻译 (Baidu Translate), 有道智云 (Youdao) and 彩云小译 (Caiyun) are new services of tier 2. Each counts as added once its key is filled in, and each asks once before the text of a message first goes to it.
+- DeepL: a key of the free plan (ending in ":fx") goes to api-free.deepl.com, any other key to api.deepl.com. The panel sets the formality and whether English is written American or British and Portuguese Brazilian or European. "Test connection" shows the characters used in the billing period and costs nothing.
+- Baidu: app ID, secret key and the edition of the account. The standard edition sends at most one request per second with 1000 characters; Ukrainian, Turkish, Indonesian and Hindi need the premium edition, and the panel says so.
+- Youdao: app ID and app secret. A paragraph that Youdao cannot translate fails alone; the other paragraphs of the request keep their translations.
+- Caiyun: a token. It translates between Chinese and English, Japanese and Korean both ways, and eight more languages into Chinese; for any other pair it sends nothing and says so.
+- A refused key, a used-up quota, a refused time stamp and a blocked IP address are named as such, in the interface language.
+
+### Summary and to-dos
+
+- "Summary and to-dos" in the popup shows, above the message, a summary in one to three sentences, who has to do what by when, the questions you are asked and the dates and meetings. Hovering over a to-do shows the words of the message it rests on.
+- The panel has "Copy as Markdown", "Regenerate" and "Close". Turning the translation off leaves it on screen.
+- The summary is written by the AI service of tier 3 or by another AI service chosen for it on the settings page, in the target language. The service receives the whole message with its sender, date and subject; before it first receives a message, the consent panel asks.
+- The section "Summary and to-dos" of the settings page chooses the service and model, the parts to include, the length limit and whether the panel opens collapsed. "Show a “Summary” button above a translated message" adds a button to every translated message; it is off by default.
+- The summary prompt can be edited in the Prompts section and restored there.
+- The command "Summary and to-dos of the message" has no default key; set one under "Manage Extension Shortcuts" in the gear menu of the Add-ons Manager.
+
+### Permissions
+
+- Thunderbird asks to access five more addresses: api.deepl.com, api-free.deepl.com, fanyi-api.baidu.com, openapi.youdao.com and api.interpreter.caiyunai.com. They are used only by the services of the same name, once you add one.
+
 ## 2.2.1 - 2026-10-21
 
 ### Fixed
