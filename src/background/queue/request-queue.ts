@@ -20,6 +20,9 @@ export function backoffDelay(attempt: number, baseMs = 500, maxMs = 8000, random
   return Math.round(exp / 2 + (random() * exp) / 2)
 }
 
+/** The longest wait a server may ask for before an attempt again; asked for longer (a daily quota spent), the request fails at once. */
+const MAX_RETRY_AFTER_MS = 30_000
+
 /** Wait requested by the server: HttpError of fetchOk(), or the response headers of an AI SDK APICallError. */
 function retryAfterOf(error: unknown): number | undefined {
   const e = error as { retryAfterMs?: number; responseHeaders?: Record<string, string> }
@@ -91,7 +94,8 @@ export class RequestQueue {
           throw error
         }
         const retryAfter = retryAfterOf(error)
-        const delay = retryAfter && retryAfter > 0 ? Math.min(retryAfter, 30000) : backoffDelay(attempt, this.options.baseDelayMs)
+        if (retryAfter !== undefined && retryAfter > MAX_RETRY_AFTER_MS) throw error
+        const delay = retryAfter && retryAfter > 0 ? retryAfter : backoffDelay(attempt, this.options.baseDelayMs)
         await this.sleep(delay)
       }
     }

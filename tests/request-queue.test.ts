@@ -148,13 +148,22 @@ describe("parseRetryAfter", () => {
 describe("RequestQueue retries", () => {
   it.each([
     ["seconds", new HttpError("busy", 429, 4000), 4000],
-    ["more than 30 s, capped", new HttpError("busy", 503, 120_000), 30_000],
+    ["30 s", new HttpError("busy", 503, 30_000), 30_000],
     ["AI SDK retry-after header", Object.assign(new Error("busy"), { statusCode: 429, isRetryable: true, responseHeaders: { "retry-after": "5" } }), 5000],
     ["AI SDK retry-after-ms header", Object.assign(new Error("busy"), { statusCode: 429, isRetryable: true, responseHeaders: { "retry-after-ms": "1500", "retry-after": "9" } }), 1500],
   ])("waits as the server asks: %s", async (_name, error, expected) => {
     const { queue, delays } = recordingQueue()
     expect(await queue.run(flaky(error))).toBe("ok")
     expect(delays).toEqual([expected])
+  })
+
+  it("B6: fails at once when the server asks to wait longer than 30 s", async () => {
+    const { queue, delays } = recordingQueue()
+    const error = new HttpError("quota", 429, 120_000)
+    const task = flaky(error)
+    expect(await queue.run(task).catch((e) => e)).toBe(error)
+    expect(task).toHaveBeenCalledTimes(1)
+    expect(delays).toEqual([])
   })
 
   it("backs off exponentially without Retry-After, also for headers without a usable value", async () => {
