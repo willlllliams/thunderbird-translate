@@ -598,7 +598,7 @@ describe("the machine translators with a key of their own", () => {
 })
 
 describe("summary and to-dos", () => {
-  it("chooses the service among the AI tier and the added AI services, and saves model, length, panel, parts and button", async () => {
+  it("chooses the service among the AI tier and the added AI services, and saves model, length, panel, parts, button and the automatic summary", async () => {
     const page = await options((s) => {
       s.providers.anthropic = { enabled: true, apiKey: "k", baseURL: "", model: "" }
     })
@@ -620,15 +620,18 @@ describe("summary and to-dos", () => {
     set("summaryMaxTokens", "50")
     expect($<HTMLInputElement>("summaryMaxTokens").value).toBe("200")
     set("summaryDisplay", "collapsed")
+    expect([$<HTMLSelectElement>("summaryAuto").value, Array.from($<HTMLSelectElement>("summaryAuto").options, (o) => o.textContent)]).toEqual(["off", [ENGLISH.t("summaryAutoOff"), ENGLISH.t("summaryAutoTranslated"), ENGLISH.t("summaryAutoAlways")]])
+    set("summaryAuto", "translated")
     $<HTMLInputElement>("summaryPart-questions").click()
     $<HTMLInputElement>("summaryInline").click()
     await flushSave()
-    expect(page.stored().summary).toEqual({ provider: "anthropic", model: "claude-sonnet-5-5", inlineButton: true, parts: ["summary", "actions", "dates"], maxOutputTokens: 200, display: "collapsed" })
+    expect(page.stored().summary).toEqual({ provider: "anthropic", model: "claude-sonnet-5-5", inlineButton: true, auto: "translated", parts: ["summary", "actions", "dates"], maxOutputTokens: 200, display: "collapsed" })
     set("summaryDisplay", "expanded")
     $<HTMLInputElement>("summaryPart-questions").click()
     set("summaryProvider", "")
+    set("summaryAuto", "always")
     await flushSave()
-    expect(page.stored().summary).toMatchObject({ provider: null, parts: ["summary", "actions", "questions", "dates"], display: "expanded" })
+    expect(page.stored().summary).toMatchObject({ provider: null, auto: "always", parts: ["summary", "actions", "questions", "dates"], display: "expanded" })
   })
 
   it("follows the services that are added and removed", async () => {

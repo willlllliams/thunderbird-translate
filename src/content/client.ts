@@ -2,7 +2,10 @@
  * A TranslationController connected to the background script through a
  * Port: settings, commands and translation results are pushed, translation
  * requests and the progress are reported. The content script runs one on
- * the displayed message, the welcome page one on its sample message.
+ * the displayed message, the welcome page one on its sample message. The
+ * content script also opens the summary by itself when the settings ask for
+ * it: once per message, when a translation starts or as soon as the message
+ * is on screen, and only for a message with text.
  */
 
 import { ext } from "../shared/ext"
@@ -13,6 +16,7 @@ import type { PublicSettings } from "../shared/settings"
 import type { SummaryResponse } from "../shared/summary"
 import { CONTENT_PORT_NAME, type ImageResponse, isPortPush, type LocaleMessages, type PortReport, send, type TabState, type TranslateResponse } from "../shared/messages"
 import type { Tier } from "../shared/providers"
+import { hasTranslatableText } from "../shared/text"
 import type { ContentProbe } from "../hooks/content"
 import { ConsentPanel } from "./consent"
 import { consentKey, TranslationController } from "./controller"
@@ -131,6 +135,14 @@ export function connectContent({ root, contentScript = false, probe }: ClientOpt
     }
     await summaryPanel.show()
   }
+  /** The summary opened by itself for this message, or the user's answer to its consent panel: it is not asked for again. */
+  let autoSummarized = false
+  /** The summary by itself (Settings.summary.auto): once, for a message with text, unless the panel is open already. */
+  const autoSummary = () => {
+    if (autoSummarized || !summaryPanel || summaryPanel.shown || !hasTranslatableText(controller.messageText())) return
+    autoSummarized = true
+    void summarize()
+  }
   const summaryButton = summaryPanel ? new SummaryButton({ root, onClick: () => void summarize() }) : undefined
   const showSummaryButton = (active: boolean) => summaryButton?.sync(active && current?.summary.available === true && current.summary.inlineButton)
 
@@ -169,6 +181,8 @@ export function connectContent({ root, contentScript = false, probe }: ClientOpt
       }
       probe?.state(state)
       showSummaryButton(state.active)
+      // A translation started: with either automatic mode the summary comes with it, in one request with the analysis of precise translation where it can.
+      if (state.active && state.total > 0 && current && current.summary.auto !== "off") autoSummary()
       post({ type: "state", state })
     },
   })
@@ -197,7 +211,10 @@ export function connectContent({ root, contentScript = false, probe }: ClientOpt
         if (!firstSettings) return
         firstSettings = false
         markReady()
-        if (contentScript) void (__DEBUG__ ? controller.start() : controller.maybeAutoStart())
+        if (!contentScript) return
+        const started = __DEBUG__ ? controller.start() : controller.maybeAutoStart()
+        // "For every message": after the decision on automatic translation, so that a translation that starts takes the summary along.
+        if (next.summary.auto === "always") void started.then(autoSummary, autoSummary)
       })
     } else if (msg.type === "toggle") {
       void controller.toggle()

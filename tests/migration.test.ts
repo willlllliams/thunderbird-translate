@@ -151,12 +151,12 @@ describe("settings of earlier versions", () => {
     expect(s.providers.dictionary.enabled && s.providers.bergamot.enabled).toBe(true)
   })
 
-  it("2.3: the subject switch is dropped, the consent gets the hosts and the summary keeps its choices", () => {
+  it("2.3: the subject switch is dropped, the consent gets the hosts and the summary keeps its choices, without opening by itself", () => {
     const s = migrated["2.3"]
     expect("translateSubject" in s).toBe(false)
     expect(s.renderMarkdown).toBe(false)
     expect(s.onlineConsent).toEqual(["google-free@translate.googleapis.com", "openai@api.openai.com"])
-    expect(s.summary).toMatchObject({ provider: null, model: "gpt-5-mini", inlineButton: true, parts: ["summary", "actions"], maxOutputTokens: 900, display: "collapsed" })
+    expect(s.summary).toMatchObject({ provider: null, model: "gpt-5-mini", inlineButton: true, auto: "off", parts: ["summary", "actions"], maxOutputTokens: 900, display: "collapsed" })
   })
 
   it.each(Object.keys(SNAPSHOTS))("%s: normalizing the result again changes nothing, and no old field is left", (version) => {

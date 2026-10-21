@@ -92,9 +92,9 @@ describe("the prompts", () => {
 })
 
 describe("the settings of the summary", () => {
-  it("default to the AI tier, all four parts, 800 tokens, expanded, without a button above the message", () => {
+  it("default to the AI tier, all four parts, 800 tokens, expanded, without a button above the message and never by itself", () => {
     const s = createDefaultSettings("en")
-    expect(s.summary).toEqual({ provider: null, model: "", inlineButton: false, parts: [...SUMMARY_PARTS], maxOutputTokens: 800, display: "expanded" })
+    expect(s.summary).toEqual({ provider: null, model: "", inlineButton: false, auto: "off", parts: [...SUMMARY_PARTS], maxOutputTokens: 800, display: "expanded" })
     expect(summaryProvider(s)).toBeNull()
     s.tiers.ai = "openai"
     expect(summaryProvider(s)).toBe("openai")
@@ -105,19 +105,21 @@ describe("the settings of the summary", () => {
   })
 
   it("are taken from storage within their ranges; settings of earlier versions get the defaults", () => {
-    const s = normalizeSettings({ summary: { provider: "google-free", model: " m ", inlineButton: true, parts: ["dates", "x", "summary"], maxOutputTokens: 99999, display: "collapsed" } })
-    expect(s.summary).toEqual({ provider: null, model: "m", inlineButton: true, parts: ["summary", "dates"], maxOutputTokens: 4000, display: "collapsed" })
+    const s = normalizeSettings({ summary: { provider: "google-free", model: " m ", inlineButton: true, auto: "translated", parts: ["dates", "x", "summary"], maxOutputTokens: 99999, display: "collapsed" } })
+    expect(s.summary).toEqual({ provider: null, model: "m", inlineButton: true, auto: "translated", parts: ["summary", "dates"], maxOutputTokens: 4000, display: "collapsed" })
     expect(normalizeSettings({ summary: { provider: "openai", parts: "all" } }).summary).toMatchObject({ provider: "openai", parts: [...SUMMARY_PARTS] })
     expect(normalizeSettings({ uiLanguage: "en" }).summary).toEqual(createDefaultSettings().summary)
+    expect(["always", "translated", "off", "on", true, null].map((auto) => normalizeSettings({ summary: { auto } }).summary.auto)).toEqual(["always", "translated", "off", "off", "off", "off"])
   })
 
   it("tell the content script whether a service is there, how to show it, and which consent it needs", () => {
     const s = createDefaultSettings("en")
-    expect(toPublicSettings(s).summary).toEqual({ available: false, inlineButton: false, collapsed: false, consent: null })
+    expect(toPublicSettings(s).summary).toEqual({ available: false, inlineButton: false, auto: "off", collapsed: false, consent: null })
     s.tiers.ai = "openai"
     s.summary.inlineButton = true
+    s.summary.auto = "always"
     s.summary.display = "collapsed"
-    expect(toPublicSettings(s).summary).toEqual({ available: true, inlineButton: true, collapsed: true, consent: { id: "openai", host: "api.openai.com" } })
+    expect(toPublicSettings(s).summary).toEqual({ available: true, inlineButton: true, auto: "always", collapsed: true, consent: { id: "openai", host: "api.openai.com" } })
     s.onlineConsent = ["openai@api.openai.com"]
     expect(toPublicSettings(s).summary.consent).toBeNull()
   })
@@ -470,7 +472,7 @@ describe("the content script", () => {
 
   afterEach(() => vi.unstubAllGlobals())
 
-  const summaryOn = (over: Partial<ReturnType<typeof publicSettings>["summary"]> = {}) => publicSettings({ summary: { available: true, inlineButton: false, collapsed: false, consent: null, ...over } })
+  const summaryOn = (over: Partial<ReturnType<typeof publicSettings>["summary"]> = {}) => publicSettings({ summary: { available: true, inlineButton: false, auto: "off", collapsed: false, consent: null, ...over } })
   const answerSummary = async (result: SummaryResponse) => {
     await until(() => expect(port.posted("summary")).not.toHaveLength(0))
     port.push({ type: "summary", id: port.posted("summary").at(-1)!.id, result })
@@ -563,6 +565,59 @@ describe("the content script", () => {
     await until(() => expect(document.querySelector(".tt-summary-button")).toBeNull())
     // Turning the translation off leaves the summary on screen.
     expect(document.querySelector(".tt-summary")).not.toBeNull()
+  })
+
+  it("opens by itself once per message when a translation starts, with \"when the message is translated\"", async () => {
+    const client = connectContent({ root: () => document.body, contentScript: true })
+    port.push({ type: "settings", settings: summaryOn({ auto: "translated" }) })
+    await client.ready
+    await expect(until(() => expect(port.posted("summary")).not.toEqual([]), 300)).rejects.toThrow()
+    port.push({ type: "toggle" })
+    await until(() => expect(port.posted("summary")).toHaveLength(1))
+    // Posted before the paragraphs, so that the background script can ask for both in one request.
+    const types = port.postMessage.mock.calls.map(([msg]) => msg.type)
+    expect(types.indexOf("summary")).toBeLessThan(types.indexOf("translate"))
+    // Off and on again, and translated again: the message keeps its one summary.
+    port.push({ type: "toggle" })
+    port.push({ type: "toggle" })
+    await until(() => expect(port.posted("translate").length).toBeGreaterThan(2))
+    port.push({ type: "retranslate" })
+    await until(() => expect(port.posted("translate").length).toBeGreaterThan(4))
+    expect(port.posted("summary")).toHaveLength(1)
+  })
+
+  it("opens by itself for every message with text, translated or not, with \"for every opened message\"", async () => {
+    const client = connectContent({ root: () => document.body, contentScript: true })
+    port.push({ type: "settings", settings: summaryOn({ auto: "always" }) })
+    await client.ready
+    await until(() => expect(port.posted("summary")).toHaveLength(1))
+    expect(port.posted("translate")).toEqual([])
+    // A later translation asks for no second summary.
+    port.push({ type: "toggle" })
+    await until(() => expect(port.posted("translate")).toHaveLength(2))
+    expect(port.posted("summary")).toHaveLength(1)
+  })
+
+  it.each(["translated", "always"] as const)("%s: asks nothing for a message without readable text", async (auto) => {
+    document.body.innerHTML = "<p>12:30</p><p>— — —</p>"
+    const client = connectContent({ root: () => document.body, contentScript: true })
+    port.push({ type: "settings", settings: summaryOn({ auto }) })
+    await client.ready
+    port.push({ type: "toggle" })
+    await expect(until(() => expect(port.posted("summary")).not.toEqual([]), 300)).rejects.toThrow()
+  })
+
+  it("asks for the consent of its service first, and a refusal holds for the message", async () => {
+    const client = connectContent({ root: () => document.body, contentScript: true })
+    port.push({ type: "settings", settings: summaryOn({ auto: "always", consent: { id: "openai", host: "api.openai.com" } }) })
+    await client.ready
+    await until(() => expect(document.querySelector(".tt-consent")).not.toBeNull())
+    Array.from(document.querySelectorAll<HTMLButtonElement>(".tt-consent button"))[1].click()
+    await until(() => expect(document.querySelector(".tt-consent")).toBeNull())
+    port.push({ type: "toggle" })
+    await until(() => expect(port.posted("translate")).toHaveLength(2))
+    expect(document.querySelector(".tt-consent")).toBeNull()
+    expect(port.posted("summary")).toEqual([])
   })
 
   it("has no summary on the extension pages", async () => {

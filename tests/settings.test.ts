@@ -244,7 +244,7 @@ describe("public settings", () => {
       { id: "openai", host: "proxy.example" },
     ])
     // So does the consent the summary of the AI tier still needs.
-    expect(pub.summary).toEqual({ available: true, inlineButton: false, collapsed: false, consent: { id: "openai", host: "proxy.example" } })
+    expect(pub.summary).toEqual({ available: true, inlineButton: false, auto: "off", collapsed: false, consent: { id: "openai", host: "proxy.example" } })
     // And the consent the images still need: the AI tier reads them.
     expect(pub.image.consent).toEqual({ id: "openai", host: "proxy.example" })
     const { consent, summary, image, ...rest } = pub

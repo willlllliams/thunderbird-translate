@@ -228,7 +228,7 @@ describe("content client", () => {
       i18n: { detectLanguage: async () => ({ isReliable: false, languages: [] }) },
     })
     const client = connectContent({ root: () => document.body, contentScript: true })
-    port.push({ type: "settings", settings: publicSettings({ consent: [GOOGLE], summary: { available: true, inlineButton: false, collapsed: false, consent: OPENAI } }) })
+    port.push({ type: "settings", settings: publicSettings({ consent: [GOOGLE], summary: { available: true, inlineButton: false, auto: "off", collapsed: false, consent: OPENAI } }) })
     await client.ready
     port.push({ type: "toggle" })
     await until(() => expect(panel()).not.toBeNull())

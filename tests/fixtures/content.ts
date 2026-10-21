@@ -21,7 +21,7 @@ export const publicSettings = (over: Partial<PublicSettings> = {}): PublicSettin
   style: { preset: "border", color: "#4c8bf5", textColor: "", opacity: 0.85, fontScale: 1 },
   offlineMutedPairs: [],
   consent: [],
-  summary: { available: false, inlineButton: false, collapsed: false, consent: null },
+  summary: { available: false, inlineButton: false, auto: "off", collapsed: false, consent: null },
   image: imageSettings(),
   ...over,
 })

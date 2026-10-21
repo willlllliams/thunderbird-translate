@@ -54,6 +54,10 @@ export const DEEPL_FREE_URL = "https://api-free.deepl.com"
 export const SUMMARY_PARTS = ["summary", "actions", "questions", "dates"] as const
 export type SummaryPart = (typeof SUMMARY_PARTS)[number]
 
+/** When the summary opens by itself: never, when a translation of the message starts, or for every message on screen that has text. */
+export const SUMMARY_AUTO = ["off", "translated", "always"] as const
+export type SummaryAuto = (typeof SUMMARY_AUTO)[number]
+
 /** Summary and to-dos of the message on screen. */
 export interface SummarySettings {
   /** AI service of the summary; null = the service of the AI tier. */
@@ -62,6 +66,8 @@ export interface SummarySettings {
   model: string
   /** A "Summary" button above the message while it is translated. */
   inlineButton: boolean
+  /** The summary opens by itself; it asks for the consent of its service all the same. */
+  auto: SummaryAuto
   /** The parts the model is asked for and the panel shows. */
   parts: SummaryPart[]
   maxOutputTokens: number
@@ -222,7 +228,7 @@ export function createDefaultSettings(uiLang?: string): Settings {
     dictionary: { releaseTag: DEFAULT_DICT_TAG },
     offlineMutedPairs: [],
     onlineConsent: [],
-    summary: { provider: null, model: "", inlineButton: false, parts: [...SUMMARY_PARTS], maxOutputTokens: 800, display: "expanded" },
+    summary: { provider: null, model: "", inlineButton: false, auto: "off", parts: [...SUMMARY_PARTS], maxOutputTokens: 800, display: "expanded" },
     image: defaultImageSettings(),
     imageConsent: [],
     batch: { batchDelayMs: 50, maxCharsPerBatch: 3000, maxItemsPerBatch: 30, concurrency: 4, maxRetries: 3, timeoutSeconds: 60, llmBatchEnabled: true },
@@ -453,6 +459,8 @@ export function normalizeSettings(stored: unknown, uiLang?: string): Settings {
       provider: isAiProvider(getPreset(String(sum.provider))) ? (sum.provider as string) : null,
       model: typeof sum.model === "string" ? sum.model.trim() : "",
       inlineButton: sum.inlineButton === true,
+      // Settings saved before 3.0.0 have no automatic summary: off.
+      auto: oneOf(sum.auto, SUMMARY_AUTO),
       parts: Array.isArray(sum.parts) ? SUMMARY_PARTS.filter((part) => (sum.parts as unknown[]).includes(part)) : [...SUMMARY_PARTS],
       maxOutputTokens: int(sum.maxOutputTokens, d.summary.maxOutputTokens, 200, 4000),
       display: sum.display === "collapsed" ? "collapsed" : "expanded",
@@ -788,8 +796,8 @@ export interface PublicSettings {
   offlineMutedPairs: string[]
   /** The online services that need consent before the message text goes to them, with their hosts (consentNeeds()). */
   consent: ConsentNeed[]
-  /** Summary and to-dos: whether a service is there, the button above a translated message, the panel collapsed, and the consent its service still needs. */
-  summary: { available: boolean; inlineButton: boolean; collapsed: boolean; consent: ConsentNeed | null }
+  /** Summary and to-dos: whether a service is there, the button above a translated message, when it opens by itself, the panel collapsed, and the consent its service still needs. */
+  summary: { available: boolean; inlineButton: boolean; auto: SummaryAuto; collapsed: boolean; consent: ConsentNeed | null }
   image: PublicImageSettings
 }
 
@@ -872,6 +880,7 @@ export function toPublicSettings(settings: Settings, credentials = 0): PublicSet
     summary: {
       available: summarizer !== null,
       inlineButton: settings.summary.inlineButton,
+      auto: settings.summary.auto,
       collapsed: settings.summary.display === "collapsed",
       consent: summarizer ? consentNeed(settings, summarizer) : null,
     },

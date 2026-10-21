@@ -8,7 +8,7 @@ import { type OfflineStatus, type OptionsPlace, type PageNotice, send } from "..
 import type { OfflineService } from "../shared/offline-needs"
 import { $, fillSelect, fillTierSelects, languageOptions, offlineName, offlineStatus, onTierChange, showOfflineHint, showSaved, showSaveError, sourceLanguageOptions, uiLanguageOptions } from "../shared/page"
 import { getPreset, PROVIDER_PRESETS, providerDisplayName, type ProviderPreset, type Tier, TIER_NAME_KEYS, TIERS, tierOf } from "../shared/providers"
-import { addedProviders, addProvidersInUse, consentParts, type DisplayMode, enabledTiers, removalBlocker, resolveProvider, type Settings, SUMMARY_PARTS, summaryProvider } from "../shared/settings"
+import { addedProviders, addProvidersInUse, consentParts, type DisplayMode, enabledTiers, removalBlocker, resolveProvider, type Settings, SUMMARY_AUTO, SUMMARY_PARTS, summaryProvider } from "../shared/settings"
 import type { BergamotSection } from "./bergamot"
 import type { DictionarySection } from "./dictionaries"
 import { button, h } from "../shared/dom"
@@ -358,6 +358,7 @@ async function main(): Promise<void> {
   })
   session.bind("summaryModel", "input", (el) => (el.value = settings.summary.model), (el) => (settings.summary.model = el.value.trim()))
   session.bindNumber("summaryMaxTokens", () => settings.summary.maxOutputTokens, (v) => (settings.summary.maxOutputTokens = v))
+  session.bind("summaryAuto", "change", (el) => (el.value = settings.summary.auto), (el) => (settings.summary.auto = SUMMARY_AUTO.find((auto) => auto === el.value) ?? "off"))
   session.bind("summaryDisplay", "change", (el) => (el.value = settings.summary.display), (el) => (settings.summary.display = el.value === "collapsed" ? "collapsed" : "expanded"))
   for (const part of SUMMARY_PARTS) {
     session.bindCheck(`summaryPart-${part}`, () => settings.summary.parts.includes(part), (v) => {

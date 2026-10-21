@@ -224,7 +224,16 @@
               <option value="collapsed" data-i18n="summaryCollapsed"></option>
             </select>
           </label>
+          <label data-i18n-title="tipSummaryAuto">
+            <span data-i18n="labelSummaryAuto"></span>
+            <select id="summaryAuto" aria-describedby="summaryAutoHint">
+              <option value="off" data-i18n="summaryAutoOff"></option>
+              <option value="translated" data-i18n="summaryAutoTranslated"></option>
+              <option value="always" data-i18n="summaryAutoAlways"></option>
+            </select>
+          </label>
         </div>
+        <p class="hint" id="summaryAutoHint" data-i18n="hintSummaryAuto"></p>
         <p id="summaryNone" class="field-warning" data-i18n="tipSummarizeNone" hidden></p>
         <div class="row" role="group" data-i18n-aria-label="labelSummaryParts">
           <span data-i18n="labelSummaryParts"></span>
