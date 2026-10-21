@@ -40,6 +40,8 @@ jobs:
       - run: npm run build
       # The experimental build with the column "Translated subject" (docs/experimental.md), published on GitHub only.
       - run: npm run build:experimental
+      # The source archive for addons.thunderbird.net, made from the commit of this run.
+      - run: npm run source-zip
 
       - name: Read version
         id: version
@@ -47,12 +49,14 @@ jobs:
           echo "version=$(node -p "require('./static/manifest.json').version")" >> "$GITHUB_OUTPUT"
           echo "sha=$(git rev-parse --short HEAD)" >> "$GITHUB_OUTPUT"
 
-      # Both builds: thunderbird-translate-<version>.xpi and multi-translate-experimental-<version>.xpi.
+      # Both builds, thunderbird-translate-<version>.xpi and multi-translate-experimental-<version>.xpi, and the source archive.
       - name: Upload build artifact
         uses: actions/upload-artifact@v4
         with:
           name: thunderbird-translate-${{ steps.version.outputs.version }}-${{ steps.version.outputs.sha }}
-          path: web-ext-artifacts/*.xpi
+          path: |
+            web-ext-artifacts/*.xpi
+            web-ext-artifacts/*-source.zip
           if-no-files-found: error
           retention-days: 30
 
@@ -120,9 +124,10 @@ jobs:
           if-no-files-found: ignore
           retention-days: 14
 
+  # Releases come from main only: a manual run on another branch builds and tests, and publishes nothing.
   release:
     needs: [build, e2e]
-    if: github.event_name != 'pull_request'
+    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -156,29 +161,24 @@ jobs:
             --prerelease --title "Nightly ($SHA)" \
             --notes "Automatic build of commit $GITHUB_SHA. For testing; use the latest versioned release for daily use."
 
-      - name: Check whether the release exists
-        id: check
+      # A version is released once. A tag of the version without a release would give the release the commit of the
+      # tag instead of this one, so the run fails then. The regular build, the experimental build with the column
+      # (docs/experimental.md) and the source archive go to the release.
+      - name: Create release
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           if gh release view "v$VERSION" --repo "$GITHUB_REPOSITORY" > /dev/null 2>&1; then
-            echo "exists=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "exists=false" >> "$GITHUB_OUTPUT"
+            echo "v$VERSION is released already."
+            exit 0
           fi
-
-      - name: Create release and upload xpi
-        if: steps.check.outputs.exists == 'false'
-        uses: softprops/action-gh-release@v2
-        with:
-          tag_name: v${{ needs.build.outputs.version }}
-          name: v${{ needs.build.outputs.version }}
-          target_commitish: ${{ github.sha }}
-          body_path: release-notes/release-notes.md
-          generate_release_notes: false
-          make_latest: true
-          # The regular build, and the experimental build with the column (docs/experimental.md).
-          files: |
-            web-ext-artifacts/thunderbird-translate-${{ needs.build.outputs.version }}.xpi
-            web-ext-artifacts/multi-translate-experimental-${{ needs.build.outputs.version }}.xpi
-          fail_on_unmatched_files: true
+          tagged=$(git ls-remote --tags "https://x-access-token:$GH_TOKEN@github.com/$GITHUB_REPOSITORY.git" "v$VERSION" "v$VERSION^{}" | sort -k2 | tail -n 1 | cut -f1)
+          if [ -n "$tagged" ] && [ "$tagged" != "$GITHUB_SHA" ]; then
+            echo "::error::The tag v$VERSION points to $tagged, not to $GITHUB_SHA; delete it or change the version."
+            exit 1
+          fi
+          gh release create "v$VERSION" --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" --title "v$VERSION" \
+            --notes-file release-notes/release-notes.md --latest \
+            "web-ext-artifacts/thunderbird-translate-$VERSION.xpi" \
+            "web-ext-artifacts/multi-translate-experimental-$VERSION.xpi" \
+            "web-ext-artifacts/thunderbird-translate-$VERSION-source.zip"

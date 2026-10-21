@@ -63,3 +63,23 @@ describe("version", () => {
     expect(releaseNotes(changelog, version).length).toBeGreaterThan(20)
   })
 })
+
+describe("workflows", () => {
+  const workflow = (name: string) => readFileSync(join(root, ".github", "workflows", name), "utf8")
+
+  it("I1: release from main only, and attach the source archive", () => {
+    const release = workflow("release.yml")
+    const job = release.slice(release.indexOf("\n  release:"))
+    expect(job).toMatch(/^ {4}if: .*github\.ref == 'refs\/heads\/main'/m)
+    expect(job).toContain("thunderbird-translate-$VERSION-source.zip")
+    expect(release).toContain("npm run source-zip")
+  })
+
+  it("I9: run no third-party action by a tag that can move; actions of GitHub by their major version", () => {
+    for (const name of ["release.yml", "dicts.yml"]) {
+      for (const [, action, ref] of workflow(name).matchAll(/uses: ([\w.-]+\/[\w.-]+)@(\S+)/g)) {
+        if (!action.startsWith("actions/")) expect(ref, `${name}: ${action}`).toMatch(/^[0-9a-f]{40}$/)
+      }
+    }
+  })
+})

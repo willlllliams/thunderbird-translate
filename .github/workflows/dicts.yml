@@ -83,23 +83,23 @@ jobs:
           } >> "$GITHUB_STEP_SUMMARY"
           du -sh "$RUNNER_TEMP/dict-cache" "$RUNNER_TEMP/dicts"
 
+      # With the gh CLI of the runner: no third-party action gets the write permission of this workflow.
       - name: Upload to release
-        uses: softprops/action-gh-release@v3
-        with:
-          tag_name: ${{ inputs.tag }}
-          name: Dictionary packs (${{ inputs.tag }})
-          target_commitish: ${{ github.sha }}
-          make_latest: false
-          overwrite_files: true
-          fail_on_unmatched_files: true
-          body: |
-            Word-for-word dictionary packs for the dictionary translation service.
-            Format and build rules: docs/dictionary-packs.md.
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ inputs.tag }}
+        run: |
+          cat > "$RUNNER_TEMP/notes.md" << 'EOF'
+          Word-for-word dictionary packs for the dictionary translation service.
+          Format and build rules: docs/dictionary-packs.md.
 
-            Sources and licenses:
-            - All packs except dict-en-zh-Hans: adapted (extracted, filtered and trimmed) from Wiktionary (Wiktionary contributors, https://www.wiktionary.org/), extracted by wiktextract and published by kaikki.org; CC BY-SA 4.0 (https://creativecommons.org/licenses/by-sa/4.0/).
-            - dict-en-zh-Hans: adapted (extracted, filtered and trimmed) from ECDICT (https://github.com/skywind3000/ECDICT), Copyright (c) 2025 Linwei; MIT License.
-          files: |
-            ${{ runner.temp }}/dicts/dict-*.tsv.gz
-            ${{ runner.temp }}/dicts/dict-index.json
-            ${{ runner.temp }}/dicts/dict-build-report.json
+          Sources and licenses:
+          - All packs except dict-en-zh-Hans: adapted (extracted, filtered and trimmed) from Wiktionary (Wiktionary contributors, https://www.wiktionary.org/), extracted by wiktextract and published by kaikki.org; CC BY-SA 4.0 (https://creativecommons.org/licenses/by-sa/4.0/).
+          - dict-en-zh-Hans: adapted (extracted, filtered and trimmed) from ECDICT (https://github.com/skywind3000/ECDICT), Copyright (c) 2025 Linwei; MIT License.
+          EOF
+          if gh release view "$TAG" --repo "$GITHUB_REPOSITORY" > /dev/null 2>&1; then
+            gh release edit "$TAG" --repo "$GITHUB_REPOSITORY" --notes-file "$RUNNER_TEMP/notes.md"
+          else
+            gh release create "$TAG" --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" --title "Dictionary packs ($TAG)" --latest=false --notes-file "$RUNNER_TEMP/notes.md"
+          fi
+          gh release upload "$TAG" --repo "$GITHUB_REPOSITORY" --clobber "$RUNNER_TEMP"/dicts/dict-*.tsv.gz "$RUNNER_TEMP/dicts/dict-index.json" "$RUNNER_TEMP/dicts/dict-build-report.json"
