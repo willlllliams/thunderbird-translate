@@ -77,7 +77,8 @@ const SOURCE_TIPS: Record<LanguageSource, MessageKey> = {
   system: "tipLangSystem",
 }
 
-export const megabytes = (bytes: number) => (bytes / 1048576).toFixed(1)
+/** Megabytes with one decimal, written as the interface language writes numbers ("12,3" in German). */
+export const megabytes = (bytes: number) => new Intl.NumberFormat(getI18n().lang, { minimumFractionDigits: 1, maximumFractionDigits: 1 }).format(bytes / 1048576)
 
 /** The controls of a row that can have the focus. */
 const CONTROLS = "button, input, select, a[href]"

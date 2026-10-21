@@ -70,6 +70,15 @@ export class I18n {
     )
   }
 
+  /** Items joined as the interface language joins a list: "A, B and C", "A、B和C". */
+  list(items: readonly string[]): string {
+    try {
+      return new Intl.ListFormat(this.lang, { type: "conjunction" }).format(items)
+    } catch {
+      return items.join(", ")
+    }
+  }
+
   private number(n: number): string {
     try {
       this.numberFormat ??= new Intl.NumberFormat(this.lang)

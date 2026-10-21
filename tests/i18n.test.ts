@@ -12,6 +12,7 @@ import {
   I18n,
   loadI18n,
   type MessageKey,
+  setI18n,
 } from "../src/shared/i18n"
 import { linkedText, localizeDocument, MESSAGE_LINKS } from "../src/shared/i18n-dom"
 import {
@@ -27,6 +28,7 @@ import {
 import { getLanguage, LANGUAGES } from "../src/shared/languages"
 import { PROVIDER_PRESETS, providerDisplayName } from "../src/shared/providers"
 import { defaultTargetLang, normalizeSettings } from "../src/shared/settings"
+import { megabytes } from "../src/options/offline-list"
 import { packagedFetch } from "./fixtures/locales"
 
 const root = join(__dirname, "..")
@@ -562,5 +564,18 @@ describe("keyboard shortcuts", () => {
     for (const key of keys) expect(sources[locale].popupShortcuts).toContain(key)
     const descriptions = ["commandToggle", "commandMode", "commandRetranslate", "commandSummarize"].map((key) => sources[locale][key])
     expect(new Set(descriptions).size).toBe(4)
+  })
+})
+
+describe("U11: numbers, lists and counts", () => {
+  it("write megabytes and lists as the interface language does, and counts as label and number", () => {
+    const de = i18nFor("de")
+    setI18n(de)
+    expect(de.t("commonConfirm", [3, megabytes(12.34 * 1048576)])).toBe("Herunterzuladende Elemente: 3, insgesamt 12,3 MB:")
+    setI18n(ENGLISH)
+    const zh = i18nFor("zh_CN")
+    expect(zh.list(["英语 → 德语", "日语 → 英语"])).toBe("英语 → 德语和日语 → 英语")
+    expect(i18nFor("en").list(["A", "B", "C"])).toBe("A, B, and C")
+    for (const key of ["downloadRunning", "downloadFailed", "cacheCount", "popupFailed", "commonConfirm"] as const) expect(ENGLISH.t(key, [1, 2])).not.toMatch(/\b1 \w+s\b/)
   })
 })

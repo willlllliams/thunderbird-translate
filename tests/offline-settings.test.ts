@@ -487,7 +487,7 @@ describe("offline model list", () => {
     expect(m.needed.textContent).toBe(ENGLISH.t("bergamotNeededAutoEnglish"))
     languages = { source: "ja", target: "de" }
     section.render()
-    expect(m.needed.textContent).toBe(ENGLISH.t("bergamotNeeded", ["Japanese (日本語)", "German (Deutsch)", "Japanese (日本語) → English, English → German (Deutsch)"]))
+    expect(m.needed.textContent).toBe(ENGLISH.t("bergamotNeeded", ["Japanese (日本語)", "German (Deutsch)", "Japanese (日本語) → English and English → German (Deutsch)"]))
     languages = { source: "de", target: "de" }
     section.render()
     expect(m.needed.textContent).toBe("")

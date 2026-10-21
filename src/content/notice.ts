@@ -82,7 +82,7 @@ export class MissingNotice {
 
   private render(entries: MissingData[]): HTMLElement {
     const i18n = getI18n()
-    const list = (items: string[]) => new Intl.ListFormat(i18n.lang, { type: "conjunction" }).format(items.map((m) => i18n.pairName(m)))
+    const list = (items: string[]) => i18n.list(items.map((m) => i18n.pairName(m)))
     const lines = entries.map((e) => h("li", { text: t(e.service === "dictionary" ? "noticeMissingDictionary" : "noticeMissingBergamot", [i18n.pairName(e.pair), list(e.models)]) }))
     const models = (service: MissingData["service"]) => [...new Set(entries.filter((e) => e.service === service).flatMap((e) => e.models))]
 

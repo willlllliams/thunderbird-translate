@@ -5,7 +5,8 @@ import { localizeDocument } from "../shared/i18n-dom"
 import { loadExtensionI18n } from "../shared/i18n-ext"
 import { normalizeUiLanguageSetting } from "../shared/locales"
 import { type OfflineStatus, type OptionsPlace, type PageNotice, send } from "../shared/messages"
-import { $, fillSelect, fillTierSelects, languageOptions, offlineStatus, onTierChange, showOfflineHint, showSaved, showSaveError, sourceLanguageOptions, uiLanguageOptions } from "../shared/page"
+import type { OfflineService } from "../shared/offline-needs"
+import { $, fillSelect, fillTierSelects, languageOptions, offlineName, offlineStatus, onTierChange, showOfflineHint, showSaved, showSaveError, sourceLanguageOptions, uiLanguageOptions } from "../shared/page"
 import { getPreset, PROVIDER_PRESETS, providerDisplayName, type ProviderPreset, type Tier, TIER_NAME_KEYS, TIERS, tierOf } from "../shared/providers"
 import { addedProviders, addProvidersInUse, consentParts, type DisplayMode, enabledTiers, removalBlocker, resolveProvider, type Settings, SUMMARY_PARTS, summaryProvider } from "../shared/settings"
 import { BergamotSection } from "./bergamot"
@@ -66,9 +67,9 @@ function showProviderTier(tier: Tier | ""): void {
 function renderMuted(): void {
   const entries = settings.offlineMutedPairs.map((key) => {
     const [service, pair] = key.split(":")
-    return t("mutedPairEntry", [service === "dictionary" ? t("tierDictionary") : "Bergamot", getI18n().pairName(pair)])
+    return t("mutedPairEntry", [offlineName(service as OfflineService), getI18n().pairName(pair)])
   })
-  $("mutedPairs").textContent = entries.length > 0 ? t("mutedPairsList", [entries.join(", ")]) : t("mutedPairsNone")
+  $("mutedPairs").textContent = entries.length > 0 ? t("mutedPairsList", [getI18n().list(entries)]) : t("mutedPairsNone")
   $<HTMLButtonElement>("clearMuted").disabled = entries.length === 0
 }
 

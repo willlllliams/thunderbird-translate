@@ -38,7 +38,7 @@ export class BergamotSection extends OfflineList<PairItem> {
   /** The directions the current languages need; with automatic detection, those into the target language. */
   private neededText(): string {
     const { source, target } = this.deps.languages()
-    const list = this.required().map((id) => getI18n().pairName(id)).join(", ")
+    const list = getI18n().list(this.required().map((id) => getI18n().pairName(id)))
     if (source === "auto") return list ? t("bergamotNeededAuto", [list]) : t("bergamotNeededAutoEnglish")
     return list ? t("bergamotNeeded", [getI18n().tagName(source), getI18n().tagName(target), list]) : ""
   }

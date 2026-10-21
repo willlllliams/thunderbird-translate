@@ -52,7 +52,7 @@ export function tierOptions(settings: Settings, tier: Tier, i18n: I18n = getI18n
 }
 
 /** Short name of an offline service: "Dictionary", "Bergamot". */
-const offlineName = (service: OfflineService) => (service === "dictionary" ? t("tierDictionary") : "Bergamot")
+export const offlineName = (service: OfflineService) => (service === "dictionary" ? t("tierDictionary") : "Bergamot")
 
 /**
  * The tier selectors of a page ("tier-<tier>" with label "tierLabel-<tier>"); with `all`, every service of each tier.
@@ -88,7 +88,7 @@ export function showOfflineHint(el: HTMLElement, settings: Settings, offline: Of
     const state = offline[s]!
     let text = state.unsupported ? t("offlineUnsupported", [offlineName(s)]) : ""
     if (state.anyInto) text = t("offlineMissingAnyInto", [offlineName(s), getI18n().tagName(state.anyInto)])
-    else if (state.missing.length > 0) text = t("offlineMissing", [offlineName(s), state.missing.map((m) => getI18n().pairName(m)).join(", ")])
+    else if (state.missing.length > 0) text = t("offlineMissing", [offlineName(s), getI18n().list(state.missing.map((m) => getI18n().pairName(m)))])
     // One element per statement: only what a service lacks is red.
     return text ? [Object.assign(document.createElement("span"), { textContent: text, className: lacksData(state) ? "missing" : "" })] : []
   })

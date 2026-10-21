@@ -351,7 +351,7 @@ describe("settings page", () => {
     const page = await openPage("options", s)
     await until(() => expect(document.querySelector("#mutedPairs")!.textContent).not.toBe(""))
     const entries = [ENGLISH.t("mutedPairEntry", [ENGLISH.t("tierDictionary"), "Japanese (日本語) → Simplified Chinese (简体中文)"]), ENGLISH.t("mutedPairEntry", ["Bergamot", "German (Deutsch) → English"])]
-    expect(document.querySelector("#mutedPairs")!.textContent).toBe(ENGLISH.t("mutedPairsList", [entries.join(", ")]))
+    expect(document.querySelector("#mutedPairs")!.textContent).toBe(ENGLISH.t("mutedPairsList", [ENGLISH.list(entries)]))
     document.querySelector<HTMLButtonElement>("#clearMuted")!.click()
     expect(document.querySelector("#mutedPairs")!.textContent).toBe(ENGLISH.t("mutedPairsNone"))
     expect(document.querySelector<HTMLButtonElement>("#clearMuted")!.disabled).toBe(true)
