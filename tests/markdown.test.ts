@@ -230,6 +230,21 @@ describe("links", () => {
     expect(html("[a](page.html) and *b*")).toBe("[a](page.html) and <em>b</em>")
     expect(html("*[a](javascript:x)*")).toBe("<em>[a](javascript:x)</em>")
   })
+
+  it("keeps a link with a user name or a password before the host as its source text", () => {
+    for (const text of ["[https://a.example](https://a.example@b.example/)", "[x](https://user:pw@b.example/)", "[x](<http://:pw@b.example>)"]) {
+      expect(elements(text)).toEqual([])
+      expect(stripMarkdown(text)).toBe(text)
+    }
+  })
+
+  it("reads a destination of up to 2048 characters", () => {
+    const at = `https://e.com/${"a".repeat(2048 - 14)}`
+    expect(html(`[x](${at})`)).toBe(`<a href="${at}" rel="noopener noreferrer">x</a>`)
+    expect(html(`[x](<${at}>)`)).toBe(`<a href="${at}" rel="noopener noreferrer">x</a>`)
+    expect(html(`[x](${at}b)`)).toBe(`[x](${at}b)`)
+    expect(html(`[x](<${at}b>)`)).toBe(`[x](&lt;${at}b&gt;)`)
+  })
 })
 
 describe("safety", () => {
@@ -318,6 +333,8 @@ describe("time", () => {
     ["brackets without destination", (n: number) => "[a ".repeat(n)],
     ["links", (n: number) => "[a](https://e.com) ".repeat(n)],
     ["rejected links", (n: number) => "[*a*](javascript:x) ".repeat(n)],
+    ["destinations without a closing parenthesis", (n: number) => "[](".repeat(n)],
+    ["links whose destination never ends", (n: number) => "[a](b(".repeat(n)],
     ["backtick runs of rising length", (n: number) => Array.from({ length: n }, (_, i) => "`".repeat((i % 40) + 1)).join(" a ")],
   ])("%s: linear in the length, 10 KB at once", (_, make) => {
     // Characters added by one more repetition.

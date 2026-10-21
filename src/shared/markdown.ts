@@ -17,20 +17,22 @@
  * CommonMark: a run of * with an ASCII letter or digit right before and
  * right after it neither opens nor closes, so 2*3*4 stays arithmetic.
  *
- * A link to any other address (javascript:, data:, a relative path) stays as
- * its whole source text. Unclosed or invalid markup stays as its characters.
+ * A link to any other address (javascript:, data:, a relative path, a user
+ * name before the host, more than MAX_DESTINATION characters) stays as its
+ * whole source text. Unclosed or invalid markup stays as its characters.
  * Headings, tables, images and HTML are not read: their characters stay.
  *
  * Parsing takes time linear in the length of the text: delimiters are
  * matched with the "openers bottom" bound of CommonMark, closing backtick
- * runs are looked up in an index, and nodes move between lists in constant
+ * runs are looked up in an index, a link destination is read at most
+ * MAX_DESTINATION characters far, and nodes move between lists in constant
  * time. Elements nest at most MAX_DEPTH deep; deeper markup keeps its text
  * without the element.
  */
 
-/** Inline node: text, code, a line break or a container with children. */
+/** Inline node: text, code or a container with children. */
 interface Inline {
-  type: "text" | "code" | "br" | "strong" | "em" | "del" | "a"
+  type: "text" | "code" | "strong" | "em" | "del" | "a"
   /** text and code. */
   text: string
   /** a: the checked address. */
@@ -72,6 +74,8 @@ export type MarkdownBlock = { kind: "text"; text: string } | { kind: "list"; ord
 
 /** Elements nest at most this deep. */
 const MAX_DEPTH = 16
+/** A link destination longer than this stays text: every "](" then scans at most this far. */
+const MAX_DESTINATION = 2048
 
 const ASCII_PUNCT = /[!-/:-@[-`{-~]/
 const UNICODE_WS = /[\p{Zs}\t\n\f\r]/u
@@ -87,6 +91,8 @@ export function safeHref(raw: string): string | null {
   if (!/^(?:https?|mailto):/i.test(raw)) return null
   try {
     const url = new URL(raw)
+    // https://bank.example@evil.example/ shows one host and goes to another.
+    if (url.username || url.password) return null
     return url.protocol === "mailto:" || url.host ? url.href : null
   } catch {
     return null
@@ -103,13 +109,13 @@ function linkDestination(s: string, i: number): { raw: string; end: number } | n
   let raw: string
   if (s[j] === "<") {
     const start = ++j
-    while (j < s.length && s[j] !== ">" && s[j] !== "<" && s[j] !== "\n") j += s[j] === "\\" && j + 1 < s.length ? 2 : 1
-    if (s[j] !== ">") return null
+    while (j < s.length && j - start <= MAX_DESTINATION && s[j] !== ">" && s[j] !== "<" && s[j] !== "\n") j += s[j] === "\\" && j + 1 < s.length ? 2 : 1
+    if (s[j] !== ">" || j - start > MAX_DESTINATION) return null
     raw = s.slice(start, j++)
   } else {
     const start = j
     let depth = 0
-    while (j < s.length) {
+    while (j < s.length && j - start <= MAX_DESTINATION) {
       const c = s[j]
       if (c === "\\" && ASCII_PUNCT.test(s[j + 1] ?? "")) {
         j += 2
@@ -123,7 +129,7 @@ function linkDestination(s: string, i: number): { raw: string; end: number } | n
       }
       j++
     }
-    if (depth !== 0 || j === start) return null
+    if (depth !== 0 || j === start || j - start > MAX_DESTINATION) return null
     raw = s.slice(start, j)
   }
   while (s[j] === " " || s[j] === "\t") j++
@@ -489,7 +495,7 @@ function inlineText(root: Inline): string {
 }
 
 /**
- * The text of a translation with the Markdown marks of renderMarkdown()
+ * The text of a translation with the Markdown marks of markdownFragment()
  * removed: the text of emphasis, code and links, list items on lines of
  * their own, ordered ones with their number. For places that show plain
  * text, such as the subjects of a folder.
