@@ -9,7 +9,7 @@ import { IDLE_TAB_STATE, type PortPush, type TranslateRequest } from "../src/sha
 import { createDefaultSettings, SETTINGS_KEY, type Settings, toPublicSettings } from "../src/shared/settings"
 import { localeText, stubBackgroundApi } from "./fixtures/background-api"
 import { packEntry, releaseServer, tsv } from "./fixtures/dictionary"
-import { asFetch, jsonResponse, until, useFakeTimers } from "./helpers"
+import { asFetch, chatCompletion, jsonResponse, until, useFakeTimers } from "./helpers"
 
 beforeEach(() => useFakeTimers())
 afterEach(() => {
@@ -386,6 +386,48 @@ describe("keyboard shortcuts", () => {
     expect(port.posted.at(-1)).toMatchObject({ type: "settings", settings: { mode: "translation-only" } })
     await bg.command("toggle-display-mode")
     expect(mode()).toBe("bilingual")
+  })
+})
+
+describe("images of the displayed message", () => {
+  afterEach(() => vi.unstubAllGlobals())
+
+  it("reads a part of the message, waits for the consent the content script sent, records it and sends the image to the AI service", async () => {
+    const s = allowed()
+    s.tiers.ai = "openai"
+    s.providers.openai = { enabled: true, apiKey: "sk-image", baseURL: "", model: "" }
+    s.precise.enabled = true
+    s.onlineConsent.push("openai")
+    const bodies: Record<string, unknown>[] = []
+    const fetchUrl = vi.fn(async (url: string, init?: RequestInit) => {
+      if (!url.startsWith("https://api.openai.com/")) return google(url, init)
+      bodies.push(JSON.parse(String(init?.body)))
+      return chatCompletion("| Original | Translation |\n| --- | --- |\n| Umsatz | Revenue |")
+    })
+    const bg = await start({ stored: stored(s), fetchUrl })
+    const getAttachmentFile = vi.fn(async (_id: number, _part: string) => new File([new Uint8Array(6000)], "chart.png", { type: "image/png" }))
+    Object.assign(bg.api, { messageDisplay: { getDisplayedMessage: async () => ({ id: 42 }) }, messages: { getAttachmentFile } })
+    vi.stubGlobal("createImageBitmap", async () => ({ width: 400, height: 200, close: () => {} }))
+    vi.stubGlobal(
+      "OffscreenCanvas",
+      class {
+        getContext = () => ({ fillRect: () => {}, drawImage: () => {} })
+        convertToBlob = async ({ type }: { type: string }) => new Blob([new Uint8Array(900)], { type })
+      },
+    )
+    const port = bg.connect(3)
+    await until(() => expect(port.posted[0]?.type).toBe("settings"))
+    const image = { source: { part: "1.2" }, width: 400, height: 200, index: 1, action: "translate" as const, round: 1, context: "mail-1" }
+    port.send({ type: "image", id: 1, image })
+    await until(() => expect(port.posted.at(-1)).toMatchObject({ type: "imageResult", id: 1, result: { status: "error" } }))
+    expect(bodies).toEqual([])
+    port.send({ type: "imageConsent", ids: ["openai"] })
+    port.send({ type: "image", id: 2, image })
+    await until(() => expect(port.posted.at(-1)).toMatchObject({ type: "imageResult", id: 2, result: { status: "done", service: "OpenAI", cached: false } }))
+    expect(getAttachmentFile).toHaveBeenCalledWith(42, "1.2")
+    expect((bg.local[SETTINGS_KEY] as Settings).imageConsent).toEqual(["openai"])
+    expect(JSON.stringify(bodies[0])).toContain('"image_url":{"url":"data:image/jpeg;base64,')
+    port.disconnect()
   })
 })
 
