@@ -50,6 +50,8 @@ Version 2.0 had removed `messagesRead` together with `tabs` and `<all_urls>`; 2.
 
 The content security policy adds `'wasm-unsafe-eval'` only to compile this bundled engine in its worker; no script uses `eval` or `new Function`.
 
+Since 2.2.0 the Markdown of AI translations is shown formatted. `src/shared/markdown.ts` builds it with `createElement`, `createTextNode` and `setAttribute` and never assigns a translation to `innerHTML`; the elements are `strong`, `em`, `code`, `del`, `a`, `ul`, `ol`, `li` and `br`, and a link gets an address only when it starts with `http:`, `https:` or `mailto:`.
+
 ### Downloads at run time are data
 
 The extension downloads no code. On request of the user it downloads:
@@ -65,7 +67,7 @@ Ollama and LM Studio are AI servers that run on the user's own computer. Their p
 
 ### webext-linter
 
-Run of thunderbird/webext-linter 2.3.2 on the xpi of 2.1.0 with `--sca-root` on the unpacked source archive (review schemas of Thunderbird 158.0.1). It traces `messagesRead` and `accountsRead` to their calls (`messageDisplay.getDisplayedMessage`, `mailTabs.getListedMessages`, `mailTabs.setSelectedMessages`, `mailTabs.onDisplayedFolderChanged`, `messages.continueList`, `messages.abortList` and the three `messages` events) and passes both. The remaining items are those of 2.0.0:
+Run of thunderbird/webext-linter 2.3.2 on the xpi of 2.2.0 with `--sca-root` on the unpacked source archive (review schemas of Thunderbird 158.0.2). Its findings are those of 2.1.0, run the same way: the unsafe-html check reports nothing, the Markdown rendering of 2.2.0 included. It traces `messagesRead` and `accountsRead` to their calls (`messageDisplay.getDisplayedMessage`, `mailTabs.getListedMessages`, `mailTabs.setSelectedMessages`, `mailTabs.onDisplayedFolderChanged`, `messages.continueList`, `messages.abortList` and the three `messages` events) and passes both. The remaining items are those of 2.0.0:
 
 - sync-xhr (`bergamot-translator.js` lines 63 and 70): two synchronous `XMLHttpRequest`s in Emscripten's file loader of the unmodified Mozilla glue. The add-on never reaches them: the worker reads the wasm itself and hands it to `loadBergamot()` as `wasmBinary` (`src/offline/bergamot/worker.ts`, `worker-core.ts`), and the glue then skips its loader. The file is declared in `VENDOR.md`; in a source code review the linter reads vendoring from the archive only, so it scans the shipped copy as if it were authored.
 - vendor source not auditable (info): the glue is not published on npm; its source is the Firefox repository at a fixed commit, and the sha256 matches.

@@ -2,6 +2,19 @@
 
 All notable changes to this project are documented in this file, with the date of each version. It lists what users of the extension notice. The record up to 1.12.0 with the internal changes is kept in [docs/archive/CHANGELOG-full.md](docs/archive/CHANGELOG-full.md). Versions follow [Semantic Versioning](https://semver.org/).
 
+## 2.2.0 - 2026-10-21
+
+Version 2.2 shows the Markdown of AI translations formatted. AI services often answer with `**bold**`, `- ` in front of list items and links in Markdown; these now appear as bold text, lists and links instead of their characters.
+
+### Markdown in AI translations
+
+- The final translation of the AI tier shows bold, italics, code, strikethrough, links, bulleted and numbered lists and line breaks formatted, in both display modes and with precise translation. The text color, opacity and font size of the translation style apply to them.
+- Dictionary and machine translations, and the provisional results of the lower tiers, stay as they are: an asterisk that Google Translate keeps from the original stays an asterisk.
+- Only addresses that start with `http:`, `https:` or `mailto:` become links, and Thunderbird opens them like any other link in a message: web addresses in the browser, after its check of link texts that name another host, and `mailto:` in a new message. A link to any other address stays as text, and so do headings, tables, images and HTML. The extension builds the formatting element by element and never reads a translation as HTML.
+- Asterisks and underscores follow the rules of CommonMark, so `snake_case`, `file_name.txt` and `2*3*4` stay as they are, and bold text between Chinese, Japanese or Korean characters needs no spaces.
+- The subject line above the body, the page of translated subjects and the column of the experimental build show the AI translation of a subject as plain text without the marks.
+- "Render Markdown in AI translations" under the translation style on the settings page turns this off. It is on by default; switching it redraws the message on screen without asking the service again, since the cache keeps the translations as the service returned them.
+
 ## 2.1.0 - 2026-10-14
 
 Version 2.1 translates subjects: of the message you read, and of a whole folder on a page of its own. An experimental build, published on GitHub only, also shows them in a column of the message list.

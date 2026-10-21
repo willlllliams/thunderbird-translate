@@ -41,6 +41,8 @@ xpi 中的脚本由 esbuild 打包并压缩，因此随提交附上源代码包�
 
 内容安全策略中的 `'wasm-unsafe-eval'` 只用于在 worker 中编译这个随包提供的引擎；没有任何脚本使用 `eval` 或 `new Function`。
 
+从 2.2.0 起，AI 译文中的 Markdown 按格式显示。`src/shared/markdown.ts` 用 `createElement`、`createTextNode` 和 `setAttribute` 构建这些内容，从不把译文赋给 `innerHTML`；元素只有 `strong`、`em`、`code`、`del`、`a`、`ul`、`ol`、`li` 和 `br`，链接只在地址以 `http:`、`https:` 或 `mailto:` 开头时才带地址。
+
 ## 运行时下载的是数据
 
 扩展不下载任何代码。用户请求时，它下载：
@@ -56,7 +58,7 @@ Ollama 和 LM Studio 是运行在用户自己电脑上的 AI 服务器。它们�
 
 ## webext-linter
 
-用 thunderbird/webext-linter 2.3.2 检查 2.1.0 的 xpi，并用 `--sca-root` 指向解压后的源代码包（审核 schema 为 Thunderbird 158.0.1）。它把 `messagesRead` 和 `accountsRead` 对应到各自的调用（`messageDisplay.getDisplayedMessage`、`mailTabs.getListedMessages`、`mailTabs.setSelectedMessages`、`mailTabs.onDisplayedFolderChanged`、`messages.continueList`、`messages.abortList` 和三个 `messages` 事件），两项都判为通过。剩余项目与 2.0.0 相同：
+用 thunderbird/webext-linter 2.3.2 检查 2.2.0 的 xpi，并用 `--sca-root` 指向解压后的源代码包（审核 schema 为 Thunderbird 158.0.2）。检查结果与用同样方式检查 2.1.0 时相同：unsafe-html 检查没有报告任何问题，2.2.0 新增的 Markdown 渲染也在其中。它把 `messagesRead` 和 `accountsRead` 对应到各自的调用（`messageDisplay.getDisplayedMessage`、`mailTabs.getListedMessages`、`mailTabs.setSelectedMessages`、`mailTabs.onDisplayedFolderChanged`、`messages.continueList`、`messages.abortList` 和三个 `messages` 事件），两项都判为通过。剩余项目与 2.0.0 相同：
 
 - sync-xhr（`bergamot-translator.js` 第 63、70 行）：Mozilla 原版胶水脚本中 Emscripten 文件加载器的两个同步 `XMLHttpRequest`。扩展不会执行到它们：worker 自行读取 wasm，并以 `wasmBinary` 传给 `loadBergamot()`（`src/offline/bergamot/worker.ts`、`worker-core.ts`），胶水脚本因此跳过加载器。这个文件已在 `VENDOR.md` 中声明；在源代码审核模式下，linter 只从源代码包读取 vendoring 声明，所以把 xpi 中的副本当作自写代码扫描。
 - 第三方来源无法自动审计（info）：胶水脚本没有发布在 npm 上，来源是 Firefox 仓库的固定提交，sha256 一致。
