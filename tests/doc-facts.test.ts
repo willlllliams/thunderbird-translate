@@ -74,6 +74,12 @@ describe("facts in the documents", () => {
     }
   })
 
+  it("P6: name the version of the manifest as the one the webext-linter run of the reviewer notes checked", () => {
+    const version = (JSON.parse(read("static/manifest.json")) as { version: string }).version
+    expect(read("store/reviewer-notes.md").match(/webext-linter [\d.]+ on the xpi of (\d+\.\d+\.\d+)/)?.[1]).toBe(version)
+    expect(read("store/reviewer-notes.zh-CN.md").match(/webext-linter [\d.]+ 检查 (\d+\.\d+\.\d+) 的 xpi/)?.[1]).toBe(version)
+  })
+
   it("say in the privacy section of every README that the settings page checks the free routes with the sentence of Test connection", () => {
     const readmeOf = (locale: string) => (locale === "en" ? "README.md" : `readmes/README.${locale.replace("_", "-")}.md`)
     const line = read("README.md").split("\n").findIndex((l) => l.startsWith("- Two lists come from the network"))

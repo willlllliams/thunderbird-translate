@@ -128,14 +128,12 @@ Ollama 和 LM Studio 是运行在用户自己电脑上的 AI 服务器。它们�
 
 ## webext-linter
 
-下面的检查结果针对 2.2.0。此后代码新增了：“复制为 Markdown”所用的 `navigator.clipboard.writeText()` 及其后备 `document.execCommand("copy")`（2.3.0，由用户点击触发，不申请剪贴板权限），DeepL、百度、有道、彩云的主机，命令 `summarize`，`src/shared/md5.ts`，以及图片翻译所用的 `messages.getAttachmentFile()`（3.0.0，`messagesRead`）。3.0.0 还删除了 `accountsRead`、标题翻译页面及其 `mailTabs` 和 `messages` 列表调用与事件，以及 `browser_action`。
-
-用 thunderbird/webext-linter 2.3.2 检查 2.2.0 的 xpi，并用 `--sca-root` 指向解压后的源代码包（审核 schema 为 Thunderbird 158.0.2）。检查结果与用同样方式检查 2.1.0 时相同：unsafe-html 检查没有报告任何问题，2.2.0 新增的 Markdown 渲染也在其中。它把 `messagesRead` 和 `accountsRead` 对应到各自的调用（`messageDisplay.getDisplayedMessage`、`mailTabs.getListedMessages`、`mailTabs.setSelectedMessages`、`mailTabs.onDisplayedFolderChanged`、`messages.continueList`、`messages.abortList` 和三个 `messages` 事件），两项都判为通过。剩余项目与 2.0.0 相同：
+用 thunderbird/webext-linter 2.3.2 检查 3.1.0 的 xpi，并用 `--sca-root` 指向解压后的源代码包（审核 schema 为 Thunderbird 158.0.2 的 release-mv2）。unsafe-html 检查没有报告任何问题。它把 `messagesRead` 对应到四处调用（两处 `messageDisplay.getDisplayedMessage`、`messages.getAttachmentFile`，以及 3.1.0 新增的 `messages.getFull`，都在 `src/background/displayed.ts` 中），判为通过。所有 API 权限、6 个主机权限和可选权限（需要密钥的服务的 24 个主机，以及 `http://*/*`、`https://*/*`）都是 schema 认识的条目，6 个主机权限也通过了宽泛主机检查。远程图片的 `fetch()`（`src/background/remote-images.ts`）以参数传入 fetch 函数，所以用户数据外传检查没有列出它：它只发送一个不带 Cookie、来源页和请求体的 GET，只请求当前显示邮件 HTML 中写明的、位于公共主机上的地址，并且只在用户允许读取远程图片之后。2.2.0 之后新增的其他调用不需要 schema 中的权限：`messageDisplayAction.openPopup()`（打开带“允许读取远程图片”的弹出窗口）、针对可选主机的 `permissions.request()` 和 `permissions.remove()`、“复制为 Markdown”所用的 `navigator.clipboard.writeText()`。剩余项目与 2.0.0 相同：
 
 - sync-xhr（`bergamot-translator.js` 第 63、70 行）：Mozilla 原版胶水脚本中 Emscripten 文件加载器的两个同步 `XMLHttpRequest`。扩展不会执行到它们：worker 自行读取 wasm，并以 `wasmBinary` 传给 `loadBergamot()`（`src/offline/bergamot/worker.ts`、`worker-core.ts`），胶水脚本因此跳过加载器。这个文件已在 `VENDOR.md` 中声明；在源代码审核模式下，linter 只从源代码包读取 vendoring 声明，所以把 xpi 中的副本当作自写代码扫描。
 - 第三方来源无法自动审计（info）：胶水脚本没有发布在 npm 上，来源是 Firefox 仓库的固定提交，sha256 一致。
 - 本地化名称（de、es、fr、pt_BR、ru、vi）：“für”“para”“pour”“para”“для”“cho”都是“for”的意思，每个名称都是“<名称> for Thunderbird”的形式。
 - 可能未使用的权限 `sensitiveDataUpload`、`storage`、`unlimitedStorage`：见上文“权限”。
 - 可能未使用的文件：`bergamot-translator.js` 由 `bergamot-worker.js` 用 `importScripts()` 加载，`bergamot-translator.wasm.zst` 由它用 `fetch()` 读取；`welcome.html`（及 `welcome.css`）是新手引导，安装后以及从弹出面板和设置页通过 `tabs.create()` 打开。
-- 针对 `fetch()` 调用的用户数据外传检查：`src/offline/bergamot/manager.ts`（从 Mozilla 读取模型列表和模型文件）和 `src/offline/bergamot/index.ts`（它使用的 fetch）不发送用户数据；`src/offline/bergamot/worker.ts` 和 `src/shared/i18n-ext.ts` 读取扩展自身的文件；`scripts/fetch-bergamot.mjs` 属于构建脚本，只在缺少随包引擎时下载。邮件文字只在用户通过同意面板后发往翻译服务。
-- 构建过程审核：只有 `npm ci` 和 `npm run build`；`package.json` 中没有生命周期脚本。
+- 针对 `fetch()` 调用的用户数据外传检查：`src/offline/bergamot/manager.ts`（从 Mozilla 读取模型列表和模型文件，两处调用）和 `src/offline/bergamot/index.ts`（它使用的 fetch）不发送用户数据；`src/offline/bergamot/worker.ts` 和 `src/shared/i18n-ext.ts` 读取扩展自身的文件；`scripts/fetch-bergamot.mjs` 属于构建脚本，只在缺少随包引擎时下载。邮件文字只在用户通过同意面板后发往翻译服务。
+- 构建过程审核和 `package.json` 的构建配置（未声明的构建来源，unsure）：只有 `npm ci` 和 `npm run build`；`package.json` 中没有生命周期脚本。
