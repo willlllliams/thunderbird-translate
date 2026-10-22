@@ -4,37 +4,46 @@ import { join } from "node:path"
 import { describe, expect, it } from "vitest"
 import { DEFAULT_ATTACHMENTS_BASE, DEFAULT_SERVER_URL } from "../src/offline/bergamot/manager"
 import { RELEASES } from "../src/offline/dictionary/download"
-import { FIXED_HOSTS, isLoopback, isPublicHost, MS_EDGE_TRANSLATE_URL, originPattern, patternHost, providerOrigin, REMOTE_ORIGINS, requestUrl } from "../src/shared/hosts"
+import { FIXED_HOSTS, isLoopback, isPublicHost, KEYED_HOSTS, MS_EDGE_TRANSLATE_URL, originPattern, patternHost, providerOrigin, REMOTE_ORIGINS, requestUrl } from "../src/shared/hosts"
 import { PROVIDER_PRESETS } from "../src/shared/providers"
 import { DEEPL_FREE_URL, emptyProviderConfig, resolveProviderConfig } from "../src/shared/settings"
 
 const manifest = JSON.parse(readFileSync(join(__dirname, "..", "static", "manifest.json"), "utf8")) as { permissions: string[]; optional_permissions: string[] }
 const hostPermissions = manifest.permissions.filter((p) => p.includes("://"))
 const isFixedHost = (pattern: string) => FIXED_HOSTS.includes(pattern)
+const isKeyedHost = (pattern: string) => KEYED_HOSTS.includes(pattern)
 const resolved = (id: string, over: Partial<ReturnType<typeof emptyProviderConfig>> = {}) => resolveProviderConfig(id, { ...emptyProviderConfig(), ...over })
 
 describe("host permissions of the manifest", () => {
   it("list the fixed hosts and nothing broader, and leave out tabs and <all_urls>", () => {
     expect(hostPermissions).toEqual([...FIXED_HOSTS])
     expect(manifest.permissions.filter((p) => !p.includes("://"))).toEqual(["messagesModify", "messagesRead", "sensitiveDataUpload", "storage", "unlimitedStorage"])
-    for (const host of hostPermissions) expect(host).toMatch(/^https:\/\/[a-z0-9.-]+\.[a-z]+\/\*$/)
-    // Any address the user types, and the access to the remote images Thunderbird shows.
-    expect(manifest.optional_permissions).toEqual(["http://*/*", "https://*/*"])
-    expect(manifest.optional_permissions).toEqual([...REMOTE_ORIGINS])
+    for (const host of [...hostPermissions, ...KEYED_HOSTS]) expect(host).toMatch(/^https:\/\/[a-z0-9.-]+\.[a-z]+\/\*$/)
+    // The hosts of the key services, each by itself, then any address the user types and the access to the remote images Thunderbird shows.
+    expect(manifest.optional_permissions).toEqual([...KEYED_HOSTS, "http://*/*", "https://*/*"])
+    expect(manifest.optional_permissions.slice(-2)).toEqual([...REMOTE_ORIGINS])
+    expect(FIXED_HOSTS.filter(isKeyedHost)).toEqual([])
   })
 
-  it("cover the default endpoint of every preset that is not on this computer", () => {
+  it("hold the free routes from the start and leave the default endpoint of every preset with a key to its permission", () => {
     const online = PROVIDER_PRESETS.filter((p) => p.defaultBaseURL && !isLoopback(p.defaultBaseURL))
     // Google, Microsoft (Azure key mode), DeepL, Baidu, Youdao, Caiyun and 18 AI presets; Azure OpenAI, DeepLX and the custom endpoint have no default.
     expect(online).toHaveLength(24)
-    for (const preset of online) expect([preset.id, isFixedHost(originPattern(preset.defaultBaseURL)!)]).toEqual([preset.id, true])
+    // Google translates without a key; every other default endpoint needs one, and its host is optional.
+    for (const preset of online) {
+      const host = originPattern(preset.defaultBaseURL)!
+      expect([preset.id, isFixedHost(host), isKeyedHost(host)]).toEqual([preset.id, preset.id === "google-free", preset.id !== "google-free"])
+    }
     // The other default of DeepL, for the keys of its free plan.
-    expect(isFixedHost(originPattern(DEEPL_FREE_URL)!)).toBe(true)
-    for (const preset of PROVIDER_PRESETS.filter((p) => p.defaultBaseURL && isLoopback(p.defaultBaseURL))) expect(isFixedHost(originPattern(preset.defaultBaseURL)!)).toBe(false)
+    expect(isKeyedHost(originPattern(DEEPL_FREE_URL)!)).toBe(true)
+    // Every key host is the default of a preset: none is left over.
+    const defaults = new Set([...online.map((p) => originPattern(p.defaultBaseURL)), originPattern(DEEPL_FREE_URL)])
+    expect(KEYED_HOSTS.filter((host) => !defaults.has(host))).toEqual([])
+    for (const preset of PROVIDER_PRESETS.filter((p) => p.defaultBaseURL && isLoopback(p.defaultBaseURL))) expect([isFixedHost(originPattern(preset.defaultBaseURL)!), isKeyedHost(originPattern(preset.defaultBaseURL)!)]).toEqual([false, false])
   })
 
   it("cover the free Microsoft route, the Bergamot model list and files, and the dictionary releases", () => {
-    for (const url of [MS_EDGE_TRANSLATE_URL, DEFAULT_SERVER_URL, DEFAULT_ATTACHMENTS_BASE, RELEASES, "https://release-assets.githubusercontent.com/x", "https://objects.githubusercontent.com/x"]) {
+    for (const url of [MS_EDGE_TRANSLATE_URL, DEFAULT_SERVER_URL, DEFAULT_ATTACHMENTS_BASE, RELEASES, "https://release-assets.githubusercontent.com/x"]) {
       expect([url, isFixedHost(originPattern(url)!)]).toEqual([url, true])
     }
   })
@@ -139,7 +148,7 @@ describe("the privacy policy", () => {
   it("I8: names every fixed host of the machine translators and the offline data, in English and in Chinese", () => {
     // The endpoints of the AI presets are covered by "the endpoint of that service shown in the settings".
     const ai = new Set(PROVIDER_PRESETS.filter((p) => p.kind === "llm").map((p) => originPattern(p.defaultBaseURL)))
-    const hosts = FIXED_HOSTS.filter((pattern) => !ai.has(pattern)).map(patternHost)
+    const hosts = [...FIXED_HOSTS, ...KEYED_HOSTS].filter((pattern) => !ai.has(pattern)).map(patternHost)
     expect(hosts.length).toBeGreaterThan(10)
     for (const file of ["privacy-policy.md", "privacy-policy.zh-CN.md"]) {
       const policy = readFileSync(join(__dirname, "..", "store", file), "utf8")

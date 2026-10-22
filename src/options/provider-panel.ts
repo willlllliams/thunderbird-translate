@@ -202,6 +202,8 @@ function baiduFields(state: PanelState): HTMLElement[] {
     appIdField(state, t("hintBaiduAppId")),
     keyField(state, t("labelSecretKey")),
     choiceField(session, t("labelBaiduEdition"), t("tipBaiduEdition"), editions, cfg.edition ?? "standard", (v) => showEdition((cfg.edition = v)), hint),
+    // No endpoint field: the line for the fixed host of the service.
+    hostAccessLine(state.p.id, cfg).el,
   ]
 }
 
@@ -267,9 +269,9 @@ function providerFields(state: PanelState): HTMLElement[] {
     case "baidu":
       return baiduFields(state)
     case "youdao":
-      return [appIdField(state), keyField(state, t("labelAppSecret"))]
+      return [appIdField(state), keyField(state, t("labelAppSecret")), hostAccessLine(p.id, state.cfg).el]
     case "caiyun":
-      return [keyField(state, t("labelToken")), h("p", { className: "hint", text: t("hintCaiyun") })]
+      return [keyField(state, t("labelToken")), h("p", { className: "hint", text: t("hintCaiyun") }), hostAccessLine(p.id, state.cfg).el]
   }
   let baseHint: string | undefined
   if (p.id === "azure") baseHint = t("hintAzure")

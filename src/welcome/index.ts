@@ -24,6 +24,7 @@ import { h } from "../shared/dom"
 import { loadSystemLanguages } from "../options/offline-list"
 import { offlineSections } from "../options/offline-sections"
 import { PromptEditor } from "../options/prompt-editor"
+import { requestHostAccess } from "../options/host-access"
 import { providerConfig, servicePanel } from "../options/provider-panel"
 import { SettingsSession } from "../options/session"
 import { mountStyleControls } from "../options/style-controls"
@@ -400,6 +401,10 @@ async function main(): Promise<void> {
     if (prev) void go(prev)
   })
   const forward = () => {
+    // Leaving the step of a service that needs a host permission (a key service, an address typed): asked now, while
+    // the click is handled, so the first translation does not fail for it. A host allowed already asks nothing.
+    const service = step === "machine" ? settings.tiers.machine : step === "ai" ? settings.tiers.ai : null
+    if (service && settings.providers[service]?.enabled) void requestHostAccess(service, settings.providers[service])
     const next = neighbourStep(step, settings, 1)
     void (next ? go(next) : finish())
   }

@@ -260,6 +260,19 @@ describe("welcome page", () => {
     expect(page.stored().precise.enabled).toBe(true)
   })
 
+  it("P5: asks for the host of a key service when the user leaves its step, on a new install", async () => {
+    const page = await openPage("welcome", settings((s) => ((s.tiers.ai = "deepseek"), (s.providers.deepseek = { enabled: true, apiKey: "sk-test", baseURL: "", model: "" }))), {
+      stored: { [WELCOME_KEY]: { step: "ai" } },
+      permissions: { granted: [] },
+    })
+    await until(() => expect(current()).toBe("ai"))
+    // The line under the endpoint offers it as well.
+    await until(() => expect(document.querySelector<HTMLElement>("#aiPanel .host-access")!.hidden).toBe(false))
+    $("nextStep").click()
+    expect(page.browser.api.permissions.request).toHaveBeenCalledWith({ origins: ["https://api.deepseek.com/*"] })
+    await until(() => expect(current()).not.toBe("ai"))
+  })
+
   it("shows the online translator's fields only for the service of the machine tier", async () => {
     await openPage("welcome", settings((s) => (s.tiers.machine = "microsoft-free")), { stored: { [WELCOME_KEY]: { step: "machine" } } })
     await until(() => expect(current()).toBe("machine"))

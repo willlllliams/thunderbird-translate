@@ -54,6 +54,12 @@
     "unlimitedStorage",
     "https://translate.googleapis.com/*",
     "https://edge.microsoft.com/*",
+    "https://firefox.settings.services.mozilla.com/*",
+    "https://firefox-settings-attachments.cdn.mozilla.net/*",
+    "https://github.com/*",
+    "https://release-assets.githubusercontent.com/*"
+  ],
+  "optional_permissions": [
     "https://api.cognitive.microsofttranslator.com/*",
     "https://api-free.deepl.com/*",
     "https://api.deepl.com/*",
@@ -78,12 +84,8 @@
     "https://dashscope.aliyuncs.com/*",
     "https://api.siliconflow.cn/*",
     "https://ark.cn-beijing.volces.com/*",
-    "https://firefox.settings.services.mozilla.com/*",
-    "https://firefox-settings-attachments.cdn.mozilla.net/*",
-    "https://github.com/*",
-    "https://release-assets.githubusercontent.com/*",
-    "https://objects.githubusercontent.com/*"
+    "http://*/*",
+    "https://*/*"
   ],
-  "optional_permissions": ["http://*/*", "https://*/*"],
   "content_security_policy": "script-src 'self' 'wasm-unsafe-eval'; object-src 'self'"
 }

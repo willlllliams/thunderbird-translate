@@ -2,17 +2,21 @@
  * The addresses the extension connects to, and the host permissions that
  * cover them.
  *
- * The manifest lists the fixed addresses as host permissions (FIXED_HOSTS):
- * the machine translators (Google, Microsoft, DeepL with the hosts of its
- * free and paid keys, Baidu, Youdao, Caiyun), the default endpoint of every AI preset, Mozilla
+ * The manifest lists as host permissions (FIXED_HOSTS) the addresses that
+ * work without an account: the free routes of Google and Microsoft, Mozilla
  * Remote Settings with its attachment CDN for the Bergamot models, and the
- * GitHub releases with their download hosts for the dictionary packs. An
- * address the user types (Ollama, LM Studio, DeepLX, a custom or Azure
- * endpoint, a changed endpoint of a preset) is covered by the optional host
- * permissions: the settings page and the setup guide ask for it with
- * permissions.request() when the user clicks "Allow access" or "Test
+ * GitHub releases with their download host for the dictionary packs. The
+ * services that need a key of the user (KEYED_HOSTS: Microsoft with an Azure
+ * key, DeepL with the hosts of its free and paid keys, Baidu, Youdao, Caiyun,
+ * the default endpoint of every AI preset) are optional host permissions, as
+ * is an address the user types (Ollama, LM Studio, DeepLX, a custom or Azure
+ * endpoint, a changed endpoint of a preset): the settings page and the setup
+ * guide show "Allow access" for a service whose host is missing and ask for
+ * it with permissions.request() when the user clicks it or "Test
  * connection", and the background script refuses to send to an address it
- * has no permission for.
+ * has no permission for. An update keeps a host permission of the manifest
+ * that became optional granted (Firefox 75 and later, bug 1618500), so the
+ * users of 3.0 and earlier keep the access to their services.
  */
 
 import { getPreset } from "./providers"
@@ -23,9 +27,24 @@ export const MS_EDGE_TRANSLATE_URL = "https://edge.microsoft.com/translate/trans
 
 /** Host permissions of the manifest (static/manifest.json, checked by tests/hosts.test.ts). */
 export const FIXED_HOSTS: readonly string[] = [
-  // Machine translation
+  // Machine translation without a key
   "https://translate.googleapis.com/*",
   "https://edge.microsoft.com/*",
+  // Bergamot model list and model files
+  "https://firefox.settings.services.mozilla.com/*",
+  "https://firefox-settings-attachments.cdn.mozilla.net/*",
+  // Dictionary packs: the release download address and the host GitHub redirects it to
+  "https://github.com/*",
+  "https://release-assets.githubusercontent.com/*",
+]
+
+/**
+ * The default hosts of the services that need a key of the user, optional host permissions of the manifest
+ * (optional_permissions, checked by tests/hosts.test.ts). Each is listed by itself, not only covered by REMOTE_ORIGINS:
+ * an update keeps exactly these strings granted for a user who had them as host permissions of the manifest.
+ */
+export const KEYED_HOSTS: readonly string[] = [
+  // Machine translation with a key
   "https://api.cognitive.microsofttranslator.com/*",
   "https://api-free.deepl.com/*",
   "https://api.deepl.com/*",
@@ -51,19 +70,12 @@ export const FIXED_HOSTS: readonly string[] = [
   "https://dashscope.aliyuncs.com/*",
   "https://api.siliconflow.cn/*",
   "https://ark.cn-beijing.volces.com/*",
-  // Bergamot model list and model files
-  "https://firefox.settings.services.mozilla.com/*",
-  "https://firefox-settings-attachments.cdn.mozilla.net/*",
-  // Dictionary packs: the release download address and the hosts GitHub redirects it to
-  "https://github.com/*",
-  "https://release-assets.githubusercontent.com/*",
-  "https://objects.githubusercontent.com/*",
 ]
 
 /**
- * The optional host permissions of the manifest (optional_permissions, checked by tests/hosts.test.ts): every http and
- * https host. The settings page and the setup guide ask for the host of one endpoint; the popup and the settings page
- * ask for both patterns at once to read the remote images Thunderbird shows.
+ * The last optional host permissions of the manifest: every http and https host. The settings page and the setup
+ * guide ask for the host of one endpoint; the popup and the settings page ask for both patterns at once to read the
+ * remote images Thunderbird shows.
  */
 export const REMOTE_ORIGINS: readonly string[] = ["http://*/*", "https://*/*"]
 

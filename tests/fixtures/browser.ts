@@ -1,7 +1,7 @@
 /** The WebExtension API (`browser`) of Thunderbird as the background script, the extension pages and the content script see it. */
 import { vi } from "vitest"
 import { type BackgroundRequest, CONTENT_PORT_NAME, type PortPush, type PortReport } from "../../src/shared/messages"
-import { FIXED_HOSTS } from "../../src/shared/hosts"
+import { FIXED_HOSTS, KEYED_HOSTS } from "../../src/shared/hosts"
 import { fakeEvent } from "./events"
 import { fakeStorageArea, type StorageAreaOptions, type StorageChanges } from "./storage"
 
@@ -53,12 +53,16 @@ export interface FakeBrowserOptions {
   respond?: (req: BackgroundRequest) => unknown
   /** runtime.connect(); absent without it. */
   connect?: (info: { name: string }) => unknown
-  /** What tabs.query() reports; with { active: true }, `activeTabs`. */
-  tabs?: { id?: number; type?: string }[]
+  /** What tabs.query() reports; with { active: true }, `activeTabs`; with { url }, the tabs whose url starts as the pattern before its "*". */
+  tabs?: { id?: number; type?: string; url?: string }[]
   activeTabs?: { id?: number }[]
   /** What tabs.getCurrent() reports. */
   currentTab?: { id?: number }
-  /** Optional host permissions granted at the start; the host permissions of the manifest are granted too. */
+  /**
+   * Optional host permissions granted at the start; the host permissions of the manifest are granted too. By default
+   * the hosts of the key services (KEYED_HOSTS), as an update from 3.0, where they were host permissions of the
+   * manifest, keeps them granted.
+   */
   granted?: string[]
   /** Answer of the user to permissions.request(); true by default. */
   allowRequest?: boolean
@@ -74,7 +78,7 @@ export function fakeBrowser({
   tabs = [],
   activeTabs = [],
   currentTab = { id: 7 },
-  granted = [],
+  granted = [...KEYED_HOSTS],
   allowRequest = true,
 }: FakeBrowserOptions = {}) {
   const storageChanged = fakeEvent<[StorageChanges, string]>()
@@ -91,6 +95,8 @@ export function fakeBrowser({
   const removed: number[] = []
   /** Host permissions: those of the manifest and the optional ones granted. */
   const origins = new Set([...FIXED_HOSTS, ...granted])
+  /** As Gecko matches them: a host is covered by its own pattern or by the pattern of every host of its scheme. */
+  const covered = (origin: string) => origins.has(origin) || origins.has(`${origin.split("//")[0]}//*/*`)
   const permissionAdded = fakeEvent<[{ origins?: string[] }]>()
   const permissionRemoved = fakeEvent<[{ origins?: string[] }]>()
   const api = {
@@ -105,7 +111,8 @@ export function fakeBrowser({
     },
     storage: { local: { get: local.get, set: local.set, remove: local.remove }, onChanged: storageChanged },
     tabs: {
-      query: vi.fn(async (info: { active?: boolean } = {}) => (info.active ? activeTabs : tabs)),
+      query: vi.fn(async (info: { active?: boolean; url?: string } = {}) => (info.active ? activeTabs : info.url ? tabs.filter((tab) => tab.url?.startsWith(info.url!.replace(/\*$/, ""))) : tabs)),
+      update: vi.fn(async (_id: number, _details: { url?: string; active?: boolean }) => ({})),
       create: vi.fn(async ({ url }: { url: string }) => {
         created.push(url)
         return {}
@@ -125,9 +132,10 @@ export function fakeBrowser({
     },
     messageDisplayScripts: { register: vi.fn(async (_options: object) => ({ unregister: async () => {} })) },
     permissions: {
-      contains: vi.fn(async ({ origins: asked = [] }: { origins?: string[] }) => asked.every((origin) => origins.has(origin))),
+      contains: vi.fn(async ({ origins: asked = [] }: { origins?: string[] }) => asked.every(covered)),
+      // A host covered already is not recorded by itself, as in Gecko.
       request: vi.fn(async ({ origins: asked = [] }: { origins?: string[] }) => {
-        const fresh = asked.filter((origin) => !origins.has(origin))
+        const fresh = asked.filter((origin) => !covered(origin))
         if (fresh.length === 0) return true
         if (!allowRequest) return false
         for (const origin of fresh) origins.add(origin)
@@ -139,6 +147,7 @@ export function fakeBrowser({
         permissionRemoved.fire({ origins: removedOrigins })
         return true
       }),
+      getAll: vi.fn(async () => ({ origins: [...origins], permissions: [] as string[] })),
       onAdded: permissionAdded,
       onRemoved: permissionRemoved,
     },
