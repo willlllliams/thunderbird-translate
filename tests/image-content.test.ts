@@ -23,13 +23,18 @@ const TABLE = "| Original | Translation |\n| --- | --- |\n| Umsatz | Revenue |"
 const DONE: ImageResponse = { status: "done", text: TABLE, service: "OpenAI", cached: false, usage: { input: 1036, output: 80 } }
 const part = (n: string) => `mailbox:///C:/Inbox?number=3&part=${n}&filename=x.png`
 
-/** Give the images of the body a natural size and mark them loaded, as Thunderbird would; jsdom loads nothing. */
-function sizeImages(sizes: Record<string, [number, number]> = {}): void {
+/**
+ * Give the images of the body a natural size and mark them loaded, as Thunderbird would; jsdom loads and lays out
+ * nothing. An image is drawn at its natural size unless `drawn` gives another.
+ */
+function sizeImages(sizes: Record<string, [number, number]> = {}, drawn: Record<string, [number, number]> = {}): void {
   for (const img of Array.from(document.querySelectorAll("img"))) {
     const [width, height] = sizes[img.id] ?? [400, 200]
+    const [w, h] = drawn[img.id] ?? [width, height]
     Object.defineProperty(img, "naturalWidth", { value: width, configurable: true })
     Object.defineProperty(img, "naturalHeight", { value: height, configurable: true })
     Object.defineProperty(img, "complete", { value: true, configurable: true })
+    img.getBoundingClientRect = () => ({ width: w, height: h, x: 0, y: 0, top: 0, left: 0, right: w, bottom: h, toJSON: () => ({}) })
   }
 }
 
@@ -643,6 +648,46 @@ describe("remote images", () => {
     images.start(run())
     await until(() => expect(buttons()).toHaveLength(1))
     expect(document.querySelector(".tt-image-notice")).toBeNull()
+  })
+
+  it("A8: neither reads nor counts a remote image the reader does not see", async () => {
+    const mounted = mount((req) => (req.action === "peek" ? { status: "ready" } : DONE), `<p id="para"><img id="shrunk" src="${R1}"></p>
+<p><img id="none" src="https://cdn.example.com/a.png" style="display:none"></p>
+<p><img id="clear" src="https://cdn.example.com/b.png" style="opacity:0"></p>
+<p><img id="unseen" src="https://cdn.example.com/c.png" style="visibility:hidden"></p>
+<p><img id="seen" src="https://cdn.example.com/d.png" style="opacity:0.5"></p>
+<p><img id="beacon" src="https://track.example.com/p.gif" style="width:1px;height:1px"></p>
+<p><img id="hidden" src="https://track.example.com/q.gif" style="display:none"></p>
+<p><img id="half" src="https://track.example.com/r.gif" width="300" style="height: 2px"></p>`)
+    // Natural 400 × 200, drawn at 1 × 1 by its style; the three beacons are blocked.
+    sizeImages({ beacon: [0, 0], hidden: [0, 0], half: [0, 0] }, { shrunk: [1, 1] })
+    mounted.images.start(mounted.run())
+    await until(() => expect(buttons()).toHaveLength(1))
+    expect(sent(mounted.request, "peek").map((req) => req.source)).toEqual([{ url: "https://cdn.example.com/d.png" }])
+    expect(mounted.images.leftOut).toEqual({ access: 0, unloaded: 0, unreadable: 0 })
+  })
+
+  it("A9: counts copies of one address once, and the remote images beyond the ones peeked at that wait for the access", async () => {
+    const copies = `<p id="para"><img id="a1" src="${R2}"><img id="a2" src="${R2}"><img id="a3" src="${R2}"></p><p><img id="o1" src="blob:x"><img id="o2" src="blob:x"></p>`
+    const blocked = mount(undefined, copies)
+    sizeImages({ a1: [0, 0], a2: [0, 0], a3: [0, 0] })
+    blocked.images.start(blocked.run())
+    await until(() => expect(blocked.images.leftOut).toEqual({ access: 0, unloaded: 1, unreadable: 1 }))
+    const many = `<p id="para">${[1, 2, 3, 4].map((i) => `<img id="m${i}" src="https://cdn.example.com/${i}.png">`).join("")}</p>`
+    const waiting = mount((req) => ("url" in req.source ? { status: "access" } : { status: "ready" }), many)
+    waiting.images.start(waiting.run({ maxPerMessage: 1 }))
+    await until(() => expect(waiting.images.leftOut.access).toBe(4))
+    expect([sent(waiting.request, "peek").length, sent(waiting.request, "access").length]).toEqual([2, 2])
+    expect(noticeLines()[0]).toBe(ENGLISH.t("imageNoticeAccess", [4]))
+    // An answer of a translation stopped meanwhile counts nothing.
+    const answers: ((r: ImageResponse) => void)[] = []
+    const late = mount((req) => (req.action === "access" ? new Promise<ImageResponse>((resolve) => answers.push(resolve)) : { status: "ready" }), many)
+    late.images.start(late.run({ maxPerMessage: 1 }))
+    await until(() => expect(sent(late.request, "access")).toHaveLength(2))
+    late.images.stop()
+    for (const answer of answers) answer({ status: "access" })
+    await nextTask()
+    expect(late.images.leftOut.access).toBe(0)
   })
 
   it("counts a remote image that fails to load after the start", async () => {

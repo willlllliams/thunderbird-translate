@@ -85,3 +85,13 @@ export function filterShape(c: Omit<ImageCandidate, "src">, s: Pick<PublicImageS
   if (Math.max(c.width, c.height) / short > s.maxAspect) return "aspect"
   return null
 }
+
+/** The media type of an image read off the first bytes of its file: PNG, GIF, JPEG or WebP; null for anything else. */
+export function sniffImageType(bytes: Uint8Array): string | null {
+  const ascii = (at: number, length: number) => String.fromCharCode(...bytes.subarray(at, at + length))
+  if (bytes[0] === 0x89 && ascii(1, 3) === "PNG") return "image/png"
+  if (ascii(0, 4) === "GIF8") return "image/gif"
+  if (bytes[0] === 0xff && bytes[1] === 0xd8 && bytes[2] === 0xff) return "image/jpeg"
+  if (ascii(0, 4) === "RIFF" && ascii(8, 4) === "WEBP") return "image/webp"
+  return null
+}

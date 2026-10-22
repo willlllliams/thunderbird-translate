@@ -16,7 +16,10 @@
  * - "off": nothing.
  *
  * Only the first images, twice the limit per message, are peeked at; the
- * others get the button at once and are read when it is clicked.
+ * others get the button at once and are read when it is clicked (for a
+ * remote image among them the background script only tells whether the
+ * access is there). In mode "ask" the peek of a remote image sends nothing
+ * to its server.
  *
  * A cached result shows at once, without a button. Before the first image
  * goes to a service the user has not allowed to receive images, a panel
@@ -35,8 +38,10 @@
  * One notice above the message tells what image translation leaves out and
  * why: remote images waiting for that access, remote images Thunderbird did
  * not load (remote content blocked, or a broken address), and images whose
- * address the extension cannot read. It has a close button and stays away
- * for the message once closed.
+ * address the extension cannot read, each counted once per address. It has a
+ * close button and stays away for the message once closed. A remote image
+ * the reader cannot see (hidden by its style, or drawn at 2 px or less) is a
+ * tracking image: it is neither read nor counted.
  *
  * A change of the mode or of the image settings draws everything again
  * without reloading the message, as a change of the display mode does; the
@@ -67,6 +72,16 @@ const INSIDE = new Set(["TD", "TH", "LI", "DD", "DT", "CAPTION"])
 
 /** The key of an image by where it comes from: copies of one image share it. */
 const sourceKey = (entry: { source: ImageRequest["source"] }) => JSON.stringify(entry.source)
+
+/** Whether the style of `img` hides it: display none, visibility hidden or collapse, opacity 0. */
+function hiddenByStyle(img: HTMLImageElement): boolean {
+  const style = img.ownerDocument.defaultView?.getComputedStyle(img)
+  if (!style) return false
+  return style.display === "none" || style.visibility === "hidden" || style.visibility === "collapse" || (style.opacity !== "" && Number(style.opacity) === 0)
+}
+
+/** A length of the attributes or the inline style of an image in pixels ("1", "1px"); NaN for none or another unit. */
+const pixels = (value: string | null) => (value && /^\s*\d+(\.\d+)?\s*(px)?\s*$/i.test(value) ? Number.parseFloat(value) : Number.NaN)
 
 
 /** What the consent panel says about the data policy of a service; the others handle images by their own privacy policy. */
@@ -120,9 +135,9 @@ export class ImageTranslator {
   private memo = new Map<string, ImageResponse>()
   /** The remote images on screen that wait for the access to remote images, by sourceKey(). */
   private access = new Set<string>()
-  /** Remote images Thunderbird did not load, and loaded images whose address cannot be read, that would pass the filters otherwise. */
-  private unloaded = new Set<HTMLImageElement>()
-  private unreadable = new Set<HTMLImageElement>()
+  /** Remote images Thunderbird did not load, and loaded images whose address cannot be read, that would pass the filters otherwise; by address, so copies count once. */
+  private unloaded = new Set<string>()
+  private unreadable = new Set<string>()
   /** The image whose button was clicked while the access was missing, by sourceKey(): sent once the access is there. */
   private pending: string | null = null
   /** The notice above the message, and whether the user closed it (for the message). */
@@ -266,11 +281,11 @@ export class ImageTranslator {
       return
     }
     if (img.naturalWidth === 0) {
-      // No pixels: a remote image Thunderbird blocked or could not load counts by the size of its attributes, a tracking pixel never.
-      const side = (name: string) => Number(img.getAttribute(name) || Number.NaN)
-      const tiny = side("width") <= 2 || side("height") <= 2
-      if (source.kind === "remote" && !tiny && !(place.inSignature && run.settings.skipSignature) && run.settings.sources.inline) {
-        this.unloaded.add(img)
+      // No pixels: a remote image Thunderbird blocked or could not load counts by the size of its attributes and of its
+      // inline style; a tracking pixel and a hidden image never.
+      const tiny = [img.getAttribute("width"), img.getAttribute("height"), img.style.width, img.style.height].some((value) => pixels(value) <= 2)
+      if (source.kind === "remote" && !tiny && !hiddenByStyle(img) && !(place.inSignature && run.settings.skipSignature) && run.settings.sources.inline) {
+        this.unloaded.add(source.url)
         this.drawNote()
       }
       return
@@ -278,10 +293,15 @@ export class ImageTranslator {
     const candidate = { width: img.naturalWidth, height: img.naturalHeight, src, ...place }
     if (source.kind === "other") {
       if (filterShape(candidate, run.settings) === null) {
-        this.unreadable.add(img)
+        this.unreadable.add(src)
         this.drawNote()
       }
       return
+    }
+    // A remote image the reader does not see is a beacon, whatever its natural size: it is not read again.
+    if (source.kind === "remote") {
+      const drawn = img.getBoundingClientRect()
+      if (drawn.width <= 2 || drawn.height <= 2 || hiddenByStyle(img)) return
     }
     if (filterImage(candidate, run.settings) !== null) return
     const anchor = img.closest(".moz-attached-image-container") ?? run.units.find((unit) => unit.el.contains(img))?.el ?? img.closest("a") ?? img
@@ -320,7 +340,10 @@ export class ImageTranslator {
   private async peekAll(entries: Entry[], round: number): Promise<void> {
     const max = this.run!.settings.maxPerMessage
     const peeked = entries.filter((entry) => entry.index <= 2 * max)
-    for (const entry of entries) if (!peeked.includes(entry)) this.showButton(entry)
+    const later = entries.filter((entry) => !peeked.includes(entry))
+    for (const entry of later) this.showButton(entry)
+    // The remote images among the others count in the notice when they wait for the access; nothing of them is read.
+    void this.countAccess(later.filter((entry) => "url" in entry.source), round)
     const answers = await Promise.all(peeked.map((entry) => this.memo.get(this.memoKey(entry)) ?? this.request(entry, "peek")))
     if (round !== this.round) return
     const auto = this.run!.settings.mode === "auto"
@@ -352,6 +375,15 @@ export class ImageTranslator {
     }
     // In the order of the message: the queue of the background script sends them in the order they arrive.
     await Promise.all(send.map((entry) => this.translate(entry, round)))
+  }
+
+  /** Whether the remote images `entries`, beyond the ones peeked at, wait for the access: they count in the notice. */
+  private async countAccess(entries: Entry[], round: number): Promise<void> {
+    if (entries.length === 0) return
+    const answers = await Promise.all(entries.map((entry) => this.request(entry, "access")))
+    if (round !== this.round) return
+    entries.forEach((entry, i) => answers[i].status === "access" && this.access.add(sourceKey(entry)))
+    this.drawNote()
   }
 
   /** Send one image and show the answer. */

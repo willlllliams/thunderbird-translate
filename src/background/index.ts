@@ -33,7 +33,7 @@ import type { OfflineService } from "../shared/offline-needs"
 import { TranslationService } from "./service"
 import { openWelcomeOnInstall } from "./welcome"
 import { beforeSettingsRead } from "../hooks/background"
-import { releaseFetch } from "../hooks/servers"
+import { localImageOrigin, releaseFetch } from "../hooks/servers"
 
 declare const __DEBUG__: boolean
 
@@ -94,6 +94,8 @@ const images = new ImageService({
   displayed: displayedMessageId,
   part: messagePart,
   imageUrls: messageImageAddresses,
+  // Test build (npm run e2e): the remote images of the local mock server; any other build reads public hosts only.
+  localOrigin: localImageOrigin,
   // Written by the request: taken over at once, so the image that waits for it sees the consent.
   recordConsent: async (ids, hosts) => settings.adopt(await updateSettings((s) => void (s.imageConsent = [...new Set([...s.imageConsent, ...grantedEntries(s, ids, hosts)])]))),
   glossary: (contextId) => service.glossaryOf(contextId),

@@ -17,6 +17,14 @@ function whenAborted(signal: AbortSignal): Promise<never> {
   return aborted
 }
 
+/** The body of a response is longer than the limit of readBody(). */
+export class BodyTooLargeError extends Error {
+  constructor() {
+    super("The body is larger than its limit.")
+    this.name = "BodyTooLargeError"
+  }
+}
+
 /** The length the response announces for its body; 0 when unknown or when the body is decoded (Content-Encoding), which changes its length. */
 function announcedLength(response: Response): number {
   const headers = response.headers
@@ -29,17 +37,24 @@ function announcedLength(response: Response): number {
  * The whole body of a response; `onProgress` gets the number of bytes received so far after every chunk. Reading stops
  * when `signal` aborts. When the response announces its length, the chunks go straight into one buffer of that size,
  * so a model file of 40 MB needs 40 MB and not twice as much; a body longer than announced is collected in pieces.
+ * A body longer than `maxBytes` throws BodyTooLargeError: before anything is read when the announced length is
+ * larger, otherwise as soon as the bytes received pass it, and the rest of the body is dropped.
  */
-async function readBody(response: Response, onProgress: (received: number) => void, signal: AbortSignal): Promise<Uint8Array<ArrayBuffer>> {
+export async function readBody(response: Response, onProgress: (received: number) => void, signal: AbortSignal, maxBytes = Infinity): Promise<Uint8Array<ArrayBuffer>> {
   const aborted = whenAborted(signal)
   const wait = <T>(promise: Promise<T>) => Promise.race([promise, aborted])
+  const announced = announcedLength(response)
+  if (announced > maxBytes) {
+    response.body?.cancel().catch(() => {})
+    throw new BodyTooLargeError()
+  }
   if (!response.body) {
     const bytes = new Uint8Array(await wait(response.arrayBuffer()))
+    if (bytes.byteLength > maxBytes) throw new BodyTooLargeError()
     onProgress(bytes.byteLength)
     return bytes
   }
   const reader = response.body.getReader()
-  const announced = announcedLength(response)
   let buffer: Uint8Array<ArrayBuffer> | null = announced ? new Uint8Array(announced) : null
   const chunks: Uint8Array[] = []
   let received = 0
@@ -47,6 +62,7 @@ async function readBody(response: Response, onProgress: (received: number) => vo
     for (;;) {
       const { done, value } = await wait(reader.read())
       if (done) break
+      if (received + value.byteLength > maxBytes) throw new BodyTooLargeError()
       if (buffer && received + value.byteLength <= buffer.byteLength) buffer.set(value, received)
       else {
         if (buffer) chunks.push(buffer.subarray(0, received))

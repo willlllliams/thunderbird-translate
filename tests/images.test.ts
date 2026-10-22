@@ -65,13 +65,14 @@ describe("the bytes of an image", () => {
     expect(isAnimated(new Uint8Array([0xff, 0xd8, 0xff, 0xe0]))).toBe(false)
   })
 
-  it("reads a GIF in time linear in its size", () => {
-    // One frame and a million bytes of sub-blocks: every block is skipped by its length.
-    const blocks = new Array(4000).fill([255, ...new Array(255).fill(1)]).flat()
-    const big = new Uint8Array([...gif(1).subarray(0, -6), ...blocks, 0, 0x3b])
-    const t0 = performance.now()
+  it("skips the sub-blocks of a GIF by their lengths, up to the image descriptor after them", () => {
+    // One frame and a million bytes of sub-blocks, whose bytes would read as image descriptors (0x2c) one by one.
+    const blocks = new Array(4000).fill([255, ...new Array(255).fill(0x2c)]).flat()
+    const big = new Uint8Array([...gif(1).subarray(0, -6), 2, ...blocks, 0, 0x3b])
     expect(isAnimated(big)).toBe(false)
-    expect(performance.now() - t0).toBeLessThan(200)
+    // A second image after the same blocks is found.
+    const frame = [0x2c, 0, 0, 0, 0, 1, 0, 1, 0, 0x80, 0, 0, 0, 255, 255, 255, 2, 2, 0x4c, 0x01, 0]
+    expect(isAnimated(new Uint8Array([...gif(1).subarray(0, -6), 2, ...blocks, 0, ...frame, 0x3b]))).toBe(true)
   })
 
   it("encodes at the long edge with the quality of the settings, then lower qualities, then three smaller sizes", () => {
@@ -425,7 +426,9 @@ describe("the consent for images", () => {
     const first = s.ask()
     await until(() => expect(s.read).toHaveBeenCalledTimes(1))
     const second = s.ask({ source: { data: `data:image/png;base64,${Buffer.from(png(6000)).toString("base64")}` }, index: 2 })
-    await new Promise((r) => setTimeout(r, 20))
+    // Decoded: the image waits in the queue of the service.
+    await until(() => expect(s.codec.decode).toHaveBeenCalledTimes(2))
+    await nextTask()
     s.settings.imageConsent = []
     release()
     expect((await first).status).toBe("done")
@@ -525,7 +528,9 @@ describe("the limits of a message", () => {
     const first = s.ask({ source: { part: "3.1" } })
     await until(() => expect(s.read).toHaveBeenCalledTimes(1))
     const waiting = s.ask({ source: { part: "3.2" } })
-    await new Promise((r) => setTimeout(r, 20))
+    // Decoded: the image waits in the queue of the service.
+    await until(() => expect(s.codec.decode).toHaveBeenCalledTimes(2))
+    await nextTask()
     s.images.forget("s1")
     // The request on its way is aborted as well.
     expect(signals[0]?.aborted).toBe(true)
@@ -538,7 +543,9 @@ describe("the limits of a message", () => {
     void other.ask({ source: { part: "3.1" } })
     await until(() => expect(other.read).toHaveBeenCalledTimes(1))
     const queued = other.ask({ source: { part: "3.2" } })
-    await new Promise((r) => setTimeout(r, 20))
+    // Decoded: the image waits in the queue of the service.
+    await until(() => expect(other.codec.decode).toHaveBeenCalledTimes(2))
+    await nextTask()
     other.read.mockImplementation(async () => ({ text: TABLE, truncated: false }))
     expect((await other.ask({ source: { part: "3.3" }, round: 2, fresh: true })).status).toBe("done")
     // The first request was aborted and gave its slot to the second, which was not sent; the third went.
@@ -551,7 +558,9 @@ describe("the limits of a message", () => {
     const busy = off.ask({ source: { part: "3.1" } })
     await until(() => expect(off.read).toHaveBeenCalledTimes(1))
     const pending = off.ask({ source: { part: "3.2" } })
-    await new Promise((r) => setTimeout(r, 20))
+    // Decoded: the image waits in the queue of the service.
+    await until(() => expect(off.codec.decode).toHaveBeenCalledTimes(2))
+    await nextTask()
     off.settings.image.mode = "off"
     hold()
     await busy
@@ -872,12 +881,15 @@ describe("a remote image", () => {
   const URL_B = "https://mirror.example.com/offer.png"
   const pngResponse = (bytes: Uint8Array<ArrayBuffer> = png(), headers: Record<string, string> = {}) => new Response(bytes, { headers: { "content-type": "image/png", ...headers } })
 
-  /** The image service with the host permissions `granted`, a message whose HTML names `urls`, and the web answering `respond`. */
-  function remote({ granted = ["https://*/*"], urls = [URL_A], respond = () => pngResponse(), deps = {} }: { granted?: string[]; urls?: string[]; respond?: (url: string) => Response; deps?: Partial<ImageDeps> } = {}) {
+  /**
+   * The image service in mode `mode` ("auto" by default: a peek reads the image) with the host permissions `granted`,
+   * a message whose HTML names `urls`, and the web answering `respond`.
+   */
+  function remote({ granted = ["https://*/*"], urls = [URL_A], respond = () => pngResponse(), deps = {}, mode = "auto" }: { granted?: string[]; urls?: string[]; respond?: (url: string) => Response; deps?: Partial<ImageDeps>; mode?: "ask" | "auto" } = {}) {
     const hasOrigin = vi.fn(async (origin: string) => granted.includes(origin) || granted.includes(`${origin.split("//")[0]}//*/*`))
     const imageUrls = vi.fn(async (_message: number) => new Set(urls))
     const remoteFetch = vi.fn(async (url: string | URL | Request, _init?: RequestInit) => respond(String(url)))
-    const s = service({ deps: { hasOrigin, imageUrls, remoteFetch: remoteFetch as unknown as typeof fetch, ...deps } })
+    const s = service({ settings: settingsWithImages((x) => (x.image.mode = mode)), deps: { hasOrigin, imageUrls, remoteFetch: remoteFetch as unknown as typeof fetch, ...deps } })
     const askRemote = (url = URL_A, over: Partial<ImageRequest> = {}) => s.ask({ source: { url }, ...over })
     return { ...s, hasOrigin, imageUrls, remoteFetch, askRemote }
   }
@@ -900,7 +912,7 @@ describe("a remote image", () => {
     expect(imageUrls).toHaveBeenCalledWith(42)
     expect(imageUrls).toHaveBeenCalledTimes(1)
     expect(remoteFetch).toHaveBeenCalledTimes(1)
-    expect(remoteFetch.mock.calls[0][1]).toMatchObject({ credentials: "omit", cache: "force-cache", referrerPolicy: "no-referrer" })
+    expect(remoteFetch.mock.calls[0][1]).toMatchObject({ credentials: "omit", cache: "default", referrerPolicy: "no-referrer" })
     expect(codec.encoded).toEqual([[400, 200, "image/jpeg", 0.85]])
     expect(read).toHaveBeenCalledTimes(1)
   })
@@ -963,6 +975,92 @@ describe("a remote image", () => {
     const answers: ImageResponse[] = []
     for (const url of urls) answers.push(await many.askRemote(url))
     expect(answers.map((a) => a.status)).toEqual(["done", "done", "done", "done", "done", "skipped"])
+  })
+
+  it("A1: is never read from this computer or the local network, except the server the e2e build names", async () => {
+    const { askRemote, remoteFetch, imageUrls, hasOrigin } = remote({ granted: ["http://*/*"], urls: ["http://192.168.1.1/cam.jpg"] })
+    expect(await askRemote("http://192.168.1.1/cam.jpg", { action: "peek" })).toEqual({ status: "skipped", reason: ENGLISH.t("imageRemotePrivate") })
+    expect(await askRemote("http://192.168.1.1/cam.jpg")).toEqual({ status: "skipped", reason: ENGLISH.t("imageRemotePrivate") })
+    expect([remoteFetch.mock.calls.length, imageUrls.mock.calls.length, hasOrigin.mock.calls.length]).toEqual([0, 0, 0])
+    // A redirect into the local network: unreadable, and nothing is sent.
+    const redirected = remote({ respond: () => Object.defineProperty(pngResponse(), "url", { value: "http://127.0.0.1/x.png" }) })
+    expect(await redirected.askRemote()).toEqual({ status: "skipped", reason: ENGLISH.t("imageUnreadable") })
+    expect(redirected.read).not.toHaveBeenCalled()
+    const e2e = remote({ granted: ["http://*/*", "https://*/*"], urls: ["http://127.0.0.1:8123/remote/offer.png"], deps: { localOrigin: "http://127.0.0.1:8123" } })
+    expect((await e2e.askRemote("http://127.0.0.1:8123/remote/offer.png")).status).toBe("done")
+  })
+
+  it("A3: in mode ask is not requested before a click, and shows the result of the bytes translated last at its address in the message", async () => {
+    let bytes = png(5000)
+    const s = remote({ mode: "ask", urls: [URL_A, URL_B], respond: () => pngResponse(bytes) })
+    expect(await s.askRemote(URL_A, { action: "peek" })).toEqual({ status: "ready" })
+    expect(s.remoteFetch).not.toHaveBeenCalled()
+    // The click.
+    expect((await s.askRemote(URL_A)).status).toBe("done")
+    expect(s.remoteFetch).toHaveBeenCalledTimes(1)
+    // The message shown again: the result comes without a request; another address of the message has none yet.
+    s.images.open("s2", 3)
+    const peek = (url: string, over: Partial<ImageRequest> = {}) => s.images.request("s2", 3, { source: { url }, width: 400, height: 200, index: 1, action: "peek", round: 1, ...over })
+    expect(await peek(URL_A)).toMatchObject({ status: "done", cached: true })
+    expect(await peek(URL_B)).toEqual({ status: "ready" })
+    // The same bytes at the other address, after its click, come from the cache and are noted for that address too.
+    expect(await s.images.request("s2", 3, { source: { url: URL_B }, width: 400, height: 200, index: 2, action: "translate", round: 1 })).toMatchObject({ status: "done", cached: true })
+    expect(await peek(URL_B, { round: 2 })).toMatchObject({ status: "done", cached: true })
+    expect(s.remoteFetch).toHaveBeenCalledTimes(2)
+    expect(s.read).toHaveBeenCalledTimes(1)
+    // A retranslation forgets the result; another message with the same address has no result of its own.
+    expect(await peek(URL_A, { round: 3, fresh: true })).toEqual({ status: "ready" })
+    expect(await peek(URL_A, { round: 3 })).toEqual({ status: "ready" })
+    bytes = png(6000)
+    const other = remote({ mode: "ask", deps: { displayed: async () => 43 } })
+    expect(await other.askRemote(URL_A, { action: "peek" })).toEqual({ status: "ready" })
+    // A message that is gone has no result either.
+    const gone = remote({ mode: "ask", deps: { displayed: async () => null } })
+    expect(await gone.askRemote(URL_A, { action: "peek" })).toEqual({ status: "ready" })
+    expect([other.remoteFetch.mock.calls.length, gone.remoteFetch.mock.calls.length]).toEqual([0, 0])
+  })
+
+  it("A9: tells for an image beyond the ones peeked at whether the access is there, and reads nothing", async () => {
+    const without = remote({ granted: [] })
+    expect(await without.askRemote(URL_A, { action: "access" })).toEqual({ status: "access" })
+    const allowed = remote()
+    expect(await allowed.askRemote(URL_A, { action: "access" })).toEqual({ status: "ready" })
+    expect(await allowed.ask({ action: "access" })).toEqual({ status: "ready" })
+    expect([allowed.remoteFetch.mock.calls.length, allowed.imageUrls.mock.calls.length, allowed.part.mock.calls.length]).toEqual([0, 0, 0])
+  })
+
+  it("A4: a request of a translation that a retranslation replaced while it read its image sends nothing and counts nothing", async () => {
+    let release!: () => void
+    const gate = new Promise<void>((resolve) => (release = resolve))
+    const remoteFetch = vi.fn(async (url: string | URL | Request) => {
+      if (String(url) === URL_A) await gate
+      return pngResponse(png(String(url) === URL_A ? 5000 : 5001))
+    })
+    const s = remote({ urls: [URL_A, URL_B], deps: { remoteFetch: remoteFetch as unknown as typeof fetch } })
+    s.settings.image.maxPerMessage = 1
+    const old = s.askRemote(URL_A, { round: 1 })
+    await until(() => expect(remoteFetch).toHaveBeenCalledTimes(1))
+    // The retranslation arrives while the image of round 1 is being read.
+    const fresh = s.askRemote(URL_B, { round: 2, fresh: true, index: 2 })
+    release()
+    expect(await old).toEqual({ status: "skipped", reason: ENGLISH.t("imageOff"), quiet: true })
+    expect((await fresh).status).toBe("done")
+    // Only the image of the new round went out, under its own ledger.
+    expect(s.read).toHaveBeenCalledTimes(1)
+    expect(s.codec.decode).toHaveBeenCalledTimes(1)
+  })
+
+  it("A5: a retranslation while a peek reads the image shares the reading instead of failing", async () => {
+    let release!: () => void
+    const gate = new Promise<void>((resolve) => (release = resolve))
+    const remoteFetch = vi.fn(async () => (await gate, pngResponse()))
+    const s = remote({ deps: { remoteFetch: remoteFetch as unknown as typeof fetch } })
+    const first = s.askRemote(URL_A, { action: "peek", round: 1 })
+    await until(() => expect(remoteFetch).toHaveBeenCalledTimes(1))
+    const again = s.askRemote(URL_A, { action: "peek", round: 2, fresh: true })
+    release()
+    expect([await first, await again]).toEqual([{ status: "ready" }, { status: "ready" }])
+    expect(remoteFetch).toHaveBeenCalledTimes(1)
   })
 
   it("aborts its request when the content script goes away", async () => {

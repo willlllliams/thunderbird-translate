@@ -4,7 +4,7 @@ import { join } from "node:path"
 import { describe, expect, it } from "vitest"
 import { DEFAULT_ATTACHMENTS_BASE, DEFAULT_SERVER_URL } from "../src/offline/bergamot/manager"
 import { RELEASES } from "../src/offline/dictionary/download"
-import { FIXED_HOSTS, isLoopback, MS_EDGE_TRANSLATE_URL, originPattern, patternHost, providerOrigin, REMOTE_ORIGINS, requestUrl } from "../src/shared/hosts"
+import { FIXED_HOSTS, isLoopback, isPublicHost, MS_EDGE_TRANSLATE_URL, originPattern, patternHost, providerOrigin, REMOTE_ORIGINS, requestUrl } from "../src/shared/hosts"
 import { PROVIDER_PRESETS } from "../src/shared/providers"
 import { DEEPL_FREE_URL, emptyProviderConfig, resolveProviderConfig } from "../src/shared/settings"
 
@@ -70,6 +70,68 @@ describe("addresses of the services", () => {
   it("tell the addresses of this computer", () => {
     for (const url of ["http://localhost:11434/v1", "http://api.localhost/", "http://127.0.0.1:1234/v1", "http://127.1.2.3/", "http://[::1]:8080/"]) expect([url, isLoopback(url)]).toEqual([url, true])
     for (const url of ["https://api.openai.com/v1", "http://192.168.0.2/", "http://localhost.example.com/", "nonsense"]) expect([url, isLoopback(url)]).toEqual([url, false])
+  })
+})
+
+describe("the hosts of the public internet", () => {
+  it("leave out this computer, the local network and the special ranges, however the address is written", () => {
+    const local = [
+      "http://localhost/x.png",
+      "http://LOCALHOST./x.png",
+      "http://cam.localhost/x.png",
+      "http://printer.local/x.png",
+      "http://nas.internal/x.png",
+      "http://router.home.arpa/x.png",
+      "http://intranet/x.png",
+      "http://127.0.0.1:8080/x.png",
+      "http://127.1/x.png",
+      "http://2130706433/x.png",
+      "http://0x7f000001/x.png",
+      "http://0177.0.0.1/x.png",
+      "http://0.0.0.0/x.png",
+      "http://10.1.2.3/x.png",
+      "http://100.64.0.1/x.png",
+      "http://100.127.255.255/x.png",
+      "http://169.254.169.254/latest/meta-data",
+      "http://172.16.0.1/x.png",
+      "http://172.31.255.255/x.png",
+      "http://192.168.1.1/x.png",
+      "http://198.18.0.1/x.png",
+      "http://224.0.0.1/x.png",
+      "http://255.255.255.255/x.png",
+      "http://[::1]/x.png",
+      "http://[::]/x.png",
+      "http://[fc00::1]/x.png",
+      "http://[fd12:3456::1]/x.png",
+      "http://[fe80::1]/x.png",
+      "http://[ff02::1]/x.png",
+      "http://[::ffff:127.0.0.1]/x.png",
+      "http://[::ffff:192.168.0.2]/x.png",
+      "http://[64:ff9b::a00:1]/x.png",
+      "http://[64:ff9b:1::1]/x.png",
+      "http://[2002:c0a8:1::1]/x.png",
+      "http://[2001:db8::1]/x.png",
+      "http://[100::1]/x.png",
+      "not a url",
+    ]
+    for (const url of local) expect([url, isPublicHost(url)]).toEqual([url, false])
+    const internet = [
+      "https://cdn.example.com/x.png",
+      "https://CDN.Example.COM./x.png",
+      "http://93.184.216.34/x.png",
+      "http://100.63.255.255/x.png",
+      "http://100.128.0.1/x.png",
+      "http://172.15.0.1/x.png",
+      "http://172.32.0.1/x.png",
+      "http://8.8.8.8/x.png",
+      "http://[2606:4700::1111]/x.png",
+      "http://[::ffff:8.8.8.8]/x.png",
+      "http://[64:ff9b::808:808]/x.png",
+      "http://[2002:808:808::1]/x.png",
+      "https://localhost.example.com/x.png",
+      "https://mail.local-news.com/x.png",
+    ]
+    for (const url of internet) expect([url, isPublicHost(url)]).toEqual([url, true])
   })
 })
 

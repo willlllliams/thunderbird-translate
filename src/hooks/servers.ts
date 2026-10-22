@@ -14,3 +14,6 @@ export const releaseFetch: typeof fetch | undefined = undefined
 
 /** Remote Settings server of the Bergamot models; undefined: Mozilla's. */
 export const bergamotServerUrl: string | undefined = undefined
+
+/** The origin of a server on this computer whose remote images the extension may read; undefined: none, only public hosts. */
+export const localImageOrigin: string | undefined = undefined

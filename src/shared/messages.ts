@@ -207,8 +207,12 @@ export interface ImageRequest {
   height: number
   /** Its place among the images of the message that pass the filters of the content script, from 1. */
   index: number
-  /** "peek": the cached result, or whether the image passes the filters of the background script, with nothing sent; "translate": send it to the service. */
-  action: "peek" | "translate"
+  /**
+   * "peek": the cached result, or whether the image passes the filters of the background script, with nothing sent
+   * (in mode "ask" nothing goes to the server of a remote image either); "translate": send it to the service;
+   * "access": for a remote image only whether the extension may read it ("access" or "ready"), with nothing read.
+   */
+  action: "peek" | "translate" | "access"
   /** Precise mode: the id of the message registered as context, whose analysis lends its glossary. */
   context?: string
   /** Retranslation: a peek forgets the cached result, a translation passes the cache. */

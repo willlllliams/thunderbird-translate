@@ -1,6 +1,6 @@
 /** Downloads of dictionary packs and offline models (shared/download.ts): the body in one buffer of the announced length. */
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
-import { downloadBody } from "../src/shared/download"
+import { BodyTooLargeError, downloadBody, readBody } from "../src/shared/download"
 import { useFakeTimers } from "./helpers"
 
 beforeEach(() => useFakeTimers())
@@ -44,5 +44,17 @@ describe("download body", () => {
     expect(await read(chunked([[1], [2, 3]]))).toEqual({ bytes: [1, 2, 3], length: 3, buffer: 3, progress: [1, 3] })
     expect(await read(chunked([[1], [2, 3]], { "content-length": "2", "content-encoding": "gzip" }))).toEqual({ bytes: [1, 2, 3], length: 3, buffer: 3, progress: [1, 3] })
     expect(await read(chunked([[1]], { "content-length": "many" }))).toMatchObject({ bytes: [1] })
+  })
+
+  it("A18: stops at a limit: by the announced length before reading, by the bytes received, also for a body without a stream", async () => {
+    const signal = new AbortController().signal
+    const announced = chunked([[1, 2, 3]], { "content-length": "3" })
+    await expect(readBody(announced, () => {}, signal, 2)).rejects.toBeInstanceOf(BodyTooLargeError)
+    // A compressed body announces the length before decoding: the bytes received count.
+    await expect(readBody(chunked([[1, 2], [3]], { "content-length": "1", "content-encoding": "gzip" }), () => {}, signal, 2)).rejects.toBeInstanceOf(BodyTooLargeError)
+    expect([...(await readBody(chunked([[1], [2]]), () => {}, signal, 2))]).toEqual([1, 2])
+    const streamless = (bytes: number[]) => Object.defineProperty(new Response(new Uint8Array(bytes)), "body", { value: null })
+    await expect(readBody(streamless([1, 2, 3]), () => {}, signal, 2)).rejects.toBeInstanceOf(BodyTooLargeError)
+    expect([...(await readBody(streamless([1, 2]), () => {}, signal, 2))]).toEqual([1, 2])
   })
 })
