@@ -38,7 +38,8 @@
 //    The "image-remote" run opens remote.eml, written for the run with the address of the mock server: a banner, a
 //    tracking pixel and an image that answers 404, all remote; Thunderbird shows remote content in the e2e profile
 //    (e2e/thunderbird.mjs). In mode "On" the banner goes by itself, read again from the mock server without cookies or
-//    referrer, the pixel is left out, and the notice above the message counts the image that did not load.
+//    referrer (twice in all: once by Thunderbird, once by the extension, whose cache Thunderbird does not fill), the
+//    pixel is left out, and the notice above the message counts the image that did not load.
 // 8. Two Thunderbirds started without a message open the setup guide
 //    (src/welcome/), where the probe of src/e2e/welcome.ts skips the tour of the
 //    tiers step and watches its demo (first run only), then clicks through to the
@@ -390,7 +391,8 @@ function checkImage(c, ready, report, calls) {
     expect(slots.every((slot) => slot.remote === "/remote/offer.png"), "something appeared under another image than the remote banner", slots)
     expect(images.length === 1 && images[0].image.text.startsWith("Image 1 "), "mode auto did not send the remote banner alone", images)
     const fetched = calls.filter((x) => x.type === "remote" && x.path === "/remote/offer.png")
-    expect(fetched.length >= 1 && fetched.every((x) => !x.cookie), "the remote banner was not requested, or a request carried a cookie", fetched)
+    // Thunderbird once to show it, the extension once to read it: the peek keeps the bytes for the upload.
+    expect(fetched.length === 2 && fetched.every((x) => !x.cookie), "the remote banner was not requested once by Thunderbird and once by the extension, or a request carried a cookie", fetched)
     expect(report.remote?.notice?.some((line) => line.startsWith("Remote images not loaded: 1.")) && report.remote.leftOut?.unloaded === 1 && report.remote.leftOut.access === 0, "the notice does not count the remote image that did not load", report.remote)
     return failures
   }
