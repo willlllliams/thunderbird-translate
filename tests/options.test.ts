@@ -478,6 +478,17 @@ describe("service panel", () => {
       expect(old.hidden).toBe(false)
     })
 
+    it("counts a request that fails after the prompt as refused", async () => {
+      const page = await options((s) => (s.providers.deeplx = { enabled: true, apiKey: "", baseURL: "https://deeplx.example/translate", model: "" }))
+      page.browser.api.permissions.request.mockRejectedValue(new Error("prompt closed"))
+      pick("DeepLX")
+      await until(() => expect(line().hidden).toBe(false))
+      button(ENGLISH.t("buttonAllowHost")).click()
+      await until(() => expect(page.browser.api.permissions.request).toHaveBeenCalled())
+      await vi.advanceTimersByTimeAsync(0)
+      expect(line().hidden).toBe(false)
+    })
+
     it("asks for the endpoint first when the connection test is clicked, and tests also when refused", async () => {
       const order: string[] = []
       const page = await options((s) => (s.providers.custom = { enabled: true, apiKey: "", baseURL: "https://llm.example/v1", model: "m" }), {

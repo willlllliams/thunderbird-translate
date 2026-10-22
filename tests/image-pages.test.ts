@@ -311,6 +311,26 @@ describe("the access to remote images", () => {
     expect(page.browser.api.permissions.remove).toHaveBeenCalledWith({ origins: ["http://*/*", "https://*/*"] })
   })
 
+  it("counts a permission API that fails as no access, in the popup and on the settings page", async () => {
+    const popup = await openPage("popup", precise(), { activeTab: { id: 3 }, respond: waiting(2) })
+    popup.browser.api.permissions.contains.mockRejectedValue(new Error("gone"))
+    popup.browser.api.permissions.request.mockRejectedValue(new Error("prompt closed"))
+    await until(() => expect($("remoteAccess").hidden).toBe(false))
+    $("remoteAccessAllow").click()
+    await until(() => expect(popup.browser.api.permissions.request).toHaveBeenCalled())
+    await vi.advanceTimersByTimeAsync(0)
+    expect($("remoteAccess").hidden).toBe(false)
+    const page = await openPage("options", precise(), { permissions: { granted: ["http://*/*", "https://*/*"] } })
+    await until(() => expect($("imageRemoteState").textContent).toBe(ENGLISH.t("optionsRemoteAllowed")))
+    page.browser.api.permissions.remove.mockRejectedValue(new Error("gone"))
+    $("imageRemoteRevoke").click()
+    await until(() => expect(page.browser.api.permissions.remove).toHaveBeenCalled())
+    page.browser.api.permissions.contains.mockRejectedValue(new Error("gone"))
+    page.browser.api.permissions.request.mockRejectedValue(new Error("prompt closed"))
+    $("imageRemoteAllow").click()
+    await until(() => expect($("imageRemoteState").textContent).toBe(ENGLISH.t("optionsRemoteMissing")))
+  })
+
   it("A10: names the services that connect only through it before it is removed", async () => {
     const settings = precise((s) => {
       s.providers.ollama = { enabled: true, apiKey: "", baseURL: "", model: "" }

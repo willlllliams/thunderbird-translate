@@ -900,6 +900,10 @@ describe("a remote image", () => {
     expect(await askRemote()).toEqual({ status: "access" })
     expect(hasOrigin).toHaveBeenCalledWith("https://cdn.example.com/*")
     expect([remoteFetch.mock.calls.length, imageUrls.mock.calls.length, read.mock.calls.length]).toEqual([0, 0, 0])
+    // A permission check that fails counts as no access.
+    const failing = remote({ deps: { hasOrigin: async () => Promise.reject(new Error("gone")) } })
+    expect(await failing.askRemote(URL_A, { action: "peek" })).toEqual({ status: "access" })
+    expect(failing.remoteFetch).not.toHaveBeenCalled()
     // Without a permission check at all, nothing is read either.
     const bare = service()
     expect(await bare.ask({ source: { url: URL_A }, action: "peek" })).toEqual({ status: "access" })

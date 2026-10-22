@@ -600,9 +600,12 @@ describe("remote images", () => {
     await until(() => expect(requestAccess).toHaveBeenCalledTimes(1))
     expect(slots()[0].querySelector(".tt-image-note")!.textContent).toBe(ENGLISH.t("imageAccessAsked"))
     expect(sent(request, "translate")).toEqual([])
+    // The button beside the note asks again, for a popup that was closed.
+    slots()[0].querySelector<HTMLButtonElement>("button")!.click()
+    expect(requestAccess).toHaveBeenCalledTimes(2)
     // The button of the notice asks too.
     document.querySelector<HTMLButtonElement>(".tt-image-notice li button")!.click()
-    expect(requestAccess).toHaveBeenCalledTimes(2)
+    expect(requestAccess).toHaveBeenCalledTimes(3)
     // Allowed in the popup: the settings come again with a new count of the host permissions.
     access.granted = true
     images.update(imageSettings({ mode: "ask", hostAccess: 1 }), "zh-CN")
