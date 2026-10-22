@@ -2,6 +2,23 @@
 
 All notable changes to this project are documented in this file, with the date of each version. It lists what users of the extension notice. The record up to 1.12.0 with the internal changes is kept in [docs/archive/CHANGELOG-full.md](docs/archive/CHANGELOG-full.md). Versions follow [Semantic Versioning](https://semver.org/).
 
+## 3.1.0 - 2026-10-22
+
+Version 3.1 translates the text in the remote images of a message, the images a newsletter loads from the internet, once Thunderbird shows them. Until now these images were skipped without a word.
+
+### Remote images
+
+- A remote image takes part when Thunderbird already shows it: you allowed remote content for the message or its sender, and the image has loaded. The extension never loads a remote image that Thunderbird blocks.
+- Reading remote images needs an access you give once: "Allow reading remote images" in the popup, which appears while the message on screen has remote images waiting for it, or on the settings page under the image settings. Thunderbird then asks whether the extension may access all websites.
+- Without the access, a remote image gets the "Translate image text" button as usual; a click opens the popup with "Allow reading remote images". After you allow it, the images are read again: the image you clicked is sent, and in the mode "On" the images go by themselves.
+- The extension reads such an image again from its address, without cookies and without a referrer, often from the cache of Thunderbird, at most 15 MB per image, and only at an address the message itself names.
+- Everything else stays as for the other images: the filters, the consent per service, the limits per message, and the scaling and JPEG encoding before the upload.
+- "Remove access" on the settings page ends the reading of remote images.
+
+### A notice about images left out
+
+- A notice above the message says what image translation leaves out: remote images waiting for the access, remote images Thunderbird did not load ("Show the remote content of this message to translate their text"), and images whose address cannot be read. It has a close button and stays away for the message once closed.
+
 ## 3.0.0 - 2026-10-21
 
 Version 3.0 translates the text in the images of a message. With precise translation on, an AI service reads an image and the text appears under it: the original and its translation side by side. The extension draws nothing on an image and generates no image. The summary can now open by itself, and with precise translation one request writes the analysis of the message and its summary.
