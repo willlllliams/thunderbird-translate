@@ -10,6 +10,7 @@
 // - the dictionary packs of a GitHub release (dict-index.json and the packs en -> zh-Hans and zh-Hans -> en built from fixtures/)
 // - Mozilla Remote Settings for Bergamot (/bergamot/v1/): the server root, the model records of en -> zh-Hans and
 //   zh-Hans -> en and the zstd-compressed attachments, all made of fake bytes
+// - the remote images of the "image-remote" run: /remote/offer.png, /remote/pixel.png, and 404 for any other /remote/ address;
 // - what the extension reports: /ready, /mark, /log, /report, and which scenario to run: /scenario
 // Answers are delayed so that the tiers arrive in a fixed order: dictionary, Google, AI.
 import { createHash } from "node:crypto"
@@ -17,6 +18,7 @@ import { mkdirSync, readFileSync, writeFileSync } from "node:fs"
 import { createServer } from "node:http"
 import { join } from "node:path"
 import { gzipSync, zstdCompressSync } from "node:zlib"
+import { remoteOffer, remotePixel } from "./png.mjs"
 
 /** System prompt phrases of the two display modes, of the summary and of an image (src/shared/prompts.ts). */
 const PROMPT_MODES = [
@@ -302,6 +304,14 @@ export async function startMockServer({ fixtures, screenshots, googleDelayMs = 3
         if (!data) return send(res, 404, "not found", "text/plain")
         calls.push({ type: "download", file, at: Date.now() })
         return sendInChunks(res, data, "application/gzip")
+      }
+      // The remote images of the "image-remote" run: a banner, a tracking pixel, and an address that answers 404.
+      if (req.method === "GET" && url.pathname.startsWith("/remote/")) {
+        calls.push({ type: "remote", path: url.pathname, cookie: req.headers.cookie ?? "", referer: req.headers.referer ?? "", at: Date.now() })
+        const image = { "/remote/offer.png": remoteOffer, "/remote/pixel.png": remotePixel }[url.pathname]
+        if (!image) return send(res, 404, "no such image", "text/plain", false)
+        res.writeHead(200, { "Content-Type": "image/png", "Content-Length": image.length, "Cache-Control": "max-age=3600" })
+        return res.end(image)
       }
       if (req.method === "GET" && url.pathname === "/scenario") return send(res, 200, scenario, "text/plain")
       if (req.method === "GET" && url.pathname === "/bergamot/v1/") {

@@ -47,6 +47,8 @@ const PREFS = {
   "toolkit.telemetry.reportingpolicy.firstRun": false,
   "browser.shell.checkDefaultBrowser": false,
   "mail.biff.play_sound": false,
+  // Remote content in every message: the "image-remote" run reads remote images Thunderbird shows; no other fixture has one.
+  "mailnews.message_display.disable_remote_image": false,
   // Console output of the extension in the log of the run.
   "devtools.console.stdout.chrome": true,
   "devtools.console.stdout.content": true,

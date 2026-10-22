@@ -15,31 +15,7 @@
 import { writeFileSync } from "node:fs"
 import { dirname, join } from "node:path"
 import { fileURLToPath } from "node:url"
-import { crc32, deflateSync } from "node:zlib"
-
-/** A PNG of width × height, RGB, with the colour of each pixel from `pixel(x, y)`. */
-function png(width, height, pixel) {
-  const chunk = (type, data) => {
-    const head = Buffer.alloc(8)
-    head.writeUInt32BE(data.length, 0)
-    head.write(type, 4, "ascii")
-    const crc = Buffer.alloc(4)
-    crc.writeUInt32BE(crc32(Buffer.concat([Buffer.from(type, "ascii"), data])) >>> 0, 0)
-    return Buffer.concat([head, data, crc])
-  }
-  const header = Buffer.alloc(13)
-  header.writeUInt32BE(width, 0)
-  header.writeUInt32BE(height, 4)
-  header.set([8, 2, 0, 0, 0], 8)
-  const raw = Buffer.alloc((width * 3 + 1) * height)
-  for (let y = 0; y < height; y++) {
-    for (let x = 0; x < width; x++) raw.set(pixel(x, y), y * (width * 3 + 1) + 1 + x * 3)
-  }
-  return Buffer.concat([Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]), chunk("IHDR", header), chunk("IDAT", deflateSync(raw)), chunk("IEND", Buffer.alloc(0))])
-}
-
-/** Deterministic noise in 0–255. */
-const noise = (x, y) => (Math.imul(x * 374761393 + y * 668265263, 1274126177) >>> 24) & 255
+import { noise, png } from "./png.mjs"
 
 /** Bars with labels as dark boxes on white, and rows of noise, so the file is larger than a plain drawing. */
 const chart = png(400, 200, (x, y) => {

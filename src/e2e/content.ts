@@ -28,7 +28,9 @@
  * "image-auto" it waits for the chart to be sent by itself and the receipt
  * to keep its button; in "image-off" it waits and finds nothing; in
  * "image-switch" it changes the mode from "ask" to "auto", "off" and back,
- * while the message stays translated.
+ * while the message stays translated; in "image-remote" (remote.eml, remote
+ * content shown) it waits for the result under the remote image and the
+ * notice that counts the remote image that did not load.
  * In the "auto" scenario (automatic translation on) it starts nothing and
  * waits until automatic translation has translated every paragraph; in
  * "auto-skip" (a message in the target language) it waits a fixed time and
@@ -246,6 +248,7 @@ export function createContentProbe(): ContentProbe {
       const result = slot.querySelector<HTMLDetailsElement>(".tt-image-result")
       return {
         part: img?.getAttribute("src")?.match(/[?&]part=([\d.]+)/)?.[1] ?? null,
+        remote: img?.getAttribute("src")?.match(/\/remote\/[\w.-]+$/)?.[0] ?? null,
         button: slot.querySelector(":scope > button")?.textContent ?? null,
         consent: slot.querySelector(".tt-image-consent")?.textContent ?? null,
         result: result && {
@@ -274,6 +277,13 @@ export function createContentProbe(): ContentProbe {
     if (scenario === "image-off") {
       await new Promise((r) => setTimeout(r, 1500))
       report.off = { slots: imageSlots(), state: last }
+      return
+    }
+    if (scenario === "image-remote") {
+      const notice = () => Array.from(document.querySelectorAll(".tt-image-notice li"), (li) => li.textContent)
+      await until("the result under the remote image and the notice", () => imageResults() === 1 && notice().length > 0)
+      report.remote = { slots: imageSlots(), notice: notice(), leftOut: parts!.images?.leftOut }
+      await send({ e2e: "screenshot", name: "image-remote", windowType: "mail:messageWindow" })
       return
     }
     if (scenario === "image-auto") {

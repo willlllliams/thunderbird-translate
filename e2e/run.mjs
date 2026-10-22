@@ -35,6 +35,10 @@
 //    interface, the message comes back as it was, and translated again the cache answers; in "image-auto" the chart
 //    goes by itself and the receipt keeps its button (one image per message); in "image-off" nothing appears and
 //    nothing is sent; in "image-switch" the mode changes three times while the message stays translated.
+//    The "image-remote" run opens remote.eml, written for the run with the address of the mock server: a banner, a
+//    tracking pixel and an image that answers 404, all remote; Thunderbird shows remote content in the e2e profile
+//    (e2e/thunderbird.mjs). In mode "On" the banner goes by itself, read again from the mock server without cookies or
+//    referrer, the pixel is left out, and the notice above the message counts the image that did not load.
 // 8. Two Thunderbirds started without a message open the setup guide
 //    (src/welcome/), where the probe of src/e2e/welcome.ts skips the tour of the
 //    tiers step and watches its demo (first run only), then clicks through to the
@@ -46,7 +50,7 @@
 //
 // THUNDERBIRD_BIN selects the Thunderbird binary. Exit code 1 on any failure.
 import { execFileSync } from "node:child_process"
-import { mkdirSync, readFileSync } from "node:fs"
+import { mkdirSync, readFileSync, writeFileSync } from "node:fs"
 import { dirname, join } from "node:path"
 import { fileURLToPath } from "node:url"
 import { startMockServer } from "./mock-server.mjs"
@@ -83,9 +87,35 @@ const SCENARIOS = [
   { name: "summary", eml: "html.eml", scenario: "summary" },
   // The text in images: a button and the consent, one image by itself, nothing, and a change of the mode.
   ...["ask", "auto", "off", "switch"].map((mode) => ({ name: `image-${mode}`, eml: "image.eml", scenario: `image-${mode}` })),
+  // Remote images Thunderbird shows: the banner goes by itself, the image that did not load counts in the notice.
+  { name: "image-remote", eml: "remote.eml", generated: true, scenario: "image-remote" },
   { name: "welcome", scenario: "welcome" },
   { name: "welcome-auto", scenario: "welcome-auto" },
 ]
+
+/** The message of the "image-remote" run, with remote images on the mock server at `server`. */
+function remoteEml(server) {
+  return `From: Offers <news@example.com>
+To: Bob Stone <bob@example.com>
+Subject: This week's offers
+Date: Tue, 13 Oct 2026 09:00:00 +0000
+Message-ID: <tt-e2e-remote@example.com>
+MIME-Version: 1.0
+Content-Type: text/html; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+<html>
+<head><meta charset="utf-8"></head>
+<body>
+<p>Dear reader, the offers of this week are in the picture below; they end on Sunday evening.</p>
+<p><img src="${server}/remote/offer.png" alt="Offers" width="400" height="200"></p>
+<p>Thank you for reading our newsletter, and see you next week with new offers.</p>
+<p><img src="${server}/remote/pixel.png" alt="" width="1" height="1"></p>
+<p><img src="${server}/remote/missing.png" alt="Coupon" width="300" height="300"></p>
+</body>
+</html>
+`
+}
 
 const TIER_ORDER = ["dictionary", "machine", "ai"]
 const CJK = /[一-鿿]/
@@ -353,6 +383,17 @@ function checkImage(c, ready, report, calls) {
     expect(images.length === 0, "an image was sent while image translation is off", images)
     return failures
   }
+  if (c.scenario === "image-remote") {
+    const slots = report.remote?.slots ?? []
+    const offer = slots.find((slot) => slot.remote === "/remote/offer.png")
+    expect(result(offer) && !offer.result.title.includes("cached"), "the remote banner has no result of its own request", slots)
+    expect(slots.every((slot) => slot.remote === "/remote/offer.png"), "something appeared under another image than the remote banner", slots)
+    expect(images.length === 1 && images[0].image.text.startsWith("Image 1 "), "mode auto did not send the remote banner alone", images)
+    const fetched = calls.filter((x) => x.type === "remote" && x.path === "/remote/offer.png")
+    expect(fetched.length >= 1 && fetched.every((x) => !x.cookie), "the remote banner was not requested, or a request carried a cookie", fetched)
+    expect(report.remote?.notice?.some((line) => line.startsWith("Remote images not loaded: 1.")) && report.remote.leftOut?.unloaded === 1 && report.remote.leftOut.access === 0, "the notice does not count the remote image that did not load", report.remote)
+    return failures
+  }
   if (c.scenario === "image-auto") {
     const chart = report.auto?.find((slot) => slot.part === IMAGE_PARTS.chart)
     const receipt = report.auto?.find((slot) => slot.part === IMAGE_PARTS.receipt)
@@ -511,6 +552,7 @@ async function main() {
   const screenshots = join(work, "screenshots")
   const server = await startMockServer({ fixtures, screenshots, log: (m) => extensionLog.push(m) })
   console.log(`mock server: ${server.url}`)
+  writeFileSync(join(work, "remote.eml"), remoteEml(server.url))
 
   // The test build, against the mock server.
   execFileSync(process.execPath, [join(root, "scripts", "build.mjs"), "--e2e", server.url], { cwd: root, stdio: ["ignore", "ignore", "inherit"] })
@@ -530,7 +572,7 @@ async function main() {
       extensionLog.length = 0
       const logFile = join(work, `thunderbird-${c.name}.log`)
       const started = Date.now()
-      const tb = launch(bin, profile, c.eml && join(fixtures, c.eml), logFile)
+      const tb = launch(bin, profile, c.eml && join(c.generated ? work : fixtures, c.eml), logFile)
       let failures
       try {
         // A Thunderbird that fails to start (missing libraries, crash) ends the wait early.

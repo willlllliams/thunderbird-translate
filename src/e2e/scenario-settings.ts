@@ -21,9 +21,10 @@ export const MACHINE = [
 /**
  * The mode of image translation of each image run: "image-ask" clicks a button, allows the service in the panel and
  * reads the result again from the cache; "image-auto" sends the first image by itself and leaves the button under the
- * second; "image-off" shows nothing; "image-switch" changes the mode while the message is translated.
+ * second; "image-off" shows nothing; "image-switch" changes the mode while the message is translated; "image-remote" sends
+ * the remote image Thunderbird shows by itself and counts the one that did not load.
  */
-export const IMAGE_MODES: Partial<Record<string, ImageMode>> = { "image-ask": "ask", "image-auto": "auto", "image-off": "off", "image-switch": "ask" }
+export const IMAGE_MODES: Partial<Record<string, ImageMode>> = { "image-ask": "ask", "image-auto": "auto", "image-off": "off", "image-switch": "ask", "image-remote": "auto" }
 
 /** The settings of `scenario`; `server` is the address of the mock server. */
 export function scenarioSettings(scenario: string, server: string): Settings {
@@ -57,6 +58,6 @@ export function scenarioSettings(scenario: string, server: string): Settings {
   // The earlier runs share the profile and its cache: in these runs Google, the AI service and the machine translators
   // have to answer themselves, not the cache. Every other run has the cache on, the "summary" run to answer its second
   // request from it.
-  settings.cache.enabled = !(scenario === "missing" || scenario.startsWith("auto") || scenario === "consent" || machine || scenario === "image-auto" || scenario === "image-switch")
+  settings.cache.enabled = !(scenario === "missing" || scenario.startsWith("auto") || scenario === "consent" || machine || scenario === "image-auto" || scenario === "image-switch" || scenario === "image-remote")
   return settings
 }
