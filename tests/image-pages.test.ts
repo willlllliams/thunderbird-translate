@@ -269,3 +269,45 @@ describe("setup guide", () => {
     expect($("imageUnsupported").textContent).toBe(ENGLISH.t("hintVisionNo", ["glm-4-flash", "glm-4.6v-flash"]))
   })
 })
+
+describe("the access to remote images", () => {
+  const waiting = (remoteImages: number) => (req: BackgroundRequest) => (req.type === "getTabState" ? { ...IDLE_TAB_STATE, connected: true, remoteImages } : undefined)
+
+  it("is offered in the popup while the message has remote images waiting for it, and asked for with the click", async () => {
+    const page = await openPage("popup", precise(), { activeTab: { id: 3 }, respond: waiting(2) })
+    await until(() => expect($("remoteAccess").hidden).toBe(false))
+    expect($("remoteAccessText").textContent).toBe(ENGLISH.t("popupRemoteImages", [2]))
+    expect([$("remoteAccessAllow").textContent, $("remoteAccessAllow").title]).toEqual([ENGLISH.t("buttonRemoteAccess"), ENGLISH.t("tipRemoteAccessPopup")])
+    $("remoteAccessAllow").click()
+    // The first call of the click: Thunderbird asks only from a user action.
+    expect(page.browser.api.permissions.request).toHaveBeenCalledWith({ origins: ["http://*/*", "https://*/*"] })
+    await until(() => expect($("remoteAccess").hidden).toBe(true))
+  })
+
+  it("stays away in the popup without remote images waiting, with the access, and when the user refuses it stays", async () => {
+    await openPage("popup", precise(), { activeTab: { id: 3 }, respond: waiting(0) })
+    await until(() => expect($("status").textContent).not.toBe(""))
+    expect($("remoteAccess").hidden).toBe(true)
+    await openPage("popup", precise(), { activeTab: { id: 3 }, respond: waiting(2), permissions: { granted: ["http://*/*", "https://*/*"] } })
+    await until(() => expect($("status").textContent).not.toBe(""))
+    expect($("remoteAccess").hidden).toBe(true)
+    const refused = await openPage("popup", precise(), { activeTab: { id: 3 }, respond: waiting(1), permissions: { allowRequest: false } })
+    await until(() => expect($("remoteAccess").hidden).toBe(false))
+    $("remoteAccessAllow").click()
+    await until(() => expect(refused.browser.api.permissions.request).toHaveBeenCalled())
+    expect($("remoteAccess").hidden).toBe(false)
+  })
+
+  it("is shown, granted and removed on the settings page", async () => {
+    const page = await openPage("options", precise())
+    await until(() => expect($("imageRemoteState").textContent).toBe(ENGLISH.t("optionsRemoteMissing")))
+    expect([$("imageRemoteAllow").hidden, $("imageRemoteRevoke").hidden]).toEqual([false, true])
+    $("imageRemoteAllow").click()
+    expect(page.browser.api.permissions.request).toHaveBeenCalledWith({ origins: ["http://*/*", "https://*/*"] })
+    await until(() => expect($("imageRemoteState").textContent).toBe(ENGLISH.t("optionsRemoteAllowed")))
+    expect([$("imageRemoteAllow").hidden, $("imageRemoteRevoke").hidden]).toEqual([true, false])
+    $("imageRemoteRevoke").click()
+    await until(() => expect($("imageRemoteState").textContent).toBe(ENGLISH.t("optionsRemoteMissing")))
+    expect(page.browser.api.permissions.remove).toHaveBeenCalledWith({ origins: ["http://*/*", "https://*/*"] })
+  })
+})

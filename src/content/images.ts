@@ -3,10 +3,10 @@
  *
  * While the message is translated, every image of the body and every image
  * attachment Thunderbird shows under it goes through the filters of
- * shared/image.ts (remote images never); the background script reads the
- * bytes of those that pass, applies the filters on the bytes and tells
- * whether a result is cached ("peek", nothing is sent). Then, by the mode of
- * the settings:
+ * shared/image.ts; a remote image only once it has loaded, that is once
+ * Thunderbird shows it. The background script reads the bytes of those that
+ * pass, applies the filters on the bytes and tells whether a result is
+ * cached ("peek", nothing is sent). Then, by the mode of the settings:
  *
  * - "ask": a "Translate image text" button under each image; a click sends that image only;
  * - "auto": the first images, up to the limit per message, are sent one
@@ -27,6 +27,17 @@
  * tables and the column names in the interface language. An answer NO_TEXT
  * shows a grey line for three seconds after a click and nothing in "auto".
  *
+ * A remote image the extension may not read yet (no host permission) gets
+ * the button in both modes; its click, or the button of the notice, has the
+ * background script open the popup, where the user allows reading remote
+ * images (a content script cannot ask for a permission). Once allowed, the
+ * images are read again, and the image whose button was clicked is sent.
+ * One notice above the message tells what image translation leaves out and
+ * why: remote images waiting for that access, remote images Thunderbird did
+ * not load (remote content blocked, or a broken address), and images whose
+ * address the extension cannot read. It has a close button and stays away
+ * for the message once closed.
+ *
  * A change of the mode or of the image settings draws everything again
  * without reloading the message, as a change of the display mode does; the
  * results come from the memory of this page or the cache. A change of how
@@ -39,7 +50,7 @@
 
 import { button, h } from "../shared/dom"
 import { getI18n, type MessageKey, t } from "../shared/i18n"
-import { filterImage, imageSource } from "../shared/image"
+import { filterImage, filterShape, imageSource } from "../shared/image"
 import { TABLE_HEADER } from "../shared/image-prompt"
 import { markdownFragment } from "../shared/markdown"
 import type { ImageRequest, ImageResponse } from "../shared/messages"
@@ -67,6 +78,10 @@ export interface ImageTranslatorDeps {
   request: (req: ImageRequest) => Promise<ImageResponse>
   /** The user allowed `ids` to receive images at the `hosts` the panel named; `message`: for this message only. */
   grant: (ids: string[], message: boolean, hosts?: string[]) => void
+  /** The user asked for the access to remote images: the background script opens the popup, which can request it. */
+  requestAccess?: () => void
+  /** The count of remote images on screen that wait for that access, for the popup. */
+  reportRemote?: (count: number) => void
 }
 
 /** What the translation of the message tells: the settings, its paragraphs (an image inside one gets its block after it), the context of precise translation, and whether it is a retranslation. */
@@ -103,6 +118,18 @@ export class ImageTranslator {
   private consent: { el: HTMLElement; answer: Promise<boolean>; settle: (allowed: boolean) => void } | null = null
   /** Results of this page by image and signature of the settings: a new mode draws them again without asking. */
   private memo = new Map<string, ImageResponse>()
+  /** The remote images on screen that wait for the access to remote images, by sourceKey(). */
+  private access = new Set<string>()
+  /** Remote images Thunderbird did not load, and loaded images whose address cannot be read, that would pass the filters otherwise. */
+  private unloaded = new Set<HTMLImageElement>()
+  private unreadable = new Set<HTMLImageElement>()
+  /** The image whose button was clicked while the access was missing, by sourceKey(): sent once the access is there. */
+  private pending: string | null = null
+  /** The notice above the message, and whether the user closed it (for the message). */
+  private note: HTMLElement | null = null
+  private noteClosed = false
+  /** The count last reported with reportRemote(). */
+  private reported = 0
 
   constructor(private readonly deps: ImageTranslatorDeps) {}
 
@@ -117,6 +144,7 @@ export class ImageTranslator {
     if (run.fresh) {
       this.memo.clear()
       this.sent.clear()
+      this.pending = null
     }
     this.run = run
     if (run.settings.mode === "off") return
@@ -154,21 +182,78 @@ export class ImageTranslator {
     this.round++
     this.run = null
     this.consent?.settle(false)
-    for (const [img, listener] of this.waiting) img.removeEventListener("load", listener)
+    for (const [img, listener] of this.waiting) {
+      img.removeEventListener("load", listener)
+      img.removeEventListener("error", listener)
+    }
     this.waiting.clear()
     for (const entry of this.entries) entry.slot.remove()
     this.entries = []
+    this.access.clear()
+    this.unloaded.clear()
+    this.unreadable.clear()
+    this.note?.remove()
+    this.note = null
+    this.report()
   }
 
-  /** An image of the message: an entry with its slot when it passes the filters; once loaded when it is still loading. */
+  /** Remote images waiting for the access, unloaded and unreadable images: on screen in the notice, the first count to the popup. */
+  get leftOut(): { access: number; unloaded: number; unreadable: number } {
+    return { access: this.access.size, unloaded: this.unloaded.size, unreadable: this.unreadable.size }
+  }
+
+  /** The count of remote images that wait for the access, to the background script when it changed. */
+  private report(): void {
+    if (this.access.size === this.reported) return
+    this.reported = this.access.size
+    this.deps.reportRemote?.(this.reported)
+  }
+
+  /** The notice above the message, drawn again with every change of what it counts; none while nothing is left out or once closed. */
+  private drawNote(): void {
+    this.report()
+    const { access, unloaded, unreadable } = this.leftOut
+    const root = this.deps.root()
+    if (this.noteClosed || !root || access + unloaded + unreadable === 0) {
+      this.note?.remove()
+      this.note = null
+      return
+    }
+    const lines = [
+      access > 0 ? h("li", {}, t("imageNoticeAccess", [access]), " ", button(t("buttonRemoteAccess"), () => this.askAccess(), false, t("tipRemoteAccess"))) : null,
+      unloaded > 0 ? h("li", { text: t("imageNoticeUnloaded", [unloaded]) }) : null,
+      unreadable > 0 ? h("li", { text: t("imageNoticeUnreadable", [unreadable]) }) : null,
+    ]
+    const close = button(t("noticeClose"), () => {
+      this.noteClosed = true
+      this.drawNote()
+    }, false, t("tipNoticeClose"))
+    const el = noticeBox("div", "tt-image-notice", t("imageNoticeTitle"), {}, h("strong", { text: t("imageNoticeTitle") }), h("ul", {}, ...lines), h("div", { className: "tt-notice-actions" }, close))
+    if (this.note?.isConnected) this.note.replaceWith(el)
+    else root.prepend(el)
+    this.note = el
+  }
+
+  /** Ask for the access to remote images; the background script opens the popup. */
+  private askAccess(): void {
+    this.deps.requestAccess?.()
+  }
+
+  /**
+   * An image of the message: an entry with its slot when it passes the filters; once loaded or failed when it is still
+   * loading. A remote image without pixels (blocked, broken) and a loaded image whose address cannot be read count in
+   * the notice when they would pass the filters they can be judged by.
+   */
   private consider(img: HTMLImageElement): void {
     const run = this.run!
     const src = img.currentSrc || img.src
     const source = imageSource(src)
-    if (source.kind === "remote" || source.kind === "other") return
-    if (!img.complete || img.naturalWidth === 0) {
+    const place = { inSignature: img.closest(".moz-signature, .moz-txt-sig") !== null, attachment: img.closest(".moz-attached-image-container") !== null || img.classList.contains("moz-attached-image") }
+    if (!img.complete) {
       const round = this.round
       const listener = () => {
+        img.removeEventListener("load", listener)
+        img.removeEventListener("error", listener)
         this.waiting.delete(img)
         if (round !== this.round) return
         this.consider(img)
@@ -176,10 +261,28 @@ export class ImageTranslator {
         if (entry) void this.peekAll([entry], round)
       }
       this.waiting.set(img, listener)
-      img.addEventListener("load", listener, { once: true })
+      img.addEventListener("load", listener)
+      img.addEventListener("error", listener)
       return
     }
-    const candidate = { width: img.naturalWidth, height: img.naturalHeight, src, inSignature: img.closest(".moz-signature, .moz-txt-sig") !== null, attachment: img.closest(".moz-attached-image-container") !== null || img.classList.contains("moz-attached-image") }
+    if (img.naturalWidth === 0) {
+      // No pixels: a remote image Thunderbird blocked or could not load counts by the size of its attributes, a tracking pixel never.
+      const side = (name: string) => Number(img.getAttribute(name) || Number.NaN)
+      const tiny = side("width") <= 2 || side("height") <= 2
+      if (source.kind === "remote" && !tiny && !(place.inSignature && run.settings.skipSignature) && run.settings.sources.inline) {
+        this.unloaded.add(img)
+        this.drawNote()
+      }
+      return
+    }
+    const candidate = { width: img.naturalWidth, height: img.naturalHeight, src, ...place }
+    if (source.kind === "other") {
+      if (filterShape(candidate, run.settings) === null) {
+        this.unreadable.add(img)
+        this.drawNote()
+      }
+      return
+    }
     if (filterImage(candidate, run.settings) !== null) return
     const anchor = img.closest(".moz-attached-image-container") ?? run.units.find((unit) => unit.el.contains(img))?.el ?? img.closest("a") ?? img
     const slot = h("div", { className: CLS_IMAGE, lang: getI18n().lang, dir: getI18n().dir })
@@ -188,7 +291,7 @@ export class ImageTranslator {
     if (last) last.after(slot)
     else if (INSIDE.has(anchor.tagName)) anchor.append(slot)
     else anchor.after(slot)
-    const from: ImageRequest["source"] = source.kind === "part" ? { part: source.part, ...(source.name ? { name: source.name } : {}) } : { data: source.data }
+    const from: ImageRequest["source"] = source.kind === "part" ? { part: source.part, ...(source.name ? { name: source.name } : {}) } : source.kind === "remote" ? { url: source.url } : { data: source.data }
     this.entries.push({ img, source: from, index: this.entries.length + 1, anchor, slot })
   }
 
@@ -222,15 +325,24 @@ export class ImageTranslator {
     if (round !== this.round) return
     const auto = this.run!.settings.mode === "auto"
     const send: Entry[] = []
+    let clicked: Entry | null = null
     peeked.forEach((entry, i) => {
       const answer = answers[i]
-      if (answer.status !== "ready") return this.show(entry, answer, false)
       const key = sourceKey(entry)
+      if (answer.status === "access") this.access.add(key)
+      if (answer.status !== "ready") return this.show(entry, answer, false)
       if (auto && (this.sent.has(key) || this.sent.size < max)) {
         this.sent.add(key)
         send.push(entry)
-      } else this.showButton(entry)
+      } else if (this.pending === key && !clicked) clicked = entry
+      else this.showButton(entry)
     })
+    this.drawNote()
+    // The image whose button was clicked before the access was there: sent now, as by a click.
+    if (clicked) {
+      this.pending = null
+      void this.click(clicked)
+    }
     if (send.length === 0) return
     if (!(await this.ensureConsent(send[0], new Set(send.map(sourceKey)).size))) {
       // Not sent: they do not count.
@@ -247,12 +359,24 @@ export class ImageTranslator {
     this.showReading(entry)
     const answer = await this.request(entry, "translate")
     if (round !== this.round) return
+    // A remote image beyond the images peeked at, or the access was removed meanwhile: the click asks for it.
+    if (answer.status === "access") {
+      this.access.add(sourceKey(entry))
+      this.drawNote()
+      return this.click(entry)
+    }
     if (answer.status === "done" || answer.status === "noText") this.memo.set(this.memoKey(entry), { ...answer, ...(answer.status === "done" ? { cached: true, usage: undefined } : {}) })
     this.show(entry, answer, true)
   }
 
-  /** A click on the button: the consent first, then the image. */
+  /** A click on the button: the access to remote images when it is missing, the consent, then the image. */
   private async click(entry: Entry): Promise<void> {
+    const key = sourceKey(entry)
+    if (this.access.has(key)) {
+      this.pending = key
+      entry.slot.replaceChildren(h("span", { className: "tt-image-note", role: "status", text: t("imageAccessAsked") }), " ", button(t("buttonRemoteAccess"), () => this.askAccess(), false, t("tipRemoteAccess")))
+      return this.askAccess()
+    }
     const round = this.round
     if (!(await this.ensureConsent(entry))) {
       if (round === this.round) this.showButton(entry)
@@ -342,6 +466,7 @@ export class ImageTranslator {
         return void slot.replaceChildren(h("span", { className: "tt-image-note tt-error-text", text: answer.error }), " ", retry)
       }
       case "ready":
+      case "access":
         return this.showButton(entry)
     }
   }

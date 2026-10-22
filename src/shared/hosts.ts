@@ -60,6 +60,13 @@ export const FIXED_HOSTS: readonly string[] = [
   "https://objects.githubusercontent.com/*",
 ]
 
+/**
+ * The optional host permissions of the manifest (optional_permissions, checked by tests/hosts.test.ts): every http and
+ * https host. The settings page and the setup guide ask for the host of one endpoint; the popup and the settings page
+ * ask for both patterns at once to read the remote images Thunderbird shows.
+ */
+export const REMOTE_ORIGINS: readonly string[] = ["http://*/*", "https://*/*"]
+
 /** The match pattern of the host of `url` ("https://example.com/*", any port); null for a URL that is not http(s). */
 export function originPattern(url: string): string | null {
   try {

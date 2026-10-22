@@ -4,7 +4,7 @@ import { join } from "node:path"
 import { describe, expect, it } from "vitest"
 import { DEFAULT_ATTACHMENTS_BASE, DEFAULT_SERVER_URL } from "../src/offline/bergamot/manager"
 import { RELEASES } from "../src/offline/dictionary/download"
-import { FIXED_HOSTS, isLoopback, MS_EDGE_TRANSLATE_URL, originPattern, patternHost, providerOrigin, requestUrl } from "../src/shared/hosts"
+import { FIXED_HOSTS, isLoopback, MS_EDGE_TRANSLATE_URL, originPattern, patternHost, providerOrigin, REMOTE_ORIGINS, requestUrl } from "../src/shared/hosts"
 import { PROVIDER_PRESETS } from "../src/shared/providers"
 import { DEEPL_FREE_URL, emptyProviderConfig, resolveProviderConfig } from "../src/shared/settings"
 
@@ -18,8 +18,9 @@ describe("host permissions of the manifest", () => {
     expect(hostPermissions).toEqual([...FIXED_HOSTS])
     expect(manifest.permissions.filter((p) => !p.includes("://"))).toEqual(["messagesModify", "messagesRead", "sensitiveDataUpload", "storage", "unlimitedStorage"])
     for (const host of hostPermissions) expect(host).toMatch(/^https:\/\/[a-z0-9.-]+\.[a-z]+\/\*$/)
-    // Any address the user types.
+    // Any address the user types, and the access to the remote images Thunderbird shows.
     expect(manifest.optional_permissions).toEqual(["http://*/*", "https://*/*"])
+    expect(manifest.optional_permissions).toEqual([...REMOTE_ORIGINS])
   })
 
   it("cover the default endpoint of every preset that is not on this computer", () => {

@@ -3,10 +3,15 @@
  * translation: the mode, the vision service and model with what is known of
  * the model (whether it reads images, the tokens of one image), "Test image",
  * and the advanced settings in a collapsed section. The whole group is
- * greyed out while precise translation is off; its values stay.
+ * greyed out while precise translation is off; its values stay. A line under
+ * the hint tells whether the extension may read the remote images
+ * Thunderbird shows (the optional host permissions), with the button that
+ * asks for the access or removes it.
  */
 
 import { describeError } from "../shared/errors"
+import { ext } from "../shared/ext"
+import { REMOTE_ORIGINS } from "../shared/hosts"
 import { getI18n, t } from "../shared/i18n"
 import { imagePromptTokens } from "../shared/image-prompt"
 import { getLanguage } from "../shared/languages"
@@ -95,6 +100,24 @@ export class ImageSettingsSection {
     session.track($("imageCost"), () => this.refresh())
     for (const id of ["imageMode", "imageDetail", "imageOutput", "imageNoText", "imageShowSource"]) $(id).addEventListener("change", () => this.refresh())
     $("imageTest").addEventListener("click", () => void this.test())
+    // permissions.request() is the first call of the click handler: Thunderbird asks the user only from a user action.
+    $("imageRemoteAllow").addEventListener("click", () => void ext.permissions.request({ origins: [...REMOTE_ORIGINS] }).catch(() => false).then(() => this.refreshRemote()))
+    $("imageRemoteRevoke").addEventListener("click", () => void ext.permissions.remove({ origins: [...REMOTE_ORIGINS] }).catch(() => false).then(() => this.refreshRemote()))
+    try {
+      ext.permissions.onAdded.addListener(() => void this.refreshRemote())
+      ext.permissions.onRemoved.addListener(() => void this.refreshRemote())
+    } catch {
+      // No permission events: the line follows its own buttons.
+    }
+    void this.refreshRemote()
+  }
+
+  /** The line about the access to remote images. */
+  async refreshRemote(): Promise<void> {
+    const allowed = await ext.permissions.contains({ origins: [...REMOTE_ORIGINS] }).catch(() => false)
+    $("imageRemoteState").textContent = t(allowed ? "optionsRemoteAllowed" : "optionsRemoteMissing")
+    $("imageRemoteAllow").hidden = allowed
+    $("imageRemoteRevoke").hidden = !allowed
   }
 
   /** The services, the model hints and the estimate, from the settings of the page. */

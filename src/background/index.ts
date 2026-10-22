@@ -19,8 +19,10 @@ import { createLocaleTables } from "./locale-tables"
 import { createOfflineStatus } from "./offline-status"
 import { createDispatch, createHandlers } from "./router"
 import { createSettingsState } from "./settings-state"
-import { displayedHeader, displayedMessageId, messagePart } from "./displayed"
+import { displayedHeader, displayedMessageId, messageImageAddresses, messagePart } from "./displayed"
 import { ImageService } from "./images"
+import { offerRemoteAccess } from "./remote-images"
+import { optionsPath } from "../shared/messages"
 import { updateSettings } from "../shared/settings-store"
 import { createTabRegistry } from "./tabs"
 import { getBergamot } from "../offline/bergamot"
@@ -81,12 +83,17 @@ const service = new TranslationService({
   hasOrigin: (origin) => ext.permissions.contains({ origins: [origin] }),
 })
 
+/** Counts the changes of the host permissions: after one, the content scripts read their remote images again. */
+let hostAccess = 0
+const publicSettings = () => toPublicSettings(settings.current(), settings.credentials(), hostAccess)
+
 // Images go to their own queue per service; the AI SDK is loaded with the first of them, as with text.
 const images = new ImageService({
   getSettings: () => settings.current(),
   cache,
   displayed: displayedMessageId,
   part: messagePart,
+  imageUrls: messageImageAddresses,
   // Written by the request: taken over at once, so the image that waits for it sees the consent.
   recordConsent: async (ids, hosts) => settings.adopt(await updateSettings((s) => void (s.imageConsent = [...new Set([...s.imageConsent, ...grantedEntries(s, ids, hosts)])]))),
   glossary: (contextId) => service.glossaryOf(contextId),
@@ -96,7 +103,7 @@ const images = new ImageService({
 
 const tabs = createTabRegistry({
   ready: settings.ready,
-  publicSettings: () => toPublicSettings(settings.current(), settings.credentials()),
+  publicSettings,
   // The header of the message is read once a request writes its summary together with the analysis.
   setContext: (context, bypassCache, tabId) => service.setContext(context, bypassCache, tabId === undefined ? undefined : () => displayedHeader(tabId)),
   translate: (request, onTier, options) => service.translateForPage(request, onTier, options),
@@ -105,6 +112,12 @@ const tabs = createTabRegistry({
   image: (session, tabId, request) => images.request(session, tabId, request),
   imageConsent: (session, ids, message, hosts) => images.grant(session, ids, message, hosts),
   forgetSession: (session) => images.forget(session),
+  // Only a page of the extension may ask for a permission, from a click: the popup of the message, else the settings page.
+  remoteAccess: (tab) =>
+    void offerRemoteAccess(tab.windowId, {
+      openPopup: (windowId) => ext.messageDisplayAction.openPopup(windowId === undefined ? {} : { windowId }),
+      openOptions: async () => void (await ext.tabs.create({ url: ext.runtime.getURL(optionsPath({ section: "imageRemote" })) })),
+    }),
 })
 
 async function applyUiLanguage(uiLanguage: string): Promise<void> {
@@ -139,8 +152,15 @@ const handlers = createHandlers({
 
 onStoredSettings((stored) => {
   settings.adopt(stored)
-  tabs.broadcast({ type: "settings", settings: toPublicSettings(settings.current(), settings.credentials()) })
+  tabs.broadcast({ type: "settings", settings: publicSettings() })
 })
+// The user allowed or removed a host, e.g. the access to remote images in the popup: the content scripts read their remote images again.
+const hostsChanged = () => {
+  hostAccess++
+  void settings.ready().then(() => tabs.broadcast({ type: "settings", settings: publicSettings() }))
+}
+ext.permissions.onAdded.addListener(hostsChanged)
+ext.permissions.onRemoved.addListener(hostsChanged)
 ext.runtime.onConnect.addListener((port) => tabs.connect(port))
 ext.runtime.onMessage.addListener(createDispatch(handlers, settings.ready))
 ext.commands.onCommand.addListener(runCommand)

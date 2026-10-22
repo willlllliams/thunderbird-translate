@@ -157,6 +157,8 @@ export function connectContent({ root, contentScript = false, probe }: ClientOpt
             else resolve({ status: "error", error: getI18n().t("errUnknown") })
           }),
         grant: (ids, message, hosts) => void post({ type: "imageConsent", ids, ...(hosts ? { hosts } : {}), ...(message ? { message } : {}) }),
+        requestAccess: () => void post({ type: "remoteAccess" }),
+        reportRemote: (count) => void post({ type: "remoteImages", count }),
       })
     : undefined
 

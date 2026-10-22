@@ -4,7 +4,9 @@
  * button that shows whether a tab is translated, and the messages to one
  * tab or to every content script. Each content script is a session of its
  * own for the translation of images (background/images.ts), opened when it
- * connects and forgotten when it goes away.
+ * connects and forgotten when it goes away. A tab also counts the remote
+ * images its content script could read with the access to remote images,
+ * which the popup offers while the count is above 0.
  */
 
 import { ext } from "../shared/ext"
@@ -37,6 +39,8 @@ export interface TabRegistryDeps {
   imageConsent?: (session: string, ids: string[], message: boolean, hosts?: string[]) => Promise<void>
   /** The content script `session` went away. */
   forgetSession?: (session: string) => void
+  /** A click in the message of `tab` asks for the access to remote images, which only a page of the extension can request. */
+  remoteAccess?: (tab: browser.tabs.Tab) => void
 }
 
 export interface TabRegistry {
@@ -60,10 +64,12 @@ function safePost(port: browser.runtime.Port, msg: PortPush): void {
   }
 }
 
-export function createTabRegistry({ ready, publicSettings, setContext, translate, summarize, openSession, image, imageConsent, forgetSession }: TabRegistryDeps): TabRegistry {
+export function createTabRegistry({ ready, publicSettings, setContext, translate, summarize, openSession, image, imageConsent, forgetSession, remoteAccess }: TabRegistryDeps): TabRegistry {
   const ports = new Map<number, Set<browser.runtime.Port>>()
   let sessions = 0
   const tabStates = new Map<number, TabState>()
+  /** The remote images waiting for the access, by tab. */
+  const remoteImages = new Map<number, number>()
 
   async function updateBadge(tabId: number): Promise<void> {
     const active = tabStates.get(tabId)?.active
@@ -103,6 +109,12 @@ export function createTabRegistry({ ready, publicSettings, setContext, translate
       case "imageConsent":
         if (session && imageConsent) void imageConsent(session, msg.ids, msg.message === true, Array.isArray(msg.hosts) ? msg.hosts : undefined).catch(() => {})
         break
+      case "remoteImages":
+        if (session && tabId !== undefined) remoteImages.set(tabId, Number.isInteger(msg.count) && msg.count > 0 ? msg.count : 0)
+        break
+      case "remoteAccess":
+        if (session && port.sender?.tab) remoteAccess?.(port.sender.tab)
+        break
     }
   }
 
@@ -125,6 +137,7 @@ export function createTabRegistry({ ready, publicSettings, setContext, translate
     if (!ports.has(tabId)) ports.set(tabId, new Set())
     ports.get(tabId)!.add(port)
     tabStates.set(tabId, { ...IDLE_TAB_STATE, connected: true })
+    remoteImages.delete(tabId)
     void updateBadge(tabId)
 
     port.onMessage.addListener((msg) => {
@@ -143,6 +156,7 @@ export function createTabRegistry({ ready, publicSettings, setContext, translate
       if (!set || set.size === 0) {
         ports.delete(tabId)
         tabStates.delete(tabId)
+        remoteImages.delete(tabId)
         void updateBadge(tabId)
       }
     })
@@ -151,7 +165,11 @@ export function createTabRegistry({ ready, publicSettings, setContext, translate
 
   return {
     connect,
-    stateOf: (tabId) => tabStates.get(tabId) ?? IDLE_TAB_STATE,
+    stateOf: (tabId) => {
+      const state = tabStates.get(tabId) ?? IDLE_TAB_STATE
+      const remote = remoteImages.get(tabId) ?? 0
+      return remote > 0 ? { ...state, remoteImages: remote } : state
+    },
     postToTab(tabId, msg) {
       for (const port of ports.get(tabId) ?? []) safePost(port, msg)
     },

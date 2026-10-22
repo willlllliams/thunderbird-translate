@@ -43,13 +43,16 @@ const BODY = `<p id="para">Look at the chart: <img id="a" src="${part("1.2")}"><
 /** A translator over the body with BODY, whose requests answer `answer` (a peek "ready" by default). */
 function mount(answer: (req: ImageRequest) => ImageResponse | Promise<ImageResponse> = (req) => (req.action === "peek" ? { status: "ready" } : DONE), body = BODY) {
   document.body.innerHTML = body
-  sizeImages({ pixel: [1, 1], logo: [300, 300] })
+  // The remote image of BODY is blocked, as Thunderbird blocks remote content by default.
+  sizeImages({ pixel: [1, 1], logo: [300, 300], remote: [0, 0] })
   const request = vi.fn(async (req: ImageRequest) => answer(req))
   const grant = vi.fn()
-  const images = new ImageTranslator({ root: () => document.body, request, grant })
+  const requestAccess = vi.fn()
+  const reportRemote = vi.fn()
+  const images = new ImageTranslator({ root: () => document.body, request, grant, requestAccess, reportRemote })
   const units: Unit[] = [{ el: document.getElementById("para")!, text: "Look at the chart:", pre: false }]
   const run = (settings: Partial<PublicImageSettings> = {}, over: Partial<ImageRun> = {}): ImageRun => ({ settings: imageSettings({ mode: "ask", ...settings }), targetLang: "zh-CN", units, ...over })
-  return { images, request, grant, run, units }
+  return { images, request, grant, requestAccess, reportRemote, run, units }
 }
 
 const slots = () => Array.from(document.querySelectorAll<HTMLElement>(".tt-image"))
@@ -60,7 +63,7 @@ beforeEach(() => setI18n(ENGLISH))
 afterEach(() => vi.useRealTimers())
 
 describe("the images of a translated message", () => {
-  it("considers the inline images and the image attachments that pass the filters, never a remote one", async () => {
+  it("considers the inline images and the image attachments that pass the filters, and no remote image Thunderbird blocked", async () => {
     const { images, request, run } = mount()
     images.start(run())
     await until(() => expect(buttons()).toHaveLength(3))
@@ -534,5 +537,125 @@ describe("translation-only display", () => {
     expect(p.innerHTML).toBe(original)
     renderer.showTranslation(unit, "看这里。", "bilingual")
     expect(p.querySelectorAll(".tt-translation img")).toHaveLength(0)
+  })
+})
+
+describe("remote images", () => {
+  const R1 = "https://cdn.example.com/offer.png"
+  const R2 = "https://cdn.example.com/coupon.png"
+  const REMOTE_BODY = `<p id="para">This week: <a href="https://example.com/shop"><img id="r1" src="${R1}"></a></p>
+<p><img id="r2" src="${R2}" width="300" height="300"></p>
+<img id="beacon" src="https://track.example.com/p.gif" width="1" height="1">
+<div class="moz-signature"><img id="sig" src="https://cdn.example.com/logo.png" width="300" height="300"></div>
+<img id="blob" src="blob:https://example.com/0f1e">
+<img id="tiny" src="https://cdn.example.com/icon.png">`
+
+  /** A translator over REMOTE_BODY: r1, blob and tiny loaded (tiny at 16 × 16), r2, beacon and sig blocked; a remote peek answers "access" until `access.granted`. */
+  function mountRemote(access = { granted: false }) {
+    const mounted = mount((req) => {
+      if ("url" in req.source && !access.granted) return { status: "access" }
+      return req.action === "peek" ? { status: "ready" } : DONE
+    }, REMOTE_BODY)
+    sizeImages({ r2: [0, 0], beacon: [0, 0], sig: [0, 0], tiny: [16, 16] })
+    return { ...mounted, access }
+  }
+  const noticeLines = () => Array.from(document.querySelectorAll(".tt-image-notice li"), (li) => li.firstChild?.textContent)
+
+  it("takes a remote image Thunderbird shows by its address, and counts the blocked ones and the unreadable ones in one notice", async () => {
+    const { images, request, run } = mountRemote({ granted: true })
+    images.start(run())
+    await until(() => expect(buttons()).toHaveLength(1))
+    expect(sent(request, "peek").map((req) => req.source)).toEqual([{ url: R1 }])
+    // After the paragraph that holds the image.
+    expect(document.getElementById("para")!.nextElementSibling).toBe(slots()[0])
+    // The pixel by its attributes and the logo of the signature do not count; the icon is too small to count.
+    expect(noticeLines()).toEqual([ENGLISH.t("imageNoticeUnloaded", [1]), ENGLISH.t("imageNoticeUnreadable", [1])])
+    expect(images.leftOut).toEqual({ access: 0, unloaded: 1, unreadable: 1 })
+    expect(document.body.firstElementChild!.classList.contains("tt-image-notice")).toBe(true)
+    expect(document.querySelector(".tt-image-notice")!.getAttribute("aria-label")).toBe(ENGLISH.t("imageNoticeTitle"))
+  })
+
+  it("counts nothing when the sources leave out the images of the body, and draws nothing while off", async () => {
+    const { images, request, run } = mountRemote({ granted: true })
+    images.start(run({ sources: { inline: false, attachments: true } }))
+    await nextTask()
+    expect([buttons(), noticeLines()]).toEqual([[], []])
+    images.start(run({ mode: "off" }))
+    await nextTask()
+    expect([document.querySelector(".tt-image-notice"), request.mock.calls.length]).toEqual([null, 0])
+  })
+
+  it("asks for the access with a click when it is missing, and sends the clicked image once it is there", async () => {
+    const { images, request, run, requestAccess, reportRemote, access } = mountRemote()
+    images.start(run())
+    await until(() => expect(buttons()).toHaveLength(1))
+    expect(noticeLines()[0]).toBe(ENGLISH.t("imageNoticeAccess", [1]))
+    expect(reportRemote).toHaveBeenLastCalledWith(1)
+    buttons()[0].click()
+    await until(() => expect(requestAccess).toHaveBeenCalledTimes(1))
+    expect(slots()[0].querySelector(".tt-image-note")!.textContent).toBe(ENGLISH.t("imageAccessAsked"))
+    expect(sent(request, "translate")).toEqual([])
+    // The button of the notice asks too.
+    document.querySelector<HTMLButtonElement>(".tt-image-notice li button")!.click()
+    expect(requestAccess).toHaveBeenCalledTimes(2)
+    // Allowed in the popup: the settings come again with a new count of the host permissions.
+    access.granted = true
+    images.update(imageSettings({ mode: "ask", hostAccess: 1 }), "zh-CN")
+    await until(() => expect(document.querySelector(".tt-image-result")).not.toBeNull())
+    expect(sent(request, "translate").map((req) => req.source)).toEqual([{ url: R1 }])
+    expect(noticeLines()).toEqual([ENGLISH.t("imageNoticeUnloaded", [1]), ENGLISH.t("imageNoticeUnreadable", [1])])
+    expect(reportRemote).toHaveBeenLastCalledWith(0)
+  })
+
+  it("in mode auto sends nothing without the access and the remote images once it is there", async () => {
+    const { images, request, run, access } = mountRemote()
+    images.start(run({ mode: "auto" }))
+    await until(() => expect(buttons()).toHaveLength(1))
+    expect(sent(request, "translate")).toEqual([])
+    access.granted = true
+    images.update(imageSettings({ mode: "auto", hostAccess: 1 }), "zh-CN")
+    await until(() => expect(document.querySelector(".tt-image-result")).not.toBeNull())
+    expect(sent(request, "translate").map((req) => req.source)).toEqual([{ url: R1 }])
+  })
+
+  it("asks for the access after a click on an image beyond the ones peeked at", async () => {
+    const { images, request, run, requestAccess } = mountRemote()
+    images.start(run({ maxPerMessage: 0 }))
+    await until(() => expect(buttons()).toHaveLength(1))
+    expect(sent(request, "peek")).toEqual([])
+    buttons()[0].click()
+    await until(() => expect(requestAccess).toHaveBeenCalledTimes(1))
+    expect(sent(request, "translate").map((req) => req.source)).toEqual([{ url: R1 }])
+    expect(noticeLines()[0]).toBe(ENGLISH.t("imageNoticeAccess", [1]))
+  })
+
+  it("keeps the notice away for the message once closed, and removes it with the rest on stop", async () => {
+    const { images, run, reportRemote } = mountRemote()
+    images.start(run())
+    await until(() => expect(noticeLines()[0]).toBe(ENGLISH.t("imageNoticeAccess", [1])))
+    images.stop()
+    expect(document.querySelector(".tt-image-notice")).toBeNull()
+    expect(reportRemote).toHaveBeenLastCalledWith(0)
+    images.start(run())
+    await until(() => expect(document.querySelector(".tt-image-notice")).not.toBeNull())
+    Array.from(document.querySelectorAll<HTMLButtonElement>(".tt-image-notice .tt-notice-actions button")).at(-1)!.click()
+    expect(document.querySelector(".tt-image-notice")).toBeNull()
+    images.start(run())
+    await until(() => expect(buttons()).toHaveLength(1))
+    expect(document.querySelector(".tt-image-notice")).toBeNull()
+  })
+
+  it("counts a remote image that fails to load after the start", async () => {
+    const { images, run } = mountRemote({ granted: true })
+    const late = document.getElementById("r1") as HTMLImageElement
+    Object.defineProperty(late, "complete", { value: false, configurable: true })
+    images.start(run())
+    await nextTask()
+    expect(buttons()).toHaveLength(0)
+    Object.defineProperty(late, "complete", { value: true, configurable: true })
+    Object.defineProperty(late, "naturalWidth", { value: 0, configurable: true })
+    late.dispatchEvent(new Event("error"))
+    expect(images.leftOut.unloaded).toBe(2)
+    expect(noticeLines()[0]).toBe(ENGLISH.t("imageNoticeUnloaded", [2]))
   })
 })

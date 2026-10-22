@@ -164,13 +164,15 @@ describe("images the content script considers", () => {
     expect(imageSource("mailbox:///C:/Inbox?number=3&part=1.2&filename=chart.png")).toEqual({ kind: "part", part: "1.2", name: "chart.png" })
     expect(imageSource("imap://anna@mail.example:993/fetch%3EUID%3E/INBOX%3E42?part=1.1.3&type=image/png")).toEqual({ kind: "part", part: "1.1.3" })
     expect(imageSource("data:image/png;base64,iVBORw0KGgo=")).toEqual({ kind: "data", data: "data:image/png;base64,iVBORw0KGgo=" })
-    expect(imageSource("https://tracker.example/p.gif")).toEqual({ kind: "remote" })
+    expect(imageSource("https://tracker.example/p.gif")).toEqual({ kind: "remote", url: "https://tracker.example/p.gif" })
     for (const src of ["cid:logo@example", "mailbox:///x?part=../1", "mailbox:///x", "not an address", ""]) expect(imageSource(src)).toEqual({ kind: "other" })
   })
 
   it.each<[string, Partial<ImageCandidate>, string | null]>([
     ["a chart", {}, null],
-    ["a remote image", { src: "http://example.com/a.png" }, "remote"],
+    ["a remote image, as an image of the body", { src: "http://example.com/a.png" }, null],
+    ["a remote image with a password", { src: "https://u:p@example.com/a.png" }, "source"],
+    ["a small remote image", { src: "https://example.com/a.png", width: 50, height: 50 }, "small"],
     ["an unreplaced cid:", { src: "cid:a@b" }, "source"],
     ["a tracking pixel of 2 px", { width: 2, height: 2 }, "tracking"],
     ["a line of 1 px", { width: 600, height: 1 }, "tracking"],
@@ -191,6 +193,8 @@ describe("images the content script considers", () => {
     expect(filterImage(image({ attachment: true }), { ...settings, sources: { inline: false, attachments: true } })).toBeNull()
     expect(filterImage(image({ inSignature: true }), { ...settings, skipSignature: false })).toBeNull()
     expect(filterImage(image({ width: 50, height: 50 }), { ...settings, minSide: 16, minArea: 0 })).toBeNull()
+    // A remote image is an image of the body.
+    expect(filterImage(image({ src: "https://example.com/a.png" }), { ...settings, sources: { inline: false, attachments: true } })).toBe("source")
   })
 })
 
@@ -321,8 +325,11 @@ describe("image settings", () => {
       format: "image/jpeg",
       glossary: true,
       signature: pub.signature,
+      hostAccess: 0,
     })
     expect(JSON.stringify(pub)).not.toContain("sk-1")
+    // A change of the host permissions draws the remote images again.
+    expect(toPublicSettings(s, 0, 3).image.hostAccess).toBe(3)
     s.imageConsent = ["openai@api.openai.com"]
     expect(toPublicSettings(s).image.consent).toBeNull()
     // With "confirm each message" the content script asks every time.

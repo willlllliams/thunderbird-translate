@@ -121,6 +121,7 @@ export function fakeBrowser({
       setTitle: vi.fn(async (_details: { title: string }) => {}),
       setBadgeText: vi.fn(async (_details: { tabId: number; text: string }) => {}),
       setBadgeBackgroundColor: vi.fn(async (_details: { tabId: number; color: string }) => {}),
+      openPopup: vi.fn(async (_options?: { windowId?: number }) => true),
     },
     messageDisplayScripts: { register: vi.fn(async (_options: object) => ({ unregister: async () => {} })) },
     permissions: {

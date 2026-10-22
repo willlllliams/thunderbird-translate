@@ -822,10 +822,12 @@ export interface PublicImageSettings {
   glossary: boolean
   /** A hash of what decides the result of an image besides the image: when it changes, the content script asks again. */
   signature: string
+  /** Counts the changes of the host permissions: the content script reads the remote images again once the user allowed or removed the access. */
+  hostAccess: number
 }
 
-/** The image settings for the content script. */
-function publicImageSettings(settings: Settings): PublicImageSettings {
+/** The image settings for the content script; `hostAccess`: the count of changes of the host permissions. */
+function publicImageSettings(settings: Settings, hostAccess: number): PublicImageSettings {
   const status = imageStatus(settings)
   const s = settings.image
   const format = status.id ? uploadFormat(status.id, `image/${s.format}`) : "image/jpeg"
@@ -847,6 +849,7 @@ function publicImageSettings(settings: Settings): PublicImageSettings {
     format,
     glossary: status.id ? imageGlossary(settings, status.id) : false,
     signature: hashText(parts.join("\n")),
+    hostAccess,
   }
 }
 
@@ -855,8 +858,8 @@ export function credentialsOf(settings: Settings): string {
   return JSON.stringify(Object.entries(settings.providers).map(([id, p]) => [id, p.apiKey, p.appId ?? "", p.region ?? "", p.edition ?? ""]))
 }
 
-/** `credentials`: the count of changes of credentialsOf() the background script keeps. */
-export function toPublicSettings(settings: Settings, credentials = 0): PublicSettings {
+/** `credentials`: the count of changes of credentialsOf() the background script keeps; `hostAccess`: the count of changes of the host permissions. */
+export function toPublicSettings(settings: Settings, credentials = 0, hostAccess = 0): PublicSettings {
   const signatures: Partial<Record<Tier, string>> = {}
   for (const tier of enabledTiers(settings.tiers)) {
     const { provider, parts } = resultInputs(settings, settings.tiers[tier]!)
@@ -884,6 +887,6 @@ export function toPublicSettings(settings: Settings, credentials = 0): PublicSet
       collapsed: settings.summary.display === "collapsed",
       consent: summarizer ? consentNeed(settings, summarizer) : null,
     },
-    image: publicImageSettings(settings),
+    image: publicImageSettings(settings, hostAccess),
   }
 }

@@ -79,7 +79,7 @@ export type OfflineStatus = Partial<Record<OfflineService, OfflineState>>
 
 /** A place on the settings page: a section, the filters of the two offline lists, the tier whose services the service list shows. */
 export interface OptionsPlace {
-  section: "providers" | "dictionaries" | "bergamot"
+  section: "providers" | "dictionaries" | "bergamot" | "imageRemote"
   /** Filter terms of the dictionary list: language pairs ("en>zh-Hans") or parts of them. */
   dictionaries?: string[]
   /** Filter terms of the offline model list. */
@@ -191,15 +191,17 @@ export interface TabState {
   failed: number
   /** Description of the most recent failure while some paragraphs are still failed. */
   lastError?: string
+  /** Remote images on screen that image translation could read once the extension may read remote images (the popup offers the access). */
+  remoteImages?: number
 }
 
 /** State of a tab without a connected content script. */
 export const IDLE_TAB_STATE: TabState = { connected: false, active: false, total: 0, done: 0, provisional: 0, failed: 0 }
 
-/** An image of the displayed message, as the content script hands it over: a part of the message (cid: images, image attachments) or a data: URI. */
+/** An image of the displayed message, as the content script hands it over: a part of the message (cid: images, image attachments), a data: URI, or a remote image Thunderbird shows. */
 export interface ImageRequest {
-  /** A part of the message, with the file name of its address when it has one, or a data: URI. */
-  source: { part: string; name?: string } | { data: string }
+  /** A part of the message, with the file name of its address when it has one, a data: URI, or the http(s) address of a remote image. */
+  source: { part: string; name?: string } | { data: string } | { url: string }
   /** The natural size: an image with too many pixels is not even read. */
   width: number
   height: number
@@ -223,6 +225,8 @@ export type ImageResponse =
   | { status: "noText"; service: string }
   /** A peek without a cached result: the image may go to the service. */
   | { status: "ready" }
+  /** A remote image the extension may not read yet: the user has to allow reading remote images (optional host permission). */
+  | { status: "access" }
   /** Left out, and why; `quiet` for the filters (too small, animated), which show nothing. */
   | { status: "skipped"; reason: string; quiet?: true }
   | { status: "error"; error: string }
@@ -258,6 +262,10 @@ export type PortReport =
   | { type: "image"; id: number; image: ImageRequest }
   /** The user allowed these services to receive the images of messages, in the panel under an image; `message`: for the displayed message only. */
   | { type: "imageConsent"; ids: string[]; hosts?: string[]; message?: boolean }
+  /** Remote images on screen that wait for the access to remote images; the popup offers it while the count is above 0. */
+  | { type: "remoteImages"; count: number }
+  /** The user clicked a button that asks for the access to remote images: the background script opens the popup, which can ask for it. */
+  | { type: "remoteAccess" }
 
 export const CONTENT_PORT_NAME = "tt-content"
 
@@ -271,4 +279,4 @@ function ofTypes<T extends { type: string }>(types: Record<T["type"], true>) {
 export const isPortPush = /* @__PURE__ */ ofTypes<PortPush>({ settings: true, toggle: true, retranslate: true, summarize: true, summary: true, imageResult: true, tier: true, done: true, offlineDataChanged: true })
 
 /** A report of a content script, as the background script receives it over the Port. */
-export const isPortReport = /* @__PURE__ */ ofTypes<PortReport>({ state: true, context: true, translate: true, summary: true, image: true, imageConsent: true })
+export const isPortReport = /* @__PURE__ */ ofTypes<PortReport>({ state: true, context: true, translate: true, summary: true, image: true, imageConsent: true, remoteImages: true, remoteAccess: true })

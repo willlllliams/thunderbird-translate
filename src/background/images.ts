@@ -1,7 +1,7 @@
 /**
  * The text in the images of a displayed message, read by an AI service.
  *
- *   request(image) → bytes of the part (messages.getAttachmentFile) or of the data: URI, two at a time
+ *   request(image) → bytes of the part (messages.getAttachmentFile), of the data: URI or of the remote image, two at a time
  *     → filters on the bytes (size, animation, pixels from the header) → SHA-256 → cache
  *     → consent → limits of the message → decode, scale, encode, one at a time → queue image:<service> → the model
  *
@@ -17,6 +17,12 @@
  * session ends when the content script goes away; what it still waits for is not sent, and the request on its way is
  * aborted.
  *
+ * A remote image, which the content script hands over only once Thunderbird shows it, is read from its address
+ * (remote-images.ts) under the same rules: while the tab still shows the message, only at an address an image of the
+ * HTML of that message names, and only with the host permission for it; without the permission the answer is
+ * "access", and the content script offers to allow reading remote images. The bytes read for a peek are kept for the
+ * translation of the image, up to HELD_BYTES per session, so an image is usually read once.
+ *
  * The upload is the image scaled to its long edge and encoded again (JPEG by default, on white, so transparent
  * areas stay light), which drops its file name and metadata. One image goes in each request, in a request queue of its
  * own per service, so slow image requests never hold back the paragraphs. A result is cached under the SHA-256 of the
@@ -29,7 +35,7 @@
 
 import { describeError, LocalizedError } from "../shared/errors"
 import { hashText, sha256Hex } from "../shared/hash"
-import { patternHost, providerOrigin, requestUrl } from "../shared/hosts"
+import { originPattern, patternHost, providerOrigin, requestUrl } from "../shared/hosts"
 import { ENGLISH, type I18n, type MessageKey } from "../shared/i18n"
 import { getLanguage } from "../shared/languages"
 import type { ImageRequest, ImageResponse } from "../shared/messages"
@@ -44,6 +50,7 @@ import { RequestQueue } from "./queue/request-queue"
 import { errorContext, LAZY_LLM } from "./service"
 import type { ImageAnswer, ImageInput, LlmCallOptions } from "./translators/llm"
 import { cleanSingleOutput, type MailAnalysis } from "./translators/llm-prompt"
+import { fetchRemoteImage, REMOTE_MAX_BYTES } from "./remote-images"
 
 /** A decoded image. */
 export interface Bitmap {
@@ -262,7 +269,12 @@ interface Session {
   round: number
   /** Replaced by a retranslation: a request of the translation before it gives back what it counted to its own ledger. */
   ledger: Ledger
-  digests: Map<string, Promise<Digest | null>>
+  digests: Map<string, Promise<Digest | ImageResponse | null>>
+  /** The addresses of the images of the HTML of the message, read with the first remote image. */
+  urls?: Promise<Set<string>>
+  /** The bytes of remote images read for a peek, by address, kept for their translation; `heldBytes` counts them. */
+  held: Map<string, { bytes: Uint8Array; type: string }>
+  heldBytes: number
   /** Aborted when the content script goes away or translates the message again: what still waits is not sent. */
   controller: AbortController
 }
@@ -277,6 +289,10 @@ export interface ImageDeps {
   displayed: (tabId: number) => Promise<number | null>
   /** A part of a message (messages.getAttachmentFile()). */
   part: (messageId: number, partName: string) => Promise<File>
+  /** The addresses of the images of the HTML of a message (remote-images.ts); without it no remote image is read. */
+  imageUrls?: (messageId: number) => Promise<Set<string>>
+  /** The fetch of the remote images; the global one by default. */
+  remoteFetch?: typeof fetch
   /** Records the services the user allowed to receive images (Settings.imageConsent). */
   recordConsent: (ids: string[], hosts?: string[]) => Promise<void>
   /** The glossary of the analysis precise translation made of the registered message `contextId`; empty without one. */
@@ -295,6 +311,9 @@ const MAX_SESSIONS = 50
 
 /** Images with more pixels are not decoded: 40 MP decode to 160 MB, and the upload has at most 2576 px on its long edge. */
 export const MAX_PIXELS = 40_000_000
+
+/** The bytes of remote images a session keeps between the peek and the translation. */
+export const HELD_BYTES = 16 * 1024 * 1024
 
 /** Images whose bytes are read at the same time; reading a part parses the message up to it. */
 const READ_CONCURRENCY = 2
@@ -343,6 +362,8 @@ export class ImageService {
       round: -1,
       ledger: newLedger(),
       digests: new Map(),
+      held: new Map(),
+      heldBytes: 0,
       controller: new AbortController(),
     })
   }
@@ -407,6 +428,10 @@ export class ImageService {
     if (!(await this.deps.hasOrigin(origin).catch(() => false))) throw new LocalizedError("errHostPermission", [patternHost(origin)])
   }
 
+  private remoteTooLarge(): ImageResponse {
+    return this.skipped("imageRemoteTooLarge", [Math.round(REMOTE_MAX_BYTES / 1024 / 1024)])
+  }
+
   private skipped(key: MessageKey, args: (string | number)[] = [], quiet = false): ImageResponse {
     return { status: "skipped", reason: this.i18n.t(key, args), ...(quiet ? { quiet: true as const } : {}) }
   }
@@ -415,10 +440,11 @@ export class ImageService {
    * The original bytes of the image of `req`, or null when they cannot be read: a part is read only from the message
    * the session was opened for while the tab still shows it, and only when its file name is the one of its address.
    */
-  private async bytesOf(session: Session, req: ImageRequest): Promise<{ bytes: Uint8Array; type: string } | null> {
+  private async bytesOf(session: Session, req: ImageRequest): Promise<{ bytes: Uint8Array; type: string } | "large" | null> {
     if ("data" in req.source) return dataBytes(req.source.data)
     const message = await session.message
     if (message === null || (await this.deps.displayed(session.tabId)) !== message) return null
+    if ("url" in req.source) return this.remoteBytes(session, message, req.source.url)
     const file = await this.deps.part(message, req.source.part)
     // The part number of the address must name an image part of the message, the one the address names.
     if (!file.type.startsWith("image/")) return null
@@ -427,22 +453,66 @@ export class ImageService {
     return { bytes: new Uint8Array(await file.arrayBuffer()), type: file.type }
   }
 
-  /** What the bytes of the image of `req` tell, read once per session and source. */
-  private digest(session: Session, req: ImageRequest): Promise<Digest | null> {
+  /**
+   * The bytes of the remote image at `url` of the message `message`: only at an address an image of its HTML names;
+   * those kept from the peek when there are, otherwise read again.
+   */
+  private async remoteBytes(session: Session, message: number, url: string): Promise<{ bytes: Uint8Array; type: string } | "large" | null> {
+    if (!this.deps.imageUrls) return null
+    if (!session.urls) {
+      const urls = this.deps.imageUrls(message)
+      session.urls = urls
+      // A failed read is tried again with the next image.
+      void urls.catch(() => session.urls === urls && delete session.urls)
+    }
+    const urls = await session.urls.catch(() => null)
+    if (!urls?.has(url)) return null
+    const held = session.held.get(url)
+    if (held) return held
+    return fetchRemoteImage(url, { fetchFn: this.deps.remoteFetch, signal: session.controller.signal })
+  }
+
+  /** Keep the bytes of a remote image read for a peek, within HELD_BYTES. */
+  private hold(session: Session, url: string, original: { bytes: Uint8Array; type: string }): void {
+    if (session.held.has(url) || session.heldBytes + original.bytes.length > HELD_BYTES) return
+    session.held.set(url, original)
+    session.heldBytes += original.bytes.length
+  }
+
+  /** The bytes of a remote image went to the decoder: they are not kept any longer. */
+  private release(session: Session, req: ImageRequest): void {
+    if (!("url" in req.source)) return
+    const held = session.held.get(req.source.url)
+    if (!held) return
+    session.held.delete(req.source.url)
+    session.heldBytes -= held.bytes.length
+  }
+
+  /** Whether the extension may read the remote image at `url`: the host permission for its host. */
+  private async mayRead(url: string): Promise<boolean> {
+    const pattern = originPattern(url)
+    if (!pattern || !this.deps.hasOrigin) return false
+    return this.deps.hasOrigin(pattern).catch(() => false)
+  }
+
+  /** What the bytes of the image of `req` tell, read once per session and source; a skipped answer for a remote image too large to read. */
+  private digest(session: Session, req: ImageRequest): Promise<Digest | ImageResponse | null> {
     const source = JSON.stringify(req.source)
     let digest = session.digests.get(source)
     if (!digest) {
       digest = this.reads
-        .run(async () => {
+        .run(async (): Promise<Digest | ImageResponse | null> => {
           const original = await this.bytesOf(session, req)
+          if (original === "large") return this.remoteTooLarge()
           if (!original) return null
+          if ("url" in req.source) this.hold(session, req.source.url, original)
           const size = imageSize(original.bytes)
           return { sha: await sha256Hex(original.bytes), length: original.bytes.length, animated: isAnimated(original.bytes), pixels: size ? size.width * size.height : null }
         })
         .catch(() => null)
       session.digests.set(source, digest)
       // A failed read is tried again with the next request.
-      void digest.then((d) => d === null && session.digests.get(source) === digest && session.digests.delete(source))
+      void digest.then((d) => (d === null || "status" in d) && session.digests.get(source) === digest && session.digests.delete(source))
     }
     return digest
   }
@@ -486,8 +556,11 @@ export class ImageService {
     const service = providerDisplayName(getPreset(id)!, this.i18n)
     try {
       if (req.width * req.height > MAX_PIXELS) return this.skipped("imageTooManyPixels", [Math.round(MAX_PIXELS / 1e6)])
+      // A remote image needs the host permission before anything is read.
+      if ("url" in req.source && !(await this.mayRead(req.source.url))) return { status: "access" }
       const digest = await this.digest(session, req)
       if (!digest) return this.skipped("imageUnreadable")
+      if ("status" in digest) return digest
       if (digest.length < s.minKB * 1024) return this.skipped("imageTooFewBytes", [], true)
       if (digest.animated && s.animated === "skip") return this.skipped("imageAnimated", [], true)
       if ((digest.pixels ?? 0) > MAX_PIXELS) return this.skipped("imageTooManyPixels", [Math.round(MAX_PIXELS / 1e6)])
@@ -544,7 +617,9 @@ export class ImageService {
     const signal = session.controller.signal
     if (ledger.uploads >= s.maxPerMessage) return this.skipped("imageLimitCount", [s.maxPerMessage])
     const original = await this.reads.run(() => this.bytesOf(session, req)).catch(() => null)
+    if (original === "large") return this.remoteTooLarge()
     if (!original) return this.skipped("imageUnreadable")
+    this.release(session, req)
     const upload = await this.decoding.run(() => (signal.aborted ? Promise.reject(aborted()) : this.prepare(original, job.format, s)))
     if (!upload) return this.skipped("imageUnreadable")
     if (upload === "large") return this.skipped("imageTooLarge", [s.maxImageKB])

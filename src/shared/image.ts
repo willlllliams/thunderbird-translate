@@ -3,12 +3,28 @@
  * an image comes from, read off its address, and the filters on its natural
  * size and its place, which come before anything is read or sent. The
  * filters on the bytes run in the background script (background/images.ts).
+ *
+ * A remote image (http or https) counts as an image of the body: it takes
+ * part only once Thunderbird shows it, that is when the message may load
+ * remote content and the image has loaded. An address with a user name or a
+ * password is never read.
  */
 
 import type { PublicImageSettings } from "./settings"
 
-/** Where an image comes from: a part of the message (with the file name of its address), a data: URI, a remote address, or anything else (an unreplaced cid:, a blob:). */
-export type ImageSource = { kind: "part"; part: string; name?: string } | { kind: "data"; data: string } | { kind: "remote" } | { kind: "other" }
+/** Where an image comes from: a part of the message (with the file name of its address), a data: URI, a remote address (http, https), or anything else (an unreplaced cid:, a blob:). */
+export type ImageSource = { kind: "part"; part: string; name?: string } | { kind: "data"; data: string } | { kind: "remote"; url: string } | { kind: "other" }
+
+/** The address of a remote image as the extension may read it: http or https, with a host and without a user name or password; null otherwise. */
+export function remoteImageUrl(src: string): string | null {
+  try {
+    const url = new URL(src)
+    if ((url.protocol !== "http:" && url.protocol !== "https:") || !url.hostname || url.username || url.password) return null
+    return url.href
+  } catch {
+    return null
+  }
+}
 
 /** A part number as libmime writes it: "1.2", "1.1.3". */
 const PART = /^\d+(?:\.\d+)*$/
@@ -20,7 +36,10 @@ const PART = /^\d+(?:\.\d+)*$/
  */
 export function imageSource(src: string): ImageSource {
   if (/^data:image\//i.test(src)) return { kind: "data", data: src }
-  if (/^https?:/i.test(src)) return { kind: "remote" }
+  if (/^https?:/i.test(src)) {
+    const url = remoteImageUrl(src)
+    return url ? { kind: "remote", url } : { kind: "other" }
+  }
   try {
     const params = new URL(src).searchParams
     const part = params.get("part")
@@ -42,17 +61,22 @@ export interface ImageCandidate {
 }
 
 /** Why an image is left out by the content script. */
-export type ImageFilterReason = "remote" | "source" | "tracking" | "signature" | "small" | "area" | "aspect"
+export type ImageFilterReason = "source" | "tracking" | "signature" | "small" | "area" | "aspect"
 
 /**
- * The reason the content script leaves an image out, null when it passes: remote images never go anywhere; the
- * sources of the settings; a side of 2 px or less is a tracking pixel, always; images in a signature; the short side,
- * the area and the ratio of the long side to the short one, on the natural size.
+ * The reason the content script leaves an image out, null when it passes: the sources of the settings (a remote
+ * image is an image of the body); a side of 2 px or less is a tracking pixel, always; images in a signature; the
+ * short side, the area and the ratio of the long side to the short one, on the natural size.
  */
 export function filterImage(c: ImageCandidate, s: Pick<PublicImageSettings, "sources" | "skipSignature" | "minSide" | "minArea" | "maxAspect">): ImageFilterReason | null {
   const source = imageSource(c.src)
-  if (source.kind === "remote") return "remote"
-  if (source.kind === "other" || !(c.attachment ? s.sources.attachments : s.sources.inline)) return "source"
+  if (source.kind === "other") return "source"
+  return filterShape(c, s)
+}
+
+/** The filters of filterImage() after the kind of the source: the sources of the settings, the place and the natural size. */
+export function filterShape(c: Omit<ImageCandidate, "src">, s: Pick<PublicImageSettings, "sources" | "skipSignature" | "minSide" | "minArea" | "maxAspect">): ImageFilterReason | null {
+  if (!(c.attachment ? s.sources.attachments : s.sources.inline)) return "source"
   if (c.width <= 2 || c.height <= 2) return "tracking"
   if (c.inSignature && s.skipSignature) return "signature"
   const short = Math.min(c.width, c.height)

@@ -43,6 +43,7 @@ export const imageSettings = (over: Partial<PublicImageSettings> = {}): PublicIm
   format: "image/jpeg",
   glossary: false,
   signature: "sig",
+  hostAccess: 0,
   ...over,
 })
 

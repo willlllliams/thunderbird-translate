@@ -3,6 +3,7 @@ import { ext } from "../shared/ext"
 import { t } from "../shared/i18n"
 import { localizeDocument } from "../shared/i18n-dom"
 import { followUiLanguage, loadExtensionI18n } from "../shared/i18n-ext"
+import { REMOTE_ORIGINS } from "../shared/hosts"
 import { IDLE_TAB_STATE, type OfflineStatus, type OptionsPlace, optionsPath, type PageNotice, send, type TabState } from "../shared/messages"
 import { $, fillSelect, fillTierSelects, languageOptions, offlineStatus, onTierChange, showImagePreciseNote, showOfflineHint, sourceLanguageOptions, visionHint } from "../shared/page"
 import { type DisplayMode, type ImageMode, imageStatus, summaryProvider } from "../shared/settings"
@@ -98,9 +99,25 @@ async function main(): Promise<void> {
     window.close()
   })
 
+  // Remote images of the message wait for the access to remote images: the click asks Thunderbird for it, first thing in the handler.
+  let remoteAllowed = false
+  const checkRemote = async () => {
+    remoteAllowed = await ext.permissions.contains({ origins: [...REMOTE_ORIGINS] }).catch(() => false)
+    render(last)
+  }
+  $("remoteAccessAllow").addEventListener("click", () => {
+    void ext.permissions
+      .request({ origins: [...REMOTE_ORIGINS] })
+      .catch(() => false)
+      .then(() => checkRemote())
+  })
+
   let last = IDLE_TAB_STATE
   const render = (st: TabState) => {
     last = st
+    const remote = st.connected && !remoteAllowed ? (st.remoteImages ?? 0) : 0
+    $("remoteAccess").hidden = remote === 0
+    $("remoteAccessText").textContent = remote > 0 ? t("popupRemoteImages", [remote]) : ""
     toggle.disabled = !st.connected
     toggle.classList.toggle("active", st.active)
     toggle.textContent = st.active ? t("popupShowOriginal") : t("popupTranslate")
@@ -167,6 +184,7 @@ async function main(): Promise<void> {
   })
   void refreshOffline()
 
+  await checkRemote()
   await refresh()
   setInterval(refresh, REFRESH_INTERVAL_MS)
 }

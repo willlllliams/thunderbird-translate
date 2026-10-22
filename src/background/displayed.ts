@@ -1,6 +1,7 @@
 /**
  * The message displayed in a tab: its sender, date and subject for its
- * summary; its id, and a part of it, for the translation of its images.
+ * summary; its id, a part of it and the addresses of its remote images, for
+ * the translation of its images.
  * The content script runs inside the body of the message and cannot see the
  * header, so the background script reads it
  * with messageDisplay.getDisplayedMessage(), which needs the messagesRead
@@ -9,6 +10,7 @@
  * which API it uses.
  */
 
+import { type MessagePartLike, messageImageUrls } from "./remote-images"
 import type { MailHeader } from "./summary"
 
 /**
@@ -41,4 +43,14 @@ export async function displayedMessageId(tabId: number): Promise<number | null> 
  */
 export function messagePart(messageId: number, partName: string): Promise<File> {
   return browser.messages.getAttachmentFile(messageId, partName)
+}
+
+/**
+ * The addresses of the remote images the HTML of a message names: a remote image of the displayed message is read
+ * only at one of them. getFull() needs only the messagesRead permission and gives the decoded text of each text part;
+ * the background page parses it without loading anything.
+ */
+export async function messageImageAddresses(messageId: number): Promise<Set<string>> {
+  const full = await browser.messages.getFull(messageId)
+  return messageImageUrls(full as MessagePartLike, (html) => new DOMParser().parseFromString(html, "text/html"))
 }
