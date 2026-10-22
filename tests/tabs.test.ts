@@ -218,8 +218,8 @@ describe("B5: a content script that goes away", () => {
 describe("other Ports", () => {
   it("are refused: only a content script or a page with its sample message connects", async () => {
     const { tabs, connect, translate } = registry()
-    // The Port of the page of translated subjects of 2.1 – 2.3.
-    const port = connect(4, "tt-subjects", "moz-extension://test/subjects.html")
+    // A Port under another name, from a page of the extension.
+    const port = connect(4, "tt-other", "moz-extension://test/other.html")
     port.send({ type: "translate", id: 1, request: request("Budget") })
     await nextTask()
     expect([port.posted, translate.mock.calls, port.onMessage.listeners.length]).toEqual([[], [], 0])

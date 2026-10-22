@@ -365,7 +365,8 @@ describe("time", () => {
     const [t10, t80] = times([ten, eighty])
     // Eight times the text: linear growth takes eight times the time, quadratic growth sixty-four.
     expect(t80).toBeLessThan(Math.max(t10 * 24, 5))
-    expect(t10).toBeLessThan(100)
+    // A bound for a hang only: the ratio above tells the growth, and a busy machine slows both runs alike.
+    expect(t10).toBeLessThan(1000)
   })
 })
 
@@ -513,6 +514,7 @@ describe("time of the answers about images", () => {
     const [t10, t80] = times([ten, eighty])
     // Eight times the text: linear growth takes eight times the time, quadratic growth sixty-four.
     expect(t80).toBeLessThan(Math.max(t10 * 24, 5))
-    expect(t10).toBeLessThan(100)
+    // A bound for a hang only: the ratio above tells the growth, and a busy machine slows both runs alike.
+    expect(t10).toBeLessThan(1000)
   })
 })

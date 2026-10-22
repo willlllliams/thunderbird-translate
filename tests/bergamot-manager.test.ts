@@ -369,12 +369,16 @@ describe("BergamotEngine edge cases", () => {
       created.push(worker)
       return worker
     }, { timeoutMs: 30, loadTimeoutMs: 30 })
-    await expect(engine.translate(["de>en"], ["x"])).rejects.toThrow(/did not answer within/)
+    useFakeTimers()
+    const failed = expect(engine.translate(["de>en"], ["x"])).rejects.toThrow(/did not answer within/)
+    await vi.advanceTimersByTimeAsync(30)
+    await failed
     expect(stuck.terminated).toBe(true)
     expect(engine.running).toBe(false)
     expect(await engine.translate(["de>en"], ["y"])).toEqual(["[de>en]y"])
     expect(created).toHaveLength(2)
     engine.shutdown()
+    vi.useRealTimers()
   })
 
   it("L7: gives loading a model its own, longer timeout", async () => {
@@ -382,8 +386,13 @@ describe("BergamotEngine edge cases", () => {
     const post = slowLoad.postMessage.bind(slowLoad)
     slowLoad.postMessage = (m: WorkerRequest, t?: Transferable[]) => (m.type === "load" ? setTimeout(() => post(m, t), 80) : post(m, t))
     const engine = engineWith(() => slowLoad, { timeoutMs: 30, loadTimeoutMs: 1000 })
-    expect(await engine.translate(["de>en"], ["x"])).toEqual(["[de>en]x"])
+    useFakeTimers()
+    const translated = engine.translate(["de>en"], ["x"])
+    // The load answers after 80 ms, past the 30 ms of a request and within its own 1000 ms.
+    await vi.advanceTimersByTimeAsync(80)
+    expect(await translated).toEqual(["[de>en]x"])
     engine.shutdown()
+    vi.useRealTimers()
   })
 
   it("L7: fails at once for a while after two timeouts in a row, then tries again", async () => {

@@ -8,7 +8,7 @@ import type { TabState, TranslateRequest, TranslateResponse } from "../src/share
 import type { Tier } from "../src/shared/providers"
 import type { PublicSettings } from "../src/shared/settings"
 import { answering, manualTranslate, type OnTier, publicSettings, tieredSettings } from "./fixtures/content"
-import { until } from "./helpers"
+import { until, useFakeTimers } from "./helpers"
 
 type Reports = Omit<TabState, "connected">[]
 
@@ -373,13 +373,22 @@ describe("paragraphs already in the target language", () => {
 
 describe("progress reports", () => {
   it("go out at most every 100 ms while results arrive, and the last state always follows", async () => {
+    useFakeTimers()
     const paragraphs = Array.from({ length: 40 }, (_, i) => `<p>Paragraph number ${i}</p>`).join("")
     const { c, reports } = await mount(paragraphs, tieredSettings(["machine", "ai"]), { translate: answering((text, tier) => ok(`${tier}:${text}`)) })
+    const before = reports.length
     await c.start()
-    // Every paragraph got two results, each a change of state; the reports stay few.
-    expect(reports.length).toBeLessThan(5)
-    await until(() => expect(reports.at(-1)).toEqual({ active: true, total: 40, done: 40, provisional: 0, failed: 0 }))
-    expect(reports.length).toBeLessThan(6)
+    // Every paragraph got two results, each a change of state, and no time passed: one report went out, the rest wait.
+    const last = { active: true, total: 40, done: 40, provisional: 0, failed: 0 }
+    expect(reports.length).toBe(before + 1)
+    expect(reports.at(-1)).not.toEqual(last)
+    // After the interval the last state follows, once.
+    await vi.advanceTimersByTimeAsync(100)
+    expect(reports.length).toBe(before + 2)
+    expect(reports.at(-1)).toEqual(last)
+    await vi.advanceTimersByTimeAsync(1000)
+    expect(reports.length).toBe(before + 2)
+    vi.useRealTimers()
   })
 })
 

@@ -8,11 +8,13 @@ import { getPreset, PROVIDER_PRESETS, tierOf } from "../src/shared/providers"
 import { consentEntry, isOnlineService, type Settings } from "../src/shared/settings"
 
 /**
- * Fake setTimeout and setInterval (and Date with `now`). setImmediate stays
- * real: fake-indexeddb runs its requests on it, and nextTask() waits for it.
+ * Fake setTimeout, setInterval and performance.now() (and Date with `now`).
+ * setImmediate stays real: fake-indexeddb runs its requests on it, and
+ * nextTask() waits for it.
  */
 export function useFakeTimers(now?: Date): void {
-  vi.useFakeTimers(now ? { toFake: ["setTimeout", "clearTimeout", "setInterval", "clearInterval", "Date"], now } : { toFake: ["setTimeout", "clearTimeout", "setInterval", "clearInterval"] })
+  const timers = ["setTimeout", "clearTimeout", "setInterval", "clearInterval", "performance"] as const
+  vi.useFakeTimers(now ? { toFake: [...timers, "Date"], now } : { toFake: [...timers] })
 }
 
 /**
