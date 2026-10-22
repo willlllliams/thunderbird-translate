@@ -47,7 +47,7 @@ Web Crypto 不提供 MD5，所以 `src/shared/md5.ts` 按 RFC 1321 直接实现�
 
 开启精翻后，AI 服务可以读取当前显示邮件中图片里的文字；结果是图片下方的文字（原文与译文的对照表）。扩展不在图片上绘制任何内容，也不生成图片。
 
-- 处理哪些图片：正文中的图片（`cid:` 和 `data:`），以及 Thunderbird 显示在正文下方的图片附件。远程图片从不读取、从不发送；内容脚本跳过所有 `http:`/`https:` 图片，也跳过跟踪像素、低于设置中尺寸下限的图片和签名里的图片（`src/shared/image.ts`）。
+- 处理哪些图片：正文中的图片（`cid:` 和 `data:`），以及 Thunderbird 显示在正文下方的图片附件。3.0 版从不读取远程图片；从 3.1.0 起，Thunderbird 已经显示的远程图片参与翻译，见下一节。内容脚本还跳过跟踪像素、低于设置中尺寸下限的图片和签名里的图片（`src/shared/image.ts`）。
 - 如何读取字节：后台脚本用 `messages.getAttachmentFile(messageId, partName)` 读取部件（`src/background/displayed.ts` 的 `messagePart()`），部件名取自 Thunderbird 给图片的地址，当前邮件的 id 来自 `messageDisplay.getDisplayedMessage()`。两者都只需要扩展自 2.1 起就有的 `messagesRead`。只读取图片部件：翻译邮件开始时，读取通过内容脚本过滤的前几张图片的部件，在本机查找缓存结果、检查大小、动图和像素数；文件不是图片的部件，以及文件名与图片地址中的文件名不同的部件，都会被丢弃。只从内容脚本连接时显示的那封邮件读取，并且只在标签页仍显示这封邮件时读取。不读取其他任何附件。
 - 何时发送图片：默认模式“图片下询问”下，用户点击某张图片下方的“翻译图片文字”之后；“开启”模式下自动发送，默认每封邮件最多 5 张。图片在后台页中用 `createImageBitmap()` 解码，缩小到长边不超过 1568 px，再用 `OffscreenCanvas` 重新编码为 JPEG，文件名和元数据随之丢弃（`src/background/images.ts`），然后经 AI SDK 发给视觉服务（用户没有另选时即第 3 层的 AI 服务）。
 - 同意：图片有单独的列表 `imageConsent`，与文字的同意分开。第一张图片发给某个服务之前，图片下方的面板写明服务、主机、发送的内容，以及 Anthropic、Gemini 或 OpenAI 公布的数据政策；没有同意时后台脚本拒绝图片请求（`ImageService.request()`），并在请求离开队列时再次检查同意、模式和服务，所以撤销之后仍在队列中的图片不会发送；内容脚本离开时，它仍在等待的请求会被中止。精翻的术语表只随图片发给第 3 层的服务，或同时被允许接收邮件文字的服务。设置页列出并可撤销已允许接收图片的服务。
@@ -60,6 +60,24 @@ Web Crypto 不提供 MD5，所以 `src/shared/md5.ts` 按 RFC 1321 直接实现�
 3. 图片下方出现“翻译图片文字”按钮。点击后，图片发往 OpenAI 之前，图片下方的面板会询问。“取消”会恢复按钮；“允许并翻译图片”发送请求，没有密钥时图片下方显示“OpenAI：缺少 API 密钥”。
 
 使用自己的 AI 密钥时，结果以表格显示在图片下方；设置页视觉模型下方的“测试图片”会发送一张写着“TEST 42”的内置图片。
+
+## 3.1.0 起：Thunderbird 已经显示的远程图片
+
+营销邮件的文字常在远程图片里，3.0 版跳过它们且不作任何提示。从 3.1.0 起，图片翻译也处理远程图片（`http:`/`https:`），条件如下：
+
+- 只处理 Thunderbird 已经显示的图片：内容脚本只在 `complete` 为真且 `naturalWidth` 大于 0 时接收 http(s) 地址的 `<img>`，即用户允许了这封邮件或其发件人的远程内容，并且图片已经加载（`src/content/images.ts` 的 `consider()`）。被阻止或加载失败的远程图片从不请求；邮件上方的提示统计它们的数量，并说明需要显示远程内容。
+- 字节的来源：内容脚本无法读取已显示 `<img>` 的像素。Gecko 在画布上绘制其他来源的图片后把画布标记为只写（`CanvasUtils::DoDrawImageSecurityCheck`）；对扩展的例外只适用于主体属于扩展自身的图片，而邮件中图片的主体是它所在的远程服务器。所以后台脚本用 `fetch()` 重新请求图片（`src/background/remote-images.ts` 的 `fetchRemoteImage()`）：`credentials: "omit"`、`referrerPolicy: "no-referrer"`、`cache: "force-cache"`（允许 HTTP 缓存直接给出结果）、20 秒超时、最多 15 MB，读取前按 Content-Length 检查，读取流时再检查一次。只接受 http 和 https，不接受带用户名或密码的地址。
+- 绑定到当前显示的邮件：地址必须出现在内容脚本所属邮件的 HTML 的某个图片（`src`、`srcset`）中。HTML 用 `messages.getFull()`（`messagesRead`）读取，用 `DOMParser` 解析，不加载任何内容（`displayed.ts` 的 `messageImageAddresses()`）；标签页也必须仍在显示这封邮件。内容脚本无法让扩展读取其他地址。
+- 权限：使用清单中已经声明的可选主机权限 `http://*/*` 和 `https://*/*`，清单不变。扩展只在用户点击时申请：邮件头按钮弹出窗口中的“允许读取远程图片”，或设置页图片设置下的同名按钮。内容脚本没有 permissions API，所以图片下方的按钮和邮件上方的提示让后台脚本用 `messageDisplayAction.openPopup()` 打开弹出窗口（Thunderbird 113 起不需要用户操作），由用户在弹出窗口中点击。没有权限时，后台脚本对图片请求回答 “access”，不读取任何内容（`ImageService.request()`、`mayRead()`）。设置页的“撤销权限”调用 `permissions.remove()`。
+- 其余规则与其他图片相同：过滤、按服务和主机记录的同意、每封邮件的上限、缩放和 JPEG 编码、缓存（键为字节的 SHA-256），以及内容脚本离开时中止请求。
+
+不用 AI 密钥测试：
+
+1. 和上文一样，为第 3 层选择 OpenAI 并开启精翻；“图片翻译”保持“图片下询问”。
+2. 打开一封带有至少 200 × 200 像素远程图片的邮件（营销邮件），在 Thunderbird 显示于邮件上方的提示条中点击“显示远程内容”（或为该发件人设置允许）。按 Alt+A。
+3. 每张通过过滤的远程图片下方出现“翻译图片文字”按钮，邮件上方的提示统计等待权限的远程图片。点击按钮，邮件头按钮的弹出窗口打开，其中有“允许读取远程图片”。点击它，Thunderbird 询问是否允许访问所有网站的数据。
+4. 允许之后，图片被重新读取，图片下方的确认面板在发往 OpenAI 之前询问；没有密钥时，“允许并翻译图片”以“OpenAI：缺少 API 密钥”结束。
+5. 打开一封远程内容被 Thunderbird 阻止的邮件并按 Alt+A：扩展不为其中的图片发出请求，邮件上方的提示写明有几张远程图片没有加载。
 
 ## 3.0.0 起：免费线路的连接检查
 
@@ -79,7 +97,7 @@ xpi 中的脚本由 esbuild 打包并压缩，因此随提交附上源代码包�
 | `storage` | 设置、翻译缓存和新手引导的状态，保存在 `storage.local` 中（通过 `src/shared/ext.ts` 的封装调用，所以 linter 看不到这些调用） |
 | `unlimitedStorage` | IndexedDB 中的离线词典包（每个 0.3 至 3.6 MB）和 Bergamot 模型（每个方向 13 至 48 MB），不能被浏览器清除 |
 | 主机权限 | 只列出各服务的固定地址：谷歌翻译、微软翻译的两个地址、DeepL 的两个地址、百度翻译、有道智云和彩云小译（使用用户密钥的机器翻译，见上文）、18 个 AI 预设的默认接口地址、Mozilla Remote Settings 及其附件 CDN（Bergamot 模型），以及 GitHub 和它的两个发布下载主机（词典包）。列表在 `src/shared/hosts.ts` 中，单元测试保证它与清单和预设一致。 |
-| 可选的 `http://*/*`、`https://*/*` | 用户填写的接口地址（Ollama、LM Studio、DeepLX、Azure、自定义 OpenAI 兼容服务）。用户点击“授权访问”或“测试连接”时，设置页用 `permissions.request()` 只申请这一个主机；没有权限的主机，后台脚本拒绝发送。 |
+| 可选的 `http://*/*`、`https://*/*` | 用户填写的接口地址（Ollama、LM Studio、DeepLX、Azure、自定义 OpenAI 兼容服务）。用户点击“授权访问”或“测试连接”时，设置页用 `permissions.request()` 只申请这一个主机；没有权限的主机，后台脚本拒绝发送。从 3.1.0 起，用户在弹出窗口或设置页点击“允许读取远程图片”时，同时申请这两个模式，用来重新读取 Thunderbird 已经显示的远程图片（见上文）；没有这次点击就从不申请。 |
 
 2.0 版删除了 `messagesRead`、`tabs` 和 `<all_urls>`；2.1 版为翻译标题重新需要 `messagesRead`，并为标题翻译页面需要 `accountsRead`。3.0 版删除标题翻译，再次去掉 `accountsRead`；`messagesRead` 保留，用于摘要所需的邮件头和图片。`tabs` 和 `<all_urls>` 仍然不用。
 

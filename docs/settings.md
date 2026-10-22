@@ -413,9 +413,7 @@ Retranslate (Alt+R) forgets the image results of the message: "Ask" shows the bu
 | --- | --- | --- |
 | Inline images of the body (`cid:` references and `data:` addresses) | Thunderbird replaces a `cid:` reference with the address of the message part, with its part number in the parameter `part` | with "Translate inline images of the body", on by default |
 | Image attachments | Thunderbird shows them under the body (`.moz-attached-image`) | with "Translate image attachments", on by default |
-| Remote images (`http:`, `https:`) | blocked by Thunderbird unless you load remote content | never |
-
-Remote images are not translated: no extension API tells whether a message may load remote content, and a second download would show your IP address to the image server, which is how tracking pixels work.
+| Remote images (`http:`, `https:`) | blocked by Thunderbird unless you allow remote content for the message or its sender | once Thunderbird shows them, with "Translate inline images of the body" and the access to remote images, see [Remote images](#remote-images) |
 
 The content script filters by the natural size of an image, not its displayed size, since mail templates often show large screenshots smaller:
 
@@ -426,9 +424,9 @@ The content script filters by the natural size of an image, not its displayed si
 | the area under "Smallest area (px²)" | 40000 px² (200 × 200); 0 = no limit | small logos, avatars |
 | the longer side over "Largest aspect ratio" times the shorter one | 8 | divider lines, banners |
 | inside a signature (`.moz-signature`, `.moz-txt-sig`), with "Leave out images in signatures" | on | signature logos |
-| not loaded yet | waits until it has loaded | blocked or broken images |
+| not loaded yet | waits until it has loaded or failed | blocked or broken images; a remote one counts in the notice, see [Images left out](#images-left-out) |
 
-The background script reads the bytes of an image that passes: an image of the body or an attachment with `messages.getAttachmentFile()` and the part number of its address, a `data:` image from its address. It reads the parts of the message that was displayed when the content script of the message started, only while the tab still shows it, so a request of a message being replaced never reads the next one; a part whose file name differs from the one in its address, or that is not an image, counts as unreadable. Thunderbird 128 gives a part without `Content-Disposition`, such as an inline image of `multipart/related`, no file name; such a part is compared by its part number and type only. It then filters by the bytes:
+The background script reads the bytes of an image that passes: an image of the body or an attachment with `messages.getAttachmentFile()` and the part number of its address, a `data:` image from its address, a remote image from the internet as described under [Remote images](#remote-images). It reads the parts of the message that was displayed when the content script of the message started, only while the tab still shows it, so a request of a message being replaced never reads the next one; a part whose file name differs from the one in its address, or that is not an image, counts as unreadable. Thunderbird 128 gives a part without `Content-Disposition`, such as an inline image of `multipart/related`, no file name; such a part is compared by its part number and type only. It then filters by the bytes:
 
 | Rule | Default | Effect |
 | --- | --- | --- |
@@ -442,6 +440,37 @@ The background script reads the bytes of an image that passes: an image of the b
 The two limits per message count what went out for the message on screen, whatever is drawn again meanwhile: a changed setting, the translation turned off and on. An image on its way when the images are drawn again is sent once. "Retranslate" counts again from zero, and what the earlier translation still waits for is not sent.
 
 To find cached results and to apply these filters, the background script reads the images that pass the filters of the content script when a translation starts, in "Ask" mode too, up to twice "Images per message", two at a time; the images after them get their button at once and are read on a click. This happens on your computer; nothing is sent before a click or, in "On", before the consent.
+
+### Remote images
+
+A remote image takes part only when Thunderbird already shows it: the message may load remote content, because you clicked "Show remote content" in the bar above it or allowed its sender, and the image has loaded (`complete` with a natural width above 0). A remote image that Thunderbird blocks or fails to load is never requested by the extension. Whether a message may load remote content stays your decision in Thunderbird, and a blocked tracking pixel stays silent.
+
+The content script cannot read the pixels of the image on screen. Gecko marks a canvas write-only as soon as an image of another origin is drawn on it, and the image in a message has the origin of its server. The background script therefore requests the image again:
+
+- only at an http or https address without a user name or password, which an image (`src` or `srcset`) of the HTML of the message names; the background script reads that HTML with `messages.getFull()` on the computer, once per message, and checks that the tab still shows the message;
+- without cookies and without a referrer, and with `cache: "force-cache"`, so that the HTTP cache of Thunderbird answers when it holds the image; otherwise the image server receives a second request, as when Thunderbird showed the image;
+- with a timeout of 20 seconds and at most 15 MB: a larger Content-Length ends the request before anything is read, and the reading stops once the bytes pass the limit ("The image is larger than 15 MB and is not read.").
+
+The bytes read to look up the cache are kept for the message until the image is sent, up to 16 MB per message, so an image is usually read once. Every other rule applies as for the other images: the filters on the bytes, the limits per message, the consent for images and the upload. The cache key is the SHA-256 of the bytes, so the same image at another address finds its result, and a changed image at the same address does not get an old one.
+
+Reading remote images needs the access to remote images, the optional host permissions `http://*/*` and `https://*/*` of the manifest. Thunderbird grants a permission only from a click on a page of the extension, and asks you as "Access your data for all websites". Two places ask for it:
+
+- the popup of the toolbar button, while the message on screen has remote images waiting for the access: "Remote images in this message: 3." with the button "Allow reading remote images";
+- the settings page, under the image settings: a line that says whether the extension may read remote images, with "Allow reading remote images" or "Remove access".
+
+Without the access, a remote image that passes the filters gets its button in both modes. Its click opens the popup with that line (the button under an image cannot ask for a permission itself); the settings page opens instead when the toolbar button is not in the toolbar. Once you allow the access, the images of the message are read again: "On" sends them within its limits, "Ask" shows the result of a cached image and sends the image whose button you clicked, after the consent panel if the service still needs it. The access also covers an endpoint you type for a service, which then needs no "Allow access" of its own. "Remove access", or removing the permission in the Add-ons Manager, ends the reading of remote images.
+
+### Images left out
+
+A notice above the message tells, once per message, what image translation leaves out and why:
+
+| Line | Counts |
+| --- | --- |
+| "Remote images that can be translated once the extension may read them: 3." | remote images on screen that pass the filters while the access to remote images is missing; with the button "Allow reading remote images" |
+| "Remote images not loaded: 2. Show the remote content of this message to translate their text." | remote images without pixels: blocked by Thunderbird, or failed to load; tracking pixels by their size attributes and images in a signature that the filter leaves out do not count |
+| "Images whose address the extension cannot read: 1." | loaded images that pass the filters but come from neither the message nor the web, such as a `blob:` address |
+
+The notice has a close button; once closed, it stays away for the message. It goes when the translation is turned off.
 
 ### Upload
 
@@ -739,7 +768,7 @@ Settings saved before version 3.0.0 have no image settings, no image prompt and 
 | Permission | What the extension uses it for |
 | --- | --- |
 | `messagesModify` | showing translations inside the displayed message: Thunderbird runs the content script of `messageDisplayScripts` and injects it into a message already on screen only with this permission. The extension changes no stored message. |
-| `messagesRead` | reading the header of the displayed message with `messageDisplay.getDisplayedMessage()`: its sender, date and subject go with the request of its summary. The extension reads no message body this way and stores no header. Image translation reads the id of the displayed message and, with `messages.getAttachmentFile()`, the image parts of that message whose images pass the filters of [Which images](#which-images): inline images of the body and image attachments, never another attachment. |
+| `messagesRead` | reading the header of the displayed message with `messageDisplay.getDisplayedMessage()`: its sender, date and subject go with the request of its summary. The extension reads no message body this way and stores no header. Image translation reads the id of the displayed message and, with `messages.getAttachmentFile()`, the image parts of that message whose images pass the filters of [Which images](#which-images): inline images of the body and image attachments, never another attachment. For a remote image it reads the HTML of that message with `messages.getFull()`, to check that the message names the address of the image. |
 | `sensitiveDataUpload` | sending the paragraphs of a message to the online services of the tiers in use, the message to the AI service of its summary, and the images you ask to translate, or that mode "On" takes, to the vision service |
 | `storage` | the settings, the translation cache and the state of the setup guide in `storage.local` |
 | `unlimitedStorage` | the dictionary packs and Bergamot models in IndexedDB, 13 to 48 MB per direction, which the browser then neither evicts nor caps |
@@ -753,6 +782,8 @@ An address you type needs your permission once: the endpoint of Ollama, LM Studi
 - A translation through a service without the permission sends nothing and fails with "The extension may not connect to <host> yet. Open this service in the settings and click “Allow access”."
 - The permissions granted this way are listed in the Add-ons Manager under the extension's permissions and can be removed there.
 
+The same optional host permissions, both patterns at once, are the access to remote images of image translation, see [Remote images](#remote-images). The popup and the settings page ask for them only from a click on "Allow reading remote images", and the settings page removes them with "Remove access". While they are granted, every endpoint you type is allowed without a line of its own.
+
 The endpoint field of a local service notes that `localhost` is this computer (the loopback address): requests to it do not leave the computer. Ollama and LM Studio use such an address by default.
 
 ## Privacy details
@@ -765,8 +796,8 @@ The endpoint field of a local service notes that `localhost` is this computer (t
   - user names and passwords in URLs;
   - URL parameters whose names contain key, token, auth, secret, sig, pass, credential or session.
 - Message text is sent only to the services of the tiers in use and, when you ask for a summary or "Automatic summary" opens one, to the AI service of the summary, and to an online service only after you allowed it, see [Consent before online translation](#consent-before-online-translation). The subject goes along only with the request of a summary, together with the sender and the date. The dictionary and Bergamot translate on your computer and send no text anywhere.
-- An image goes to the vision service only with precise translation on, after a click on its button or, in mode "On", by itself, and only once the service is allowed to receive images, see [Consent for images](#consent-for-images). It goes scaled down and encoded again, without its file name and metadata. Remote images and images under the filters of [Which images](#which-images) are never sent; images in signatures are left out by default, a filter the settings can turn off. To look up cached results, the first images that pass the filters are read on the computer when a translation starts.
-- The extension connects only to the hosts of its manifest and to the endpoints you allowed, see [Permissions](#permissions).
+- An image goes to the vision service only with precise translation on, after a click on its button or, in mode "On", by itself, and only once the service is allowed to receive images, see [Consent for images](#consent-for-images). It goes scaled down and encoded again, without its file name and metadata. Remote images that Thunderbird does not show, and images under the filters of [Which images](#which-images), are never sent; images in signatures are left out by default, a filter the settings can turn off. To look up cached results, the first images that pass the filters are read on the computer when a translation starts.
+- The extension connects only to the hosts of its manifest, to the endpoints you allowed, and, with the access to remote images, to the addresses of the remote images Thunderbird shows, see [Permissions](#permissions).
 - The settings page and the setup guide send the fixed test sentence of "Test connection" to Google Translate (free) and Microsoft Translator (free) when they show the service as added, once per page, to tell whether it can be reached ([Connection check of the free routes](#connection-check-of-the-free-routes)). No message text goes with it; the service sees the IP address of the computer.
 - Two lists come from the network, without any message text: the list of dictionary packs from this repository's GitHub releases and the list of Bergamot models from Mozilla. The background script reads them and keeps the copy it read; the settings page and the setup guide show the offline lists from that copy.
 - The background script reads a list when a page shows it and, while the dictionary or Bergamot is the service of a tier, when Thunderbird starts, when the settings change, and when the popup or the settings page asks what is missing. It reads either list again once the copy in memory is older than 6 hours (the dictionary list per release tag). After a failed read, either list is read again 10 minutes later at the earliest; until then it answers with the copy in memory, and the Bergamot list also with the copy saved by an earlier session, if there is one. "Reload list" in either offline section of the settings page reads its list at once. Translating a message reads neither list, also when a pack or model is missing.
