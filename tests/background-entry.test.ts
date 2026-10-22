@@ -375,6 +375,38 @@ describe("offline data in the background script", () => {
   })
 })
 
+describe("remote images", () => {
+  it("sends the settings again after the host permissions changed, and opens the popup or else the settings page for the access", async () => {
+    const bg = await start({ stored: stored(createDefaultSettings()), tabs: [{ id: 9, url: "moz-extension://test/options.html#providers" }] })
+    const port = bg.connect(4)
+    await until(() => expect(port.posted).toHaveLength(1))
+    const hostAccess = () => port.posted.map((push) => (push.type === "settings" ? push.settings.image.hostAccess : null))
+    bg.api.permissions.onAdded.fire({ origins: ["https://*/*"] })
+    await until(() => expect(hostAccess()).toEqual([0, 1]))
+    bg.api.permissions.onRemoved.fire({ origins: ["https://*/*"] })
+    await until(() => expect(hostAccess()).toEqual([0, 1, 2]))
+    // A click in the message asks for the access: the popup of its window opens.
+    port.send({ type: "remoteAccess" })
+    await until(() => expect(bg.api.messageDisplayAction.openPopup).toHaveBeenCalledWith({}))
+    // The button is in no toolbar: the settings page, in the tab that shows it already, goes to the line.
+    bg.api.messageDisplayAction.openPopup.mockResolvedValue(false)
+    port.send({ type: "remoteAccess" })
+    await until(() => expect(bg.api.tabs.update).toHaveBeenCalledWith(9, { url: "moz-extension://test/options.html#imageRemote", active: true }))
+    expect(bg.api.tabs.create).not.toHaveBeenCalled()
+  })
+
+  it("A21: opens one settings page for the requests of the pages and of the notices", async () => {
+    const bg = await start({ stored: stored(createDefaultSettings()) })
+    await bg.send({ type: "openOptions", place: { section: "providers", tier: "ai" } })
+    expect(bg.api.tabs.create).toHaveBeenCalledWith({ url: "moz-extension://test/options.html?tier=ai#providers" })
+    // The query of the tabs fails: a new tab, as before.
+    bg.api.tabs.query.mockRejectedValueOnce(new Error("no tabs"))
+    await bg.send({ type: "openOptions", place: { section: "dictionaries" } })
+    expect(bg.api.tabs.create).toHaveBeenCalledTimes(2)
+    expect(bg.api.tabs.update).not.toHaveBeenCalled()
+  })
+})
+
 describe("keyboard shortcuts", () => {
   it("switches the display mode back and forth and tells the content scripts", async () => {
     const bg = await start({ stored: stored(createDefaultSettings()) })

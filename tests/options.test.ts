@@ -117,6 +117,13 @@ describe("general settings", () => {
     try {
       await options()
       expect(scrolled).toEqual(["providers"])
+      // Opened again at another place while it is open (A21): the new hash goes there without a reload; an empty one stays.
+      history.replaceState(null, "", "#imageRemote")
+      window.dispatchEvent(new Event("hashchange"))
+      history.replaceState(null, "", "#")
+      window.dispatchEvent(new Event("hashchange"))
+      // The pages of the tests before this one listen on the same window as well.
+      expect(new Set(scrolled)).toEqual(new Set(["providers", "imageRemote"]))
     } finally {
       history.replaceState(null, "", "#")
       delete (Element.prototype as Partial<Element>).scrollIntoView
@@ -404,7 +411,26 @@ describe("service panel", () => {
       await until(() => expect(line().hidden).toBe(true))
     })
 
-    it("needs no permission for the default endpoint of a preset, and shows none for an endpoint that is not a URL", async () => {
+    it("P5: on a new install asks for the default host of a key service, also of one without an endpoint field", async () => {
+      const page = await options((s) => ((s.providers.openai.enabled = true), (s.providers.baidu = { enabled: true, apiKey: "k", appId: "a", baseURL: "", model: "" }), (s.providers.youdao = { enabled: true, apiKey: "k", appId: "a", baseURL: "", model: "" }), (s.providers.caiyun = { enabled: true, apiKey: "k", baseURL: "", model: "" })), { permissions: { granted: [] } })
+      pick("OpenAI")
+      await until(() => expect(line().hidden).toBe(false))
+      expect(line().textContent).toContain(ENGLISH.t("hostAccessMissing", ["api.openai.com"]))
+      button(ENGLISH.t("buttonAllowHost")).click()
+      expect(page.browser.api.permissions.request).toHaveBeenCalledWith({ origins: ["https://api.openai.com/*"] })
+      await until(() => expect(line().hidden).toBe(true))
+      for (const [name, host] of [["百度翻译 (Baidu Translate)", "fanyi-api.baidu.com"], ["有道智云 (Youdao)", "openapi.youdao.com"], ["彩云小译 (Caiyun)", "api.interpreter.caiyunai.com"]]) {
+        pick(name)
+        await until(() => expect(line().hidden).toBe(false))
+        expect(line().textContent).toContain(ENGLISH.t("hostAccessMissing", [host]))
+      }
+      // The free routes are host permissions of the manifest.
+      pick("Google Translate (free)")
+      expect(panel().querySelector(".host-access")).toBeNull()
+    })
+
+    it("needs no new permission for the default endpoint of a preset after an update, and shows none for an endpoint that is not a URL", async () => {
+      // The host permissions of 3.0 stay granted as optional ones (the default of the browser fixture).
       await options((s) => (s.providers.openai.enabled = true))
       pick("OpenAI")
       await until(() => expect(line()).not.toBeNull())
@@ -672,7 +698,7 @@ describe("G1: the connection check of the free routes", () => {
     expect(tests(page)).toEqual([])
     await vi.advanceTimersByTimeAsync(600)
     await until(() => expect(reach()!.classList.contains("ok")).toBe(true))
-    // The time of the answer, which fake timers make 0.
+    // The time of the answer: performance.now() is faked as well, and no time passes while the answer comes.
     expect(reach()!.textContent).toBe(ENGLISH.t("reachOk", [0]))
     expect(tests(page)).toEqual([[{ type: "testProvider", providerId: "google-free", config: expect.objectContaining({ apiKey: "" }), targetLang: "en" }]])
     // Shown again: the result of the page, no second request. Another service in passing sends nothing.

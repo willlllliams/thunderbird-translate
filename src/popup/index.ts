@@ -4,7 +4,7 @@ import { t } from "../shared/i18n"
 import { localizeDocument } from "../shared/i18n-dom"
 import { followUiLanguage, loadExtensionI18n } from "../shared/i18n-ext"
 import { REMOTE_ORIGINS } from "../shared/hosts"
-import { IDLE_TAB_STATE, type OfflineStatus, type OptionsPlace, optionsPath, type PageNotice, send, type TabState } from "../shared/messages"
+import { IDLE_TAB_STATE, type OfflineStatus, type OptionsPlace, type PageNotice, send, type TabState } from "../shared/messages"
 import { $, fillSelect, fillTierSelects, languageOptions, offlineStatus, onTierChange, showImagePreciseNote, showOfflineHint, sourceLanguageOptions, visionHint } from "../shared/page"
 import { type DisplayMode, type ImageMode, imageStatus, summaryProvider } from "../shared/settings"
 import { loadSettings, onStoredSettings, readSettings, updateSettings } from "../shared/settings-store"
@@ -29,7 +29,8 @@ async function main(): Promise<void> {
 
   /** Open the settings page at a place and close the popup. */
   const openOptions = (place: OptionsPlace) => {
-    void ext.tabs.create({ url: ext.runtime.getURL(optionsPath(place)) })
+    // The background script opens it: the popup closes at once, and its own calls would end with it.
+    void send({ type: "openOptions", place }).catch(() => {})
     window.close()
   }
   // A selected offline service without the data for the languages is marked in its selector, with a link to the downloads.

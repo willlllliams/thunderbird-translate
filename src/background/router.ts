@@ -7,8 +7,9 @@
 
 import { describeError } from "../shared/errors"
 import { ext } from "../shared/ext"
+import { openOptionsAt } from "../shared/options-tab"
 import { getI18n } from "../shared/i18n"
-import { type BackgroundHandlers, type LocaleMessages, type OfflineItem, type OfflineStatus, optionsPath, type PageNotice, type RequestType } from "../shared/messages"
+import { type BackgroundHandlers, type LocaleMessages, type OfflineItem, type OfflineStatus, type PageNotice, type RequestType } from "../shared/messages"
 import { grantedEntries, type TierSettings } from "../shared/settings"
 import { updateSettings } from "../shared/settings-store"
 import type { OfflineManager } from "../offline/manager"
@@ -60,7 +61,7 @@ export function createHandlers({ tabs, service, images, localeMessages, offlineM
     },
     getLocaleMessages: (req) => localeMessages(req.uiLanguage),
     offlineStatus: (req) => offlineStatus(req.sourceLang, req.targetLang, req.tiers),
-    openOptions: async (req) => void (await ext.tabs.create({ url: ext.runtime.getURL(optionsPath(req.place)) })),
+    openOptions: (req) => openOptionsAt(req.place),
     // Nothing goes back: the settings hold API keys, and the request comes from a content script.
     muteOfflinePairs: async (req) =>
       void (await updateSettings((s) => {

@@ -26,7 +26,7 @@ export function stubBackgroundApi({
   fetchUrl,
 }: {
   stored?: Record<string, unknown>
-  tabs?: { id?: number; type?: string }[]
+  tabs?: { id?: number; type?: string; url?: string }[]
   activeTabs?: { id?: number }[]
   uiLanguage?: string
   fetchUrl?: (url: string, init?: RequestInit) => Promise<Response>

@@ -6,12 +6,14 @@
  * greyed out while precise translation is off; its values stay. A line under
  * the hint tells whether the extension may read the remote images
  * Thunderbird shows (the optional host permissions), with the button that
- * asks for the access or removes it.
+ * asks for the access or removes it. The access covers every host, so a
+ * service whose host the user allowed after it was granted has no permission
+ * of its own: the line names those services, which lose their access with it.
  */
 
 import { describeError } from "../shared/errors"
 import { ext } from "../shared/ext"
-import { REMOTE_ORIGINS } from "../shared/hosts"
+import { providerOrigin, REMOTE_ORIGINS } from "../shared/hosts"
 import { getI18n, t } from "../shared/i18n"
 import { imagePromptTokens } from "../shared/image-prompt"
 import { getLanguage } from "../shared/languages"
@@ -19,7 +21,7 @@ import { send } from "../shared/messages"
 import { $, fillSelect, showImagePreciseNote, visionHint } from "../shared/page"
 import { promptText } from "../shared/prompts"
 import { getPreset, providerDisplayName, tierOf } from "../shared/providers"
-import { addedProviders, emptyProviderConfig, IMAGE_DECIMALS, type ImageSettings, imageStatus, type Settings } from "../shared/settings"
+import { addedProviders, emptyProviderConfig, IMAGE_DECIMALS, type ImageSettings, imageStatus, resolveProvider, type Settings } from "../shared/settings"
 import { imageTokens, PRICE_PAGES, SUGGESTED_VISION_MODELS } from "../shared/vision"
 import { h } from "../shared/dom"
 import { requestHostAccess } from "./host-access"
@@ -112,12 +114,32 @@ export class ImageSettingsSection {
     void this.refreshRemote()
   }
 
-  /** The line about the access to remote images. */
+  /** The line about the access to remote images, and the services that connect only through it. */
   async refreshRemote(): Promise<void> {
     const allowed = await ext.permissions.contains({ origins: [...REMOTE_ORIGINS] }).catch(() => false)
     $("imageRemoteState").textContent = t(allowed ? "optionsRemoteAllowed" : "optionsRemoteMissing")
     $("imageRemoteAllow").hidden = allowed
     $("imageRemoteRevoke").hidden = !allowed
+    const through = allowed ? await this.throughRemoteAccess() : []
+    $("imageRemoteServices").hidden = through.length === 0
+    $("imageRemoteServices").textContent = through.length ? t("optionsRemoteRevokeServices", [through.join(", ")]) : ""
+  }
+
+  /**
+   * The added services whose host has no permission of its own: Thunderbird records no permission for a host that
+   * the access to remote images covers already, so they connect through it alone.
+   */
+  private async throughRemoteAccess(): Promise<string[]> {
+    const granted = await ext.permissions.getAll().catch(() => null)
+    if (!granted) return []
+    const own = new Set(granted.origins ?? [])
+    const settings = this.session.settings
+    return addedProviders(settings)
+      .filter((p) => {
+        const origin = providerOrigin(resolveProvider(settings, p.id))
+        return origin !== null && !own.has(origin)
+      })
+      .map((p) => providerDisplayName(p))
   }
 
   /** The services, the model hints and the estimate, from the settings of the page. */
@@ -142,6 +164,8 @@ export class ImageSettingsSection {
     prices.hidden = !page
     if (page) prices.href = page
     $<HTMLButtonElement>("imageTest").disabled = !status.id
+    // A service added or changed may connect through the access to remote images alone.
+    void this.refreshRemote()
   }
 
   /** Send the built-in test image to the vision service with its configuration on this page, saved or not. */

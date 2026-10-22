@@ -310,4 +310,22 @@ describe("the access to remote images", () => {
     await until(() => expect($("imageRemoteState").textContent).toBe(ENGLISH.t("optionsRemoteMissing")))
     expect(page.browser.api.permissions.remove).toHaveBeenCalledWith({ origins: ["http://*/*", "https://*/*"] })
   })
+
+  it("A10: names the services that connect only through it before it is removed", async () => {
+    const settings = precise((s) => {
+      s.providers.ollama = { enabled: true, apiKey: "", baseURL: "", model: "" }
+      s.providers.deeplx = { enabled: true, apiKey: "", baseURL: "https://deeplx.example/translate", model: "" }
+    })
+    // OpenAI has its own permission; DeepLX and Ollama were allowed while every host was covered already.
+    const page = await openPage("options", settings, { permissions: { granted: ["https://api.openai.com/*", "http://*/*", "https://*/*"] } })
+    await until(() => expect($("imageRemoteServices").hidden).toBe(false))
+    expect($("imageRemoteServices").textContent).toBe(ENGLISH.t("optionsRemoteRevokeServices", ["DeepLX, Ollama (local)"]))
+    $("imageRemoteRevoke").click()
+    await until(() => expect($("imageRemoteServices").hidden).toBe(true))
+    // Without the list of the permissions, nothing is named.
+    page.browser.api.permissions.getAll.mockRejectedValue(new Error("gone"))
+    await page.browser.api.permissions.request({ origins: ["http://*/*", "https://*/*"] })
+    await until(() => expect($("imageRemoteState").textContent).toBe(ENGLISH.t("optionsRemoteAllowed")))
+    expect($("imageRemoteServices").hidden).toBe(true)
+  })
 })

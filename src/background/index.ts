@@ -22,7 +22,7 @@ import { createSettingsState } from "./settings-state"
 import { displayedHeader, displayedMessageId, messageImageAddresses, messagePart } from "./displayed"
 import { ImageService } from "./images"
 import { offerRemoteAccess } from "./remote-images"
-import { optionsPath } from "../shared/messages"
+import { openOptionsAt } from "../shared/options-tab"
 import { updateSettings } from "../shared/settings-store"
 import { createTabRegistry } from "./tabs"
 import { getBergamot } from "../offline/bergamot"
@@ -118,7 +118,7 @@ const tabs = createTabRegistry({
   remoteAccess: (tab) =>
     void offerRemoteAccess(tab.windowId, {
       openPopup: (windowId) => ext.messageDisplayAction.openPopup(windowId === undefined ? {} : { windowId }),
-      openOptions: async () => void (await ext.tabs.create({ url: ext.runtime.getURL(optionsPath({ section: "imageRemote" })) })),
+      openOptions: () => openOptionsAt({ section: "imageRemote" }),
     }),
 })
 

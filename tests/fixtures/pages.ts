@@ -3,7 +3,7 @@ import { readFileSync } from "node:fs"
 import { join } from "node:path"
 import { onTestFinished, vi } from "vitest"
 import type { OfflineManager } from "../../src/offline/manager"
-import type { BackgroundRequest, OfflineItem } from "../../src/shared/messages"
+import { type BackgroundRequest, type OfflineItem, optionsPath } from "../../src/shared/messages"
 import { SAVE_DELAY_MS } from "../../src/options/session"
 import { type Settings, SETTINGS_KEY } from "../../src/shared/settings"
 import { settle, stubBrowser } from "./browser"
@@ -92,7 +92,8 @@ export async function openPage(
     tabs,
     activeTabs: tabs,
     ...permissions,
-    respond: (req) => respond?.(req) ?? offline.respond(req) ?? (req.type === "cacheStats" ? { size: 0 } : undefined),
+    // The background script opens the settings page for the popup (shared/options-tab.ts), in a new tab here.
+    respond: (req) => respond?.(req) ?? offline.respond(req) ?? (req.type === "openOptions" ? void browser.created.push(`moz-extension://test/${optionsPath(req.place)}`) : undefined) ?? (req.type === "cacheStats" ? { size: 0 } : undefined),
   })
   const close = vi.fn()
   vi.stubGlobal("close", close)

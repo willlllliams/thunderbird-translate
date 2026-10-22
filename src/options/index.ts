@@ -275,11 +275,20 @@ async function main(): Promise<void> {
   await Promise.all([loadExtensionI18n(settings.uiLanguage), loadSystemLanguages()])
   followLanguage = followUiLanguage(settings.uiLanguage, applyLanguage)
   // The popup, the notice above a message and the tier selectors link to a place: options.html?dict=…&bergamot=…&tier=…#section.
-  const query = new URLSearchParams(location.search)
-  const terms = (name: string) => query.get(name)?.split(",").filter(Boolean)
-  providerTier = TIERS.find((tier) => tier === query.get("tier")) ?? ""
+  const placeOfLocation = () => {
+    const query = new URLSearchParams(location.search)
+    const terms = (name: string) => query.get(name)?.split(",").filter(Boolean)
+    providerTier = TIERS.find((tier) => tier === query.get("tier")) ?? ""
+    return location.hash ? { section: location.hash.slice(1) as OptionsPlace["section"], dictionaries: terms("dict"), bergamot: terms("bergamot"), tier: providerTier || undefined } : null
+  }
+  const place = placeOfLocation()
   applyLanguage()
-  if (location.hash) goTo({ section: location.hash.slice(1) as OptionsPlace["section"], dictionaries: terms("dict"), bergamot: terms("bergamot"), tier: providerTier || undefined })
+  if (place) goTo(place)
+  // Opened again at another place while it is open (shared/options-tab.ts): a new hash goes there without a reload.
+  window.addEventListener("hashchange", () => {
+    const next = placeOfLocation()
+    if (next) goTo(next)
+  })
   void refreshOffline()
   // Packs or models were installed or deleted, also through another page; the progress of the downloads.
   ext.runtime.onMessage.addListener((message: unknown) => {
