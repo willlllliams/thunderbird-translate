@@ -11,13 +11,28 @@ Version 3.1 translates the text in the remote images of a message, the images a 
 - A remote image takes part when Thunderbird already shows it: you allowed remote content for the message or its sender, and the image has loaded. The extension never loads a remote image that Thunderbird blocks.
 - Reading remote images needs an access you give once: "Allow reading remote images" in the popup, which appears while the message on screen has remote images waiting for it, or on the settings page under the image settings. Thunderbird then asks whether the extension may access all websites.
 - Without the access, a remote image gets the "Translate image text" button as usual; a click opens the popup with "Allow reading remote images". After you allow it, the images are read again: the image you clicked is sent, and in the mode "On" the images go by themselves.
-- The extension reads such an image again from its address, without cookies and without a referrer, often from the cache of Thunderbird, at most 15 MB per image, and only at an address the message itself names.
+- The extension requests such an image once more from its server, without cookies and without a referrer, at most 15 MB per image, and only at an address the message itself names.
+- An image on your computer or in your local network is never read, also when the image server redirects to it.
+- In the mode "Ask under each image" a remote image is requested only after you click its button; in the mode "On" when the translation of the message starts. An image you translated before shows its result again in the same message without a request.
+- A remote image the reader cannot see, drawn at 2 pixels or less or hidden by its style, counts as a tracking image and is not read.
+- Image servers that send no image type, or `application/octet-stream`, work when the file is a PNG, GIF, JPEG or WebP; addresses with commas in a `srcset`, as image services write them, work too.
+- A slow image server holds back only the remote images of its own message.
 - Everything else stays as for the other images: the filters, the consent per service, the limits per message, and the scaling and JPEG encoding before the upload.
-- "Remove access" on the settings page ends the reading of remote images.
+- "Remove access" on the settings page ends the reading of remote images. Services whose address you allowed while the access was granted have no permission of their own; the settings page names them, since they lose their access with it.
 
 ### A notice about images left out
 
-- A notice above the message says what image translation leaves out: remote images waiting for the access, remote images Thunderbird did not load ("Show the remote content of this message to translate their text"), and images whose address cannot be read. It has a close button and stays away for the message once closed.
+- A notice above the message says what image translation leaves out: remote images waiting for the access, remote images Thunderbird did not load (remote content blocked, or an address that cannot be loaded), and images whose address cannot be read. Each address counts once. It has a close button and stays away for the message once closed.
+
+### Permissions
+
+- The installation prompt lists fewer sites: only Google Translate, the free route of Microsoft Translator, and the downloads of the dictionary packs and offline models. The services that need your key (DeepL, Baidu, Youdao, Caiyun, Microsoft with an Azure key and the AI services) ask for their site when you set them up: "Allow access" under the service, "Test connection", or "Next" in the setup guide. A translation without that permission says so and names the button.
+- After the update from 3.0 the services you used keep their access; nothing asks again.
+- The site objects.githubusercontent.com is no longer listed: GitHub no longer sends the dictionary downloads there.
+
+### Settings page
+
+- The links to the settings page (the popup, the notices above a message, "Allow reading remote images") open it in the tab that already shows it instead of a new tab each time.
 
 ## 3.0.0 - 2026-10-21
 

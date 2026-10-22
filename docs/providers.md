@@ -52,9 +52,9 @@ The endpoint accepts one paragraph per request, so the paragraphs of a batch are
 
 ## Machine translators with a key of your own
 
-DeepL, Baidu Translate, Youdao and Caiyun are machine translators of tier 2 that need an account. Each preset counts as added once its key is filled in. All four send message text over the network, so the consent panel above a message asks before their first request, as for every online service.
+DeepL, Baidu Translate, Youdao and Caiyun are machine translators of tier 2 that need an account. Each preset counts as added once its key is filled in. All four send message text over the network, so the consent panel above a message asks before their first request, as for every online service. Their hosts are optional host permissions: "Allow access" under the service, "Test connection", or "Next" in the setup guide asks for the host once, see [Permissions](settings.md#permissions).
 
-| Service | Endpoint (fixed host permission) | Fields | Paragraphs and characters per request |
+| Service | Endpoint (optional host permission) | Fields | Paragraphs and characters per request |
 | --- | --- | --- | --- |
 | DeepL API | `https://api.deepl.com`, or `https://api-free.deepl.com` for a key ending in `:fx` | API key; endpoint (optional); formality; English and Portuguese variant | 50 and 30000 |
 | 百度翻译 (Baidu Translate) | `https://fanyi-api.baidu.com/api/trans/vip/translate` | App ID; secret key; account edition | 50 and 950 (standard edition), 50 and 5950 (advanced and premium) |

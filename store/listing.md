@@ -43,7 +43,7 @@ How to use it
 
 How to set it up
 - After installation a setup guide opens: languages, display, the three tiers, offline downloads, machine translation, AI service and prompts. You can skip any step.
-- All settings are on the settings page (the "Options" button of the extension in the Add-ons Manager). An endpoint you type yourself, such as a local Ollama, needs your permission once: click "Allow access" or "Test connection".
+- All settings are on the settings page (the "Options" button of the extension in the Add-ons Manager). A service with your key (DeepL, the AI services) and an endpoint you type yourself, such as a local Ollama, need your permission once when you set them up: click "Allow access" or "Test connection", or "Next" in the setup guide.
 
 Interface languages: English, 简体中文, 繁體中文, 日本語, 한국어, Français, Deutsch, Español, Português (Brasil), Русский, Türkçe, Tiếng Việt.
 

@@ -66,9 +66,11 @@ Web Crypto 不提供 MD5，所以 `src/shared/md5.ts` 按 RFC 1321 直接实现�
 营销邮件的文字常在远程图片里，3.0 版跳过它们且不作任何提示。从 3.1.0 起，图片翻译也处理远程图片（`http:`/`https:`），条件如下：
 
 - 只处理 Thunderbird 已经显示的图片：内容脚本只在 `complete` 为真且 `naturalWidth` 大于 0 时接收 http(s) 地址的 `<img>`，即用户允许了这封邮件或其发件人的远程内容，并且图片已经加载（`src/content/images.ts` 的 `consider()`）。被阻止或加载失败的远程图片从不请求；邮件上方的提示统计它们的数量，并说明需要显示远程内容。
-- 字节的来源：内容脚本无法读取已显示 `<img>` 的像素。Gecko 在画布上绘制其他来源的图片后把画布标记为只写（`CanvasUtils::DoDrawImageSecurityCheck`）；对扩展的例外只适用于主体属于扩展自身的图片，而邮件中图片的主体是它所在的远程服务器。所以后台脚本用 `fetch()` 重新请求图片（`src/background/remote-images.ts` 的 `fetchRemoteImage()`）：`credentials: "omit"`、`referrerPolicy: "no-referrer"`、`cache: "force-cache"`（允许 HTTP 缓存直接给出结果）、20 秒超时、最多 15 MB，读取前按 Content-Length 检查，读取流时再检查一次。只接受 http 和 https，不接受带用户名或密码的地址。
-- 绑定到当前显示的邮件：地址必须出现在内容脚本所属邮件的 HTML 的某个图片（`src`、`srcset`）中。HTML 用 `messages.getFull()`（`messagesRead`）读取，用 `DOMParser` 解析，不加载任何内容（`displayed.ts` 的 `messageImageAddresses()`）；标签页也必须仍在显示这封邮件。内容脚本无法让扩展读取其他地址。
-- 权限：使用清单中已经声明的可选主机权限 `http://*/*` 和 `https://*/*`，清单不变。扩展只在用户点击时申请：邮件头按钮弹出窗口中的“允许读取远程图片”，或设置页图片设置下的同名按钮。内容脚本没有 permissions API，所以图片下方的按钮和邮件上方的提示让后台脚本用 `messageDisplayAction.openPopup()` 打开弹出窗口（Thunderbird 113 起不需要用户操作），由用户在弹出窗口中点击。没有权限时，后台脚本对图片请求回答 “access”，不读取任何内容（`ImageService.request()`、`mayRead()`）。设置页的“撤销权限”调用 `permissions.remove()`。
+- 字节的来源：内容脚本无法读取已显示 `<img>` 的像素。Gecko 在画布上绘制其他来源的图片后把画布标记为只写（`CanvasUtils::DoDrawImageSecurityCheck`）；对扩展的例外只适用于主体属于扩展自身的图片，而邮件中图片的主体是它所在的远程服务器。所以后台脚本用 `fetch()` 重新请求图片（`src/background/remote-images.ts` 的 `fetchRemoteImage()`）：`credentials: "omit"`、`referrerPolicy: "no-referrer"`、`cache: "default"`、20 秒超时、最多 15 MB，读取前按 Content-Length 检查，读取流时再检查一次（`src/shared/download.ts` 的 `readBody()`）。只接受 http 和 https，不接受带用户名或密码的地址。类型为 `application/octet-stream` 或没有类型的响应，只有开头字节是 PNG、GIF、JPEG 或 WebP 时才算图片。
+- 只读公共主机：本机和局域网中的地址从不请求（`src/shared/hosts.ts` 的 `isPublicHost()`：不含点的名称，`localhost`、`.local`、`.internal`、`.home.arpa` 等名称，IPv4 的私有、回环、链路本地、CGNAT 和保留地址段，以及对应的 IPv6 地址，包括 IPv4 映射、NAT64 和 6to4 地址；十进制、十六进制、八进制和缩写形式的 IPv4 已由 URL 解析器规范化）。`fetch()` 跟随重定向；扩展看不到中间各跳及其 `Location`（`redirect: "manual"` 只返回不透明响应），所以还检查最终地址 `response.url`，终点在上述主机上的响应不读取、直接丢弃。中间那次请求仍会发出，不带 Cookie；它的响应不进入扩展，也不发给任何服务。DNS 把域名解析到私有地址的情况拦不住，因为扩展没有 `dns` 权限。只有 e2e 构建通过 `src/hooks/servers.ts` 的 `localImageOrigin` 读取 127.0.0.1 上的模拟服务器，其他构建中这个值为 undefined。
+- 请求时机：“开启”模式下，在开始翻译邮件时请求前若干张图片（至多每封上限的两倍）；“图片下询问”模式下，只在点击图片下的按钮之后请求。“询问”模式的预读不访问网络：它只通过一条缓存记录找到以前的结果，这条记录把同一封邮件中的地址对应到上次翻译时字节的 SHA-256。
+- 绑定到当前显示的邮件：地址必须出现在内容脚本所属邮件的 HTML 的某个图片（`src`、`srcset`）中。HTML 用 `messages.getFull()`（`messagesRead`）读取，用 `DOMParser` 解析，不加载任何内容（`displayed.ts` 的 `messageImageAddresses()`）；标签页也必须仍在显示这封邮件。`srcset` 按 HTML 的解析规则拆分，带逗号的地址（图片 CDN 的变换参数）保持完整。内容脚本无法让扩展读取其他地址；重定向可以，但只限公共主机（见上文）。
+- 权限：使用 3.0 的清单已经声明的可选主机权限 `http://*/*` 和 `https://*/*`。扩展只在用户点击时申请：邮件头按钮弹出窗口中的“允许读取远程图片”，或设置页图片设置下的同名按钮。内容脚本没有 permissions API，所以图片下方的按钮和邮件上方的提示让后台脚本用 `messageDisplayAction.openPopup()` 打开弹出窗口（Thunderbird 113 起不需要用户操作），由用户在弹出窗口中点击。没有权限时，后台脚本对图片请求回答 “access”，不读取任何内容（`ImageService.request()`、`mayRead()`）。设置页的“撤销权限”调用 `permissions.remove()`。
 - 其余规则与其他图片相同：过滤、按服务和主机记录的同意、每封邮件的上限、缩放和 JPEG 编码、缓存（键为字节的 SHA-256），以及内容脚本离开时中止请求。
 
 不用 AI 密钥测试：
@@ -91,12 +93,13 @@ xpi 中的脚本由 esbuild 打包并压缩，因此随提交附上源代码包�
 
 | 权限 | 用途 |
 | --- | --- |
-| `messagesRead` | 当前显示邮件的邮件头：内容脚本运行在邮件正文中，看不到邮件头，所以后台脚本用 `messageDisplay.getDisplayedMessage()`（`src/background/displayed.ts`）读取它的发件人、日期和标题，供摘要使用；不借此读取邮件正文，也不保存任何内容。从 3.0.0 起，图片翻译用同样的方式读取当前邮件的 id，并用 `messages.getAttachmentFile()`（`displayed.ts` 的 `messagePart()`）读取它的图片部件，见上文：只读正文图片和图片附件，从不读取其他附件。 |
+| `messagesRead` | 当前显示邮件的邮件头：内容脚本运行在邮件正文中，看不到邮件头，所以后台脚本用 `messageDisplay.getDisplayedMessage()`（`src/background/displayed.ts`）读取它的发件人、日期和标题，供摘要使用；不保存任何内容。从 3.0.0 起，图片翻译用同样的方式读取当前邮件的 id，并用 `messages.getAttachmentFile()`（`displayed.ts` 的 `messagePart()`）读取它的图片部件，见上文：只读正文图片和图片附件，从不读取其他附件。从 3.1.0 起，处理远程图片时用 `messages.getFull()`（`displayed.ts` 的 `messageImageAddresses()`）在本机读取当前邮件的 HTML 部分，只用来核对邮件中是否出现该图片地址，读到的内容不保存也不发送。 |
 | `messagesModify` | 后台脚本用 `messageDisplayScripts.register()`（`src/background/content-scripts.ts`）在显示的邮件中显示译文，并用 `tabs.executeScript()`/`insertCSS()` 把同一脚本注入扩展启动时已经打开的邮件。Thunderbird 只在有这项权限时允许这两种操作（没有它时 `messenger.messageDisplayScripts` 不存在，已在 Thunderbird 156 中验证）。扩展不修改任何已保存的邮件。 |
 | `sensitiveDataUpload` | 显示的邮件文字会发往用户选定的翻译服务；用户请求摘要或开启了自动摘要时，整封邮件连同发件人、日期和标题发往摘要所用的 AI 服务；第一次发往每个在线服务之前，用户在邮件上方的面板中确认，确认连同该服务的主机一起记录。邮件中的图片发往用户选定的视觉服务，之前另有图片下方面板中的单独确认 |
 | `storage` | 设置、翻译缓存和新手引导的状态，保存在 `storage.local` 中（通过 `src/shared/ext.ts` 的封装调用，所以 linter 看不到这些调用） |
 | `unlimitedStorage` | IndexedDB 中的离线词典包（每个 0.3 至 3.6 MB）和 Bergamot 模型（每个方向 13 至 48 MB），不能被浏览器清除 |
-| 主机权限 | 只列出各服务的固定地址：谷歌翻译、微软翻译的两个地址、DeepL 的两个地址、百度翻译、有道智云和彩云小译（使用用户密钥的机器翻译，见上文）、18 个 AI 预设的默认接口地址、Mozilla Remote Settings 及其附件 CDN（Bergamot 模型），以及 GitHub 和它的两个发布下载主机（词典包）。列表在 `src/shared/hosts.ts` 中，单元测试保证它与清单和预设一致。 |
+| 主机权限 | 只列出不需要账户就能使用的地址：谷歌翻译、微软翻译的免费线路（`edge.microsoft.com`）、Mozilla Remote Settings 及其附件 CDN（Bergamot 模型），以及 GitHub 和它的发布下载主机（词典包）。列表是 `src/shared/hosts.ts` 的 `FIXED_HOSTS`，单元测试保证它与清单一致。 |
+| 可选，逐条列出：需要用户密钥的服务的 24 个默认主机 | 使用 Azure 密钥的微软翻译、DeepL 的两个地址、百度翻译、有道智云、彩云小译和 18 个 AI 预设的默认接口地址（`src/shared/hosts.ts` 的 `KEYED_HOSTS`，单元测试保证它与清单和预设一致）。到 3.0.0 为止它们是清单的主机权限。这类服务在用户填写密钥之前不发送任何请求，所以在设置服务时申请主机权限：设置页和设置向导中该服务下的“授权访问”、“测试连接”，或设置向导中的“下一步”；没有权限时，翻译报错“扩展尚未获准连接……”。更新时，从 `permissions` 移到 `optional_permissions` 的主机权限保持已授予（Gecko 的 `ExtensionData.migratePermissions()`，Firefox 75 起，bug 1618500），3.0 的用户不会失去已在使用的服务。 |
 | 可选的 `http://*/*`、`https://*/*` | 用户填写的接口地址（Ollama、LM Studio、DeepLX、Azure、自定义 OpenAI 兼容服务）。用户点击“授权访问”或“测试连接”时，设置页用 `permissions.request()` 只申请这一个主机；没有权限的主机，后台脚本拒绝发送。从 3.1.0 起，用户在弹出窗口或设置页点击“允许读取远程图片”时，同时申请这两个模式，用来重新读取 Thunderbird 已经显示的远程图片（见上文）；没有这次点击就从不申请。 |
 
 2.0 版删除了 `messagesRead`、`tabs` 和 `<all_urls>`；2.1 版为翻译标题重新需要 `messagesRead`，并为标题翻译页面需要 `accountsRead`。3.0 版删除标题翻译，再次去掉 `accountsRead`；`messagesRead` 保留，用于摘要所需的邮件头和图片。`tabs` 和 `<all_urls>` 仍然不用。
