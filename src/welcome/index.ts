@@ -424,7 +424,9 @@ async function main(): Promise<void> {
   await go(step, false)
   if (__DEBUG__) console.info("[thunderbird-translate] welcome page open at step", step)
   // Test build (npm run e2e): the background script opens the page for a scenario to have the offline step walked through.
-  welcomeProbe?.()
+  // An if rather than `welcomeProbe?.()`: the regular build drops it, instead of the call `(void 0)?.()` that
+  // the add-on validator of addons.thunderbird.net cannot read.
+  if (welcomeProbe) welcomeProbe()
 }
 
 void main()

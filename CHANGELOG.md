@@ -2,6 +2,12 @@
 
 All notable changes to this project are documented in this file, with the date of each version. It lists what users of the extension notice. The record up to 1.12.0 with the internal changes is kept in [docs/archive/CHANGELOG-full.md](docs/archive/CHANGELOG-full.md). Versions follow [Semantic Versioning](https://semver.org/).
 
+## 3.1.1 - 2026-10-22
+
+### Fixed
+
+- The add-on validator of addons.thunderbird.net could not read one line of the setup guide and stopped its check for unsafe HTML there. The line now reads as plain code; the extension works as before.
+
 ## 3.1.0 - 2026-10-22
 
 Version 3.1 translates the text in the remote images of a message, the images a newsletter loads from the internet, once Thunderbird shows them. Until now these images were skipped without a word.

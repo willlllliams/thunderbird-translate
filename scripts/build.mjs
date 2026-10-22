@@ -147,6 +147,13 @@ if (e2e && withHooks.length === 0) {
   console.error("e2e build without the e2e hooks")
   process.exit(1)
 }
+// Guard: an absent hook called as `hook?.()` becomes `(void 0)?.()`, which the validator of addons.thunderbird.net
+// (eslint-plugin-no-unsanitized) cannot read; call hooks inside an if instead.
+const voidCalls = Object.keys(result.metafile.outputs).filter((file) => file.endsWith(".js") && /\(void 0\)(\?\.)?\(/.test(readFileSync(join(root, file), "utf8")))
+if (voidCalls.length) {
+  console.error("a call of (void 0) in:", voidCalls)
+  process.exit(1)
+}
 // Guard: a regular build parses no file of src/e2e/ (metafile.inputs lists every file esbuild read); the e2e build
 // reads src/e2e/hooks/ in place of every module of src/hooks/, so a module of src/hooks/ among its inputs was not replaced.
 const inputs = Object.keys(result.metafile.inputs)
