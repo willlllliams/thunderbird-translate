@@ -12,25 +12,21 @@ import { sampleRenderer } from "../content/render"
 import { ext } from "../shared/ext"
 import { getI18n, t } from "../shared/i18n"
 import { localizeDocument } from "../shared/i18n-dom"
-import { followUiLanguage, loadExtensionI18n } from "../shared/i18n-ext"
-import { normalizeUiLanguageSetting } from "../shared/locales"
-import { $, bindRadios, fillSelect, fillTierSelects, languageOptions, onTierChange, showSameLanguage as showSameLanguagePage, showSaved, showSaveError, showVisionUnsupported, sourceLanguageOptions, tierOptions, uiLanguageOptions } from "../shared/page"
+import { $, bindRadios, fillSelect, fillTierSelects, languageOptions, onTierChange, showSameLanguage as showSameLanguagePage, showVisionUnsupported, sourceLanguageOptions, tierOptions, uiLanguageOptions } from "../shared/page"
 import { PROMPT_KINDS } from "../shared/prompts"
 import { getPreset, type Tier } from "../shared/providers"
 import { addProvidersInUse, type DisplayMode, type ImageMode, imageStatus, type Settings } from "../shared/settings"
 import type { BergamotSection } from "../options/bergamot"
 import type { DictionarySection } from "../options/dictionaries"
 import { h } from "../shared/dom"
-import { loadSystemLanguages } from "../options/offline-list"
-import { offlineSections } from "../options/offline-sections"
-import { PromptEditor } from "../options/prompt-editor"
+import type { PromptEditor } from "../options/prompt-editor"
 import { requestHostAccess } from "../options/host-access"
 import { providerConfig, servicePanel } from "../options/provider-panel"
-import { SettingsSession } from "../options/session"
-import { mountStyleControls } from "../options/style-controls"
+import type { SettingsSession } from "../options/session"
 import { welcomeProbe } from "../hooks/welcome"
 import { TierDemo, TierTour } from "./demo"
 import { neighbourStep, resumeStep, STEP_IDS, STEP_TITLE_KEYS, type StepId, stepNeeded, TRY_MAIL, trialLanguage, WELCOME_KEY, type WelcomeState } from "./steps"
+import { openSettingsPage } from "../options/page-setup"
 
 declare const __DEBUG__: boolean
 
@@ -296,13 +292,8 @@ function applyLanguage(): void {
   enterStep()
 }
 
-/** Set once the page has its first language. */
-let followLanguage: (setting: unknown) => Promise<void> = async () => {}
-
-async function changeUiLanguage(value: unknown): Promise<void> {
-  settings.uiLanguage = normalizeUiLanguageSetting(value)
-  await followLanguage(settings.uiLanguage)
-}
+/** Set once the page has its first language (openSettingsPage()). */
+let changeUiLanguage: (value: unknown) => Promise<void> = async () => {}
 
 /** Changes made elsewhere (popup, settings page) were taken over. */
 function remoteChanged(before: Settings): void {
@@ -317,28 +308,20 @@ function remoteChanged(before: Settings): void {
 }
 
 async function main(): Promise<void> {
-  session = await SettingsSession.open()
-  settings = session.settings
-  session.onRemoteChange = remoteChanged
-  session.onSaved = showSaved
-  session.onSaveError = showSaveError
-  ;({ dictionaries, bergamot } = offlineSections(() => settings, { pick: true, onRender: showDownloadState }))
-  prompts = new PromptEditor($("promptEditor"), session, PROMPT_KINDS)
-  mountStyleControls($("styleControls"), session, renderModePreview)
   demo = new TierDemo($("tierDemo"), $("demoStatus"))
   tour = new TierTour(() => {
     toured = true
     void saveState({ step })
   })
-  await Promise.all([loadExtensionI18n(settings.uiLanguage), loadSystemLanguages()])
-  followLanguage = followUiLanguage(settings.uiLanguage, applyLanguage)
+  ;({ session, settings, dictionaries, bergamot, prompts, changeUiLanguage } = await openSettingsPage({
+    kinds: PROMPT_KINDS,
+    offline: { pick: true, onRender: showDownloadState },
+    stylePreview: renderModePreview,
+    applyLanguage,
+    onRemoteChange: remoteChanged,
+  }))
 
   // Step 1
-  const uiLanguage = $<HTMLSelectElement>("uiLanguage")
-  uiLanguage.addEventListener("change", () => {
-    void changeUiLanguage(uiLanguage.value)
-    session.save()
-  })
   for (const id of ["sourceLang", "targetLang"] as const) {
     session.bind(id, "change", (el) => (el.value = settings[id]), (el) => {
       settings[id] = el.value
@@ -366,8 +349,6 @@ async function main(): Promise<void> {
 
   // Step 4
   $("downloadPicked").addEventListener("click", () => void downloadPicked())
-  $("dictFilter").addEventListener("input", () => dictionaries.render())
-  $("bergamotFilter").addEventListener("input", () => bergamot.render())
 
   // Step 6
   const aiService = $<HTMLSelectElement>("aiService")
@@ -407,11 +388,6 @@ async function main(): Promise<void> {
   $("nextStep").addEventListener("click", forward)
   $("skipStep").addEventListener("click", forward)
   $("exitGuide").addEventListener("click", () => void exit())
-  // The progress of the downloads, also those another page started, and installed or deleted packs and models.
-  ext.runtime.onMessage.addListener((message: unknown) => {
-    dictionaries.receive(message)
-    bergamot.receive(message)
-  })
 
   const stored = (await ext.storage.local.get(WELCOME_KEY))[WELCOME_KEY] as WelcomeState | undefined
   toured = stored?.toured === true

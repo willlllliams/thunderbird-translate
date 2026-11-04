@@ -2,23 +2,19 @@ import { sampleRenderer } from "../content/render"
 import { ext } from "../shared/ext"
 import { getI18n, t } from "../shared/i18n"
 import { localizeDocument } from "../shared/i18n-dom"
-import { followUiLanguage, loadExtensionI18n } from "../shared/i18n-ext"
-import { normalizeUiLanguageSetting } from "../shared/locales"
 import { type OfflineStatus, type OptionsPlace, type PageNotice, send } from "../shared/messages"
 import type { OfflineService } from "../shared/offline-needs"
-import { $, fillAiServiceSelect, fillSelect, fillTierSelects, showSameLanguage, languageOptions, offlineName, offlineStatus, onTierChange, showOfflineHint, showSaved, showSaveError, sourceLanguageOptions, uiLanguageOptions } from "../shared/page"
+import { $, fillAiServiceSelect, fillSelect, fillTierSelects, showSameLanguage, languageOptions, offlineName, offlineStatus, onTierChange, showOfflineHint, sourceLanguageOptions, uiLanguageOptions } from "../shared/page"
 import { getPreset, PROVIDER_PRESETS, providerDisplayName, type ProviderPreset, type Tier, TIER_NAME_KEYS, TIERS, tierOf } from "../shared/providers"
 import { addedProviders, addProvidersInUse, consentParts, type DisplayMode, enabledTiers, removalBlocker, resolveProvider, type Settings, SUMMARY_AUTO, SUMMARY_PARTS, summaryProvider } from "../shared/settings"
 import type { BergamotSection } from "./bergamot"
 import type { DictionarySection } from "./dictionaries"
 import { button, h } from "../shared/dom"
-import { loadSystemLanguages } from "./offline-list"
-import { offlineSections } from "./offline-sections"
 import { ImageSettingsSection } from "./image-settings"
-import { PromptEditor } from "./prompt-editor"
+import type { PromptEditor } from "./prompt-editor"
 import { providerConfig, servicePanel } from "./provider-panel"
-import { SettingsSession } from "./session"
-import { mountStyleControls } from "./style-controls"
+import type { SettingsSession } from "./session"
+import { openSettingsPage } from "./page-setup"
 
 let session: SettingsSession
 /** Settings as edited on this page. */
@@ -249,27 +245,13 @@ function applyLanguage(): void {
   void refreshCacheCount()
 }
 
-/** Set once the page has its first language. */
-let followLanguage: (setting: unknown) => Promise<void> = async () => {}
-
-async function changeUiLanguage(value: unknown): Promise<void> {
-  settings.uiLanguage = normalizeUiLanguageSetting(value)
-  await followLanguage(settings.uiLanguage)
-}
+/** Set once the page has its first language (openSettingsPage()). */
+let changeUiLanguage: (value: unknown) => Promise<void> = async () => {}
 
 async function main(): Promise<void> {
-  session = await SettingsSession.open()
-  settings = session.settings
-  session.onRemoteChange = remoteChanged
-  session.onSaved = showSaved
-  session.onSaveError = showSaveError
+  ;({ session, settings, dictionaries, bergamot, prompts, changeUiLanguage } = await openSettingsPage({ stylePreview: applyPreview, applyLanguage, onRemoteChange: remoteChanged }))
   selectedProvider = settings.tiers[enabledTiers(settings.tiers).at(-1)!]!
-  ;({ dictionaries, bergamot } = offlineSections(() => settings))
-  prompts = new PromptEditor($("promptEditor"), session)
   images = new ImageSettingsSection(session)
-  mountStyleControls($("styleControls"), session, applyPreview)
-  await Promise.all([loadExtensionI18n(settings.uiLanguage), loadSystemLanguages()])
-  followLanguage = followUiLanguage(settings.uiLanguage, applyLanguage)
   // The popup, the notice above a message and the tier selectors link to a place: options.html?dict=…&bergamot=…&tier=…#section.
   const placeOfLocation = () => {
     const query = new URLSearchParams(location.search)
@@ -286,20 +268,13 @@ async function main(): Promise<void> {
     if (next) goTo(next)
   })
   void refreshOffline()
-  // Packs or models were installed or deleted, also through another page; the progress of the downloads.
+  // Packs or models were installed or deleted, also through another page.
   ext.runtime.onMessage.addListener((message: unknown) => {
     if ((message as PageNotice | undefined)?.type === "offlineDataChanged") void refreshOffline()
-    dictionaries.receive(message)
-    bergamot.receive(message)
   })
   $("openWelcome").addEventListener("click", () => void ext.tabs.create({ url: ext.runtime.getURL("welcome.html") }))
 
   // General
-  const uiLanguage = $<HTMLSelectElement>("uiLanguage")
-  uiLanguage.addEventListener("change", () => {
-    void changeUiLanguage(uiLanguage.value)
-    session.save()
-  })
   session.bind("sourceLang", "change", (el) => (el.value = settings.sourceLang), (el) => {
     settings.sourceLang = el.value
     showTierControls()
@@ -349,11 +324,9 @@ async function main(): Promise<void> {
     void dictionaries.load()
   })
   $("dictReload").addEventListener("click", () => void dictionaries.load(true))
-  $("dictFilter").addEventListener("input", () => dictionaries.render())
   void dictionaries.load()
 
   // Offline models. Both lists follow the languages, also when they change elsewhere.
-  $("bergamotFilter").addEventListener("input", () => bergamot.render())
   $("bergamotReload").addEventListener("click", () => void bergamot.load(true))
   let listed = ""
   session.onRemote(() => {
