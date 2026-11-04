@@ -80,6 +80,20 @@ describe("facts in the documents", () => {
     expect(read("store/reviewer-notes.zh-CN.md").match(/webext-linter [\d.]+ 检查 (\d+\.\d+\.\d+) 的 xpi/)?.[1]).toBe(version)
   })
 
+  it("L1: quote in the reviewer notes the error texts and the labels the extension shows, in English and Chinese", () => {
+    const fill = (template: string, ...args: string[]) => args.reduce((text, arg, i) => text.replace(`$${i + 1}`, arg), template)
+    for (const [file, locale] of [["store/reviewer-notes.md", "en"], ["store/reviewer-notes.zh-CN.md", "zh_CN"]]) {
+      const m = JSON.parse(read(`locales/${locale}.json`)) as Record<string, string>
+      const notes = read(file)
+      expect([file, notes.includes(fill(m.errApiKeyRequired, "OpenAI"))]).toEqual([file, true])
+      // The error without host access is quoted up to the host.
+      expect([file, notes.includes(m.errHostPermission.split("$1")[0].trimEnd())]).toEqual([file, true])
+      for (const key of ["buttonAddProvider", "buttonUse", "buttonAllowHost", "buttonPreciseOn", "imageConsentAllow", "sectionProviders", "providerDictionary"]) {
+        expect([file, key, notes.includes(`“${m[key]}”`) || notes.includes(`"${m[key]}"`)]).toEqual([file, key, true])
+      }
+    }
+  })
+
   it("say in the privacy section of every README that the settings page checks the free routes with the sentence of Test connection", () => {
     const readmeOf = (locale: string) => (locale === "en" ? "README.md" : `readmes/README.${locale.replace("_", "-")}.md`)
     const line = read("README.md").split("\n").findIndex((l) => l.startsWith("- Two lists come from the network"))
