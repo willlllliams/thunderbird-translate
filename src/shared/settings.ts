@@ -86,7 +86,7 @@ export interface ImageSettings {
   provider: string | null
   /** Model for images; "" = the model of the service. */
   model: string
-  /** Which images: inline ones of the body (cid: and data:) and image attachments. Remote images never. */
+  /** Which images: those of the body (cid:, data: and the remote images Thunderbird shows) and image attachments. */
   sources: { inline: boolean; attachments: boolean }
   /** Images sent per message: "auto" takes the first ones, the others get the button. */
   maxPerMessage: number

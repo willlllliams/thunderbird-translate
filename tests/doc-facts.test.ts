@@ -94,6 +94,22 @@ describe("facts in the documents", () => {
     }
   })
 
+  it("L2, L3: say that remote images take part, in the hints of the image settings and in settings.md", () => {
+    const en = JSON.parse(read("locales/en.json")) as Record<string, string>
+    for (const key of ["hintImage", "tipImageInline"]) expect([key, /remote/.test(en[key])]).toEqual([key, true])
+    expect(read("docs/settings.md")).not.toContain("Remote images are not translated")
+    expect(read("docs/settings.md")).not.toContain("remote images are not translated")
+  })
+
+  it("S4, L4: name in the privacy policy the image attachments that are sent and every button that asks for a host", () => {
+    const en = read("store/privacy-policy.md")
+    const zh = read("store/privacy-policy.zh-CN.md")
+    expect(en).not.toMatch(/recipients and attachments of a message are never sent/)
+    expect(zh).not.toContain("收件人和附件从不发送")
+    for (const label of ["Allow access", "Test connection", "Test image", "Next", "Skip this step"]) expect([label, en.includes(`"${label}"`)]).toEqual([label, true])
+    for (const label of ["授权访问", "测试连接", "测试图片", "下一步", "跳过此步"]) expect([label, zh.includes(`“${label}”`)]).toEqual([label, true])
+  })
+
   it("say in the privacy section of every README that the settings page checks the free routes with the sentence of Test connection", () => {
     const readmeOf = (locale: string) => (locale === "en" ? "README.md" : `readmes/README.${locale.replace("_", "-")}.md`)
     const line = read("README.md").split("\n").findIndex((l) => l.startsWith("- Two lists come from the network"))

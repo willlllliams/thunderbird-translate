@@ -538,8 +538,8 @@ While the cache is on, a result is cached under the service, the vision model, t
 | Image translation | Ask under each image | Off, Ask under each image, On | see [Modes](#modes); greyed out with "Requires precise translation." and "Turn on precise translation" while precise translation is off, its value kept |
 | Vision service | Same as the AI tier | the added AI services | another service needs its own consent and access to its endpoint |
 | Model | empty | any model name | empty uses the model of the service; the line under it names a model that does not accept images, with one that does |
-| Translate inline images of the body | on | | `cid:` and `data:` images |
-| Translate image attachments | on | | remote images are not translated |
+| Translate inline images of the body | on | | `cid:`, `data:` and remote images (see [Remote images](#remote-images)) |
+| Translate image attachments | on | | the images Thunderbird shows under the body |
 | Images per message | 5 | 1–20 | "On" sends the first ones; a click after them says the limit is reached |
 | Shortest side (px) | 100 | 16–1000 | of the natural size |
 | Smallest area (px²) | 40000 | 0–4000000 | 0 = no limit |
@@ -783,7 +783,8 @@ Settings saved before version 3.0.0 have no image settings, no image prompt and 
 The address of a service with your key and an address you type need your permission once. The first are the default endpoints above; the second are the endpoint of Ollama, LM Studio, DeepLX, Azure OpenAI, a custom OpenAI-compatible service or Azure Translator, and a changed endpoint of any preset. The installation therefore lists only the addresses without an account, and the extension asks only for the host of the service you set up:
 
 - While the permission is missing, a line under the endpoint field, or under the key for Baidu, Youdao and Caiyun, reads "The extension may not connect to <host> yet." with an "Allow access" button. Thunderbird then shows its own prompt.
-- In the setup guide, "Next" on the step of a service asks for its permission when it is missing.
+- In the setup guide, "Next" and "Skip this step" on the step of a service ask for its permission when it is missing; a skipped step keeps the service chosen in it.
+- "Test image" under the vision service asks for the permission of the vision service first.
 - An update from 3.0 or earlier keeps the permissions of the services that version had as host permissions: Thunderbird keeps a permission granted when an update moves it from the required to the optional permissions.
 - "Test connection" asks for the permission first, so testing a new endpoint grants it in one step.
 - The permission covers the host with every port and path. The line disappears once it is granted, also when it was granted on another page.
@@ -823,7 +824,6 @@ The endpoint field of a local service notes that `localhost` is this computer (t
 - Precise translation identifies a message by a hash of its body text. Two copies of the same text share their translations and their analysis.
 - Prompt caching is up to the provider, see [Precise translation](#precise-translation).
 - The thinking switch works by matching model names, see [providers.md](providers.md#thinking-mode). So does the line that says whether a vision model accepts images, see [providers.md](providers.md#image-translation); a model it does not know is sent images, and "Test image" tells whether it reads them.
-- Remote images are not translated, see [Which images](#which-images).
 - "Image detail" reaches OpenAI and DeepSeek only. The AI SDK puts the options of an OpenAI-compatible service beside the image part instead of into it, so Doubao and SiliconFlow, which read a detail, get none.
 - Image translation takes the part number in the address of an image as the part name of `messages.getAttachmentFile()`. A part that does not turn out to be an image is reported as unreadable.
 - Every tier in use sends its own requests. With the AI tier and the machine tier both in use, each message also costs requests to the machine translator.

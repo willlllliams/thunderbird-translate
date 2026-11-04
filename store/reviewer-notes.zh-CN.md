@@ -99,7 +99,7 @@ xpi 中的脚本由 esbuild 打包并压缩，因此随提交附上源代码包�
 | `storage` | 设置、翻译缓存和新手引导的状态，保存在 `storage.local` 中（通过 `src/shared/ext.ts` 的封装调用，所以 linter 看不到这些调用） |
 | `unlimitedStorage` | IndexedDB 中的离线词典包（每个 0.3 至 3.6 MB）和 Bergamot 模型（每个方向 13 至 48 MB），不能被浏览器清除 |
 | 主机权限 | 只列出不需要账户就能使用的地址：谷歌翻译、微软翻译的免费线路（`edge.microsoft.com`）、Mozilla Remote Settings 及其附件 CDN（Bergamot 模型），以及 GitHub 和它的发布下载主机（词典包）。列表是 `src/shared/hosts.ts` 的 `FIXED_HOSTS`，单元测试保证它与清单一致。 |
-| 可选，逐条列出：需要用户密钥的服务的 24 个默认主机 | 使用 Azure 密钥的微软翻译、DeepL 的两个地址、百度翻译、有道智云、彩云小译和 18 个 AI 预设的默认接口地址（`src/shared/hosts.ts` 的 `KEYED_HOSTS`，单元测试保证它与清单和预设一致）。到 3.0.0 为止它们是清单的主机权限。这类服务在用户填写密钥之前不发送任何请求，所以在设置服务时申请主机权限：设置页和设置向导中该服务下的“授权访问”、“测试连接”，或设置向导中的“下一步”；没有权限时，翻译报错“扩展尚未获准连接……”。更新时，从 `permissions` 移到 `optional_permissions` 的主机权限保持已授予（Gecko 的 `ExtensionData.migratePermissions()`，Firefox 75 起，bug 1618500），3.0 的用户不会失去已在使用的服务。 |
+| 可选，逐条列出：需要用户密钥的服务的 24 个默认主机 | 使用 Azure 密钥的微软翻译、DeepL 的两个地址、百度翻译、有道智云、彩云小译和 18 个 AI 预设的默认接口地址（`src/shared/hosts.ts` 的 `KEYED_HOSTS`，单元测试保证它与清单和预设一致）。到 3.0.0 为止它们是清单的主机权限。这类服务在用户填写密钥之前不发送任何请求，所以在设置服务时申请主机权限：设置页和设置向导中该服务下的“授权访问”、“测试连接”，视觉服务的“测试图片”，或设置向导中的“下一步”和“跳过此步”；没有权限时，翻译报错“扩展尚未获准连接……”。更新时，从 `permissions` 移到 `optional_permissions` 的主机权限保持已授予（Gecko 的 `ExtensionData.migratePermissions()`，Firefox 75 起，bug 1618500），3.0 的用户不会失去已在使用的服务。 |
 | 可选的 `http://*/*`、`https://*/*` | 用户填写的接口地址（Ollama、LM Studio、DeepLX、Azure、自定义 OpenAI 兼容服务）。用户点击“授权访问”或“测试连接”时，设置页用 `permissions.request()` 只申请这一个主机；没有权限的主机，后台脚本拒绝发送。从 3.1.0 起，用户在弹出窗口或设置页点击“允许读取远程图片”时，同时申请这两个模式，用来重新读取 Thunderbird 已经显示的远程图片（见上文）；没有这次点击就从不申请。 |
 
 2.0 版删除了 `messagesRead`、`tabs` 和 `<all_urls>`；2.1 版为翻译标题重新需要 `messagesRead`，并为标题翻译页面需要 `accountsRead`。3.0 版删除标题翻译，再次去掉 `accountsRead`；`messagesRead` 保留，用于摘要所需的邮件头和图片。`tabs` 和 `<all_urls>` 仍然不用。
