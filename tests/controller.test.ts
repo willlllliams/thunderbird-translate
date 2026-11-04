@@ -108,9 +108,16 @@ describe("tier combinations", () => {
     await c.start()
     expect(shown()).toMatchObject({ kind: "fallback", text: "D" })
     results = { machine: ok("MT"), ai: ok("AI") }
-    document.querySelector<HTMLElement>(".tt-fallback .tt-error")!.click()
+    const retry = document.querySelector<HTMLElement>(".tt-fallback .tt-error")!
+    retry.focus()
+    retry.click()
     await until(() => expect(shown()).toEqual({ kind: "done", text: "AI" }))
     expect(translate.mock.calls[1][0].tiers).toEqual(["machine", "ai"])
+    // D5: the paragraph keeps the focus of the button that went, and is focusable only while it has it.
+    const p = document.querySelector("p")!
+    expect(document.activeElement).toBe(p)
+    p.blur()
+    expect(p.hasAttribute("tabindex")).toBe(false)
   })
 
   it("a restart asks only the tiers without a remembered result", async () => {

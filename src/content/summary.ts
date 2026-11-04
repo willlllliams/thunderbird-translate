@@ -113,12 +113,14 @@ export class SummaryPanel {
     this.el = null
   }
 
-  /** The title line with its buttons, then `body`; "Copy as Markdown" needs a summary. */
+  /** The title line with its buttons, then `body`; "Copy as Markdown" needs a summary. A button that had the focus has it again. */
   private draw(service: string | undefined, body: HTMLElement[], summary?: MailSummary): void {
     const el = this.el!
+    const focused = el.contains(el.ownerDocument.activeElement) ? (el.ownerDocument.activeElement as HTMLElement).dataset.action : undefined
     // A button in the title line must not open or close the panel.
     const action = (key: MessageKey, tip: MessageKey, run: () => void) => {
       const b = button(t(key), run, false, t(tip))
+      b.dataset.action = key
       b.addEventListener("click", (event) => event.preventDefault())
       return b
     }
@@ -141,6 +143,10 @@ export class SummaryPanel {
       ),
       ...body,
     )
+    if (!focused) return
+    // "Copy" waits disabled for the summary: the title line keeps the focus meanwhile.
+    const again = el.querySelector<HTMLButtonElement>(`[data-action="${focused}"]`)
+    ;(again && !again.disabled ? again : el.querySelector("summary"))?.focus({ preventScroll: true })
   }
 
   /** The language and direction of a line of the summary. */

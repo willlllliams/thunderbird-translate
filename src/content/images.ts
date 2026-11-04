@@ -311,7 +311,8 @@ export class ImageTranslator {
     }
     if (filterImage(candidate, run.settings) !== null) return
     const anchor = img.closest(".moz-attached-image-container") ?? run.units.find((unit) => unit.el.contains(img))?.el ?? img.closest("a") ?? img
-    const slot = h("div", { className: CLS_IMAGE, lang: getI18n().lang, dir: getI18n().dir })
+    // Focusable from a script only: it keeps the focus of the button a click replaces.
+    const slot = h("div", { className: CLS_IMAGE, lang: getI18n().lang, dir: getI18n().dir, tabindex: "-1" })
     // After the anchor (inside a cell or a list item, at its end), and after the slots of the images before this one under the same anchor.
     const last = this.entries.filter((e) => e.anchor === anchor).at(-1)?.slot
     if (last) last.after(slot)
@@ -409,6 +410,8 @@ export class ImageTranslator {
 
   /** A click on the button: the access to remote images when it is missing, the consent, then the image; `byUser`: the click itself, not a click before the access was there. */
   private async click(entry: Entry, byUser = true): Promise<void> {
+    // The button goes with the next drawing of the slot, which keeps its focus.
+    if (byUser && entry.slot.contains(entry.slot.ownerDocument.activeElement)) entry.slot.focus({ preventScroll: true })
     const key = sourceKey(entry)
     if (this.access.has(key)) {
       this.pending = key
@@ -442,7 +445,9 @@ export class ImageTranslator {
       el,
       answer,
       settle: (allowed) => {
+        const focused = el.contains(el.ownerDocument.activeElement)
         el.remove()
+        if (focused) entry.slot.focus({ preventScroll: true })
         this.consent = null
         if (allowed) {
           this.allowed.allow(need)

@@ -229,6 +229,13 @@ describe("the consent panel under a clicked image", () => {
     await until(() => expect(panel()).not.toBeNull())
     // D1: after the click the panel itself has the focus, no button of it.
     expect(document.activeElement).toBe(panel())
+    // D5: Cancel gives the focus to the slot under the image.
+    panel()!.querySelectorAll("button")[1].click()
+    expect(document.activeElement).toBe(slots()[1])
+    await until(() => expect(buttons()).toHaveLength(3))
+    buttons()[1].focus()
+    buttons()[1].click()
+    await until(() => expect(panel()).not.toBeNull())
     expect(Array.from(panel()!.querySelectorAll("p"), (p) => p.textContent)).toEqual([ENGLISH.t("imageConsentWhat", [1024, "PNG"]), ENGLISH.t("imageConsentPolicyOpenai"), ENGLISH.t("imageConsentEach")])
     expect(Array.from(panel()!.querySelectorAll("button"), (b) => [b.textContent, b.title])).toEqual([
       [ENGLISH.t("imageConsentAllow"), ENGLISH.t("tipImageConsentAllow")],

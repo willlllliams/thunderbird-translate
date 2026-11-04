@@ -86,6 +86,15 @@ const STYLE_ID = "tt-style-vars"
 /** Progress goes to the background at most this often; the last state always follows. */
 const REPORT_INTERVAL_MS = 100
 
+/** The focus on `el`, a paragraph of the message, until it leaves: focusable for that time only. */
+function holdFocus(el: HTMLElement): void {
+  if (!el.hasAttribute("tabindex")) {
+    el.setAttribute("tabindex", "-1")
+    el.addEventListener("blur", () => el.removeAttribute("tabindex"), { once: true })
+  }
+  el.focus({ preventScroll: true })
+}
+
 export class TranslationController {
   active = false
   private settings: PublicSettings | null = null
@@ -378,12 +387,14 @@ export class TranslationController {
     return failed ? { kind: "error", error: (state[failed] as { error: string }).error } : { kind: "loading" }
   }
 
-  /** Retry the tiers that failed; the others keep their results. */
+  /** Retry the tiers that failed; the others keep their results. The paragraph keeps the focus of its retry button, which goes. */
   private retry(unit: Unit): void {
     const state = this.results.get(unit)
     if (!state) return
+    const focused = unit.el.contains(unit.el.ownerDocument.activeElement)
     for (const tier of TIERS) if (state[tier]?.status === "error") delete state[tier]
     void this.translateUnit(unit, this.session)
+    if (focused) holdFocus(unit.el)
   }
 
   private renderResult(unit: Unit): void {

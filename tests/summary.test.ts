@@ -582,6 +582,23 @@ describe("the panel above the message", () => {
     expect(summaryMarkdown({ summary: [], actions: [], questions: [], dates: [{ what: "Lunch", when: "", where: "" }] })).toBe("## Dates and meetings\n- Lunch")
   })
 
+  it("D5: gives the focus back to the button pressed, once drawn again", async () => {
+    answer({ ok: true, service: "OpenAI", summary: SUMMARY, raw: ANSWER })
+    const summary = new SummaryPanel({ root, request, collapsed: () => false })
+    await summary.show()
+    buttons()[1].focus()
+    answer({ ok: true, service: "OpenAI", summary: SUMMARY, raw: ANSWER })
+    buttons()[1].click()
+    await until(() => expect(sections().length).toBeGreaterThan(0))
+    expect(document.activeElement).toBe(buttons()[1])
+    expect(buttons()[1].textContent).toBe(ENGLISH.t("summaryRegenerate"))
+    // Copy is disabled while the summary is generated: the title line has the focus meanwhile.
+    buttons()[0].focus()
+    request.mockReturnValueOnce(new Promise(() => {}))
+    void summary.show(true)
+    expect(document.activeElement).toBe(panel()!.querySelector("summary"))
+  })
+
   it("D3: writes its lines in the direction of the target language", async () => {
     answer({ ok: true, service: "OpenAI", summary: SUMMARY, raw: ANSWER })
     await new SummaryPanel({ root, request, collapsed: () => false, lang: () => "ar" }).show()
