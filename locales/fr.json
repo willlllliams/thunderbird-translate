@@ -172,6 +172,7 @@
   "errMissingTranslation": "$1 : traduction manquante à la position $2",
   "errEmptyAnswer": "Le modèle a renvoyé une réponse vide",
   "errAnswerCutOff": "La réponse a atteint sa limite de longueur avant de finir. Augmentez la limite de longueur du résumé dans les paramètres, ou désactivez la réflexion pour son service.",
+  "errTranslationCutOff": "La réponse a atteint la limite de sortie du service avant la fin de la traduction. Désactivez la réflexion pour ce service, ou choisissez un modèle avec un contexte plus grand.",
   "errDictionaryMissing": "Dictionnaire non installé : $1",
   "hintDictionaryDownload": "Téléchargez la paire de langues dans la page des paramètres, sous « Dictionnaires ». Les paires sans l’anglais nécessitent les deux packs via l’anglais.",
   "errDictionaryUnsupported": "Aucun dictionnaire n’est disponible pour la langue $1",

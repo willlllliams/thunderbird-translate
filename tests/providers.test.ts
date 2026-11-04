@@ -6,6 +6,7 @@ import { llmAnalyzeMail, llmTranslateBatch, llmTranslateSingle } from "../src/ba
 import { BatchParseError } from "../src/background/translators/common"
 import { PROVIDER_PRESETS } from "../src/shared/providers"
 import { createDefaultSettings, DEFAULT_DEEPL, resolveProvider, resolveProviderConfig } from "../src/shared/settings"
+import { ENGLISH } from "../src/shared/i18n"
 import { anthropicMessage, chatCompletion, jsonResponse, useFakeTimers } from "./helpers"
 
 const LLM_PRESETS = PROVIDER_PRESETS.filter((p) => p.kind === "llm")
@@ -313,6 +314,25 @@ describe("LLM calls", () => {
     expect(body.temperature).toBeUndefined()
     await llmTranslateSingle({ text: "Hello" }, opts({ ...configFor("anthropic"), model: "claude-haiku-4-5", temperature: 0.3 }, fetchFn))
     expect(body.temperature).toBe(0.3)
+  })
+
+  it("P7: refuses a translation the service cut at its output limit; a batch falls back to one request per paragraph", async () => {
+    const cut = (async () => chatCompletion("半截", "length")) as unknown as typeof fetch
+    await expect(llmTranslateSingle({ text: "Hello" }, opts(configFor("openai"), cut))).rejects.toThrow(ENGLISH.t("errTranslationCutOff"))
+    await expect(llmTranslateBatch([{ text: "a" }, { text: "b" }], opts(configFor("openai"), (async () => chatCompletion("1. foo\n2. ba", "length")) as unknown as typeof fetch))).rejects.toBeInstanceOf(BatchParseError)
+  })
+
+  it("P6: tells xAI not to store the request, beside the thinking switch", async () => {
+    let body: Record<string, unknown> = {}
+    const fetchFn = (async (input: RequestInfo | URL, init?: RequestInit) => {
+      body = JSON.parse(String(init?.body))
+      return fakeResponse(String(input))
+    }) as typeof fetch
+    await llmTranslateSingle({ text: "Hello" }, opts({ ...configFor("xai"), thinking: false }, fetchFn))
+    expect(body.store).toBe(false)
+    expect(body.reasoning).toMatchObject({ effort: "none" })
+    await llmTranslateSingle({ text: "Hello" }, opts(configFor("openai"), fetchFn))
+    expect(body.store).toBeUndefined()
   })
 
   it("P2: leaves the temperature out for Kimi K3 models, which fix it, and sends the low effort with thinking off", async () => {

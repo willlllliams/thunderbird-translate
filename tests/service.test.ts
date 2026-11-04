@@ -323,7 +323,7 @@ describe("TranslationService with an LLM", () => {
     const out = await Promise.all(["Good morning", "Good night", "Thanks"].map((t) => translateOne(service, { text: t, targetLang: "zh-CN", providerId: "openai" })))
     expect(out).toEqual(["早上好", "晚安", "谢谢"])
     expect(fetchFn).toHaveBeenCalledTimes(1)
-    const systemMessages = bodies[0].messages.filter((m) => m.role === "system")
+    const systemMessages = bodies[0].messages.filter((m) => ["system", "developer"].includes(m.role))
     expect(systemMessages).toHaveLength(1)
     expect(systemMessages[0].content).toContain("Simplified Chinese")
     const user = bodies[0].messages.find((m) => m.role === "user")!.content as unknown as string
@@ -578,7 +578,7 @@ describe("TranslationService: tiers, caps and precise mode details", () => {
       const translations = bodies.filter((b) => !isAnalysis(b.messages[0].content))
       expect(translations.length).toBeGreaterThan(1)
       for (const b of translations) {
-        expect(b.messages.filter((m) => m.role === "system")).toHaveLength(1)
+        expect(b.messages.filter((m) => ["system", "developer"].includes(m.role))).toHaveLength(1)
         expect(b.messages[0].content).toContain("Summary: A note.")
         expect(JSON.stringify(b)).not.toContain("cache_control")
       }

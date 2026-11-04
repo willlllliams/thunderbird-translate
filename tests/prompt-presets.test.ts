@@ -118,7 +118,7 @@ describe("batch format with presets", () => {
     const { translate, bodies, fetchFn } = setup(() => JSON.stringify(outputs))
     expect(await translate()).toEqual(outputs)
     expect(fetchFn).toHaveBeenCalledTimes(1)
-    const system = bodies[0].messages.find((m) => m.role === "system")!.content as string
+    const system = bodies[0].messages.find((m) => ["system", "developer"].includes(m.role))!.content as string
     for (const id of ["dialect", "keepTerms", "explainTerms", "style"]) expect(system).toContain(preset(id).heading)
     expect(system).not.toContain("{{to}}")
     expect(system).toContain("explain each difficult word or technical term of that paragraph briefly in Traditional Chinese")

@@ -175,6 +175,7 @@
   "errMissingTranslation": "$1: missing translation at position $2",
   "errEmptyAnswer": "The model returned an empty answer",
   "errAnswerCutOff": "The answer reached its length limit before it ended. Raise the length limit of the summary in the settings, or turn thinking off for its service.",
+  "errTranslationCutOff": "The answer reached the output limit of the service before the translation ended. Turn thinking off for the service, or choose a model with a larger context.",
   "errDictionaryMissing": "Dictionary not installed: $1",
   "hintDictionaryDownload": "Download the language pair on the settings page, under Dictionaries. Pairs without English need both packs through English.",
   "errDictionaryUnsupported": "No dictionary is available for the language $1",

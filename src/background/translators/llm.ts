@@ -45,6 +45,8 @@ type ModelInput = { prompt: string } | { messages: ModelMessage[] }
 async function generate(instructions: SystemModelMessage, input: ModelInput, opts: LlmCallOptions) {
   const { id, model, temperature, thinking } = opts.provider
   const reasoning = thinkingOptions(id, model, thinking)
+  // xAI keeps the input and the answer of a request for later retrieval unless told not to; a team with Zero Data Retention must tell it.
+  const providerOptions = getPreset(id)?.sdk === "xai" ? { ...reasoning.providerOptions, xai: { ...reasoning.providerOptions?.xai, store: false } } : reasoning.providerOptions
   const sendTemperature = temperature !== null && !reasoning.dropTemperature && !modelRejectsTemperature(id, model)
   const timeout = opts.timeoutMs ? timeoutSignal(opts.timeoutMs) : undefined
   const signals = [timeout?.signal, opts.abortSignal].filter((signal) => signal !== undefined)
@@ -56,7 +58,7 @@ async function generate(instructions: SystemModelMessage, input: ModelInput, opt
       ...input,
       ...(sendTemperature ? { temperature } : {}),
       ...(opts.maxOutputTokens ? { maxOutputTokens: opts.maxOutputTokens } : {}),
-      ...(reasoning.providerOptions ? { providerOptions: reasoning.providerOptions } : {}),
+      ...(providerOptions ? { providerOptions } : {}),
       abortSignal,
       // Retries are handled by our RequestQueue.
       maxRetries: 0,
@@ -74,6 +76,13 @@ async function callModel(instructions: SystemModelMessage, prompt: string, opts:
   return (await generate(instructions, { prompt }, opts)).text
 }
 
+/** A translation request: the answer, unless the service stopped it at its output limit, which leaves the last translation cut. */
+async function callTranslation(instructions: SystemModelMessage, prompt: string, opts: LlmCallOptions): Promise<string> {
+  const { text, finishReason } = await generate(instructions, { prompt }, opts)
+  if (finishReason === "length") throw new LocalizedError("errTranslationCutOff")
+  return text
+}
+
 /** System message of a translation request: the system prompt, then the message context in precise mode. */
 function translationInstructions(opts: LlmCallOptions): SystemModelMessage {
   const base = buildSystemPrompt(opts.systemPrompt, opts.targetLanguageName)
@@ -88,16 +97,17 @@ function translationInstructions(opts: LlmCallOptions): SystemModelMessage {
 const languages = (opts: LlmCallOptions) => ({ source: opts.sourceLanguageName, target: opts.targetLanguageName })
 
 export async function llmTranslateSingle(segment: Segment, opts: LlmCallOptions): Promise<string> {
-  const raw = await callModel(translationInstructions(opts), buildSinglePrompt(segment, languages(opts)), opts)
+  const raw = await callTranslation(translationInstructions(opts), buildSinglePrompt(segment, languages(opts)), opts)
   const out = cleanSingleOutput(raw)
   if (!out) throw new LocalizedError("errEmptyAnswer")
   return out
 }
 
-/** One request for many paragraphs. Throws BatchParseError when the answer does not line up. */
+/** One request for many paragraphs. Throws BatchParseError when the answer does not line up or was cut at the output limit: each paragraph is then asked alone. */
 export async function llmTranslateBatch(segments: Segment[], opts: LlmCallOptions): Promise<string[]> {
   if (segments.length === 1) return [await llmTranslateSingle(segments[0], opts)]
-  const raw = await callModel(translationInstructions(opts), buildBatchPrompt(segments, languages(opts)), opts)
+  const { text: raw, finishReason } = await generate(translationInstructions(opts), { prompt: buildBatchPrompt(segments, languages(opts)) }, opts)
+  if (finishReason === "length") throw new BatchParseError(`The answer for ${segments.length} paragraphs stopped at the output limit`)
   const parsed = parseBatchOutput(raw, segments.length, segments.map((s) => s.text))
   if (!parsed) throw new BatchParseError(`Could not parse ${segments.length} translations from the model output`)
   return parsed

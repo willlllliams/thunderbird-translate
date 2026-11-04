@@ -83,6 +83,8 @@ With automatic detection, Bergamot detects the language of each paragraph and tr
 
 When a Google answer has an unexpected shape, the batch is requested again one paragraph per request through the same request queue, with its concurrency limit and retries. A failure then affects its paragraph only.
 
+An answer the service stopped at its output limit is not parsed: the last translation of it is cut, while numbered lines or the `%%` separator could still count the right number of paragraphs. Such a batch is sent again one paragraph per request; a single paragraph whose answer stops at the limit fails with a message that says so, and nothing of it is cached.
+
 The parser of AI answers tries these formats in order:
 
 1. a JSON array, possibly inside a code block or surrounded by explanations; bare newlines inside strings and trailing commas are repaired;
