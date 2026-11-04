@@ -20,7 +20,7 @@ The batch queue and the request queues live in `src/background/queue/`. The sett
 3. Paragraphs not in the cache enter the batch queue, grouped by service settings.
 4. Paragraphs of one group accumulate for 50 ms (the collection window). A group is sent when the window ends, when the paragraph limit is reached, or when the next paragraph would exceed the character limit.
 5. Each service sends its batches through its own request queue.
-6. Results go to the in-memory cache and are written to `storage.local` in one write after 1 second. The cache evicts the least recently used (LRU) entries.
+6. Results go to the in-memory cache and, 5 seconds later, together into the cache database in IndexedDB. The cache drops the least recently used (LRU) entries beyond its maximum.
 
 The cache key consists of the provider, the model, the source and target language, one hash of everything else that shapes the result, and a hash of the paragraph text. That hash covers:
 

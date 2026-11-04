@@ -1,9 +1,10 @@
-/** PersistentCache (LRU + storage.local) and the cache keys the translation service builds. */
+/** PersistentCache (memory + IndexedDB, moved from storage.local) and the cache keys the translation service builds. */
 import { afterEach, describe, expect, it, vi } from "vitest"
-import { CACHE_STORAGE_KEY, cacheKey, LruCache, PersistentCache } from "../src/background/cache"
+import { IDBFactory } from "fake-indexeddb"
+import { CACHE_STORAGE_KEY, cacheKey, idbCacheStore, LruCache, PersistentCache } from "../src/background/cache"
 import { hashText } from "../src/shared/hash"
 import { createDefaultSettings, type Settings } from "../src/shared/settings"
-import { createService, fakeDictionary, memoryStorage, translateOne, until, useFakeTimers } from "./helpers"
+import { createService, fakeDictionary, memoryCacheStore, memoryStorage, translateOne, until, useFakeTimers } from "./helpers"
 
 afterEach(() => vi.useRealTimers())
 
@@ -34,130 +35,102 @@ describe("LruCache", () => {
 })
 
 describe("PersistentCache", () => {
-  it("writes a burst of entries with one storage write after the delay", async () => {
-    useFakeTimers()
-    const storage = memoryStorage()
+  /** A cache over a database of its own, `idb`, and storage.local `storage`; writes go 10 ms after them. */
+  const open = (max = 10, idb = new IDBFactory(), storage = memoryStorage()) => ({ cache: new PersistentCache(storage, max, 10, idbCacheStore(() => idb)), idb, storage })
+  const reopen = (idb: IDBFactory, max = 10) => new PersistentCache(memoryStorage(), max, 10, idbCacheStore(() => idb))
+
+  it("F1: writes one record per entry into IndexedDB, nothing into storage.local, and a burst in one transaction", async () => {
+    const { cache, idb, storage } = open(2000)
     const set = vi.spyOn(storage, "set")
-    const cache = new PersistentCache(storage, 10, 1000)
-    for (const k of ["a", "b", "c"]) await cache.set(k, k.toUpperCase())
+    for (let i = 0; i < 1000; i++) await cache.set(`k${i}`, `v${i}`)
+    expect(await cache.size()).toBe(1000)
     expect(set).not.toHaveBeenCalled()
-    await vi.advanceTimersByTimeAsync(1000)
-    expect(set).toHaveBeenCalledTimes(1)
-    expect(storage.data.get(CACHE_STORAGE_KEY)).toEqual([["a", "A"], ["b", "B"], ["c", "C"]])
+    const later = reopen(idb, 2000)
+    expect([await later.get("k0"), await later.get("k999"), await later.get("nope")]).toEqual(["v0", "v999", undefined])
   })
 
-  it("B11: saves the whole list 5 s after a write and then at most every 30 s, and the last results once more", async () => {
-    useFakeTimers()
-    const storage = memoryStorage()
-    const set = vi.spyOn(storage, "set")
-    const cache = new PersistentCache(storage, 100)
-    for (let i = 0; i < 120; i++) {
-      await cache.set(`k${i}`, "v")
-      await vi.advanceTimersByTimeAsync(500)
-    }
-    expect(set.mock.calls.length).toBeLessThanOrEqual(3)
-    await vi.advanceTimersByTimeAsync(30_000)
-    expect((storage.data.get(CACHE_STORAGE_KEY) as unknown[]).length).toBe(100)
-    const saves = set.mock.calls.length
-    await vi.advanceTimersByTimeAsync(60_000)
-    expect(set.mock.calls.length).toBe(saves)
-  })
-
-  it("keeps only the newest entries on reload and drops malformed ones", async () => {
+  it("F1: moves the cache of storage.local into the database once, keeping what was written meanwhile, and drops malformed entries", async () => {
     const storage = memoryStorage()
     storage.data.set(CACHE_STORAGE_KEY, [["old", "1"], ["k", 2], "junk", ["mid", "2"], ["new", "3"]])
-    const cache = new PersistentCache(storage, 2, 0)
-    expect(await cache.size()).toBe(2)
-    expect(await cache.get("old")).toBeUndefined()
-    expect(await cache.get("new")).toBe("3")
+    const remove = vi.spyOn(storage, "remove")
+    const { cache, idb } = open(10, new IDBFactory(), storage)
+    await cache.set("mid", "written")
+    expect([await cache.get("old"), await cache.get("mid"), await cache.get("new"), await cache.get("k")]).toEqual(["1", "written", "3", undefined])
+    expect(remove).toHaveBeenCalledTimes(1)
+    expect(storage.data.has(CACHE_STORAGE_KEY)).toBe(false)
+    expect(await reopen(idb).size()).toBe(3)
+    // A read of storage.local that fails is tried again with the next use.
+    const busy = memoryStorage()
+    busy.data.set(CACHE_STORAGE_KEY, [["a", "1"]])
+    vi.spyOn(busy, "get").mockRejectedValueOnce(new Error("storage busy"))
+    const retried = open(10, new IDBFactory(), busy).cache
+    expect(await retried.get("a")).toBeUndefined()
+    expect(await retried.get("a")).toBe("1")
+    // Stored data that is not a list goes as well.
+    const odd = memoryStorage()
+    odd.data.set(CACHE_STORAGE_KEY, { not: "a list" })
+    expect(await open(5, new IDBFactory(), odd).cache.size()).toBe(0)
+    expect(odd.data.has(CACHE_STORAGE_KEY)).toBe(false)
   })
 
-  it("ignores stored data that is not a list, and a storage read that fails", async () => {
-    const storage = memoryStorage()
-    storage.data.set(CACHE_STORAGE_KEY, { not: "a list" })
-    expect(await new PersistentCache(storage, 5).size()).toBe(0)
-    storage.get = () => Promise.reject(new Error("storage unavailable"))
-    const cache = new PersistentCache(storage, 5, 0)
-    await cache.set("k", "v")
-    expect(await cache.get("k")).toBe("v")
+  it("F1: drops the entries used least recently beyond the maximum", async () => {
+    const { cache, idb } = open(10)
+    for (let i = 0; i < 15; i++) await cache.set(`k${i}`, "v")
+    // Used again: newer than the ones written after it.
+    await cache.get("k0")
+    await cache.set("k15", "v")
+    expect(await cache.size()).toBe(10)
+    const later = reopen(idb)
+    const kept = []
+    for (let i = 0; i < 16; i++) if ((await later.get(`k${i}`)) !== undefined) kept.push(i)
+    expect(kept).toEqual([0, 7, 8, 9, 10, 11, 12, 13, 14, 15])
   })
 
-  it("survives a storage write that fails", async () => {
-    useFakeTimers()
-    const storage = memoryStorage()
-    storage.set = () => Promise.reject(new Error("quota exceeded"))
-    const cache = new PersistentCache(storage, 5, 10)
-    await cache.set("k", "v")
-    await vi.advanceTimersByTimeAsync(10)
-    expect(await cache.get("k")).toBe("v")
-  })
-
-  it("evicts the oldest stored entry for a new one", async () => {
-    const storage = memoryStorage()
-    storage.data.set(CACHE_STORAGE_KEY, [["a", "stored"], ["b", "stored"]])
-    const cache = new PersistentCache(storage, 2, 0)
-    await cache.set("c", "fresh")
-    expect(await cache.get("c")).toBe("fresh")
-    expect(await cache.size()).toBe(2)
-    expect(await cache.get("a")).toBeUndefined()
-  })
-
-  it("does not store empty translations", async () => {
-    const cache = new PersistentCache(memoryStorage(), 5, 0)
+  it("does not store empty translations, forgets a deleted entry, and is empty once cleared", async () => {
+    const { cache, idb } = open()
     await cache.set("k", "")
     expect(await cache.size()).toBe(0)
+    await cache.set("a", "1")
+    await cache.set("b", "2")
+    await cache.delete("a")
+    expect(await cache.get("a")).toBeUndefined()
+    expect(await reopen(idb).get("a")).toBeUndefined()
+    await cache.clear()
+    expect([await cache.size(), await cache.get("b"), await reopen(idb).get("b")]).toEqual([0, undefined, undefined])
   })
 
   it("answers nothing and stores nothing while disabled, and resizes with configure()", async () => {
-    const cache = new PersistentCache(memoryStorage(), 5, 0)
+    const { cache } = open(5)
     await cache.set("a", "1")
     await cache.set("b", "2")
     cache.configure(false, 5)
     expect(await cache.get("a")).toBeUndefined()
     await cache.set("c", "3")
+    await cache.delete("b")
     cache.configure(true, 1)
     expect(await cache.size()).toBe(1)
     expect(await cache.get("b")).toBe("2")
     expect(await cache.get("c")).toBeUndefined()
   })
 
-  it("keeps the stored entries when a read fails: it reads again before the first write", async () => {
-    const storage = memoryStorage()
-    storage.data.set(CACHE_STORAGE_KEY, [["old", "1"]])
-    vi.spyOn(storage, "get").mockRejectedValueOnce(new Error("storage busy"))
-    const cache = new PersistentCache(storage, 10, 0)
-    await cache.set("new", "2")
-    await until(() => expect(storage.data.get(CACHE_STORAGE_KEY)).toEqual([
-      ["old", "1"],
-      ["new", "2"],
-    ]))
-    expect(await cache.get("old")).toBe("1")
-  })
-
-  it("writes nothing while the stored entries cannot be read", async () => {
-    useFakeTimers()
-    const storage = memoryStorage()
-    storage.data.set(CACHE_STORAGE_KEY, [["old", "1"]])
-    vi.spyOn(storage, "get").mockRejectedValue(new Error("storage broken"))
-    const set = vi.spyOn(storage, "set")
-    const cache = new PersistentCache(storage, 10, 0)
-    await cache.set("new", "2")
-    expect(await cache.get("new")).toBe("2")
-    await vi.runAllTimersAsync()
-    expect(set).not.toHaveBeenCalled()
-    expect(storage.data.get(CACHE_STORAGE_KEY)).toEqual([["old", "1"]])
-  })
-
   it("cancels a pending write when cleared", async () => {
     useFakeTimers()
-    const storage = memoryStorage()
-    const set = vi.spyOn(storage, "set")
-    const cache = new PersistentCache(storage, 5, 100)
+    const { cache, idb } = open()
     await cache.set("k", "v")
     await cache.clear()
     await vi.advanceTimersByTimeAsync(200)
-    expect(set).not.toHaveBeenCalled()
-    expect(await cache.size()).toBe(0)
+    expect(await reopen(idb).get("k")).toBeUndefined()
+  })
+
+  it("keeps working in memory when the database cannot be opened", async () => {
+    const broken = () => {
+      throw new Error("no IndexedDB")
+    }
+    const cache = new PersistentCache(memoryStorage(), 5, 0, idbCacheStore(broken))
+    await cache.set("k", "v")
+    expect(await cache.get("k")).toBe("v")
+    expect(await cache.get("other")).toBeUndefined()
+    expect(await cache.size()).toBe(1)
   })
 })
 
@@ -182,11 +155,11 @@ describe("cache keys of the translation service", () => {
       Response.json(new URLSearchParams(String(init.body)).getAll("q").map((q) => [`G(${q})`, "de"])),
     )
     const llm = { batch: vi.fn(), single: vi.fn(async () => "AI"), analyze: vi.fn(async () => null) }
-    const storage = memoryStorage()
-    const { service, settings: s } = createService(settings, { fetchFn: fetchFn as unknown as typeof fetch, llm, cache: new PersistentCache(storage, 100, 0) })
+    const store = memoryCacheStore()
+    const { service, settings: s } = createService(settings, { fetchFn: fetchFn as unknown as typeof fetch, llm, cache: new PersistentCache(memoryStorage(), 100, 0, store) })
     const request = { text: "Hallo", sourceLang: "de", targetLang: "en" }
     const ask = (providerId: string) => translateOne(service, { ...request, providerId })
-    return { s, storage, request, fetchFn, llm, ask }
+    return { s, store, request, fetchFn, llm, ask }
   }
 
   it("store the machine tier under its endpoint", async () => {
@@ -239,13 +212,13 @@ describe("cache keys of the translation service", () => {
   })
 
   it("stay compact: service, model, languages, one hash for everything else and one for the text", async () => {
-    const { s, storage, ask } = keyed()
+    const { s, store, ask } = keyed()
     await ask("google-free")
     await ask("openai")
     s.providers.openai.thinking = true
     await ask("openai")
-    await until(() => expect(storage.data.get(CACHE_STORAGE_KEY)).toHaveLength(3))
-    const keys = (storage.data.get(CACHE_STORAGE_KEY) as [string, string][]).map(([key]) => key.split("|"))
+    await until(() => expect(store.data.size).toBe(3))
+    const keys = [...store.data.keys()].map((key) => key.split("|"))
     expect(keys.every((parts) => parts.length === 5 && parts[3].length <= 24)).toBe(true)
     expect(keys.map(([id, model, langs]) => `${id} ${model} ${langs}`)).toEqual(["google-free  de>en", "openai gpt-test de>en", "openai gpt-test de>en"])
   })

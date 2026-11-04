@@ -202,7 +202,8 @@ describe("requests from pages", () => {
     expect(failed.error).toBe(localeText("de", "errUnknownProvider").replace("$1", "nope"))
   })
 
-  it("counts and clears the translation cache", async () => {
+  it("counts and clears the translation cache, which moves from storage.local into IndexedDB", async () => {
+    vi.stubGlobal("indexedDB", new IDBFactory())
     const bg = await start({ stored: { ...stored(createDefaultSettings()), [CACHE_STORAGE_KEY]: [["k1", "v1"], ["k2", "v2"]] } })
     expect(await bg.send({ type: "cacheStats" })).toEqual({ size: 2 })
     await bg.send({ type: "clearCache" })

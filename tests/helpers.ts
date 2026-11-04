@@ -1,7 +1,7 @@
 /** Test doubles shared by the test files. */
 import { createHash } from "node:crypto"
 import { vi } from "vitest"
-import { type KeyValueStorage, PersistentCache } from "../src/background/cache"
+import { type CacheEntry, type CacheStore, type KeyValueStorage, PersistentCache } from "../src/background/cache"
 import { type ServiceDeps, TranslationService } from "../src/background/service"
 import type { TranslateRequest, TranslateResponse } from "../src/shared/messages"
 import { getPreset, PROVIDER_PRESETS, tierOf } from "../src/shared/providers"
@@ -63,6 +63,28 @@ export function memoryStorage(): KeyValueStorage & { data: Map<string, unknown> 
   }
 }
 
+/** The entries of a translation cache in memory, readable in `data`. */
+export function memoryCacheStore(): CacheStore & { data: Map<string, CacheEntry> } {
+  const data = new Map<string, CacheEntry>()
+  return {
+    data,
+    get: async (key) => data.get(key)?.v,
+    write: async (put, deleted) => {
+      for (const [key, entry] of put) data.set(key, entry)
+      for (const key of deleted) data.delete(key)
+    },
+    addMissing: async (list) => {
+      for (const [key, entry] of list) if (!data.has(key)) data.set(key, entry)
+    },
+    count: async () => data.size,
+    trim: async (keep) => {
+      const oldest = [...data].sort(([, a], [, b]) => a.used - b.used)
+      for (const [key] of oldest.slice(0, Math.max(0, data.size - keep))) data.delete(key)
+    },
+    clear: async () => data.clear(),
+  }
+}
+
 /** Dictionary stand-in that answers D(<text>), once `gate` resolves. */
 export function fakeDictionary(gate?: Promise<void>) {
   return {
@@ -90,7 +112,7 @@ export const ALL_CONSENT = PROVIDER_PRESETS.map((p) => p.id).filter(isOnlineServ
  */
 export function createService(settings: Settings, deps: Partial<ServiceDeps> = {}, { consent = true }: { consent?: boolean } = {}) {
   settings.batch.batchDelayMs = 5
-  const cache = deps.cache ?? new PersistentCache(memoryStorage(), 100, 10)
+  const cache = deps.cache ?? new PersistentCache(memoryStorage(), 100, 10, memoryCacheStore())
   // The consent follows the endpoints a test sets, until the test sets a list of its own.
   let granted = consent ? allowed(settings, ...ALL_CONSENT) : settings.onlineConsent
   settings.onlineConsent = granted

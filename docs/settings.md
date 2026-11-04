@@ -682,7 +682,7 @@ In the popup and on the settings page, a selected dictionary or Bergamot that la
 
 "Show original" followed by "Translate this message" translates from what the page remembers and sends no request.
 
-The Cache section turns the cache on or off (on by default), sets the maximum number of cached paragraphs (5000 by default, 0–100000), shows the current number of entries and clears the cache. The cache is stored in `storage.local` of the Thunderbird profile and evicts the least recently used entries. Every write stores the whole list, so it goes to storage 5 seconds after a new result and then at most every 30 seconds while results keep coming, and once more after the last one.
+The Cache section turns the cache on or off (on by default), sets the maximum number of cached paragraphs (5000 by default, 0–100000), shows the current number of entries and clears the cache. The cache is stored in the IndexedDB storage of the extension in the Thunderbird profile, one record per entry with the time it was used last, and drops the least recently used entries beyond the maximum. New results and uses go to the database together, 5 seconds after the first of them. Up to version 3.1.1 the cache was one list in `storage.local`, which the first use moves into the database.
 
 ## Translation style
 
@@ -775,8 +775,8 @@ Settings saved before version 3.0.0 have no image settings, no image prompt and 
 | `messagesModify` | showing translations inside the displayed message: Thunderbird runs the content script of `messageDisplayScripts` and injects it into a message already on screen only with this permission. The extension changes no stored message. |
 | `messagesRead` | reading the header of the displayed message with `messageDisplay.getDisplayedMessage()`: its sender, date and subject go with the request of its summary. The extension reads no message body this way and stores no header. Image translation reads the id of the displayed message and, with `messages.getAttachmentFile()`, the image parts of that message whose images pass the filters of [Which images](#which-images): inline images of the body and image attachments, never another attachment. For a remote image it reads the HTML of that message with `messages.getFull()`, to check that the message names the address of the image. |
 | `sensitiveDataUpload` | sending the paragraphs of a message to the online services of the tiers in use, the message to the AI service of its summary, and the images you ask to translate, or that mode "On" takes, to the vision service |
-| `storage` | the settings, the translation cache and the state of the setup guide in `storage.local` |
-| `unlimitedStorage` | the dictionary packs and Bergamot models in IndexedDB, 13 to 48 MB per direction, which the browser then neither evicts nor caps |
+| `storage` | the settings and the state of the setup guide in `storage.local` |
+| `unlimitedStorage` | the dictionary packs, the Bergamot models (13 to 48 MB per direction) and the translation cache in IndexedDB, which the browser then neither evicts nor caps |
 | host permissions | the addresses that work without an account, listed as `FIXED_HOSTS` in `src/shared/hosts.ts`: Google Translate, the free route of Microsoft Translator, Mozilla Remote Settings with its attachment CDN, and the GitHub releases with the host GitHub redirects downloads to |
 | optional host permissions | the default addresses of the services that need your key (`KEYED_HOSTS`): Microsoft Translator with an Azure key, both DeepL addresses (free and Pro keys), Baidu Translate, Youdao, Caiyun and the default endpoint of every AI preset; then `http://*/*` and `https://*/*` for any other address |
 

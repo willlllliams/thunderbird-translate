@@ -74,7 +74,7 @@ The extension reads the lists when the settings page or the setup guide shows th
 ### What is stored on your computer
 
 - The settings, including API keys, in the extension storage (storage.local) of your Thunderbird profile. They are not encrypted, like the data of other add-ons.
-- A cache of translations, summaries and the text of images in the same storage, up to 5,000 entries by default. It holds the translations, summaries and the answers about images, and the text or image they come from only as a hash. The settings page turns the cache off and clears it.
+- A cache of translations, summaries and the text of images in the extension's IndexedDB storage, up to 5,000 entries by default; up to version 3.1.1 it was in storage.local and moves at the first use. It holds the translations, summaries and the answers about images, and the text or image they come from only as a hash. The settings page turns the cache off and clears it.
 - The dictionary packs and Bergamot models you downloaded, in the extension's IndexedDB storage.
 
 Removing the extension removes all of this.
