@@ -56,6 +56,30 @@ async function loadLabels(uiLanguage: UiLanguageSetting): Promise<boolean> {
   }
 }
 
+/**
+ * Requests over the Port answered by id: ask() posts one with a new id, settle() answers it, failAll() answers every
+ * one still waiting with `fallback` (the background went away). A request that cannot be posted gets `fallback` at once.
+ */
+function answers<T>(nextId: () => number, fallback: () => T) {
+  const waiting = new Map<number, (value: T) => void>()
+  return {
+    ask: (post: (id: number) => boolean) =>
+      new Promise<T>((resolve) => {
+        const id = nextId()
+        if (post(id)) waiting.set(id, resolve)
+        else resolve(fallback())
+      }),
+    settle(id: number, value: T): void {
+      waiting.get(id)?.(value)
+      waiting.delete(id)
+    },
+    failAll(): void {
+      for (const resolve of waiting.values()) resolve(fallback())
+      waiting.clear()
+    },
+  }
+}
+
 export function connectContent({ root, contentScript = false, probe }: ClientOptions): ContentClient {
   // The content script of an earlier version of the extension may have left its translations in the message.
   const body = contentScript ? root() : null
@@ -78,11 +102,10 @@ export function connectContent({ root, contentScript = false, probe }: ClientOpt
     for (const tier of tiers) onTier(tier, { ok: false, error: getI18n().t("errUnknown") })
     resolve()
   }
-  /** Summary requests without an answer yet. */
-  const summaryRequests = new Map<number, (result: SummaryResponse) => void>()
-  /** Image requests without an answer yet. */
-  const imageRequests = new Map<number, (result: ImageResponse) => void>()
-  let nextId = 0
+  let lastId = 0
+  const nextId = () => ++lastId
+  const summaryRequests = answers<SummaryResponse>(nextId, () => ({ ok: false, error: getI18n().t("errUnknown") }))
+  const imageRequests = answers<ImageResponse>(nextId, () => ({ status: "error", error: getI18n().t("errUnknown") }))
   let mutedPairs: string[] = []
   const notice = contentScript
     ? new MissingNotice({
@@ -111,12 +134,7 @@ export function connectContent({ root, contentScript = false, probe }: ClientOpt
         root,
         collapsed: () => current?.summary.collapsed === true,
         lang: () => current?.targetLang,
-        request: (fresh) =>
-          new Promise<SummaryResponse>((resolve) => {
-            const id = ++nextId
-            if (post({ type: "summary", id, text: controller.messageText(), ...(fresh ? { bypassCache: true } : {}) })) summaryRequests.set(id, resolve)
-            else resolve({ ok: false, error: getI18n().t("errUnknown") })
-          }),
+        request: (fresh) => summaryRequests.ask((id) => post({ type: "summary", id, text: controller.messageText(), ...(fresh ? { bypassCache: true } : {}) })),
       })
     : undefined
   /** The summary of the message, once the user allowed its service to receive the text; `byUser`: asked for by the user, not by itself. */
@@ -145,12 +163,7 @@ export function connectContent({ root, contentScript = false, probe }: ClientOpt
   const images = contentScript
     ? new ImageTranslator({
         root,
-        request: (image) =>
-          new Promise<ImageResponse>((resolve) => {
-            const id = ++nextId
-            if (post({ type: "image", id, image })) imageRequests.set(id, resolve)
-            else resolve({ status: "error", error: getI18n().t("errUnknown") })
-          }),
+        request: (image) => imageRequests.ask((id) => post({ type: "image", id, image })),
         review: (question) => void post({ type: "consentAsk", question }),
         closed: () => void post({ type: "consentClosed", kind: "image" }),
         requestAccess: () => void post({ type: "remoteAccess" }),
@@ -165,7 +178,7 @@ export function connectContent({ root, contentScript = false, probe }: ClientOpt
     root,
     translate: (request, onTier) =>
       new Promise((resolve) => {
-        const id = ++nextId
+        const id = nextId()
         const entry = { resolve, onTier, tiers: new Set(request.tiers) }
         if (post({ type: "translate", id, request })) pending.set(id, entry)
         else fail(entry)
@@ -220,14 +233,12 @@ export function connectContent({ root, contentScript = false, probe }: ClientOpt
     } else if (msg.type === "summarize") {
       void summarize(true)
     } else if (msg.type === "summary") {
-      summaryRequests.get(msg.id)?.(msg.result)
-      summaryRequests.delete(msg.id)
+      summaryRequests.settle(msg.id, msg.result)
     } else if (msg.type === "consentAnswer") {
       if (msg.kind === "image") images?.answerConsent(msg.allowed)
       else consentPanel?.answer(msg.allowed)
     } else if (msg.type === "imageResult") {
-      imageRequests.get(msg.id)?.(msg.result)
-      imageRequests.delete(msg.id)
+      imageRequests.settle(msg.id, msg.result)
     } else if (msg.type === "offlineDataChanged") {
       controller.forgetResults()
     } else if (msg.type === "tier") {
@@ -244,10 +255,8 @@ export function connectContent({ root, contentScript = false, probe }: ClientOpt
   port.onDisconnect.addListener(() => {
     for (const request of pending.values()) fail(request)
     pending.clear()
-    for (const resolve of summaryRequests.values()) resolve({ ok: false, error: getI18n().t("errUnknown") })
-    summaryRequests.clear()
-    for (const resolve of imageRequests.values()) resolve({ status: "error", error: getI18n().t("errUnknown") })
-    imageRequests.clear()
+    summaryRequests.failAll()
+    imageRequests.failAll()
   })
   return { controller, ready }
 }
