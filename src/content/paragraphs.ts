@@ -292,13 +292,14 @@ export function collectParagraphs(root: HTMLElement): Collected {
     }
     groups.push({ nodes: current, sep: false })
 
-    const paragraphs = groups.filter((g) => !g.sep && hasText(g.nodes, false))
-    if (paragraphs.length < 2) return false
+    // Read once: the text of a group does not change until it is wrapped.
+    const texty = groups.map((g) => !g.sep && hasText(g.nodes, false))
+    if (texty.filter(Boolean).length < 2) return false
 
     const out: Node[] = []
     const spans: HTMLElement[] = []
-    for (const g of groups) {
-      if (!g.sep && hasText(g.nodes, false)) {
+    for (const [i, g] of groups.entries()) {
+      if (texty[i]) {
         const span = wrap(g.nodes)
         spans.push(span)
         out.push(span)
@@ -327,13 +328,14 @@ export function collectParagraphs(root: HTMLElement): Collected {
     }
     if (run.length) items.push(run)
 
-    const needsWrap = items.some((it) => Array.isArray(it) && hasText(it, false))
-    if (needsWrap) {
+    // Read once: the text of a run does not change until it is wrapped.
+    const texty = items.map((it) => Array.isArray(it) && hasText(it, false))
+    if (texty.some(Boolean)) {
       const out: Node[] = []
       const spans: HTMLElement[] = []
-      for (const it of items) {
+      for (const [i, it] of items.entries()) {
         if (Array.isArray(it)) {
-          if (hasText(it, false)) {
+          if (texty[i]) {
             const span = wrap(it)
             spans.push(span)
             out.push(span)
@@ -343,9 +345,9 @@ export function collectParagraphs(root: HTMLElement): Collected {
       rebuild(container, children, out)
       // Keep document order: walk items again, now with spans in place.
       let s = 0
-      for (const it of items) {
+      for (const [i, it] of items.entries()) {
         if (Array.isArray(it)) {
-          if (hasText(it, false)) visitLeaf(spans[s++])
+          if (texty[i]) visitLeaf(spans[s++])
         } else walk(it as HTMLElement)
       }
     } else {
