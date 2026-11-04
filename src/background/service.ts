@@ -467,8 +467,10 @@ export class TranslationService {
    * message text, with the glossary of the analysis that precise translation
    * made of the message, if there is one. When that analysis is still to be
    * made, one request may write both (preciseAnalysis()). An answer the
-   * summary could be read from is cached; `fresh` asks again, alone.
-   * `signal` aborts once the page that asked went away.
+   * summary could be read from is cached, by the request started last for
+   * its key; `fresh` asks again, alone. A summary made before the analysis
+   * existed is found without its glossary. `signal` aborts once the page
+   * that asked went away.
    */
   async summarize(text: string, header: MailHeader | null, fresh = false, signal?: AbortSignal): Promise<SummaryResponse> {
     const settings = this.deps.getSettings()
@@ -485,19 +487,29 @@ export class TranslationService {
       const analysis = await this.preciseAnalysis(text, settings, fresh ? undefined : { inputs, header, signal })
       const prompt = buildSummaryPrompt(text, header, analysis?.glossary)
       const key = this.summaryKey(inputs, settings.targetLang, prompt)
-      const cached = fresh ? undefined : (this.summaries.get(key) ?? (await this.deps.cache.get(key)))
+      const known = async (k: string) => this.summaries.get(k) ?? (await this.deps.cache.get(k))
+      const plain = analysis?.glossary.length ? this.summaryKey(inputs, settings.targetLang, buildSummaryPrompt(text, header)) : key
+      const cached = fresh ? undefined : ((await known(key)) ?? (plain === key ? undefined : await known(plain)))
       // The setting is the length of the summary: a model that reasons first gets room for that as well.
       const opts = { provider, systemPrompt, targetLanguageName, fetchFn: this.deps.fetchFn, timeoutMs: this.timeoutMs(provider), maxOutputTokens: outputLimit(id, provider.model, provider.thinking, maxOutputTokens) }
+      const read = (raw: string) => parseSummary(raw, parts, text)
       const raw =
         cached ??
-        (await this.queue(provider).run(() => {
-          if (signal?.aborted) throw aborted()
-          this.assertConsent(provider)
-          return this.llm.summarize(prompt, opts)
-        }))
-      const summary = parseSummary(raw, parts, text)
-      if (summary && cached === undefined) await this.deps.cache.set(key, raw)
-      return { ok: true, service, summary, raw }
+        (await this.latest(
+          key,
+          () =>
+            this.queue(provider).run(() => {
+              if (signal?.aborted) throw aborted()
+              this.assertConsent(provider)
+              return this.llm.summarize(prompt, opts)
+            }),
+          async (answer) => {
+            if (!read(answer)) return
+            this.summaries.set(key, answer)
+            await this.deps.cache.set(key, answer)
+          },
+        ))
+      return { ok: true, service, summary: read(raw), raw }
     } catch (error) {
       return { ok: false, service, error: this.errorMessage(error, provider) }
     }
@@ -642,8 +654,9 @@ export class TranslationService {
           maxOutputTokens: outputLimit(provider.id, provider.model, provider.thinking, settings.summary.maxOutputTokens + ANALYSIS_OUTPUT_TOKENS),
         })
         const { analysis, digest } = parseCombined(raw)
-        if (digest && parseSummary(digest, settings.summary.parts, text)) {
-          const key = this.summaryKey(inputs, settings.targetLang, buildSummaryPrompt(text, head, analysis?.glossary))
+        const key = this.summaryKey(inputs, settings.targetLang, buildSummaryPrompt(text, head, analysis?.glossary))
+        // A summary asked for on its own meanwhile ("Regenerate") has the last word.
+        if (digest && !this.writers.has(key) && parseSummary(digest, settings.summary.parts, text)) {
           this.summaries.set(key, digest)
           await this.deps.cache.set(key, digest)
         }

@@ -168,6 +168,25 @@ describe("the summary request of the translation service", () => {
     expect(summarize.mock.calls[0][1].provider).toMatchObject({ id: "anthropic", model: "claude-sonnet-5-5" })
   })
 
+  it("C1: the answer of the request started last stays in the cache, whichever ends last", async () => {
+    const { service, settings, cache, summarize } = setup()
+    const text = "Hallo Tom, could we move the acceptance to Thursday? ..."
+    const older = JSON.stringify({ ...JSON.parse(ANSWER), summary: ["Older."] })
+    const newer = JSON.stringify({ ...JSON.parse(ANSWER), summary: ["Newer."] })
+    let release!: () => void
+    summarize.mockImplementationOnce(() => new Promise<string>((resolve) => (release = () => resolve(older))))
+    const first = service.summarize(text, header)
+    await until(() => expect(summarize).toHaveBeenCalledTimes(1))
+    summarize.mockImplementationOnce(async () => newer)
+    expect((await service.summarize(text, header, true)).raw).toBe(newer)
+    release()
+    expect((await first).raw).toBe(older)
+    expect((await service.summarize(text, header)).raw).toBe(newer)
+    const later = createService(settings, { llm: { summarize }, cache, i18n: () => ENGLISH }).service
+    expect((await later.summarize(text, header)).raw).toBe(newer)
+    expect(summarize).toHaveBeenCalledTimes(2)
+  })
+
   it("keeps an answer it cannot read out of the cache and hands it over as it is", async () => {
     const { service, summarize } = setup(undefined, "I cannot help with that.")
     expect(await service.summarize("Text", null)).toEqual({ ok: true, service: "OpenAI", summary: null, raw: "I cannot help with that." })
@@ -291,6 +310,36 @@ describe("one request for the analysis of precise translation and the summary", 
     expect(llm.summarize).toHaveBeenCalledTimes(1)
     expect(llm.summarize.mock.calls[0][0]).toContain("- Acme Cloud → Acme-Wolke")
     expect(llm.analyzeAndSummarize).toHaveBeenCalledTimes(1)
+  })
+
+  it("C1: a regenerated summary replaces the one of the analysis, also with the cache off", async () => {
+    for (const cacheOn of [true, false]) {
+      const { service, llm, context, cache } = setup()
+      if (!cacheOn) cache.configure(false, 0)
+      service.setContext(context)
+      await service.summarize(context.text, header)
+      expect(llm.analyzeAndSummarize).toHaveBeenCalledTimes(1)
+      const again = JSON.stringify({ ...JSON.parse(ANSWER), summary: ["Regenerated."] })
+      llm.summarize.mockResolvedValue(again)
+      expect((await service.summarize(context.text, header, true)).raw).toBe(again)
+      expect((await service.summarize(context.text, header)).raw).toBe(again)
+      expect([cacheOn, llm.summarize.mock.calls.length]).toEqual([cacheOn, 1])
+    }
+  })
+
+  it("C4: a summary made before the analysis is found once the analysis is there, with another model for the summary", async () => {
+    const { service, llm, context, translate } = setup(COMBINED, (s) => (s.summary.model = "gpt-6.1-terra"))
+    service.setContext(context)
+    expect((await service.summarize(context.text, header)).ok).toBe(true)
+    expect(llm.summarize).toHaveBeenCalledTimes(1)
+    expect(llm.summarize.mock.calls[0][0]).not.toContain("Acme-Wolke")
+    await translate()
+    expect(llm.analyze).toHaveBeenCalledTimes(1)
+    expect((await service.summarize(context.text, header)).ok).toBe(true)
+    expect([llm.summarize, llm.analyzeAndSummarize].map((fn) => fn.mock.calls.length)).toEqual([1, 0])
+    // "Regenerate" asks with the glossary.
+    await service.summarize(context.text, header, true)
+    expect(llm.summarize.mock.calls[1][0]).toContain("- Acme Cloud → Acme-Wolke")
   })
 
   it("caches both parts under their own keys: a new background script asks nothing; with the cache off the summary still comes from the request", async () => {
