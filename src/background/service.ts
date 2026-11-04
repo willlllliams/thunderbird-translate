@@ -38,7 +38,7 @@ import type { TranslateRequest, TranslateResponse } from "../shared/messages"
 import { promptText } from "../shared/prompts"
 import { outputLimit } from "../shared/thinking"
 import { getPreset, providerDisplayName, type Tier, TIERS } from "../shared/providers"
-import { allowsRequest, isOnlineService, type ProviderConfig, type ResolvedProvider, resolveProvider, resolveProviderConfig, resultInputs, type Settings } from "../shared/settings"
+import { allowsRequest, isOnlineService, preciseApplies, type ProviderConfig, type ResolvedProvider, resolveProvider, resolveProviderConfig, resultInputs, type Settings } from "../shared/settings"
 import type { SummaryResponse } from "../shared/summary"
 import { cacheKey, LruCache, type PersistentCache } from "./cache"
 import { Dictionary } from "../offline/dictionary"
@@ -492,7 +492,7 @@ export class TranslationService {
    * and the summary uses the service and model of the AI tier, one request makes both.
    */
   private async preciseAnalysis(text: string, settings: Settings, summary?: { inputs: SummaryInputs; header: MailHeader | null; signal?: AbortSignal }): Promise<MailAnalysis | null> {
-    if (!settings.precise.enabled || !settings.tiers.ai) return null
+    if (!preciseApplies(settings) || !settings.tiers.ai) return null
     const { provider, parts } = resultInputs(settings, settings.tiers.ai)
     const key = analysisKey(provider, `${settings.sourceLang}>${settings.targetLang}`, text, variantOf(parts))
     const known = this.analyses.get(key)

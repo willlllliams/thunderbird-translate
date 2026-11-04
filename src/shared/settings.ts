@@ -3,6 +3,7 @@ import { hashText } from "./hash"
 import { patternHost, providerOrigin } from "./hosts"
 import { appLang, LANGUAGES, languageTag } from "./languages"
 import { normalizeUiLanguageSetting, type UiLanguageSetting } from "./locales"
+import { offlineServiceOf } from "./offline-needs"
 import { DEFAULT_PROMPTS, PROMPT_NAMES, type PromptKind, type PromptName, promptText, REPLACED_PROMPTS } from "./prompts"
 import { DEFAULT_PROVIDER_ID, getPreset, isAiProvider, PROVIDER_PRESETS, type ProviderPreset, type Tier, TIERS, tierOf } from "./providers"
 import { type UploadFormat, uploadFormat, type VisionSupport, visionSupport } from "./vision"
@@ -654,9 +655,11 @@ export function resultInputs(settings: Settings, providerId: string): ResultInpu
 
 /** Whether a service sends text over the network: every service except the dictionary and Bergamot. */
 export function isOnlineService(providerId: string): boolean {
-  const kind = getPreset(providerId)?.kind
-  return kind !== undefined && kind !== "dictionary" && kind !== "bergamot"
+  return getPreset(providerId) !== undefined && !offlineServiceOf(providerId)
 }
+
+/** Whether precise translation applies: switched on, with an AI tier. */
+export const preciseApplies = (settings: Pick<Settings, "precise" | "tiers">): boolean => settings.precise.enabled && settings.tiers.ai !== null
 
 /** An online service of a tier in use that the user has not allowed yet to receive message text: its id and the host it sends to. */
 export interface ConsentNeed {
@@ -756,7 +759,7 @@ export function imageStatus(settings: Settings): ImageStatus {
   if (!id) return { id, model: "", support: null, active: false }
   const { model } = resolveVisionProvider(settings, id)
   const support = visionSupport(id, model)
-  return { id, model, support, active: settings.precise.enabled && settings.tiers.ai !== null && support !== "no" }
+  return { id, model, support, active: preciseApplies(settings) && support !== "no" }
 }
 
 /**
@@ -882,7 +885,7 @@ export function toPublicSettings(settings: Settings, credentials = 0, hostAccess
     tiers: enabledTiers(settings.tiers),
     signatures,
     credentials,
-    precise: settings.precise.enabled && settings.tiers.ai !== null,
+    precise: preciseApplies(settings),
     style: settings.style,
     offlineMutedPairs: settings.offlineMutedPairs,
     consent: consentNeeds(settings),

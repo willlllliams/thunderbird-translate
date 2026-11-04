@@ -9,7 +9,7 @@ import { LOCALE_NATIVE_NAMES, localeToLanguageTag, matchUiLocale, SUPPORTED_LOCA
 import { type OfflineStatus, type OptionsPlace, send } from "./messages"
 import { lacksData, type OfflineService, offlineServiceOf } from "./offline-needs"
 import { PROVIDER_PRESETS, providerDisplayName, type Tier, TIER_NAME_KEYS, TIERS, tierOf } from "./providers"
-import { addedProviders, type ImageStatus, type Settings, type TierSettings, tiersValid } from "./settings"
+import { addedProviders, type ImageStatus, preciseApplies, type Settings, type TierSettings, tiersValid } from "./settings"
 import { SUGGESTED_VISION_MODELS } from "./vision"
 
 export const $ = <T extends HTMLElement>(id: string) => document.getElementById(id) as T
@@ -163,7 +163,7 @@ export function showSaveError(error: unknown): void {
  * #imagePreciseOn turns precise translation on.
  */
 export function showImagePreciseNote(settings: Pick<Settings, "precise" | "tiers">): boolean {
-  const precise = settings.precise.enabled && settings.tiers.ai !== null
+  const precise = preciseApplies(settings)
   $("imagePreciseOff").hidden = precise
   $("imagePreciseOffText").textContent = t(settings.tiers.ai ? "hintImageNeedsPrecise" : "hintImageNeedsAi")
   $("imagePreciseOn").hidden = !settings.tiers.ai
