@@ -11,7 +11,7 @@
  */
 
 import type { ConsentKind, ConsentQuestion } from "../shared/consent"
-import { ext } from "../shared/ext"
+import { ext, isExtensionPage } from "../shared/ext"
 import { t } from "../shared/i18n"
 import type { MailContext } from "../shared/mail-context"
 import { CONTENT_PORT_NAME, IDLE_TAB_STATE, type ImageRequest, type ImageResponse, isPortReport, type PortPush, type PortReport, type TabState, type TranslateRequest, type TranslateResponse } from "../shared/messages"
@@ -144,7 +144,7 @@ export function createTabRegistry({ ready, publicSettings, setContext, translate
     const tabId = port.sender?.tab?.id
     if (tabId === undefined) return
     // A page of the extension translates its own sample message; a content script, the message on screen.
-    const sample = typeof port.sender?.url === "string" && port.sender.url.startsWith(ext.runtime.getURL(""))
+    const sample = isExtensionPage(port.sender)
     const session = sample ? undefined : `${tabId}:${++sessions}`
     if (session) {
       openSession?.(session, tabId)

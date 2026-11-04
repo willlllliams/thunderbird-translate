@@ -25,6 +25,8 @@ interface ThunderbirdExtras {
     setBadgeText(details: { text: string | null; tabId?: number }): Promise<void>
     setBadgeBackgroundColor(details: { color: string | null; tabId?: number }): Promise<void>
     setTitle(details: { title: string | null; tabId?: number }): Promise<void>
+    /** Thunderbird 113 and later: opens the popup of the button without a user action; false when the button is not in a toolbar. */
+    openPopup(options?: { windowId?: number }): Promise<boolean>
   }
 }
 
@@ -37,6 +39,11 @@ const g = globalThis as unknown as { messenger?: Ext; browser?: Ext }
  * In Thunderbird the namespace exists before any script runs and never
  * changes; the unit tests install a fake one per test.
  */
+/** Whether a message comes from a page of the extension (popup, settings page, setup guide); a content script has the address of its message. */
+export function isExtensionPage(sender: { url?: string } | undefined): boolean {
+  return typeof sender?.url === "string" && sender.url.startsWith(ext.runtime.getURL(""))
+}
+
 export const ext: Ext = new Proxy({} as Ext, {
   get: (_target, key) => Reflect.get((g.messenger ?? g.browser) as Ext, key),
 })

@@ -6,7 +6,7 @@
  */
 
 import { describeError } from "../shared/errors"
-import { ext } from "../shared/ext"
+import { ext, isExtensionPage } from "../shared/ext"
 import { openOptionsAt } from "../shared/options-tab"
 import { getI18n } from "../shared/i18n"
 import { type BackgroundHandlers, type LocaleMessages, type OfflineItem, type OfflineStatus, type PageNotice, type RequestType } from "../shared/messages"
@@ -86,11 +86,6 @@ export function createHandlers({ tabs, service, images, localeMessages, offlineM
  */
 export const CONTENT_REQUESTS: ReadonlySet<RequestType> = new Set<RequestType>(["getLocaleMessages", "openOptions", "muteOfflinePairs"])
 
-/** Whether a message comes from a page of the extension (popup, settings page, setup guide); a content script has the address of its message. */
-function fromExtensionPage(sender: browser.runtime.MessageSender | undefined): boolean {
-  return typeof sender?.url === "string" && sender.url.startsWith(ext.runtime.getURL(""))
-}
-
 /**
  * For runtime.onMessage: the answer of the handler of a request, once
  * `ready` settles; undefined (no answer) for anything else, and for a
@@ -102,7 +97,7 @@ export function createDispatch(handlers: BackgroundHandlers, ready: () => Promis
     const type = (message as { type?: unknown } | null | undefined)?.type
     // Only own properties: a request named after a property of Object.prototype ("toString") is unknown too.
     if (typeof type !== "string" || !Object.hasOwn(handlers, type)) return undefined
-    if (!CONTENT_REQUESTS.has(type as RequestType) && !fromExtensionPage(sender)) return undefined
+    if (!CONTENT_REQUESTS.has(type as RequestType) && !isExtensionPage(sender)) return undefined
     const handler = handlers[type as keyof BackgroundHandlers] as (req: unknown) => unknown
     return ready().then(() => handler(message))
   }
