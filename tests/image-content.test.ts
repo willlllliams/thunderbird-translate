@@ -557,15 +557,17 @@ describe("over the Port of the client", () => {
 })
 
 describe("translation-only display", () => {
-  it("keeps the images of a paragraph after its translation, except remote ones, and puts the original back", () => {
-    document.body.innerHTML = `<p>See <img src="${part("1.2")}" alt="chart"> and <img src="https://example.com/r.png"> here.</p>`
+  it("D2: keeps the images of a paragraph after its translation, remote ones at the address they show, and puts the original back", () => {
+    document.body.innerHTML = `<p>See <img src="${part("1.2")}" alt="chart"> and <img src="https://example.com/r.png" srcset="https://example.com/r2.png 2x"> here.</p>`
     const p = document.querySelector("p")!
     const original = p.innerHTML
+    const remote = p.querySelectorAll("img")[1]
+    Object.defineProperty(remote, "currentSrc", { value: "https://example.com/r2.png", configurable: true })
     const renderer = new Renderer(document)
     const unit: Unit = { el: p, text: "See and here.", pre: false }
     renderer.showTranslation(unit, "看这里。", "translation-only")
-    const kept = Array.from(p.querySelectorAll(".tt-translation img"), (img) => img.getAttribute("src"))
-    expect(kept).toEqual([part("1.2")])
+    const kept = Array.from(p.querySelectorAll<HTMLImageElement>(".tt-translation img"), (img) => [img.getAttribute("src"), img.getAttribute("srcset")])
+    expect(kept).toEqual([[part("1.2"), null], ["https://example.com/r2.png", null]])
     renderer.clear(unit)
     expect(p.innerHTML).toBe(original)
     renderer.showTranslation(unit, "看这里。", "bilingual")
@@ -719,6 +721,21 @@ describe("remote images", () => {
     for (const answer of answers) answer({ status: "access" })
     await nextTask()
     expect(late.images.leftOut.access).toBe(0)
+  })
+
+  it("D2: takes a remote image of a paragraph that loads after translation-only display hid it", async () => {
+    const { images, run, units } = mountRemote({ granted: true })
+    const late = document.getElementById("r1") as HTMLImageElement
+    Object.defineProperty(late, "complete", { value: false, configurable: true })
+    images.start(run())
+    await nextTask()
+    new Renderer(document).showTranslation(units[0], "本周：", "translation-only")
+    expect(late.closest(".tt-original")).not.toBeNull()
+    // Hidden: drawn at no size.
+    late.getBoundingClientRect = () => ({ width: 0, height: 0, x: 0, y: 0, top: 0, left: 0, right: 0, bottom: 0, toJSON: () => ({}) })
+    Object.defineProperty(late, "complete", { value: true, configurable: true })
+    late.dispatchEvent(new Event("load"))
+    await until(() => expect(buttons()).toHaveLength(1))
   })
 
   it("counts a remote image that fails to load after the start", async () => {

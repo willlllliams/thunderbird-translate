@@ -84,6 +84,9 @@ function hiddenByStyle(img: HTMLImageElement): boolean {
 /** A length of the attributes or the inline style of an image in pixels ("1", "1px"); NaN for none or another unit. */
 const pixels = (value: string | null) => (value && /^\s*\d+(\.\d+)?\s*(px)?\s*$/i.test(value) ? Number.parseFloat(value) : Number.NaN)
 
+/** Whether the attributes or the inline style of `img` draw it at 2 px or less, as a tracking pixel. */
+const tiny = (img: HTMLImageElement) => [img.getAttribute("width"), img.getAttribute("height"), img.style.width, img.style.height].some((value) => pixels(value) <= 2)
+
 
 /** What the consent panel says about the data policy of a service; the others handle images by their own privacy policy. */
 const POLICY_KEYS: Record<string, MessageKey> = { anthropic: "imageConsentPolicyAnthropic", gemini: "imageConsentPolicyGemini", openai: "imageConsentPolicyOpenai" }
@@ -285,8 +288,7 @@ export class ImageTranslator {
     if (img.naturalWidth === 0) {
       // No pixels: a remote image Thunderbird blocked or could not load counts by the size of its attributes and of its
       // inline style; a tracking pixel and a hidden image never.
-      const tiny = [img.getAttribute("width"), img.getAttribute("height"), img.style.width, img.style.height].some((value) => pixels(value) <= 2)
-      if (source.kind === "remote" && !tiny && !hiddenByStyle(img) && !(place.inSignature && run.settings.skipSignature) && run.settings.sources.inline) {
+      if (source.kind === "remote" && !tiny(img) && !hiddenByStyle(img) && !(place.inSignature && run.settings.skipSignature) && run.settings.sources.inline) {
         this.unloaded.add(source.url)
         this.drawNote()
       }
@@ -300,10 +302,11 @@ export class ImageTranslator {
       }
       return
     }
-    // A remote image the reader does not see is a beacon, whatever its natural size: it is not read again.
+    // A remote image the reader does not see is a beacon, whatever its natural size: it is not read again. An original
+    // that translation-only display hid shows as its copy, at the size of its attributes.
     if (source.kind === "remote") {
-      const drawn = img.getBoundingClientRect()
-      if (drawn.width <= 2 || drawn.height <= 2 || hiddenByStyle(img)) return
+      const drawn = img.closest(`.${CLS_ORIGINAL}`) ? null : img.getBoundingClientRect()
+      if ((drawn ? drawn.width <= 2 || drawn.height <= 2 : tiny(img)) || hiddenByStyle(img)) return
     }
     if (filterImage(candidate, run.settings) !== null) return
     const anchor = img.closest(".moz-attached-image-container") ?? run.units.find((unit) => unit.el.contains(img))?.el ?? img.closest("a") ?? img
