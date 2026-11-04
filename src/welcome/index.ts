@@ -14,7 +14,7 @@ import { getI18n, t } from "../shared/i18n"
 import { localizeDocument } from "../shared/i18n-dom"
 import { followUiLanguage, loadExtensionI18n } from "../shared/i18n-ext"
 import { normalizeUiLanguageSetting } from "../shared/locales"
-import { $, fillSelect, fillTierSelects, languageOptions, onTierChange, showSaved, showSaveError, sourceLanguageOptions, tierOptions, uiLanguageOptions, visionHint } from "../shared/page"
+import { $, bindRadios, fillSelect, fillTierSelects, languageOptions, onTierChange, showSameLanguage as showSameLanguagePage, showSaved, showSaveError, showVisionUnsupported, sourceLanguageOptions, tierOptions, uiLanguageOptions } from "../shared/page"
 import { PROMPT_KINDS } from "../shared/prompts"
 import { getPreset, type Tier } from "../shared/providers"
 import { addProvidersInUse, type DisplayMode, type ImageMode, imageStatus, type Settings } from "../shared/settings"
@@ -49,6 +49,9 @@ let toured = false
 let offlineLanguages = ""
 /** Number of directions "Download selected" is downloading; 0 when it does not run. */
 let downloading = 0
+/** Check the radio buttons of the display mode and the image mode as the settings say; bound in main(). */
+let showModes: () => void = () => {}
+let showImageModes: () => void = () => {}
 /** How the last "Download selected" ended. */
 let downloadResult = ""
 
@@ -142,7 +145,7 @@ const finish = () => leave({ step, finished: true })
 /* ---------- step 1: languages ---------- */
 
 function showSameLanguage(): void {
-  $("sameLanguage").hidden = settings.sourceLang !== settings.targetLang
+  showSameLanguagePage(settings)
 }
 
 /* ---------- step 2: display mode ---------- */
@@ -155,7 +158,7 @@ function renderModePreview(): void {
   box.replaceChildren(...originals)
   const sample = sampleRenderer(box, settings.style)
   originals.forEach((el, i) => sample.show(el, translations[i], settings.mode))
-  for (const radio of Array.from(document.querySelectorAll<HTMLInputElement>('input[name="mode"]'))) radio.checked = radio.value === settings.mode
+  showModes()
 }
 
 /* ---------- step 3: tiers ---------- */
@@ -247,11 +250,8 @@ function fillAiServices(): void {
 /** The mode of image translation under precise translation, greyed out while precise translation is off; a model of the AI service that reads no images is named, as in the popup. */
 function showImageMode(): void {
   $<HTMLFieldSetElement>("imageModeGroup").disabled = !settings.precise.enabled
-  for (const radio of Array.from(document.querySelectorAll<HTMLInputElement>('input[name="imageMode"]'))) radio.checked = radio.value === settings.image.mode
-  const status = imageStatus(settings)
-  const hint = status.support === "no" ? visionHint(status) : ""
-  $("imageUnsupported").hidden = !hint
-  $("imageUnsupported").textContent = hint
+  showImageModes()
+  showVisionUnsupported(imageStatus(settings), true)
 }
 
 /* ---------- step 8: trial ---------- */
@@ -348,14 +348,12 @@ async function main(): Promise<void> {
   showSameLanguage()
 
   // Step 2
-  for (const radio of Array.from(document.querySelectorAll<HTMLInputElement>('input[name="mode"]'))) {
-    radio.addEventListener("change", () => {
-      if (!radio.checked) return
-      settings.mode = radio.value as DisplayMode
-      renderModePreview()
-      session.save()
-    })
-  }
+  showModes = bindRadios<DisplayMode>("mode", () => settings.mode, (mode) => {
+    settings.mode = mode
+    renderModePreview()
+    session.save()
+  })
+  showModes()
 
   // Step 3: at least one tier keeps a service.
   onTierChange(() => settings.tiers, setTier)
@@ -382,13 +380,11 @@ async function main(): Promise<void> {
     showImageMode()
   })
   session.track($("imageModeGroup"), showImageMode)
-  for (const radio of Array.from(document.querySelectorAll<HTMLInputElement>('input[name="imageMode"]'))) {
-    radio.addEventListener("change", () => {
-      if (!radio.checked) return
-      settings.image.mode = radio.value as ImageMode
-      session.save()
-    })
-  }
+  showImageModes = bindRadios<ImageMode>("imageMode", () => settings.image.mode, (mode) => {
+    settings.image.mode = mode
+    session.save()
+  })
+  showImageModes()
 
   // Step 8
   session.bindCheck("autoTranslate", () => settings.autoTranslate, (v) => (settings.autoTranslate = v))

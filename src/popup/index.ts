@@ -7,7 +7,7 @@ import { localizeDocument } from "../shared/i18n-dom"
 import { followUiLanguage, loadExtensionI18n } from "../shared/i18n-ext"
 import { REMOTE_ORIGINS } from "../shared/hosts"
 import { IDLE_TAB_STATE, type OfflineStatus, type OptionsPlace, type PageNotice, send, type TabState } from "../shared/messages"
-import { $, fillSelect, fillTierSelects, languageOptions, offlineStatus, onTierChange, showImagePreciseNote, showOfflineHint, sourceLanguageOptions, visionHint } from "../shared/page"
+import { $, bindRadios, fillSelect, fillTierSelects, languageOptions, offlineStatus, onTierChange, showImagePreciseNote, showOfflineHint, showSameLanguage, showVisionUnsupported, sourceLanguageOptions } from "../shared/page"
 import { type DisplayMode, type ImageMode, imageStatus, summaryProvider } from "../shared/settings"
 import { loadSettings, onStoredSettings, readSettings, updateSettings } from "../shared/settings-store"
 import { REFRESH_AFTER_ACTION_MS, REFRESH_INTERVAL_MS } from "./timing"
@@ -49,39 +49,23 @@ async function main(): Promise<void> {
     offline = await offlineStatus(settings)
     fillSelects()
   }
-  const modeRadios = Array.from(document.querySelectorAll<HTMLInputElement>('input[name="mode"]'))
-  const imageRadios = Array.from(document.querySelectorAll<HTMLInputElement>('input[name="imageMode"]'))
+  const showModes = bindRadios<DisplayMode>("mode", () => settings.mode, (mode) => void updateSettings((s) => (s.mode = mode)))
+  const showImageModes = bindRadios<ImageMode>("imageMode", () => settings.image.mode, (mode) => void updateSettings((s) => (s.image.mode = mode)))
   // The switches follow settings changed elsewhere, e.g. on the settings page. Precise translation applies to the AI tier only.
   const showSwitches = () => {
     autoTranslate.checked = settings.autoTranslate
-    for (const radio of modeRadios) radio.checked = radio.value === settings.mode
+    showModes()
     $("preciseRow").hidden = !settings.tiers.ai
     preciseEnabled.checked = settings.precise.enabled
     // Image translation needs precise translation: always on screen, greyed out with a note while that is off; a model that refuses images is named under the switch.
     const precise = showImagePreciseNote(settings)
     $("imageModes").setAttribute("aria-disabled", String(!precise))
-    for (const radio of imageRadios) {
-      radio.checked = radio.value === settings.image.mode
-      radio.disabled = !precise
-    }
-    const status = imageStatus(settings)
-    const hint = precise && status.support === "no" ? visionHint(status) : ""
-    $("imageUnsupported").hidden = !hint
-    $("imageUnsupported").textContent = hint
-    $("sameLanguage").hidden = settings.sourceLang !== settings.targetLang
+    showImageModes(precise)
+    showVisionUnsupported(imageStatus(settings), precise)
+    showSameLanguage(settings)
   }
   fillSelects()
   showSwitches()
-  for (const radio of modeRadios) {
-    radio.addEventListener("change", () => {
-      if (radio.checked) void updateSettings((s) => (s.mode = radio.value as DisplayMode))
-    })
-  }
-  for (const radio of imageRadios) {
-    radio.addEventListener("change", () => {
-      if (radio.checked) void updateSettings((s) => (s.image.mode = radio.value as ImageMode))
-    })
-  }
 
   sourceLang.addEventListener("change", () => void updateSettings((s) => (s.sourceLang = sourceLang.value)))
   targetLang.addEventListener("change", () => void updateSettings((s) => (s.targetLang = targetLang.value)))

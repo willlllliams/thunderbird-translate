@@ -187,3 +187,30 @@ export function fillAiServiceSelect(select: HTMLSelectElement, model: HTMLInputE
   fillSelect(select, [new Option(t("aiServiceOfTier"), ""), ...services.map((p) => new Option(providerDisplayName(p), p.id))], chosen && settings.providers[chosen]?.enabled ? chosen : "")
   model.placeholder = inUse ? resolveProvider(settings, inUse).model : ""
 }
+
+/**
+ * The radio buttons named `name`: a change of the checked one goes to `set`; the returned function checks the one of
+ * `get()` and enables them by `enabled`.
+ */
+export function bindRadios<V extends string>(name: string, get: () => V, set: (value: V) => void): (enabled?: boolean) => void {
+  const radios = Array.from(document.querySelectorAll<HTMLInputElement>(`input[name="${name}"]`))
+  for (const radio of radios) radio.addEventListener("change", () => radio.checked && set(radio.value as V))
+  return (enabled = true) => {
+    for (const radio of radios) {
+      radio.checked = radio.value === get()
+      radio.disabled = !enabled
+    }
+  }
+}
+
+/** Under the image modes: the model of the vision service that reads no images, while image translation `applies`. */
+export function showVisionUnsupported(status: ImageStatus, applies: boolean): void {
+  const hint = applies && status.support === "no" ? visionHint(status) : ""
+  $("imageUnsupported").hidden = !hint
+  $("imageUnsupported").textContent = hint
+}
+
+/** The line that says the source and the target language are the same. */
+export function showSameLanguage(settings: Pick<Settings, "sourceLang" | "targetLang">): void {
+  $("sameLanguage").hidden = settings.sourceLang !== settings.targetLang
+}
