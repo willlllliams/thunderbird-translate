@@ -28,8 +28,7 @@
  */
 
 import { getBergamot } from "../offline/bergamot"
-import { describeError, type ErrorContext, LocalizedError, type MissingData, missingData } from "../shared/errors"
-import { patternHost, providerOrigin, requestUrl } from "../shared/hosts"
+import { describeError, LocalizedError, type MissingData, missingData } from "../shared/errors"
 import { hashText } from "../shared/hash"
 import { ENGLISH, type I18n } from "../shared/i18n"
 import { detectSourceLanguage, type LanguageDetector } from "../shared/lang-detect"
@@ -52,7 +51,9 @@ import { caiyunTranslateBatch } from "./translators/caiyun"
 import { deeplTranslateBatch, deeplUsage } from "./translators/deepl"
 import { deeplxTranslate } from "./translators/deeplx"
 import { googleTranslateBatch, googleTranslateSingle } from "./translators/google"
-import type { ImageAnswer, ImageInput, LlmCallOptions } from "./translators/llm"
+import type { LlmCallOptions } from "./translators/llm"
+import { LAZY_LLM, type LlmImpl } from "./translators/lazy-llm"
+import { aborted, checkOrigin, errorContext, requestTimeout } from "./requests"
 import { BatchParseError } from "./translators/common"
 import { buildContextBlock, type MailAnalysis, MAX_PREFIX_TEXT_CHARS, parseAnalysis, type Segment } from "./translators/llm-prompt"
 import { AZURE_LIMITS, microsoftTranslateBatch } from "./translators/microsoft"
@@ -92,8 +93,6 @@ interface Running {
   controller: AbortController
 }
 
-/** The error of a job no page waits for any more; it is not retried. */
-const aborted = () => new DOMException("No page waits for the translation any more.", "AbortError")
 
 /** The installed data an offline service translates with, as part of the cache key. */
 interface OfflineData {
@@ -133,28 +132,6 @@ interface AnalysisRequest {
   run: () => Promise<MailAnalysis | null>
 }
 
-/** Local models (Ollama, LM Studio) and models that reason first answer slowly: their requests get this multiple of the request timeout. */
-const SLOW_MODEL_TIMEOUT_FACTOR = 3
-
-export interface LlmImpl {
-  batch: (segments: Segment[], opts: LlmCallOptions) => Promise<string[]>
-  single: (segment: Segment, opts: LlmCallOptions) => Promise<string>
-  analyze: (text: string, opts: LlmCallOptions) => Promise<MailAnalysis | null>
-  summarize: (prompt: string, opts: LlmCallOptions) => Promise<string>
-  analyzeAndSummarize: (prompt: string, opts: LlmCallOptions) => Promise<string>
-  readImage: (image: ImageInput, text: string, opts: LlmCallOptions) => Promise<ImageAnswer>
-}
-
-/** The AI SDK, loaded with the first AI request: the background script starts without it (scripts/build.mjs makes it a chunk). */
-const loadLlm = () => import("./translators/llm")
-export const LAZY_LLM: LlmImpl = {
-  batch: async (segments, opts) => (await loadLlm()).llmTranslateBatch(segments, opts),
-  single: async (segment, opts) => (await loadLlm()).llmTranslateSingle(segment, opts),
-  analyze: async (text, opts) => (await loadLlm()).llmAnalyzeMail(text, opts),
-  summarize: async (prompt, opts) => (await loadLlm()).llmSummarize(prompt, opts),
-  analyzeAndSummarize: async (prompt, opts) => (await loadLlm()).llmAnalyzeAndSummarize(prompt, opts),
-  readImage: async (image, text, opts) => (await loadLlm()).llmReadImage(image, text, opts),
-}
 
 export interface ServiceDeps {
   getSettings: () => Settings
@@ -178,21 +155,6 @@ const variantOf = (parts: readonly unknown[], signature = "") => hashText([...pa
 /** Cache key of the analysis of a message for precise translation. */
 const analysisKey = (provider: ResolvedProvider, languages: string, text: string, variant: string) => cacheKey(provider.id, provider.model, languages, text, `${variant}:analysis`)
 
-/** What describeError() needs to know about the provider of a failed request. */
-export function errorContext(provider: ResolvedProvider): ErrorContext {
-  const preset = getPreset(provider.id)
-  const secrets = provider.apiKey ? [provider.apiKey] : []
-  if (!preset) return { baseURL: provider.baseURL, secrets }
-  return {
-    service: preset.name,
-    kind: preset.kind,
-    baseURL: preset.kind === "microsoft" && provider.mode === "free" ? undefined : provider.baseURL,
-    defaultBaseURL: preset.defaultBaseURL,
-    model: preset.kind === "llm" ? provider.model : undefined,
-    keyMode: provider.mode === "key",
-    secrets,
-  }
-}
 
 export class TranslationService {
   /** One request queue per provider: its concurrency limit and retries apply to that provider only. */
@@ -250,9 +212,12 @@ export class TranslationService {
 
   /** Request timeout for a provider: the setting, multiplied for local models and models that reason first. */
   private timeoutMs(provider: ResolvedProvider): number {
-    const ms = this.deps.getSettings().batch.timeoutSeconds * 1000
-    const slow = provider.thinking || getPreset(provider.id)?.nameKey === "providerLocal"
-    return slow ? ms * SLOW_MODEL_TIMEOUT_FACTOR : ms
+    return requestTimeout(provider, this.deps.getSettings().batch.timeoutSeconds * 1000)
+  }
+
+  /** The language of error messages. */
+  private get i18n(): I18n {
+    return this.deps.i18n?.() ?? ENGLISH
   }
 
   private limitsFor(provider: ResolvedProvider): BatchLimits {
@@ -267,7 +232,7 @@ export class TranslationService {
   }
 
   private errorMessage(error: unknown, provider?: ResolvedProvider): string {
-    return describeError(error, this.deps.i18n?.() ?? ENGLISH, provider ? errorContext(provider) : {})
+    return describeError(error, this.i18n, provider ? errorContext(provider) : {})
   }
 
   /**
@@ -286,7 +251,7 @@ export class TranslationService {
    */
   private assertConsent(provider: ResolvedProvider, sample = false): void {
     if (sample || !isOnlineService(provider.id) || allowsRequest(this.deps.getSettings(), "onlineConsent", provider)) return
-    throw new LocalizedError("errConsentRequired", [providerDisplayName(getPreset(provider.id)!, this.deps.i18n?.() ?? ENGLISH)])
+    throw new LocalizedError("errConsentRequired", [providerDisplayName(getPreset(provider.id)!, this.i18n)])
   }
 
   /** The work of one tier for one paragraph. `data`: the dictionary packs or offline models the service translates with. */
@@ -322,13 +287,8 @@ export class TranslationService {
     return findLanguage(lang)?.baidu ? lang : "?"
   }
 
-  /** Throws errEndpointInvalid for an endpoint that is no http(s) URL, errHostPermission when the extension may not connect to it. */
-  private async checkOrigin(provider: ResolvedProvider): Promise<void> {
-    const origin = providerOrigin(provider)
-    if (!origin && requestUrl(provider)) throw new LocalizedError("errEndpointInvalid", [providerDisplayName(getPreset(provider.id)!, this.deps.i18n?.() ?? ENGLISH)])
-    if (!origin || !this.deps.hasOrigin) return
-    const allowed = await this.deps.hasOrigin(origin).catch(() => false)
-    if (!allowed) throw new LocalizedError("errHostPermission", [patternHost(origin)])
+  private checkOrigin(provider: ResolvedProvider): Promise<void> {
+    return checkOrigin(provider, this.deps.hasOrigin, this.i18n)
   }
 
   /**
@@ -450,7 +410,7 @@ export class TranslationService {
     // DeepL tells the characters used, at no cost.
     if (getPreset(providerId)?.kind === "deepl") {
       const { used, limit } = await this.queue(provider).run(() => deeplUsage(provider, { fetchFn: this.deps.fetchFn, timeoutMs: this.timeoutMs(provider) }))
-      return (this.deps.i18n?.() ?? ENGLISH).t("testDeeplUsage", [used, limit])
+      return (this.i18n).t("testDeeplUsage", [used, limit])
     }
     const sample = "Hello! This is a connection test from Multi Translate for Thunderbird."
     const prompt = promptText(this.deps.getSettings().prompts, "bilingual")
@@ -474,7 +434,7 @@ export class TranslationService {
    */
   async summarize(text: string, header: MailHeader | null, fresh = false, signal?: AbortSignal): Promise<SummaryResponse> {
     const settings = this.deps.getSettings()
-    const i18n = this.deps.i18n?.() ?? ENGLISH
+    const i18n = this.i18n
     const inputs = summaryInputs(settings)
     if (!inputs) return { ok: false, error: i18n.t("errSummaryService") }
     const { id, provider, systemPrompt, targetLanguageName } = inputs

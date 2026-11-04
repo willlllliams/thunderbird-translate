@@ -734,11 +734,11 @@ export const summaryProvider = (settings: Settings): string | null => chosenAiPr
 /** The AI service that reads images: the added service chosen for them, else the service of the AI tier; null without either. */
 export const visionProvider = (settings: Settings): string | null => chosenAiProvider(settings, settings.image.provider)
 
-/** The service `id` as image requests use it: the image model when one is set, and never thinking first, which reading text does not need and which is charged as output. */
-export function resolveVisionProvider(settings: Settings, id: string): ResolvedProvider {
-  const provider = resolveProvider(settings, id)
-  return { ...provider, model: settings.image.model || provider.model, thinking: false }
-}
+/** `provider` as image requests use it: with `model` when one is given, and never thinking first, which reading text does not need and which is charged as output. */
+export const asVisionProvider = (provider: ResolvedProvider, model: string): ResolvedProvider => ({ ...provider, model: model.trim() || provider.model, thinking: false })
+
+/** The service `id` as image requests use it, with the image model of the settings. */
+export const resolveVisionProvider = (settings: Settings, id: string): ResolvedProvider => asVisionProvider(resolveProvider(settings, id), settings.image.model)
 
 /** Whether the images of a message are translated, and by which service and model. */
 export interface ImageStatus {

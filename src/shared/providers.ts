@@ -54,6 +54,8 @@ export interface ProviderPreset {
   requiresKey: boolean
   /** Whether a custom endpoint must be provided (no usable default). */
   requiresBaseURL?: boolean
+  /** A server on this computer, which answers slowly: its requests wait longer. */
+  local?: true
   /** Default temperature; null means "do not send". */
   defaultTemperature: number | null
   /** Where to get a key / read the docs. */
@@ -272,6 +274,7 @@ export const PROVIDER_PRESETS: ProviderPreset[] = [
     id: "ollama",
     name: "Ollama",
     nameKey: "providerLocal",
+    local: true,
     kind: "llm",
     sdk: "openai-compatible",
     defaultBaseURL: "http://localhost:11434/v1",
@@ -442,6 +445,7 @@ export const PROVIDER_PRESETS: ProviderPreset[] = [
     id: "lmstudio",
     name: "LM Studio",
     nameKey: "providerLocal",
+    local: true,
     kind: "llm",
     sdk: "openai-compatible",
     defaultBaseURL: "http://localhost:1234/v1",

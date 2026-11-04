@@ -103,6 +103,10 @@ describe("provider presets", () => {
     }
   })
 
+  it("A9: marks the servers on this computer as local, which the request timeouts read, not by the name of the preset", () => {
+    expect(PROVIDER_PRESETS.filter((p) => p.local).map((p) => p.id)).toEqual(["ollama", "lmstudio"])
+  })
+
   it("defaults to the free Google service as machine translation tier", () => {
     expect(createDefaultSettings().tiers).toEqual({ dictionary: null, machine: "google-free", ai: null })
   })

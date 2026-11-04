@@ -1,7 +1,8 @@
 /** The three tiers, the prompts, the source language and precise mode in the background translation service. */
 import { afterEach, describe, expect, it, vi } from "vitest"
 import { hashText } from "../src/shared/hash"
-import type { LlmImpl, TranslationService } from "../src/background/service"
+import type { TranslationService } from "../src/background/service"
+import type { LlmImpl } from "../src/background/translators/lazy-llm"
 import { type LlmCallOptions, llmAnalyzeMail, llmTranslateBatch, llmTranslateSingle } from "../src/background/translators/llm"
 import type { MailAnalysis, Segment } from "../src/background/translators/llm-prompt"
 import { createMailContext } from "../src/shared/mail-context"

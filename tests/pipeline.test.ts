@@ -12,7 +12,8 @@ const offline = vi.hoisted(() => ({
 }))
 vi.mock("../src/offline/bergamot", async (importOriginal) => ({ ...(await importOriginal<object>()), getBergamot: () => offline }))
 
-import type { LlmImpl, TranslationService } from "../src/background/service"
+import type { TranslationService } from "../src/background/service"
+import type { LlmImpl } from "../src/background/translators/lazy-llm"
 import { type LlmCallOptions, llmAnalyzeMail, llmTranslateBatch, llmTranslateSingle } from "../src/background/translators/llm"
 import type { Segment } from "../src/background/translators/llm-prompt"
 import { LocalizedError, MissingDataError, TimeoutError } from "../src/shared/errors"

@@ -41,19 +41,20 @@
 
 import { describeError, LocalizedError } from "../shared/errors"
 import { hashText, sha256Hex } from "../shared/hash"
-import { originPattern, patternHost, providerOrigin, requestUrl } from "../shared/hosts"
+import { originPattern } from "../shared/hosts"
 import { ENGLISH, type I18n, type MessageKey } from "../shared/i18n"
 import { getLanguage } from "../shared/languages"
 import type { ImageRequest, ImageResponse } from "../shared/messages"
 import { promptText } from "../shared/prompts"
 import { getPreset, providerDisplayName } from "../shared/providers"
-import { allowsRequest, consentKey, hostOf, imageGlossary, imageStatus, type ImageSettings, type ProviderConfig, type ResolvedProvider, resolveProviderConfig, resolveVisionProvider, type Settings } from "../shared/settings"
+import { allowsRequest, asVisionProvider, consentKey, hostOf, imageGlossary, imageStatus, type ImageSettings, type ProviderConfig, type ResolvedProvider, resolveProviderConfig, resolveVisionProvider, type Settings } from "../shared/settings"
 import { outputLimit } from "../shared/thinking"
 import { imageDetailOptions, uploadFormat } from "../shared/vision"
 import { cacheKey, LruCache, type PersistentCache } from "./cache"
 import { buildImageSystem, buildImageUserText, imageOutputTokens } from "../shared/image-prompt"
 import { RequestQueue } from "./queue/request-queue"
-import { errorContext, LAZY_LLM } from "./service"
+import { LAZY_LLM } from "./translators/lazy-llm"
+import { aborted, checkOrigin, errorContext, requestTimeout } from "./requests"
 import type { ImageAnswer, ImageInput, LlmCallOptions } from "./translators/llm"
 import { cleanSingleOutput, type MailAnalysis } from "./translators/llm-prompt"
 import { HeldImages, REMOTE_MAX_BYTES, RemoteImages } from "./remote-images"
@@ -329,9 +330,6 @@ export interface ImageDeps {
   sleep?: (ms: number) => Promise<void>
 }
 
-/** Local models answer slowly: their requests get this multiple of the timeout, as for text. */
-const SLOW_MODEL_TIMEOUT_FACTOR = 3
-
 /** Content scripts whose rounds and consent are kept; one per displayed message. */
 const MAX_SESSIONS = 50
 
@@ -341,8 +339,6 @@ const MAX_PIXELS = 40_000_000
 /** Images whose bytes are read at the same time; reading a part parses the message up to it. */
 const READ_CONCURRENCY = 2
 
-/** The error of an image no content script waits for any more; it is not retried. */
-const aborted = () => new DOMException("No content script waits for the image any more.", "AbortError")
 
 /** A file name as the address of a part and as messages.getAttachmentFile() give it, for comparing the two. */
 const fileName = (name: string) => name.normalize("NFC").trim().toLowerCase()
@@ -436,24 +432,20 @@ export class ImageService {
   }
 
   private options(provider: ResolvedProvider, settings: Settings, systemPrompt: string): LlmCallOptions {
-    const local = getPreset(provider.id)?.nameKey === "providerLocal"
     return {
       provider,
       systemPrompt,
       targetLanguageName: getLanguage(settings.targetLang).english,
       fetchFn: this.deps.fetchFn,
-      timeoutMs: settings.image.timeoutSeconds * 1000 * (local ? SLOW_MODEL_TIMEOUT_FACTOR : 1),
+      // The vision provider never thinks first: only a local model waits longer.
+      timeoutMs: requestTimeout(provider, settings.image.timeoutSeconds * 1000),
       // A model that reasons even with thinking off (Gemini 3, Kimi K3, Claude 5) gets room for it beyond the answer.
       maxOutputTokens: outputLimit(provider.id, provider.model, false, imageOutputTokens(settings.image)),
     }
   }
 
-  /** Throws errEndpointInvalid for an endpoint that is no http(s) URL, errHostPermission when the extension may not connect to it. */
-  private async checkOrigin(provider: ResolvedProvider): Promise<void> {
-    const origin = providerOrigin(provider)
-    if (!origin && requestUrl(provider)) throw new LocalizedError("errEndpointInvalid", [providerDisplayName(getPreset(provider.id)!, this.i18n)])
-    if (!origin || !this.deps.hasOrigin) return
-    if (!(await this.deps.hasOrigin(origin).catch(() => false))) throw new LocalizedError("errHostPermission", [patternHost(origin)])
+  private checkOrigin(provider: ResolvedProvider): Promise<void> {
+    return checkOrigin(provider, this.deps.hasOrigin, this.i18n)
   }
 
   private remoteTooLarge(): ImageResponse {
@@ -753,8 +745,7 @@ export class ImageService {
   /** Read the test image with an unsaved configuration of an AI service: the answer when it names 42; throws otherwise. */
   async test(providerId: string, config: Omit<ProviderConfig, "enabled">, model: string): Promise<string> {
     const settings = this.deps.getSettings()
-    const resolved = resolveProviderConfig(providerId, config)
-    const provider = { ...resolved, model: model.trim() || resolved.model, thinking: false }
+    const provider = asVisionProvider(resolveProviderConfig(providerId, config), model)
     await this.checkOrigin(provider)
     const blob = await this.codec.testImage()
     const systemPrompt = buildImageSystem(promptText(settings.prompts, "image"), getLanguage(settings.targetLang).english, { ...settings.image, noText: "describe" })
