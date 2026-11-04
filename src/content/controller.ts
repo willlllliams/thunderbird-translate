@@ -43,6 +43,7 @@ import { createMailContext, type MailContext } from "../shared/mail-context"
 import type { TabState, TranslateRequest, TranslateResponse } from "../shared/messages"
 import { type Tier, TIER_NAME_KEYS, TIERS } from "../shared/providers"
 import type { ConsentNeed, PublicSettings } from "../shared/settings"
+import { MessageConsent } from "./consent"
 import type { ImageTranslator } from "./images"
 import { type Collected, collectParagraphs, extractText, type Unit } from "./paragraphs"
 import { Renderer, styleVars, type TranslationMark } from "./render"
@@ -85,9 +86,6 @@ const STYLE_ID = "tt-style-vars"
 /** Progress goes to the background at most this often; the last state always follows. */
 const REPORT_INTERVAL_MS = 100
 
-/** A service and the host the consent panel names for it: a consent is given for both. */
-export const consentKey = (need: ConsentNeed): string => `${need.id}@${need.host}`
-
 export class TranslationController {
   active = false
   private settings: PublicSettings | null = null
@@ -105,7 +103,7 @@ export class TranslationController {
   private bypassCache = false
   private lastError = ""
   /** Online services allowed in the consent panel of this message, before the settings that record them arrive. */
-  private allowed = new Set<string>()
+  private allowed = new MessageConsent()
   private reportTimer: ReturnType<typeof setTimeout> | null = null
   private reportPending = false
 
@@ -148,8 +146,7 @@ export class TranslationController {
     const prev = this.settings
     this.settings = next
     // A service asked for anew (its host changed, or the user took the consent back) is asked for again in this message.
-    const before = new Set((prev?.consent ?? []).map(consentKey))
-    for (const need of next.consent) if (!before.has(consentKey(need))) this.allowed.delete(need.id)
+    this.allowed.follow(prev?.consent ?? [], next.consent)
     this.applyStyleVars()
     if (!this.active || !prev) return
     if (prev.targetLang !== next.targetLang || prev.sourceLang !== next.sourceLang || prev.precise !== next.precise) {
@@ -164,7 +161,7 @@ export class TranslationController {
       await this.start()
       return
     }
-    this.deps.images?.update(next.image, next.targetLang)
+    this.deps.images?.update(next.image)
     for (const state of this.results.values()) for (const tier of changed) delete state[tier]
     // A key or an app ID changed: the tiers that failed are asked again, the others keep their results.
     const retry = prev.credentials !== next.credentials
@@ -222,13 +219,13 @@ export class TranslationController {
 
   /** The online services of `s` that still need the user's consent. */
   private consentNeeds(s: PublicSettings): ConsentNeed[] {
-    return this.deps.consent ? s.consent.filter((need) => !this.allowed.has(need.id)) : []
+    return this.deps.consent ? s.consent.filter((need) => !this.allowed.allows(need)) : []
   }
 
   /** The settings to translate with once the user allowed the online services `needs`; null when the user declined or the state changed meanwhile. */
   private async consented(s: PublicSettings, needs: ConsentNeed[], byUser: boolean): Promise<PublicSettings | null> {
     if (!(await this.deps.consent!.ask(needs, s.precise, byUser))) return null
-    for (const need of needs) this.allowed.add(need.id)
+    for (const need of needs) this.allowed.allow(need)
     // The settings may have changed while the panel was open.
     const now = this.settings!
     return this.active || this.consentNeeds(now).length > 0 ? null : now

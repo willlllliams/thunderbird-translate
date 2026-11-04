@@ -47,7 +47,7 @@ import { getLanguage } from "../shared/languages"
 import type { ImageRequest, ImageResponse } from "../shared/messages"
 import { promptText } from "../shared/prompts"
 import { getPreset, providerDisplayName } from "../shared/providers"
-import { allowsRequest, imageGlossary, imageStatus, type ImageSettings, type ProviderConfig, type ResolvedProvider, resolveProviderConfig, resolveVisionProvider, type Settings } from "../shared/settings"
+import { allowsRequest, consentKey, hostOf, imageGlossary, imageStatus, type ImageSettings, type ProviderConfig, type ResolvedProvider, resolveProviderConfig, resolveVisionProvider, type Settings } from "../shared/settings"
 import { outputLimit } from "../shared/thinking"
 import { imageDetailOptions, uploadFormat } from "../shared/vision"
 import { cacheKey, LruCache, type PersistentCache } from "./cache"
@@ -408,13 +408,13 @@ export class ImageService {
   }
 
   /**
-   * The user allowed `ids` to receive images: for the message of `session` only, or recorded in the settings. The
-   * image requests of the session that come after it wait for it.
+   * The user allowed `ids` to receive images at the `hosts` the panel named: for the message of `session` only, or
+   * recorded in the settings. The image requests of the session that come after it wait for it.
    */
   grant(session: string, ids: string[], messageOnly: boolean, hosts?: string[]): Promise<void> {
     const s = this.sessions.get(session)
     const granted = async () => {
-      if (messageOnly) for (const id of ids) s?.allowed.add(id)
+      if (messageOnly) ids.forEach((id, i) => s?.allowed.add(consentKey({ id, host: typeof hosts?.[i] === "string" ? hosts[i] : "" })))
       else await this.deps.recordConsent(ids, hosts)
     }
     if (!s) return granted()
@@ -528,7 +528,7 @@ export class ImageService {
     const id = provider.id
     if (!status.active || settings.image.mode === "off" || status.id !== id) throw new LocalizedError("imageOff")
     // The host the request goes to, as it took the endpoint.
-    const allowed = settings.image.confirmEachMessage ? session.allowed.has(id) : allowsRequest(settings, "imageConsent", provider)
+    const allowed = settings.image.confirmEachMessage ? session.allowed.has(consentKey({ id, host: hostOf(provider) })) : allowsRequest(settings, "imageConsent", provider)
     if (!allowed) throw new LocalizedError("errImageConsent", [service])
   }
 

@@ -502,10 +502,9 @@ function normalizeConsent(settings: Settings, stored: unknown, valid: (id: strin
   if (!Array.isArray(stored)) return []
   const entries = stored.flatMap((entry) => {
     if (typeof entry !== "string") return []
-    const at = entry.indexOf("@")
-    const id = at < 0 ? entry : entry.slice(0, at)
+    const { id } = consentParts(entry)
     if (!valid(id)) return []
-    return [at < 0 ? consentEntry(settings, id) : entry]
+    return [entry.includes("@") ? entry : consentEntry(settings, id)]
   })
   return [...new Set(entries)]
 }
@@ -666,15 +665,23 @@ export interface ConsentNeed {
   host: string
 }
 
-/** The host an online service sends to, as the consent panel names it; empty when the endpoint is not a URL. */
-export function consentHost(settings: Settings, id: string): string {
-  const origin = providerOrigin(resolveProvider(settings, id))
+/** A consent for a service and the host the panel names for it, as onlineConsent and imageConsent hold it: "id@host". */
+export const consentKey = ({ id, host }: ConsentNeed): string => `${id}@${host}`
+
+/** The host `provider` sends to, as the consent panel names it; empty when the endpoint is not a URL. */
+export function hostOf(provider: ResolvedProvider): string {
+  const origin = providerOrigin(provider)
   return origin ? patternHost(origin) : ""
+}
+
+/** The host an online service sends to now. */
+function consentHost(settings: Settings, id: string): string {
+  return hostOf(resolveProvider(settings, id))
 }
 
 /** An entry of onlineConsent or imageConsent: the service and the host it sends to now. */
 export function consentEntry(settings: Settings, id: string): string {
-  return `${id}@${consentHost(settings, id)}`
+  return consentKey({ id, host: consentHost(settings, id) })
 }
 
 /** Whether the user allowed `id` to receive the text (onlineConsent) or the images (imageConsent) of messages at the host it sends to now. */
@@ -684,8 +691,7 @@ export function hasConsent(settings: Settings, list: "onlineConsent" | "imageCon
 
 /** Whether the user allows the host a request goes to: of `provider` as the request took it, whatever the settings say now. */
 export function allowsRequest(settings: Settings, list: "onlineConsent" | "imageConsent", provider: ResolvedProvider): boolean {
-  const origin = providerOrigin(provider)
-  return settings[list].includes(`${provider.id}@${origin ? patternHost(origin) : ""}`)
+  return settings[list].includes(consentKey({ id: provider.id, host: hostOf(provider) }))
 }
 
 /**

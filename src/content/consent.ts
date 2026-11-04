@@ -12,10 +12,37 @@
 import { button, h } from "../shared/dom"
 import { getI18n, t } from "../shared/i18n"
 import { getPreset, providerDisplayName } from "../shared/providers"
-import type { ConsentNeed } from "../shared/settings"
+import { type ConsentNeed, consentKey } from "../shared/settings"
 import { noticeBox } from "./notice"
 
 const CLS_CONSENT = "tt-consent"
+
+/**
+ * The services allowed in a consent panel of this message, each with the host the panel named, before the settings
+ * that record them arrive. A service asked for anew, with another host or after the consent was taken back, is asked
+ * for again. The text, the summary and the images of a message keep one each.
+ */
+export class MessageConsent {
+  private readonly keys = new Set<string>()
+
+  allow(need: ConsentNeed): void {
+    this.keys.add(consentKey(need))
+  }
+
+  allows(need: ConsentNeed): boolean {
+    return this.keys.has(consentKey(need))
+  }
+
+  /** New settings: what `next` asks for and `prev` did not is asked for again. */
+  follow(prev: readonly ConsentNeed[], next: readonly ConsentNeed[]): void {
+    const before = new Set(prev.map(consentKey))
+    for (const need of next) if (!before.has(consentKey(need))) this.keys.delete(consentKey(need))
+  }
+
+  clear(): void {
+    this.keys.clear()
+  }
+}
 
 export interface ConsentDeps {
   root: () => HTMLElement | null

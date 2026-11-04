@@ -264,23 +264,23 @@ describe("settings changes, retranslation and stop", () => {
     buttons()[0].click()
     await until(() => expect(document.querySelector(".tt-image-result")).not.toBeNull())
     // The same settings change nothing.
-    images.update(run().settings, "zh-CN")
+    images.update(run().settings)
     expect(document.querySelector(".tt-image-result")).not.toBeNull()
-    images.update(run({ mode: "off" }).settings, "zh-CN")
+    images.update(run({ mode: "off" }).settings)
     expect(slots()).toEqual([])
-    images.update(run().settings, "zh-CN")
+    images.update(run().settings)
     await until(() => expect(buttons()).toHaveLength(2))
     expect(document.querySelector(".tt-image-result summary")!.textContent).toBe(`${ENGLISH.t("imageResultTitle", ["OpenAI"])} · ${ENGLISH.t("imageCached")}`)
-    images.update(run({ mode: "auto" }).settings, "zh-CN")
+    images.update(run({ mode: "auto" }).settings)
     await until(() => expect(document.querySelectorAll(".tt-image-result")).toHaveLength(3))
     expect(sent(request, "translate").map((req) => req.index)).toEqual([1, 2, 3])
-    // A new target language asks again.
+    // A new target language starts again and asks again.
     const peeks = sent(request, "peek").length
-    images.update(run({ mode: "auto" }).settings, "ja")
+    images.start(run({ mode: "auto" }, { targetLang: "ja" }))
     await until(() => expect(sent(request, "peek").length).toBe(peeks + 3))
     // update() of a translator that never started does nothing.
     const idle = new ImageTranslator({ root: () => document.body, request, grant: vi.fn() })
-    idle.update(run().settings, "zh-CN")
+    idle.update(run().settings)
   })
 
   it("keeps an image on its way when the settings record the consent it was sent with", async () => {
@@ -293,7 +293,7 @@ describe("settings changes, retranslation and stop", () => {
     await until(() => expect(document.querySelector(".tt-image-consent")).not.toBeNull())
     document.querySelector<HTMLButtonElement>(".tt-image-consent button")!.click()
     await until(() => expect(sent(request, "translate")).toHaveLength(1))
-    images.update(run({ consent: null }).settings, "zh-CN")
+    images.update(run({ consent: null }).settings)
     answer(DONE)
     await until(() => expect(document.querySelector(".tt-image-result")).not.toBeNull())
     expect(sent(request, "peek")).toHaveLength(3)
@@ -371,8 +371,8 @@ describe("the limits and the layout of a message", () => {
     images.start(run({ mode: "auto" }))
     await until(() => expect(document.querySelectorAll(".tt-image-result")).toHaveLength(3))
     const asked = request.mock.calls.length
-    images.update(imageSettings({ mode: "auto", showUsage: false }), "zh-CN")
-    images.update(imageSettings({ mode: "auto", showUsage: false, collapsed: true }), "zh-CN")
+    images.update(imageSettings({ mode: "auto", showUsage: false }))
+    images.update(imageSettings({ mode: "auto", showUsage: false, collapsed: true }))
     expect(request.mock.calls.length).toBe(asked)
     expect(Array.from(document.querySelectorAll<HTMLDetailsElement>(".tt-image-result"), (d) => d.open)).toEqual([false, false, false])
   })
@@ -383,7 +383,7 @@ describe("the limits and the layout of a message", () => {
     await until(() => expect(sent(request, "translate")).toHaveLength(1))
     await until(() => expect(buttons()).toHaveLength(2))
     // Another limit draws everything again, the translation goes off and on: the image sent counts, nothing more goes.
-    images.update(imageSettings({ mode: "auto", maxPerMessage: 2, minSide: 50 }), "zh-CN")
+    images.update(imageSettings({ mode: "auto", maxPerMessage: 2, minSide: 50 }))
     await until(() => expect(sent(request, "translate")).toHaveLength(2))
     images.stop()
     images.start(run({ mode: "auto", maxPerMessage: 2, minSide: 50 }))
@@ -411,6 +411,30 @@ describe("the limits and the layout of a message", () => {
     expect(sent(request, "peek")).toHaveLength(10)
   })
 
+  it("A1: asks again for each message when the host of the service changed, and when the setting goes off", async () => {
+    const need = { id: "openai", host: "api.openai.com" }
+    const { images, request, grant, run } = mount()
+    images.start(run({ consent: need, confirmEachMessage: true }))
+    await until(() => expect(buttons()).toHaveLength(3))
+    buttons()[0].click()
+    await until(() => expect(document.querySelector(".tt-image-consent")).not.toBeNull())
+    document.querySelector<HTMLButtonElement>(".tt-image-consent button")!.click()
+    await until(() => expect(sent(request, "translate")).toHaveLength(1))
+    expect(grant).toHaveBeenCalledWith(["openai"], true, ["api.openai.com"])
+    // The endpoint moved to another host: the next click asks again.
+    images.update(imageSettings({ mode: "ask", consent: { id: "openai", host: "other.example" }, confirmEachMessage: true }))
+    buttons()[0].click()
+    await until(() => expect(document.querySelector(".tt-image-consent")).not.toBeNull())
+    expect(sent(request, "translate")).toHaveLength(1)
+    document.querySelectorAll<HTMLButtonElement>(".tt-image-consent button")[1].click()
+    // Asked for every message no longer, and not recorded: the panel asks again.
+    images.update(imageSettings({ mode: "ask", consent: need }))
+    await until(() => expect(buttons()).toHaveLength(2))
+    buttons()[0].click()
+    await until(() => expect(document.querySelector(".tt-image-consent")).not.toBeNull())
+    expect(sent(request, "translate")).toHaveLength(1)
+  })
+
   it("S1: asks again after the consent was taken back or is asked for each message", async () => {
     const need = { id: "openai", host: "api.openai.com" }
     const { images, run } = mount()
@@ -421,8 +445,8 @@ describe("the limits and the layout of a message", () => {
     document.querySelector<HTMLButtonElement>(".tt-image-consent button")!.click()
     await until(() => expect(document.querySelectorAll(".tt-image-result")).toHaveLength(1))
     // The settings record it; then the settings page takes it back.
-    images.update(imageSettings({ mode: "ask", consent: null }), "zh-CN")
-    images.update(imageSettings({ mode: "ask", consent: need }), "zh-CN")
+    images.update(imageSettings({ mode: "ask", consent: null }))
+    images.update(imageSettings({ mode: "ask", consent: need }))
     await until(() => expect(buttons().length).toBeGreaterThan(0))
     buttons().at(-1)!.click()
     await until(() => expect(document.querySelector(".tt-image-consent")).not.toBeNull())
@@ -474,7 +498,7 @@ describe("with the controller", () => {
     expect(images.start).toHaveBeenCalledWith({ settings: imageSettings({ mode: "ask" }), targetLang: "zh-CN", units: expect.any(Array), context: expect.any(String) })
     // A new display mode or Markdown switch: the images get the settings, which change nothing for them.
     await c.updateSettings(tieredSettings(["ai"], { precise: true, mode: "translation-only", image: imageSettings({ mode: "auto" }) }))
-    expect(images.update).toHaveBeenLastCalledWith(imageSettings({ mode: "auto" }), "zh-CN")
+    expect(images.update).toHaveBeenLastCalledWith(imageSettings({ mode: "auto" }))
     await c.retranslate()
     expect(images.start).toHaveBeenLastCalledWith(expect.objectContaining({ fresh: true }))
     c.stop()
@@ -612,7 +636,7 @@ describe("remote images", () => {
     expect(requestAccess).toHaveBeenCalledTimes(3)
     // Allowed in the popup: the settings come again with a new count of the host permissions.
     access.granted = true
-    images.update(imageSettings({ mode: "ask", hostAccess: 1 }), "zh-CN")
+    images.update(imageSettings({ mode: "ask", hostAccess: 1 }))
     await until(() => expect(document.querySelector(".tt-image-result")).not.toBeNull())
     expect(sent(request, "translate").map((req) => req.source)).toEqual([{ url: R1 }])
     expect(noticeLines()).toEqual([ENGLISH.t("imageNoticeUnloaded", [1]), ENGLISH.t("imageNoticeUnreadable", [1])])
@@ -625,7 +649,7 @@ describe("remote images", () => {
     await until(() => expect(buttons()).toHaveLength(1))
     expect(sent(request, "translate")).toEqual([])
     access.granted = true
-    images.update(imageSettings({ mode: "auto", hostAccess: 1 }), "zh-CN")
+    images.update(imageSettings({ mode: "auto", hostAccess: 1 }))
     await until(() => expect(document.querySelector(".tt-image-result")).not.toBeNull())
     expect(sent(request, "translate").map((req) => req.source)).toEqual([{ url: R1 }])
   })

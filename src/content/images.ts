@@ -61,6 +61,7 @@ import { markdownFragment } from "../shared/markdown"
 import type { ImageRequest, ImageResponse } from "../shared/messages"
 import { getPreset, providerDisplayName } from "../shared/providers"
 import type { ConsentNeed, PublicImageSettings } from "../shared/settings"
+import { MessageConsent } from "./consent"
 import { noticeBox } from "./notice"
 import { CLS_IMAGE, CLS_ORIGINAL, type Unit } from "./paragraphs"
 
@@ -128,7 +129,7 @@ export class ImageTranslator {
   /** The images sent by themselves ("auto") for this message, by sourceKey(); a retranslation counts again. */
   private sent = new Set<string>()
   /** Services allowed in a panel of this message, before the settings that record them arrive. */
-  private allowed = new Set<string>()
+  private allowed = new MessageConsent()
   /** The open consent panel and its answer, shared by every image that waits for it. */
   private consent: { el: HTMLElement; answer: Promise<boolean>; settle: (allowed: boolean) => void } | null = null
   /** Results of this page by image and signature of the settings: a new mode draws them again without asking. */
@@ -174,14 +175,15 @@ export class ImageTranslator {
    * New settings while the message is translated: everything is drawn again when anything of the images changed,
    * except the consent, which the settings record after a panel of this page allowed it while images are on their way.
    */
-  update(next: PublicImageSettings, targetLang: string): void {
+  update(next: PublicImageSettings): void {
     const run = this.run
     if (!run) return
     const prev = run.settings
-    // The consent was taken back, or is asked for every message now: the panel asks again.
-    if ((next.consent && !prev.consent) || (next.confirmEachMessage && !prev.confirmEachMessage)) this.allowed.clear()
+    // Asked for every message now, or no longer, the consent was taken back or the host changed: the panel asks again.
+    if (next.confirmEachMessage !== prev.confirmEachMessage) this.allowed.clear()
+    else this.allowed.follow(prev.consent ? [prev.consent] : [], next.consent ? [next.consent] : [])
     const drawn = ({ consent: _consent, collapsed: _collapsed, showUsage: _showUsage, ...rest }: PublicImageSettings) => JSON.stringify(rest)
-    if (drawn(prev) !== drawn(next) || run.targetLang !== targetLang) return this.start({ ...run, settings: next, targetLang, fresh: false })
+    if (drawn(prev) !== drawn(next)) return this.start({ ...run, settings: next, fresh: false })
     run.settings = next
     // Only how the results show changed: they are drawn again where they are.
     if (prev.collapsed !== next.collapsed || prev.showUsage !== next.showUsage) {
@@ -424,7 +426,7 @@ export class ImageTranslator {
    */
   private ensureConsent(entry: Entry, count = 0, focus = false): Promise<boolean> {
     const need = this.run!.settings.consent
-    if (!need || this.allowed.has(need.id)) return Promise.resolve(true)
+    if (!need || this.allowed.allows(need)) return Promise.resolve(true)
     if (this.consent) {
       if (focus) this.consent.el.focus()
       return this.consent.answer
@@ -439,7 +441,7 @@ export class ImageTranslator {
         el.remove()
         this.consent = null
         if (allowed) {
-          this.allowed.add(need.id)
+          this.allowed.allow(need)
           this.deps.grant([need.id], this.run?.settings.confirmEachMessage === true, [need.host])
         }
         settle(allowed)

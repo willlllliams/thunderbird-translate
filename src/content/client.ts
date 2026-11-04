@@ -18,8 +18,8 @@ import { CONTENT_PORT_NAME, type ImageResponse, isPortPush, type LocaleMessages,
 import type { Tier } from "../shared/providers"
 import { hasTranslatableText } from "../shared/text"
 import type { ContentProbe } from "../hooks/content"
-import { ConsentPanel } from "./consent"
-import { consentKey, TranslationController } from "./controller"
+import { ConsentPanel, MessageConsent } from "./consent"
+import { TranslationController } from "./controller"
 import { ImageTranslator } from "./images"
 import { MissingNotice } from "./notice"
 import { restoreLeftovers } from "./paragraphs"
@@ -110,7 +110,7 @@ export function connectContent({ root, contentScript = false, probe }: ClientOpt
   /** The settings applied last. */
   let current: PublicSettings | null = null
   /** The service of the summary, allowed in the consent panel before the settings that record it arrive. */
-  const summaryAllowed = new Set<string>()
+  const summaryAllowed = new MessageConsent()
   // Only the content script has a message to summarize.
   const summaryPanel = contentScript
     ? new SummaryPanel({
@@ -128,10 +128,10 @@ export function connectContent({ root, contentScript = false, probe }: ClientOpt
   const summarize = async (byUser: boolean) => {
     const need = current?.summary.available ? current.summary.consent : undefined
     if (!summaryPanel || need === undefined) return
-    if (need && !summaryAllowed.has(need.id)) {
+    if (need && !summaryAllowed.allows(need)) {
       // The summary sends the whole message, as precise translation does.
       if (!(await consent!.ask([need], true, byUser))) return
-      summaryAllowed.add(need.id)
+      summaryAllowed.allow(need)
     }
     await summaryPanel.show()
   }
@@ -202,9 +202,8 @@ export function connectContent({ root, contentScript = false, probe }: ClientOpt
       const next = msg.settings
       mutedPairs = next.offlineMutedPairs
       // The service of the summary asked for anew is asked for again, as the controller does for translation.
-      const asked = next.summary.consent
-      const before = current?.summary.consent
-      if (asked && (!before || consentKey(before) !== consentKey(asked))) summaryAllowed.delete(asked.id)
+      const needs = (consent: PublicSettings["summary"]["consent"] | undefined) => (consent ? [consent] : [])
+      summaryAllowed.follow(needs(current?.summary.consent), needs(next.summary.consent))
       current = next
       settingsApplied = settingsApplied.then(async () => {
         if (contentScript && next.uiLanguage !== uiLanguage && (await loadLabels(next.uiLanguage))) uiLanguage = next.uiLanguage

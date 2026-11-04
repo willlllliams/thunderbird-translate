@@ -406,13 +406,24 @@ describe("the consent for images", () => {
   it("holds for one message only with \"confirm each message\", even for a service allowed before", async () => {
     const s = service({ settings: settingsWithImages((x) => (x.image.confirmEachMessage = true)) })
     expect((await s.ask()).status).toBe("error")
-    await s.images.grant("s1", ["openai"], true)
+    await s.images.grant("s1", ["openai"], true, ["api.openai.com"])
     expect(s.recordConsent).not.toHaveBeenCalled()
     expect((await s.ask()).status).toBe("done")
     // Another content script, another message: asked again.
     expect((await s.ask({ round: 1, fresh: true }, "s2")).status).toBe("error")
     s.images.forget("s1")
     expect((await s.ask({ fresh: true })).status).toBe("error")
+  })
+
+  it("C3: holds for one message only at the host the panel named", async () => {
+    const s = service({ settings: settingsWithImages((x) => (x.image.confirmEachMessage = true)), deps: { hasOrigin: async () => true } })
+    s.images.open("s1", 3)
+    await s.images.grant("s1", ["openai"], true, ["api.openai.com"])
+    s.settings.providers.openai.baseURL = "https://other.example/v1"
+    expect(await s.ask()).toEqual({ status: "error", error: expect.stringContaining(ENGLISH.t("errImageConsent", ["OpenAI"]).split(".")[0]) })
+    expect(s.read).not.toHaveBeenCalled()
+    s.settings.providers.openai.baseURL = ""
+    expect((await s.ask()).status).toBe("done")
   })
 
   it("B1: is checked again when the request leaves the queue: an image waiting there is not sent after the consent went", async () => {
@@ -688,7 +699,7 @@ describe("the session of a content script", () => {
     let recorded!: () => void
     s.recordConsent.mockImplementationOnce(() => new Promise<undefined>((r) => (recorded = () => r(undefined))))
     const granted = s.images.grant("s1", ["gemini"], false)
-    const allowed = s.images.grant("s1", ["openai"], true)
+    const allowed = s.images.grant("s1", ["openai"], true, ["api.openai.com"])
     const answer = s.ask()
     await nextTask()
     expect(s.read).not.toHaveBeenCalled()

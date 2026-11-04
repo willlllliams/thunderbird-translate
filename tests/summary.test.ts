@@ -178,12 +178,12 @@ describe("the summary request of the translation service", () => {
     const first = service.summarize(text, header)
     await until(() => expect(summarize).toHaveBeenCalledTimes(1))
     summarize.mockImplementationOnce(async () => newer)
-    expect((await service.summarize(text, header, true)).raw).toBe(newer)
+    expect(await service.summarize(text, header, true)).toMatchObject({ raw: newer })
     release()
-    expect((await first).raw).toBe(older)
-    expect((await service.summarize(text, header)).raw).toBe(newer)
+    expect(await first).toMatchObject({ raw: older })
+    expect(await service.summarize(text, header)).toMatchObject({ raw: newer })
     const later = createService(settings, { llm: { summarize }, cache, i18n: () => ENGLISH }).service
-    expect((await later.summarize(text, header)).raw).toBe(newer)
+    expect(await later.summarize(text, header)).toMatchObject({ raw: newer })
     expect(summarize).toHaveBeenCalledTimes(2)
   })
 
@@ -321,8 +321,8 @@ describe("one request for the analysis of precise translation and the summary", 
       expect(llm.analyzeAndSummarize).toHaveBeenCalledTimes(1)
       const again = JSON.stringify({ ...JSON.parse(ANSWER), summary: ["Regenerated."] })
       llm.summarize.mockResolvedValue(again)
-      expect((await service.summarize(context.text, header, true)).raw).toBe(again)
-      expect((await service.summarize(context.text, header)).raw).toBe(again)
+      expect(await service.summarize(context.text, header, true)).toMatchObject({ raw: again })
+      expect(await service.summarize(context.text, header)).toMatchObject({ raw: again })
       expect([cacheOn, llm.summarize.mock.calls.length]).toEqual([cacheOn, 1])
     }
   })
