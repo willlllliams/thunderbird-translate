@@ -77,6 +77,8 @@ const service = new TranslationService({
   getSettings: () => settings.current(),
   cache,
   dictionary,
+  // The manager the settings pages install the models with.
+  bergamot: { translate: (texts, src, tgt) => getBergamot().translate(texts, src, tgt), signature: () => getBergamot().signature() },
   detect,
   i18n: getI18n,
   // A host of the manifest, or one the user allowed on the settings page or in the setup guide.

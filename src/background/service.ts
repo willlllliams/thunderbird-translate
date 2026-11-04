@@ -28,6 +28,7 @@
  */
 
 import { getBergamot } from "../offline/bergamot"
+import type { BergamotManager } from "../offline/bergamot/manager"
 import { describeError, LocalizedError, type MissingData, missingData } from "../shared/errors"
 import { hashText } from "../shared/hash"
 import { ENGLISH, type I18n } from "../shared/i18n"
@@ -140,6 +141,8 @@ export interface ServiceDeps {
   /** Injection points for tests; a call of the AI SDK left out of `llm` loads the AI SDK. */
   llm?: Partial<LlmImpl>
   dictionary?: Pick<Dictionary, "translate" | "signature">
+  /** The offline models; the manager of the background script when absent. */
+  bergamot?: Pick<BergamotManager, "translate" | "signature">
   /** Detector of sourceDetector() for the offline models and the batches of Baidu, with source language "auto". */
   detect?: LanguageDetector
   sleep?: (ms: number) => Promise<void>
@@ -178,10 +181,13 @@ export class TranslationService {
   private readonly freshContexts = new LruCache<true>(MAX_CONTEXTS)
   private readonly llm: LlmImpl
   private readonly dictionary: Pick<Dictionary, "translate" | "signature">
+  private readonly bergamot: () => Pick<BergamotManager, "translate" | "signature">
 
   constructor(private readonly deps: ServiceDeps) {
     this.llm = { ...LAZY_LLM, ...deps.llm }
     this.dictionary = deps.dictionary ?? new Dictionary()
+    // Created on first use: the background script starts without the models.
+    this.bergamot = deps.bergamot ? () => deps.bergamot! : getBergamot
     this.batchQueue = new BatchQueue<Job, ItemResult>({
       delayMs: () => deps.getSettings().batch.batchDelayMs,
       getKey: (job) => job.batchKey,
@@ -380,7 +386,7 @@ export class TranslationService {
     const data: Partial<Record<Tier, OfflineData>> = {}
     for (const tier of tiers) {
       const kind = getPreset(settings.tiers[tier]!)?.kind
-      const current = kind === "dictionary" ? () => this.dictionary.signature() : kind === "bergamot" ? () => getBergamot().signature() : undefined
+      const current = kind === "dictionary" ? () => this.dictionary.signature() : kind === "bergamot" ? () => this.bergamot().signature() : undefined
       if (current) data[tier] = { signature: await current().catch(() => ""), current }
     }
     const jobs: [Tier, Job][] = []
@@ -693,7 +699,7 @@ export class TranslationService {
       case "dictionary":
         return settled(() => this.dictionary.translate(texts, languages.source, languages.target))
       case "bergamot":
-        return settled(() => bergamotTranslateBatch(texts, languages.source, languages.target, this.deps.detect))
+        return settled(() => bergamotTranslateBatch(this.bergamot(), texts, languages.source, languages.target, this.deps.detect))
       case "google":
         return batchOrEach(() => googleTranslateBatch(texts, languages, p, fetchOpts), (job) => googleTranslateSingle(job.text, languages, p, fetchOpts))
       case "microsoft":
