@@ -11,7 +11,7 @@ import { type BackgroundRequest, IDLE_TAB_STATE } from "../src/shared/messages"
 import { createDefaultSettings, defaultImageSettings, type Settings } from "../src/shared/settings"
 import { WELCOME_KEY } from "../src/welcome/steps"
 import { flushSave } from "./fixtures/pages"
-import { openPage, until, useFakeTimers } from "./helpers"
+import { nextTask, openPage, until, useFakeTimers } from "./helpers"
 
 beforeEach(() => useFakeTimers())
 afterEach(() => vi.useRealTimers())
@@ -310,6 +310,20 @@ describe("the access to remote images", () => {
     $("imageRemoteRevoke").click()
     await until(() => expect($("imageRemoteState").textContent).toBe(ENGLISH.t("optionsRemoteMissing")))
     expect(page.browser.api.permissions.remove).toHaveBeenCalledWith({ origins: ["http://*/*", "https://*/*"] })
+  })
+
+  it("A13: draws the access of the latest read, whichever answer comes last", async () => {
+    const page = await openPage("options", precise())
+    await until(() => expect($("imageRemoteState").textContent).toBe(ENGLISH.t("optionsRemoteMissing")))
+    let early!: (granted: boolean) => void
+    page.browser.api.permissions.contains.mockImplementationOnce(() => new Promise<boolean>((resolve) => (early = resolve)))
+    page.browser.api.permissions.contains.mockImplementationOnce(async () => true)
+    $("imageRemoteRevoke").click()
+    $("imageRemoteAllow").click()
+    await until(() => expect($("imageRemoteState").textContent).toBe(ENGLISH.t("optionsRemoteAllowed")))
+    early(false)
+    await nextTask()
+    expect($("imageRemoteState").textContent).toBe(ENGLISH.t("optionsRemoteAllowed"))
   })
 
   it("counts a permission API that fails as no access, in the popup and on the settings page", async () => {

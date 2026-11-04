@@ -164,7 +164,6 @@ function providersChanged(): void {
 function showTierControls(): void {
   $<HTMLInputElement>("preciseEnabled").disabled = !settings.tiers.ai
   showSameLanguage(settings)
-  images.refresh()
 }
 
 function renderProviderPanel(): void {
@@ -341,7 +340,7 @@ async function main(): Promise<void> {
     images.refresh()
     session.save()
   })
-  session.track($("sameLanguage"), showTierControls)
+  session.onRemote(showTierControls)
 
   // Dictionaries
   session.bind("dictReleaseTag", "change", (el) => (el.value = settings.dictionary.releaseTag), (el) => {
@@ -357,7 +356,7 @@ async function main(): Promise<void> {
   $("bergamotFilter").addEventListener("input", () => bergamot.render())
   $("bergamotReload").addEventListener("click", () => void bergamot.load(true))
   let listed = ""
-  session.track($("bergamotNeeded"), () => {
+  session.onRemote(() => {
     if (listed === (listed = `${settings.sourceLang}>${settings.targetLang}>${settings.uiLanguage}`)) return
     dictionaries.render()
     bergamot.render()

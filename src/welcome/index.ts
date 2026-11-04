@@ -379,7 +379,7 @@ async function main(): Promise<void> {
     settings.precise.enabled = v
     showImageMode()
   })
-  session.track($("imageModeGroup"), showImageMode)
+  session.onRemote(showImageMode)
   showImageModes = bindRadios<ImageMode>("imageMode", () => settings.image.mode, (mode) => {
     settings.image.mode = mode
     session.save()

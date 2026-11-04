@@ -38,6 +38,8 @@ export class SettingsSession {
   private saving: Promise<boolean> = Promise.resolve(true)
   /** Redraw the control of one setting; run again when the settings change elsewhere. */
   private readonly controls: (() => void)[] = []
+  /** Redraw what is no control, after the controls. */
+  private readonly followers: (() => void)[] = []
 
   private constructor(public readonly settings: Settings) {
     this.baseline = structuredClone(settings)
@@ -67,6 +69,7 @@ export class SettingsSession {
     mergeChanges(this.settings, this.baseline, remote, sent ? [this.baseline, sent] : [this.baseline])
     this.baseline = structuredClone(remote)
     for (const show of this.controls) show()
+    for (const follow of this.followers) follow()
     this.onRemoteChange(before)
   }
 
@@ -116,6 +119,12 @@ export class SettingsSession {
       return saved
     })
     return this.saving
+  }
+
+  /** Something that is no control and shows settings, e.g. a line about them: drawn now and each time the settings were taken over. */
+  onRemote(follow: () => void): void {
+    this.followers.push(follow)
+    follow()
   }
 
   /** A control that shows a setting. The one being edited shows a change made elsewhere once it loses the focus. */
