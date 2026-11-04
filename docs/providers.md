@@ -195,6 +195,7 @@ Some providers have extra requirements.
 - Azure OpenAI: the endpoint is `https://<resource>.openai.azure.com/openai`. The model field takes the deployment name.
 - Ollama: by default Ollama rejects cross-origin requests from extension pages. Start Ollama with the environment variable `OLLAMA_ORIGINS=moz-extension://*`.
 - Moonshot: the default endpoint is the China site `api.moonshot.cn`. Accounts on the international site use `https://api.moonshot.ai/v1`. Kimi K3 models fix their temperature; the extension sends none for `kimi-k3` and later, whatever the temperature field holds.
+- xAI Grok: `@ai-sdk/xai` sends its requests to the Responses API, which keeps the input and the answer for later retrieval unless the request says `store: false`. The extension says so in every request; a team with Zero Data Retention needs it as well.
 - Volcengine Doubao: the model field takes either a model name or the ID of an inference endpoint created in the Ark console.
 - Ollama, LM Studio and any model with thinking mode on wait three times the request timeout of the settings, see [batching.md](batching.md#timeouts).
 
