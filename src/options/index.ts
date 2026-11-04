@@ -6,7 +6,7 @@ import { followUiLanguage, loadExtensionI18n } from "../shared/i18n-ext"
 import { normalizeUiLanguageSetting } from "../shared/locales"
 import { type OfflineStatus, type OptionsPlace, type PageNotice, send } from "../shared/messages"
 import type { OfflineService } from "../shared/offline-needs"
-import { $, fillSelect, fillTierSelects, languageOptions, offlineName, offlineStatus, onTierChange, showOfflineHint, showSaved, showSaveError, sourceLanguageOptions, uiLanguageOptions } from "../shared/page"
+import { $, fillAiServiceSelect, fillSelect, fillTierSelects, languageOptions, offlineName, offlineStatus, onTierChange, showOfflineHint, showSaved, showSaveError, sourceLanguageOptions, uiLanguageOptions } from "../shared/page"
 import { getPreset, PROVIDER_PRESETS, providerDisplayName, type ProviderPreset, type Tier, TIER_NAME_KEYS, TIERS, tierOf } from "../shared/providers"
 import { addedProviders, addProvidersInUse, consentParts, type DisplayMode, enabledTiers, removalBlocker, resolveProvider, type Settings, SUMMARY_AUTO, SUMMARY_PARTS, summaryProvider } from "../shared/settings"
 import type { BergamotSection } from "./bergamot"
@@ -101,13 +101,9 @@ function renderConsent(): void {
 
 /** The services the summary can use: the one of the AI tier, then every added AI service; under the model, the model of the service in use. */
 function fillSummaryProviders(): void {
-  const chosen = settings.summary.provider
-  const services = addedProviders(settings).filter((p) => tierOf(p) === "ai")
-  const value = chosen && settings.providers[chosen]?.enabled ? chosen : ""
-  fillSelect($<HTMLSelectElement>("summaryProvider"), [new Option(t("summaryProviderTier"), ""), ...services.map((p) => new Option(providerDisplayName(p), p.id))], value)
   const id = summaryProvider(settings)
+  fillAiServiceSelect($<HTMLSelectElement>("summaryProvider"), $<HTMLInputElement>("summaryModel"), settings, settings.summary.provider, id)
   $("summaryNone").hidden = id !== null
-  $<HTMLInputElement>("summaryModel").placeholder = id ? resolveProvider(settings, id).model : ""
 }
 
 /** Changes made elsewhere were taken over: redraw what depends on them. */

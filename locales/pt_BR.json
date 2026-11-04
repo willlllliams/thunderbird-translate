@@ -581,7 +581,7 @@
   "summaryHint": "“Resumo e tarefas” no pop-up envia a mensagem inteira a um serviço de IA e mostra, acima da mensagem, um resumo, as tarefas, as perguntas a responder e as datas. Antes do primeiro resumo, é preciso permitir que o serviço receba o texto das mensagens.",
   "labelSummaryProvider": "Serviço",
   "tipSummaryProvider": "O serviço de IA que escreve o resumo",
-  "summaryProviderTier": "O mesmo do nível de IA",
+  "aiServiceOfTier": "O mesmo do nível de IA",
   "tipSummaryModel": "Vazio: o modelo configurado para o serviço",
   "labelSummaryMaxTokens": "Tamanho máximo da resposta (tokens)",
   "tipSummaryMaxTokens": "A resposta mais longa que o serviço pode escrever",

@@ -581,7 +581,7 @@
   "summaryHint": "ポップアップの「要約と ToDo」はメッセージ全体を AI サービスに送り、メッセージの上に要約、ToDo、返答が必要な質問、日付を表示します。最初の要約の前に、そのサービスがメッセージの本文を受け取ることを許可する必要があります。",
   "labelSummaryProvider": "サービス",
   "tipSummaryProvider": "要約を書く AI サービス",
-  "summaryProviderTier": "AI の段階と同じ",
+  "aiServiceOfTier": "AI の段階と同じ",
   "tipSummaryModel": "空欄: サービスに設定したモデル",
   "labelSummaryMaxTokens": "回答の長さの上限（トークン）",
   "tipSummaryMaxTokens": "サービスが書ける回答の最大の長さ",

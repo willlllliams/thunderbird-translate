@@ -663,7 +663,7 @@ describe("summary and to-dos", () => {
     })
     const provider = $<HTMLSelectElement>("summaryProvider")
     expect(Array.from(provider.options, (o) => [o.value, o.textContent])).toEqual([
-      ["", ENGLISH.t("summaryProviderTier")],
+      ["", ENGLISH.t("aiServiceOfTier")],
       ["anthropic", "Anthropic Claude"],
     ])
     // Without an AI tier and with no service chosen there is no summary.

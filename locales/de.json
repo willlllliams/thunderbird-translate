@@ -581,7 +581,7 @@
   "summaryHint": "„Zusammenfassung und Aufgaben“ im Popup sendet die ganze Nachricht an einen KI-Dienst und zeigt über der Nachricht eine Zusammenfassung, die Aufgaben, die zu beantwortenden Fragen und die Termine. Vor der ersten Zusammenfassung muss der Dienst Nachrichtentext erhalten dürfen.",
   "labelSummaryProvider": "Dienst",
   "tipSummaryProvider": "Der KI-Dienst, der die Zusammenfassung schreibt",
-  "summaryProviderTier": "Wie die KI-Stufe",
+  "aiServiceOfTier": "Wie die KI-Stufe",
   "tipSummaryModel": "Leer: das Modell, das für den Dienst eingestellt ist",
   "labelSummaryMaxTokens": "Längste Antwort (Token)",
   "tipSummaryMaxTokens": "Die längste Antwort, die der Dienst schreiben darf",

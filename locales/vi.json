@@ -581,7 +581,7 @@
   "summaryHint": "“Tóm tắt và việc cần làm” trong cửa sổ bật lên gửi toàn bộ thư đến một dịch vụ AI và hiện phía trên thư một bản tóm tắt, các việc cần làm, các câu hỏi cần trả lời và các ngày. Trước bản tóm tắt đầu tiên, cần cho phép dịch vụ nhận nội dung thư.",
   "labelSummaryProvider": "Dịch vụ",
   "tipSummaryProvider": "Dịch vụ AI viết bản tóm tắt",
-  "summaryProviderTier": "Giống tầng AI",
+  "aiServiceOfTier": "Giống tầng AI",
   "tipSummaryModel": "Để trống: mô hình đã đặt cho dịch vụ",
   "labelSummaryMaxTokens": "Giới hạn độ dài câu trả lời (token)",
   "tipSummaryMaxTokens": "Câu trả lời dài nhất mà dịch vụ được viết",

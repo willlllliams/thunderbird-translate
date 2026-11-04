@@ -581,7 +581,7 @@
   "summaryHint": "彈出面板裡的「摘要與待辦」會把整封郵件傳送給一個 AI 服務，並在郵件上方顯示摘要、待辦、需要回覆的問題和日期。第一次產生摘要前，需要允許該服務接收郵件內容。",
   "labelSummaryProvider": "服務",
   "tipSummaryProvider": "產生摘要的 AI 服務",
-  "summaryProviderTier": "與 AI 層級相同",
+  "aiServiceOfTier": "與 AI 層級相同",
   "tipSummaryModel": "留空：使用該服務設定的模型",
   "labelSummaryMaxTokens": "輸出長度上限（token）",
   "tipSummaryMaxTokens": "服務最多可以輸出的長度",

@@ -18,7 +18,7 @@ import { getI18n, t } from "../shared/i18n"
 import { imagePromptTokens } from "../shared/image-prompt"
 import { getLanguage } from "../shared/languages"
 import { send } from "../shared/messages"
-import { $, fillSelect, showImagePreciseNote, visionHint } from "../shared/page"
+import { $, fillAiServiceSelect, fillSelect, showImagePreciseNote, visionHint } from "../shared/page"
 import { promptText } from "../shared/prompts"
 import { getPreset, providerDisplayName, tierOf } from "../shared/providers"
 import { addedProviders, emptyProviderConfig, IMAGE_DECIMALS, type ImageSettings, imageStatus, resolveProvider, type Settings } from "../shared/settings"
@@ -146,13 +146,9 @@ export class ImageSettingsSection {
   refresh(): void {
     const settings = this.session.settings
     $<HTMLFieldSetElement>("imageGroup").disabled = !showImagePreciseNote(settings)
-    const chosen = settings.image.provider
-    const services = addedProviders(settings).filter((p) => tierOf(p) === "ai")
-    fillSelect($<HTMLSelectElement>("imageProvider"), [new Option(t("summaryProviderTier"), ""), ...services.map((p) => new Option(providerDisplayName(p), p.id))], chosen && settings.providers[chosen]?.enabled ? chosen : "")
     const status = imageStatus(settings)
     const preset = status.id ? getPreset(status.id) : undefined
-    const model = $<HTMLInputElement>("imageModel")
-    model.placeholder = status.id ? (settings.providers[status.id]?.model || preset?.defaultModel || "") : ""
+    fillAiServiceSelect($<HTMLSelectElement>("imageProvider"), $<HTMLInputElement>("imageModel"), settings, settings.image.provider, status.id)
     const suggested = status.id ? SUGGESTED_VISION_MODELS[status.id] : undefined
     $("imageModels").replaceChildren(...[...new Set([...(suggested ? [suggested] : []), ...(preset?.models ?? [])])].map((m) => h("option", { value: m })))
     const hint = visionHint(status)

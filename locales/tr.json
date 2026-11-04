@@ -584,7 +584,7 @@
   "summaryHint": "Açılır penceredeki “Özet ve yapılacaklar”, iletinin tamamını bir yapay zekâ hizmetine gönderir ve iletinin üstünde bir özet, yapılacaklar, yanıtlanacak sorular ve tarihler gösterir. İlk özetten önce hizmetin ileti metnini almasına izin verilmelidir.",
   "labelSummaryProvider": "Hizmet",
   "tipSummaryProvider": "Özeti yazan yapay zekâ hizmeti",
-  "summaryProviderTier": "Yapay zekâ kademesiyle aynı",
+  "aiServiceOfTier": "Yapay zekâ kademesiyle aynı",
   "tipSummaryModel": "Boş: hizmet için ayarlanan model",
   "labelSummaryMaxTokens": "Yanıt uzunluğu sınırı (token)",
   "tipSummaryMaxTokens": "Hizmetin yazabileceği en uzun yanıt",

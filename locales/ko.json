@@ -581,7 +581,7 @@
   "summaryHint": "팝업의 '요약 및 할 일'은 메시지 전체를 AI 서비스로 보내고, 메시지 위에 요약, 할 일, 답해야 할 질문, 날짜를 표시합니다. 처음 요약하기 전에 그 서비스가 메시지 본문을 받도록 허용해야 합니다.",
   "labelSummaryProvider": "서비스",
   "tipSummaryProvider": "요약을 쓰는 AI 서비스",
-  "summaryProviderTier": "AI 단계와 같음",
+  "aiServiceOfTier": "AI 단계와 같음",
   "tipSummaryModel": "비워 두면 서비스에 설정한 모델",
   "labelSummaryMaxTokens": "응답 길이 상한(토큰)",
   "tipSummaryMaxTokens": "서비스가 쓸 수 있는 가장 긴 응답",

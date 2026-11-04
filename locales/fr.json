@@ -581,7 +581,7 @@
   "summaryHint": "« Résumé et tâches » dans la fenêtre contextuelle envoie le message entier à un service d’IA et affiche, au-dessus du message, un résumé, les tâches, les questions auxquelles répondre et les dates. Avant le premier résumé, le service doit être autorisé à recevoir le texte des messages.",
   "labelSummaryProvider": "Service",
   "tipSummaryProvider": "Le service d’IA qui rédige le résumé",
-  "summaryProviderTier": "Le même que le niveau IA",
+  "aiServiceOfTier": "Le même que le niveau IA",
   "tipSummaryModel": "Vide : le modèle réglé pour le service",
   "labelSummaryMaxTokens": "Longueur maximale de la réponse (jetons)",
   "tipSummaryMaxTokens": "La plus longue réponse que le service peut écrire",

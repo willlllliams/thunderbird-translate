@@ -584,7 +584,7 @@
   "summaryHint": "“Summary and to-dos” in the popup sends the whole message to an AI service and shows, above the message, a summary, the to-dos, the questions to answer and the dates. Before the first summary, the service has to be allowed to receive message text.",
   "labelSummaryProvider": "Service",
   "tipSummaryProvider": "The AI service that writes the summary",
-  "summaryProviderTier": "Same as the AI tier",
+  "aiServiceOfTier": "Same as the AI tier",
   "tipSummaryModel": "Empty: the model set for the service",
   "labelSummaryMaxTokens": "Answer length limit (tokens)",
   "tipSummaryMaxTokens": "The longest answer the service may write",

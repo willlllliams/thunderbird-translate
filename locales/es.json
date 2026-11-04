@@ -581,7 +581,7 @@
   "summaryHint": "«Resumen y tareas» en la ventana emergente envía el mensaje completo a un servicio de IA y muestra, encima del mensaje, un resumen, las tareas, las preguntas por responder y las fechas. Antes del primer resumen hay que permitir que el servicio reciba el texto de los mensajes.",
   "labelSummaryProvider": "Servicio",
   "tipSummaryProvider": "El servicio de IA que escribe el resumen",
-  "summaryProviderTier": "El mismo que el nivel de IA",
+  "aiServiceOfTier": "El mismo que el nivel de IA",
   "tipSummaryModel": "Vacío: el modelo configurado para el servicio",
   "labelSummaryMaxTokens": "Longitud máxima de la respuesta (tokens)",
   "tipSummaryMaxTokens": "La respuesta más larga que puede escribir el servicio",

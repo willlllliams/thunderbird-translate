@@ -9,7 +9,7 @@ import { LOCALE_NATIVE_NAMES, localeToLanguageTag, matchUiLocale, SUPPORTED_LOCA
 import { type OfflineStatus, type OptionsPlace, send } from "./messages"
 import { lacksData, type OfflineService, offlineServiceOf } from "./offline-needs"
 import { PROVIDER_PRESETS, providerDisplayName, type Tier, TIER_NAME_KEYS, TIERS, tierOf } from "./providers"
-import { addedProviders, type ImageStatus, preciseApplies, type Settings, type TierSettings, tiersValid } from "./settings"
+import { addedProviders, type ImageStatus, preciseApplies, resolveProvider, type Settings, type TierSettings, tiersValid } from "./settings"
 import { SUGGESTED_VISION_MODELS } from "./vision"
 
 export const $ = <T extends HTMLElement>(id: string) => document.getElementById(id) as T
@@ -176,4 +176,14 @@ export function visionHint({ id, model, support }: ImageStatus): string {
   if (support === "unknown") return t("hintVisionUnknown", [model])
   const suggested = SUGGESTED_VISION_MODELS[id]
   return suggested ? t("hintVisionNo", [model, suggested]) : t("hintVisionNoSuggestion", [model])
+}
+
+/**
+ * The AI services a task (the summary, the images) can use in `select`: the one of the AI tier, then every added AI
+ * service, `chosen` selected while it is added; the placeholder of `model` is the model of `inUse`, the service in use.
+ */
+export function fillAiServiceSelect(select: HTMLSelectElement, model: HTMLInputElement, settings: Settings, chosen: string | null, inUse: string | null): void {
+  const services = addedProviders(settings).filter((p) => tierOf(p) === "ai")
+  fillSelect(select, [new Option(t("aiServiceOfTier"), ""), ...services.map((p) => new Option(providerDisplayName(p), p.id))], chosen && settings.providers[chosen]?.enabled ? chosen : "")
+  model.placeholder = inUse ? resolveProvider(settings, inUse).model : ""
 }
