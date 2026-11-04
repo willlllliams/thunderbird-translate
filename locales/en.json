@@ -632,7 +632,7 @@
   "imageAdvanced": "Advanced image settings",
   "tipImageAdvanced": "Sources, filters, upload, answer and display",
   "labelImageInline": "Translate inline images of the body",
-  "tipImageInline": "Images in the body of a message: cid:, data: and the remote images Thunderbird shows",
+  "tipImageInline": "Body images: cid:, data: and remote ones Thunderbird shows",
   "labelImageAttachments": "Translate image attachments",
   "tipImageAttachments": "Images Thunderbird shows under the body",
   "hintImageRemote": "Remote images take part once Thunderbird shows them, that is when the message may load remote content. After you allow reading remote images once, the extension requests such an image once more from its server, without cookies and without a referrer. Images on this computer or in the local network are never read.",

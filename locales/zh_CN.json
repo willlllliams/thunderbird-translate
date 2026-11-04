@@ -629,7 +629,7 @@
   "imageAdvanced": "图片翻译高级设置",
   "tipImageAdvanced": "来源、过滤、上传、回答与显示",
   "labelImageInline": "翻译正文内嵌图片",
-  "tipImageInline": "邮件正文里的图片：cid:、data: 和 Thunderbird 已显示的远程图片",
+  "tipImageInline": "正文图片：cid:、data: 和 Thunderbird 已显示的远程图片",
   "labelImageAttachments": "翻译图片附件",
   "tipImageAttachments": "Thunderbird 显示在正文下方的图片",
   "hintImageRemote": "远程图片在 Thunderbird 显示它之后参与翻译，即这封邮件允许加载远程内容时。你允许一次读取远程图片后，扩展会再向图片服务器请求一次，不带 Cookie 和 Referer。本机和局域网中的图片一律不读取。",

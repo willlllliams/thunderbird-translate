@@ -268,6 +268,7 @@ describe("settings page", () => {
     expect(box("bilingual").value).toBe(DEFAULT_PROMPTS.bilingual)
     box("translationOnly").value = "Natural {{to}}."
     box("translationOnly").dispatchEvent(new Event("input"))
+    box("translationOnly").dispatchEvent(new Event("change"))
     await flushSave()
     expect(stored().prompts.translationOnly).toBe("Natural {{to}}.")
     document.querySelector<HTMLButtonElement>("#reset-translationOnly")!.click()
@@ -277,10 +278,12 @@ describe("settings page", () => {
     // Typing the built-in text back stores nothing either.
     box("precise").value = "Short."
     box("precise").dispatchEvent(new Event("input"))
+    box("precise").dispatchEvent(new Event("change"))
     await flushSave()
     expect(stored().prompts.precise).toBe("Short.")
     box("precise").value = `${DEFAULT_PROMPTS.precise}\n`
     box("precise").dispatchEvent(new Event("input"))
+    box("precise").dispatchEvent(new Event("change"))
     await flushSave()
     expect(stored().prompts.precise).toBe("")
   })
@@ -306,6 +309,7 @@ describe("settings page", () => {
 
     box("bilingual").value += "\n- Keep it short."
     box("bilingual").dispatchEvent(new Event("input"))
+    box("bilingual").dispatchEvent(new Event("change"))
     await flushSave()
     expect(stored().prompts.bilingual.endsWith("- Keep it short.")).toBe(true)
     document.querySelector<HTMLButtonElement>("#reset-bilingual")!.click()
@@ -680,6 +684,7 @@ describe("settings changed in another page", () => {
     })
     expect(prompt.value).toBe("my prompt")
     expect(select("tier-machine").value).toBe("microsoft-free")
+    prompt.dispatchEvent(new Event("change"))
     await flushSave()
     expect(page.stored().prompts.bilingual).toBe("my prompt")
     expect(page.stored().tiers.machine).toBe("microsoft-free")
@@ -697,6 +702,7 @@ describe("settings changed in another page", () => {
     // The panel is not redrawn under the cursor.
     expect(document.querySelector('#providerPanel input[type="password"]')).toBe(key)
     expect(key.value).toBe("sk-typing")
+    key.dispatchEvent(new Event("change"))
     await flushSave()
     expect(page.stored().providers.openai.apiKey).toBe("sk-typing")
     expect(page.stored().tiers.machine).toBe("microsoft-free")

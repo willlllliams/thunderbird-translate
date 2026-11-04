@@ -248,6 +248,7 @@ describe("welcome page", () => {
     const key = document.querySelector<HTMLInputElement>('#aiPanel input[type="password"]')!
     key.value = "sk-test"
     key.dispatchEvent(new Event("input"))
+    key.dispatchEvent(new Event("change"))
     await flushSave()
     expect(page.stored().tiers.ai).toBe("deepseek")
     await flushSave()
@@ -595,6 +596,7 @@ describe("welcome page", () => {
     endpoint.dispatchEvent(new Event("input"))
     endpoint.value = "https://deeplx.example.com/translate"
     endpoint.dispatchEvent(new Event("input"))
+    endpoint.dispatchEvent(new Event("change"))
     await flushSave()
     expect(page.stored().providers.deeplx).toMatchObject({ enabled: true, baseURL: "https://deeplx.example.com/translate" })
   })

@@ -82,11 +82,10 @@ function endpointField({ p, cfg, session, addWhileTyping }: PanelState, label: s
       validate()
       session.save()
     })
-  baseURL.addEventListener("input", () => {
+  session.typed(baseURL, () => {
     cfg.baseURL = baseURL.value.trim()
     if (p.kind === "deeplx") addWhileTyping(cfg.baseURL)
     showLoopback()
-    session.save()
   })
   // Checked when the value is committed (blur / Enter), not on every keystroke.
   baseURL.addEventListener("change", () => {
@@ -101,11 +100,10 @@ function endpointField({ p, cfg, session, addWhileTyping }: PanelState, label: s
 /** Key / token field, hidden by default and with a button to show it; `onKey` hears the key as typed, and once at the start. */
 function keyField({ cfg, session, addWhileTyping }: PanelState, label: string, onKey?: (key: string) => void): HTMLElement {
   const key = h("input", { type: "password", value: cfg.apiKey, autocomplete: "off", spellcheck: "false" })
-  key.addEventListener("input", () => {
+  session.typed(key, () => {
     cfg.apiKey = key.value.trim()
     addWhileTyping(cfg.apiKey)
     onKey?.(cfg.apiKey)
-    session.save()
   })
   onKey?.(cfg.apiKey)
   const show = h("button", { type: "button", text: t("buttonShowKey"), title: t("tipShowKey") })
@@ -122,10 +120,7 @@ function microsoftFields(state: PanelState): HTMLElement[] {
   const { p, cfg, session } = state
   const freeHint = h("p", { className: "hint", text: t("hintFree"), hidden: cfg.mode === "key" })
   const region = h("input", { type: "text", value: cfg.region ?? "", placeholder: "westeurope", spellcheck: "false" })
-  region.addEventListener("input", () => {
-    cfg.region = region.value.trim()
-    session.save()
-  })
+  session.typed(region, () => (cfg.region = region.value.trim()))
   const fields = h(
     "div",
     { className: "azure-fields", hidden: cfg.mode !== "key" },
@@ -167,10 +162,7 @@ function choiceField<T extends string>(session: SettingsSession, label: string, 
 /** The app ID of Baidu and Youdao; `hint` the line under it. */
 function appIdField({ cfg, session }: PanelState, hint?: string): HTMLElement {
   const appId = h("input", { type: "text", value: cfg.appId ?? "", autocomplete: "off", spellcheck: "false" })
-  appId.addEventListener("input", () => {
-    cfg.appId = appId.value.trim()
-    session.save()
-  })
+  session.typed(appId, () => (cfg.appId = appId.value.trim()))
   return field(t("labelAppId"), appId, t("tipAppId"), hint)
 }
 
@@ -212,17 +204,13 @@ function llmFields({ p, cfg, session }: PanelState): HTMLElement[] {
   const listId = `models-${p.id}`
   const model = h("input", { type: "text", value: cfg.model, placeholder: p.defaultModel, list: listId, spellcheck: "false" })
   const datalist = h("datalist", { id: listId }, ...p.models.map((m) => h("option", { value: m })))
-  model.addEventListener("input", () => {
-    cfg.model = model.value.trim()
-    session.save()
-  })
+  session.typed(model, () => (cfg.model = model.value.trim()))
 
   const temperature = cfg.temperature === undefined ? p.defaultTemperature : cfg.temperature
   const temp = h("input", { type: "number", min: "0", max: "2", step: "0.1", value: temperature === null ? "" : String(temperature) })
-  temp.addEventListener("input", () => {
+  session.typed(temp, () => {
     const v = temp.value.trim()
     cfg.temperature = v === "" ? null : Math.min(2, Math.max(0, Number(v)))
-    session.save()
   })
 
   const supported = supportsThinkingControl(p.id)

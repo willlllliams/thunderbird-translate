@@ -632,7 +632,7 @@
   "imageAdvanced": "Görsel çevirisinin gelişmiş ayarları",
   "tipImageAdvanced": "Kaynaklar, süzgeçler, yükleme, yanıt ve görünüm",
   "labelImageInline": "Gömülü görselleri çevir",
-  "tipImageInline": "İleti gövdesindeki görseller: cid:, data: ve Thunderbird’ün gösterdiği uzak görseller",
+  "tipImageInline": "Gövde görselleri: cid:, data: ve Thunderbird’ün gösterdiği uzak olanlar",
   "labelImageAttachments": "Görsel eklerini çevir",
   "tipImageAttachments": "Thunderbird’ün gövdenin altında gösterdiği görseller",
   "hintImageRemote": "Uzak görseller, Thunderbird onları gösterdiğinde, yani ileti uzak içerik yükleyebildiğinde dahil edilir. Uzak görselleri okumaya bir kez izin verdikten sonra eklenti böyle bir görseli sunucusundan bir kez daha ister; çerez ve yönlendiren bilgisi göndermez. Bu bilgisayardaki veya yerel ağdaki görseller hiçbir zaman okunmaz.",

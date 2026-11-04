@@ -46,7 +46,7 @@ Code, paragraphs already in the target language, numbers, bare links and whitesp
 
 ## Settings page
 
-Open the settings page with the "Options" button of this extension in the Add-ons Manager. Settings are saved automatically. "Saved" appears in the top right corner once they are written. When a save fails, the error appears in its place and the change goes with the next save. The "Setup guide" button next to it opens the setup guide.
+Open the settings page with the "Options" button of this extension in the Add-ons Manager. Settings are saved automatically: a choice at once, a text field (a prompt, a model, an endpoint, a key, a temperature) once you leave it or press Enter, and whatever is still typed when the page closes. A translated message on screen asks a service again once its settings stayed the same for 1.5 seconds; a new display mode asks at once. "Saved" appears in the top right corner once they are written. When a save fails, the error appears in its place and the change goes with the next save. The "Setup guide" button next to it opens the setup guide.
 
 Resting the mouse on any control of the settings page, the popup or the setup guide shows one short sentence about what it is or what it does; the buttons of the notice above a message have one too.
 

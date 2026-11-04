@@ -85,6 +85,8 @@ type View =
 const STYLE_ID = "tt-style-vars"
 /** Progress goes to the background at most this often; the last state always follows. */
 const REPORT_INTERVAL_MS = 100
+/** A tier whose service, model or prompt changed is asked again once the settings stayed the same this long. */
+export const SETTLE_MS = 1500
 
 /** The focus on `el`, a paragraph of the message, until it leaves: focusable for that time only. */
 function holdFocus(el: HTMLElement): void {
@@ -115,6 +117,9 @@ export class TranslationController {
   private allowed = new MessageConsent()
   private reportTimer: ReturnType<typeof setTimeout> | null = null
   private reportPending = false
+  /** The settings the results on screen were asked with, and the request of new results while the settings change. */
+  private asked: PublicSettings | null = null
+  private settleTimer: ReturnType<typeof setTimeout> | null = null
 
   constructor(private readonly deps: ControllerDeps) {}
 
@@ -171,15 +176,29 @@ export class TranslationController {
       return
     }
     this.deps.images?.update(next.image)
-    for (const state of this.results.values()) for (const tier of changed) delete state[tier]
-    // A key or an app ID changed: the tiers that failed are asked again, the others keep their results.
-    const retry = prev.credentials !== next.credentials
-    if (retry) for (const state of this.results.values()) for (const tier of TIERS) if (state[tier]?.status === "error") delete state[tier]
-    if (changed.length > 0 || prev.mode !== next.mode || prev.style.preset !== next.style.preset || prev.renderMarkdown !== next.renderMarkdown) this.rerender()
-    if (changed.length > 0 || retry) {
-      this.report()
-      await Promise.all(this.units.map((unit) => this.translateUnit(unit, this.session)))
+    if (prev.mode !== next.mode || prev.style.preset !== next.style.preset || prev.renderMarkdown !== next.renderMarkdown) this.rerender()
+    if (this.settleTimer) clearTimeout(this.settleTimer)
+    this.settleTimer = null
+    // A new display mode asks at once; a prompt, model, endpoint or key edited on the settings page once it stays.
+    if (prev.mode !== next.mode) return this.askChanged()
+    if (TIERS.some((tier) => this.asked!.signatures[tier] !== next.signatures[tier]) || this.asked!.credentials !== next.credentials) {
+      this.settleTimer = setTimeout(() => void this.askChanged(), SETTLE_MS)
     }
+  }
+
+  /** Ask the tiers whose service or prompt changed since their results were asked for; after a new key, the tiers that failed. */
+  private async askChanged(): Promise<void> {
+    this.settleTimer = null
+    const s = this.settings!
+    const changed = TIERS.filter((tier) => this.asked!.signatures[tier] !== s.signatures[tier])
+    const retry = this.asked!.credentials !== s.credentials
+    this.asked = s
+    for (const state of this.results.values()) for (const tier of changed) delete state[tier]
+    if (retry) for (const state of this.results.values()) for (const tier of TIERS) if (state[tier]?.status === "error") delete state[tier]
+    if (changed.length === 0 && !retry) return
+    if (changed.length > 0) this.rerender()
+    this.report()
+    await Promise.all(this.units.map((unit) => this.translateUnit(unit, this.session)))
   }
 
   /**
@@ -251,6 +270,7 @@ export class TranslationController {
     if (!root) return
     this.active = true
     this.bypassCache = bypassCache
+    this.asked = s
     const session = ++this.session
     this.renderer = new Renderer(root.ownerDocument)
     this.renderer.stylePreset = s.style.preset
@@ -278,6 +298,8 @@ export class TranslationController {
 
   /** `again`: a retranslation follows. */
   stop(again = false): void {
+    if (this.settleTimer) clearTimeout(this.settleTimer)
+    this.settleTimer = null
     this.deps.consent?.clear()
     this.deps.images?.stop()
     this.session++

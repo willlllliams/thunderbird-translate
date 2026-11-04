@@ -236,6 +236,7 @@ describe("settings page", () => {
     const box = $<HTMLTextAreaElement>("prompt-image")
     box.value = "Read the image for {{to}}."
     box.dispatchEvent(new Event("input"))
+    box.dispatchEvent(new Event("change"))
     await flushSave()
     expect(page.stored().prompts.image).toBe("Read the image for {{to}}.")
     $("reset-image").click()

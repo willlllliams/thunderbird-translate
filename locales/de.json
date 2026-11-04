@@ -629,7 +629,7 @@
   "imageAdvanced": "Erweiterte Einstellungen der Bildübersetzung",
   "tipImageAdvanced": "Quellen, Filter, Upload, Antwort und Anzeige",
   "labelImageInline": "Eingebettete Bilder übersetzen",
-  "tipImageInline": "Bilder im Text der Nachricht: cid:, data: und die externen Bilder, die Thunderbird anzeigt",
+  "tipImageInline": "Bilder im Text: cid:, data: und externe, die Thunderbird zeigt",
   "labelImageAttachments": "Bildanhänge übersetzen",
   "tipImageAttachments": "Bilder, die Thunderbird unter dem Text zeigt",
   "hintImageRemote": "Externe Bilder werden berücksichtigt, sobald Thunderbird sie anzeigt, also wenn die Nachricht externe Inhalte laden darf. Nachdem Sie das Lesen externer Bilder einmal erlaubt haben, fordert die Erweiterung ein solches Bild noch einmal von seinem Server an, ohne Cookies und ohne Referrer. Bilder auf diesem Computer oder im lokalen Netzwerk werden nie gelesen.",

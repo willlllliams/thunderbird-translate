@@ -629,7 +629,7 @@
   "imageAdvanced": "画像翻訳の詳細設定",
   "tipImageAdvanced": "対象、フィルター、送信、回答、表示",
   "labelImageInline": "本文の埋め込み画像を翻訳する",
-  "tipImageInline": "メッセージ本文内の画像（cid:、data: と Thunderbird が表示したリモート画像）",
+  "tipImageInline": "本文の画像（cid:、data:、Thunderbird が表示したリモート画像）",
   "labelImageAttachments": "画像の添付ファイルを翻訳する",
   "tipImageAttachments": "Thunderbird が本文の下に表示する画像",
   "hintImageRemote": "リモート画像は Thunderbird が表示した時点で対象になります。つまりメッセージがリモートコンテンツの読み込みを許可されている場合です。リモート画像の読み取りを一度許可すると、拡張機能はその画像をサーバーにもう一度要求します。Cookie とリファラーは送りません。このコンピューターやローカルネットワーク上の画像は読み取りません。",

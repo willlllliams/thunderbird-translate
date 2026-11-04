@@ -629,7 +629,7 @@
   "imageAdvanced": "이미지 번역 고급 설정",
   "tipImageAdvanced": "대상, 필터, 업로드, 답, 표시",
   "labelImageInline": "본문에 포함된 이미지 번역",
-  "tipImageInline": "메시지 본문 속 이미지(cid:, data:, Thunderbird가 표시한 원격 이미지)",
+  "tipImageInline": "본문 이미지(cid:, data:, Thunderbird가 표시한 원격 이미지)",
   "labelImageAttachments": "이미지 첨부 파일 번역",
   "tipImageAttachments": "Thunderbird가 본문 아래에 보여 주는 이미지",
   "hintImageRemote": "원격 이미지는 Thunderbird가 표시하면 대상이 됩니다. 즉 메시지가 원격 콘텐츠를 불러올 수 있을 때입니다. 원격 이미지 읽기를 한 번 허용하면 확장 기능이 그 이미지를 서버에 한 번 더 요청하며, 쿠키와 리퍼러는 보내지 않습니다. 이 컴퓨터나 로컬 네트워크에 있는 이미지는 읽지 않습니다.",

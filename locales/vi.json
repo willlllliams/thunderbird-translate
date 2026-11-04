@@ -629,7 +629,7 @@
   "imageAdvanced": "Cài đặt nâng cao của dịch hình ảnh",
   "tipImageAdvanced": "Nguồn, bộ lọc, tải lên, câu trả lời và hiển thị",
   "labelImageInline": "Dịch ảnh nhúng trong thư",
-  "tipImageInline": "Ảnh trong nội dung thư: cid:, data: và ảnh từ xa mà Thunderbird hiển thị",
+  "tipImageInline": "Ảnh trong thư: cid:, data: và ảnh từ xa Thunderbird hiển thị",
   "labelImageAttachments": "Dịch ảnh đính kèm",
   "tipImageAttachments": "Ảnh Thunderbird hiện dưới nội dung thư",
   "hintImageRemote": "Ảnh từ xa được tính đến khi Thunderbird hiển thị chúng, tức là khi thư được phép tải nội dung từ xa. Sau khi bạn cho phép đọc ảnh từ xa một lần, tiện ích yêu cầu lại ảnh đó từ máy chủ của nó một lần nữa, không kèm cookie và referrer. Ảnh trên máy tính này hoặc trong mạng nội bộ không bao giờ được đọc.",

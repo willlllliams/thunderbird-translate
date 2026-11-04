@@ -629,7 +629,7 @@
   "imageAdvanced": "Configurações avançadas da tradução de imagens",
   "tipImageAdvanced": "Origens, filtros, envio, resposta e exibição",
   "labelImageInline": "Traduzir as imagens incorporadas",
-  "tipImageInline": "Imagens no corpo da mensagem: cid:, data: e as imagens remotas que o Thunderbird exibe",
+  "tipImageInline": "Imagens do corpo: cid:, data: e remotas que o Thunderbird exibe",
   "labelImageAttachments": "Traduzir as imagens anexas",
   "tipImageAttachments": "Imagens que o Thunderbird mostra sob a mensagem",
   "hintImageRemote": "As imagens remotas entram assim que o Thunderbird as exibe, ou seja, quando a mensagem pode carregar conteúdo remoto. Depois que você permitir uma vez a leitura de imagens remotas, a extensão pede essa imagem mais uma vez ao servidor dela, sem cookies e sem referenciador. Imagens neste computador ou na rede local nunca são lidas.",

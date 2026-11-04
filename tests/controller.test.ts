@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 /** TranslationController: tier combinations, result handling, settings changes and lifecycle. */
 import { beforeEach, describe, expect, it, vi } from "vitest"
-import { type ControllerDeps, TranslationController } from "../src/content/controller"
+import { type ControllerDeps, SETTLE_MS, TranslationController } from "../src/content/controller"
 import { ENGLISH } from "../src/shared/i18n"
 import type { MailContext } from "../src/shared/mail-context"
 import type { TabState, TranslateRequest, TranslateResponse } from "../src/shared/messages"
@@ -142,7 +142,7 @@ describe("results", () => {
     expect(document.querySelector("p .tt-error")).not.toBeNull()
     keyFixed = true
     await c.updateSettings(tieredSettings(["dictionary", "machine"], { credentials: 1 }))
-    expect(translate.mock.calls.map(([req]) => req.tiers)).toEqual([["dictionary", "machine"], ["machine"]])
+    await until(() => expect(translate.mock.calls.map(([req]) => req.tiers)).toEqual([["dictionary", "machine"], ["machine"]]))
     expect(document.querySelector(".tt-translation")!.textContent).toBe("machine:Good morning")
   })
 
@@ -259,6 +259,34 @@ describe("settings changes while active", () => {
     expect(document.querySelectorAll(".tt-seg")).toHaveLength(1)
     c.stop()
     expect(document.body.innerHTML).toBe(original)
+  })
+
+  it("F2: asks a tier whose prompt or model changed once the settings rest, with the last of them; a new display mode at once", async () => {
+    useFakeTimers()
+    try {
+      const translate = answering((text, tier) => ok(`${tier}:${text}`))
+      const { c } = await mount("<p>Good morning</p><p>Good night</p>", tieredSettings(["machine", "ai"]), { translate })
+      await c.start()
+      expect(translate).toHaveBeenCalledTimes(2)
+      for (const prompt of ["a", "ab", "abc"]) {
+        await c.updateSettings(tieredSettings(["machine", "ai"], { signatures: { machine: "google-free", ai: `openai|${prompt}` } }))
+        await vi.advanceTimersByTimeAsync(300)
+      }
+      await vi.advanceTimersByTimeAsync(SETTLE_MS - 400)
+      expect(translate).toHaveBeenCalledTimes(2)
+      await vi.advanceTimersByTimeAsync(100)
+      expect(translate.mock.calls.slice(2).map(([req]) => [req.text, req.tiers])).toEqual([["Good morning", ["ai"]], ["Good night", ["ai"]]])
+      // The display mode switched: the AI tier is asked at once.
+      await c.updateSettings(tieredSettings(["machine", "ai"], { mode: "translation-only", signatures: { machine: "google-free", ai: "openai|only" } }))
+      expect(translate).toHaveBeenCalledTimes(6)
+      // Stopped while the settings change: nothing is asked.
+      await c.updateSettings(tieredSettings(["machine", "ai"], { mode: "translation-only", signatures: { machine: "google-free", ai: "openai|other" } }))
+      c.stop()
+      await vi.advanceTimersByTimeAsync(SETTLE_MS)
+      expect(translate).toHaveBeenCalledTimes(6)
+    } finally {
+      vi.useRealTimers()
+    }
   })
 
   it("keeps the highest tier's result when only a lower tier's service changed", async () => {

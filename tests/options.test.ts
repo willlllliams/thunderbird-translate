@@ -15,14 +15,12 @@ beforeEach(() => useFakeTimers())
 afterEach(() => vi.useRealTimers())
 
 const $ = <T extends HTMLElement>(id: string) => document.getElementById(id) as T
-const set = (id: string, value: string, type: "change" | "input" = "change") => {
-  const el = $<HTMLInputElement>(id)
-  el.value = value
-  el.dispatchEvent(new Event(type))
-}
+/** A value chosen ("change"), or typed and committed ("input", then "change" as on blur). */
+const set = (id: string, value: string, type: "change" | "input" = "change") => fire($<HTMLInputElement>(id), value, type)
 const fire = (el: HTMLInputElement, value: string, type: "change" | "input" = "input") => {
   el.value = value
   el.dispatchEvent(new Event(type))
+  if (type === "input") el.dispatchEvent(new Event("change"))
 }
 
 async function options(change: (s: Settings) => void = () => {}, opts: Parameters<typeof openPage>[2] = {}) {
@@ -291,6 +289,29 @@ describe("service panel", () => {
     await options()
     pick(name)
     expect(panel().textContent).toContain(ENGLISH.t(hint))
+  })
+
+  it("F2: stores a prompt, a model and a key once they are committed, and what is typed when the page goes", async () => {
+    const page = await options((s) => (s.providers.openai.enabled = true))
+    const box = $<HTMLTextAreaElement>("prompt-bilingual")
+    for (const text of ["T", "Tr", "Translate into {{to}}."]) {
+      box.value = text
+      box.dispatchEvent(new Event("input"))
+      await flushSave()
+    }
+    expect(page.browser.local.set).not.toHaveBeenCalled()
+    box.dispatchEvent(new Event("change"))
+    await flushSave()
+    expect(page.browser.local.set).toHaveBeenCalledTimes(1)
+    expect(page.stored().prompts.bilingual).toBe("Translate into {{to}}.")
+    pick("OpenAI")
+    const [, model] = inputs().filter((i) => i.type === "text")
+    model.value = "gpt-6.1-terra"
+    model.dispatchEvent(new Event("input"))
+    await flushSave()
+    expect(page.browser.local.set).toHaveBeenCalledTimes(1)
+    dispatchEvent(new Event("pagehide"))
+    await until(() => expect(page.stored().providers.openai.model).toBe("gpt-6.1-terra"))
   })
 
   it("switches the Microsoft mode only on the radio button that becomes checked", async () => {
