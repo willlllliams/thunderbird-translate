@@ -612,6 +612,8 @@ export class ImageService {
     if ("status" in digest) return digest
     if (digest.length < s.minKB * 1024) return this.skipped("imageTooFewBytes", [], true)
     if (digest.animated && s.animated === "skip") return this.skipped("imageAnimated", [], true)
+    // A remote server may answer the extension with other bytes than Thunderbird showed: without a size in their header, they are not decoded.
+    if (digest.pixels === null && "url" in req.source) return this.skipped("imageUnreadable")
     if ((digest.pixels ?? 0) > MAX_PIXELS) return this.skipped("imageTooManyPixels", [Math.round(MAX_PIXELS / 1e6)])
     return digest
   }
@@ -689,7 +691,11 @@ export class ImageService {
     const original = await this.original(session, req, signal).catch(() => null)
     if (original === "large") return this.remoteTooLarge()
     if (!original) return this.skipped("imageUnreadable")
-    if ("url" in req.source) session.remote.release(req.source.url)
+    if ("url" in req.source) {
+      session.remote.release(req.source.url)
+      // Read again: only the bytes the filters passed go out, under the key of their SHA-256.
+      if ((await sha256Hex(original.bytes)) !== job.sha) return this.skipped("imageUnreadable")
+    }
     const upload = await this.decoding.run(() => (signal.aborted ? Promise.reject(aborted()) : this.prepare(original, plan.format, s)))
     if (!upload) return this.skipped("imageUnreadable")
     if (upload === "large") return this.skipped("imageTooLarge", [s.maxImageKB])

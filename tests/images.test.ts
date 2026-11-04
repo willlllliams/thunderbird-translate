@@ -930,6 +930,22 @@ describe("a remote image", () => {
     expect(remoteFetch).toHaveBeenCalledTimes(2)
   })
 
+  it("C2: sends nothing when the server answers the second read with other bytes, or with a format whose size cannot be read", async () => {
+    const unreadable = { status: "skipped", reason: ENGLISH.t("imageUnreadable") }
+    let reads = 0
+    const changing = remote({ respond: () => pngResponse(++reads === 1 ? png() : png(5000, false, [10000, 10000])) })
+    expect((await changing.askRemote()).status).toBe("done")
+    // The retranslation reads the image again: the server gives a huge image instead.
+    expect(await changing.askRemote(URL_A, { round: 2, fresh: true })).toEqual(unreadable)
+    expect([changing.remoteFetch.mock.calls.length, changing.codec.encoded.length, changing.read.mock.calls.length]).toEqual([2, 1, 1])
+    // A BMP header tells no size the extension reads: never decoded.
+    const bmp = new Uint8Array(6000)
+    bmp.set([0x42, 0x4d])
+    const odd = remote({ respond: () => new Response(bmp, { headers: { "content-type": "image/bmp" } }) })
+    expect(await odd.askRemote()).toEqual(unreadable)
+    expect([odd.codec.encoded.length, odd.read.mock.calls.length]).toEqual([0, 0])
+  })
+
   it("is never read at an address the message does not name, nor once the tab shows another message", async () => {
     const unreadable = { status: "skipped", reason: ENGLISH.t("imageUnreadable") }
     const other = remote({ urls: ["https://cdn.example.com/other.png"] })
