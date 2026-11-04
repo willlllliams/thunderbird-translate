@@ -7,7 +7,8 @@
  */
 import { afterEach, describe, expect, it, vi } from "vitest"
 import { PersistentCache } from "../src/background/cache"
-import { browserCodec, dataBytes, encodeAttempts, type ImageDeps, ImageService, imageSize, isAnimated, readImageAnswer } from "../src/background/images"
+import { browserCodec, encodeAttempts, type ImageDeps, ImageService, readImageAnswer } from "../src/background/images"
+import { dataBytes, imageSize, isAnimated, sniffImageType } from "../src/background/image-format"
 import { createHandlers } from "../src/background/router"
 import { displayedMessageId, messagePart } from "../src/background/displayed"
 import { createTabRegistry } from "../src/background/tabs"
@@ -767,6 +768,17 @@ describe("the session of a content script", () => {
 })
 
 describe("the size of an image from its header", () => {
+  it("A14: reads the type, the size and the animation of a file by one sniffing of its type", () => {
+    const files = [png(), gif(2), webp(0x02), new Uint8Array([0xff, 0xd8, 0x00, 0x00]), new Uint8Array([0x42, 0x4d, 0, 0])]
+    expect(files.map((bytes) => [sniffImageType(bytes), imageSize(bytes) !== null, isAnimated(bytes)])).toEqual([
+      ["image/png", true, false],
+      ["image/gif", true, true],
+      ["image/webp", false, true],
+      [null, false, false],
+      [null, false, false],
+    ])
+  })
+
   it("reads PNG, GIF, JPEG and the three kinds of WebP, and null for a file that ends before its size", () => {
     expect(imageSize(png(100, false, [640, 480]))).toEqual({ width: 640, height: 480 })
     expect(imageSize(gif(1))).toEqual({ width: 1, height: 1 })

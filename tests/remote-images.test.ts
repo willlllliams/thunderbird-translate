@@ -7,7 +7,8 @@
 import { describe, expect, it, vi } from "vitest"
 import { fetchRemoteImage, HeldImages, imageUrlsOf, messageImageUrls, offerRemoteAccess, readableHost, REMOTE_MAX_BYTES, RemoteImages, srcsetUrls } from "../src/background/remote-images"
 import { messageImageAddresses } from "../src/background/displayed"
-import { imageSource, remoteImageUrl, sniffImageType } from "../src/shared/image"
+import { imageSource, remoteImageUrl } from "../src/shared/image"
+import { sniffImageType } from "../src/background/image-format"
 import { until } from "./helpers"
 
 const parse = (html: string) => new DOMParser().parseFromString(html, "text/html")

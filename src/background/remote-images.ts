@@ -24,7 +24,8 @@
 
 import { BodyTooLargeError, readBody } from "../shared/download"
 import { isPublicHost } from "../shared/hosts"
-import { remoteImageUrl, sniffImageType } from "../shared/image"
+import { remoteImageUrl } from "../shared/image"
+import { sniffImageType } from "./image-format"
 import { RequestQueue } from "./queue/request-queue"
 
 /** The largest remote image read, in bytes: well above the images of a newsletter, and the size decoding still copes with. */
