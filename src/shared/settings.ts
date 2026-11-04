@@ -36,7 +36,7 @@ export interface ProviderConfig {
 
 type MicrosoftMode = "free" | "key"
 
-export const BAIDU_EDITIONS = ["standard", "advanced", "premium"] as const
+const BAIDU_EDITIONS = ["standard", "advanced", "premium"] as const
 export type BaiduEdition = (typeof BAIDU_EDITIONS)[number]
 
 export interface DeeplOptions {

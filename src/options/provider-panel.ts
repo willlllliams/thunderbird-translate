@@ -307,7 +307,7 @@ function testResult(): HTMLElement {
 const CHECKED_SERVICES: ReadonlySet<string> = new Set(["google-free", "microsoft-free"])
 
 /** The check starts this long after the panel was drawn, so that a service shown in passing sends nothing. */
-export const REACH_DELAY_MS = 600
+const REACH_DELAY_MS = 600
 
 /** The check of each service, once per page view; a failed one is kept as well. */
 const reached = new Map<string, Promise<{ ok: true; ms: number } | { ok: false; error: string }>>()

@@ -31,13 +31,13 @@ import { RequestQueue } from "./queue/request-queue"
 export const REMOTE_MAX_BYTES = 15 * 1024 * 1024
 
 /** How long reading a remote image may take. */
-export const REMOTE_TIMEOUT_MS = 20_000
+const REMOTE_TIMEOUT_MS = 20_000
 
 /** The bytes of remote images one session keeps between the peek and the translation. */
-export const HELD_BYTES = 16 * 1024 * 1024
+const HELD_BYTES = 16 * 1024 * 1024
 
 /** The bytes of remote images all sessions keep together; beyond it the oldest go first. */
-export const HELD_TOTAL = 32 * 1024 * 1024
+const HELD_TOTAL = 32 * 1024 * 1024
 
 /** Remote images of one session read at the same time; a slow server holds back the remote images of its own message only. */
 const REMOTE_CONCURRENCY = 2
@@ -215,11 +215,6 @@ export class HeldImages {
   private key(owner: object, url: string): string {
     if (!this.keys.has(owner)) this.keys.set(owner, this.nextOwner++)
     return `${this.keys.get(owner)}|${url}`
-  }
-
-  /** The bytes of all sessions together, for the tests. */
-  get size(): number {
-    return this.total
   }
 
   get(owner: object, url: string): Original | undefined {

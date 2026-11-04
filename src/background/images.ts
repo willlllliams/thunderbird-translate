@@ -336,7 +336,7 @@ const SLOW_MODEL_TIMEOUT_FACTOR = 3
 const MAX_SESSIONS = 50
 
 /** Images with more pixels are not decoded: 40 MP decode to 160 MB, and the upload has at most 2576 px on its long edge. */
-export const MAX_PIXELS = 40_000_000
+const MAX_PIXELS = 40_000_000
 
 /** Images whose bytes are read at the same time; reading a part parses the message up to it. */
 const READ_CONCURRENCY = 2

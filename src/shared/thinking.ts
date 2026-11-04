@@ -188,7 +188,7 @@ export function reasons(presetId: string, model: string, on: boolean): boolean {
 }
 
 /** Tokens a request adds to its output limit for a model that reasons first, which most services count within that limit. */
-export const REASONING_TOKENS = 4096
+const REASONING_TOKENS = 4096
 
 /**
  * The output limit of a request whose answer should have `answer` tokens: with room for the reasoning of a model

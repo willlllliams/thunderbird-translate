@@ -193,28 +193,31 @@ describe("the bytes kept from a peek", () => {
     held.hold(a, "1", original(6))
     held.hold(a, "2", original(6))
     // The second image of the session would pass its limit of 10.
-    expect([held.get(a, "1")?.bytes.length, held.get(a, "2"), held.size]).toEqual([6, undefined, 6])
+    expect([held.get(a, "1")?.bytes.length, held.get(a, "2")]).toEqual([6, undefined])
     held.hold(a, "3", original(4))
     held.hold(b, "1", original(8))
     // 18 of 16: the oldest image of the other session goes.
-    expect([held.get(a, "1"), held.get(a, "3")?.bytes.length, held.get(b, "1")?.bytes.length, held.size]).toEqual([undefined, 4, 8, 12])
+    expect([held.get(a, "1"), held.get(a, "3")?.bytes.length, held.get(b, "1")?.bytes.length]).toEqual([undefined, 4, 8])
     // An image larger than all is not kept.
     held.hold(b, "2", original(20))
     held.hold(b, "3", original(2))
-    expect([held.get(b, "2"), held.get(b, "3")?.bytes.length, held.size]).toEqual([undefined, 2, 14])
+    expect([held.get(b, "2"), held.get(b, "3")?.bytes.length]).toEqual([undefined, 2])
     // Room for a new image of the first session: the oldest image of the other one goes, never one of its own.
     held.hold(a, "4", original(5))
-    expect([held.get(b, "1"), held.get(a, "3")?.bytes.length, held.get(a, "4")?.bytes.length, held.size]).toEqual([undefined, 4, 5, 11])
+    expect([held.get(b, "1"), held.get(a, "3")?.bytes.length, held.get(a, "4")?.bytes.length]).toEqual([undefined, 4, 5])
+    // 11 of 16 held: a release frees its bytes, so an image of 7 fits beside the others (7 + 9 = 16).
     held.release(b, "3")
     held.release(b, "nothing")
-    expect(held.size).toBe(9)
+    held.hold(b, "5", original(7))
+    expect([held.get(b, "3"), held.get(b, "5")?.bytes.length, held.get(a, "3")?.bytes.length, held.get(a, "4")?.bytes.length]).toEqual([undefined, 7, 4, 5])
     held.clear(a)
-    expect([held.get(a, "3"), held.size]).toEqual([undefined, 0])
+    held.clear(b)
+    expect([held.get(a, "3"), held.get(b, "5")]).toEqual([undefined, undefined])
     // Only the images of the session itself would make room: the new one is not kept.
     const tight = new HeldImages(10, 8)
     tight.hold(a, "1", original(5))
     tight.hold(a, "2", original(4))
-    expect([tight.get(a, "2"), tight.size]).toEqual([undefined, 5])
+    expect([tight.get(a, "2"), tight.get(a, "1")?.bytes.length]).toEqual([undefined, 5])
   })
 
   it("A7: are read two at a time per message, so another message does not wait for a slow server", async () => {

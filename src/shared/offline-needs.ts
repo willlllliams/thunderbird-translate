@@ -100,7 +100,7 @@ export const lacksData = (state: OfflineState) => !state.unsupported && (state.m
 /* ---------- recommended and common languages ---------- */
 
 /** Where a recommended language comes from, most important first: the target and the fixed source language of the settings, the extension's interface language, Thunderbird's, the system's. */
-export const LANGUAGE_SOURCES = ["target", "source", "addon", "thunderbird", "system"] as const
+const LANGUAGE_SOURCES = ["target", "source", "addon", "thunderbird", "system"] as const
 export type LanguageSource = (typeof LANGUAGE_SOURCES)[number]
 
 export interface SourcedLanguage {
