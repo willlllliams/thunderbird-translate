@@ -1,6 +1,7 @@
 /** Hooks of the e2e test build, undefined in every other build; docs/development.md (End-to-end tests) says how they are replaced and called. */
 
 import type { KeyValueStorage } from "../background/cache"
+import type { ConsentKind } from "../shared/consent"
 import type { DictionaryManager } from "../offline/dictionary/manager"
 
 /** What the background script hands to its hook. */
@@ -11,6 +12,8 @@ export interface BackgroundHookDeps {
   dictionary: DictionaryManager
   /** Runs a keyboard command as if it was pressed in `tab`. */
   runCommand: (command: string, tab?: browser.tabs.Tab) => Promise<void>
+  /** Answers the consent panel of `kind` in tab `tabId` as the popup does. */
+  answerConsent: (tabId: number, kind: ConsentKind, allowed: boolean) => Promise<void>
 }
 
 /**

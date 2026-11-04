@@ -26,8 +26,10 @@ beforeEach(() => {
 })
 
 describe("consent panel", () => {
-  it("names each service with its host, what is sent and where the key goes, above the message", async () => {
-    const consent = new ConsentPanel({ root: () => document.body })
+  it("names each service with its host, what is sent and where the key goes, above the message; the popup allows", async () => {
+    const review = vi.fn()
+    const closed = vi.fn()
+    const consent = new ConsentPanel({ root: () => document.body, review, closed })
     const answer = consent.ask([GOOGLE, CUSTOM], false)
     expect(document.body.firstElementChild).toBe(panel())
     expect(consent.shown).toBe(true)
@@ -36,19 +38,27 @@ describe("consent panel", () => {
     expect(panel()!.textContent).toContain(ENGLISH.t("consentBody"))
     expect(panel()!.textContent).toContain(ENGLISH.t("consentKey"))
     expect(buttons().map((b) => [b.textContent, b.title])).toEqual([
-      [ENGLISH.t("consentAllow"), ENGLISH.t("tipConsentAllow")],
+      [ENGLISH.t("consentReview"), ENGLISH.t("tipConsentReview")],
       [ENGLISH.t("consentCancel"), ENGLISH.t("tipConsentCancel")],
     ])
     // Asked again while open: the same question.
     expect(consent.ask([GOOGLE], false)).toBe(answer)
-    click("consentAllow")
+    // S1: "Allow…" hands the question to the popup; the panel waits for its answer.
+    click("consentReview")
+    expect(review).toHaveBeenCalledWith([GOOGLE, CUSTOM], false)
+    let answered = false
+    void answer.then(() => (answered = true))
+    await nextTask()
+    expect(answered).toBe(false)
+    consent.answer(true)
     expect(await answer).toBe(true)
     expect(panel()).toBeNull()
     expect(consent.shown).toBe(false)
+    expect(closed).not.toHaveBeenCalled()
   })
 
   it("U1: asked for another service while open, lists both and says the whole message goes, with the same answer", async () => {
-    const consent = new ConsentPanel({ root: () => document.body })
+    const consent = new ConsentPanel({ root: () => document.body, review: vi.fn(), closed: vi.fn() })
     const first = consent.ask([GOOGLE], false)
     buttons()[0].focus()
     expect(consent.ask([OPENAI], true)).toBe(first)
@@ -60,7 +70,7 @@ describe("consent panel", () => {
     expect(panel()!.textContent).toContain(ENGLISH.t("consentBodyPrecise"))
     // The focus stays in the panel, on the panel itself.
     expect(document.activeElement).toBe(panel())
-    click("consentAllow")
+    consent.answer(true)
     expect(await first).toBe(true)
     // The next question starts from what it needs alone.
     void consent.ask([GOOGLE], false)
@@ -69,7 +79,7 @@ describe("consent panel", () => {
   })
 
   it("D1: takes the focus only when asked to, on itself and never on a button, so no key answers it", async () => {
-    const consent = new ConsentPanel({ root: () => document.body })
+    const consent = new ConsentPanel({ root: () => document.body, review: vi.fn(), closed: vi.fn() })
     const before = document.activeElement
     void consent.ask([GOOGLE], false)
     expect(document.activeElement).toBe(before)
@@ -89,7 +99,7 @@ describe("consent panel", () => {
   })
 
   it("says that precise translation sends the whole message, answers no on Cancel, when cleared and without a message", async () => {
-    const consent = new ConsentPanel({ root: () => document.body })
+    const consent = new ConsentPanel({ root: () => document.body, review: vi.fn(), closed: vi.fn() })
     const first = consent.ask([GOOGLE], true)
     expect(panel()!.textContent).toContain(ENGLISH.t("consentBodyPrecise"))
     click("consentCancel")
@@ -98,7 +108,7 @@ describe("consent panel", () => {
     consent.clear()
     expect(await second).toBe(false)
     expect(panel()).toBeNull()
-    expect(await new ConsentPanel({ root: () => null }).ask([GOOGLE], false)).toBe(false)
+    expect(await new ConsentPanel({ root: () => null, review: vi.fn(), closed: vi.fn() }).ask([GOOGLE], false)).toBe(false)
     // An id without a preset shows as it is.
     void consent.ask([{ id: "gone", host: "" }], false)
     expect(panel()!.querySelector("li")!.textContent).toBe("gone")
@@ -204,7 +214,7 @@ describe("controller", () => {
 })
 
 describe("content client", () => {
-  it("shows the panel on the message, records the consent with the background script, then translates", async () => {
+  it("S1: shows the panel on the message, hands the question to the popup, and translates once the popup allowed", async () => {
     const port = pagePort()
     const sendMessage = vi.fn(async (_req: BackgroundRequest): Promise<unknown> => undefined)
     vi.stubGlobal("browser", {
@@ -219,9 +229,14 @@ describe("content client", () => {
     expect(port.posted("translate")).toEqual([])
     // D1: asked by a command, the panel itself takes the focus.
     expect(document.activeElement).toBe(panel())
-    click("consentAllow")
+    click("consentReview")
+    expect(port.posted("consentAsk")).toEqual([{ type: "consentAsk", question: { kind: "text", needs: [GOOGLE], precise: false } }])
+    await nextTask()
+    expect(port.posted("translate")).toEqual([])
+    port.push({ type: "consentAnswer", kind: "text", allowed: true })
     await until(() => expect(port.posted("translate")).toHaveLength(1))
-    expect(sendMessage).toHaveBeenCalledWith({ type: "grantConsent", ids: ["google-free"], hosts: ["translate.googleapis.com"] })
+    // The page of the message grants nothing itself.
+    expect(sendMessage).not.toHaveBeenCalledWith(expect.objectContaining({ type: "grantConsent" }))
   })
 
   it("D1: a panel of automatic translation leaves the focus where it is", async () => {
@@ -241,14 +256,10 @@ describe("content client", () => {
     expect(port.posted("translate")).toEqual([])
   })
 
-  it("translates nothing when the background script cannot record the consent", async () => {
+  it("translates nothing when the popup refused or could not record the consent, and tells the popup of a Cancel here", async () => {
     const port = pagePort()
-    const sendMessage = vi.fn(async (req: BackgroundRequest): Promise<unknown> => {
-      if (req.type === "grantConsent") throw new Error("Receiving end does not exist.")
-      return undefined
-    })
     vi.stubGlobal("browser", {
-      runtime: { connect: () => port, sendMessage },
+      runtime: { connect: () => port, sendMessage: vi.fn(async () => undefined) },
       i18n: { detectLanguage: async () => ({ isReliable: false, languages: [] }) },
     })
     const client = connectContent({ root: () => document.body, contentScript: true })
@@ -256,17 +267,22 @@ describe("content client", () => {
     await client.ready
     port.push({ type: "toggle" })
     await until(() => expect(panel()).not.toBeNull())
-    click("consentAllow")
-    await until(() => expect(sendMessage).toHaveBeenCalledWith({ type: "grantConsent", ids: ["google-free"], hosts: ["translate.googleapis.com"] }))
+    click("consentReview")
+    port.push({ type: "consentAnswer", kind: "text", allowed: false })
+    await until(() => expect(panel()).toBeNull())
     await nextTask()
     expect(port.posted("translate")).toEqual([])
+    port.push({ type: "toggle" })
+    await until(() => expect(panel()).not.toBeNull())
+    click("consentCancel")
+    expect(port.posted("consentClosed")).toEqual([{ type: "consentClosed", kind: "text" }])
+    expect(panel()).toBeNull()
   })
 
-  it("U1: a summary asked while the panel of the translation is open shows its service there; every recorded id was on the panel", async () => {
+  it("U1: a summary asked while the panel of the translation is open shows its service there, and the popup gets both", async () => {
     const port = pagePort()
-    const sendMessage = vi.fn(async (_req: BackgroundRequest): Promise<unknown> => undefined)
     vi.stubGlobal("browser", {
-      runtime: { connect: () => port, sendMessage },
+      runtime: { connect: () => port, sendMessage: vi.fn(async () => undefined) },
       i18n: { detectLanguage: async () => ({ isReliable: false, languages: [] }) },
     })
     const client = connectContent({ root: () => document.body, contentScript: true })
@@ -274,13 +290,14 @@ describe("content client", () => {
     await client.ready
     port.push({ type: "toggle" })
     await until(() => expect(panel()).not.toBeNull())
+    click("consentReview")
     port.push({ type: "summarize" })
     await until(() => expect(panel()!.querySelectorAll("li")).toHaveLength(2))
-    const listed = panel()!.textContent!
-    click("consentAllow")
-    const ids = () => sendMessage.mock.calls.flatMap(([req]) => (req.type === "grantConsent" ? req.ids : []))
-    await until(() => expect(ids().sort()).toEqual(["google-free", "openai"]))
-    for (const id of ids()) expect(listed).toContain(id === "openai" ? "api.openai.com" : "translate.googleapis.com")
+    // Already with the popup: the popup shows the question as it is now.
+    expect(port.posted("consentAsk").at(-1)).toEqual({ type: "consentAsk", question: { kind: "text", needs: [GOOGLE, OPENAI], precise: true } })
+    port.push({ type: "consentAnswer", kind: "text", allowed: true })
+    await until(() => expect(port.posted("translate")).toHaveLength(1))
+    await until(() => expect(port.posted("summary")).toHaveLength(1))
   })
 
   it("asks nothing on an extension page: it translates its own sample text", async () => {

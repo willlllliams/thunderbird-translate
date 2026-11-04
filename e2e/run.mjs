@@ -18,8 +18,9 @@
 //    nothing installed: the notice about missing offline data appears, is muted,
 //    stays away when translating again, and stays away with Google instead.
 // 6. The "consent" run opens the HTML message with no online service allowed:
-//    the consent panel appears, nothing reaches the mock server before
-//    "Allow and translate", and the message is translated after it.
+//    the consent panel appears, nothing reaches the mock server before its
+//    "Allow…" and the answer the probe gives in place of the popup, and the
+//    message is translated after it.
 // 7. The "machine-deepl", "machine-baidu", "machine-youdao" and "machine-caiyun"
 //    runs open the HTML message with the machine translator of the name as the
 //    only tier: every paragraph gets its translation, with the
@@ -31,7 +32,7 @@
 //    The "image-ask", "image-auto", "image-off" and "image-switch" runs open image.eml (a chart and a receipt that
 //    pass the filters, a tracking pixel, an animated GIF and a logo in the signature) with precise translation and
 //    image translation in the mode of the run: only the chart and the receipt get a button; in "image-ask" nothing
-//    reaches the AI service before "Allow and translate image", the result is a table with the column names of the
+//    reaches the AI service before "Allow…" and the answer in place of the popup, the result is a table with the column names of the
 //    interface, the message comes back as it was, and translated again the cache answers; in "image-auto" the chart
 //    goes by itself and the receipt keeps its button (one image per message); in "image-off" nothing appears and
 //    nothing is sent; in "image-switch" the mode changes three times while the message stays translated.
@@ -80,7 +81,7 @@ const SCENARIOS = [
   // Simplified Chinese except for one English line, which a started translation would request.
   { name: "auto-skip", eml: "zh.eml", scenario: "auto-skip" },
   { name: "missing", eml: "html.eml", scenario: "missing", paragraphs: 7 },
-  // No online service allowed yet: the consent panel, no request before "Allow and translate", the translation after it.
+  // No online service allowed yet: the consent panel, no request before the answer in place of the popup, the translation after it.
   { name: "consent", eml: "html.eml", scenario: "consent", paragraphs: 7 },
   // The machine translators with a key of their own, each as the only tier.
   ...["deepl", "baidu", "youdao", "caiyun"].map((service) => ({ name: `machine-${service}`, eml: "html.eml", scenario: `machine-${service}`, paragraphs: 7, service })),

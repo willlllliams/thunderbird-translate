@@ -148,8 +148,14 @@ describe("content script ports", () => {
     await until(() => expect(port.posted.at(-1)).toEqual({ type: "done", id: 1 }))
     expect(port.posted.at(-2)).toEqual({ type: "tier", id: 1, tier: "machine", result: { ok: false, error: localeText("en", "errConsentRequired").replace("$1", "Google Translate (free)") } })
     expect(google).not.toHaveBeenCalled()
-    // The content script of the message records the consent; the next request goes out before the storage event arrives.
+    // The content script of the message cannot record a consent; the popup answers its panel, recorded before the
+    // panel hears it, and the next request goes out before the storage event arrives.
     expect(await bg.send({ type: "grantConsent", ids: ["google-free"] }, { tab: { id: 4 } })).toBeUndefined()
+    port.send({ type: "consentAsk", question: { kind: "text", needs: [{ id: "google-free", host: "translate.googleapis.com" }], precise: false } })
+    await until(() => expect(bg.api.messageDisplayAction.openPopup).toHaveBeenCalled())
+    expect(await bg.send({ type: "getTabState", tabId: 4 })).toMatchObject({ consent: [{ kind: "text" }] })
+    expect(await bg.send({ type: "answerConsent", tabId: 4, kind: "text", allowed: true })).toBeUndefined()
+    expect(port.posted.at(-1)).toEqual({ type: "consentAnswer", kind: "text", allowed: true })
     expect((bg.local[SETTINGS_KEY] as Settings).onlineConsent).toEqual(["google-free@translate.googleapis.com"])
     port.send({ type: "translate", id: 2, request: request("Hello") })
     await until(() => expect(port.posted.at(-1)).toEqual({ type: "done", id: 2 }))
@@ -454,7 +460,13 @@ describe("images of the displayed message", () => {
     port.send({ type: "image", id: 1, image })
     await until(() => expect(port.posted.at(-1)).toMatchObject({ type: "imageResult", id: 1, result: { status: "error" } }))
     expect(bodies).toEqual([])
-    port.send({ type: "imageConsent", ids: ["openai"] })
+    // The button of the message is in no toolbar: the popup page opens in a window of its own for the tab.
+    bg.api.messageDisplayAction.openPopup.mockResolvedValue(false)
+    const create = vi.fn(async (_options: unknown) => ({}))
+    ;(bg.api as unknown as { windows: unknown }).windows = { create }
+    port.send({ type: "consentAsk", question: { kind: "image", need: { id: "openai", host: "api.openai.com" }, count: 0, each: false, glossary: false, maxLongEdge: 1568, format: "JPEG" } })
+    await until(() => expect(create).toHaveBeenCalledWith(expect.objectContaining({ type: "popup", url: "moz-extension://test/popup.html?tab=3" })))
+    await bg.send({ type: "answerConsent", tabId: 3, kind: "image", allowed: true })
     port.send({ type: "image", id: 2, image })
     await until(() => expect(port.posted.at(-1)).toMatchObject({ type: "imageResult", id: 2, result: { status: "done", service: "OpenAI", cached: false } }))
     expect(getAttachmentFile).toHaveBeenCalledWith(42, "1.2")

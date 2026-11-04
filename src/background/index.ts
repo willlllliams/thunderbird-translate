@@ -61,7 +61,7 @@ const runCommand = (command: string, tab?: browser.tabs.Tab) => commandRunner(co
 const settings = createSettingsState({
   storage,
   // Test build (npm run e2e): settings and dictionary pack of the local mock server, before anything is translated.
-  beforeRead: beforeSettingsRead && (() => beforeSettingsRead!({ storage, dictionary, runCommand })),
+  beforeRead: beforeSettingsRead && (() => beforeSettingsRead!({ storage, dictionary, runCommand, answerConsent: (tabId, kind, allowed) => tabs.answerConsent(tabId, kind, allowed) })),
   onAdopt: (s) => {
     cache.configure(s.cache.enabled, s.cache.maxEntries)
     // The AI SDK is a chunk of its own (scripts/build.mjs), loaded once the AI tier is in use; a failure shows with the first AI request.
@@ -87,6 +87,15 @@ const service = new TranslationService({
 let hostAccess = 0
 const publicSettings = () => toPublicSettings(settings.current(), settings.credentials(), hostAccess)
 
+/**
+ * Records the services the user allowed in `list` of the settings, each with the host the panel named; taken over at
+ * once, before the storage event arrives, so the request that waits for it sees the consent.
+ */
+const recordConsent = async (list: "onlineConsent" | "imageConsent", ids: string[], hosts?: string[]) =>
+  settings.adopt(await updateSettings((s) => void (s[list] = [...new Set([...s[list], ...grantedEntries(s, ids, hosts)])])))
+
+const openPopup = (windowId: number | undefined) => ext.messageDisplayAction.openPopup(windowId === undefined ? {} : { windowId })
+
 // Images go to their own queue per service; the AI SDK is loaded with the first of them, as with text.
 const images = new ImageService({
   getSettings: () => settings.current(),
@@ -96,8 +105,7 @@ const images = new ImageService({
   imageUrls: messageImageAddresses,
   // Test build (npm run e2e): the remote images of the local mock server; any other build reads public hosts only.
   localOrigin: localImageOrigin,
-  // Written by the request: taken over at once, so the image that waits for it sees the consent.
-  recordConsent: async (ids, hosts) => settings.adopt(await updateSettings((s) => void (s.imageConsent = [...new Set([...s.imageConsent, ...grantedEntries(s, ids, hosts)])]))),
+  recordConsent: (ids, hosts) => recordConsent("imageConsent", ids, hosts),
   glossary: (contextId) => service.glossaryOf(contextId),
   i18n: getI18n,
   hasOrigin: (origin) => ext.permissions.contains({ origins: [origin] }),
@@ -112,12 +120,24 @@ const tabs = createTabRegistry({
   summarize: async (text, tabId, fresh, signal) => service.summarize(text, await displayedHeader(tabId).catch(() => null), fresh, signal),
   openSession: (session, tabId) => images.open(session, tabId),
   image: (session, tabId, request) => images.request(session, tabId, request),
-  imageConsent: (session, ids, message, hosts) => images.grant(session, ids, message, hosts),
+  // The popup allowed what a consent panel asked: for the text in the settings, for images in the settings or for the message.
+  grantConsent: async (session, question) => {
+    if (question.kind === "image") return images.grant(session, [question.need.id], question.each, [question.need.host])
+    await recordConsent("onlineConsent", question.needs.map((need) => need.id), question.needs.map((need) => need.host))
+  },
+  // The popup of the message shows the question; without the button in a toolbar, the popup page in a window of its own.
+  consentAsked: (tab) =>
+    void openPopup(tab.windowId)
+      .catch(() => false)
+      .then(async (opened) => {
+        if (!opened) await ext.windows.create({ type: "popup", url: ext.runtime.getURL(`popup.html?tab=${tab.id}`), width: 420, height: 640 })
+      })
+      .catch(() => {}),
   forgetSession: (session) => images.forget(session),
   // Only a page of the extension may ask for a permission, from a click: the popup of the message, else the settings page.
   remoteAccess: (tab) =>
     void offerRemoteAccess(tab.windowId, {
-      openPopup: (windowId) => ext.messageDisplayAction.openPopup(windowId === undefined ? {} : { windowId }),
+      openPopup,
       openOptions: () => openOptionsAt({ section: "imageRemote" }),
     }),
 })
@@ -146,8 +166,6 @@ const handlers = createHandlers({
   offlineManager,
   offlineStatus: offline.status,
   cache,
-  // Written by a request: take the settings over at once, before the storage event arrives, so the next translation sees them.
-  adoptSettings: (stored) => settings.adopt(stored),
 })
 
 /* ---------- listeners: all of them in this first run ---------- */

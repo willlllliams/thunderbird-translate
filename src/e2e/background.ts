@@ -37,6 +37,7 @@
  * Every ready report says whether i18n.getPreferredSystemLanguages() exists.
  */
 
+import type { ConsentKind } from "../shared/consent"
 import { ext } from "../shared/ext"
 import { type ImageMode, SETTINGS_KEY } from "../shared/settings"
 import { updateSettings } from "../shared/settings-store"
@@ -53,6 +54,8 @@ declare const __E2E_SERVER__: string
 /** Messages of the e2e content script; they carry no "type", so the regular handler ignores them. */
 export type E2eMessage =
   | { e2e: "command"; command: "toggle-translation" | "toggle-display-mode" | "retranslate" | "summarize" }
+  /** Allow in the popup what the consent panel of `kind` in the tab of the sender asks, as the user would. */
+  | { e2e: "consent"; kind: ConsentKind }
   | { e2e: "report"; report: unknown }
   | { e2e: "log"; message: string }
   /** Answer: the scenario of the run. */
@@ -122,16 +125,18 @@ export interface E2eDeps {
   storage: KeyValueStorage
   dictionary: DictionaryManager
   runCommand: (command: string, tab?: browser.tabs.Tab) => Promise<void>
+  answerConsent: (tabId: number, kind: ConsentKind, allowed: boolean) => Promise<void>
 }
 
 /** Store the test settings and install the dictionary; never rejects, failures go to the server. */
-export async function setUpE2e({ storage, dictionary, runCommand }: E2eDeps): Promise<void> {
+export async function setUpE2e({ storage, dictionary, runCommand, answerConsent }: E2eDeps): Promise<void> {
   let scenario = ""
   ext.runtime.onMessage.addListener((raw: unknown, sender: browser.runtime.MessageSender) => {
     const msg = raw as E2eMessage
     if (!msg || typeof msg !== "object" || !("e2e" in msg)) return undefined
     // The mark separates the requests before and after the command in the server's log.
     if (msg.e2e === "command") return post("/mark", { command: msg.command }).then(() => runCommand(msg.command, sender.tab))
+    if (msg.e2e === "consent") return sender.tab?.id === undefined ? Promise.resolve() : answerConsent(sender.tab.id, msg.kind, true)
     if (msg.e2e === "report") return post("/report", { ...(msg.report as object), userAgent: navigator.userAgent })
     if (msg.e2e === "scenario") return Promise.resolve(scenario)
     if (msg.e2e === "screenshot") return screenshot(msg.name, msg.windowType)

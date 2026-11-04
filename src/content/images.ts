@@ -53,14 +53,14 @@
  * becomes their last child, so the layout of the table or the list stays.
  */
 
+import { type ConsentQuestion, consentText } from "../shared/consent"
 import { button, h } from "../shared/dom"
-import { getI18n, type MessageKey, t } from "../shared/i18n"
+import { getI18n, t } from "../shared/i18n"
 import { textDirection } from "../shared/locales"
 import { filterImage, filterShape, imageSource } from "../shared/image"
 import { TABLE_HEADER } from "../shared/image-prompt"
 import { markdownFragment } from "../shared/markdown"
 import type { ImageRequest, ImageResponse } from "../shared/messages"
-import { getPreset, providerDisplayName } from "../shared/providers"
 import type { ConsentNeed, PublicImageSettings } from "../shared/settings"
 import { MessageConsent } from "./consent"
 import { noticeBox } from "./notice"
@@ -89,15 +89,14 @@ const pixels = (value: string | null) => (value && /^\s*\d+(\.\d+)?\s*(px)?\s*$/
 const tiny = (img: HTMLImageElement) => [img.getAttribute("width"), img.getAttribute("height"), img.style.width, img.style.height].some((value) => pixels(value) <= 2)
 
 
-/** What the consent panel says about the data policy of a service; the others handle images by their own privacy policy. */
-const POLICY_KEYS: Record<string, MessageKey> = { anthropic: "imageConsentPolicyAnthropic", gemini: "imageConsentPolicyGemini", openai: "imageConsentPolicyOpenai" }
-
 export interface ImageTranslatorDeps {
   root: () => HTMLElement | null
   /** An image request to the background script. */
   request: (req: ImageRequest) => Promise<ImageResponse>
-  /** The user allowed `ids` to receive images at the `hosts` the panel named; `message`: for this message only. */
-  grant: (ids: string[], message: boolean, hosts?: string[]) => void
+  /** "Allow…" under an image: the question goes to the popup of the message, which answers through answerConsent(); the background script records the answer. */
+  review: (question: Extract<ConsentQuestion, { kind: "image" }>) => void
+  /** The panel went without an answer of the popup. */
+  closed: () => void
   /** The user asked for the access to remote images: the background script opens the popup, which can request it. */
   requestAccess?: () => void
   /** The count of remote images on screen that wait for that access, for the popup. */
@@ -134,8 +133,8 @@ export class ImageTranslator {
   private sent = new Set<string>()
   /** Services allowed in a panel of this message, before the settings that record them arrive. */
   private allowed = new MessageConsent()
-  /** The open consent panel and its answer, shared by every image that waits for it. */
-  private consent: { el: HTMLElement; answer: Promise<boolean>; settle: (allowed: boolean) => void } | null = null
+  /** The open consent panel, its question and answer, shared by every image that waits for it. */
+  private consent: { el: HTMLElement; question: Extract<ConsentQuestion, { kind: "image" }>; answer: Promise<boolean>; settle: (allowed: boolean) => void } | null = null
   /** Results of this page by image and signature of the settings: a new mode draws them again without asking. */
   private memo = new Map<string, ImageResponse>()
   /** The remote images on screen that wait for the access to remote images, by sourceKey(). */
@@ -202,6 +201,7 @@ export class ImageTranslator {
   stop(): void {
     this.round++
     this.run = null
+    if (this.consent) this.deps.closed()
     this.consent?.settle(false)
     for (const [img, listener] of this.waiting) {
       img.removeEventListener("load", listener)
@@ -216,6 +216,11 @@ export class ImageTranslator {
     this.note?.remove()
     this.note = null
     this.report()
+  }
+
+  /** The answer of the popup to the consent panel on screen, recorded by the background script already. */
+  answerConsent(allowed: boolean): void {
+    this.consent?.settle(allowed)
   }
 
   /** Remote images waiting for the access, unloaded and unreadable images: on screen in the notice, the first count to the popup. */
@@ -440,19 +445,27 @@ export class ImageTranslator {
     }
     let settle!: (allowed: boolean) => void
     const answer = new Promise<boolean>((resolve) => (settle = resolve))
-    const el = this.consentPanel(need, count)
+    const s = this.run!.settings
+    const question: Extract<ConsentQuestion, { kind: "image" }> = {
+      kind: "image",
+      need,
+      count,
+      each: s.confirmEachMessage,
+      glossary: s.glossary && Boolean(this.run!.context),
+      maxLongEdge: s.maxLongEdge,
+      format: s.format === "image/png" ? "PNG" : s.format === "image/webp" ? "WebP" : "JPEG",
+    }
+    const el = this.consentPanel(question)
     this.consent = {
       el,
+      question,
       answer,
       settle: (allowed) => {
         const focused = el.contains(el.ownerDocument.activeElement)
         el.remove()
         if (focused) entry.slot.focus({ preventScroll: true })
         this.consent = null
-        if (allowed) {
-          this.allowed.allow(need)
-          this.deps.grant([need.id], this.run?.settings.confirmEachMessage === true, [need.host])
-        }
+        if (allowed) this.allowed.allow(need)
         settle(allowed)
       },
     }
@@ -462,29 +475,26 @@ export class ImageTranslator {
   }
 
   /**
-   * The panel that asks before images go to a service: what is sent (in "auto" how many images, `count`, and the
-   * glossary of the message when it goes along), where to, the data policy of the service, and the two buttons.
+   * The panel that asks before images go to a service: what is sent (in "auto" how many images, and the glossary of
+   * the message when it goes along), where to, the data policy of the service; "Allow…" hands the question to the
+   * popup, "Cancel" answers here.
    */
-  private consentPanel(need: ConsentNeed, count: number): HTMLElement {
-    const run = this.run!
-    const s = run.settings
-    const preset = getPreset(need.id)
-    const name = preset ? providerDisplayName(preset) : need.id
-    const format = s.format === "image/png" ? "PNG" : s.format === "image/webp" ? "WebP" : "JPEG"
-    const title = count > 1 ? t("imageConsentTitleAuto", [count, name]) : t("imageConsentTitle", [name])
-    const allow = t(count > 1 ? "imageConsentAllowAuto" : "imageConsentAllow")
+  private consentPanel(question: Extract<ConsentQuestion, { kind: "image" }>): HTMLElement {
+    const text = consentText(question)
+    const cancel = () => {
+      this.deps.closed()
+      this.consent?.settle(false)
+    }
     return noticeBox(
       "div",
       "tt-consent tt-image-consent",
-      title,
+      text.title,
       { tabindex: "-1" },
-      h("strong", { text: title }),
-      h("p", { text: t("imageConsentWhat", [s.maxLongEdge, format]) }),
-      s.glossary && run.context ? h("p", { text: t("imageConsentGlossary") }) : null,
-      h("ul", {}, h("li", { text: need.host ? t("consentService", [name, need.host]) : name })),
-      h("p", { text: t(POLICY_KEYS[need.id] ?? "imageConsentPolicyOther") }),
-      h("p", { text: t(s.confirmEachMessage ? "imageConsentEach" : "imageConsentOnce") }),
-      h("div", { className: "tt-notice-actions" }, button(allow, () => this.consent?.settle(true), true, t("tipImageConsentAllow")), button(t("consentCancel"), () => this.consent?.settle(false), false, t("tipImageConsentCancel"))),
+      h("strong", { text: text.title }),
+      ...text.before.map((line) => h("p", { text: line })),
+      h("ul", {}, ...text.services.map((line) => h("li", { text: line }))),
+      ...text.after.map((line) => h("p", { text: line })),
+      h("div", { className: "tt-notice-actions" }, button(t("consentReview"), () => this.deps.review(question), true, t("tipConsentReview")), button(t("consentCancel"), cancel, false, t("tipImageConsentCancel"))),
     )
   }
 

@@ -39,7 +39,7 @@ What it does
 How to use it
 - Open a message and click "Translate message" in the message header toolbar, or press Alt+A. The popup switches the display, the languages and the services of the three tiers.
 - Alt+S switches between bilingual and translation only; Alt+R translates the message again past the cache.
-- The first time a message would go to an online service, a panel above the message names the service and its address; nothing is sent until you click "Allow and translate".
+- The first time a message would go to an online service, a panel above the message names the service and its address; nothing is sent until you click "Allow…" there and "Allow and translate" in the window of the extension that opens, which the message cannot change.
 
 How to set it up
 - After installation a setup guide opens: languages, display, the three tiers, offline downloads, machine translation, AI service and prompts. You can skip any step.

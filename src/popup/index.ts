@@ -1,3 +1,5 @@
+import { type ConsentQuestion, consentText } from "../shared/consent"
+import { button, h } from "../shared/dom"
 import { firstLine, truncate } from "../shared/errors"
 import { ext } from "../shared/ext"
 import { t } from "../shared/i18n"
@@ -14,8 +16,10 @@ async function main(): Promise<void> {
   let settings = await loadSettings()
   await loadExtensionI18n(settings.uiLanguage)
   localizeDocument()
-  const [tab] = await ext.tabs.query({ active: true, currentWindow: true })
-  const tabId = tab?.id
+  // In a window of its own (the message header button is not in a toolbar), the page names the tab of the message.
+  const named = Number(new URLSearchParams(location.search).get("tab"))
+  const [tab] = named ? [] : await ext.tabs.query({ active: true, currentWindow: true })
+  const tabId = named || tab?.id
 
   const toggle = $<HTMLButtonElement>("toggle")
   const retranslate = $<HTMLButtonElement>("retranslate")
@@ -113,9 +117,43 @@ async function main(): Promise<void> {
       .then(() => checkRemote())
   })
 
+  // The questions of the consent panels of the message, with the buttons that decide.
+  const consentBox = $("consentAsk")
+  let asked = ""
+  const answerConsent = async (kind: ConsentQuestion["kind"], allowed: boolean) => {
+    if (tabId === undefined) return
+    await send({ type: "answerConsent", tabId, kind, allowed }).catch(() => {})
+    await refresh()
+    // The window of its own goes once nothing is asked.
+    if (named && !last.consent?.length) window.close()
+  }
+  const renderConsent = (questions: ConsentQuestion[] = []) => {
+    if (JSON.stringify(questions) === asked) return
+    asked = JSON.stringify(questions)
+    consentBox.hidden = questions.length === 0
+    consentBox.replaceChildren(
+      ...questions.map((q) => {
+        const text = consentText(q)
+        const [allowTip, cancelTip] = q.kind === "text" ? [t("tipConsentAllow"), t("tipConsentCancel")] : [t("tipImageConsentAllow"), t("tipImageConsentCancel")]
+        return h(
+          "div",
+          { role: "group", "aria-label": text.title },
+          h("strong", { text: text.title }),
+          ...text.before.map((line) => h("p", { text: line })),
+          h("ul", {}, ...text.services.map((line) => h("li", { text: line }))),
+          ...text.after.map((line) => h("p", { text: line })),
+          h("div", { className: "row" }, button(text.allow, () => void answerConsent(q.kind, true), true, allowTip), button(t("consentCancel"), () => void answerConsent(q.kind, false), false, cancelTip)),
+        )
+      }),
+    )
+    // The questions take the focus, no button of them: a key pressed by chance answers nothing.
+    if (questions.length > 0) consentBox.focus()
+  }
+
   let last = IDLE_TAB_STATE
   const render = (st: TabState) => {
     last = st
+    renderConsent(st.consent)
     const remote = st.connected && !remoteAllowed ? (st.remoteImages ?? 0) : 0
     $("remoteAccess").hidden = remote === 0
     $("remoteAccessText").textContent = remote > 0 ? t("popupRemoteImages", [remote]) : ""

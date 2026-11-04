@@ -186,7 +186,9 @@ export function createContentProbe(): ContentProbe {
     }
     report.beforeAllow = { tierResults: events.length, active: controller.active, shown: snapshot(root()!).length }
     report.allowedAt = Date.now()
+    // "Allow…" hands the question to the popup, where the user allows.
     panel.querySelector<HTMLButtonElement>("button")!.click()
+    await send({ e2e: "consent", kind: "text" })
     await until("the final progress report", () => last !== null && last.total > 0 && last.done + last.failed === last.total)
     await until("the settings with the consent recorded", () => settings?.consent.length === 0)
     report.translated = { state: last, active: controller.active, shown: snapshot(root()!), panelLeft: document.querySelector(".tt-consent") !== null }
@@ -223,6 +225,7 @@ export function createContentProbe(): ContentProbe {
     report.beforeAllow = { panel: summaryPanel(), services: Array.from(document.querySelectorAll(".tt-consent li"), (li) => li.textContent) }
     report.allowedAt = Date.now()
     document.querySelector<HTMLButtonElement>(".tt-consent button")!.click()
+    await send({ e2e: "consent", kind: "text" })
     await until("the summary", () => (summaryPanel()?.parts.length ?? 0) > 0)
     report.first = summaryPanel()
     report.firstAt = Date.now()
@@ -319,6 +322,7 @@ export function createContentProbe(): ContentProbe {
     report.panel = { slots: imageSlots(), title: panel.querySelector("strong")?.textContent, lines: Array.from(panel.querySelectorAll("p, li"), (el) => el.textContent), buttons: Array.from(panel.querySelectorAll("button"), (b) => b.textContent) }
     report.allowedAt = Date.now()
     panel.querySelector("button")!.click()
+    await send({ e2e: "consent", kind: "image" })
     await until("the result under the chart", () => imageResults() === 1)
     report.first = imageSlots()
     await send({ e2e: "screenshot", name: "image-result", windowType: "mail:messageWindow" })

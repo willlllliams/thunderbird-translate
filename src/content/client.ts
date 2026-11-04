@@ -92,18 +92,12 @@ export function connectContent({ root, contentScript = false, probe }: ClientOpt
       })
     : undefined
 
-  // For a displayed message; the extension pages translate their own sample text.
-  const consentPanel = contentScript ? new ConsentPanel({ root }) : undefined
+  // For a displayed message; the extension pages translate their own sample text. The popup answers the panel.
+  const consentPanel = contentScript
+    ? new ConsentPanel({ root, review: (needs, precise) => void post({ type: "consentAsk", question: { kind: "text", needs, precise } }), closed: () => void post({ type: "consentClosed", kind: "text" }) })
+    : undefined
   const consent = consentPanel && {
-    ask: async (needs: Parameters<ConsentPanel["ask"]>[0], precise: boolean, focus: boolean) => {
-      if (!(await consentPanel.ask(needs, precise, focus))) return false
-      try {
-        await send({ type: "grantConsent", ids: needs.map((need) => need.id), hosts: needs.map((need) => need.host) })
-        return true
-      } catch {
-        return false
-      }
-    },
+    ask: (needs: Parameters<ConsentPanel["ask"]>[0], precise: boolean, focus: boolean) => consentPanel.ask(needs, precise, focus),
     clear: () => consentPanel.clear(),
   }
 
@@ -157,7 +151,8 @@ export function connectContent({ root, contentScript = false, probe }: ClientOpt
             if (post({ type: "image", id, image })) imageRequests.set(id, resolve)
             else resolve({ status: "error", error: getI18n().t("errUnknown") })
           }),
-        grant: (ids, message, hosts) => void post({ type: "imageConsent", ids, ...(hosts ? { hosts } : {}), ...(message ? { message } : {}) }),
+        review: (question) => void post({ type: "consentAsk", question }),
+        closed: () => void post({ type: "consentClosed", kind: "image" }),
         requestAccess: () => void post({ type: "remoteAccess" }),
         reportRemote: (count) => void post({ type: "remoteImages", count }),
       })
@@ -227,6 +222,9 @@ export function connectContent({ root, contentScript = false, probe }: ClientOpt
     } else if (msg.type === "summary") {
       summaryRequests.get(msg.id)?.(msg.result)
       summaryRequests.delete(msg.id)
+    } else if (msg.type === "consentAnswer") {
+      if (msg.kind === "image") images?.answerConsent(msg.allowed)
+      else consentPanel?.answer(msg.allowed)
     } else if (msg.type === "imageResult") {
       imageRequests.get(msg.id)?.(msg.result)
       imageRequests.delete(msg.id)

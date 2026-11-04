@@ -6,9 +6,11 @@
  * own for the translation of images (background/images.ts), opened when it
  * connects and forgotten when it goes away. A tab also counts the remote
  * images its content script could read with the access to remote images,
- * which the popup offers while the count is above 0.
+ * which the popup offers while the count is above 0, and keeps the questions
+ * of its consent panels after "Allow…" until the popup answers them.
  */
 
+import type { ConsentKind, ConsentQuestion } from "../shared/consent"
 import { ext } from "../shared/ext"
 import { t } from "../shared/i18n"
 import type { MailContext } from "../shared/mail-context"
@@ -35,8 +37,10 @@ export interface TabRegistryDeps {
   openSession?: (session: string, tabId: number) => void
   /** An image of the message displayed in a tab, for the content script `session`; without it every image request fails. */
   image?: (session: string, tabId: number, request: ImageRequest) => Promise<ImageResponse>
-  /** The user allowed services to receive images in the panel of the content script `session`; `message`: for its message only. The image requests sent after it wait for it. */
-  imageConsent?: (session: string, ids: string[], message: boolean, hosts?: string[]) => Promise<void>
+  /** The popup allowed what a consent panel of the content script `session` asked: recorded before the answer goes to the panel. */
+  grantConsent?: (session: string, question: ConsentQuestion) => Promise<void>
+  /** "Allow…" in a consent panel of the message in `tab`: the popup of the message opens, which shows the question. */
+  consentAsked?: (tab: browser.tabs.Tab) => void
   /** The content script `session` went away. */
   forgetSession?: (session: string) => void
   /** A click in the message of `tab` asks for the access to remote images, which only a page of the extension can request. */
@@ -54,6 +58,8 @@ export interface TabRegistry {
   broadcast(msg: PortPush): void
   /** Draws the badge of every connected tab again, e.g. in a new interface language. */
   redrawBadges(): void
+  /** The popup answered the consent panel of `kind` in tab `tabId`: recorded when allowed, then told to the panel. */
+  answerConsent(tabId: number, kind: ConsentKind, allowed: boolean): Promise<void>
 }
 
 function safePost(port: browser.runtime.Port, msg: PortPush): void {
@@ -64,12 +70,14 @@ function safePost(port: browser.runtime.Port, msg: PortPush): void {
   }
 }
 
-export function createTabRegistry({ ready, publicSettings, setContext, translate, summarize, openSession, image, imageConsent, forgetSession, remoteAccess }: TabRegistryDeps): TabRegistry {
+export function createTabRegistry({ ready, publicSettings, setContext, translate, summarize, openSession, image, grantConsent, consentAsked, forgetSession, remoteAccess }: TabRegistryDeps): TabRegistry {
   const ports = new Map<number, Set<browser.runtime.Port>>()
   let sessions = 0
   const tabStates = new Map<number, TabState>()
   /** The remote images waiting for the access, by tab. */
   const remoteImages = new Map<number, number>()
+  /** The content scripts with a message, by session, and the questions of their consent panels that wait for the popup. */
+  const sessionPorts = new Map<string, { port: browser.runtime.Port; tabId: number; questions: Map<ConsentKind, ConsentQuestion> }>()
 
   async function updateBadge(tabId: number): Promise<void> {
     const active = tabStates.get(tabId)?.active
@@ -106,8 +114,15 @@ export function createTabRegistry({ ready, publicSettings, setContext, translate
         void result.catch((): ImageResponse => ({ status: "error", error: t("errUnknown") })).then((answer) => safePost(port, { type: "imageResult", id: msg.id, result: answer }))
         break
       }
-      case "imageConsent":
-        if (session && imageConsent) void imageConsent(session, msg.ids, msg.message === true, Array.isArray(msg.hosts) ? msg.hosts : undefined).catch(() => {})
+      case "consentAsk": {
+        const own = session && sessionPorts.get(session)
+        if (!own || !port.sender?.tab || (msg.question?.kind !== "text" && msg.question?.kind !== "image")) break
+        own.questions.set(msg.question.kind, msg.question)
+        consentAsked?.(port.sender.tab)
+        break
+      }
+      case "consentClosed":
+        if (session) sessionPorts.get(session)?.questions.delete(msg.kind)
         break
       case "remoteImages":
         if (session && tabId !== undefined) remoteImages.set(tabId, Number.isInteger(msg.count) && msg.count > 0 ? msg.count : 0)
@@ -131,7 +146,10 @@ export function createTabRegistry({ ready, publicSettings, setContext, translate
     // A page of the extension translates its own sample message; a content script, the message on screen.
     const sample = typeof port.sender?.url === "string" && port.sender.url.startsWith(ext.runtime.getURL(""))
     const session = sample ? undefined : `${tabId}:${++sessions}`
-    if (session) openSession?.(session, tabId)
+    if (session) {
+      openSession?.(session, tabId)
+      sessionPorts.set(session, { port, tabId, questions: new Map() })
+    }
     // Aborted when the content script goes away: what it asked for and is still waiting in a queue is not sent.
     const gone = new AbortController()
     if (!ports.has(tabId)) ports.set(tabId, new Set())
@@ -150,7 +168,10 @@ export function createTabRegistry({ ready, publicSettings, setContext, translate
     })
     port.onDisconnect.addListener(() => {
       gone.abort()
-      if (session) forgetSession?.(session)
+      if (session) {
+        forgetSession?.(session)
+        sessionPorts.delete(session)
+      }
       const set = ports.get(tabId)
       set?.delete(port)
       if (!set || set.size === 0) {
@@ -168,7 +189,18 @@ export function createTabRegistry({ ready, publicSettings, setContext, translate
     stateOf: (tabId) => {
       const state = tabStates.get(tabId) ?? IDLE_TAB_STATE
       const remote = remoteImages.get(tabId) ?? 0
-      return remote > 0 ? { ...state, remoteImages: remote } : state
+      const consent = [...sessionPorts.values()].flatMap((own) => (own.tabId === tabId ? [...own.questions.values()] : []))
+      return { ...state, ...(remote > 0 ? { remoteImages: remote } : {}), ...(consent.length > 0 ? { consent } : {}) }
+    },
+    async answerConsent(tabId, kind, allowed) {
+      for (const [session, own] of sessionPorts) {
+        const question = own.tabId === tabId ? own.questions.get(kind) : undefined
+        if (!question) continue
+        own.questions.delete(kind)
+        // A consent that cannot be recorded is no consent: the background script would refuse the requests.
+        const recorded = allowed && (await (grantConsent?.(session, question) ?? Promise.reject(new Error("no record"))).then(() => true, () => false))
+        safePost(own.port, { type: "consentAnswer", kind, allowed: recorded })
+      }
     },
     postToTab(tabId, msg) {
       for (const port of ports.get(tabId) ?? []) safePost(port, msg)

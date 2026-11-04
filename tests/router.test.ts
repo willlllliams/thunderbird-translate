@@ -31,13 +31,13 @@ function router(settings: Settings = createDefaultSettings()) {
       postToTab: (tabId: number, msg: PortPush) => void pushed.push([tabId, msg]),
       broadcast: (msg: PortPush) => void pushed.push(["all", msg]),
       stateOf: vi.fn(() => IDLE_TAB_STATE),
+      answerConsent: vi.fn(async (_tabId: number, _kind: string, _allowed: boolean) => {}),
     },
     service: { testProvider: vi.fn(async () => "Hallo") },
     localeMessages: vi.fn(async () => ({ locale: "de" as const, messages: {} })),
     offlineManager: () => bergamot,
     offlineStatus: vi.fn(async () => ({})),
     cache: { clear: vi.fn(async () => {}), size: vi.fn(async () => 2) },
-    adoptSettings: vi.fn((_stored: unknown) => {}),
   }
   const handlers = createHandlers(deps)
   const send = (req: BackgroundRequest) => createDispatch(handlers, () => Promise.resolve())(req, PAGE)
@@ -123,26 +123,14 @@ describe("requests from pages", () => {
     expect(stored().offlineMutedPairs).toEqual(["dictionary:ja>zh-Hans"])
   })
 
-  it("records the online services a content script was allowed to use, takes the settings over at once, and answers nothing", async () => {
-    const s = createDefaultSettings()
-    s.onlineConsent = ["google-free@translate.googleapis.com"]
-    s.providers.openai.baseURL = "https://gateway.example.com/v1"
-    const { handlers, deps, stored } = router(s)
-    const dispatch = createDispatch(handlers, () => Promise.resolve())
-    expect(await dispatch({ type: "grantConsent", ids: ["openai", "google-free", "dictionary", "nope"] }, CONTENT)).toBeUndefined()
-    // Each with the host it sends to.
-    const recorded = ["google-free@translate.googleapis.com", "openai@gateway.example.com"]
-    expect(stored().onlineConsent).toEqual(recorded)
-    expect(deps.adoptSettings).toHaveBeenCalledWith(expect.objectContaining({ onlineConsent: recorded }))
-  })
-
-  it("R6: records a service only for the host the panel named", async () => {
-    const s = createDefaultSettings()
-    s.onlineConsent = []
-    s.providers.openai.baseURL = "https://gateway.example.com/v1"
-    const { handlers, stored } = router(s)
-    await createDispatch(handlers, () => Promise.resolve())({ type: "grantConsent", ids: ["openai", "google-free"], hosts: ["api.openai.com", "translate.googleapis.com"] }, CONTENT)
-    expect(stored().onlineConsent).toEqual(["google-free@translate.googleapis.com"])
+  it("S1: hands the answer of the popup to a consent panel to the tabs; a content script cannot answer", async () => {
+    const { handlers, deps, send } = router()
+    expect(await send({ type: "answerConsent", tabId: 4, kind: "image", allowed: true })).toBeUndefined()
+    expect(deps.tabs.answerConsent).toHaveBeenLastCalledWith(4, "image", true)
+    await send({ type: "answerConsent", tabId: 4, kind: "other" as never, allowed: "yes" as never })
+    expect(deps.tabs.answerConsent).toHaveBeenLastCalledWith(4, "text", false)
+    expect(await createDispatch(handlers, () => Promise.resolve())({ type: "answerConsent", tabId: 4, kind: "text", allowed: true }, CONTENT)).toBeUndefined()
+    expect(deps.tabs.answerConsent).toHaveBeenCalledTimes(2)
   })
 
   it("counts and clears the translation cache", async () => {
@@ -164,7 +152,7 @@ describe("requests from pages", () => {
       getLocaleMessages: true,
       openOptions: true,
       muteOfflinePairs: true,
-      grantConsent: true,
+      answerConsent: true,
       offlineStatus: true,
       offlineList: true,
       offlineInstall: true,
@@ -236,7 +224,7 @@ describe("dispatch", () => {
       for (const [, type] of readFileSync(join(dir, file), "utf8").matchAll(/\btype: "(\w+)"/g)) if (Object.hasOwn(router().handlers, type!)) sent.add(type!)
     }
     expect([...sent].sort()).toEqual([...CONTENT_REQUESTS].sort())
-    expect([...CONTENT_REQUESTS].sort()).toEqual(["getLocaleMessages", "grantConsent", "muteOfflinePairs", "openOptions"])
+    expect([...CONTENT_REQUESTS].sort()).toEqual(["getLocaleMessages", "muteOfflinePairs", "openOptions"])
   })
 
   it("answers nothing to an unknown type, also one named after a property of every object", () => {
