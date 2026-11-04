@@ -15,6 +15,7 @@ import { type FetchOptions, HttpError, type RequestSpec } from "../../shared/htt
 import { findLanguage } from "../../shared/languages"
 import type { ResolvedProvider } from "../../shared/settings"
 import { fetchJson, type Languages } from "./common"
+import { deeplSource } from "./deepl"
 
 export function buildDeepLXRequest(text: string, targetDeepl: string, endpoint: string, token = "", sourceDeepl = "auto"): RequestSpec {
   if (!endpoint) throw new LocalizedError("errEndpointRequired", ["DeepLX"])
@@ -54,6 +55,5 @@ export function parseDeepLXResponse(json: unknown): string {
 export async function deeplxTranslate(text: string, { source, target }: Languages, provider: Pick<ResolvedProvider, "baseURL" | "apiKey">, opts: FetchOptions = {}): Promise<string> {
   const to = findLanguage(target)?.deepl
   if (!to) throw new LocalizedError("errUnsupportedPair", ["DeepLX"])
-  const from = source === "auto" ? undefined : findLanguage(source)?.deepl.split("-")[0]
-  return parseDeepLXResponse(await fetchJson(opts, buildDeepLXRequest(text, to, provider.baseURL, provider.apiKey, from), "DeepLX"))
+  return parseDeepLXResponse(await fetchJson(opts, buildDeepLXRequest(text, to, provider.baseURL, provider.apiKey, deeplSource(source)), "DeepLX"))
 }

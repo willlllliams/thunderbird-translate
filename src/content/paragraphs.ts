@@ -25,6 +25,8 @@ export const CLS_SUBJECT = "tt-subject"
 export const CLS_IMAGE = "tt-image"
 /** Translation only: the hidden span that keeps the original children of a unit (render.ts). */
 export const CLS_ORIGINAL = "tt-original"
+/** The id of the style element with the variables of the translations (controller.ts). */
+export const STYLE_ID = "tt-style-vars"
 
 export interface Unit {
   /** Element that holds the paragraph and receives the translation. */
@@ -77,7 +79,7 @@ export function restoreLeftovers(root: HTMLElement): void {
   for (const original of Array.from(root.querySelectorAll(`.${CLS_ORIGINAL}`))) original.replaceWith(...Array.from(original.childNodes))
   for (const el of Array.from(root.querySelectorAll(`.${CLS_TRANSLATION}, .${CLS_STATUS}, .${CLS_SUBJECT}, .${CLS_NOTICE}, .${CLS_IMAGE}`))) el.remove()
   for (const seg of Array.from(root.querySelectorAll(`.${CLS_SEG}`))) seg.replaceWith(...Array.from(seg.childNodes))
-  root.ownerDocument.getElementById("tt-style-vars")?.remove()
+  root.ownerDocument.getElementById(STYLE_ID)?.remove()
 }
 
 function computedDisplay(el: Element): string | null {

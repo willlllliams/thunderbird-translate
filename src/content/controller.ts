@@ -45,7 +45,7 @@ import { type Tier, TIER_NAME_KEYS, TIERS } from "../shared/providers"
 import type { ConsentNeed, PublicSettings } from "../shared/settings"
 import { MessageConsent } from "./consent"
 import type { ImageTranslator } from "./images"
-import { type Collected, collectParagraphs, extractText, type Unit } from "./paragraphs"
+import { type Collected, collectParagraphs, extractText, STYLE_ID, type Unit } from "./paragraphs"
 import { Renderer, styleVars, type TranslationMark } from "./render"
 import { hasTranslatableText } from "../shared/text"
 
@@ -82,7 +82,6 @@ type View =
   | { kind: "fallback"; text: string; error: string }
   | { kind: "error"; error: string }
 
-const STYLE_ID = "tt-style-vars"
 /** Progress goes to the background at most this often; the last state always follows. */
 const REPORT_INTERVAL_MS = 100
 /** A tier whose service, model or prompt changed is asked again once the settings stayed the same this long. */

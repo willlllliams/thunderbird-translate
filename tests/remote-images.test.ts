@@ -8,6 +8,7 @@ import { describe, expect, it, vi } from "vitest"
 import { fetchRemoteImage, HeldImages, imageUrlsOf, messageImageUrls, offerRemoteAccess, readableHost, REMOTE_MAX_BYTES, RemoteImages, srcsetUrls } from "../src/background/remote-images"
 import { messageImageAddresses } from "../src/background/displayed"
 import { imageSource, remoteImageUrl, sniffImageType } from "../src/shared/image"
+import { until } from "./helpers"
 
 const parse = (html: string) => new DOMParser().parseFromString(html, "text/html")
 
@@ -227,13 +228,13 @@ describe("the bytes kept from a peek", () => {
     const slow = new RemoteImages({ imageUrls: async () => new Set(urls), fetchFn: fetchFn as unknown as typeof fetch, held })
     const signal = new AbortController().signal
     const reads = urls.map((url) => slow.bytes(1, url, signal))
-    await vi.waitFor(() => expect(fetchFn).toHaveBeenCalledTimes(2))
+    await until(() => expect(fetchFn).toHaveBeenCalledTimes(2))
     // Another message reads at once.
     const other = new RemoteImages({ imageUrls: async () => new Set(urls), fetchFn: async () => streamed([new Uint8Array([2])]).response, held })
     expect(await other.bytes(2, urls[0], signal)).toEqual({ bytes: new Uint8Array([2]), type: "image/png" })
     expect(fetchFn).toHaveBeenCalledTimes(2)
     waiting.shift()!()
-    await vi.waitFor(() => expect(fetchFn).toHaveBeenCalledTimes(3))
+    await until(() => expect(fetchFn).toHaveBeenCalledTimes(3))
     for (const resolve of waiting.splice(0)) resolve()
     expect((await Promise.all(reads)).map((r) => r && r !== "large" && r.bytes[0])).toEqual([1, 1, 1])
     // Without the addresses of the message nothing is read.
