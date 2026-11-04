@@ -145,7 +145,7 @@ describe("the summary request of the translation service", () => {
     const [prompt, opts] = summarize.mock.calls[0]
     expect(prompt).toBe(buildSummaryPrompt("Hallo Tom, could we move the acceptance to Thursday? ...", header))
     expect(opts).toMatchObject({ systemPrompt: buildSummarySystem(DEFAULT_PROMPTS.summary, "German", SUMMARY_PARTS), targetLanguageName: "German", maxOutputTokens: 600 })
-    expect(opts.provider).toMatchObject({ id: "openai", model: "gpt-4.1-mini" })
+    expect(opts.provider).toMatchObject({ id: "openai", model: "gpt-6-luna" })
     // The cache answers the same message; "Regenerate" asks again.
     expect((await service.summarize("Hallo Tom, could we move the acceptance to Thursday? ...", header)).ok).toBe(true)
     expect(summarize).toHaveBeenCalledTimes(1)

@@ -360,7 +360,7 @@ describe("service panel", () => {
     const page = await options((s) => (s.providers.openai.enabled = true))
     pick("OpenAI")
     const [, model] = inputs().filter((i) => i.type === "text")
-    expect(model.placeholder).toBe("gpt-4.1-mini")
+    expect(model.placeholder).toBe("gpt-6-luna")
     expect(panel().querySelectorAll("datalist option").length).toBeGreaterThan(1)
     const temperature = input("number")
     expect(temperature.value).toBe("0.3")
@@ -679,7 +679,7 @@ describe("summary and to-dos", () => {
     })
     // A chosen service that is not added: the summary uses the AI tier.
     expect($<HTMLSelectElement>("summaryProvider").value).toBe("")
-    expect($<HTMLInputElement>("summaryModel").placeholder).toBe("gpt-4.1-mini")
+    expect($<HTMLInputElement>("summaryModel").placeholder).toBe("gpt-6-luna")
     Array.from(document.querySelectorAll<HTMLButtonElement>("#providerList button")).find((b) => b.firstChild?.textContent === "DeepSeek")!.click()
     Array.from($("providerPanel").querySelectorAll("button")).find((b) => b.textContent === ENGLISH.t("buttonAddProvider"))!.click()
     expect($<HTMLSelectElement>("summaryProvider").value).toBe("deepseek")

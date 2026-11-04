@@ -314,7 +314,7 @@ describe("precise mode", () => {
     // The analysis is cached like a translation, under the message text and the configuration of the requests.
     const stored = set.mock.calls.filter(([key]) => key.endsWith(`:analysis|${hashText(PARAGRAPHS.join("\n\n"))}`))
     expect(stored).toHaveLength(1)
-    expect(stored[0][0].startsWith(`openai|${settings.providers.openai.model || "gpt-4.1-mini"}|auto>zh-CN|`)).toBe(true)
+    expect(stored[0][0].startsWith(`openai|${settings.providers.openai.model || "gpt-6-luna"}|auto>zh-CN|`)).toBe(true)
     expect(JSON.parse(stored[0][1])).toEqual(ANALYSIS)
   })
 

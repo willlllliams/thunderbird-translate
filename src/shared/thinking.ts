@@ -43,9 +43,9 @@ const OPENAI_RULES: ThinkingRule[] = [
 /** Claude models with adaptive thinking; they also reject custom sampling parameters. */
 const CLAUDE_ADAPTIVE = /claude-(?:opus|sonnet|haiku|fable|mythos)-[5-9]|claude-opus-4-[78]/
 
-/** Claude 5.x and later reject custom sampling parameters. */
+/** Claude 5.x and later reject custom sampling parameters; Kimi K3 models fix the temperature. */
 export function modelRejectsTemperature(presetId: string, model: string): boolean {
-  return presetId === "anthropic" && CLAUDE_ADAPTIVE.test(model)
+  return (presetId === "anthropic" && CLAUDE_ADAPTIVE.test(model)) || (presetId === "moonshot" && /^kimi-k3/.test(model))
 }
 
 const CONTROLS: Record<string, ThinkingControl> = {

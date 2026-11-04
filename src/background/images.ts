@@ -443,7 +443,7 @@ export class ImageService {
       targetLanguageName: getLanguage(settings.targetLang).english,
       fetchFn: this.deps.fetchFn,
       timeoutMs: settings.image.timeoutSeconds * 1000 * (local ? SLOW_MODEL_TIMEOUT_FACTOR : 1),
-      // A model that reasons even with thinking off (gpt-5-mini, Gemini 3, Claude 5) gets room for it beyond the answer.
+      // A model that reasons even with thinking off (Gemini 3, Kimi K3, Claude 5) gets room for it beyond the answer.
       maxOutputTokens: outputLimit(provider.id, provider.model, false, imageOutputTokens(settings.image)),
     }
   }

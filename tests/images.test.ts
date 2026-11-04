@@ -222,7 +222,7 @@ describe("an image request", () => {
     expect(image).toEqual({ bytes: new Uint8Array(2000), mediaType: "image/jpeg" })
     expect(text).toBe("Image 1 of the email. Target language: English.")
     expect(opts).toMatchObject({ systemPrompt: expect.stringContaining("Output format (follow exactly):"), targetLanguageName: "English", timeoutMs: 90_000, maxOutputTokens: 1024 })
-    expect(opts.provider).toMatchObject({ id: "openai", model: "gpt-4.1-mini", thinking: false })
+    expect(opts.provider).toMatchObject({ id: "openai", model: "gpt-6-luna", thinking: false })
     expect(codec.closed).toBe(1)
     // The cache answers a peek and a request; the image is still read on this computer, nothing is sent.
     expect(await ask({ action: "peek" })).toEqual({ status: "done", text: TABLE, service: "OpenAI", cached: true })
@@ -620,7 +620,7 @@ describe("the test image", () => {
     expect(text).toBe("Image 1 of the email. Target language: English.")
     expect(opts.provider).toMatchObject({ model: "gpt-4.1", thinking: false, apiKey: "sk-test" })
     await s.images.test("openai", config, " ")
-    expect(s.read.mock.calls[1][2].provider.model).toBe("gpt-4.1-mini")
+    expect(s.read.mock.calls[1][2].provider.model).toBe("gpt-6-luna")
   })
 
   it("fails with the answer, or with the description of the error without the key", async () => {

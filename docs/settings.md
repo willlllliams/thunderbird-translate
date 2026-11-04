@@ -373,7 +373,7 @@ A summary that opens by itself asks for the consent of its service the first tim
 | --- | --- | --- | --- |
 | Service | Same as the AI tier | the added AI services | without an AI tier and without a service of its own, the popup button is disabled |
 | Model | empty | any model name | empty uses the model of the service |
-| Answer length limit (tokens) | 800 | 200–4000 | the length of the summary, sent as `maxOutputTokens`; a model that reasons first (thinking on, or a model that reasons with thinking off, such as `gpt-5-mini`) gets 4096 more for its reasoning, which most services count within the limit; Anthropic's SDK adds it by itself. An answer cut at the limit fails with a message that names the limit |
+| Answer length limit (tokens) | 800 | 200–4000 | the length of the summary, sent as `maxOutputTokens`; a model that reasons first (thinking on, or a model that reasons with thinking off, such as `gemini-3.5-flash-lite`) gets 4096 more for its reasoning, which most services count within the limit; Anthropic's SDK adds it by itself. An answer cut at the limit fails with a message that names the limit |
 | Panel | Expanded | Expanded, Collapsed | how the panel opens |
 | Automatic summary | Off | Off, When the message is translated, For every opened message | see [Automatic summary](#automatic-summary) |
 | Include | all four parts | Summary, To-dos, Questions to answer, Dates and meetings | the parts left out are asked as empty lists, which shortens the answer, and are not shown |

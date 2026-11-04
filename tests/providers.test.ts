@@ -57,6 +57,51 @@ describe("provider presets", () => {
     expect(new Set(PROVIDER_PRESETS.map((p) => p.id)).size).toBe(PROVIDER_PRESETS.length)
   })
 
+  /**
+   * P1–P5: models the services retired or retire soon, with the day they stop answering (the first day of the month
+   * where the page names no day) and where it says so. No preset suggests one that stops within 90 days of the
+   * release; a default must not be listed at all.
+   */
+  const RETIRED: [preset: string, model: string, shutdown: string, source: string][] = [
+    ["openai", "gpt-4.1-nano", "2026-10-23", "https://developers.openai.com/api/docs/deprecations"],
+    ["openai", "gpt-5", "2026-12-11", "https://developers.openai.com/api/docs/deprecations"],
+    ["openai", "gpt-5-mini", "2026-12-11", "https://developers.openai.com/api/docs/deprecations"],
+    ["openai", "gpt-5-nano", "2026-12-11", "https://developers.openai.com/api/docs/deprecations"],
+    ["openai", "gpt-4.1", "2027-01-14", "https://developers.openai.com/api/docs/deprecations"],
+    ["openai", "gpt-4.1-mini", "2027-01-14", "https://developers.openai.com/api/docs/deprecations"],
+    ["openai", "gpt-4o", "2027-01-14", "https://developers.openai.com/api/docs/deprecations"],
+    ["openai", "gpt-4o-mini", "2027-01-14", "https://developers.openai.com/api/docs/deprecations"],
+    ["openrouter", "openai/gpt-4.1-mini", "2027-01-14", "https://developers.openai.com/api/docs/deprecations"],
+    ["openrouter", "google/gemini-2.5-flash", "2026-12-01", "https://aistudio.google.com/docs/deprecations"],
+    ["gemini", "gemini-2.5-flash", "2026-12-01", "https://aistudio.google.com/docs/deprecations"],
+    ["gemini", "gemini-2.5-pro", "2026-12-01", "https://aistudio.google.com/docs/deprecations"],
+    ["groq", "llama-3.3-70b-versatile", "2026-08-16", "https://console.groq.com/docs/deprecations"],
+    ["groq", "llama-3.1-8b-instant", "2026-08-16", "https://console.groq.com/docs/deprecations"],
+    ["groq", "qwen/qwen3.6-27b", "2026-09-14", "https://console.groq.com/docs/deprecations"],
+    ["moonshot", "kimi-k2-turbo-preview", "2026-05-25", "https://platform.kimi.ai/docs/models"],
+    ["moonshot", "kimi-k2-0905-preview", "2026-05-25", "https://platform.kimi.ai/docs/models"],
+    ["moonshot", "moonshot-v1-8k", "2026-08-31", "https://platform.kimi.ai/docs/models"],
+    ["moonshot", "moonshot-v1-32k", "2026-08-31", "https://platform.kimi.ai/docs/models"],
+    ["cerebras", "qwen-3-32b", "2026-02-16", "https://inference-docs.cerebras.ai/support/deprecation"],
+    ["cerebras", "llama3.1-8b", "2026-05-27", "https://inference-docs.cerebras.ai/support/deprecation"],
+    ["togetherai", "meta-llama/Llama-3.3-70B-Instruct-Turbo", "2026-10-22", "https://docs.together.ai/docs/deprecations"],
+    ["togetherai", "Qwen/Qwen2.5-72B-Instruct-Turbo", "2026-02-06", "https://docs.together.ai/docs/deprecations"],
+    ["togetherai", "deepseek-ai/DeepSeek-V3", "2026-05-14", "https://docs.together.ai/docs/deprecations"],
+    ["fireworks", "accounts/fireworks/models/llama-v3p3-70b-instruct", "2026-05-14", "https://docs.fireworks.ai/updates/changelog"],
+    ["dashscope", "qwen-turbo", "2026-10-10", "https://help.aliyun.com/zh/model-studio/model-depreciation"],
+    ["siliconflow", "THUDM/glm-4-9b-chat", "2026-03-17", "https://api-docs.siliconflow.cn/docs/release-notes/overview"],
+  ]
+
+  it("P1–P5: suggests no model that stops answering within 90 days of the release, and no listed model as default", () => {
+    const release = new Date("2026-11-04")
+    const limit = new Date(release.getTime() + 90 * 86_400_000).toISOString().slice(0, 10)
+    for (const preset of LLM_PRESETS) {
+      const retired = RETIRED.filter(([id]) => id === preset.id)
+      expect([preset.id, retired.filter(([, model]) => model === preset.defaultModel)]).toEqual([preset.id, []])
+      expect([preset.id, retired.filter(([, model, shutdown]) => preset.models.includes(model) && shutdown < limit)]).toEqual([preset.id, []])
+    }
+  })
+
   it("defaults to the free Google service as machine translation tier", () => {
     expect(createDefaultSettings().tiers).toEqual({ dictionary: null, machine: "google-free", ai: null })
   })
@@ -214,8 +259,8 @@ describe("thinking switch", () => {
 
   it("sends the switch in each provider's own format", async () => {
     expect((await requestBody("anthropic", false)).thinking).toEqual({ type: "disabled" })
-    expect(((await requestBody("gemini", false)).generationConfig as Record<string, unknown>).thinkingConfig).toEqual({ thinkingBudget: 0 })
-    expect((await requestBody("openai", false)).reasoning_effort).toBeUndefined()
+    expect(((await requestBody("gemini", false)).generationConfig as Record<string, unknown>).thinkingConfig).toEqual({ thinkingLevel: "low" })
+    expect((await requestBody("openai", false)).reasoning_effort).toBe("none")
     expect((await requestBody("dashscope", false)).enable_thinking).toBe(false)
     expect((await requestBody("ollama", false)).reasoning_effort).toBe("none")
   })
@@ -255,7 +300,7 @@ describe("LLM calls", () => {
     await llmTranslateSingle({ text: "Hello" }, opts({ ...configFor("openai"), temperature: 0.2 }, fetchFn))
     await llmTranslateSingle({ text: "Hello" }, opts({ ...configFor("openai"), temperature: null }, fetchFn))
     expect(bodies.map((b) => b.temperature)).toEqual([0.2, undefined])
-    expect((bodies[0].messages as { role: string; content: string }[])[0]).toEqual({ role: "system", content: "Into Chinese." })
+    expect((bodies[0].messages as { role: string; content: string }[])[0].content).toBe("Into Chinese.")
   })
 
   it("leaves the temperature out for Claude models that reject it", async () => {
@@ -268,6 +313,14 @@ describe("LLM calls", () => {
     expect(body.temperature).toBeUndefined()
     await llmTranslateSingle({ text: "Hello" }, opts({ ...configFor("anthropic"), model: "claude-haiku-4-5", temperature: 0.3 }, fetchFn))
     expect(body.temperature).toBe(0.3)
+  })
+
+  it("P2: leaves the temperature out for Kimi K3 models, which fix it, and sends the low effort with thinking off", async () => {
+    const { bodies, fetchFn } = recorder()
+    expect(configFor("moonshot")).toMatchObject({ model: "kimi-k3.1-pro", temperature: null })
+    await llmTranslateSingle({ text: "Hello" }, opts({ ...configFor("moonshot"), temperature: 0.3 }, fetchFn))
+    expect(bodies[0].temperature).toBeUndefined()
+    expect(bodies[0].reasoning_effort).toBe("low")
   })
 
   it("leaves no timer behind a request with a timeout, answered or failed", async () => {

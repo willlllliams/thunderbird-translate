@@ -24,7 +24,7 @@ interface VisionRule {
 
 /** Model families that read images, whichever service serves them (OpenRouter, Azure, LM Studio and the custom service included). */
 const ANY_SERVICE: VisionRule[] = [
-  { models: /gpt-4o|gpt-4\.1|gpt-5|(?:^|\/)o[34](?:-|$)|claude-|gemini-|grok-4|pixtral|-vl|vl-|vision|llava|qwen3\.7-flash|glm-4\.[56]v|kimi-k3|kimi-k2\.6|doubao-seed|llama-4|gemma-?3/i, vision: "yes" },
+  { models: /gpt-4o|gpt-4\.1|gpt-[56]|(?:^|\/)o[34](?:-|$)|claude-|gemini-|grok-4|pixtral|-vl|vl-|vision|llava|qwen3\.7-flash|glm-4\.[56]v|kimi-k3|kimi-k2\.6|doubao-seed|llama-4|gemma-?3/i, vision: "yes" },
 ]
 
 /** Rules of one service, before ANY_SERVICE: the defaults of the presets and the models their documentation names. */
@@ -36,17 +36,22 @@ const BY_SERVICE: Record<string, VisionRule[]> = {
   mistral: [{ models: /^mistral-(?:small|medium)/, vision: "yes" }],
   // GLM-4V-Flash takes no base64 image, the only form the extension sends.
   zhipu: [{ models: /^glm-4v-flash$|^glm-4-(?:flash|air|plus)|^glm-4\.5-air/i, vision: "no" }],
-  siliconflow: [{ models: /^Qwen\/Qwen2\.5-\d+B-Instruct$|^deepseek-ai\/DeepSeek-V3$|^THUDM\/glm-4-9b-chat$/, vision: "no" }],
+  siliconflow: [{ models: /^Qwen\/Qwen2\.5-\d+B-Instruct$|^deepseek-ai\/DeepSeek-V3$|^THUDM\/(?:glm-4-9b-chat|GLM-4-9B-0414)$/, vision: "no" }],
   ollama: [{ models: /^(?:qwen2\.5|qwen3|llama3\.1):/, vision: "no" }],
   groq: [
-    { models: /^llama-3\.[13]-|^openai\/gpt-oss/, vision: "no" },
+    { models: /^openai\/gpt-oss/, vision: "no" },
     { models: /^qwen\/qwen3\.8/, vision: "yes" },
   ],
-  togetherai: [{ models: /Llama-3\.3-70B-Instruct-Turbo$|Qwen2\.5-72B-Instruct-Turbo$|DeepSeek-V3$/, vision: "no" }],
-  fireworks: [{ models: /llama-v3p3-70b-instruct$|deepseek-v3$|qwen2p5-72b-instruct$/, vision: "no" }],
+  togetherai: [
+    { models: /^openai\/gpt-oss/, vision: "no" },
+    { models: /^Qwen\/Qwen3\.5-9B$/, vision: "yes" },
+  ],
+  fireworks: [{ models: /\/glm-5p3-flash$/, vision: "yes" }],
   deepinfra: [{ models: /Llama-3\.3-70B-Instruct-Turbo$|Qwen2\.5-72B-Instruct$|DeepSeek-V3$/, vision: "no" }],
-  cerebras: [{ models: /^(?:gpt-oss-120b|llama3\.1-8b|qwen-3-32b)$/, vision: "no" }],
-  moonshot: [{ models: /^moonshot-v1-\d+k$/, vision: "no" }],
+  cerebras: [
+    { models: /^gpt-oss-120b$/, vision: "no" },
+    { models: /^qwen-3\.8/, vision: "yes" },
+  ],
 }
 
 /** A model that reads images, for the services whose default model does not or may not. */
@@ -57,6 +62,8 @@ export const SUGGESTED_VISION_MODELS: Record<string, string> = {
   moonshot: "kimi-k3",
   ollama: "qwen3-vl:8b",
   groq: "qwen/qwen3.8-27b",
+  togetherai: "Qwen/Qwen3.5-9B",
+  cerebras: "qwen-3.8-27b",
 }
 
 /** Whether `model` of the service `presetId` reads images. */
@@ -100,6 +107,7 @@ const TOKEN_RULES: { presets: readonly string[] | null; models: RegExp; tokens: 
       [/gpt-4\.1-nano/, 2.46],
       [/gpt-5-mini/, 1.2],
       [/gpt-5-nano/, 1.5],
+      [/gpt-5\.6-luna/, 1.2],
     ] as const
   ).map(([models, factor]) => ({ presets: null, models, tokens: (w: number, h: number) => Math.ceil(Math.ceil(w / 32) * Math.ceil(h / 32) * factor) })),
   // OpenAI tile models: a base plus every 512 px tile of the image scaled to fit 2048 × 2048 with its short side at most 768.
@@ -108,7 +116,7 @@ const TOKEN_RULES: { presets: readonly string[] | null; models: RegExp; tokens: 
   // Anthropic: 28 px patches, at most 1568 at the standard resolution.
   { presets: null, models: /claude-/, tokens: (w, h) => Math.min(1568, Math.ceil(w / 28) * Math.ceil(h / 28)) },
   // Gemini 2.5: 258 for a small image, else 258 per 768 px tile.
-  { presets: null, models: /gemini-/, tokens: (w, h) => (w <= 384 && h <= 384 ? 258 : 258 * Math.ceil(w / 768) * Math.ceil(h / 768)) },
+  { presets: null, models: /gemini-2\./, tokens: (w, h) => (w <= 384 && h <= 384 ? 258 : 258 * Math.ceil(w / 768) * Math.ceil(h / 768)) },
   // Qwen3 (Alibaba Cloud Model Studio): one token per 32 × 32 pixels, plus two.
   { presets: ["dashscope"], models: /qwen3/, tokens: (w, h) => Math.ceil(w / 32) * Math.ceil(h / 32) + 2 },
   // Doubao seed 2.0: 1280 per image with detail "high", else one token per 1764 pixels.

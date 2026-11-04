@@ -160,9 +160,9 @@ describe("settings page", () => {
   it("offers the added AI services, the models of the service and says what is known of the model", async () => {
     await options(precise((s) => (s.providers.zhipu.enabled = true)))
     expect(Array.from($<HTMLSelectElement>("imageProvider").options, (o) => o.value)).toEqual(["", "openai", "zhipu"])
-    expect($<HTMLInputElement>("imageModel").placeholder).toBe("gpt-4.1-mini")
+    expect($<HTMLInputElement>("imageModel").placeholder).toBe("gpt-6-luna")
     expect($("imageSupport").hidden).toBe(true)
-    expect($("imageCost").textContent).toMatch(/1,245/)
+    expect($("imageCost").textContent).toBe(costHint(precise((s) => (s.providers.zhipu.enabled = true))))
     expect($<HTMLAnchorElement>("imagePrices").hidden).toBe(false)
     expect($<HTMLAnchorElement>("imagePrices").href).toBe("https://developers.openai.com/api/docs/pricing")
     set("imageProvider", "zhipu")
@@ -175,7 +175,7 @@ describe("settings page", () => {
   })
 
   it("estimates the tokens of an image with the formula of the model and of the prompt by its length", () => {
-    const s = precise()
+    const s = precise((settings) => (settings.image.model = "gpt-4.1-mini"))
     expect(costHint(s)).toMatch(new RegExp(`^${ENGLISH.t("hintVisionCost", [1245, "\\d+"]).replace(/[()×]/g, ".")}$`))
     s.image.model = "deepseek-x"
     expect(costHint(s)).toMatch(/^There is no estimate of the image tokens of deepseek-x/)
