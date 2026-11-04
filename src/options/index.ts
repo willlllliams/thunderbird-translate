@@ -1,4 +1,4 @@
-import { setStyleVars } from "../content/render"
+import { sampleRenderer } from "../content/render"
 import { ext } from "../shared/ext"
 import { getI18n, t } from "../shared/i18n"
 import { localizeDocument } from "../shared/i18n-dom"
@@ -221,10 +221,11 @@ function renderProviderPanel(): void {
   )
 }
 
+/** The sample paragraph and its translation as the renderer of the messages draws them, in the style of the settings. */
 function applyPreview(): void {
-  setStyleVars($("preview"), settings.style)
-  const tr = $("previewTranslation")
-  tr.className = `tt-translation tt-bilingual tt-flow tt-style-${settings.style.preset}`
+  const original = h("p", { text: t("stylePreviewOriginal") })
+  $("preview").replaceChildren(original)
+  sampleRenderer($("preview"), settings.style).show(original, t("stylePreviewTranslation"), "bilingual")
 }
 
 async function refreshCacheCount(): Promise<void> {

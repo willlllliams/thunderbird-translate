@@ -174,7 +174,8 @@ describe("batching, style and cache", () => {
     const preview = $("preview")
     expect(preview.style.getPropertyValue("--tt-color")).toBe("#4c8bf5")
     set("stylePreset", "highlight")
-    expect($("previewTranslation").className).toBe("tt-translation tt-bilingual tt-flow tt-style-highlight")
+    expect(preview.querySelector(".tt-translation")!.className).toBe("tt-translation tt-bilingual tt-style-highlight tt-flow")
+    expect([preview.querySelector("p")!.firstChild!.textContent, preview.querySelector(".tt-translation")!.textContent, preview.querySelector(".tt-translation")!.getAttribute("lang")]).toEqual([ENGLISH.t("stylePreviewOriginal"), ENGLISH.t("stylePreviewTranslation"), "en"])
     set("styleColor", "#ff0000", "input")
     set("styleOpacity", "0.5", "input")
     set("styleFontScale", "1.2", "input")
@@ -231,7 +232,7 @@ describe("batching, style and cache", () => {
     const page = await options()
     page.external((s) => (s.style = { ...s.style, preset: "dashed", color: "#00ff00" }))
     expect($<HTMLSelectElement>("stylePreset").value).toBe("dashed")
-    expect($("previewTranslation").classList.contains("tt-style-dashed")).toBe(true)
+    expect($("preview").querySelector(".tt-translation")!.classList.contains("tt-style-dashed")).toBe(true)
     expect($("preview").style.getPropertyValue("--tt-color")).toBe("#00ff00")
   })
 
