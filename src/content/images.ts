@@ -364,7 +364,7 @@ export class ImageTranslator {
     // The image whose button was clicked before the access was there: sent now, as by a click.
     if (clicked) {
       this.pending = null
-      void this.click(clicked)
+      void this.click(clicked, false)
     }
     if (send.length === 0) return
     if (!(await this.ensureConsent(send[0], new Set(send.map(sourceKey)).size))) {
@@ -395,14 +395,14 @@ export class ImageTranslator {
     if (answer.status === "access") {
       this.access.add(sourceKey(entry))
       this.drawNote()
-      return this.click(entry)
+      return this.click(entry, false)
     }
     if (answer.status === "done" || answer.status === "noText") this.memo.set(this.memoKey(entry), { ...answer, ...(answer.status === "done" ? { cached: true, usage: undefined } : {}) })
     this.show(entry, answer, true)
   }
 
-  /** A click on the button: the access to remote images when it is missing, the consent, then the image. */
-  private async click(entry: Entry): Promise<void> {
+  /** A click on the button: the access to remote images when it is missing, the consent, then the image; `byUser`: the click itself, not a click before the access was there. */
+  private async click(entry: Entry, byUser = true): Promise<void> {
     const key = sourceKey(entry)
     if (this.access.has(key)) {
       this.pending = key
@@ -410,18 +410,25 @@ export class ImageTranslator {
       return this.askAccess()
     }
     const round = this.round
-    if (!(await this.ensureConsent(entry))) {
+    if (!(await this.ensureConsent(entry, 0, byUser))) {
       if (round === this.round) this.showButton(entry)
       return
     }
     if (round === this.round) await this.translate(entry, round)
   }
 
-  /** Whether the vision service may receive images: allowed already, or allowed now in the panel under `entry`; `count`: the images "auto" sends once allowed. */
-  private ensureConsent(entry: Entry, count = 0): Promise<boolean> {
+  /**
+   * Whether the vision service may receive images: allowed already, or allowed now in the panel under `entry`; `count`:
+   * the images "auto" sends once allowed. `focus`: after a click, the panel takes the focus; the panel itself, never a
+   * button, so no key pressed by chance answers it. A panel of "auto" leaves the focus where it is.
+   */
+  private ensureConsent(entry: Entry, count = 0, focus = false): Promise<boolean> {
     const need = this.run!.settings.consent
     if (!need || this.allowed.has(need.id)) return Promise.resolve(true)
-    if (this.consent) return this.consent.answer
+    if (this.consent) {
+      if (focus) this.consent.el.focus()
+      return this.consent.answer
+    }
     let settle!: (allowed: boolean) => void
     const answer = new Promise<boolean>((resolve) => (settle = resolve))
     const el = this.consentPanel(need, count)
@@ -439,7 +446,7 @@ export class ImageTranslator {
       },
     }
     entry.slot.replaceChildren(el)
-    el.querySelector<HTMLButtonElement>("button")?.focus({ preventScroll: true })
+    if (focus) el.focus()
     return answer
   }
 
@@ -459,7 +466,7 @@ export class ImageTranslator {
       "div",
       "tt-consent tt-image-consent",
       title,
-      {},
+      { tabindex: "-1" },
       h("strong", { text: title }),
       h("p", { text: t("imageConsentWhat", [s.maxLongEdge, format]) }),
       s.glossary && run.context ? h("p", { text: t("imageConsentGlossary") }) : null,

@@ -202,6 +202,8 @@ describe("the mode auto", () => {
     expect(Array.from(panel.querySelectorAll("p"), (p) => p.textContent)).toEqual([ENGLISH.t("imageConsentWhat", [1568, "JPEG"]), ENGLISH.t("imageConsentPolicyGemini"), ENGLISH.t("imageConsentOnce")])
     expect(panel.querySelector("li")!.textContent).toBe(ENGLISH.t("consentService", ["Google Gemini", need.host]))
     expect(sent(request, "translate")).toEqual([])
+    // D1: the panel opened by itself, so the focus stays where it was.
+    expect(panel.contains(document.activeElement)).toBe(false)
     panel.querySelectorAll("button")[1].click()
     await until(() => expect(buttons()).toHaveLength(3))
     expect(grant).not.toHaveBeenCalled()
@@ -225,6 +227,8 @@ describe("the consent panel under a clicked image", () => {
     buttons()[1].click()
     const panel = () => slots()[1].querySelector<HTMLElement>(".tt-image-consent")
     await until(() => expect(panel()).not.toBeNull())
+    // D1: after the click the panel itself has the focus, no button of it.
+    expect(document.activeElement).toBe(panel())
     expect(Array.from(panel()!.querySelectorAll("p"), (p) => p.textContent)).toEqual([ENGLISH.t("imageConsentWhat", [1024, "PNG"]), ENGLISH.t("imageConsentPolicyOpenai"), ENGLISH.t("imageConsentEach")])
     expect(Array.from(panel()!.querySelectorAll("button"), (b) => [b.textContent, b.title])).toEqual([
       [ENGLISH.t("imageConsentAllow"), ENGLISH.t("tipImageConsentAllow")],

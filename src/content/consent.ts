@@ -40,9 +40,11 @@ export class ConsentPanel {
    * Show the panel for `needs`; resolves true on "Allow and translate",
    * false on "Cancel", when the panel is cleared, and without a message to
    * show it on. Asked again while it is on screen, it answers with the same promise, and the panel lists the
-   * services of both questions: whoever records an answer of yes records only services the user saw.
+   * services of both questions: whoever records an answer of yes records only services the user saw. `focus`: the user
+   * asked for it, so the panel takes the focus and scrolls into view; the panel itself takes it, never a button, so
+   * no key pressed by chance answers it. A panel that opens by itself leaves the focus where it is.
    */
-  ask(needs: ConsentNeed[], precise: boolean): Promise<boolean> {
+  ask(needs: ConsentNeed[], precise: boolean, focus = false): Promise<boolean> {
     if (this.pending && this.el) {
       const added = needs.filter((need) => !this.needs.some((shown) => shown.id === need.id))
       if (added.length > 0 || (precise && !this.precise)) {
@@ -52,8 +54,9 @@ export class ConsentPanel {
         const next = this.render(this.needs, this.precise)
         this.el.replaceWith(next)
         this.el = next
-        if (focused) next.querySelector<HTMLButtonElement>("button")?.focus({ preventScroll: true })
+        if (focused) next.focus({ preventScroll: true })
       }
+      if (focus) this.el.focus()
       return this.pending
     }
     const root = this.deps.root()
@@ -63,7 +66,7 @@ export class ConsentPanel {
     this.precise = precise
     this.el = this.render(needs, precise)
     root.prepend(this.el)
-    this.el.querySelector<HTMLButtonElement>("button")?.focus({ preventScroll: true })
+    if (focus) this.el.focus()
     return this.pending
   }
 
@@ -98,7 +101,7 @@ export class ConsentPanel {
       "div",
       CLS_CONSENT,
       title,
-      {},
+      { tabindex: "-1" },
       h("strong", { text: title }),
       h("p", { text: body }),
       h("ul", {}, ...services),

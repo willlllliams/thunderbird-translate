@@ -95,8 +95,8 @@ export function connectContent({ root, contentScript = false, probe }: ClientOpt
   // For a displayed message; the extension pages translate their own sample text.
   const consentPanel = contentScript ? new ConsentPanel({ root }) : undefined
   const consent = consentPanel && {
-    ask: async (needs: Parameters<ConsentPanel["ask"]>[0], precise: boolean) => {
-      if (!(await consentPanel.ask(needs, precise))) return false
+    ask: async (needs: Parameters<ConsentPanel["ask"]>[0], precise: boolean, focus: boolean) => {
+      if (!(await consentPanel.ask(needs, precise, focus))) return false
       try {
         await send({ type: "grantConsent", ids: needs.map((need) => need.id), hosts: needs.map((need) => need.host) })
         return true
@@ -124,13 +124,13 @@ export function connectContent({ root, contentScript = false, probe }: ClientOpt
           }),
       })
     : undefined
-  /** The summary of the message, once the user allowed its service to receive the text. */
-  const summarize = async () => {
+  /** The summary of the message, once the user allowed its service to receive the text; `byUser`: asked for by the user, not by itself. */
+  const summarize = async (byUser: boolean) => {
     const need = current?.summary.available ? current.summary.consent : undefined
     if (!summaryPanel || need === undefined) return
     if (need && !summaryAllowed.has(need.id)) {
       // The summary sends the whole message, as precise translation does.
-      if (!(await consent!.ask([need], true))) return
+      if (!(await consent!.ask([need], true, byUser))) return
       summaryAllowed.add(need.id)
     }
     await summaryPanel.show()
@@ -141,9 +141,9 @@ export function connectContent({ root, contentScript = false, probe }: ClientOpt
   const autoSummary = () => {
     if (autoSummarized || !summaryPanel || summaryPanel.shown || !hasTranslatableText(controller.messageText())) return
     autoSummarized = true
-    void summarize()
+    void summarize(false)
   }
-  const summaryButton = summaryPanel ? new SummaryButton({ root, onClick: () => void summarize() }) : undefined
+  const summaryButton = summaryPanel ? new SummaryButton({ root, onClick: () => void summarize(true) }) : undefined
   const showSummaryButton = (active: boolean) => summaryButton?.sync(active && current?.summary.available === true && current.summary.inlineButton)
 
   // Only a displayed message has images to translate.
@@ -223,7 +223,7 @@ export function connectContent({ root, contentScript = false, probe }: ClientOpt
     } else if (msg.type === "retranslate") {
       void controller.retranslate()
     } else if (msg.type === "summarize") {
-      void summarize()
+      void summarize(true)
     } else if (msg.type === "summary") {
       summaryRequests.get(msg.id)?.(msg.result)
       summaryRequests.delete(msg.id)

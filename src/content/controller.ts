@@ -60,9 +60,10 @@ export interface ControllerDeps {
   notice?: { begin(): void; add(missing: MissingData): void; end(): void; clear(again?: boolean): void }
   /**
    * Asks the user before message text first goes to the online services `needs`; resolves true once they are allowed
-   * (and recorded by the background script). Without it nothing is asked: the extension pages translate their own sample.
+   * (and recorded by the background script). `focus`: the user asked for the translation, the panel takes the focus.
+   * Without it nothing is asked: the extension pages translate their own sample.
    */
-  consent?: { ask(needs: ConsentNeed[], precise: boolean): Promise<boolean>; clear(): void }
+  consent?: { ask(needs: ConsentNeed[], precise: boolean, focus: boolean): Promise<boolean>; clear(): void }
   /** The text of the images of the message; the content script only. */
   images?: Pick<ImageTranslator, "start" | "update" | "stop">
 }
@@ -211,12 +212,12 @@ export class TranslationController {
     if (!this.active) return
     this.memo.clear()
     this.stop(true)
-    await this.start(true)
+    await this.start(true, true)
   }
 
   async toggle(): Promise<void> {
     if (this.active) this.stop()
-    else await this.start()
+    else await this.start(false, true)
   }
 
   /** The online services of `s` that still need the user's consent. */
@@ -225,19 +226,20 @@ export class TranslationController {
   }
 
   /** The settings to translate with once the user allowed the online services `needs`; null when the user declined or the state changed meanwhile. */
-  private async consented(s: PublicSettings, needs: ConsentNeed[]): Promise<PublicSettings | null> {
-    if (!(await this.deps.consent!.ask(needs, s.precise))) return null
+  private async consented(s: PublicSettings, needs: ConsentNeed[], byUser: boolean): Promise<PublicSettings | null> {
+    if (!(await this.deps.consent!.ask(needs, s.precise, byUser))) return null
     for (const need of needs) this.allowed.add(need.id)
     // The settings may have changed while the panel was open.
     const now = this.settings!
     return this.active || this.consentNeeds(now).length > 0 ? null : now
   }
 
-  async start(bypassCache = false): Promise<void> {
+  /** `byUser`: a command of the user, not automatic translation or new settings; a consent panel then takes the focus. */
+  async start(bypassCache = false, byUser = false): Promise<void> {
     if (this.active || !this.settings || !this.deps.root()) return
     const needs = this.consentNeeds(this.settings)
     // Without a question the translation starts at once.
-    const s = needs.length === 0 ? this.settings : await this.consented(this.settings, needs)
+    const s = needs.length === 0 ? this.settings : await this.consented(this.settings, needs, byUser)
     if (!s) return
     const root = this.deps.root()
     if (!root) return

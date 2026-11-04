@@ -58,13 +58,34 @@ describe("consent panel", () => {
       ENGLISH.t("consentService", ["OpenAI", "api.openai.com"]),
     ])
     expect(panel()!.textContent).toContain(ENGLISH.t("consentBodyPrecise"))
-    expect(document.activeElement).toBe(buttons()[0])
+    // The focus stays in the panel, on the panel itself.
+    expect(document.activeElement).toBe(panel())
     click("consentAllow")
     expect(await first).toBe(true)
     // The next question starts from what it needs alone.
     void consent.ask([GOOGLE], false)
     expect(panel()!.querySelectorAll("li")).toHaveLength(1)
     expect(panel()!.textContent).toContain(ENGLISH.t("consentBody"))
+  })
+
+  it("D1: takes the focus only when asked to, on itself and never on a button, so no key answers it", async () => {
+    const consent = new ConsentPanel({ root: () => document.body })
+    const before = document.activeElement
+    void consent.ask([GOOGLE], false)
+    expect(document.activeElement).toBe(before)
+    consent.clear()
+    let answered = false
+    void consent.ask([GOOGLE], false, true).then(() => (answered = true))
+    expect(document.activeElement).toBe(panel())
+    expect(panel()!.tabIndex).toBe(-1)
+    for (const key of [" ", "Enter"]) for (const type of ["keydown", "keypress", "keyup"]) document.activeElement!.dispatchEvent(new KeyboardEvent(type, { key, bubbles: true }))
+    await nextTask()
+    expect(answered).toBe(false)
+    // Asked again by the user while the panel is open: the focus goes back to it.
+    buttons()[1].blur()
+    document.body.focus()
+    void consent.ask([GOOGLE], false, true)
+    expect(document.activeElement).toBe(panel())
   })
 
   it("says that precise translation sends the whole message, answers no on Cancel, when cleared and without a message", async () => {
@@ -96,10 +117,12 @@ describe("controller", () => {
     const c = new TranslationController({ root: () => document.body, translate, consent })
     await c.updateSettings(publicSettings({ consent: [GOOGLE] }))
     await c.start()
-    expect(consent.ask).toHaveBeenCalledWith([GOOGLE], false)
+    expect(consent.ask).toHaveBeenCalledWith([GOOGLE], false, false)
     expect(translate).not.toHaveBeenCalled()
     expect(c.active).toBe(false)
-    await c.start()
+    // A command of the user: the panel takes the focus.
+    await c.toggle()
+    expect(consent.ask).toHaveBeenLastCalledWith([GOOGLE], false, true)
     expect(translate).toHaveBeenCalledTimes(1)
     expect(c.active).toBe(true)
     // The settings that record the consent have not arrived yet: translating again asks nothing.
@@ -133,7 +156,7 @@ describe("controller", () => {
     await c.start()
     expect(c.active).toBe(true)
     await c.updateSettings(tieredSettings(["dictionary", "machine"], { consent: [GOOGLE] }))
-    expect(consent.ask).toHaveBeenCalledWith([GOOGLE], false)
+    expect(consent.ask).toHaveBeenCalledWith([GOOGLE], false, false)
     expect(c.active).toBe(false)
     expect(translate).toHaveBeenCalledTimes(1)
   })
@@ -150,7 +173,7 @@ describe("controller", () => {
     await c.updateSettings(publicSettings({ consent: [at("b.example")] }))
     c.stop()
     await c.start()
-    expect(consent.ask).toHaveBeenLastCalledWith([at("b.example")], false)
+    expect(consent.ask).toHaveBeenLastCalledWith([at("b.example")], false, false)
     // Recorded, then taken back on the settings page.
     await c.updateSettings(publicSettings({ consent: [] }))
     await c.updateSettings(publicSettings({ consent: [at("b.example")] }))
@@ -194,9 +217,28 @@ describe("content client", () => {
     port.push({ type: "toggle" })
     await until(() => expect(panel()).not.toBeNull())
     expect(port.posted("translate")).toEqual([])
+    // D1: asked by a command, the panel itself takes the focus.
+    expect(document.activeElement).toBe(panel())
     click("consentAllow")
     await until(() => expect(port.posted("translate")).toHaveLength(1))
     expect(sendMessage).toHaveBeenCalledWith({ type: "grantConsent", ids: ["google-free"], hosts: ["translate.googleapis.com"] })
+  })
+
+  it("D1: a panel of automatic translation leaves the focus where it is", async () => {
+    const port = pagePort()
+    vi.stubGlobal("browser", {
+      runtime: { connect: () => port, sendMessage: vi.fn(async () => undefined) },
+      i18n: { detectLanguage: async () => ({ isReliable: false, languages: [] }) },
+    })
+    document.body.innerHTML = "<p>Good morning everyone, the meeting moved to Friday afternoon.</p><a href='#x'>link</a>"
+    const link = document.querySelector("a")!
+    link.focus()
+    const client = connectContent({ root: () => document.body, contentScript: true })
+    port.push({ type: "settings", settings: publicSettings({ autoTranslate: true, sourceLang: "en", targetLang: "de", consent: [GOOGLE] }) })
+    await client.ready
+    await until(() => expect(panel()).not.toBeNull())
+    expect(document.activeElement).toBe(link)
+    expect(port.posted("translate")).toEqual([])
   })
 
   it("translates nothing when the background script cannot record the consent", async () => {
