@@ -542,7 +542,7 @@ describe("offline models on the settings page", () => {
     await openPage("options", createDefaultSettings("en"), bg.page)
     await until(() => expect(rows()).toHaveLength(3))
     rowButton(row("Japanese"), ENGLISH.t("buttonDownload")).click()
-    expect(bg.requests).toContainEqual({ type: "offlineInstall", service: "bergamot", pairs: [{ src: "ja", tgt: "en" }] })
+    expect(bg.requests).toContainEqual({ type: "offlineInstall", service: "bergamot", src: "ja", tgt: "en" })
     await until(() => expect(row("Japanese").textContent).toContain(ENGLISH.t("dictDownloading", ["50"])), 2000)
     rowButton(row("Japanese"), ENGLISH.t("buttonCancel")).click()
     expect(bg.requests).toContainEqual({ type: "offlineCancel", service: "bergamot", src: "ja", tgt: "en" })
