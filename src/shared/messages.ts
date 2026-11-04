@@ -40,7 +40,7 @@ export interface BackgroundApi {
   /** The directions of an offline service; `refresh` reads its catalog again, `tag` names the release of the dictionary packs (the page's, which may not be saved yet). */
   offlineList: { req: { service: OfflineService; refresh?: boolean; tag?: string }; res: OfflineListResult }
   /** Installs directions in the background script, also after the page is closed; answers when every one of them has ended, with the result of each in the order of `pairs`. */
-  offlineInstall: { req: { service: OfflineService; pairs: OfflinePair[]; tag?: string }; res: OfflineResult[] }
+  offlineInstall: { req: { service: OfflineService; tag?: string } & OfflinePair; res: OfflineResult }
   /** Cancels the installation of a direction. */
   offlineCancel: { req: { service: OfflineService } & OfflinePair; res: void }
   /** The installations of every service that have not ended. */

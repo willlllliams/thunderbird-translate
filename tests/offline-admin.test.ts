@@ -52,7 +52,7 @@ describe("offline lists in the background script", () => {
   it("reports the progress of an installation to the pages at most every 250 ms, and its end", async () => {
     const installs = heldInstalls()
     const { send, notices, broadcasts } = admin({ dictionary: { install: installs.install } })
-    const result = send({ type: "offlineInstall", service: "dictionary", pairs: [{ src: "en", tgt: "de" }], tag: "dicts-v2" })
+    const result = send({ type: "offlineInstall", service: "dictionary", src: "en", tgt: "de", tag: "dicts-v2" })
     expect(installs.install).toHaveBeenCalledWith("en", "de", expect.any(Function), expect.any(AbortSignal), { tag: "dicts-v2" })
     for (const done of [1, 2, 5]) installs.one("en>de").progress(done, 10)
     expect(await send({ type: "offlineProgress" })).toEqual({ dictionary: { "en>de": { state: "running", done: 5, total: 10 } } })
@@ -61,7 +61,7 @@ describe("offline lists in the background script", () => {
     await vi.advanceTimersByTimeAsync(1)
     expect(broadcasts()).toEqual([{ dictionary: { "en>de": { state: "running", done: 5, total: 10 } } }])
     installs.one("en>de").finish()
-    expect(await result).toEqual([{ ok: true }])
+    expect(await result).toEqual({ ok: true })
     expect(notices()).toEqual({ contentScripts: 1, pages: 1 })
     expect(await send({ type: "offlineProgress" })).toEqual({ dictionary: {} })
     await vi.advanceTimersByTimeAsync(PROGRESS_INTERVAL_MS)
@@ -71,13 +71,13 @@ describe("offline lists in the background script", () => {
   it("installs a direction two pages ask for once, with one progress, one result and one notice", async () => {
     const installs = heldInstalls()
     const { send, notices } = admin({ bergamot: { install: installs.install } })
-    const first = send({ type: "offlineInstall", service: "bergamot", pairs: [{ src: "en", tgt: "zh-Hans" }] })
+    const first = send({ type: "offlineInstall", service: "bergamot", src: "en", tgt: "zh-Hans" })
     // The second page names the languages differently.
-    const second = send({ type: "offlineInstall", service: "bergamot", pairs: [{ src: "EN", tgt: "zh-CN" }] })
+    const second = send({ type: "offlineInstall", service: "bergamot", src: "EN", tgt: "zh-CN" })
     installs.one("en>zh-Hans").progress(7, 10)
     expect(await send({ type: "offlineProgress" })).toEqual({ bergamot: { "en>zh-Hans": { state: "running", done: 7, total: 10 } } })
     installs.one("en>zh-Hans").finish()
-    expect(await Promise.all([first, second])).toEqual([[{ ok: true }], [{ ok: true }]])
+    expect(await Promise.all([first, second])).toEqual([{ ok: true }, { ok: true }])
     expect(installs.install).toHaveBeenCalledTimes(1)
     expect(notices()).toEqual({ contentScripts: 1, pages: 1 })
   })
@@ -86,7 +86,8 @@ describe("offline lists in the background script", () => {
     const installs = heldInstalls()
     const { send, notices } = admin({ dictionary: { install: installs.install } })
     const pairs = ["en>de", "de>en", "en>fr", "fr>en", "en>ja"].map((key) => ({ src: key.split(">")[0]!, tgt: key.split(">")[1]! }))
-    const result = send({ type: "offlineInstall", service: "dictionary", pairs })
+    // As the page asks: one request per direction, at the same time.
+    const result = Promise.all(pairs.map((pair) => send({ type: "offlineInstall", service: "dictionary", ...pair })))
     expect(installs.started()).toEqual(["en>de", "de>en"])
     const states = async () => Object.entries(((await send({ type: "offlineProgress" })) as { dictionary: Record<string, { state: string }> }).dictionary).map(([key, { state }]) => `${key} ${state}`)
     expect(await states()).toEqual(["en>de running", "de>en running", "en>fr queued", "fr>en queued", "en>ja queued"])
@@ -109,7 +110,7 @@ describe("offline lists in the background script", () => {
     const installs = heldInstalls()
     const { send, notices } = admin({ dictionary: { install: installs.install } })
     // Nobody waits for the answer.
-    void send({ type: "offlineInstall", service: "dictionary", pairs: ["en>de", "de>en", "en>fr"].map((key) => ({ src: key.split(">")[0]!, tgt: key.split(">")[1]! })) })
+    for (const key of ["en>de", "de>en", "en>fr"]) void send({ type: "offlineInstall", service: "dictionary", src: key.split(">")[0]!, tgt: key.split(">")[1]! })
     installs.one("en>de").finish()
     installs.one("de>en").finish()
     await until(() => expect(installs.started()).toContain("en>fr"))
@@ -120,10 +121,10 @@ describe("offline lists in the background script", () => {
   it("cancels a running installation, also one that two pages asked for", async () => {
     const installs = heldInstalls()
     const { send, notices } = admin({ bergamot: { install: installs.install } })
-    const first = send({ type: "offlineInstall", service: "bergamot", pairs: [{ src: "ja", tgt: "en" }] })
-    const second = send({ type: "offlineInstall", service: "bergamot", pairs: [{ src: "ja", tgt: "en" }] })
+    const first = send({ type: "offlineInstall", service: "bergamot", src: "ja", tgt: "en" })
+    const second = send({ type: "offlineInstall", service: "bergamot", src: "ja", tgt: "en" })
     expect(await send({ type: "offlineCancel", service: "bergamot", src: "ja", tgt: "en" })).toBeUndefined()
-    expect(await Promise.all([first, second])).toEqual([[{ ok: false, cancelled: true }], [{ ok: false, cancelled: true }]])
+    expect(await Promise.all([first, second])).toEqual([{ ok: false, cancelled: true }, { ok: false, cancelled: true }])
     // Part of the data may be stored: the content scripts hear of it.
     expect(notices()).toEqual({ contentScripts: 1, pages: 1 })
     expect(await send({ type: "offlineCancel", service: "bergamot", src: "xx", tgt: "en" })).toBeUndefined()
@@ -139,16 +140,16 @@ describe("offline lists in the background script", () => {
         new Promise<void>((resolve, reject) => runs.push({ tag: options?.tag, signal: signal!, end: (error) => (error ? reject(error) : resolve()) })),
     )
     const { send } = admin({ dictionary: { install } })
-    const first = send({ type: "offlineInstall", service: "dictionary", pairs: [{ src: "en", tgt: "de" }], tag: "dicts-v1" })
+    const first = send({ type: "offlineInstall", service: "dictionary", src: "en", tgt: "de", tag: "dicts-v1" })
     await nextTask()
     await send({ type: "offlineCancel", service: "dictionary", src: "en", tgt: "de" })
-    const second = send({ type: "offlineInstall", service: "dictionary", pairs: [{ src: "en", tgt: "de" }], tag: "dicts-v2" })
+    const second = send({ type: "offlineInstall", service: "dictionary", src: "en", tgt: "de", tag: "dicts-v2" })
     await nextTask()
     // The second request does not take the result of the cancelled one; it starts once the first has ended.
     expect(runs.map((r) => r.tag)).toEqual(["dicts-v1"])
     expect(send({ type: "offlineProgress" })).toEqual({ dictionary: { "en>de": { state: "queued", done: 0, total: 0 } } })
     runs[0]!.end(new DOMException("Aborted", "AbortError"))
-    expect(await first).toEqual([{ ok: false, cancelled: true }])
+    expect(await first).toEqual({ ok: false, cancelled: true })
     await nextTask()
     expect(runs.map((r) => [r.tag, r.signal.aborted])).toEqual([
       ["dicts-v1", true],
@@ -156,12 +157,12 @@ describe("offline lists in the background script", () => {
     ])
     expect(send({ type: "offlineProgress" })).toEqual({ dictionary: { "en>de": { state: "running", done: 0, total: 0 } } })
     runs[1]!.end()
-    expect(await second).toEqual([{ ok: true }])
+    expect(await second).toEqual({ ok: true })
   })
 
   it("describes a failed installation in the interface language", async () => {
     const { send, notices } = admin({ dictionary: { install: () => Promise.reject(new LocalizedError("dictionaryStorageFailed", [], "disk full")) } })
-    expect(await send({ type: "offlineInstall", service: "dictionary", pairs: [{ src: "en", tgt: "de" }] })).toEqual([{ ok: false, error: `${ENGLISH.t("dictionaryStorageFailed")} - disk full` }])
+    expect(await send({ type: "offlineInstall", service: "dictionary", src: "en", tgt: "de" })).toEqual({ ok: false, error: `${ENGLISH.t("dictionaryStorageFailed")} - disk full` })
     expect(notices()).toEqual({ contentScripts: 1, pages: 1 })
   })
 

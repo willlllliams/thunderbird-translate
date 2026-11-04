@@ -80,11 +80,11 @@ describe("requests from pages", () => {
   it("L3: tells the content scripts that dictionary packs or offline models changed, so they forget their results", async () => {
     const { send, pushed, browser } = router()
     const changes = () => pushed.filter(([to, m]) => to === "all" && m.type === "offlineDataChanged").length
-    expect(await send({ type: "offlineInstall", service: "bergamot", pairs: [{ src: "en", tgt: "de" }] })).toEqual([{ ok: true }])
+    expect(await send({ type: "offlineInstall", service: "bergamot", src: "en", tgt: "de" })).toEqual({ ok: true })
     expect(changes()).toBe(1)
     // Also after a failed installation: part of the files may have been stored.
     vi.mocked(bergamot.install).mockRejectedValueOnce(new Error("disk full"))
-    expect(await send({ type: "offlineInstall", service: "bergamot", pairs: [{ src: "de", tgt: "en" }] })).toEqual([{ ok: false, error: "disk full" }])
+    expect(await send({ type: "offlineInstall", service: "bergamot", src: "de", tgt: "en" })).toEqual({ ok: false, error: "disk full" })
     expect(await send({ type: "offlineRemove", service: "bergamot", src: "de", tgt: "en" })).toEqual({ ok: true })
     expect(changes()).toBe(3)
     expect(await send({ type: "offlineList", service: "bergamot", refresh: true })).toEqual({ ok: true, items: [] })
@@ -182,7 +182,7 @@ describe("dispatch", () => {
         onProgress?.(1, 2)
         await new Promise<void>((resolve) => (finish = resolve))
       })
-      const installed = send({ type: "offlineInstall", service: "bergamot", pairs: [{ src: "en", tgt: "de" }] })
+      const installed = send({ type: "offlineInstall", service: "bergamot", src: "en", tgt: "de" })
       await vi.advanceTimersByTimeAsync(PROGRESS_INTERVAL_MS)
       finish()
       await installed
@@ -203,7 +203,7 @@ describe("dispatch", () => {
       { type: "cacheStats" },
       { type: "testProvider", providerId: "google-free", config: { enabled: true, apiKey: "", baseURL: "", model: "" }, targetLang: "de" },
       { type: "offlineRemove", service: "bergamot", src: "en", tgt: "de" },
-      { type: "offlineInstall", service: "bergamot", pairs: [{ src: "en", tgt: "de" }] },
+      { type: "offlineInstall", service: "bergamot", src: "en", tgt: "de" },
       { type: "toggleTab", tabId: 9 },
       { type: "offlineStatus", sourceLang: "auto", targetLang: "de", tiers: createDefaultSettings().tiers },
     ]

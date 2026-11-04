@@ -398,7 +398,7 @@ describe("dictionary list", () => {
     let page: DictionarySection | undefined
     const bg = offlineBackground({ fetchUrl: release.fetchUrl, toPages: (notice) => page?.receive(notice) })
     // A page asked for three packs and was closed.
-    void bg.respond({ type: "offlineInstall", service: "dictionary", pairs: [{ src: "en", tgt: "de" }, { src: "de", tgt: "en" }, { src: "fr", tgt: "en" }], tag: "dicts-v1" })
+    for (const [src, tgt] of [["en", "de"], ["de", "en"], ["fr", "en"]]) void bg.respond({ type: "offlineInstall", service: "dictionary", src, tgt, tag: "dicts-v1" })
     await until(() => expect(release.waiting).toHaveLength(2))
     const d = dictionaries([], { bg })
     page = d.section
@@ -504,7 +504,7 @@ describe("offline model list", () => {
     let finish!: (r: unknown) => void
     const requests = background({
       offlineList: () => ({ ok: true, items: [pair("de", "en")] }),
-      offlineInstall: () => new Promise((r) => (finish = (result) => r([result]))),
+      offlineInstall: () => new Promise((r) => (finish = r)),
     })
     const m = models()
     await m.section.load()
@@ -604,7 +604,7 @@ describe("offline model list", () => {
 
   it.each([
     ["no answer", () => undefined, unknownError],
-    ["a failure without text", () => [{ ok: false }], unknownError],
+    ["a failure without text", () => ({ ok: false }), unknownError],
     ["a lost connection", () => Promise.reject(new Error("port closed")), describeError(new Error("port closed"), ENGLISH)],
   ])("describes an installation that ends with %s", async (_, answer, text) => {
     background({ offlineList: () => ({ ok: true, items: [pair("de", "en")] }), offlineInstall: answer })
@@ -615,11 +615,11 @@ describe("offline model list", () => {
   })
 
   it("updates an installed pair", async () => {
-    const requests = background({ offlineList: () => ({ ok: true, items: [pair("de", "en", { installed: true, installedVersion: "2.9" })] }), offlineInstall: () => [{ ok: true }] })
+    const requests = background({ offlineList: () => ({ ok: true, items: [pair("de", "en", { installed: true, installedVersion: "2.9" })] }), offlineInstall: () => ({ ok: true }) })
     const m = models()
     await m.section.load()
     button(m.rows()[0]!, ENGLISH.t("buttonUpdate"))!.click()
-    await until(() => expect(requests).toContainEqual({ type: "offlineInstall", service: "bergamot", pairs: [{ src: "de", tgt: "en" }] }))
+    await until(() => expect(requests).toContainEqual({ type: "offlineInstall", service: "bergamot", src: "de", tgt: "en" }))
   })
 
   it("keeps a needed pair when the deletion is cancelled, and shows why a deletion failed", async () => {
@@ -649,7 +649,7 @@ describe("offline model list", () => {
   it("on the welcome page ticks the directions the language pair needs and downloads the ticked ones", async () => {
     const requests = background({
       offlineList: () => ({ ok: true, items: [pair("ja", "en"), pair("en", "zh-Hans"), pair("de", "en"), pair("en", "ko", { installed: true })] }),
-      offlineInstall: () => [{ ok: true }],
+      offlineInstall: () => ({ ok: true }),
     })
     const recommended: SourcedLanguage[] = [
       { tag: "zh-CN", sources: ["target"] },
@@ -665,7 +665,7 @@ describe("offline model list", () => {
     box.checked = false
     box.dispatchEvent(new Event("change"))
     await m.section.downloadPicked()
-    expect(requests.filter((r) => r.type === "offlineInstall")).toEqual([{ type: "offlineInstall", service: "bergamot", pairs: [{ src: "ja", tgt: "en" }] }])
+    expect(requests.filter((r) => r.type === "offlineInstall")).toEqual([{ type: "offlineInstall", service: "bergamot", src: "ja", tgt: "en" }])
     box.checked = true
     box.dispatchEvent(new Event("change"))
     await m.section.downloadPicked()
@@ -677,9 +677,9 @@ describe("offline model list", () => {
     const requests = background({
       offlineList: () => ({ ok: true, items: [pair("en", "de"), pair("de", "en"), pair("en", "fr", { bytes: 2 * 1048576 }), pair("en", "vi")].map((p) => ({ ...p, installed: installed.has(`${p.src}>${p.tgt}`) })) }),
       offlineInstall: (r) => {
-        const [{ src, tgt }] = (r as Install).pairs
+        const { src, tgt } = r as Install
         installed.add(`${src}>${tgt}`)
-        return [{ ok: true }]
+        return { ok: true }
       },
     })
     const m = models()
@@ -688,7 +688,7 @@ describe("offline model list", () => {
     expect(m.common.querySelector(".common-confirm p")!.textContent).toBe(ENGLISH.t("commonConfirm", [2, "12.0"]))
     button(m.common.querySelector(".common-confirm")!, ENGLISH.t("buttonConfirmDownload"))!.click()
     await until(() => expect(m.common.textContent).toContain(ENGLISH.t("commonAllInstalled")))
-    expect(requests.flatMap((r) => (r.type === "offlineInstall" ? r.pairs.map((p) => `${p.src}>${p.tgt}`) : [])).sort()).toEqual(["de>en", "en>fr"])
+    expect(requests.flatMap((r) => (r.type === "offlineInstall" ? [`${r.src}>${r.tgt}`] : [])).sort()).toEqual(["de>en", "en>fr"])
   })
 
   /** The offline handlers of the background script over a Bergamot manager that offers `keys` and whose installations wait for the test. */

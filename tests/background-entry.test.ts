@@ -308,7 +308,7 @@ describe("offline data in the background script", () => {
     const { bg, translate, notices } = await withRelease()
     expect(await translate("hello world")).toMatchObject({ ok: false, error: expect.stringContaining("en → zh-Hans") })
     // The page asks for two packs and is closed: nothing more comes from it, and the second pack is still downloading.
-    void bg.send({ type: "offlineInstall", service: "dictionary", pairs: [{ src: "en", tgt: "zh-Hans" }, { src: "ja", tgt: "en" }], tag: "dicts-v1" })
+    for (const [src, tgt] of [["en", "zh-Hans"], ["ja", "en"]]) void bg.send({ type: "offlineInstall", service: "dictionary", src, tgt, tag: "dicts-v1" })
     await until(async () => expect((await new DictionaryStore().list()).map((p) => p.id)).toEqual(["en>zh-Hans"]))
     expect(await translate("hello world")).toEqual({ ok: true, text: "你好世界" })
     // The installation has ended once the pages heard of it; a notice after this test would reach the stand-ins of the next one.
@@ -319,7 +319,7 @@ describe("offline data in the background script", () => {
     const { bg, translate, notices } = await withRelease()
     const { Dictionary } = await import("../src/offline/dictionary")
     const invalidate = vi.spyOn(Dictionary.prototype, "invalidate")
-    void bg.send({ type: "offlineInstall", service: "dictionary", pairs: [{ src: "en", tgt: "zh-Hans" }], tag: "dicts-v1" })
+    void bg.send({ type: "offlineInstall", service: "dictionary", src: "en", tgt: "zh-Hans", tag: "dicts-v1" })
     await until(() => expect(notices()).toEqual({ contentScripts: 1, pages: 1 }))
     expect(invalidate).toHaveBeenCalledTimes(1)
     expect(await translate("hello")).toEqual({ ok: true, text: "你好" })
@@ -329,7 +329,7 @@ describe("offline data in the background script", () => {
   it("lists the packs of the release tag the page names, and removes a pack", async () => {
     const { bg, translate, notices } = await withRelease()
     expect(await bg.send({ type: "offlineList", service: "dictionary", tag: "dicts-v1" })).toMatchObject({ ok: true, items: [{ src: "en", tgt: "zh-Hans", installed: false }, { src: "ja", tgt: "en" }] })
-    expect(await bg.send({ type: "offlineInstall", service: "dictionary", pairs: [{ src: "en", tgt: "zh-Hans" }] })).toEqual([{ ok: true }])
+    expect(await bg.send({ type: "offlineInstall", service: "dictionary", src: "en", tgt: "zh-Hans" })).toEqual({ ok: true })
     expect(await translate("hello")).toEqual({ ok: true, text: "你好" })
     expect(await bg.send({ type: "offlineRemove", service: "dictionary", src: "en", tgt: "zh-Hans" })).toEqual({ ok: true })
     expect(notices()).toEqual({ contentScripts: 2, pages: 2 })
@@ -355,9 +355,9 @@ describe("offline data in the background script", () => {
     const bg = await start({ stored: stored(s), fetchUrl })
     const port = bg.connect(5)
     const pair = (key: string) => ({ src: key.split(">")[0]!, tgt: key.split(">")[1]! })
-    const results = bg.send({ type: "offlineInstall", service: "dictionary", pairs: ["en>de", "de>en", "en>fr", "fr>en", "en>ja"].map(pair) }) as Promise<unknown>
+    const results = Promise.all(["en>de", "de>en", "en>fr", "fr>en", "en>ja"].map((key) => bg.send({ type: "offlineInstall", service: "dictionary", ...pair(key) })))
     // A second page asks for a pack of the first one.
-    const second = bg.send({ type: "offlineInstall", service: "dictionary", pairs: [pair("en>de")] }) as Promise<unknown>
+    const second = bg.send({ type: "offlineInstall", service: "dictionary", ...pair("en>de") }) as Promise<unknown>
     await until(() => expect(files).toEqual(["dict-en-de.tsv.gz", "dict-de-en.tsv.gz"]))
     expect(await bg.send({ type: "offlineProgress" })).toMatchObject({ dictionary: { "en>de": { state: "running" }, "de>en": { state: "running" }, "en>fr": { state: "queued" }, "fr>en": { state: "queued" }, "en>ja": { state: "queued" } } })
     await bg.send({ type: "offlineCancel", service: "dictionary", src: "fr", tgt: "en" })
@@ -368,7 +368,7 @@ describe("offline data in the background script", () => {
     })
     waiting.splice(0).forEach((resolve) => resolve())
     expect(await results).toEqual([{ ok: true }, { ok: true }, { ok: true }, { ok: false, cancelled: true }, { ok: true }])
-    expect(await second).toEqual([{ ok: true }])
+    expect(await second).toEqual({ ok: true })
     expect(files.sort()).toEqual(["dict-de-en.tsv.gz", "dict-en-de.tsv.gz", "dict-en-fr.tsv.gz", "dict-en-ja.tsv.gz"])
     expect((await new DictionaryStore().list()).map((p) => p.id).sort()).toEqual(["de>en", "en>de", "en>fr", "en>ja"])
     // The content scripts forget their results once, after the last pack; the pages hear of every pack.

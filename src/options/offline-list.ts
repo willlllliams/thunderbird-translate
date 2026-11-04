@@ -294,9 +294,7 @@ export abstract class OfflineList<T extends ListItem> {
     this.render()
     await Promise.all(
       wanted.map(async ({ id, src, tgt }) => {
-        const r = await send({ type: "offlineInstall", service: this.service, pairs: [{ src, tgt }], tag: this.tag() })
-          .then((results) => results?.[0])
-          .catch((error): OfflineResult => ({ ok: false, error: describeError(error, getI18n()) }))
+        const r = await send({ type: "offlineInstall", service: this.service, src, tgt, tag: this.tag() }).catch((error): OfflineResult => ({ ok: false, error: describeError(error, getI18n()) }))
         this.requested.delete(id)
         // Shown as installed until the list is read again.
         if (r?.ok) Object.assign(this.entries.find((e) => pairKey(e.src, e.tgt) === id) ?? {}, { installed: true, installedVersion: undefined })
