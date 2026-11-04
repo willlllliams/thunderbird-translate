@@ -57,7 +57,7 @@ import { type ConsentQuestion, consentText } from "../shared/consent"
 import { button, h } from "../shared/dom"
 import { getI18n, t } from "../shared/i18n"
 import { textDirection } from "../shared/locales"
-import { filterImage, filterShape, imageSource } from "../shared/image"
+import { filterShape, imageSource } from "../shared/image"
 import { TABLE_HEADER } from "../shared/image-prompt"
 import { markdownFragment } from "../shared/markdown"
 import type { ImageRequest, ImageResponse } from "../shared/messages"
@@ -294,14 +294,14 @@ export class ImageTranslator {
     if (img.naturalWidth === 0) {
       // No pixels: a remote image Thunderbird blocked or could not load counts by the size of its attributes and of its
       // inline style; a tracking pixel and a hidden image never.
-      if (source.kind === "remote" && !tiny(img) && !hiddenByStyle(img) && !(place.inSignature && run.settings.skipSignature) && run.settings.sources.inline) {
+      if (source && "url" in source && !tiny(img) && !hiddenByStyle(img) && !(place.inSignature && run.settings.skipSignature) && run.settings.sources.inline) {
         this.unloaded.add(source.url)
         this.drawNote()
       }
       return
     }
     const candidate = { width: img.naturalWidth, height: img.naturalHeight, src, ...place }
-    if (source.kind === "other") {
+    if (!source) {
       if (filterShape(candidate, run.settings) === null) {
         this.unreadable.add(src)
         this.drawNote()
@@ -310,11 +310,11 @@ export class ImageTranslator {
     }
     // A remote image the reader does not see is a beacon, whatever its natural size: it is not read again. An original
     // that translation-only display hid shows as its copy, at the size of its attributes.
-    if (source.kind === "remote") {
+    if ("url" in source) {
       const drawn = img.closest(`.${CLS_ORIGINAL}`) ? null : img.getBoundingClientRect()
       if ((drawn ? drawn.width <= 2 || drawn.height <= 2 : tiny(img)) || hiddenByStyle(img)) return
     }
-    if (filterImage(candidate, run.settings) !== null) return
+    if (filterShape(candidate, run.settings) !== null) return
     const anchor = img.closest(".moz-attached-image-container") ?? run.units.find((unit) => unit.el.contains(img))?.el ?? img.closest("a") ?? img
     // Focusable from a script only: it keeps the focus of the button a click replaces.
     const slot = h("div", { className: CLS_IMAGE, lang: getI18n().lang, dir: getI18n().dir, tabindex: "-1" })
@@ -323,8 +323,7 @@ export class ImageTranslator {
     if (last) last.after(slot)
     else if (INSIDE.has(anchor.tagName)) anchor.append(slot)
     else anchor.after(slot)
-    const from: ImageRequest["source"] = source.kind === "part" ? { part: source.part, ...(source.name ? { name: source.name } : {}) } : source.kind === "remote" ? { url: source.url } : { data: source.data }
-    this.entries.push({ img, source: from, index: this.entries.length + 1, anchor, slot })
+    this.entries.push({ img, source, index: this.entries.length + 1, anchor, slot })
   }
 
   private request(entry: Entry, action: ImageRequest["action"]): Promise<ImageResponse> {
@@ -342,7 +341,7 @@ export class ImageTranslator {
   }
 
   private memoKey(entry: Entry): string {
-    return `${this.run!.settings.signature}|${this.run!.targetLang}|${JSON.stringify(entry.source)}`
+    return `${this.run!.settings.signature}|${this.run!.targetLang}|${sourceKey(entry)}`
   }
 
   /**

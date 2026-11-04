@@ -34,9 +34,9 @@ describe("the address of a remote image", () => {
     expect(remoteImageUrl("https://cdn.example.com/a b.png")).toBe("https://cdn.example.com/a%20b.png")
     expect(remoteImageUrl("HTTP://Example.COM/x.png")).toBe("http://example.com/x.png")
     for (const src of ["https://user:pw@example.com/a.png", "https://user@example.com/a.png", "ftp://example.com/a.png", "data:image/png;base64,AA", "mailbox:///x?part=1.2", "not a url"]) expect(remoteImageUrl(src)).toBeNull()
-    expect(imageSource("https://example.com/r.png")).toEqual({ kind: "remote", url: "https://example.com/r.png" })
+    expect(imageSource("https://example.com/r.png")).toEqual({ url: "https://example.com/r.png" })
     // An address with credentials is no source the extension reads.
-    expect(imageSource("https://user:pw@example.com/r.png")).toEqual({ kind: "other" })
+    expect(imageSource("https://user:pw@example.com/r.png")).toBeNull()
   })
 })
 
