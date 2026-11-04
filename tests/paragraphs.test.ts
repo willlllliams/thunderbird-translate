@@ -123,7 +123,21 @@ describe("rendering and restoring", () => {
     const node = unit.el.querySelector(".tt-translation")!
     expect(node.className).toBe("tt-translation tt-bilingual tt-style-border tt-pre")
     expect(node.getAttribute("lang")).toBe("zh-CN")
-    expect(node.getAttribute("dir")).toBe("auto")
+    expect(node.getAttribute("dir")).toBe("ltr")
+  })
+
+  it("D3: gives a translation the direction of the target language, whatever its first letters; none without a language", () => {
+    document.body.innerHTML = "<p>You have a new message in Teams</p><p>Second paragraph here</p>"
+    const [first, second] = collectParagraphs(document.body).units
+    const r = new Renderer(document)
+    r.showTranslation(first, "Microsoft Teams: لديك رسالة جديدة", "bilingual", "ar")
+    expect(first.el.querySelector(".tt-translation")!.getAttribute("dir")).toBe("rtl")
+    r.showTranslation(first, "Microsoft Teams: لديك رسالة جديدة", "translation-only", "ar")
+    expect(first.el.querySelector(".tt-translation")!.classList.contains("tt-turned")).toBe(true)
+    r.showTranslation(second, "第二段", "translation-only", "zh-CN")
+    expect(second.el.querySelector(".tt-translation")!.getAttribute("dir")).toBe("ltr")
+    r.showTranslation(second, "第二段", "bilingual")
+    expect(second.el.querySelector(".tt-translation")!.getAttribute("dir")).toBe("auto")
   })
 
   it("shows the original as tooltip in translation-only mode, cut after 600 characters", () => {

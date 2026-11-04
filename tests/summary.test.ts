@@ -582,6 +582,12 @@ describe("the panel above the message", () => {
     expect(summaryMarkdown({ summary: [], actions: [], questions: [], dates: [{ what: "Lunch", when: "", where: "" }] })).toBe("## Dates and meetings\n- Lunch")
   })
 
+  it("D3: writes its lines in the direction of the target language", async () => {
+    answer({ ok: true, service: "OpenAI", summary: SUMMARY, raw: ANSWER })
+    await new SummaryPanel({ root, request, collapsed: () => false, lang: () => "ar" }).show()
+    expect(Array.from(panel()!.querySelectorAll("li"), (li) => [li.dir, li.lang])).toEqual(Array(5).fill(["rtl", "ar"]))
+  })
+
   it("copies the Markdown with the Clipboard API, else with the copy command, and no button opens or closes the panel", async () => {
     const writeText = vi.fn(async () => {})
     vi.stubGlobal("navigator", { clipboard: { writeText } })

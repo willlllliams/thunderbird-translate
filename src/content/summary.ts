@@ -13,6 +13,7 @@
 
 import { button, h } from "../shared/dom"
 import { type MessageKey, t } from "../shared/i18n"
+import { textDirection } from "../shared/locales"
 import { type MailSummary, SUMMARY_ME, type SummaryResponse } from "../shared/summary"
 import { noticeBox } from "./notice"
 
@@ -72,6 +73,8 @@ export interface SummaryPanelDeps {
   request: (fresh: boolean) => Promise<SummaryResponse>
   /** The panel opens collapsed. */
   collapsed: () => boolean
+  /** The language the summary is written in, the target language; none: the lines take the direction of their text. */
+  lang?: () => string | undefined
 }
 
 export class SummaryPanel {
@@ -140,13 +143,19 @@ export class SummaryPanel {
     )
   }
 
+  /** The language and direction of a line of the summary. */
+  private direction(): { dir: string; lang?: string } {
+    const lang = this.deps.lang?.()
+    return lang ? { dir: textDirection(lang), lang } : { dir: "auto" }
+  }
+
   /** A heading and a list per part that has lines; a line about nothing found when none has. */
   private parts(summary: MailSummary): HTMLElement[] {
     const parts = partLines(summary).filter(([, lines]) => lines.length > 0)
     if (parts.length === 0) return [h("p", { text: t("summaryEmpty") })]
     return parts.flatMap(([key, lines]) => [
       h("h4", { text: t(key) }),
-      h("ul", {}, ...lines.map((line) => h("li", { dir: "auto", title: line.title || undefined }, line.strong ? h("strong", {}, `${line.strong}: `) : null, line.text))),
+      h("ul", {}, ...lines.map((line) => h("li", { ...this.direction(), title: line.title || undefined }, line.strong ? h("strong", {}, `${line.strong}: `) : null, line.text))),
     ])
   }
 }

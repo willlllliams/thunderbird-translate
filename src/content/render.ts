@@ -22,6 +22,7 @@
  */
 
 import { getI18n } from "../shared/i18n"
+import { textDirection } from "../shared/locales"
 import { markdownFragment } from "../shared/markdown"
 import type { DisplayMode, Settings, StylePreset } from "../shared/settings"
 import { CLS_IMAGE, CLS_ORIGINAL, CLS_STATUS, CLS_TRANSLATION, type Unit } from "./paragraphs"
@@ -162,7 +163,9 @@ export class Renderer {
     ].join(" ")
     if (format === "markdown") node.appendChild(markdownFragment(this.doc, text))
     else node.textContent = text
-    node.setAttribute("dir", "auto")
+    // The direction of the target language: a translation into Arabic that starts with a product name is still right to left.
+    const dir = lang ? textDirection(lang) : "auto"
+    node.setAttribute("dir", dir)
     if (lang) node.setAttribute("lang", lang)
     if (mark) {
       const title = mark.onRetry && mark.retryHint ? `${mark.title}\n${mark.retryHint}` : mark.title
@@ -175,6 +178,8 @@ export class Renderer {
       s.added = node
     } else {
       node.title = unit.text.length > 600 ? `${unit.text.slice(0, 600)}…` : unit.text
+      // In place of an original of the other direction, the translation takes the line, so that it is aligned by its own.
+      if (dir !== "auto" && this.doc.defaultView?.getComputedStyle(unit.el).direction !== dir) node.classList.add("tt-turned")
       for (const img of Array.from(unit.el.querySelectorAll("img"))) if (!img.closest(`.${CLS_IMAGE}`)) node.appendChild(copyOf(img))
       const original = this.doc.createElement("span")
       original.className = CLS_ORIGINAL

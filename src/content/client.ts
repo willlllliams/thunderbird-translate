@@ -116,6 +116,7 @@ export function connectContent({ root, contentScript = false, probe }: ClientOpt
     ? new SummaryPanel({
         root,
         collapsed: () => current?.summary.collapsed === true,
+        lang: () => current?.targetLang,
         request: (fresh) =>
           new Promise<SummaryResponse>((resolve) => {
             const id = ++nextId

@@ -55,6 +55,7 @@
 
 import { button, h } from "../shared/dom"
 import { getI18n, type MessageKey, t } from "../shared/i18n"
+import { textDirection } from "../shared/locales"
 import { filterImage, filterShape, imageSource } from "../shared/image"
 import { TABLE_HEADER } from "../shared/image-prompt"
 import { markdownFragment } from "../shared/markdown"
@@ -520,7 +521,7 @@ export class ImageTranslator {
     const run = this.run!
     const doc = this.deps.root()!.ownerDocument
     const extra = answer.cached ? t("imageCached") : answer.usage ? t("imageUsage", [answer.usage.input, answer.usage.output]) : ""
-    const body = h("div", { className: "tt-translation tt-image-body", dir: "auto", lang: run.targetLang })
+    const body = h("div", { className: "tt-translation tt-image-body", dir: textDirection(run.targetLang), lang: run.targetLang })
     body.appendChild(markdownFragment(doc, answer.text, { rich: true, header: { from: TABLE_HEADER, to: [t("imageOriginal"), t("imageTranslation")] } }))
     if (answer.truncated) body.appendChild(h("p", { className: "tt-image-note", text: t("imageTruncated") }))
     return h("details", { className: "tt-image-result", open: !run.settings.collapsed }, h("summary", { title: t("tipImageResult") }, [t("imageResultTitle", [answer.service]), ...(extra && (answer.cached || run.settings.showUsage) ? [extra] : [])].join(" · ")), body)
