@@ -2,6 +2,44 @@
 
 All notable changes to this project are documented in this file, with the date of each version. It lists what users of the extension notice. The record up to 1.12.0 with the internal changes is kept in [docs/archive/CHANGELOG-full.md](docs/archive/CHANGELOG-full.md). Versions follow [Semantic Versioning](https://semver.org/).
 
+## 3.1.2 - 2026-11-04
+
+### Consent
+
+- "Allow…" in the panel above a message, or under an image, opens the popup of the message header button with the same question; you allow there. The message itself can restyle its panel, so before this version a message could hide the button that allows under a click elsewhere. When the button is not in a toolbar, the popup opens in a window of its own.
+- No panel puts the focus on a button: a key pressed while reading no longer answers it. A panel that opens by itself, with automatic translation, automatic summary or the image mode "On", leaves the focus where it is.
+- With "Ask again for every message", a service whose address changes while the message is open asks again for the new address, as text and the summary already did.
+
+### AI services
+
+- New default models for the services whose models were retired or are about to be: OpenAI `gpt-6-luna`, Azure OpenAI `gpt-5.6-luna`, Google Gemini `gemini-3.5-flash-lite`, Groq `openai/gpt-oss-120b`, Moonshot / Kimi `kimi-k3.1-pro`, OpenRouter `openai/gpt-6-luna`, Together AI `Qwen/Qwen3.8-Flash`, Fireworks AI `accounts/fireworks/models/glm-5p3-flash`. The suggestions of the model field leave out the retired models of these services and of Cerebras, DashScope and SiliconFlow. A model you typed yourself stays.
+- Kimi K3 models get no temperature, which they fix themselves.
+- xAI no longer keeps the text of your requests: every request says `store: false`, which teams with Zero Data Retention need as well.
+- A translation that the service cut at its output limit is no longer shown as complete or cached; the paragraph says so and can be retried.
+
+### Summary
+
+- "Regenerate" keeps the new summary: opening the message again showed the summary written together with the analysis of precise translation, and an older request could still overwrite the new one.
+- A summary written before precise translation analysed the message is found again afterwards, instead of being generated and paid for a second time.
+
+### Display
+
+- Translation only: remote images inside a paragraph stay visible after its translation, like the other images.
+- A translation into Arabic, Persian or Hebrew reads right to left also when it starts with a Latin name; the same holds for the text of images and the summary.
+- Plain-text messages in Chinese or Japanese have their wrapped lines joined again, without a space between them.
+- "Regenerate", the retry of a paragraph and the buttons under an image keep the keyboard focus where the button was.
+
+### Settings and performance
+
+- The settings page stores a prompt, a model, an endpoint, a key or a temperature once you leave the field or press Enter, and a translated message asks its service again once the settings rest for 1.5 seconds. Typing no longer sends the message to the service at every pause.
+- The translation cache moves from the extension storage into its own database, one entry at a time: saving it no longer copies the whole cache to every open page. The cache of earlier versions moves at the first use.
+- Remote images: an image whose server answers the second request with other bytes, or with a format whose size cannot be read, is no longer decoded and sent.
+
+### Texts
+
+- The hints of the image settings and the settings documentation name the remote images among the images of the body.
+- The privacy policy names the image attachments that are sent, and "Test image" and "Skip this step" among the buttons that ask for the site of a service.
+
 ## 3.1.1 - 2026-10-22
 
 ### Fixed
