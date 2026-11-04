@@ -4,7 +4,10 @@ name: Dictionary packs
 # kaikki.org Wiktionary dumps and ECDICT, then uploads every pack plus
 # dict-index.json and dict-build-report.json to the release of the given tag.
 # A full run downloads about 1.25 GB, reads about 9.9 GB of JSON lines and takes
-# roughly 15-30 minutes; see docs/dictionary-packs.md.
+# roughly 15-30 minutes; see docs/dictionary-packs.md. dicts-v1, the release
+# the extension reads, takes packs built on main only. The job that reads the
+# third-party dumps has no write token; the upload job has it and runs no
+# code of the repository.
 
 on:
   workflow_dispatch:
@@ -19,7 +22,7 @@ on:
         default: dicts-v1
 
 permissions:
-  contents: write
+  contents: read
 
 concurrency:
   group: dicts-${{ inputs.tag }}
@@ -29,6 +32,8 @@ jobs:
   build:
     runs-on: ubuntu-latest
     timeout-minutes: 240
+    permissions:
+      contents: read
     env:
       PAIRS: ${{ inputs.pairs }}
       TAG: ${{ inputs.tag }}
@@ -36,7 +41,16 @@ jobs:
       # citation counts for all languages in memory.
       NODE_OPTIONS: --max-old-space-size=8192
     steps:
+      - name: Refuse to replace the published packs from a branch
+        run: |
+          if [ "$GITHUB_REF" != "refs/heads/main" ] && [ "$TAG" = "dicts-v1" ]; then
+            echo "::error::dicts-v1 is the release every installation reads: build it from main, or give a branch another tag such as dicts-test"
+            exit 1
+          fi
+
       - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
 
       - uses: actions/setup-node@v5
         with:
@@ -82,6 +96,25 @@ jobs:
             ' "$RUNNER_TEMP/dicts/dict-index.json"
           } >> "$GITHUB_STEP_SUMMARY"
           du -sh "$RUNNER_TEMP/dict-cache" "$RUNNER_TEMP/dicts"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: dicts
+          path: ${{ runner.temp }}/dicts
+          if-no-files-found: error
+          retention-days: 3
+
+  upload:
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: dicts
+          path: ${{ runner.temp }}/dicts
 
       # With the gh CLI of the runner: no third-party action gets the write permission of this workflow.
       - name: Upload to release

@@ -84,6 +84,21 @@ describe("workflows", () => {
     expect(release).toContain("npm run source-zip")
   })
 
+  it("T1: replace the packs of dicts-v1 from main only, and build them without a write token", () => {
+    const dicts = workflow("dicts.yml")
+    const build = dicts.slice(dicts.indexOf("\n  build:"), dicts.indexOf("\n  upload:"))
+    const upload = dicts.slice(dicts.indexOf("\n  upload:"))
+    const guard = build.slice(build.indexOf("Refuse to replace"), build.indexOf("actions/checkout"))
+    for (const part of ["refs/heads/main", "dicts-v1", "exit 1"]) expect(guard).toContain(part)
+    expect(build.indexOf("Refuse to replace")).toBeLessThan(build.indexOf("Fetch existing packs"))
+    expect(dicts).toMatch(/^permissions:\n {2}contents: read$/m)
+    expect(build).toMatch(/contents: read/)
+    expect(build).not.toMatch(/contents: write/)
+    expect(build).toContain("persist-credentials: false")
+    expect(upload).toContain("contents: write")
+    expect(upload).not.toMatch(/build\.mjs|actions\/checkout/)
+  })
+
   it("I9: run no third-party action by a tag that can move; actions of GitHub by their major version", () => {
     for (const name of ["release.yml", "dicts.yml"]) {
       for (const [, action, ref] of workflow(name).matchAll(/uses: ([\w.-]+\/[\w.-]+)@(\S+)/g)) {
