@@ -12,8 +12,8 @@ export interface BackgroundHookDeps {
   dictionary: DictionaryManager
   /** Runs a keyboard command as if it was pressed in `tab`. */
   runCommand: (command: string, tab?: browser.tabs.Tab) => Promise<void>
-  /** Answers the consent panel of `kind` in tab `tabId` as the popup does. */
-  answerConsent: (tabId: number, kind: ConsentKind, allowed: boolean) => Promise<void>
+  /** Answers the consent panel of `kind` in tab `tabId` as the popup does; false when no panel asked. */
+  answerConsent: (tabId: number, kind: ConsentKind, allowed: boolean) => Promise<boolean>
 }
 
 /**

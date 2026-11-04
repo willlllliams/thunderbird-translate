@@ -832,7 +832,7 @@ describe("the Port and the other requests", () => {
     expect(consentAsked).toHaveBeenCalledTimes(2)
     expect(tabs.stateOf(5).consent).toEqual([question, text])
     expect(tabs.stateOf(6).consent).toBeUndefined()
-    await tabs.answerConsent(5, "image", true)
+    expect(await tabs.answerConsent(5, "image", true)).toBe(true)
     expect(grantConsent).toHaveBeenCalledWith("5:1", question)
     expect(port.posted.at(-1)).toEqual({ type: "consentAnswer", kind: "image", allowed: true })
     expect(tabs.stateOf(5).consent).toEqual([text])
@@ -841,7 +841,7 @@ describe("the Port and the other requests", () => {
     await tabs.answerConsent(5, "text", true)
     expect(port.posted.at(-1)).toEqual({ type: "consentAnswer", kind: "text", allowed: false })
     const posted = port.posted.length
-    await tabs.answerConsent(5, "text", true)
+    expect(await tabs.answerConsent(5, "text", true)).toBe(false)
     expect(port.posted).toHaveLength(posted)
     // Cancel answers nothing to record; a panel that went takes its question along, and so does a content script that went.
     port.send({ type: "consentAsk", question: text })

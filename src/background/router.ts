@@ -71,7 +71,7 @@ export function createHandlers({ tabs, service, images, localeMessages, offlineM
         s.offlineMutedPairs = [...muted]
       })),
     // The popup answers a consent panel of the message: only a page of the extension, which the message cannot style or cover.
-    answerConsent: (req) => tabs.answerConsent(req.tabId, req.kind === "image" ? "image" : "text", req.allowed === true),
+    answerConsent: async (req) => void (await tabs.answerConsent(req.tabId, req.kind === "image" ? "image" : "text", req.allowed === true)),
     // Dictionary packs or offline models changed: content scripts forget their results, pages show the new state.
     ...offlineHandlers({ manager: offlineManager, contentScripts: () => tabs.broadcast({ type: "offlineDataChanged" }), pages: toPages }),
     clearCache: () => cache.clear(),

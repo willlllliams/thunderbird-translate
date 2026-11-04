@@ -31,7 +31,7 @@ function router(settings: Settings = createDefaultSettings()) {
       postToTab: (tabId: number, msg: PortPush) => void pushed.push([tabId, msg]),
       broadcast: (msg: PortPush) => void pushed.push(["all", msg]),
       stateOf: vi.fn(() => IDLE_TAB_STATE),
-      answerConsent: vi.fn(async (_tabId: number, _kind: string, _allowed: boolean) => {}),
+      answerConsent: vi.fn(async (_tabId: number, _kind: string, _allowed: boolean) => true),
     },
     service: { testProvider: vi.fn(async () => "Hallo") },
     localeMessages: vi.fn(async () => ({ locale: "de" as const, messages: {} })),

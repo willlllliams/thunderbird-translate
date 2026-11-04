@@ -125,7 +125,12 @@ export interface E2eDeps {
   storage: KeyValueStorage
   dictionary: DictionaryManager
   runCommand: (command: string, tab?: browser.tabs.Tab) => Promise<void>
-  answerConsent: (tabId: number, kind: ConsentKind, allowed: boolean) => Promise<void>
+  answerConsent: (tabId: number, kind: ConsentKind, allowed: boolean) => Promise<boolean>
+}
+
+/** Allow what the consent panel of `kind` in tab `tabId` asks; the question goes over the Port, which may arrive after this message. */
+async function allowConsent(answerConsent: E2eDeps["answerConsent"], tabId: number, kind: ConsentKind): Promise<void> {
+  for (let tries = 0; tries < 50 && !(await answerConsent(tabId, kind, true)); tries++) await new Promise((resolve) => setTimeout(resolve, 100))
 }
 
 /** Store the test settings and install the dictionary; never rejects, failures go to the server. */
@@ -136,7 +141,7 @@ export async function setUpE2e({ storage, dictionary, runCommand, answerConsent 
     if (!msg || typeof msg !== "object" || !("e2e" in msg)) return undefined
     // The mark separates the requests before and after the command in the server's log.
     if (msg.e2e === "command") return post("/mark", { command: msg.command }).then(() => runCommand(msg.command, sender.tab))
-    if (msg.e2e === "consent") return sender.tab?.id === undefined ? Promise.resolve() : answerConsent(sender.tab.id, msg.kind, true)
+    if (msg.e2e === "consent") return sender.tab?.id === undefined ? Promise.resolve() : allowConsent(answerConsent, sender.tab.id, msg.kind)
     if (msg.e2e === "report") return post("/report", { ...(msg.report as object), userAgent: navigator.userAgent })
     if (msg.e2e === "scenario") return Promise.resolve(scenario)
     if (msg.e2e === "screenshot") return screenshot(msg.name, msg.windowType)

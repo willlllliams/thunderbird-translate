@@ -58,8 +58,8 @@ export interface TabRegistry {
   broadcast(msg: PortPush): void
   /** Draws the badge of every connected tab again, e.g. in a new interface language. */
   redrawBadges(): void
-  /** The popup answered the consent panel of `kind` in tab `tabId`: recorded when allowed, then told to the panel. */
-  answerConsent(tabId: number, kind: ConsentKind, allowed: boolean): Promise<void>
+  /** The popup answered the consent panel of `kind` in tab `tabId`: recorded when allowed, then told to the panel; false when no panel asked. */
+  answerConsent(tabId: number, kind: ConsentKind, allowed: boolean): Promise<boolean>
 }
 
 function safePost(port: browser.runtime.Port, msg: PortPush): void {
@@ -193,6 +193,7 @@ export function createTabRegistry({ ready, publicSettings, setContext, translate
       return { ...state, ...(remote > 0 ? { remoteImages: remote } : {}), ...(consent.length > 0 ? { consent } : {}) }
     },
     async answerConsent(tabId, kind, allowed) {
+      let answered = false
       for (const [session, own] of sessionPorts) {
         const question = own.tabId === tabId ? own.questions.get(kind) : undefined
         if (!question) continue
@@ -200,7 +201,9 @@ export function createTabRegistry({ ready, publicSettings, setContext, translate
         // A consent that cannot be recorded is no consent: the background script would refuse the requests.
         const recorded = allowed && (await (grantConsent?.(session, question) ?? Promise.reject(new Error("no record"))).then(() => true, () => false))
         safePost(own.port, { type: "consentAnswer", kind, allowed: recorded })
+        answered = true
       }
+      return answered
     },
     postToTab(tabId, msg) {
       for (const port of ports.get(tabId) ?? []) safePost(port, msg)
