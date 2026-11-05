@@ -67,8 +67,13 @@ jobs:
         run: |
           mkdir -p "$RUNNER_TEMP/dicts"
           if gh release view "$TAG" --repo "$GITHUB_REPOSITORY" > /dev/null 2>&1; then
-            gh release download "$TAG" --repo "$GITHUB_REPOSITORY" --dir "$RUNNER_TEMP/dicts" \
-              --pattern 'dict-*.tsv.gz' --pattern 'dict-index.json' --pattern 'dict-build-report.json' --clobber || true
+            # A release with an index must download completely: a failed download would let the build write an index
+            # of the rebuilt packs alone over the published one.
+            if gh release view "$TAG" --repo "$GITHUB_REPOSITORY" --json assets --jq '.assets[].name' | grep -x 'dict-index.json' > /dev/null; then
+              gh release download "$TAG" --repo "$GITHUB_REPOSITORY" --dir "$RUNNER_TEMP/dicts" \
+                --pattern 'dict-*.tsv.gz' --pattern 'dict-index.json' --pattern 'dict-build-report.json' --clobber
+              cp "$RUNNER_TEMP/dicts/dict-index.json" "$RUNNER_TEMP/published-index.json"
+            fi
           fi
           ls -l "$RUNNER_TEMP/dicts"
 
@@ -84,6 +89,20 @@ jobs:
       - name: Verify packs
         working-directory: tools/dict-build
         run: node verify.mjs "$RUNNER_TEMP/dicts"
+
+      # verify.mjs checks the packs the index lists, not the ones it lacks.
+      - name: Keep every direction of the published index
+        run: |
+          [ -f "$RUNNER_TEMP/published-index.json" ] || exit 0
+          node -e '
+            const key = (p) => `${p.src}-${p.tgt}`;
+            const after = new Set(require(process.argv[2]).packs.map(key));
+            const lost = require(process.argv[1]).packs.map(key).filter((k) => !after.has(k));
+            if (lost.length) {
+              console.error("::error::the new index lacks directions of the published one: " + lost.join(", "));
+              process.exit(1);
+            }
+          ' "$RUNNER_TEMP/published-index.json" "$RUNNER_TEMP/dicts/dict-index.json"
 
       - name: Summarize
         run: |

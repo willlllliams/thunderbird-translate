@@ -12,7 +12,7 @@
 
 import { $ } from "../shared/page"
 import type { Settings } from "../shared/settings"
-import { loadSettings, mergeChanges, onStoredSettings, readSettings, saveChanges } from "../shared/settings-store"
+import { loadSettings, mergeChanges, onStoredSettings, readSettings, saveChanges, saveSettings } from "../shared/settings-store"
 
 /** Edits are saved this long after the last change, together. */
 export const SAVE_DELAY_MS = 300
@@ -54,7 +54,7 @@ export class SettingsSession {
       else session.absorb(remote)
     })
     // Text still being typed when the page goes.
-    addEventListener("pagehide", () => void session.flush())
+    addEventListener("pagehide", () => session.leave())
     return session
   }
 
@@ -92,6 +92,18 @@ export class SettingsSession {
       this.edit()
     })
     el.addEventListener("change", () => this.save())
+  }
+
+  /**
+   * The page goes: what is pending is written at once, from the settings the page holds (the stored ones as last read,
+   * with its edits), without reading storage first. The page may be gone before an answer to a read comes.
+   */
+  private leave(): void {
+    if (this.timer) clearTimeout(this.timer)
+    this.timer = null
+    if (!this.dirty) return
+    this.dirty = false
+    void saveSettings(structuredClone(this.settings)).catch(() => {})
   }
 
   /** Save now what is pending. Resolves with false when the save failed; never rejects. */

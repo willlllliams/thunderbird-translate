@@ -55,8 +55,12 @@ describe("general settings", () => {
     $<HTMLInputElement>("autoTranslate").click()
     await flushSave()
     expect(note()).toEqual([true, false])
+    expect($("saved").getAttribute("role")).toBe("status")
+    expect($("saved").textContent).toBe(ENGLISH.t("saved"))
     await vi.advanceTimersByTimeAsync(1200)
     expect(note()).toEqual([false, false])
+    // Empty again, so that the next note is announced as a change.
+    expect($("saved").textContent).toBe("")
     // A save fails while the note of the save before is still shown: the failure stays.
     $<HTMLInputElement>("autoTranslate").click()
     await flushSave()
@@ -314,8 +318,13 @@ describe("service panel", () => {
     model.dispatchEvent(new Event("input"))
     await flushSave()
     expect(page.browser.local.set).toHaveBeenCalledTimes(1)
+    // UI3: written at once, without a read of storage first, which an answer might not outlive.
+    const reads = page.browser.local.get.mock.calls.length
     dispatchEvent(new Event("pagehide"))
+    expect(page.browser.local.set).toHaveBeenCalledTimes(2)
+    expect(page.browser.local.get.mock.calls.length).toBe(reads)
     await until(() => expect(page.stored().providers.openai.model).toBe("gpt-6.1-terra"))
+    expect(page.stored().prompts.bilingual).toBe("Translate into {{to}}.")
   })
 
   it("switches the Microsoft mode only on the radio button that becomes checked", async () => {
@@ -403,6 +412,18 @@ describe("service panel", () => {
     await options((s) => (s.providers.anthropic = { enabled: true, apiKey: "k", baseURL: "", model: "", temperature: null }))
     pick("Anthropic Claude")
     expect(input("number").value).toBe("")
+  })
+
+  it("UI5: keeps the keyboard focus in the panel of a service after Add and Use this service", async () => {
+    await options()
+    pick("DeepL API")
+    button(ENGLISH.t("buttonAddProvider")).focus()
+    button(ENGLISH.t("buttonAddProvider")).click()
+    // The button that followed "Add".
+    expect(document.activeElement).toBe(button(ENGLISH.t("buttonUse")))
+    // "Use this service" is disabled once it has been used: the first button that takes the focus.
+    button(ENGLISH.t("buttonUse")).click()
+    expect(document.activeElement).toBe(button(ENGLISH.t("buttonTest")))
   })
 
   it("disables Use this service for the service of its tier", async () => {

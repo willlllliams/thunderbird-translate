@@ -42,6 +42,9 @@ All notable changes to this project are documented in this file, with the date o
 - "Clear cache" also clears the summaries and analyses the extension keeps in memory.
 - If the cache of an earlier version cannot be moved into the new database, for example after a downgrade and an update, the extension no longer reads it again with every translated paragraph: it works with the new cache and tries again after a minute. Adopting unchanged settings no longer opens the cache database.
 - The style preview on the settings page follows a change of the interface language.
+- A jump to a section of the settings page, from the popup or from a message, no longer hides the heading under the page header.
+- Text still being typed when you close the settings page is written at once, without waiting for an answer of the storage, which the closing page might not outlive.
+- Keyboard: after "Add" or "Use this service" on the settings page, and after "Download common languages", the focus stays on the next button instead of falling to the top of the page. The "Saved" and "Saving failed" note is announced by screen readers and readable in the dark theme.
 - Remote images: an image whose server answers the second request with other bytes, or with a format whose size cannot be read, is no longer decoded and sent. The next request reads such an image anew and sends it, and a request that failed is tried again with the bytes already read.
 - "Retranslate" asks past the cache once for each image: a copy of an image in the same message finds the result its twin has just stored instead of being sent again.
 - A result shown from the cache in the mode "On" stays when you switch to "Ask under each image".

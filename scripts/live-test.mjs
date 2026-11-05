@@ -54,6 +54,7 @@ async function check(label, fn) {
       console.log("  !! output does not look like Chinese")
     }
   } catch (error) {
+    failures++
     console.log(`\n[FAIL] ${label}: ${error?.message ?? error}`)
     return error
   }

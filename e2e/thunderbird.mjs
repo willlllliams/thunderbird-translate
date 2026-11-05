@@ -84,10 +84,10 @@ export function launch(bin, profile, eml, logFile) {
   return child
 }
 
-/** Process ids started for `profile`: those whose command line names it, and their descendants (Windows). */
+/** Process ids started for `profile`: those whose command line names it, and their descendants (Windows); not the PowerShell of this query, whose command line names it too. */
 function windowsProfileProcesses(profile) {
   const script = `$all = Get-CimInstance Win32_Process
-$ids = @($all | Where-Object { $_.CommandLine -like '*${basename(profile)}*' } | ForEach-Object { $_.ProcessId })
+$ids = @($all | Where-Object { $_.ProcessId -ne $PID -and $_.CommandLine -like '*${basename(profile)}*' } | ForEach-Object { $_.ProcessId })
 do { $before = $ids.Count; $ids = @($ids + @($all | Where-Object { $ids -contains $_.ParentProcessId } | ForEach-Object { $_.ProcessId }) | Sort-Object -Unique) } while ($ids.Count -gt $before)
 $ids -join ','`
   try {

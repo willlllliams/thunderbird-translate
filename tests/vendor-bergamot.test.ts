@@ -18,6 +18,12 @@ describe("vendored Bergamot engine", () => {
     for (const value of [BERGAMOT_WASM.hash, BERGAMOT_WASM.decompressedHash, BERGAMOT_WASM.revision, BERGAMOT_WASM.release, BERGAMOT_WASM.location]) expect(readme).toContain(value)
   })
 
+  it("IN9: keeps the glue script unmodified: its SHA-256 is the one vendor/bergamot/README.md and SOURCE-BUILD.md name", () => {
+    const hash = createHash("sha256").update(readFileSync(join(__dirname, "..", "vendor", "bergamot", "bergamot-translator.js"))).digest("hex")
+    expect(readme).toContain(`| sha256 | \`${hash}\` |`)
+    expect(readFileSync(join(__dirname, "..", "SOURCE-BUILD.md"), "utf8")).toContain(`| \`${hash}\` |`)
+  })
+
   it("are declared in VENDOR.md, for the source review, with the upstream addresses vendor/bergamot/README.md names", () => {
     const vendor = readFileSync(join(__dirname, "..", "VENDOR.md"), "utf8")
     const entries = [...vendor.matchAll(/^(\S+):\n- Version: .+\n- URL: (https:\/\/\S+)$/gm)].map(([, file, url]) => [file, url])

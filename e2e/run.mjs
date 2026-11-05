@@ -294,6 +294,8 @@ function checkConsent(c, ready, report, calls) {
   expect(panel?.buttons?.length === 2, "the panel needs two buttons", panel?.buttons)
   expect(report.beforeAllow?.tierResults === 0 && report.beforeAllow.active === false && report.beforeAllow.shown === 0, "something was translated before the consent", report.beforeAllow)
   const online = calls.filter((x) => x.type === "google" || x.type === "ai")
+  // A comparison with a missing time is always false: without the time the check below would pass for nothing.
+  expect(typeof report.allowedAt === "number", "the probe reported no time of the consent")
   const early = online.filter((x) => x.at < report.allowedAt)
   expect(early.length === 0, "a service was requested before the consent", early)
   expect(online.some((x) => x.type === "google") && online.some((x) => x.type === "ai"), "Google and the AI service were not both requested after the consent", online)
@@ -338,6 +340,7 @@ function checkSummary(ready, report, calls) {
   if (report.error) return [...failures, `content script: ${report.error}`]
   const summaries = calls.filter((x) => x.type === "ai" && x.mode === "summary")
   expect(report.beforeAllow?.panel === null && report.beforeAllow.services?.length === 1 && report.beforeAllow.services[0].includes("127.0.0.1"), "the consent panel does not name the AI service alone, or the summary came before it", report.beforeAllow)
+  expect(typeof report.allowedAt === "number", "the probe reported no time of the consent")
   expect(!summaries.some((x) => x.at < report.allowedAt), "the AI service got the message before the consent", summaries)
   const first = report.first
   expect(first?.atTop === true && first.open === true && first.copyDisabled === false && first.markup === 0, "the panel is not open at the top of the message with its copy button", first)
@@ -418,6 +421,7 @@ function checkImage(c, ready, report, calls) {
     return failures
   }
   // "image-ask"
+  expect(typeof report.allowedAt === "number", "the probe reported no time of the consent")
   expect(!images.some((x) => x.at < report.allowedAt), "the AI service got an image before the consent", images)
   expect(report.panel?.title === "Send this image to Custom OpenAI-compatible?" && report.panel.lines.some((line) => line.includes("127.0.0.1")) && report.panel.lines.some((line) => /1,?568 pixels/.test(line) && line.includes("JPEG")), "the consent panel does not say what is sent where", report.panel)
   expect(report.panel?.slots.find((slot) => slot.consent)?.part === IMAGE_PARTS.chart, "the consent panel is not under the clicked image", report.panel?.slots)

@@ -202,6 +202,8 @@ function renderProviderPanel(): void {
     }
     actions.replaceChildren(test, use, remove)
   }
+  // The button that was clicked goes with the panel: the focus moves to the button that follows it ("Add" → "Use this service"), else to the first one that can take it.
+  const clicked = document.activeElement instanceof HTMLButtonElement && $("providerPanel").contains(document.activeElement) ? document.activeElement.textContent : null
   $("providerPanel").replaceChildren(
     ...servicePanel(session, p, addWhileTyping, (button) => {
       test = button
@@ -209,6 +211,10 @@ function renderProviderPanel(): void {
       return actions
     }, [blockedHint]),
   )
+  if (clicked === null) return
+  const buttons = Array.from(actions.querySelectorAll("button")).filter((b) => !b.disabled)
+  const next = clicked === t("buttonAddProvider") ? t("buttonUse") : clicked
+  ;(buttons.find((b) => b.textContent === next) ?? buttons[0])?.focus({ preventScroll: true })
 }
 
 /** The sample paragraph and its translation as the renderer of the messages draws them, in the style of the settings. */

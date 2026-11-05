@@ -128,9 +128,15 @@ export interface E2eDeps {
   answerConsent: (tabId: number, kind: ConsentKind, allowed: boolean) => Promise<boolean>
 }
 
-/** Allow what the consent panel of `kind` in tab `tabId` asks; the question goes over the Port, which may arrive after this message. */
+/** Allow what the consent panel of `kind` in tab `tabId` asks; the question goes over the Port, which may arrive after this message. Fails, with the reason in the log of the server, when none arrives within 5 s. */
 async function allowConsent(answerConsent: E2eDeps["answerConsent"], tabId: number, kind: ConsentKind): Promise<void> {
-  for (let tries = 0; tries < 50 && !(await answerConsent(tabId, kind, true)); tries++) await new Promise((resolve) => setTimeout(resolve, 100))
+  for (let tries = 0; tries < 50; tries++) {
+    if (await answerConsent(tabId, kind, true)) return
+    await new Promise((resolve) => setTimeout(resolve, 100))
+  }
+  const message = `no consent question of kind ${kind} in tab ${tabId} after 5 s`
+  await post("/log", { message })
+  throw new Error(message)
 }
 
 /** Store the test settings and install the dictionary; never rejects, failures go to the server. */

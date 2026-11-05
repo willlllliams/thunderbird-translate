@@ -296,14 +296,18 @@ describe("dictionary list", () => {
     await d.section.load()
     button(d.row("German"), ENGLISH.t("buttonDownload"))!.click()
     await until(() => expect(d.row("German").textContent).toContain(ENGLISH.t("dictInstalled")))
+    d.commonButton().focus()
     d.commonButton().click()
     const confirm = d.common.querySelector(".common-confirm")!
+    // UI9: the button clicked is replaced; the focus goes to "Confirm", and back to the first button on "Cancel".
+    expect(document.activeElement).toBe(button(confirm, ENGLISH.t("buttonConfirmDownload")))
     const total = ([EN_DE, FR_EN, EN_JA].map((t) => packEntry(t).bytes).reduce((a, b) => a + b) / 1048576).toFixed(1)
     expect(confirm.querySelector("p")!.textContent).toBe(ENGLISH.t("commonConfirm", [3, total]))
     // Vietnamese is not a common language.
     expect(Array.from(confirm.querySelectorAll("li"), (li) => li.textContent!.split(" · ")[0]).sort()).toEqual(["English → German (Deutsch)", "English → Japanese (日本語)", "French (Français) → English"])
     button(confirm, ENGLISH.t("buttonCancel"))!.click()
     expect(d.common.querySelector(".common-confirm")).toBeNull()
+    expect(document.activeElement).toBe(d.commonButton())
     d.commonButton().click()
     button(d.common.querySelector(".common-confirm")!, ENGLISH.t("buttonConfirmDownload"))!.click()
     await until(() => expect(d.common.textContent).toContain(ENGLISH.t("commonAllInstalled")))

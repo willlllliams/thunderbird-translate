@@ -145,7 +145,12 @@ export function showSaved(): void {
   saved.title = t("tipSaved")
   saved.classList.remove("error")
   saved.classList.add("show")
-  setTimeout(() => saved.classList.contains("error") || saved.classList.remove("show"), 1200)
+  // Empty again, so that the next "Saved" is a change of the status that a screen reader announces.
+  setTimeout(() => {
+    if (saved.classList.contains("error")) return
+    saved.classList.remove("show")
+    saved.textContent = ""
+  }, 1200)
 }
 
 /** Show in place of the "Saved" note that saving failed, until a save succeeds. */
