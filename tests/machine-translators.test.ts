@@ -119,7 +119,7 @@ describe("Baidu Translate", () => {
   })
 
   it("keeps within the request size and the requests per second of the edition", async () => {
-    const { settings, service } = createService(createDefaultSettings("en"), {})
+    const { settings } = createService(createDefaultSettings("en"), {})
     settings.providers.baidu = { ...emptyProviderConfig(), enabled: true, appId: "id", apiKey: "key" }
     const sleep = vi.fn(async (_ms: number) => {})
     const fetchFn = stub((_url, init) => ({ trans_result: form(init.body).get("q")!.split("\n").map((line) => ({ dst: `B(${line.length})` })) }))
@@ -134,7 +134,6 @@ describe("Baidu Translate", () => {
     fetchFn.mockClear()
     expect(await Promise.all(["c".repeat(600), "d".repeat(600)].map((t) => translateOne(run, { providerId: "baidu", text: t, sourceLang: "en" })))).toEqual(["B(600)", "B(600)"])
     expect(fetchFn).toHaveBeenCalledTimes(1)
-    expect(service).toBeDefined()
   })
 
   it("B2: with source language auto, sends the paragraphs of each detected language in a request of their own", async () => {

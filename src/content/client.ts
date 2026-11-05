@@ -16,14 +16,13 @@ import type { PublicSettings } from "../shared/settings"
 import type { SummaryResponse } from "../shared/summary"
 import { CONTENT_PORT_NAME, type ImageResponse, isPortPush, type LocaleMessages, type PortReport, send, type TabState, type TranslateResponse } from "../shared/messages"
 import type { Tier } from "../shared/providers"
-import { hasTranslatableText } from "../shared/text"
 import type { ContentProbe } from "../hooks/content"
-import { ConsentPanel } from "./consent"
-import { consentKey, TranslationController } from "./controller"
+import { ConsentPanel, MessageConsent } from "./consent"
+import { TranslationController } from "./controller"
 import { ImageTranslator } from "./images"
 import { MissingNotice } from "./notice"
 import { restoreLeftovers } from "./paragraphs"
-import { SummaryButton, SummaryPanel } from "./summary"
+import { SummaryButton, SummaryPanel, summaryOpener } from "./summary"
 
 declare const __DEBUG__: boolean
 
@@ -56,6 +55,30 @@ async function loadLabels(uiLanguage: UiLanguageSetting): Promise<boolean> {
   }
 }
 
+/**
+ * Requests over the Port answered by id: ask() posts one with a new id, settle() answers it, failAll() answers every
+ * one still waiting with `fallback` (the background went away). A request that cannot be posted gets `fallback` at once.
+ */
+function answers<T>(nextId: () => number, fallback: () => T) {
+  const waiting = new Map<number, (value: T) => void>()
+  return {
+    ask: (post: (id: number) => boolean) =>
+      new Promise<T>((resolve) => {
+        const id = nextId()
+        if (post(id)) waiting.set(id, resolve)
+        else resolve(fallback())
+      }),
+    settle(id: number, value: T): void {
+      waiting.get(id)?.(value)
+      waiting.delete(id)
+    },
+    failAll(): void {
+      for (const resolve of waiting.values()) resolve(fallback())
+      waiting.clear()
+    },
+  }
+}
+
 export function connectContent({ root, contentScript = false, probe }: ClientOptions): ContentClient {
   // The content script of an earlier version of the extension may have left its translations in the message.
   const body = contentScript ? root() : null
@@ -78,11 +101,10 @@ export function connectContent({ root, contentScript = false, probe }: ClientOpt
     for (const tier of tiers) onTier(tier, { ok: false, error: getI18n().t("errUnknown") })
     resolve()
   }
-  /** Summary requests without an answer yet. */
-  const summaryRequests = new Map<number, (result: SummaryResponse) => void>()
-  /** Image requests without an answer yet. */
-  const imageRequests = new Map<number, (result: ImageResponse) => void>()
-  let nextId = 0
+  let lastId = 0
+  const nextId = () => ++lastId
+  const summaryRequests = answers<SummaryResponse>(nextId, () => ({ ok: false, error: getI18n().t("errUnknown") }))
+  const imageRequests = answers<ImageResponse>(nextId, () => ({ status: "error", error: getI18n().t("errUnknown") }))
   let mutedPairs: string[] = []
   const notice = contentScript
     ? new MissingNotice({
@@ -92,71 +114,35 @@ export function connectContent({ root, contentScript = false, probe }: ClientOpt
       })
     : undefined
 
-  // For a displayed message; the extension pages translate their own sample text.
-  const consentPanel = contentScript ? new ConsentPanel({ root }) : undefined
-  const consent = consentPanel && {
-    ask: async (needs: Parameters<ConsentPanel["ask"]>[0], precise: boolean) => {
-      if (!(await consentPanel.ask(needs, precise))) return false
-      try {
-        await send({ type: "grantConsent", ids: needs.map((need) => need.id), hosts: needs.map((need) => need.host) })
-        return true
-      } catch {
-        return false
-      }
-    },
-    clear: () => consentPanel.clear(),
-  }
+  // For a displayed message; the extension pages translate their own sample text. The popup answers the panel.
+  const consentPanel = contentScript
+    ? new ConsentPanel({ root, review: (needs, uses) => void post({ type: "consentAsk", question: { kind: "text", needs, uses } }), closed: () => void post({ type: "consentClosed", kind: "text" }) })
+    : undefined
+  /** The services allowed in the consent panel of the message, before the settings that record them arrive: for its translation and for its summary. */
+  const allowed = new MessageConsent()
 
   /** The settings applied last. */
   let current: PublicSettings | null = null
-  /** The service of the summary, allowed in the consent panel before the settings that record it arrive. */
-  const summaryAllowed = new Set<string>()
   // Only the content script has a message to summarize.
   const summaryPanel = contentScript
     ? new SummaryPanel({
         root,
         collapsed: () => current?.summary.collapsed === true,
-        request: (fresh) =>
-          new Promise<SummaryResponse>((resolve) => {
-            const id = ++nextId
-            if (post({ type: "summary", id, text: controller.messageText(), ...(fresh ? { bypassCache: true } : {}) })) summaryRequests.set(id, resolve)
-            else resolve({ ok: false, error: getI18n().t("errUnknown") })
-          }),
+        lang: () => current?.targetLang,
+        request: (fresh) => summaryRequests.ask((id) => post({ type: "summary", id, text: controller.messageText(), ...(fresh ? { bypassCache: true } : {}) })),
       })
     : undefined
-  /** The summary of the message, once the user allowed its service to receive the text. */
-  const summarize = async () => {
-    const need = current?.summary.available ? current.summary.consent : undefined
-    if (!summaryPanel || need === undefined) return
-    if (need && !summaryAllowed.has(need.id)) {
-      // The summary sends the whole message, as precise translation does.
-      if (!(await consent!.ask([need], true))) return
-      summaryAllowed.add(need.id)
-    }
-    await summaryPanel.show()
-  }
-  /** The summary opened by itself for this message, or the user's answer to its consent panel: it is not asked for again. */
-  let autoSummarized = false
-  /** The summary by itself (Settings.summary.auto): once, for a message with text, unless the panel is open already. */
-  const autoSummary = () => {
-    if (autoSummarized || !summaryPanel || summaryPanel.shown || !hasTranslatableText(controller.messageText())) return
-    autoSummarized = true
-    void summarize()
-  }
-  const summaryButton = summaryPanel ? new SummaryButton({ root, onClick: () => void summarize() }) : undefined
+  const summary = summaryPanel && consentPanel && summaryOpener({ panel: summaryPanel, consent: consentPanel, allowed, current: () => current, messageText: () => controller.messageText() })
+  const summaryButton = summary ? new SummaryButton({ root, onClick: () => void summary.open(true) }) : undefined
   const showSummaryButton = (active: boolean) => summaryButton?.sync(active && current?.summary.available === true && current.summary.inlineButton)
 
   // Only a displayed message has images to translate.
   const images = contentScript
     ? new ImageTranslator({
         root,
-        request: (image) =>
-          new Promise<ImageResponse>((resolve) => {
-            const id = ++nextId
-            if (post({ type: "image", id, image })) imageRequests.set(id, resolve)
-            else resolve({ status: "error", error: getI18n().t("errUnknown") })
-          }),
-        grant: (ids, message, hosts) => void post({ type: "imageConsent", ids, ...(hosts ? { hosts } : {}), ...(message ? { message } : {}) }),
+        request: (image) => imageRequests.ask((id) => post({ type: "image", id, image })),
+        review: (question) => void post({ type: "consentAsk", question }),
+        closed: () => void post({ type: "consentClosed", kind: "image" }),
         requestAccess: () => void post({ type: "remoteAccess" }),
         reportRemote: (count) => void post({ type: "remoteImages", count }),
       })
@@ -164,12 +150,13 @@ export function connectContent({ root, contentScript = false, probe }: ClientOpt
 
   const controller = new TranslationController({
     notice,
-    consent,
+    consent: consentPanel,
+    allowed,
     images,
     root,
     translate: (request, onTier) =>
       new Promise((resolve) => {
-        const id = ++nextId
+        const id = nextId()
         const entry = { resolve, onTier, tiers: new Set(request.tiers) }
         if (post({ type: "translate", id, request })) pending.set(id, entry)
         else fail(entry)
@@ -184,7 +171,7 @@ export function connectContent({ root, contentScript = false, probe }: ClientOpt
       probe?.state(state)
       showSummaryButton(state.active)
       // A translation started: with either automatic mode the summary comes with it, in one request with the analysis of precise translation where it can.
-      if (state.active && state.total > 0 && current && current.summary.auto !== "off") autoSummary()
+      if (state.active && state.total > 0 && current && current.summary.auto !== "off") summary?.auto()
       post({ type: "state", state })
     },
   })
@@ -201,10 +188,9 @@ export function connectContent({ root, contentScript = false, probe }: ClientOpt
     if (msg.type === "settings") {
       const next = msg.settings
       mutedPairs = next.offlineMutedPairs
-      // The service of the summary asked for anew is asked for again, as the controller does for translation.
-      const asked = next.summary.consent
-      const before = current?.summary.consent
-      if (asked && (!before || consentKey(before) !== consentKey(asked))) summaryAllowed.delete(asked.id)
+      // The service of the summary asked for anew is asked for again, as the controller does for the services of the translation.
+      const needs = (consent: PublicSettings["summary"]["consent"] | undefined) => (consent ? [consent] : [])
+      allowed.follow(needs(current?.summary.consent), needs(next.summary.consent))
       current = next
       settingsApplied = settingsApplied.then(async () => {
         if (contentScript && next.uiLanguage !== uiLanguage && (await loadLabels(next.uiLanguage))) uiLanguage = next.uiLanguage
@@ -216,20 +202,21 @@ export function connectContent({ root, contentScript = false, probe }: ClientOpt
         if (!contentScript) return
         const started = __DEBUG__ ? controller.start() : controller.maybeAutoStart()
         // "For every message": after the decision on automatic translation, so that a translation that starts takes the summary along.
-        if (next.summary.auto === "always") void started.then(autoSummary, autoSummary)
+        if (next.summary.auto === "always") void started.then(() => summary?.auto(), () => summary?.auto())
       })
     } else if (msg.type === "toggle") {
       void controller.toggle()
     } else if (msg.type === "retranslate") {
       void controller.retranslate()
     } else if (msg.type === "summarize") {
-      void summarize()
+      void summary?.open(true)
     } else if (msg.type === "summary") {
-      summaryRequests.get(msg.id)?.(msg.result)
-      summaryRequests.delete(msg.id)
+      summaryRequests.settle(msg.id, msg.result)
+    } else if (msg.type === "consentAnswer") {
+      if (msg.kind === "image") images?.answerConsent(msg.allowed)
+      else consentPanel?.answer(msg.allowed)
     } else if (msg.type === "imageResult") {
-      imageRequests.get(msg.id)?.(msg.result)
-      imageRequests.delete(msg.id)
+      imageRequests.settle(msg.id, msg.result)
     } else if (msg.type === "offlineDataChanged") {
       controller.forgetResults()
     } else if (msg.type === "tier") {
@@ -246,10 +233,8 @@ export function connectContent({ root, contentScript = false, probe }: ClientOpt
   port.onDisconnect.addListener(() => {
     for (const request of pending.values()) fail(request)
     pending.clear()
-    for (const resolve of summaryRequests.values()) resolve({ ok: false, error: getI18n().t("errUnknown") })
-    summaryRequests.clear()
-    for (const resolve of imageRequests.values()) resolve({ status: "error", error: getI18n().t("errUnknown") })
-    imageRequests.clear()
+    summaryRequests.failAll()
+    imageRequests.failAll()
   })
   return { controller, ready }
 }

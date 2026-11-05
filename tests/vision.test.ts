@@ -5,7 +5,7 @@
  */
 import { describe, expect, it } from "vitest"
 import { buildImageSystem, buildImageUserText, imageOutputTokens, imagePromptTokens, NO_TEXT, outputRules, SUMMARY_MAX_TOKENS } from "../src/shared/image-prompt"
-import { filterImage, type ImageCandidate, imageSource } from "../src/shared/image"
+import { filterShape, type ImageCandidate, imageSource } from "../src/shared/image"
 import { ENGLISH, setI18n } from "../src/shared/i18n"
 import { visionHint } from "../src/shared/page"
 import { DEFAULT_PROMPTS } from "../src/shared/prompts"
@@ -29,11 +29,11 @@ describe("models that read images", () => {
       zhipu: "no",
       dashscope: "unknown",
       siliconflow: "no",
-      moonshot: "unknown",
+      moonshot: "yes",
       ollama: "no",
       groq: "no",
-      togetherai: "no",
-      fireworks: "no",
+      togetherai: "unknown",
+      fireworks: "yes",
       deepinfra: "no",
       cerebras: "no",
       perplexity: "unknown",
@@ -46,7 +46,7 @@ describe("models that read images", () => {
 
   it("never refuses the model it suggests, and names one for the services whose default does not read images", () => {
     for (const [id, model] of Object.entries(SUGGESTED_VISION_MODELS)) expect([id, visionSupport(id, model)]).not.toEqual([id, "no"])
-    for (const id of ["zhipu", "siliconflow", "ollama", "groq"]) expect(SUGGESTED_VISION_MODELS[id]).toBeTruthy()
+    for (const id of ["zhipu", "siliconflow", "ollama", "groq", "cerebras"]) expect(SUGGESTED_VISION_MODELS[id]).toBeTruthy()
   })
 
   it.each([
@@ -57,8 +57,11 @@ describe("models that read images", () => {
     ["ollama", "qwen3-vl:8b", "yes"],
     ["ollama", "llava:13b", "yes"],
     ["siliconflow", "Qwen/Qwen2.5-VL-72B-Instruct", "yes"],
-    ["moonshot", "moonshot-v1-8k", "no"],
     ["moonshot", "kimi-k3", "yes"],
+    ["openai", "gpt-6.1-terra", "yes"],
+    ["togetherai", "openai/gpt-oss-120b", "no"],
+    ["togetherai", "Qwen/Qwen3.5-9B", "yes"],
+    ["cerebras", "qwen-3.8-27b", "yes"],
     ["custom", "my-own-model", "unknown"],
     ["lmstudio", "gemma-3-12b", "yes"],
     ["openrouter", "anthropic/claude-haiku-4.5", "yes"],
@@ -158,14 +161,16 @@ describe("prompts of an image", () => {
 
 describe("images the content script considers", () => {
   const settings = { ...defaultImageSettings() }
+  /** What the content script does: an image whose source it cannot read is left out, the others go through filterShape(). */
+  const filterImage = (c: ImageCandidate, s: Parameters<typeof filterShape>[1]) => (imageSource(c.src) ? filterShape(c, s) : "source")
   const image = (over: Partial<ImageCandidate> = {}): ImageCandidate => ({ width: 400, height: 200, src: "mailbox:///C:/Inbox?number=3&part=1.2&filename=chart.png", inSignature: false, attachment: false, ...over })
 
   it("reads the part of a message part, the bytes of a data: URI, and nothing of other addresses", () => {
-    expect(imageSource("mailbox:///C:/Inbox?number=3&part=1.2&filename=chart.png")).toEqual({ kind: "part", part: "1.2", name: "chart.png" })
-    expect(imageSource("imap://anna@mail.example:993/fetch%3EUID%3E/INBOX%3E42?part=1.1.3&type=image/png")).toEqual({ kind: "part", part: "1.1.3" })
-    expect(imageSource("data:image/png;base64,iVBORw0KGgo=")).toEqual({ kind: "data", data: "data:image/png;base64,iVBORw0KGgo=" })
-    expect(imageSource("https://tracker.example/p.gif")).toEqual({ kind: "remote", url: "https://tracker.example/p.gif" })
-    for (const src of ["cid:logo@example", "mailbox:///x?part=../1", "mailbox:///x", "not an address", ""]) expect(imageSource(src)).toEqual({ kind: "other" })
+    expect(imageSource("mailbox:///C:/Inbox?number=3&part=1.2&filename=chart.png")).toEqual({ part: "1.2", name: "chart.png" })
+    expect(imageSource("imap://anna@mail.example:993/fetch%3EUID%3E/INBOX%3E42?part=1.1.3&type=image/png")).toEqual({ part: "1.1.3" })
+    expect(imageSource("data:image/png;base64,iVBORw0KGgo=")).toEqual({ data: "data:image/png;base64,iVBORw0KGgo=" })
+    expect(imageSource("https://tracker.example/p.gif")).toEqual({ url: "https://tracker.example/p.gif" })
+    for (const src of ["cid:logo@example", "mailbox:///x?part=../1", "mailbox:///x", "not an address", ""]) expect(imageSource(src)).toBeNull()
   })
 
   it.each<[string, Partial<ImageCandidate>, string | null]>([
@@ -284,12 +289,12 @@ describe("image settings", () => {
     s.image.model = "gpt-4.1"
     expect(resolveVisionProvider(s, "openai")).toMatchObject({ model: "gpt-4.1", thinking: false })
     s.image.model = ""
-    expect(resolveVisionProvider(s, "openai").model).toBe("gpt-4.1-mini")
+    expect(resolveVisionProvider(s, "openai").model).toBe("gpt-6-luna")
   })
 
   it("apply only with precise translation and a model that does not refuse images", () => {
     const s = precise()
-    expect(imageStatus(s)).toEqual({ id: "openai", model: "gpt-4.1-mini", support: "yes", active: true })
+    expect(imageStatus(s)).toEqual({ id: "openai", model: "gpt-6-luna", support: "yes", active: true })
     expect(toPublicSettings(s).image.mode).toBe("ask")
     s.precise.enabled = false
     expect(imageStatus(s).active).toBe(false)
@@ -300,7 +305,7 @@ describe("image settings", () => {
     s.tiers.ai = "zhipu"
     s.providers.zhipu.enabled = true
     s.image.model = ""
-    expect(imageStatus(s)).toEqual({ id: "zhipu", model: "glm-4-flash", support: "no", active: false })
+    expect(imageStatus(s)).toEqual({ id: "zhipu", model: "glm-4.7-flash", support: "no", active: false })
     expect(toPublicSettings(s).image.mode).toBe("off")
     expect(imageStatus(createDefaultSettings("en"))).toEqual({ id: null, model: "", support: null, active: false })
   })
@@ -362,7 +367,7 @@ describe("image settings", () => {
 
   it("name a model that refuses images with a model that reads them, and a model nobody knows", () => {
     expect(visionHint({ id: "zhipu", model: "glm-4-flash", support: "no", active: false })).toBe(ENGLISH.t("hintVisionNo", ["glm-4-flash", "glm-4.6v-flash"]))
-    expect(visionHint({ id: "cerebras", model: "gpt-oss-120b", support: "no", active: false })).toBe(ENGLISH.t("hintVisionNoSuggestion", ["gpt-oss-120b"]))
+    expect(visionHint({ id: "deepinfra", model: "deepseek-ai/DeepSeek-V3", support: "no", active: false })).toBe(ENGLISH.t("hintVisionNoSuggestion", ["deepseek-ai/DeepSeek-V3"]))
     expect(visionHint({ id: "custom", model: "m", support: "unknown", active: true })).toBe(ENGLISH.t("hintVisionUnknown", ["m"]))
     expect(visionHint({ id: "openai", model: "gpt-4.1-mini", support: "yes", active: true })).toBe("")
     expect(visionHint({ id: null, model: "", support: null, active: false })).toBe("")

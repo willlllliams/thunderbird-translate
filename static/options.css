@@ -4,6 +4,12 @@
   --border: color-mix(in srgb, currentColor 18%, transparent);
   --muted: color-mix(in srgb, currentColor 62%, transparent);
   --panel: color-mix(in srgb, currentColor 4%, transparent);
+  /* Height of the sticky header; a jump to a section stops below it. */
+  --top-height: 57px;
+}
+
+html {
+  scroll-padding-top: calc(var(--top-height) + 12px);
 }
 
 body {
@@ -14,6 +20,8 @@ body {
 .top {
   position: sticky;
   top: 0;
+  box-sizing: border-box;
+  min-height: var(--top-height);
   display: flex;
   align-items: center;
   gap: 12px;
@@ -379,6 +387,14 @@ select.missing option:not(.missing) {
 }
 
 @media (prefers-color-scheme: dark) {
+  .saved {
+    color: #81c995;
+  }
+
+  .saved.error {
+    color: #f28b82;
+  }
+
   .test-result.ok {
     color: #81c995;
   }

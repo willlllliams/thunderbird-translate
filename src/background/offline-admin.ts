@@ -88,10 +88,7 @@ export function offlineHandlers({ manager, contentScripts, pages }: OfflineAdmin
         return { ok: false, error: describe(error) }
       }
     },
-    offlineInstall: async ({ service, pairs, tag }) => {
-      const installs = registry(service)
-      return (await Promise.all(pairs.map(({ src, tgt }) => installs.install(src, tgt, tag)))).map(resultOf)
-    },
+    offlineInstall: async ({ service, src, tgt, tag }) => resultOf(await registry(service).install(src, tgt, tag)),
     offlineCancel: ({ service, src, tgt }) => registry(service).cancel(src, tgt),
     offlineProgress: () => progress(),
     offlineRemove: ({ service, src, tgt }) => remove(service, src, tgt),

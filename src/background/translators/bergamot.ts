@@ -13,7 +13,7 @@
  * the language is a guess.
  */
 
-import { getBergamot } from "../../offline/bergamot"
+import type { BergamotManager } from "../../offline/bergamot/manager"
 import { withoutMissing } from "../../shared/errors"
 import { detectSourceLanguage, type LanguageDetector } from "../../shared/lang-detect"
 
@@ -26,8 +26,8 @@ async function sourceLanguages(texts: string[], detect: LanguageDetector | undef
   return detected.map((lang) => ({ lang: lang ?? common, guessed: !lang }))
 }
 
-/** `detect`: the detector of sourceDetector(), for source language "auto". */
-export async function bergamotTranslateBatch(texts: string[], sourceLang: string, targetLang: string, detect?: LanguageDetector): Promise<PromiseSettledResult<string>[]> {
+/** `engine`: the manager of the offline models; `detect`: the detector of sourceDetector(), for source language "auto". */
+export async function bergamotTranslateBatch(engine: Pick<BergamotManager, "translate">, texts: string[], sourceLang: string, targetLang: string, detect?: LanguageDetector): Promise<PromiseSettledResult<string>[]> {
   const sources = sourceLang === "auto" ? await sourceLanguages(texts, detect) : texts.map(() => ({ lang: sourceLang, guessed: false }))
   const groups = new Map<string, number[]>()
   sources.forEach(({ lang }, i) => groups.set(lang, [...(groups.get(lang) ?? []), i]))
@@ -35,7 +35,7 @@ export async function bergamotTranslateBatch(texts: string[], sourceLang: string
   await Promise.all(
     [...groups].map(async ([lang, indices]) => {
       try {
-        const translated = await getBergamot().translate(indices.map((i) => texts[i]), lang, targetLang)
+        const translated = await engine.translate(indices.map((i) => texts[i]), lang, targetLang)
         indices.forEach((i, k) => (out[i] = { status: "fulfilled", value: translated[k] }))
       } catch (reason) {
         for (const i of indices) out[i] = { status: "rejected", reason: sources[i].guessed ? withoutMissing(reason) : reason }

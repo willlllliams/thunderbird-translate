@@ -27,6 +27,18 @@ describe("hooks", () => {
     expect(exported(source("e2e", "hooks", name))).toEqual(exported(source("hooks", name)))
   })
 
+  it("A3: are never called as hook?.(), which a regular build turns into a call of (void 0)", () => {
+    const hooks = names.flatMap((name) => exported(source("hooks", name)))
+    const files = (dir: string): string[] =>
+      readdirSync(join(root, dir), { withFileTypes: true }).flatMap((entry) => (entry.isDirectory() ? (entry.name === "e2e" ? [] : files(join(dir, entry.name))) : entry.name.endsWith(".ts") ? [join(dir, entry.name)] : []))
+    for (const file of files("src")) {
+      // Comments may name the form.
+      const text = readFileSync(join(root, file), "utf8").replace(/\/\*[\s\S]*?\*\//g, "").replace(/\/\/.*$/gm, "")
+      for (const hook of hooks) expect([file, hook, new RegExp(`\\b${hook}\\?\\.\\(`).test(text)]).toEqual([file, hook, false])
+    }
+    expect(readFileSync(join(root, "docs", "development.md"), "utf8")).toContain("`if (hook) hook(args)`")
+  })
+
   it("src/e2e/hooks/ has no module without a module of src/hooks/", () => {
     expect(readdirSync(join(root, "src", "e2e", "hooks")).sort()).toEqual(names)
   })

@@ -6,6 +6,7 @@
 import { readdirSync, readFileSync } from "node:fs"
 import { join } from "node:path"
 import { describe, expect, it } from "vitest"
+import { CONTENT_REQUESTS } from "../src/background/router"
 import { SUPPORTED_LOCALES } from "../src/shared/locales"
 import { PROVIDER_PRESETS, tierOf } from "../src/shared/providers"
 
@@ -74,10 +75,46 @@ describe("facts in the documents", () => {
     }
   })
 
-  it("P6: name the version of the manifest as the one the webext-linter run of the reviewer notes checked", () => {
+  it("BG2: list in the development guide the requests a content script gets answered, as CONTENT_REQUESTS holds them", () => {
+    const sentence = read("docs/development.md").match(/It gets answers only to the \w+ requests it sends, (.+?) \(`CONTENT_REQUESTS`\)/)?.[1] ?? ""
+    const named = [...sentence.matchAll(/`(\w+)`/g)].map((m) => m[1])
+    expect(named.sort()).toEqual([...CONTENT_REQUESTS].sort())
+  })
+
+  it("P6: state in the reviewer notes the version of the manifest as the one the webext-linter run checked (the run itself is a step of the release, see development.md)", () => {
     const version = (JSON.parse(read("static/manifest.json")) as { version: string }).version
     expect(read("store/reviewer-notes.md").match(/webext-linter [\d.]+ on the xpi of (\d+\.\d+\.\d+)/)?.[1]).toBe(version)
     expect(read("store/reviewer-notes.zh-CN.md").match(/webext-linter [\d.]+ 检查 (\d+\.\d+\.\d+) 的 xpi/)?.[1]).toBe(version)
+  })
+
+  it("L1: quote in the reviewer notes the error texts and the labels the extension shows, in English and Chinese", () => {
+    const fill = (template: string, ...args: string[]) => args.reduce((text, arg, i) => text.replace(`$${i + 1}`, arg), template)
+    for (const [file, locale] of [["store/reviewer-notes.md", "en"], ["store/reviewer-notes.zh-CN.md", "zh_CN"]]) {
+      const m = JSON.parse(read(`locales/${locale}.json`)) as Record<string, string>
+      const notes = read(file)
+      expect([file, notes.includes(fill(m.errApiKeyRequired, "OpenAI"))]).toEqual([file, true])
+      // The error without host access is quoted up to the host.
+      expect([file, notes.includes(m.errHostPermission.split("$1")[0].trimEnd())]).toEqual([file, true])
+      for (const key of ["buttonAddProvider", "buttonUse", "buttonAllowHost", "buttonPreciseOn", "imageConsentAllow", "sectionProviders", "providerDictionary"]) {
+        expect([file, key, notes.includes(`“${m[key]}”`) || notes.includes(`"${m[key]}"`)]).toEqual([file, key, true])
+      }
+    }
+  })
+
+  it("L2, L3: say that remote images take part, in the hints of the image settings and in settings.md", () => {
+    const en = JSON.parse(read("locales/en.json")) as Record<string, string>
+    for (const key of ["hintImage", "tipImageInline"]) expect([key, /remote/.test(en[key])]).toEqual([key, true])
+    expect(read("docs/settings.md")).not.toContain("Remote images are not translated")
+    expect(read("docs/settings.md")).not.toContain("remote images are not translated")
+  })
+
+  it("S4, L4: name in the privacy policy the image attachments that are sent and every button that asks for a host", () => {
+    const en = read("store/privacy-policy.md")
+    const zh = read("store/privacy-policy.zh-CN.md")
+    expect(en).not.toMatch(/recipients and attachments of a message are never sent/)
+    expect(zh).not.toContain("收件人和附件从不发送")
+    for (const label of ["Allow access", "Test connection", "Test image", "Next", "Skip this step"]) expect([label, en.includes(`"${label}"`)]).toEqual([label, true])
+    for (const label of ["授权访问", "测试连接", "测试图片", "下一步", "跳过此步"]) expect([label, zh.includes(`“${label}”`)]).toEqual([label, true])
   })
 
   it("say in the privacy section of every README that the settings page checks the free routes with the sentence of Test connection", () => {

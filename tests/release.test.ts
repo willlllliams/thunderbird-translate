@@ -84,6 +84,40 @@ describe("workflows", () => {
     expect(release).toContain("npm run source-zip")
   })
 
+  it("IN2: rebuild the xpi from the unpacked source archive in a clean directory and fail unless it is the released one, byte for byte", () => {
+    const release = workflow("release.yml")
+    const build = release.slice(release.indexOf("\n  build:"), release.indexOf("\n  e2e:"))
+    const step = build.slice(build.indexOf("- name: Rebuild the xpi from the source archive"), build.indexOf("- name: Read version"))
+    expect(build.indexOf("npm run source-zip")).toBeLessThan(build.indexOf("Rebuild the xpi from the source archive"))
+    // An empty directory, the archive unpacked into it, installed and built there, and the two xpi compared as bytes.
+    expect(step).toMatch(/rm -rf "\$rebuild"\n\s+mkdir -p "\$rebuild"\n\s+unzip -q "web-ext-artifacts\/thunderbird-translate-\$version-source\.zip" -d "\$rebuild"/)
+    expect(step).toContain('(cd "$rebuild" && npm ci && npm run build)')
+    expect(step).toContain('cmp "web-ext-artifacts/thunderbird-translate-$version.xpi" "$rebuild/web-ext-artifacts/thunderbird-translate-$version.xpi"')
+    // Also on a pull request, so a broken archive shows before it reaches main.
+    expect(step).not.toContain("if:")
+  })
+
+  it("T1: replace the packs of dicts-v1 from main only, and build them without a write token", () => {
+    const dicts = workflow("dicts.yml")
+    const build = dicts.slice(dicts.indexOf("\n  build:"), dicts.indexOf("\n  upload:"))
+    const upload = dicts.slice(dicts.indexOf("\n  upload:"))
+    const guard = build.slice(build.indexOf("Refuse to replace"), build.indexOf("actions/checkout"))
+    for (const part of ["refs/heads/main", "dicts-v1", "exit 1"]) expect(guard).toContain(part)
+    expect(build.indexOf("Refuse to replace")).toBeLessThan(build.indexOf("Fetch existing packs"))
+    expect(dicts).toMatch(/^permissions:\n {2}contents: read$/m)
+    expect(build).toMatch(/contents: read/)
+    expect(build).not.toMatch(/contents: write/)
+    expect(build).toContain("persist-credentials: false")
+    // IN1: a download that fails fails the step, and an index that lost a direction is not uploaded.
+    const fetch = build.slice(build.indexOf("Fetch existing packs"), build.indexOf("- name: Build packs"))
+    expect(fetch).toContain("gh release download")
+    expect(fetch).not.toContain("|| true")
+    expect(build.indexOf("Verify packs")).toBeLessThan(build.indexOf("Keep every direction of the published index"))
+    expect(build).toContain("the new index lacks directions of the published one")
+    expect(upload).toContain("contents: write")
+    expect(upload).not.toMatch(/build\.mjs|actions\/checkout/)
+  })
+
   it("I9: run no third-party action by a tag that can move; actions of GitHub by their major version", () => {
     for (const name of ["release.yml", "dicts.yml"]) {
       for (const [, action, ref] of workflow(name).matchAll(/uses: ([\w.-]+\/[\w.-]+)@(\S+)/g)) {

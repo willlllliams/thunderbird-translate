@@ -3,31 +3,68 @@
  * service. The background script names the online services of the tiers in
  * use that the user has not allowed yet, with the host each sends to
  * (PublicSettings.consent); the panel lists them, says what is sent (the
- * paragraphs, or the whole message with precise translation) and that an
- * API key goes only to its service, and offers "Allow and translate" and
- * "Cancel". Nothing is requested before the user allows it; the background
- * script refuses such requests as well. The offline tiers need no consent.
+ * paragraphs, the whole message with precise translation, or the whole message
+ * with sender, date and subject for its summary) and that an
+ * API key goes only to its service, and offers "Allow…" and "Cancel".
+ * "Allow…" hands the question to the background script, which opens the
+ * popup of the message: the user allows there, on a page the message cannot
+ * style or cover, and the background script records the answer and sends it
+ * back (answer()). Nothing is requested before; the background script
+ * refuses such requests as well. The offline tiers need no consent.
  */
 
+import { consentText, mergeTextUses, type TextUse } from "../shared/consent"
 import { button, h } from "../shared/dom"
-import { getI18n, t } from "../shared/i18n"
-import { getPreset, providerDisplayName } from "../shared/providers"
-import type { ConsentNeed } from "../shared/settings"
+import { t } from "../shared/i18n"
+import { type ConsentNeed, consentKey } from "../shared/settings"
 import { noticeBox } from "./notice"
 
 const CLS_CONSENT = "tt-consent"
 
+/**
+ * The services allowed in a consent panel of this message, each with the host the panel named, before the settings
+ * that record them arrive. A service asked for anew, with another host or after the consent was taken back, is asked
+ * for again. The text of a message, for its translation and for its summary, keeps one; its images keep another.
+ */
+export class MessageConsent {
+  private readonly keys = new Set<string>()
+
+  allow(need: ConsentNeed): void {
+    this.keys.add(consentKey(need))
+  }
+
+  allows(need: ConsentNeed): boolean {
+    return this.keys.has(consentKey(need))
+  }
+
+  /** New settings: what `next` asks for and `prev` did not is asked for again. */
+  follow(prev: readonly ConsentNeed[], next: readonly ConsentNeed[]): void {
+    const before = new Set(prev.map(consentKey))
+    for (const need of next) if (!before.has(consentKey(need))) this.keys.delete(consentKey(need))
+  }
+
+  clear(): void {
+    this.keys.clear()
+  }
+}
+
 export interface ConsentDeps {
   root: () => HTMLElement | null
+  /** "Allow…": the question goes to the popup of the message, which answers through answer(). */
+  review: (needs: ConsentNeed[], uses: TextUse[]) => void
+  /** The panel went without an answer of the popup: the popup no longer asks. */
+  closed: () => void
 }
 
 export class ConsentPanel {
   private el: HTMLElement | null = null
-  private answer: ((allowed: boolean) => void) | null = null
+  private resolve: ((allowed: boolean) => void) | null = null
   private pending: Promise<boolean> | null = null
-  /** What the open panel shows: every service any open question needs, and whether one of them sends the whole message. */
+  /** What the open panel shows: every service any open question needs, and what the text is sent for. */
   private needs: ConsentNeed[] = []
-  private precise = false
+  private uses: TextUse[] = []
+  /** The popup was asked to show the question. */
+  private reviewed = false
 
   constructor(private readonly deps: ConsentDeps) {}
 
@@ -37,72 +74,84 @@ export class ConsentPanel {
   }
 
   /**
-   * Show the panel for `needs`; resolves true on "Allow and translate",
-   * false on "Cancel", when the panel is cleared, and without a message to
-   * show it on. Asked again while it is on screen, it answers with the same promise, and the panel lists the
-   * services of both questions: whoever records an answer of yes records only services the user saw.
+   * Show the panel for `needs`; resolves true once the popup allowed them
+   * (recorded by the background script), false on "Cancel" here or there,
+   * when the panel is cleared, and without a message to show it on. Asked again while it is on screen, it answers with the same promise, and the panel lists the
+   * services and the uses of both questions: whoever records an answer of yes records only services the user saw. `focus`: the user
+   * asked for it, so the panel takes the focus and scrolls into view; the panel itself takes it, never a button, so
+   * no key pressed by chance answers it. A panel that opens by itself leaves the focus where it is.
    */
-  ask(needs: ConsentNeed[], precise: boolean): Promise<boolean> {
+  ask(needs: ConsentNeed[], use: TextUse, focus = false): Promise<boolean> {
     if (this.pending && this.el) {
       const added = needs.filter((need) => !this.needs.some((shown) => shown.id === need.id))
-      if (added.length > 0 || (precise && !this.precise)) {
+      const uses = mergeTextUses(this.uses, [use])
+      if (added.length > 0 || uses.length > this.uses.length) {
         this.needs = [...this.needs, ...added]
-        this.precise ||= precise
+        this.uses = uses
         const focused = this.el.contains(document.activeElement)
-        const next = this.render(this.needs, this.precise)
+        const next = this.render(this.needs, this.uses)
         this.el.replaceWith(next)
         this.el = next
-        if (focused) next.querySelector<HTMLButtonElement>("button")?.focus({ preventScroll: true })
+        if (focused) next.focus({ preventScroll: true })
+        // The popup shows the question as it is now.
+        if (this.reviewed) this.deps.review(this.needs, this.uses)
       }
+      if (focus) this.el.focus()
       return this.pending
     }
     const root = this.deps.root()
     if (!root) return Promise.resolve(false)
-    this.pending = new Promise<boolean>((resolve) => (this.answer = resolve))
+    this.pending = new Promise<boolean>((resolve) => (this.resolve = resolve))
     this.needs = needs
-    this.precise = precise
-    this.el = this.render(needs, precise)
+    this.uses = [use]
+    this.el = this.render(needs, this.uses)
     root.prepend(this.el)
-    this.el.querySelector<HTMLButtonElement>("button")?.focus({ preventScroll: true })
+    if (focus) this.el.focus()
     return this.pending
   }
 
   /** The translation stopped or the message went away: the panel goes, and a pending question is answered with no. */
   clear(): void {
+    if (this.el) this.deps.closed()
     this.settle(false)
   }
 
+  /** The answer of the popup, recorded by the background script already. */
+  answer(allowed: boolean): void {
+    this.settle(allowed)
+  }
+
   private settle(allowed: boolean): void {
+    this.reviewed = false
     this.el?.remove()
     this.el = null
     this.needs = []
-    this.precise = false
-    const answer = this.answer
-    this.answer = null
+    this.uses = []
+    const resolve = this.resolve
+    this.resolve = null
     this.pending = null
-    answer?.(allowed)
+    resolve?.(allowed)
   }
 
-  private render(needs: ConsentNeed[], precise: boolean): HTMLElement {
-    const i18n = getI18n()
-    const services = needs.map(({ id, host }) => {
-      const preset = getPreset(id)
-      const name = preset ? providerDisplayName(preset, i18n) : id
-      return h("li", { text: host ? t("consentService", [name, host]) : name })
-    })
-    const allow = button(t("consentAllow"), () => this.settle(true), true, t("tipConsentAllow"))
-    const cancel = button(t("consentCancel"), () => this.settle(false), false, t("tipConsentCancel"))
-    const title = t("consentTitle")
-    const body = t(precise ? "consentBodyPrecise" : "consentBody")
+  private render(needs: ConsentNeed[], uses: TextUse[]): HTMLElement {
+    const text = consentText({ kind: "text", needs, uses })
+    const allow = button(t("consentReview"), () => {
+      this.reviewed = true
+      this.deps.review(this.needs, this.uses)
+    }, true, t("tipConsentReview"))
+    const cancel = button(t("consentCancel"), () => {
+      this.deps.closed()
+      this.settle(false)
+    }, false, t("tipConsentCancel"))
     return noticeBox(
       "div",
       CLS_CONSENT,
-      title,
-      {},
-      h("strong", { text: title }),
-      h("p", { text: body }),
-      h("ul", {}, ...services),
-      h("p", { text: t("consentKey") }),
+      text.title,
+      { tabindex: "-1" },
+      h("strong", { text: text.title }),
+      ...text.before.map((line) => h("p", { text: line })),
+      h("ul", {}, ...text.services.map((line) => h("li", { text: line }))),
+      ...text.after.map((line) => h("p", { text: line })),
       h("div", { className: "tt-notice-actions" }, allow, cancel),
     )
   }

@@ -11,7 +11,7 @@ import { type BackgroundRequest, IDLE_TAB_STATE } from "../src/shared/messages"
 import { createDefaultSettings, defaultImageSettings, type Settings } from "../src/shared/settings"
 import { WELCOME_KEY } from "../src/welcome/steps"
 import { flushSave } from "./fixtures/pages"
-import { openPage, until, useFakeTimers } from "./helpers"
+import { nextTask, openPage, until, useFakeTimers } from "./helpers"
 
 beforeEach(() => useFakeTimers())
 afterEach(() => vi.useRealTimers())
@@ -61,7 +61,7 @@ describe("popup", () => {
   it("names a model that does not accept images", async () => {
     await openPage("popup", precise((s) => ((s.tiers.ai = "zhipu"), (s.providers.zhipu.enabled = true))), { activeTab: { id: 3 }, respond: (req) => (req.type === "getTabState" ? IDLE_TAB_STATE : undefined) })
     await until(() => expect($("imageUnsupported").hidden).toBe(false))
-    expect($("imageUnsupported").textContent).toBe(ENGLISH.t("hintVisionNo", ["glm-4-flash", "glm-4.6v-flash"]))
+    expect($("imageUnsupported").textContent).toBe(ENGLISH.t("hintVisionNo", ["glm-4.7-flash", "glm-4.6v-flash"]))
   })
 
   it("without an AI tier names the tier that precise translation needs, without the button", async () => {
@@ -160,13 +160,13 @@ describe("settings page", () => {
   it("offers the added AI services, the models of the service and says what is known of the model", async () => {
     await options(precise((s) => (s.providers.zhipu.enabled = true)))
     expect(Array.from($<HTMLSelectElement>("imageProvider").options, (o) => o.value)).toEqual(["", "openai", "zhipu"])
-    expect($<HTMLInputElement>("imageModel").placeholder).toBe("gpt-4.1-mini")
+    expect($<HTMLInputElement>("imageModel").placeholder).toBe("gpt-6-luna")
     expect($("imageSupport").hidden).toBe(true)
-    expect($("imageCost").textContent).toMatch(/1,245/)
+    expect($("imageCost").textContent).toBe(costHint(precise((s) => (s.providers.zhipu.enabled = true))))
     expect($<HTMLAnchorElement>("imagePrices").hidden).toBe(false)
     expect($<HTMLAnchorElement>("imagePrices").href).toBe("https://developers.openai.com/api/docs/pricing")
     set("imageProvider", "zhipu")
-    expect($("imageSupport").textContent).toBe(ENGLISH.t("hintVisionNo", ["glm-4-flash", "glm-4.6v-flash"]))
+    expect($("imageSupport").textContent).toBe(ENGLISH.t("hintVisionNo", ["glm-4.7-flash", "glm-4.6v-flash"]))
     expect(Array.from($("imageModels").querySelectorAll("option"), (o) => o.value)[0]).toBe("glm-4.6v-flash")
     expect($<HTMLAnchorElement>("imagePrices").hidden).toBe(true)
     set("imageModel", "glm-4.6v-flash", "input")
@@ -175,7 +175,7 @@ describe("settings page", () => {
   })
 
   it("estimates the tokens of an image with the formula of the model and of the prompt by its length", () => {
-    const s = precise()
+    const s = precise((settings) => (settings.image.model = "gpt-4.1-mini"))
     expect(costHint(s)).toMatch(new RegExp(`^${ENGLISH.t("hintVisionCost", [1245, "\\d+"]).replace(/[()×]/g, ".")}$`))
     s.image.model = "deepseek-x"
     expect(costHint(s)).toMatch(/^There is no estimate of the image tokens of deepseek-x/)
@@ -236,6 +236,7 @@ describe("settings page", () => {
     const box = $<HTMLTextAreaElement>("prompt-image")
     box.value = "Read the image for {{to}}."
     box.dispatchEvent(new Event("input"))
+    box.dispatchEvent(new Event("change"))
     await flushSave()
     expect(page.stored().prompts.image).toBe("Read the image for {{to}}.")
     $("reset-image").click()
@@ -309,6 +310,20 @@ describe("the access to remote images", () => {
     $("imageRemoteRevoke").click()
     await until(() => expect($("imageRemoteState").textContent).toBe(ENGLISH.t("optionsRemoteMissing")))
     expect(page.browser.api.permissions.remove).toHaveBeenCalledWith({ origins: ["http://*/*", "https://*/*"] })
+  })
+
+  it("A13: draws the access of the latest read, whichever answer comes last", async () => {
+    const page = await openPage("options", precise())
+    await until(() => expect($("imageRemoteState").textContent).toBe(ENGLISH.t("optionsRemoteMissing")))
+    let early!: (granted: boolean) => void
+    page.browser.api.permissions.contains.mockImplementationOnce(() => new Promise<boolean>((resolve) => (early = resolve)))
+    page.browser.api.permissions.contains.mockImplementationOnce(async () => true)
+    $("imageRemoteRevoke").click()
+    $("imageRemoteAllow").click()
+    await until(() => expect($("imageRemoteState").textContent).toBe(ENGLISH.t("optionsRemoteAllowed")))
+    early(false)
+    await nextTask()
+    expect($("imageRemoteState").textContent).toBe(ENGLISH.t("optionsRemoteAllowed"))
   })
 
   it("counts a permission API that fails as no access, in the popup and on the settings page", async () => {

@@ -27,7 +27,7 @@ async function browserApis(files: FakeFile[], detectLanguage?: (text: string) =>
   /** The offline tier as the service calls it, with the detector of the background script: one result or error key per text. */
   const detect = sourceDetector(detectLanguage ? { detectLanguage: detectLanguage as never } : undefined)
   const translate = async (texts: string[], source: string, target: string) =>
-    (await bergamotTranslateBatch(texts, source, target, detect)).map((r) => (r.status === "fulfilled" ? r.value : `error:${(r.reason as LocalizedError).i18nText.key}`))
+    (await bergamotTranslateBatch(getBergamot(), texts, source, target, detect)).map((r) => (r.status === "fulfilled" ? r.value : `error:${(r.reason as LocalizedError).i18nText.key}`))
   return { bergamot: getBergamot(), getBergamot, translate, server, workers }
 }
 
@@ -97,6 +97,7 @@ describe("offline engine of the background page", () => {
     // Mozilla has no Japanese model here: nothing to download.
     await expect(bergamot.translate(["こんにちは"], "ja", "zh-CN")).rejects.toMatchObject({ i18nText: { key: "bergamotUnsupportedPair" } })
     const results = await (await import("../src/background/translators/bergamot")).bergamotTranslateBatch(
+      bergamot,
       ["Bonjour à tous et merci pour votre message.", "Merci !"],
       "auto",
       "zh-CN",
@@ -116,8 +117,9 @@ describe("offline engine of the background page", () => {
     vi.stubGlobal("fetch", () => new Promise<Response>(() => {}))
     vi.resetModules()
     const { bergamotTranslateBatch } = await import("../src/background/translators/bergamot")
+    const { getBergamot } = await import("../src/offline/bergamot/index")
     const texts = ["Sehr geehrte Frau Weber, vielen Dank für Ihre Nachricht.", "Bonjour Madame, merci beaucoup pour votre message."]
-    const [german, french] = await bergamotTranslateBatch(texts, "auto", "en", sourceDetector({ detectLanguage: detect as never }))
+    const [german, french] = await bergamotTranslateBatch(getBergamot(), texts, "auto", "en", sourceDetector({ detectLanguage: detect as never }))
     expect(german).toEqual({ status: "fulfilled", value: `[de>en]${texts[0]}` })
     expect(french).toMatchObject({ status: "rejected", reason: { i18nText: { key: "bergamotModelMissing", args: ["fr", "en", "fr → en"] } } })
     expect((french as PromiseRejectedResult).reason.missing).toBeUndefined()

@@ -5,7 +5,7 @@ import { compileMessagesJson, ENGLISH, I18n } from "../src/shared/i18n"
 import { readLocaleSources, toMessagesJson } from "../scripts/locales.mjs"
 import { analyzeError, describeError, type ErrorContext, firstLine, httpStatusLine, isUnreachable, LocalizedError, NetworkError, redactUrl, renderErrorText, summarizeResponseBody, TimeoutError } from "../src/shared/errors"
 import { checkBaseURL, getPreset, PROVIDER_PRESETS, sameEndpoint, urlHost } from "../src/shared/providers"
-import { errorContext } from "../src/background/service"
+import { errorContext } from "../src/background/requests"
 import { HttpError } from "../src/shared/http"
 import { googleTranslateBatch } from "../src/background/translators/google"
 import { createDefaultSettings, resolveProviderConfig } from "../src/shared/settings"
@@ -138,6 +138,11 @@ describe("secrets in error texts", () => {
     ["no URL", "not a url", "not a url"],
   ])("masks %s", (_name, url, expected) => {
     expect(redactUrl(url)).toBe(expected)
+  })
+
+  it("PV7: leaves a path with a stray percent sign as it is, and still hides a token after it", () => {
+    expect(redactUrl("https://host.example/100%/v1")).toBe("https://host.example/100%/v1")
+    expect(redactUrl("https://host.example/100%zz/abcdefghij1234567890KLMN/v1")).toBe("https://host.example/100%zz/***/v1")
   })
 
   it("never shows the DeepLX token of the request, in the URL line, the hints or the server message", async () => {

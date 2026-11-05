@@ -3,6 +3,7 @@ import { hashText } from "./hash"
 import { patternHost, providerOrigin } from "./hosts"
 import { appLang, LANGUAGES, languageTag } from "./languages"
 import { normalizeUiLanguageSetting, type UiLanguageSetting } from "./locales"
+import { offlineServiceOf } from "./offline-needs"
 import { DEFAULT_PROMPTS, PROMPT_NAMES, type PromptKind, type PromptName, promptText, REPLACED_PROMPTS } from "./prompts"
 import { DEFAULT_PROVIDER_ID, getPreset, isAiProvider, PROVIDER_PRESETS, type ProviderPreset, type Tier, TIERS, tierOf } from "./providers"
 import { type UploadFormat, uploadFormat, type VisionSupport, visionSupport } from "./vision"
@@ -36,7 +37,7 @@ export interface ProviderConfig {
 
 type MicrosoftMode = "free" | "key"
 
-export const BAIDU_EDITIONS = ["standard", "advanced", "premium"] as const
+const BAIDU_EDITIONS = ["standard", "advanced", "premium"] as const
 export type BaiduEdition = (typeof BAIDU_EDITIONS)[number]
 
 export interface DeeplOptions {
@@ -86,7 +87,7 @@ export interface ImageSettings {
   provider: string | null
   /** Model for images; "" = the model of the service. */
   model: string
-  /** Which images: inline ones of the body (cid: and data:) and image attachments. Remote images never. */
+  /** Which images: those of the body (cid:, data: and the remote images Thunderbird shows) and image attachments. */
   sources: { inline: boolean; attachments: boolean }
   /** Images sent per message: "auto" takes the first ones, the others get the button. */
   maxPerMessage: number
@@ -502,10 +503,9 @@ function normalizeConsent(settings: Settings, stored: unknown, valid: (id: strin
   if (!Array.isArray(stored)) return []
   const entries = stored.flatMap((entry) => {
     if (typeof entry !== "string") return []
-    const at = entry.indexOf("@")
-    const id = at < 0 ? entry : entry.slice(0, at)
+    const { id } = consentParts(entry)
     if (!valid(id)) return []
-    return [at < 0 ? consentEntry(settings, id) : entry]
+    return [entry.includes("@") ? entry : consentEntry(settings, id)]
   })
   return [...new Set(entries)]
 }
@@ -655,9 +655,11 @@ export function resultInputs(settings: Settings, providerId: string): ResultInpu
 
 /** Whether a service sends text over the network: every service except the dictionary and Bergamot. */
 export function isOnlineService(providerId: string): boolean {
-  const kind = getPreset(providerId)?.kind
-  return kind !== undefined && kind !== "dictionary" && kind !== "bergamot"
+  return getPreset(providerId) !== undefined && !offlineServiceOf(providerId)
 }
+
+/** Whether precise translation applies: switched on, with an AI tier. */
+export const preciseApplies = (settings: Pick<Settings, "precise" | "tiers">): boolean => settings.precise.enabled && settings.tiers.ai !== null
 
 /** An online service of a tier in use that the user has not allowed yet to receive message text: its id and the host it sends to. */
 export interface ConsentNeed {
@@ -666,15 +668,23 @@ export interface ConsentNeed {
   host: string
 }
 
-/** The host an online service sends to, as the consent panel names it; empty when the endpoint is not a URL. */
-export function consentHost(settings: Settings, id: string): string {
-  const origin = providerOrigin(resolveProvider(settings, id))
+/** A consent for a service and the host the panel names for it, as onlineConsent and imageConsent hold it: "id@host". */
+export const consentKey = ({ id, host }: ConsentNeed): string => `${id}@${host}`
+
+/** The host `provider` sends to, as the consent panel names it; empty when the endpoint is not a URL. */
+export function hostOf(provider: ResolvedProvider): string {
+  const origin = providerOrigin(provider)
   return origin ? patternHost(origin) : ""
+}
+
+/** The host an online service sends to now. */
+function consentHost(settings: Settings, id: string): string {
+  return hostOf(resolveProvider(settings, id))
 }
 
 /** An entry of onlineConsent or imageConsent: the service and the host it sends to now. */
 export function consentEntry(settings: Settings, id: string): string {
-  return `${id}@${consentHost(settings, id)}`
+  return consentKey({ id, host: consentHost(settings, id) })
 }
 
 /** Whether the user allowed `id` to receive the text (onlineConsent) or the images (imageConsent) of messages at the host it sends to now. */
@@ -684,8 +694,7 @@ export function hasConsent(settings: Settings, list: "onlineConsent" | "imageCon
 
 /** Whether the user allows the host a request goes to: of `provider` as the request took it, whatever the settings say now. */
 export function allowsRequest(settings: Settings, list: "onlineConsent" | "imageConsent", provider: ResolvedProvider): boolean {
-  const origin = providerOrigin(provider)
-  return settings[list].includes(`${provider.id}@${origin ? patternHost(origin) : ""}`)
+  return settings[list].includes(consentKey({ id: provider.id, host: hostOf(provider) }))
 }
 
 /**
@@ -728,11 +737,11 @@ export const summaryProvider = (settings: Settings): string | null => chosenAiPr
 /** The AI service that reads images: the added service chosen for them, else the service of the AI tier; null without either. */
 export const visionProvider = (settings: Settings): string | null => chosenAiProvider(settings, settings.image.provider)
 
-/** The service `id` as image requests use it: the image model when one is set, and never thinking first, which reading text does not need and which is charged as output. */
-export function resolveVisionProvider(settings: Settings, id: string): ResolvedProvider {
-  const provider = resolveProvider(settings, id)
-  return { ...provider, model: settings.image.model || provider.model, thinking: false }
-}
+/** `provider` as image requests use it: with `model` when one is given, and never thinking first, which reading text does not need and which is charged as output. */
+export const asVisionProvider = (provider: ResolvedProvider, model: string): ResolvedProvider => ({ ...provider, model: model.trim() || provider.model, thinking: false })
+
+/** The service `id` as image requests use it, with the image model of the settings. */
+export const resolveVisionProvider = (settings: Settings, id: string): ResolvedProvider => asVisionProvider(resolveProvider(settings, id), settings.image.model)
 
 /** Whether the images of a message are translated, and by which service and model. */
 export interface ImageStatus {
@@ -750,7 +759,7 @@ export function imageStatus(settings: Settings): ImageStatus {
   if (!id) return { id, model: "", support: null, active: false }
   const { model } = resolveVisionProvider(settings, id)
   const support = visionSupport(id, model)
-  return { id, model, support, active: settings.precise.enabled && settings.tiers.ai !== null && support !== "no" }
+  return { id, model, support, active: preciseApplies(settings) && support !== "no" }
 }
 
 /**
@@ -876,7 +885,7 @@ export function toPublicSettings(settings: Settings, credentials = 0, hostAccess
     tiers: enabledTiers(settings.tiers),
     signatures,
     credentials,
-    precise: settings.precise.enabled && settings.tiers.ai !== null,
+    precise: preciseApplies(settings),
     style: settings.style,
     offlineMutedPairs: settings.offlineMutedPairs,
     consent: consentNeeds(settings),

@@ -20,7 +20,7 @@ The batch queue and the request queues live in `src/background/queue/`. The sett
 3. Paragraphs not in the cache enter the batch queue, grouped by service settings.
 4. Paragraphs of one group accumulate for 50 ms (the collection window). A group is sent when the window ends, when the paragraph limit is reached, or when the next paragraph would exceed the character limit.
 5. Each service sends its batches through its own request queue.
-6. Results go to the in-memory cache and are written to `storage.local` in one write after 1 second. The cache evicts the least recently used (LRU) entries.
+6. Results go to the in-memory cache and, 5 seconds later, together into the cache database in IndexedDB. The cache drops the least recently used (LRU) entries beyond its maximum.
 
 The cache key consists of the provider, the model, the source and target language, one hash of everything else that shapes the result, and a hash of the paragraph text. That hash covers:
 
@@ -82,6 +82,8 @@ The services other than AI cap a batch regardless of the settings, for example D
 With automatic detection, Bergamot detects the language of each paragraph and translates the paragraphs of each language together. The browser's detector is asked from 12 letters on; its answer counts when it is reliable and covers at least 60 % of the text. A paragraph it does not place, a shorter one included, is named by its script and, in Latin script, by English stop words. A paragraph that none of these place takes the language found most often in the batch, else English. The dictionary detects the same way, but treats a paragraph it cannot place as English.
 
 When a Google answer has an unexpected shape, the batch is requested again one paragraph per request through the same request queue, with its concurrency limit and retries. A failure then affects its paragraph only.
+
+An answer the service stopped at its output limit is not parsed: the last translation of it is cut, while numbered lines or the `%%` separator could still count the right number of paragraphs. Such a batch is sent again one paragraph per request; a single paragraph whose answer stops at the limit fails with a message that says so, and nothing of it is cached.
 
 The parser of AI answers tries these formats in order:
 

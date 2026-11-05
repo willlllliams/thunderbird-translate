@@ -35,7 +35,11 @@ const effort = (off: string | null, on: string, extra: JSONObject = {}): Pick<Th
 
 /** OpenAI reasoning models; the Chat Completions API rejects reasoning_effort for the others. */
 const OPENAI_RULES: ThinkingRule[] = [
-  { models: /^gpt-(?:5\.\d|[6-9])/, ...effort("none", "medium") },
+  { models: /^gpt-6-(?:sol|luna)$/, ...effort("none", "medium") },
+  // The other GPT-6 models (6.1 Terra, 6.1 Sol): OpenAI documents "none" for Terra, but @ai-sdk/openai passes it only
+  // for gpt-6-sol and gpt-6-luna and drops it for the rest, so the request would think at the default "medium".
+  { models: /^gpt-[6-9]/, ...effort("low", "medium") },
+  { models: /^gpt-5\.\d/, ...effort("none", "medium") },
   { models: /^gpt-5(?:-mini|-nano)?(?:-\d{4}|$)/, ...effort("minimal", "medium") },
   { models: /^o\d/, ...effort("low", "medium") },
 ]
@@ -43,9 +47,17 @@ const OPENAI_RULES: ThinkingRule[] = [
 /** Claude models with adaptive thinking; they also reject custom sampling parameters. */
 const CLAUDE_ADAPTIVE = /claude-(?:opus|sonnet|haiku|fable|mythos)-[5-9]|claude-opus-4-[78]/
 
-/** Claude 5.x and later reject custom sampling parameters. */
+/**
+ * Claude 5.x and later reject custom sampling parameters; Kimi K3 models fix the temperature; Gemini 3.5 Flash-Lite and
+ * 3.6 Flash ignore temperature, top_p and top_k, and the Gemini models after them answer HTTP 400 to them (Google,
+ * "What's new in Gemini 3.6"). The same goes for the rest of the 3.x line from 3.5 on.
+ */
 export function modelRejectsTemperature(presetId: string, model: string): boolean {
-  return presetId === "anthropic" && CLAUDE_ADAPTIVE.test(model)
+  return (
+    (presetId === "anthropic" && CLAUDE_ADAPTIVE.test(model)) ||
+    (presetId === "moonshot" && /^kimi-k3/.test(model)) ||
+    (presetId === "gemini" && /^gemini-(?:3\.(?:[5-9]|\d{2,})|[4-9])/.test(model))
+  )
 }
 
 const CONTROLS: Record<string, ThinkingControl> = {
@@ -67,7 +79,9 @@ const CONTROLS: Record<string, ThinkingControl> = {
       // 2.5 Pro cannot turn thinking off; 128 tokens is its smallest budget.
       { models: /gemini-2\.5-pro/, off: { thinkingConfig: { thinkingBudget: 128 } }, on: { thinkingConfig: { thinkingBudget: -1 } } },
       { models: /gemini-2\.5/, off: { thinkingConfig: { thinkingBudget: 0 } }, on: { thinkingConfig: { thinkingBudget: -1 } } },
-      // Gemini 3 has levels instead of budgets and no full off.
+      // Gemini 3 has levels instead of budgets and no full off. 3.5 Flash-Lite and 3.6 Flash go down to "minimal", which
+      // 3.5 Flash-Lite uses by default; 3.8 Flash and the Pro models start at "low".
+      { models: /gemini-(?:\d+\.\d+-flash-lite|3\.[56]-flash|flash-lite-latest)/, off: { thinkingConfig: { thinkingLevel: "minimal" } }, on: { thinkingConfig: { thinkingLevel: "high" } } },
       { models: /gemini-(?:[3-9]|flash-latest|pro-latest)/, off: { thinkingConfig: { thinkingLevel: "low" } }, on: { thinkingConfig: { thinkingLevel: "high" } } },
     ],
   },
@@ -97,11 +111,18 @@ const CONTROLS: Record<string, ThinkingControl> = {
   },
   togetherai: {
     namespace: "togetherai",
-    rules: [{ models: /qwen3|glm-[45]|deepseek-v4|kimi-k3|minimax-m3/i, off: { reasoning: { enabled: false } }, on: { reasoning: { enabled: true } } }],
+    rules: [
+      // GLM-5.3 cannot stop thinking (Zhipu), and gpt-oss has effort levels and no off (Together): nothing to send for "off".
+      { models: /glm-5[.p-]?3/i, off: null, on: { reasoning: { enabled: true } } },
+      { models: /gpt-oss/i, ...effort("low", "medium") },
+      { models: /qwen3|glm-[45]|deepseek-v4|kimi-k3|minimax-m3/i, off: { reasoning: { enabled: false } }, on: { reasoning: { enabled: true } } },
+    ],
   },
   fireworks: {
     namespace: "fireworks",
     rules: [
+      // GLM-5.3 accepts the efforts max, high and low and refuses "none" (Zhipu).
+      { models: /glm-5p3/, ...effort("low", "medium") },
       { models: /deepseek-v3p[12]|deepseek-v4|glm-|kimi-k3|qwen3/, ...effort("none", "medium") },
       { models: /gpt-oss/, ...effort("low", "medium") },
     ],
@@ -188,7 +209,7 @@ export function reasons(presetId: string, model: string, on: boolean): boolean {
 }
 
 /** Tokens a request adds to its output limit for a model that reasons first, which most services count within that limit. */
-export const REASONING_TOKENS = 4096
+const REASONING_TOKENS = 4096
 
 /**
  * The output limit of a request whose answer should have `answer` tokens: with room for the reasoning of a model

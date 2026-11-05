@@ -1,24 +1,19 @@
-import { setStyleVars } from "../content/render"
+import { sampleRenderer } from "../content/render"
 import { ext } from "../shared/ext"
 import { getI18n, t } from "../shared/i18n"
-import { localizeDocument } from "../shared/i18n-dom"
-import { followUiLanguage, loadExtensionI18n } from "../shared/i18n-ext"
-import { normalizeUiLanguageSetting } from "../shared/locales"
 import { type OfflineStatus, type OptionsPlace, type PageNotice, send } from "../shared/messages"
 import type { OfflineService } from "../shared/offline-needs"
-import { $, fillSelect, fillTierSelects, languageOptions, offlineName, offlineStatus, onTierChange, showOfflineHint, showSaved, showSaveError, sourceLanguageOptions, uiLanguageOptions } from "../shared/page"
+import { $, fillAiServiceSelect, fillSelect, fillTierSelects, showSameLanguage, offlineName, offlineStatus, onTierChange, showOfflineHint } from "../shared/page"
 import { getPreset, PROVIDER_PRESETS, providerDisplayName, type ProviderPreset, type Tier, TIER_NAME_KEYS, TIERS, tierOf } from "../shared/providers"
 import { addedProviders, addProvidersInUse, consentParts, type DisplayMode, enabledTiers, removalBlocker, resolveProvider, type Settings, SUMMARY_AUTO, SUMMARY_PARTS, summaryProvider } from "../shared/settings"
 import type { BergamotSection } from "./bergamot"
 import type { DictionarySection } from "./dictionaries"
 import { button, h } from "../shared/dom"
-import { loadSystemLanguages } from "./offline-list"
-import { offlineSections } from "./offline-sections"
 import { ImageSettingsSection } from "./image-settings"
-import { PromptEditor } from "./prompt-editor"
+import type { PromptEditor } from "./prompt-editor"
 import { providerConfig, servicePanel } from "./provider-panel"
-import { SettingsSession } from "./session"
-import { mountStyleControls } from "./style-controls"
+import type { SettingsSession } from "./session"
+import { fillLanguageControls, openSettingsPage } from "./page-setup"
 
 let session: SettingsSession
 /** Settings as edited on this page. */
@@ -101,13 +96,9 @@ function renderConsent(): void {
 
 /** The services the summary can use: the one of the AI tier, then every added AI service; under the model, the model of the service in use. */
 function fillSummaryProviders(): void {
-  const chosen = settings.summary.provider
-  const services = addedProviders(settings).filter((p) => tierOf(p) === "ai")
-  const value = chosen && settings.providers[chosen]?.enabled ? chosen : ""
-  fillSelect($<HTMLSelectElement>("summaryProvider"), [new Option(t("summaryProviderTier"), ""), ...services.map((p) => new Option(providerDisplayName(p), p.id))], value)
   const id = summaryProvider(settings)
+  fillAiServiceSelect($<HTMLSelectElement>("summaryProvider"), $<HTMLInputElement>("summaryModel"), settings, settings.summary.provider, id)
   $("summaryNone").hidden = id !== null
-  $<HTMLInputElement>("summaryModel").placeholder = id ? resolveProvider(settings, id).model : ""
 }
 
 /** Changes made elsewhere were taken over: redraw what depends on them. */
@@ -167,8 +158,7 @@ function providersChanged(): void {
 /** Precise translation needs the AI tier; a warning when the source and the target language are the same. */
 function showTierControls(): void {
   $<HTMLInputElement>("preciseEnabled").disabled = !settings.tiers.ai
-  $("sameLanguage").hidden = settings.sourceLang !== settings.targetLang
-  images.refresh()
+  showSameLanguage(settings)
 }
 
 function renderProviderPanel(): void {
@@ -212,6 +202,8 @@ function renderProviderPanel(): void {
     }
     actions.replaceChildren(test, use, remove)
   }
+  // The button that was clicked goes with the panel: the focus moves to the button that follows it ("Add" → "Use this service"), else to the first one that can take it.
+  const clicked = document.activeElement instanceof HTMLButtonElement && $("providerPanel").contains(document.activeElement) ? document.activeElement.textContent : null
   $("providerPanel").replaceChildren(
     ...servicePanel(session, p, addWhileTyping, (button) => {
       test = button
@@ -219,12 +211,17 @@ function renderProviderPanel(): void {
       return actions
     }, [blockedHint]),
   )
+  if (clicked === null) return
+  const buttons = Array.from(actions.querySelectorAll("button")).filter((b) => !b.disabled)
+  const next = clicked === t("buttonAddProvider") ? t("buttonUse") : clicked
+  ;(buttons.find((b) => b.textContent === next) ?? buttons[0])?.focus({ preventScroll: true })
 }
 
+/** The sample paragraph and its translation as the renderer of the messages draws them, in the style of the settings. */
 function applyPreview(): void {
-  setStyleVars($("preview"), settings.style)
-  const tr = $("previewTranslation")
-  tr.className = `tt-translation tt-bilingual tt-flow tt-style-${settings.style.preset}`
+  const original = h("p", { text: t("stylePreviewOriginal") })
+  $("preview").replaceChildren(original)
+  sampleRenderer($("preview"), settings.style).show(original, t("stylePreviewTranslation"), "bilingual")
 }
 
 async function refreshCacheCount(): Promise<void> {
@@ -234,11 +231,9 @@ async function refreshCacheCount(): Promise<void> {
 
 /** Write every text of the page in the current interface language. */
 function applyLanguage(): void {
-  const i18n = getI18n()
-  localizeDocument(i18n)
-  fillSelect($<HTMLSelectElement>("uiLanguage"), uiLanguageOptions(i18n), settings.uiLanguage)
-  fillSelect($<HTMLSelectElement>("sourceLang"), sourceLanguageOptions(i18n), settings.sourceLang)
-  fillSelect($<HTMLSelectElement>("targetLang"), languageOptions(i18n), settings.targetLang)
+  fillLanguageControls(settings)
+  // The sample sentences of the style preview are text of the page as well.
+  applyPreview()
   fillSelect($<HTMLSelectElement>("providerTierFilter"), [new Option(t("providerFilterAll"), ""), ...TIERS.map((tier) => new Option(t(TIER_NAME_KEYS[tier]), tier))], providerTier)
   fillTiers()
   renderMuted()
@@ -253,27 +248,13 @@ function applyLanguage(): void {
   void refreshCacheCount()
 }
 
-/** Set once the page has its first language. */
-let followLanguage: (setting: unknown) => Promise<void> = async () => {}
-
-async function changeUiLanguage(value: unknown): Promise<void> {
-  settings.uiLanguage = normalizeUiLanguageSetting(value)
-  await followLanguage(settings.uiLanguage)
-}
+/** Set once the page has its first language (openSettingsPage()). */
+let changeUiLanguage: (value: unknown) => Promise<void> = async () => {}
 
 async function main(): Promise<void> {
-  session = await SettingsSession.open()
-  settings = session.settings
-  session.onRemoteChange = remoteChanged
-  session.onSaved = showSaved
-  session.onSaveError = showSaveError
+  ;({ session, settings, dictionaries, bergamot, prompts, changeUiLanguage } = await openSettingsPage({ stylePreview: applyPreview, applyLanguage, onRemoteChange: remoteChanged }))
   selectedProvider = settings.tiers[enabledTiers(settings.tiers).at(-1)!]!
-  ;({ dictionaries, bergamot } = offlineSections(() => settings))
-  prompts = new PromptEditor($("promptEditor"), session)
   images = new ImageSettingsSection(session)
-  mountStyleControls($("styleControls"), session, applyPreview)
-  await Promise.all([loadExtensionI18n(settings.uiLanguage), loadSystemLanguages()])
-  followLanguage = followUiLanguage(settings.uiLanguage, applyLanguage)
   // The popup, the notice above a message and the tier selectors link to a place: options.html?dict=…&bergamot=…&tier=…#section.
   const placeOfLocation = () => {
     const query = new URLSearchParams(location.search)
@@ -290,20 +271,13 @@ async function main(): Promise<void> {
     if (next) goTo(next)
   })
   void refreshOffline()
-  // Packs or models were installed or deleted, also through another page; the progress of the downloads.
+  // Packs or models were installed or deleted, also through another page.
   ext.runtime.onMessage.addListener((message: unknown) => {
     if ((message as PageNotice | undefined)?.type === "offlineDataChanged") void refreshOffline()
-    dictionaries.receive(message)
-    bergamot.receive(message)
   })
   $("openWelcome").addEventListener("click", () => void ext.tabs.create({ url: ext.runtime.getURL("welcome.html") }))
 
   // General
-  const uiLanguage = $<HTMLSelectElement>("uiLanguage")
-  uiLanguage.addEventListener("change", () => {
-    void changeUiLanguage(uiLanguage.value)
-    session.save()
-  })
   session.bind("sourceLang", "change", (el) => (el.value = settings.sourceLang), (el) => {
     settings.sourceLang = el.value
     showTierControls()
@@ -344,7 +318,7 @@ async function main(): Promise<void> {
     images.refresh()
     session.save()
   })
-  session.track($("sameLanguage"), showTierControls)
+  session.onRemote(showTierControls)
 
   // Dictionaries
   session.bind("dictReleaseTag", "change", (el) => (el.value = settings.dictionary.releaseTag), (el) => {
@@ -353,14 +327,12 @@ async function main(): Promise<void> {
     void dictionaries.load()
   })
   $("dictReload").addEventListener("click", () => void dictionaries.load(true))
-  $("dictFilter").addEventListener("input", () => dictionaries.render())
   void dictionaries.load()
 
   // Offline models. Both lists follow the languages, also when they change elsewhere.
-  $("bergamotFilter").addEventListener("input", () => bergamot.render())
   $("bergamotReload").addEventListener("click", () => void bergamot.load(true))
   let listed = ""
-  session.track($("bergamotNeeded"), () => {
+  session.onRemote(() => {
     if (listed === (listed = `${settings.sourceLang}>${settings.targetLang}>${settings.uiLanguage}`)) return
     dictionaries.render()
     bergamot.render()

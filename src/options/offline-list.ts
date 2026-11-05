@@ -294,9 +294,7 @@ export abstract class OfflineList<T extends ListItem> {
     this.render()
     await Promise.all(
       wanted.map(async ({ id, src, tgt }) => {
-        const r = await send({ type: "offlineInstall", service: this.service, pairs: [{ src, tgt }], tag: this.tag() })
-          .then((results) => results?.[0])
-          .catch((error): OfflineResult => ({ ok: false, error: describeError(error, getI18n()) }))
+        const r = await send({ type: "offlineInstall", service: this.service, src, tgt, tag: this.tag() }).catch((error): OfflineResult => ({ ok: false, error: describeError(error, getI18n()) }))
         this.requested.delete(id)
         // Shown as installed until the list is read again.
         if (r?.ok) Object.assign(this.entries.find((e) => pairKey(e.src, e.tgt) === id) ?? {}, { installed: true, installedVersion: undefined })
@@ -403,6 +401,8 @@ export abstract class OfflineList<T extends ListItem> {
       () => {
         this.confirmingCommon = true
         this.render()
+        // The button that was clicked is gone: the keyboard goes on with the confirmation.
+        this.base.common.querySelector<HTMLElement>(".common-confirm button")?.focus({ preventScroll: true })
       },
       false,
       t("tipDownloadCommon"),
@@ -420,6 +420,7 @@ export abstract class OfflineList<T extends ListItem> {
       const cancel = button(t("buttonCancel"), () => {
         this.confirmingCommon = false
         this.render()
+        this.base.common.querySelector<HTMLElement>("button")?.focus({ preventScroll: true })
       }, false, t("tipCancelCommon"))
       parts.push(
         h(
@@ -431,6 +432,9 @@ export abstract class OfflineList<T extends ListItem> {
         ),
       )
     }
+    // Drawn again with every render, many times a second while a download runs: the focus stays on the button of its text.
+    const focused = this.base.common.contains(document.activeElement) ? (document.activeElement as HTMLElement).textContent : null
     this.base.common.replaceChildren(...parts)
+    if (focused) Array.from(this.base.common.querySelectorAll<HTMLElement>("button")).find((control) => control.textContent === focused)?.focus({ preventScroll: true })
   }
 }

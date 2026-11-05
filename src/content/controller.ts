@@ -43,8 +43,10 @@ import { createMailContext, type MailContext } from "../shared/mail-context"
 import type { TabState, TranslateRequest, TranslateResponse } from "../shared/messages"
 import { type Tier, TIER_NAME_KEYS, TIERS } from "../shared/providers"
 import type { ConsentNeed, PublicSettings } from "../shared/settings"
+import type { TextUse } from "../shared/consent"
+import { MessageConsent } from "./consent"
 import type { ImageTranslator } from "./images"
-import { type Collected, collectParagraphs, extractText, type Unit } from "./paragraphs"
+import { type Collected, collectParagraphs, extractText, STYLE_ID, type Unit } from "./paragraphs"
 import { Renderer, styleVars, type TranslationMark } from "./render"
 import { hasTranslatableText } from "../shared/text"
 
@@ -60,9 +62,12 @@ export interface ControllerDeps {
   notice?: { begin(): void; add(missing: MissingData): void; end(): void; clear(again?: boolean): void }
   /**
    * Asks the user before message text first goes to the online services `needs`; resolves true once they are allowed
-   * (and recorded by the background script). Without it nothing is asked: the extension pages translate their own sample.
+   * (and recorded by the background script). `focus`: the user asked for the translation, the panel takes the focus.
+   * Without it nothing is asked: the extension pages translate their own sample.
    */
-  consent?: { ask(needs: ConsentNeed[], precise: boolean): Promise<boolean>; clear(): void }
+  consent?: { ask(needs: ConsentNeed[], use: TextUse, focus: boolean): Promise<boolean>; clear(): void }
+  /** The services allowed in the consent panel of this message; the summary of the message shares it. */
+  allowed?: MessageConsent
   /** The text of the images of the message; the content script only. */
   images?: Pick<ImageTranslator, "start" | "update" | "stop">
 }
@@ -80,12 +85,19 @@ type View =
   | { kind: "fallback"; text: string; error: string }
   | { kind: "error"; error: string }
 
-const STYLE_ID = "tt-style-vars"
 /** Progress goes to the background at most this often; the last state always follows. */
 const REPORT_INTERVAL_MS = 100
+/** A tier whose service, model or prompt changed is asked again once the settings stayed the same this long. */
+export const SETTLE_MS = 1500
 
-/** A service and the host the consent panel names for it: a consent is given for both. */
-export const consentKey = (need: ConsentNeed): string => `${need.id}@${need.host}`
+/** The focus on `el`, a paragraph of the message, until it leaves: focusable for that time only. */
+function holdFocus(el: HTMLElement): void {
+  if (!el.hasAttribute("tabindex")) {
+    el.setAttribute("tabindex", "-1")
+    el.addEventListener("blur", () => el.removeAttribute("tabindex"), { once: true })
+  }
+  el.focus({ preventScroll: true })
+}
 
 export class TranslationController {
   active = false
@@ -104,11 +116,16 @@ export class TranslationController {
   private bypassCache = false
   private lastError = ""
   /** Online services allowed in the consent panel of this message, before the settings that record them arrive. */
-  private allowed = new Set<string>()
+  private readonly allowed: MessageConsent
   private reportTimer: ReturnType<typeof setTimeout> | null = null
   private reportPending = false
+  /** The settings the results on screen were asked with, and the request of new results while the settings change. */
+  private asked: PublicSettings | null = null
+  private settleTimer: ReturnType<typeof setTimeout> | null = null
 
-  constructor(private readonly deps: ControllerDeps) {}
+  constructor(private readonly deps: ControllerDeps) {
+    this.allowed = deps.allowed ?? new MessageConsent()
+  }
 
   /** Send the state now, or once the interval since the last report has passed. */
   private report(): void {
@@ -147,8 +164,7 @@ export class TranslationController {
     const prev = this.settings
     this.settings = next
     // A service asked for anew (its host changed, or the user took the consent back) is asked for again in this message.
-    const before = new Set((prev?.consent ?? []).map(consentKey))
-    for (const need of next.consent) if (!before.has(consentKey(need))) this.allowed.delete(need.id)
+    this.allowed.follow(prev?.consent ?? [], next.consent)
     this.applyStyleVars()
     if (!this.active || !prev) return
     if (prev.targetLang !== next.targetLang || prev.sourceLang !== next.sourceLang || prev.precise !== next.precise) {
@@ -163,16 +179,30 @@ export class TranslationController {
       await this.start()
       return
     }
-    this.deps.images?.update(next.image, next.targetLang)
-    for (const state of this.results.values()) for (const tier of changed) delete state[tier]
-    // A key or an app ID changed: the tiers that failed are asked again, the others keep their results.
-    const retry = prev.credentials !== next.credentials
-    if (retry) for (const state of this.results.values()) for (const tier of TIERS) if (state[tier]?.status === "error") delete state[tier]
-    if (changed.length > 0 || prev.mode !== next.mode || prev.style.preset !== next.style.preset || prev.renderMarkdown !== next.renderMarkdown) this.rerender()
-    if (changed.length > 0 || retry) {
-      this.report()
-      await Promise.all(this.units.map((unit) => this.translateUnit(unit, this.session)))
+    this.deps.images?.update(next.image)
+    if (prev.mode !== next.mode || prev.style.preset !== next.style.preset || prev.renderMarkdown !== next.renderMarkdown) this.rerender()
+    if (this.settleTimer) clearTimeout(this.settleTimer)
+    this.settleTimer = null
+    // A new display mode asks at once; a prompt, model, endpoint or key edited on the settings page once it stays.
+    if (prev.mode !== next.mode) return this.askChanged()
+    if (TIERS.some((tier) => this.asked!.signatures[tier] !== next.signatures[tier]) || this.asked!.credentials !== next.credentials) {
+      this.settleTimer = setTimeout(() => void this.askChanged(), SETTLE_MS)
     }
+  }
+
+  /** Ask the tiers whose service or prompt changed since their results were asked for; after a new key, the tiers that failed. */
+  private async askChanged(): Promise<void> {
+    this.settleTimer = null
+    const s = this.settings!
+    const changed = TIERS.filter((tier) => this.asked!.signatures[tier] !== s.signatures[tier])
+    const retry = this.asked!.credentials !== s.credentials
+    this.asked = s
+    for (const state of this.results.values()) for (const tier of changed) delete state[tier]
+    if (retry) for (const state of this.results.values()) for (const tier of TIERS) if (state[tier]?.status === "error") delete state[tier]
+    if (changed.length === 0 && !retry) return
+    if (changed.length > 0) this.rerender()
+    this.report()
+    await Promise.all(this.units.map((unit) => this.translateUnit(unit, this.session)))
   }
 
   /**
@@ -211,38 +241,41 @@ export class TranslationController {
     if (!this.active) return
     this.memo.clear()
     this.stop(true)
-    await this.start(true)
+    await this.start(true, true)
   }
 
   async toggle(): Promise<void> {
     if (this.active) this.stop()
-    else await this.start()
+    else await this.start(false, true)
   }
 
   /** The online services of `s` that still need the user's consent. */
   private consentNeeds(s: PublicSettings): ConsentNeed[] {
-    return this.deps.consent ? s.consent.filter((need) => !this.allowed.has(need.id)) : []
+    return this.deps.consent ? s.consent.filter((need) => !this.allowed.allows(need)) : []
   }
 
-  /** The settings to translate with once the user allowed the online services `needs`; null when the user declined or the state changed meanwhile. */
-  private async consented(s: PublicSettings, needs: ConsentNeed[]): Promise<PublicSettings | null> {
-    if (!(await this.deps.consent!.ask(needs, s.precise))) return null
-    for (const need of needs) this.allowed.add(need.id)
+  /** The settings to translate with once the user allowed the online services `needs`; null when the user declined or the settings changed meanwhile. */
+  private async consented(s: PublicSettings, needs: ConsentNeed[], byUser: boolean): Promise<PublicSettings | null> {
+    if (!(await this.deps.consent!.ask(needs, s.precise ? "message" : "paragraphs", byUser))) return null
+    for (const need of needs) this.allowed.allow(need)
     // The settings may have changed while the panel was open.
     const now = this.settings!
-    return this.active || this.consentNeeds(now).length > 0 ? null : now
+    return this.consentNeeds(now).length > 0 ? null : now
   }
 
-  async start(bypassCache = false): Promise<void> {
+  /** `byUser`: a command of the user, not automatic translation or new settings; a consent panel then takes the focus. */
+  async start(bypassCache = false, byUser = false): Promise<void> {
     if (this.active || !this.settings || !this.deps.root()) return
     const needs = this.consentNeeds(this.settings)
     // Without a question the translation starts at once.
-    const s = needs.length === 0 ? this.settings : await this.consented(this.settings, needs)
-    if (!s) return
+    const s = needs.length === 0 ? this.settings : await this.consented(this.settings, needs, byUser)
+    // Two starts that waited for the same panel resume one after the other: the second finds the message started.
+    if (!s || this.active) return
     const root = this.deps.root()
     if (!root) return
     this.active = true
     this.bypassCache = bypassCache
+    this.asked = s
     const session = ++this.session
     this.renderer = new Renderer(root.ownerDocument)
     this.renderer.stylePreset = s.style.preset
@@ -270,6 +303,8 @@ export class TranslationController {
 
   /** `again`: a retranslation follows. */
   stop(again = false): void {
+    if (this.settleTimer) clearTimeout(this.settleTimer)
+    this.settleTimer = null
     this.deps.consent?.clear()
     this.deps.images?.stop()
     this.session++
@@ -379,12 +414,14 @@ export class TranslationController {
     return failed ? { kind: "error", error: (state[failed] as { error: string }).error } : { kind: "loading" }
   }
 
-  /** Retry the tiers that failed; the others keep their results. */
+  /** Retry the tiers that failed; the others keep their results. The paragraph keeps the focus of its retry button, which goes. */
   private retry(unit: Unit): void {
     const state = this.results.get(unit)
     if (!state) return
+    const focused = unit.el.contains(unit.el.ownerDocument.activeElement)
     for (const tier of TIERS) if (state[tier]?.status === "error") delete state[tier]
     void this.translateUnit(unit, this.session)
+    if (focused) holdFocus(unit.el)
   }
 
   private renderResult(unit: Unit): void {

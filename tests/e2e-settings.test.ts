@@ -8,17 +8,17 @@ import { describe, expect, it, vi } from "vitest"
 import { PersistentCache } from "../src/background/cache"
 import type { LlmCallOptions } from "../src/background/translators/llm"
 import { IMAGE_MODES, MACHINE, scenarioSettings } from "../src/e2e/scenario-settings"
-import { isAnimated } from "../src/background/images"
+import { isAnimated } from "../src/background/image-format"
 import { readFileSync } from "node:fs"
 import { join } from "node:path"
 import { consentEntry, createDefaultSettings, defaultImageSettings } from "../src/shared/settings"
 import { createService, memoryStorage } from "./helpers"
 
 const SERVER = "http://127.0.0.1:8080"
-/** The runs on the shared plain profile, in the order of e2e/run.mjs. */
-const RUNS = ["message", "message", "auto", "auto-skip", "missing", "consent", ...MACHINE.map((m) => `machine-${m.id}`), "summary", "image-ask", "image-auto", "image-off", "image-switch"]
+/** The runs on the shared plain profile, in the order of e2e/run.mjs (the two runs of the setup guide have settings of their own). */
+const RUNS = ["message", "message", "auto", "auto-skip", "missing", "consent", ...MACHINE.map((m) => `machine-${m.id}`), "summary", "image-ask", "image-auto", "image-off", "image-switch", "image-remote"]
 
-/** The settings of each run, each read from what the run before it stored. */
+/** The settings of each run: every run starts from the defaults, whatever the runs before it stored. */
 function storedRuns() {
   return RUNS.map((scenario) => [scenario, scenarioSettings(scenario, SERVER)] as const)
 }
@@ -34,7 +34,7 @@ describe("settings of the e2e runs", () => {
 
   it("switch the cache back on after the runs that turn it off", () => {
     expect(storedRuns().map(([scenario, s]) => [scenario, s.cache.enabled])).toEqual(
-      RUNS.map((scenario) => [scenario, !["auto", "auto-skip", "missing", "consent", "image-auto", "image-switch"].includes(scenario) && !scenario.startsWith("machine-")]),
+      RUNS.map((scenario) => [scenario, !["auto", "auto-skip", "missing", "consent", "image-auto", "image-switch", "image-remote"].includes(scenario) && !scenario.startsWith("machine-")]),
     )
   })
 

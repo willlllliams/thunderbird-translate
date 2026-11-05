@@ -75,7 +75,7 @@ const options = {
   bundle: true,
   platform: "browser",
   target: ["firefox128"],
-  // Prefer browser builds of dependencies; never pull Node built-ins.
+  // Prefer browser builds of dependencies. For platform "browser" esbuild stops on a Node built-in it cannot resolve, so none enters a bundle.
   mainFields: ["browser", "module", "main"],
   conditions: ["browser", "import", "default"],
   minify: true,
@@ -131,12 +131,6 @@ if (english.length) {
   process.exit(1)
 }
 
-// Guard: a Node built-in in a bundle means it would fail inside Thunderbird.
-const nodeImports = Object.keys(result.metafile.inputs).filter((p) => p.startsWith("node:") || /^(fs|path|crypto|stream|http|https|zlib|os)$/.test(p))
-if (nodeImports.length) {
-  console.error("Bundles reference Node built-ins:", nodeImports)
-  process.exit(1)
-}
 // Guard: the e2e hooks exist only in the e2e build.
 const withHooks = Object.keys(result.metafile.outputs).filter((file) => file.endsWith(".js") && readFileSync(join(root, file), "utf8").includes(E2E_MARKER))
 if (!e2e && withHooks.length) {

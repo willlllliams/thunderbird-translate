@@ -8,9 +8,9 @@
 
 1. 在测试配置文件中安装 xpi。新手引导会在标签页中打开；点击“退出引导”即可关闭，默认设置可以直接使用。
 2. 打开一封非英文邮件，例如正文为这段德语的邮件：“Könnten wir die Abnahme auf Donnerstag, 15 Uhr, verschieben? Am Mittwoch bin ich auf einer Messe in Hamburg.”
-3. 按 Alt+A，或点击邮件头工具栏中的“翻译邮件”，再点“翻译此邮件”。文字发往谷歌翻译（默认服务）之前，邮件上方会出现询问面板。点击“允许并翻译”后，英文译文显示在每个段落下方。
+3. 按 Alt+A，或点击邮件头工具栏中的“翻译邮件”，再点“翻译此邮件”。文字发往谷歌翻译（默认服务）之前，邮件上方会出现询问面板。点击面板上的“允许…”，邮件头按钮的弹出窗口随即打开并显示同样的问题；在其中点击“允许”后，英文译文显示在每个段落下方。
 4. Alt+S 切换到仅译文；再按 Alt+A 恢复原邮件。工具栏按钮的弹出面板提供同样的开关。
-5. 离线翻译：在设置页（附加组件管理器中的“选项”）为第 1 层选择“词典（离线）”，在“词典”部分下载德语 → 英语词典包（2.0 MB，来自本项目的 GitHub Releases），再翻译一次。词典结果先显示，随后被谷歌翻译的结果替换。
+5. 离线翻译：在设置页（附加组件管理器中的“选项”）的“翻译服务”中选择“词典（离线）”，点击“添加”和“使用此服务”（第 1 层），再在“词典”部分下载德语 → 英语词典包（2.0 MB，来自本项目的 GitHub Releases），再翻译一次。词典结果先显示，随后被谷歌翻译的结果替换。
 
 AI 服务需要审核员自己的 API 密钥；扩展的其他部分都不依赖 AI 服务。下文所述的摘要和四个需要自有账户的机器翻译服务同样如此。
 
@@ -51,13 +51,13 @@ Web Crypto 不提供 MD5，所以 `src/shared/md5.ts` 按 RFC 1321 直接实现�
 - 如何读取字节：后台脚本用 `messages.getAttachmentFile(messageId, partName)` 读取部件（`src/background/displayed.ts` 的 `messagePart()`），部件名取自 Thunderbird 给图片的地址，当前邮件的 id 来自 `messageDisplay.getDisplayedMessage()`。两者都只需要扩展自 2.1 起就有的 `messagesRead`。只读取图片部件：翻译邮件开始时，读取通过内容脚本过滤的前几张图片的部件，在本机查找缓存结果、检查大小、动图和像素数；文件不是图片的部件，以及文件名与图片地址中的文件名不同的部件，都会被丢弃。只从内容脚本连接时显示的那封邮件读取，并且只在标签页仍显示这封邮件时读取。不读取其他任何附件。
 - 何时发送图片：默认模式“图片下询问”下，用户点击某张图片下方的“翻译图片文字”之后；“开启”模式下自动发送，默认每封邮件最多 5 张。图片在后台页中用 `createImageBitmap()` 解码，缩小到长边不超过 1568 px，再用 `OffscreenCanvas` 重新编码为 JPEG，文件名和元数据随之丢弃（`src/background/images.ts`），然后经 AI SDK 发给视觉服务（用户没有另选时即第 3 层的 AI 服务）。
 - 同意：图片有单独的列表 `imageConsent`，与文字的同意分开。第一张图片发给某个服务之前，图片下方的面板写明服务、主机、发送的内容，以及 Anthropic、Gemini 或 OpenAI 公布的数据政策；没有同意时后台脚本拒绝图片请求（`ImageService.request()`），并在请求离开队列时再次检查同意、模式和服务，所以撤销之后仍在队列中的图片不会发送；内容脚本离开时，它仍在等待的请求会被中止。精翻的术语表只随图片发给第 3 层的服务，或同时被允许接收邮件文字的服务。设置页列出并可撤销已允许接收图片的服务。
-- 不新增权限，也不新增主机：视觉服务就是各个 AI 预设，其默认接口地址已在清单中。
+- 不新增权限，也不新增主机：视觉服务就是各个 AI 预设，其默认接口地址是清单中的可选主机权限，在设置该服务时申请（见“权限”一节）。
 
 不用 AI 密钥测试（确认面板，以及确认之前不发送任何内容）：
 
-1. 在设置中为第 3 层选择 OpenAI（选择时不需要密钥）。“精翻”下方的图片设置呈灰色，并带有“开启精翻”按钮；点击它。之后“图片翻译”显示“图片下询问”。
-2. 给自己发一封邮件，正文或附件中带一张至少 200 × 200 像素的图片，打开后按 Alt+A。
-3. 图片下方出现“翻译图片文字”按钮。点击后，图片发往 OpenAI 之前，图片下方的面板会询问。“取消”会恢复按钮；“允许并翻译图片”发送请求，没有密钥时图片下方显示“OpenAI：缺少 API 密钥”。
+1. 在设置的“翻译服务”中选择 OpenAI，点击“添加”，再点击“使用此服务”（第 3 层）和“授权访问”；Thunderbird 会询问是否允许访问 api.openai.com。这些步骤都不需要密钥。“精翻”下方的图片设置呈灰色，并带有“开启精翻”按钮；点击它。之后“图片翻译”显示“图片下询问”。
+2. 给自己发一封邮件，正文或附件中带一张至少 200 × 200 像素的图片，打开后按 Alt+A。邮件上方的面板这时询问谷歌翻译和 OpenAI；点击“允许…”，再在弹出窗口中点击“允许”后，各段落显示谷歌翻译的译文，并标有“AI 翻译失败”，因为 OpenAI 没有密钥。
+3. 图片下方出现“翻译图片文字”按钮。点击后，图片发往 OpenAI 之前，图片下方的面板会询问。“取消”会恢复按钮；“允许…”打开显示这个问题的弹出窗口，在其中点击“允许并翻译图片”才发送请求，没有密钥时图片下方显示“OpenAI：缺少 API 密钥”。
 
 使用自己的 AI 密钥时，结果以表格显示在图片下方；设置页视觉模型下方的“测试图片”会发送一张写着“TEST 42”的内置图片。
 
@@ -78,8 +78,16 @@ Web Crypto 不提供 MD5，所以 `src/shared/md5.ts` 按 RFC 1321 直接实现�
 1. 和上文一样，为第 3 层选择 OpenAI 并开启精翻；“图片翻译”保持“图片下询问”。
 2. 打开一封带有至少 200 × 200 像素远程图片的邮件（营销邮件），在 Thunderbird 显示于邮件上方的提示条中点击“显示远程内容”（或为该发件人设置允许）。按 Alt+A。
 3. 每张通过过滤的远程图片下方出现“翻译图片文字”按钮，邮件上方的提示统计等待权限的远程图片。点击按钮，邮件头按钮的弹出窗口打开，其中有“允许读取远程图片”。点击它，Thunderbird 询问是否允许访问所有网站的数据。
-4. 允许之后，图片被重新读取，图片下方的确认面板在发往 OpenAI 之前询问；没有密钥时，“允许并翻译图片”以“OpenAI：缺少 API 密钥”结束。
+4. 允许之后，图片被重新读取，图片下方的确认面板在发往 OpenAI 之前询问；没有密钥时，点击“允许…”和弹出窗口中的“允许并翻译图片”后以“OpenAI：缺少 API 密钥”结束。
 5. 打开一封远程内容被 Thunderbird 阻止的邮件并按 Alt+A：扩展不为其中的图片发出请求，邮件上方的提示写明有几张远程图片没有加载。
+
+## 3.1.2 起：在弹出窗口中给出同意
+
+同意面板位于邮件之中，邮件自带的 CSS（HTML 邮件的 `<style>`）同样作用于面板：邮件可以把表示允许的按钮设为透明并铺满整封邮件，邮件中任何一次点击都会变成允许。从 3.1.2 起，邮件中的面板只负责询问。它的“允许…”按钮把问题交给后台脚本（经内容脚本的 Port 发送 `consentAsk`，见 `src/background/tabs.ts`），后台脚本用 `messageDisplayAction.openPopup()` 打开这封邮件的弹出窗口；按钮不在工具栏中时，用 `windows.create()` 在单独的窗口中打开 `popup.html?tab=<id>`。弹出窗口和面板一样列出各服务及其主机和发送的内容，并提供“允许”和“取消”（`src/popup/index.ts` 的 `renderConsent()`）；它的回答发给后台脚本（`answerConsent`，只接受扩展页面发来的请求），后台脚本先记录同意，再通知面板。内容脚本已经没有能记录同意的请求：`grantConsent` 和 Port 消息 `imageConsent` 都已删除。面板和弹出窗口都不把焦点放在按钮上，阅读时误按一个键不会作出任何回答。后台脚本给每个问题一个随问题变化的编号，弹出窗口回答时带上它所显示问题的编号；问题在此期间变了（面板又询问了另一个服务），这个回答就不记录。翻译和摘要共用每个服务的一项同意。一个标签页至多有一个弹出窗口：下一个问题时聚焦它，没有问题时关闭它（`src/background/consent-window.ts`）。
+
+### 由点击触发、发送内置内容的请求
+
+有三种请求不经同意面板就到达服务，因为它们发送的是扩展内置的内容，不含用户的邮件，并且都由扩展页面上的一次点击触发。设置向导的“翻译示例邮件”按钮把页面内置的示例邮件发给所设置层级的服务，其中 AI 服务会带上密钥；`src/background/service.ts` 的 `translateForPage()` 对这种请求跳过同意检查，是否属于这种请求由 `src/background/tabs.ts` 的 `isExtensionPage(port.sender)` 判定，内容脚本的发送者地址是邮件的地址，因此无法冒充。“测试连接”（`testProvider()`）向被测试的服务发送一句固定的英文句子，“测试图片”（`ImageService.test()`）向被测试的视觉服务发送一张由扩展绘制、写着“TEST 42”的小图。翻译缓存除译文外还保存摘要（含待办的原句，每条 120 个字符）、精翻的分析和图片中识别出的文字；它在 IndexedDB 中，没有加密，隐私政策已经写明。发往 OpenRouter 的请求带有请求头 `X-Title`，内容是扩展名称（`src/background/providers/factory.ts`），OpenRouter 用它归属流量；隐私政策已经写明。
 
 ## 3.0.0 起：免费线路的连接检查
 
@@ -96,10 +104,10 @@ xpi 中的脚本由 esbuild 打包并压缩，因此随提交附上源代码包�
 | `messagesRead` | 当前显示邮件的邮件头：内容脚本运行在邮件正文中，看不到邮件头，所以后台脚本用 `messageDisplay.getDisplayedMessage()`（`src/background/displayed.ts`）读取它的发件人、日期和标题，供摘要使用；不保存任何内容。从 3.0.0 起，图片翻译用同样的方式读取当前邮件的 id，并用 `messages.getAttachmentFile()`（`displayed.ts` 的 `messagePart()`）读取它的图片部件，见上文：只读正文图片和图片附件，从不读取其他附件。从 3.1.0 起，处理远程图片时用 `messages.getFull()`（`displayed.ts` 的 `messageImageAddresses()`）在本机读取当前邮件的 HTML 部分，只用来核对邮件中是否出现该图片地址，读到的内容不保存也不发送。 |
 | `messagesModify` | 后台脚本用 `messageDisplayScripts.register()`（`src/background/content-scripts.ts`）在显示的邮件中显示译文，并用 `tabs.executeScript()`/`insertCSS()` 把同一脚本注入扩展启动时已经打开的邮件。Thunderbird 只在有这项权限时允许这两种操作（没有它时 `messenger.messageDisplayScripts` 不存在，已在 Thunderbird 156 中验证）。扩展不修改任何已保存的邮件。 |
 | `sensitiveDataUpload` | 显示的邮件文字会发往用户选定的翻译服务；用户请求摘要或开启了自动摘要时，整封邮件连同发件人、日期和标题发往摘要所用的 AI 服务；第一次发往每个在线服务之前，用户在邮件上方的面板中确认，确认连同该服务的主机一起记录。邮件中的图片发往用户选定的视觉服务，之前另有图片下方面板中的单独确认 |
-| `storage` | 设置、翻译缓存和新手引导的状态，保存在 `storage.local` 中（通过 `src/shared/ext.ts` 的封装调用，所以 linter 看不到这些调用） |
-| `unlimitedStorage` | IndexedDB 中的离线词典包（每个 0.3 至 3.6 MB）和 Bergamot 模型（每个方向 13 至 48 MB），不能被浏览器清除 |
+| `storage` | 设置和新手引导的状态，保存在 `storage.local` 中（通过 `src/shared/ext.ts` 的封装调用，所以 linter 看不到这些调用）；从 3.1.2 起翻译缓存保存在 IndexedDB 中，每条一个记录，3.1.1 保存在 `storage.local` 中的列表在首次使用时迁入（`src/background/cache.ts`） |
+| `unlimitedStorage` | IndexedDB 中的离线词典包（每个 0.3 至 3.6 MB）、Bergamot 模型（每个方向 13 至 48 MB）和翻译缓存，不能被浏览器清除 |
 | 主机权限 | 只列出不需要账户就能使用的地址：谷歌翻译、微软翻译的免费线路（`edge.microsoft.com`）、Mozilla Remote Settings 及其附件 CDN（Bergamot 模型），以及 GitHub 和它的发布下载主机（词典包）。列表是 `src/shared/hosts.ts` 的 `FIXED_HOSTS`，单元测试保证它与清单一致。 |
-| 可选，逐条列出：需要用户密钥的服务的 24 个默认主机 | 使用 Azure 密钥的微软翻译、DeepL 的两个地址、百度翻译、有道智云、彩云小译和 18 个 AI 预设的默认接口地址（`src/shared/hosts.ts` 的 `KEYED_HOSTS`，单元测试保证它与清单和预设一致）。到 3.0.0 为止它们是清单的主机权限。这类服务在用户填写密钥之前不发送任何请求，所以在设置服务时申请主机权限：设置页和设置向导中该服务下的“授权访问”、“测试连接”，或设置向导中的“下一步”；没有权限时，翻译报错“扩展尚未获准连接……”。更新时，从 `permissions` 移到 `optional_permissions` 的主机权限保持已授予（Gecko 的 `ExtensionData.migratePermissions()`，Firefox 75 起，bug 1618500），3.0 的用户不会失去已在使用的服务。 |
+| 可选，逐条列出：需要用户密钥的服务的 24 个默认主机 | 使用 Azure 密钥的微软翻译、DeepL 的两个地址、百度翻译、有道智云、彩云小译和 18 个 AI 预设的默认接口地址（`src/shared/hosts.ts` 的 `KEYED_HOSTS`，单元测试保证它与清单和预设一致）。到 3.0.0 为止它们是清单的主机权限。这类服务在用户填写密钥之前不发送任何请求，所以在设置服务时申请主机权限：设置页和设置向导中该服务下的“授权访问”、“测试连接”，视觉服务的“测试图片”，或设置向导中的“下一步”和“跳过此步”；没有权限时，翻译报错“扩展尚未获准连接……”。更新时，从 `permissions` 移到 `optional_permissions` 的主机权限保持已授予（Gecko 的 `ExtensionData.migratePermissions()`，Firefox 75 起，bug 1618500），3.0 的用户不会失去已在使用的服务。 |
 | 可选的 `http://*/*`、`https://*/*` | 用户填写的接口地址（Ollama、LM Studio、DeepLX、Azure、自定义 OpenAI 兼容服务）。用户点击“授权访问”或“测试连接”时，设置页用 `permissions.request()` 只申请这一个主机；没有权限的主机，后台脚本拒绝发送。从 3.1.0 起，用户在弹出窗口或设置页点击“允许读取远程图片”时，同时申请这两个模式，用来重新读取 Thunderbird 已经显示的远程图片（见上文）；没有这次点击就从不申请。 |
 
 2.0 版删除了 `messagesRead`、`tabs` 和 `<all_urls>`；2.1 版为翻译标题重新需要 `messagesRead`，并为标题翻译页面需要 `accountsRead`。3.0 版删除标题翻译，再次去掉 `accountsRead`；`messagesRead` 保留，用于摘要所需的邮件头和图片。`tabs` 和 `<all_urls>` 仍然不用。
@@ -128,7 +136,7 @@ Ollama 和 LM Studio 是运行在用户自己电脑上的 AI 服务器。它们�
 
 ## webext-linter
 
-用 thunderbird/webext-linter 2.3.2 检查 3.1.1 的 xpi，并用 `--sca-root` 指向解压后的源代码包（审核 schema 为 Thunderbird 158.0.2 的 release-mv2）。unsafe-html 检查没有报告任何问题。它把 `messagesRead` 对应到四处调用（两处 `messageDisplay.getDisplayedMessage`、`messages.getAttachmentFile`，以及 3.1.0 新增的 `messages.getFull`，都在 `src/background/displayed.ts` 中），判为通过。所有 API 权限、6 个主机权限和可选权限（需要密钥的服务的 24 个主机，以及 `http://*/*`、`https://*/*`）都是 schema 认识的条目，6 个主机权限也通过了宽泛主机检查。远程图片的 `fetch()`（`src/background/remote-images.ts`）以参数传入 fetch 函数，所以用户数据外传检查没有列出它：它只发送一个不带 Cookie、来源页和请求体的 GET，只请求当前显示邮件 HTML 中写明的、位于公共主机上的地址，并且只在用户允许读取远程图片之后。2.2.0 之后新增的其他调用不需要 schema 中的权限：`messageDisplayAction.openPopup()`（打开带“允许读取远程图片”的弹出窗口）、针对可选主机的 `permissions.request()` 和 `permissions.remove()`、“复制为 Markdown”所用的 `navigator.clipboard.writeText()`。剩余项目与 2.0.0 相同：
+用 thunderbird/webext-linter 2.3.2 检查 3.1.2 的 xpi，并用 `--sca-root` 指向解压后的源代码包（审核 schema 为 Thunderbird 159.0.1 的 release-mv2）。unsafe-html 检查和依赖的已知漏洞检查都没有报告任何问题。它把 `messagesRead` 对应到四处调用（两处 `messageDisplay.getDisplayedMessage`、`messages.getAttachmentFile`，以及 3.1.0 新增的 `messages.getFull`，都在 `src/background/displayed.ts` 中），判为通过。所有 API 权限、6 个主机权限和可选权限（需要密钥的服务的 24 个主机，以及 `http://*/*`、`https://*/*`）都是 schema 认识的条目，6 个主机权限也通过了宽泛主机检查。远程图片的 `fetch()`（`src/background/remote-images.ts`）以参数传入 fetch 函数，所以用户数据外传检查没有列出它：它只发送一个不带 Cookie、来源页和请求体的 GET，只请求当前显示邮件 HTML 中写明的、位于公共主机上的地址，并且只在用户允许读取远程图片之后。2.2.0 之后新增的其他调用不需要 schema 中的权限：`messageDisplayAction.openPopup()`（打开带“允许读取远程图片”的弹出窗口，从 3.1.2 起也用于显示同意面板的问题）、`windows.create()`（3.1.2 起，按钮不在工具栏中时在单独的窗口中打开弹出页面）、翻译缓存所用的 `indexedDB`（3.1.2 起）、针对可选主机的 `permissions.request()` 和 `permissions.remove()`、“复制为 Markdown”所用的 `navigator.clipboard.writeText()`。剩余项目与 2.0.0 相同：
 
 - sync-xhr（`bergamot-translator.js` 第 63、70 行）：Mozilla 原版胶水脚本中 Emscripten 文件加载器的两个同步 `XMLHttpRequest`。扩展不会执行到它们：worker 自行读取 wasm，并以 `wasmBinary` 传给 `loadBergamot()`（`src/offline/bergamot/worker.ts`、`worker-core.ts`），胶水脚本因此跳过加载器。这个文件已在 `VENDOR.md` 中声明；在源代码审核模式下，linter 只从源代码包读取 vendoring 声明，所以把 xpi 中的副本当作自写代码扫描。
 - 第三方来源无法自动审计（info）：胶水脚本没有发布在 npm 上，来源是 Firefox 仓库的固定提交，sha256 一致。

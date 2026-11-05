@@ -248,6 +248,7 @@ describe("welcome page", () => {
     const key = document.querySelector<HTMLInputElement>('#aiPanel input[type="password"]')!
     key.value = "sk-test"
     key.dispatchEvent(new Event("input"))
+    key.dispatchEvent(new Event("change"))
     await flushSave()
     expect(page.stored().tiers.ai).toBe("deepseek")
     await flushSave()
@@ -417,10 +418,10 @@ describe("welcome page", () => {
     expect(dictBoxes.map((b) => b.checked)).toEqual([true, true, false])
     dictBoxes[0].click()
     $("downloadPicked").click()
-    await until(() => expect(requests).toContainEqual({ type: "offlineInstall", service: "bergamot", pairs: [{ src: "ja", tgt: "en" }] }))
+    await until(() => expect(requests).toContainEqual({ type: "offlineInstall", service: "bergamot", src: "ja", tgt: "en" }))
     await until(() => expect(urls.some((u) => u.endsWith("/dict-ja-en.tsv.gz"))).toBe(true))
     expect(urls.some((u) => u.endsWith("/dict-en-zh-Hans.tsv.gz"))).toBe(false)
-    expect(requests.some((r) => r.type === "offlineInstall" && r.pairs.some((p) => p.src === "fr"))).toBe(false)
+    expect(requests.some((r) => r.type === "offlineInstall" && r.src === "fr")).toBe(false)
   })
 
   it("applies a preset to a prompt with the shared prompt editor", async () => {
@@ -595,6 +596,7 @@ describe("welcome page", () => {
     endpoint.dispatchEvent(new Event("input"))
     endpoint.value = "https://deeplx.example.com/translate"
     endpoint.dispatchEvent(new Event("input"))
+    endpoint.dispatchEvent(new Event("change"))
     await flushSave()
     expect(page.stored().providers.deeplx).toMatchObject({ enabled: true, baseURL: "https://deeplx.example.com/translate" })
   })

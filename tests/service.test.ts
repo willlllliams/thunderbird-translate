@@ -1,6 +1,9 @@
 import { describe, expect, it, vi } from "vitest"
-import { CACHE_STORAGE_KEY, cacheKey, LruCache, PersistentCache } from "../src/background/cache"
-import { errorContext, type LlmImpl, type TranslationService } from "../src/background/service"
+import { IDBFactory } from "fake-indexeddb"
+import { CACHE_STORAGE_KEY, cacheKey, idbCacheStore, LruCache, PersistentCache } from "../src/background/cache"
+import { errorContext } from "../src/background/requests"
+import type { TranslationService } from "../src/background/service"
+import type { LlmImpl } from "../src/background/translators/lazy-llm"
 import { type LlmCallOptions, llmAnalyzeMail, llmTranslateBatch, llmTranslateSingle } from "../src/background/translators/llm"
 import { BatchParseError } from "../src/background/translators/common"
 import { MAX_PREFIX_TEXT_CHARS, type Segment } from "../src/background/translators/llm-prompt"
@@ -9,7 +12,7 @@ import { createMailContext } from "../src/shared/mail-context"
 import type { TranslateRequest, TranslateResponse } from "../src/shared/messages"
 import type { Tier } from "../src/shared/providers"
 import { createDefaultSettings, DEFAULT_DEEPL, type ResolvedProvider, type Settings } from "../src/shared/settings"
-import { allowed, asFetch, chatCompletion, createService, jsonResponse, memoryStorage, translateOne, until } from "./helpers"
+import { allowed, asFetch, chatCompletion, createService, jsonResponse, memoryCacheStore, memoryStorage, translateOne, until } from "./helpers"
 
 function setup(over: (s: Settings) => void = () => {}, extra: { llm?: Partial<LlmImpl>; fetchFn?: unknown; cache?: PersistentCache } = {}) {
   const settings = createDefaultSettings()
@@ -27,15 +30,14 @@ describe("LRU cache", () => {
     expect(lru.entries().map(([k]) => k)).toEqual(["a", "c"])
   })
 
-  it("persists to storage and reloads in a new instance", async () => {
-    const storage = memoryStorage()
-    const c1 = new PersistentCache(storage, 10, 0)
+  it("persists to the database and reloads in a new instance", async () => {
+    const idb = new IDBFactory()
+    const c1 = new PersistentCache(memoryStorage(), 10, 0, idbCacheStore(() => idb))
     await c1.set("k1", "v1")
-    await until(() => expect(storage.data.get(CACHE_STORAGE_KEY)).toEqual([["k1", "v1"]]))
-    const c2 = new PersistentCache(storage, 10, 0)
-    expect(await c2.get("k1")).toBe("v1")
+    const c2 = new PersistentCache(memoryStorage(), 10, 0, idbCacheStore(() => idb))
+    await until(async () => expect(await c2.get("k1")).toBe("v1"))
     await c2.clear()
-    expect(storage.data.has(CACHE_STORAGE_KEY)).toBe(false)
+    expect(await new PersistentCache(memoryStorage(), 10, 0, idbCacheStore(() => idb)).size()).toBe(0)
   })
 
   it("stays empty when cleared while the stored entries are still loading", async () => {
@@ -49,7 +51,7 @@ describe("LRU cache", () => {
       const answer = read(k)
       return gate.then(() => answer)
     }
-    const cache = new PersistentCache(storage, 10, 0)
+    const cache = new PersistentCache(storage, 10, 0, memoryCacheStore())
     const first = cache.get("k1")
     const cleared = cache.clear()
     release()
@@ -70,6 +72,14 @@ describe("LRU cache", () => {
 })
 
 describe("TranslationService with Google", () => {
+  it("BG4: asks the cache once for a paragraph of the highest tier that it does not hold", async () => {
+    const fetchFn = vi.fn(async (_url: string, init: RequestInit) => jsonResponse(new URLSearchParams(String(init.body)).getAll("q").map((q) => [`ZH(${q})`, "en"])))
+    const { service, cache } = setup(() => {}, { fetchFn })
+    const get = vi.spyOn(cache, "get")
+    expect(await translateOne(service, { text: "Hello", targetLang: "zh-CN", providerId: "google-free" })).toBe("ZH(Hello)")
+    expect(get).toHaveBeenCalledTimes(1)
+  })
+
   it("R1: a page that asks for a paragraph whose request was dropped gets a request of its own", async () => {
     let release!: () => void
     const gate = new Promise<void>((r) => (release = r))
@@ -323,7 +333,7 @@ describe("TranslationService with an LLM", () => {
     const out = await Promise.all(["Good morning", "Good night", "Thanks"].map((t) => translateOne(service, { text: t, targetLang: "zh-CN", providerId: "openai" })))
     expect(out).toEqual(["早上好", "晚安", "谢谢"])
     expect(fetchFn).toHaveBeenCalledTimes(1)
-    const systemMessages = bodies[0].messages.filter((m) => m.role === "system")
+    const systemMessages = bodies[0].messages.filter((m) => ["system", "developer"].includes(m.role))
     expect(systemMessages).toHaveLength(1)
     expect(systemMessages[0].content).toContain("Simplified Chinese")
     const user = bodies[0].messages.find((m) => m.role === "user")!.content as unknown as string
@@ -439,16 +449,15 @@ describe("TranslationService: tiers, caps and precise mode details", () => {
     const PARAGRAPHS = ["First paragraph of the mail.", "Second paragraph of the mail.", "Third one."]
 
     it("reuses a stored analysis instead of asking again", async () => {
-      const storage = memoryStorage()
+      const store = memoryCacheStore()
       const first = fakeLlm(ANALYSIS)
-      await translateMail(setup(precise, { llm: first.llm, cache: new PersistentCache(storage, 100, 0) }).service, PARAGRAPHS)
+      await translateMail(setup(precise, { llm: first.llm, cache: new PersistentCache(memoryStorage(), 100, 0, store) }).service, PARAGRAPHS)
       expect(first.llm.analyze).toHaveBeenCalledTimes(1)
-      // A new background script over the same storage, with the analysis kept and the translations gone.
-      await until(() => expect(storage.data.get(CACHE_STORAGE_KEY)).toHaveLength(PARAGRAPHS.length + 1))
-      const entries = storage.data.get(CACHE_STORAGE_KEY) as [string, string][]
-      storage.data.set(CACHE_STORAGE_KEY, entries.filter(([key]) => key.includes(":analysis|")))
+      // A new background script over the same database, with the analysis kept and the translations gone.
+      await until(() => expect(store.data.size).toBe(PARAGRAPHS.length + 1))
+      for (const key of store.data.keys()) if (!key.includes(":analysis|")) store.data.delete(key)
       const second = fakeLlm(ANALYSIS)
-      await translateMail(setup(precise, { llm: second.llm, cache: new PersistentCache(storage, 100, 0) }).service, PARAGRAPHS)
+      await translateMail(setup(precise, { llm: second.llm, cache: new PersistentCache(memoryStorage(), 100, 0, store) }).service, PARAGRAPHS)
       expect(second.llm.analyze).not.toHaveBeenCalled()
       expect(second.prefixes.length).toBeGreaterThan(0)
       expect(second.prefixes.every((p) => p?.includes("Summary: A note."))).toBe(true)
@@ -464,6 +473,21 @@ describe("TranslationService: tiers, caps and precise mode details", () => {
       expect(new Set(prefixes)).toEqual(new Set([""]))
     })
 
+    it("clears the analyses kept in memory with the cache", async () => {
+      const { llm } = fakeLlm(ANALYSIS)
+      const { service, cache } = setup(precise, { llm })
+      await translateMail(service, PARAGRAPHS)
+      expect(llm.analyze).toHaveBeenCalledTimes(1)
+      // The memory of the service answers although the stored copies are gone.
+      await cache.clear()
+      await translateMail(service, PARAGRAPHS)
+      expect(llm.analyze).toHaveBeenCalledTimes(1)
+      await cache.clear()
+      service.clearMemory()
+      await translateMail(service, PARAGRAPHS)
+      expect(llm.analyze).toHaveBeenCalledTimes(2)
+    })
+
     it("counts targets outside the message as empty", async () => {
       const { llm } = fakeLlm(null)
       const { service } = setup((s) => {
@@ -477,12 +501,12 @@ describe("TranslationService: tiers, caps and precise mode details", () => {
     })
 
     it("analyses a retranslated message again, once for all its requests, and keeps the analysis of another message", async () => {
-      const storage = memoryStorage()
+      const store = memoryCacheStore()
       const OTHER = ["Another mail, first part here.", "Another mail, second part."]
       const first = fakeLlm(ANALYSIS)
       let round = 0
       first.llm.analyze.mockImplementation(async () => ({ summary: `Round ${++round}.`, glossary: [], tone: "" }))
-      const { service } = setup(precise, { llm: first.llm, cache: new PersistentCache(storage, 100, 0) })
+      const { service } = setup(precise, { llm: first.llm, cache: new PersistentCache(memoryStorage(), 100, 0, store) })
       await translateMail(service, PARAGRAPHS)
       await translateMail(service, OTHER)
       expect(first.llm.analyze).toHaveBeenCalledTimes(2)
@@ -498,11 +522,10 @@ describe("TranslationService: tiers, caps and precise mode details", () => {
       expect(first.prefixes.every((prefix) => prefix?.includes("Summary: Round 3."))).toBe(true)
 
       // A new background script over the same storage, translations gone: the stored analyses are the new one and the other message's.
-      await until(() => expect(storage.data.get(CACHE_STORAGE_KEY)).toHaveLength(PARAGRAPHS.length + OTHER.length + 2))
-      const entries = storage.data.get(CACHE_STORAGE_KEY) as [string, string][]
-      storage.data.set(CACHE_STORAGE_KEY, entries.filter(([key]) => key.includes(":analysis|")))
+      await until(() => expect(store.data.size).toBe(PARAGRAPHS.length + OTHER.length + 2))
+      for (const key of store.data.keys()) if (!key.includes(":analysis|")) store.data.delete(key)
       const second = fakeLlm(ANALYSIS)
-      const later = setup(precise, { llm: second.llm, cache: new PersistentCache(storage, 100, 0) }).service
+      const later = setup(precise, { llm: second.llm, cache: new PersistentCache(memoryStorage(), 100, 0, store) }).service
       await translateMail(later, PARAGRAPHS)
       expect(second.prefixes.every((prefix) => prefix?.includes("Summary: Round 3."))).toBe(true)
       second.prefixes.length = 0
@@ -578,7 +601,7 @@ describe("TranslationService: tiers, caps and precise mode details", () => {
       const translations = bodies.filter((b) => !isAnalysis(b.messages[0].content))
       expect(translations.length).toBeGreaterThan(1)
       for (const b of translations) {
-        expect(b.messages.filter((m) => m.role === "system")).toHaveLength(1)
+        expect(b.messages.filter((m) => ["system", "developer"].includes(m.role))).toHaveLength(1)
         expect(b.messages[0].content).toContain("Summary: A note.")
         expect(JSON.stringify(b)).not.toContain("cache_control")
       }

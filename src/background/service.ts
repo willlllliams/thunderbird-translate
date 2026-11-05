@@ -28,8 +28,8 @@
  */
 
 import { getBergamot } from "../offline/bergamot"
-import { describeError, type ErrorContext, LocalizedError, type MissingData, missingData } from "../shared/errors"
-import { patternHost, providerOrigin, requestUrl } from "../shared/hosts"
+import type { BergamotManager } from "../offline/bergamot/manager"
+import { describeError, LocalizedError, type MissingData, missingData } from "../shared/errors"
 import { hashText } from "../shared/hash"
 import { ENGLISH, type I18n } from "../shared/i18n"
 import { detectSourceLanguage, type LanguageDetector } from "../shared/lang-detect"
@@ -39,7 +39,7 @@ import type { TranslateRequest, TranslateResponse } from "../shared/messages"
 import { promptText } from "../shared/prompts"
 import { outputLimit } from "../shared/thinking"
 import { getPreset, providerDisplayName, type Tier, TIERS } from "../shared/providers"
-import { allowsRequest, isOnlineService, type ProviderConfig, type ResolvedProvider, resolveProvider, resolveProviderConfig, resultInputs, type Settings } from "../shared/settings"
+import { allowsRequest, isOnlineService, preciseApplies, type ProviderConfig, type ResolvedProvider, resolveProvider, resolveProviderConfig, resultInputs, type Settings } from "../shared/settings"
 import type { SummaryResponse } from "../shared/summary"
 import { cacheKey, LruCache, type PersistentCache } from "./cache"
 import { Dictionary } from "../offline/dictionary"
@@ -52,7 +52,9 @@ import { caiyunTranslateBatch } from "./translators/caiyun"
 import { deeplTranslateBatch, deeplUsage } from "./translators/deepl"
 import { deeplxTranslate } from "./translators/deeplx"
 import { googleTranslateBatch, googleTranslateSingle } from "./translators/google"
-import type { ImageAnswer, ImageInput, LlmCallOptions } from "./translators/llm"
+import type { LlmCallOptions } from "./translators/llm"
+import { LAZY_LLM, type LlmImpl } from "./translators/lazy-llm"
+import { aborted, checkOrigin, errorContext, requestTimeout } from "./requests"
 import { BatchParseError } from "./translators/common"
 import { buildContextBlock, type MailAnalysis, MAX_PREFIX_TEXT_CHARS, parseAnalysis, type Segment } from "./translators/llm-prompt"
 import { AZURE_LIMITS, microsoftTranslateBatch } from "./translators/microsoft"
@@ -77,6 +79,8 @@ interface Job {
   mail?: { context: MailContext; index: number }
   /** Retranslation: neither the cache nor a running request answers; the result replaces the cached one. */
   fresh?: boolean
+  /** The cache was asked for this key already and had nothing. */
+  missed?: boolean
   /** Dictionary and Bergamot: the signature of the installed data when the job started, and how to read it again. */
   data?: OfflineData
   /** The built-in sample of an extension page or a connection test, not a message: it needs no consent. */
@@ -92,8 +96,6 @@ interface Running {
   controller: AbortController
 }
 
-/** The error of a job no page waits for any more; it is not retried. */
-const aborted = () => new DOMException("No page waits for the translation any more.", "AbortError")
 
 /** The installed data an offline service translates with, as part of the cache key. */
 interface OfflineData {
@@ -133,28 +135,6 @@ interface AnalysisRequest {
   run: () => Promise<MailAnalysis | null>
 }
 
-/** Local models (Ollama, LM Studio) and models that reason first answer slowly: their requests get this multiple of the request timeout. */
-const SLOW_MODEL_TIMEOUT_FACTOR = 3
-
-export interface LlmImpl {
-  batch: (segments: Segment[], opts: LlmCallOptions) => Promise<string[]>
-  single: (segment: Segment, opts: LlmCallOptions) => Promise<string>
-  analyze: (text: string, opts: LlmCallOptions) => Promise<MailAnalysis | null>
-  summarize: (prompt: string, opts: LlmCallOptions) => Promise<string>
-  analyzeAndSummarize: (prompt: string, opts: LlmCallOptions) => Promise<string>
-  readImage: (image: ImageInput, text: string, opts: LlmCallOptions) => Promise<ImageAnswer>
-}
-
-/** The AI SDK, loaded with the first AI request: the background script starts without it (scripts/build.mjs makes it a chunk). */
-const loadLlm = () => import("./translators/llm")
-export const LAZY_LLM: LlmImpl = {
-  batch: async (segments, opts) => (await loadLlm()).llmTranslateBatch(segments, opts),
-  single: async (segment, opts) => (await loadLlm()).llmTranslateSingle(segment, opts),
-  analyze: async (text, opts) => (await loadLlm()).llmAnalyzeMail(text, opts),
-  summarize: async (prompt, opts) => (await loadLlm()).llmSummarize(prompt, opts),
-  analyzeAndSummarize: async (prompt, opts) => (await loadLlm()).llmAnalyzeAndSummarize(prompt, opts),
-  readImage: async (image, text, opts) => (await loadLlm()).llmReadImage(image, text, opts),
-}
 
 export interface ServiceDeps {
   getSettings: () => Settings
@@ -163,6 +143,8 @@ export interface ServiceDeps {
   /** Injection points for tests; a call of the AI SDK left out of `llm` loads the AI SDK. */
   llm?: Partial<LlmImpl>
   dictionary?: Pick<Dictionary, "translate" | "signature">
+  /** The offline models; the manager of the background script when absent. */
+  bergamot?: Pick<BergamotManager, "translate" | "signature">
   /** Detector of sourceDetector() for the offline models and the batches of Baidu, with source language "auto". */
   detect?: LanguageDetector
   sleep?: (ms: number) => Promise<void>
@@ -178,21 +160,6 @@ const variantOf = (parts: readonly unknown[], signature = "") => hashText([...pa
 /** Cache key of the analysis of a message for precise translation. */
 const analysisKey = (provider: ResolvedProvider, languages: string, text: string, variant: string) => cacheKey(provider.id, provider.model, languages, text, `${variant}:analysis`)
 
-/** What describeError() needs to know about the provider of a failed request. */
-export function errorContext(provider: ResolvedProvider): ErrorContext {
-  const preset = getPreset(provider.id)
-  const secrets = provider.apiKey ? [provider.apiKey] : []
-  if (!preset) return { baseURL: provider.baseURL, secrets }
-  return {
-    service: preset.name,
-    kind: preset.kind,
-    baseURL: preset.kind === "microsoft" && provider.mode === "free" ? undefined : provider.baseURL,
-    defaultBaseURL: preset.defaultBaseURL,
-    model: preset.kind === "llm" ? provider.model : undefined,
-    keyMode: provider.mode === "key",
-    secrets,
-  }
-}
 
 export class TranslationService {
   /** One request queue per provider: its concurrency limit and retries apply to that provider only. */
@@ -216,10 +183,13 @@ export class TranslationService {
   private readonly freshContexts = new LruCache<true>(MAX_CONTEXTS)
   private readonly llm: LlmImpl
   private readonly dictionary: Pick<Dictionary, "translate" | "signature">
+  private readonly bergamot: () => Pick<BergamotManager, "translate" | "signature">
 
   constructor(private readonly deps: ServiceDeps) {
     this.llm = { ...LAZY_LLM, ...deps.llm }
     this.dictionary = deps.dictionary ?? new Dictionary()
+    // Created on first use: the background script starts without the models.
+    this.bergamot = deps.bergamot ? () => deps.bergamot! : getBergamot
     this.batchQueue = new BatchQueue<Job, ItemResult>({
       delayMs: () => deps.getSettings().batch.batchDelayMs,
       getKey: (job) => job.batchKey,
@@ -250,9 +220,12 @@ export class TranslationService {
 
   /** Request timeout for a provider: the setting, multiplied for local models and models that reason first. */
   private timeoutMs(provider: ResolvedProvider): number {
-    const ms = this.deps.getSettings().batch.timeoutSeconds * 1000
-    const slow = provider.thinking || getPreset(provider.id)?.nameKey === "providerLocal"
-    return slow ? ms * SLOW_MODEL_TIMEOUT_FACTOR : ms
+    return requestTimeout(provider, this.deps.getSettings().batch.timeoutSeconds * 1000)
+  }
+
+  /** The language of error messages. */
+  private get i18n(): I18n {
+    return this.deps.i18n?.() ?? ENGLISH
   }
 
   private limitsFor(provider: ResolvedProvider): BatchLimits {
@@ -267,7 +240,7 @@ export class TranslationService {
   }
 
   private errorMessage(error: unknown, provider?: ResolvedProvider): string {
-    return describeError(error, this.deps.i18n?.() ?? ENGLISH, provider ? errorContext(provider) : {})
+    return describeError(error, this.i18n, provider ? errorContext(provider) : {})
   }
 
   /**
@@ -286,7 +259,7 @@ export class TranslationService {
    */
   private assertConsent(provider: ResolvedProvider, sample = false): void {
     if (sample || !isOnlineService(provider.id) || allowsRequest(this.deps.getSettings(), "onlineConsent", provider)) return
-    throw new LocalizedError("errConsentRequired", [providerDisplayName(getPreset(provider.id)!, this.deps.i18n?.() ?? ENGLISH)])
+    throw new LocalizedError("errConsentRequired", [providerDisplayName(getPreset(provider.id)!, this.i18n)])
   }
 
   /** The work of one tier for one paragraph. `data`: the dictionary packs or offline models the service translates with. */
@@ -322,13 +295,8 @@ export class TranslationService {
     return findLanguage(lang)?.baidu ? lang : "?"
   }
 
-  /** Throws errEndpointInvalid for an endpoint that is no http(s) URL, errHostPermission when the extension may not connect to it. */
-  private async checkOrigin(provider: ResolvedProvider): Promise<void> {
-    const origin = providerOrigin(provider)
-    if (!origin && requestUrl(provider)) throw new LocalizedError("errEndpointInvalid", [providerDisplayName(getPreset(provider.id)!, this.deps.i18n?.() ?? ENGLISH)])
-    if (!origin || !this.deps.hasOrigin) return
-    const allowed = await this.deps.hasOrigin(origin).catch(() => false)
-    if (!allowed) throw new LocalizedError("errHostPermission", [patternHost(origin)])
+  private checkOrigin(provider: ResolvedProvider): Promise<void> {
+    return checkOrigin(provider, this.deps.hasOrigin, this.i18n)
   }
 
   /**
@@ -337,7 +305,7 @@ export class TranslationService {
    * that waits for it went away (`job.signal`).
    */
   private async run(job: Job): Promise<string> {
-    const cached = job.fresh ? undefined : await this.deps.cache.get(job.key)
+    const cached = job.fresh || job.missed ? undefined : await this.deps.cache.get(job.key)
     if (cached !== undefined) return cached
     let running = job.fresh ? undefined : this.inflight.get(job.key)
     // A request whose pages all went away fails; a page that asks now gets a request of its own.
@@ -420,7 +388,7 @@ export class TranslationService {
     const data: Partial<Record<Tier, OfflineData>> = {}
     for (const tier of tiers) {
       const kind = getPreset(settings.tiers[tier]!)?.kind
-      const current = kind === "dictionary" ? () => this.dictionary.signature() : kind === "bergamot" ? () => getBergamot().signature() : undefined
+      const current = kind === "dictionary" ? () => this.dictionary.signature() : kind === "bergamot" ? () => this.bergamot().signature() : undefined
       if (current) data[tier] = { signature: await current().catch(() => ""), current }
     }
     const jobs: [Tier, Job][] = []
@@ -440,7 +408,15 @@ export class TranslationService {
     if (!top) return
     const cached = req.bypassCache ? undefined : await this.deps.cache.get(top[1].key)
     if (cached !== undefined) return onTier(top[0], { ok: true, text: cached })
+    // Not asked again when the request runs.
+    top[1].missed = true
     await Promise.all(jobs.map(async ([tier, job]) => onTier(tier, await this.settle(job))))
+  }
+
+  /** "Clear cache": the summaries and analyses kept in memory go with the stored ones, so the next request asks the service again. */
+  clearMemory(): void {
+    this.summaries.clear()
+    this.analyses.clear()
   }
 
   /** Translate with an unsaved configuration, bypassing cache and batching. */
@@ -450,7 +426,7 @@ export class TranslationService {
     // DeepL tells the characters used, at no cost.
     if (getPreset(providerId)?.kind === "deepl") {
       const { used, limit } = await this.queue(provider).run(() => deeplUsage(provider, { fetchFn: this.deps.fetchFn, timeoutMs: this.timeoutMs(provider) }))
-      return (this.deps.i18n?.() ?? ENGLISH).t("testDeeplUsage", [used, limit])
+      return (this.i18n).t("testDeeplUsage", [used, limit])
     }
     const sample = "Hello! This is a connection test from Multi Translate for Thunderbird."
     const prompt = promptText(this.deps.getSettings().prompts, "bilingual")
@@ -467,12 +443,14 @@ export class TranslationService {
    * message text, with the glossary of the analysis that precise translation
    * made of the message, if there is one. When that analysis is still to be
    * made, one request may write both (preciseAnalysis()). An answer the
-   * summary could be read from is cached; `fresh` asks again, alone.
-   * `signal` aborts once the page that asked went away.
+   * summary could be read from is cached, by the request started last for
+   * its key; `fresh` asks again, alone. A summary made before the analysis
+   * existed is found without its glossary. `signal` aborts once the page
+   * that asked went away.
    */
   async summarize(text: string, header: MailHeader | null, fresh = false, signal?: AbortSignal): Promise<SummaryResponse> {
     const settings = this.deps.getSettings()
-    const i18n = this.deps.i18n?.() ?? ENGLISH
+    const i18n = this.i18n
     const inputs = summaryInputs(settings)
     if (!inputs) return { ok: false, error: i18n.t("errSummaryService") }
     const { id, provider, systemPrompt, targetLanguageName } = inputs
@@ -485,19 +463,29 @@ export class TranslationService {
       const analysis = await this.preciseAnalysis(text, settings, fresh ? undefined : { inputs, header, signal })
       const prompt = buildSummaryPrompt(text, header, analysis?.glossary)
       const key = this.summaryKey(inputs, settings.targetLang, prompt)
-      const cached = fresh ? undefined : (this.summaries.get(key) ?? (await this.deps.cache.get(key)))
+      const known = async (k: string) => this.summaries.get(k) ?? (await this.deps.cache.get(k))
+      const plain = analysis?.glossary.length ? this.summaryKey(inputs, settings.targetLang, buildSummaryPrompt(text, header)) : key
+      const cached = fresh ? undefined : ((await known(key)) ?? (plain === key ? undefined : await known(plain)))
       // The setting is the length of the summary: a model that reasons first gets room for that as well.
       const opts = { provider, systemPrompt, targetLanguageName, fetchFn: this.deps.fetchFn, timeoutMs: this.timeoutMs(provider), maxOutputTokens: outputLimit(id, provider.model, provider.thinking, maxOutputTokens) }
+      const read = (raw: string) => parseSummary(raw, parts, text)
       const raw =
         cached ??
-        (await this.queue(provider).run(() => {
-          if (signal?.aborted) throw aborted()
-          this.assertConsent(provider)
-          return this.llm.summarize(prompt, opts)
-        }))
-      const summary = parseSummary(raw, parts, text)
-      if (summary && cached === undefined) await this.deps.cache.set(key, raw)
-      return { ok: true, service, summary, raw }
+        (await this.latest(
+          key,
+          () =>
+            this.queue(provider).run(() => {
+              if (signal?.aborted) throw aborted()
+              this.assertConsent(provider)
+              return this.llm.summarize(prompt, opts)
+            }),
+          async (answer) => {
+            if (!read(answer)) return
+            this.summaries.set(key, answer)
+            await this.deps.cache.set(key, answer)
+          },
+        ))
+      return { ok: true, service, summary: read(raw), raw }
     } catch (error) {
       return { ok: false, service, error: this.errorMessage(error, provider) }
     }
@@ -520,7 +508,7 @@ export class TranslationService {
    * and the summary uses the service and model of the AI tier, one request makes both.
    */
   private async preciseAnalysis(text: string, settings: Settings, summary?: { inputs: SummaryInputs; header: MailHeader | null; signal?: AbortSignal }): Promise<MailAnalysis | null> {
-    if (!settings.precise.enabled || !settings.tiers.ai) return null
+    if (!preciseApplies(settings) || !settings.tiers.ai) return null
     const { provider, parts } = resultInputs(settings, settings.tiers.ai)
     const key = analysisKey(provider, `${settings.sourceLang}>${settings.targetLang}`, text, variantOf(parts))
     const known = this.analyses.get(key)
@@ -642,8 +630,9 @@ export class TranslationService {
           maxOutputTokens: outputLimit(provider.id, provider.model, provider.thinking, settings.summary.maxOutputTokens + ANALYSIS_OUTPUT_TOKENS),
         })
         const { analysis, digest } = parseCombined(raw)
-        if (digest && parseSummary(digest, settings.summary.parts, text)) {
-          const key = this.summaryKey(inputs, settings.targetLang, buildSummaryPrompt(text, head, analysis?.glossary))
+        const key = this.summaryKey(inputs, settings.targetLang, buildSummaryPrompt(text, head, analysis?.glossary))
+        // A summary asked for on its own meanwhile ("Regenerate") has the last word.
+        if (digest && !this.writers.has(key) && parseSummary(digest, settings.summary.parts, text)) {
           this.summaries.set(key, digest)
           await this.deps.cache.set(key, digest)
         }
@@ -720,7 +709,7 @@ export class TranslationService {
       case "dictionary":
         return settled(() => this.dictionary.translate(texts, languages.source, languages.target))
       case "bergamot":
-        return settled(() => bergamotTranslateBatch(texts, languages.source, languages.target, this.deps.detect))
+        return settled(() => bergamotTranslateBatch(this.bergamot(), texts, languages.source, languages.target, this.deps.detect))
       case "google":
         return batchOrEach(() => googleTranslateBatch(texts, languages, p, fetchOpts), (job) => googleTranslateSingle(job.text, languages, p, fetchOpts))
       case "microsoft":

@@ -13,6 +13,7 @@ import type { Unit } from "../src/content/paragraphs"
 import { Renderer } from "../src/content/render"
 import type { ContentProbeParts } from "../src/hooks/content"
 import { ENGLISH, setI18n } from "../src/shared/i18n"
+import type { ConsentQuestion } from "../src/shared/consent"
 import type { ImageRequest, ImageResponse } from "../src/shared/messages"
 import type { PublicImageSettings } from "../src/shared/settings"
 import { pagePort } from "./fixtures/browser"
@@ -51,13 +52,15 @@ function mount(answer: (req: ImageRequest) => ImageResponse | Promise<ImageRespo
   // The remote image of BODY is blocked, as Thunderbird blocks remote content by default.
   sizeImages({ pixel: [1, 1], logo: [300, 300], remote: [0, 0] })
   const request = vi.fn(async (req: ImageRequest) => answer(req))
-  const grant = vi.fn()
+  /** The popup of the message: allows at once what "Allow…" hands to it. */
+  const review = vi.fn((_question: ConsentQuestion) => void Promise.resolve().then(() => images.answerConsent(true)))
+  const closed = vi.fn()
   const requestAccess = vi.fn()
   const reportRemote = vi.fn()
-  const images = new ImageTranslator({ root: () => document.body, request, grant, requestAccess, reportRemote })
+  const images = new ImageTranslator({ root: () => document.body, request, review, closed, requestAccess, reportRemote })
   const units: Unit[] = [{ el: document.getElementById("para")!, text: "Look at the chart:", pre: false }]
   const run = (settings: Partial<PublicImageSettings> = {}, over: Partial<ImageRun> = {}): ImageRun => ({ settings: imageSettings({ mode: "ask", ...settings }), targetLang: "zh-CN", units, ...over })
-  return { images, request, grant, requestAccess, reportRemote, run, units }
+  return { images, request, review, closed, requestAccess, reportRemote, run, units }
 }
 
 const slots = () => Array.from(document.querySelectorAll<HTMLElement>(".tt-image"))
@@ -192,49 +195,60 @@ describe("the mode auto", () => {
 
   it("asks under the first image before the batch starts, naming how many images go; no gives every image its button", async () => {
     const need = { id: "gemini", host: "generativelanguage.googleapis.com" }
-    const { images, request, grant, run } = mount()
+    const { images, request, review, run } = mount()
     images.start(run({ mode: "auto", consent: need }))
     await until(() => expect(slots()[0].querySelector(".tt-image-consent")).not.toBeNull())
     const panel = slots()[0].querySelector<HTMLElement>(".tt-image-consent")!
     // S2: the three images of the batch.
     expect(panel.querySelector("strong")!.textContent).toBe(ENGLISH.t("imageConsentTitleAuto", [3, "Google Gemini"]))
-    expect(panel.querySelector("button")!.textContent).toBe(ENGLISH.t("imageConsentAllowAuto"))
+    expect(panel.querySelector("button")!.textContent).toBe(ENGLISH.t("consentReview"))
     expect(Array.from(panel.querySelectorAll("p"), (p) => p.textContent)).toEqual([ENGLISH.t("imageConsentWhat", [1568, "JPEG"]), ENGLISH.t("imageConsentPolicyGemini"), ENGLISH.t("imageConsentOnce")])
     expect(panel.querySelector("li")!.textContent).toBe(ENGLISH.t("consentService", ["Google Gemini", need.host]))
     expect(sent(request, "translate")).toEqual([])
+    // D1: the panel opened by itself, so the focus stays where it was.
+    expect(panel.contains(document.activeElement)).toBe(false)
     panel.querySelectorAll("button")[1].click()
     await until(() => expect(buttons()).toHaveLength(3))
-    expect(grant).not.toHaveBeenCalled()
+    expect(review).not.toHaveBeenCalled()
     // Allowed: the batch goes, and the next click asks no more.
     images.start(run({ mode: "auto", consent: need, maxPerMessage: 2 }))
     await until(() => expect(slots()[0].querySelector(".tt-image-consent")).not.toBeNull())
     slots()[0].querySelector<HTMLButtonElement>(".tt-image-consent button")!.click()
     await until(() => expect(document.querySelectorAll(".tt-image-result")).toHaveLength(2))
-    expect(grant).toHaveBeenCalledWith(["gemini"], false, ["generativelanguage.googleapis.com"])
+    expect(review).toHaveBeenCalledWith(expect.objectContaining({ kind: "image", need: { id: "gemini", host: "generativelanguage.googleapis.com" }, count: 2, each: false }))
     buttons()[0].click()
     await until(() => expect(document.querySelectorAll(".tt-image-result")).toHaveLength(3))
-    expect(grant).toHaveBeenCalledTimes(1)
+    expect(review).toHaveBeenCalledTimes(1)
   })
 })
 
 describe("the consent panel under a clicked image", () => {
   it("names what is sent and the policy of the service, and records the consent for the message only when asked each time", async () => {
-    const { images, grant, run } = mount()
+    const { images, review, run } = mount()
     images.start(run({ consent: { id: "openai", host: "api.openai.com" }, confirmEachMessage: true, format: "image/png", maxLongEdge: 1024 }))
     await until(() => expect(buttons()).toHaveLength(3))
     buttons()[1].click()
     const panel = () => slots()[1].querySelector<HTMLElement>(".tt-image-consent")
     await until(() => expect(panel()).not.toBeNull())
+    // D1: after the click the panel itself has the focus, no button of it.
+    expect(document.activeElement).toBe(panel())
+    // D5: Cancel gives the focus to the slot under the image.
+    panel()!.querySelectorAll("button")[1].click()
+    expect(document.activeElement).toBe(slots()[1])
+    await until(() => expect(buttons()).toHaveLength(3))
+    buttons()[1].focus()
+    buttons()[1].click()
+    await until(() => expect(panel()).not.toBeNull())
     expect(Array.from(panel()!.querySelectorAll("p"), (p) => p.textContent)).toEqual([ENGLISH.t("imageConsentWhat", [1024, "PNG"]), ENGLISH.t("imageConsentPolicyOpenai"), ENGLISH.t("imageConsentEach")])
     expect(Array.from(panel()!.querySelectorAll("button"), (b) => [b.textContent, b.title])).toEqual([
-      [ENGLISH.t("imageConsentAllow"), ENGLISH.t("tipImageConsentAllow")],
+      [ENGLISH.t("consentReview"), ENGLISH.t("tipConsentReview")],
       [ENGLISH.t("consentCancel"), ENGLISH.t("tipImageConsentCancel")],
     ])
     // A second click while the panel is open waits for the same answer.
     buttons()[0].click()
     panel()!.querySelector("button")!.click()
     await until(() => expect(document.querySelectorAll(".tt-image-result")).toHaveLength(2))
-    expect(grant).toHaveBeenCalledWith(["openai"], true, ["api.openai.com"])
+    expect(review).toHaveBeenCalledWith(expect.objectContaining({ need: { id: "openai", host: "api.openai.com" }, each: true }))
   })
 
   it.each([
@@ -260,23 +274,23 @@ describe("settings changes, retranslation and stop", () => {
     buttons()[0].click()
     await until(() => expect(document.querySelector(".tt-image-result")).not.toBeNull())
     // The same settings change nothing.
-    images.update(run().settings, "zh-CN")
+    images.update(run().settings)
     expect(document.querySelector(".tt-image-result")).not.toBeNull()
-    images.update(run({ mode: "off" }).settings, "zh-CN")
+    images.update(run({ mode: "off" }).settings)
     expect(slots()).toEqual([])
-    images.update(run().settings, "zh-CN")
+    images.update(run().settings)
     await until(() => expect(buttons()).toHaveLength(2))
     expect(document.querySelector(".tt-image-result summary")!.textContent).toBe(`${ENGLISH.t("imageResultTitle", ["OpenAI"])} · ${ENGLISH.t("imageCached")}`)
-    images.update(run({ mode: "auto" }).settings, "zh-CN")
+    images.update(run({ mode: "auto" }).settings)
     await until(() => expect(document.querySelectorAll(".tt-image-result")).toHaveLength(3))
     expect(sent(request, "translate").map((req) => req.index)).toEqual([1, 2, 3])
-    // A new target language asks again.
+    // A new target language starts again and asks again.
     const peeks = sent(request, "peek").length
-    images.update(run({ mode: "auto" }).settings, "ja")
+    images.start(run({ mode: "auto" }, { targetLang: "ja" }))
     await until(() => expect(sent(request, "peek").length).toBe(peeks + 3))
     // update() of a translator that never started does nothing.
-    const idle = new ImageTranslator({ root: () => document.body, request, grant: vi.fn() })
-    idle.update(run().settings, "zh-CN")
+    const idle = new ImageTranslator({ root: () => document.body, request, review: vi.fn(), closed: vi.fn() })
+    idle.update(run().settings)
   })
 
   it("keeps an image on its way when the settings record the consent it was sent with", async () => {
@@ -289,7 +303,7 @@ describe("settings changes, retranslation and stop", () => {
     await until(() => expect(document.querySelector(".tt-image-consent")).not.toBeNull())
     document.querySelector<HTMLButtonElement>(".tt-image-consent button")!.click()
     await until(() => expect(sent(request, "translate")).toHaveLength(1))
-    images.update(run({ consent: null }).settings, "zh-CN")
+    images.update(run({ consent: null }).settings)
     answer(DONE)
     await until(() => expect(document.querySelector(".tt-image-result")).not.toBeNull())
     expect(sent(request, "peek")).toHaveLength(3)
@@ -301,8 +315,20 @@ describe("settings changes, retranslation and stop", () => {
     await until(() => expect(document.querySelectorAll(".tt-image-result")).toHaveLength(3))
     images.start(run({ mode: "auto" }, { fresh: true }))
     await until(() => expect(sent(request, "translate")).toHaveLength(6))
-    expect(sent(request, "translate").slice(3).every((req) => req.fresh === true)).toBe(true)
+    // Only the first request of an image passes the cache: the peek forgets the result, the translation then finds a copy's result.
     expect(sent(request, "peek").slice(3).every((req) => req.fresh === true)).toBe(true)
+    expect(sent(request, "translate").slice(3).some((req) => req.fresh)).toBe(false)
+  })
+
+  it("IM3: of the copies of an image in a retranslation only the first request passes the cache", async () => {
+    const copy = `<img src="${part("1.2")}">`
+    const { images, request, run } = mount(undefined, `<p id="para">${copy}${copy}<img src="${part("1.3")}"></p>`)
+    images.start(run({ mode: "auto" }, { fresh: true }))
+    await until(() => expect(sent(request, "translate")).toHaveLength(3))
+    const asked = sent(request, "peek").concat(sent(request, "translate"))
+    const bySource = (key: string) => asked.filter((req) => JSON.stringify(req.source).includes(key))
+    expect(bySource("1.2").filter((req) => req.fresh)).toHaveLength(1)
+    expect(bySource("1.3").filter((req) => req.fresh)).toHaveLength(1)
   })
 
   it("removes every element on stop and drops answers that come later", async () => {
@@ -354,7 +380,7 @@ describe("settings changes, retranslation and stop", () => {
 
   it("does nothing without a message body", async () => {
     const request = vi.fn()
-    const images = new ImageTranslator({ root: () => null, request, grant: vi.fn() })
+    const images = new ImageTranslator({ root: () => null, request, review: vi.fn(), closed: vi.fn() })
     images.start({ settings: imageSettings({ mode: "ask" }), targetLang: "en", units: [] })
     await nextTask()
     expect(request).not.toHaveBeenCalled()
@@ -367,8 +393,8 @@ describe("the limits and the layout of a message", () => {
     images.start(run({ mode: "auto" }))
     await until(() => expect(document.querySelectorAll(".tt-image-result")).toHaveLength(3))
     const asked = request.mock.calls.length
-    images.update(imageSettings({ mode: "auto", showUsage: false }), "zh-CN")
-    images.update(imageSettings({ mode: "auto", showUsage: false, collapsed: true }), "zh-CN")
+    images.update(imageSettings({ mode: "auto", showUsage: false }))
+    images.update(imageSettings({ mode: "auto", showUsage: false, collapsed: true }))
     expect(request.mock.calls.length).toBe(asked)
     expect(Array.from(document.querySelectorAll<HTMLDetailsElement>(".tt-image-result"), (d) => d.open)).toEqual([false, false, false])
   })
@@ -379,7 +405,7 @@ describe("the limits and the layout of a message", () => {
     await until(() => expect(sent(request, "translate")).toHaveLength(1))
     await until(() => expect(buttons()).toHaveLength(2))
     // Another limit draws everything again, the translation goes off and on: the image sent counts, nothing more goes.
-    images.update(imageSettings({ mode: "auto", maxPerMessage: 2, minSide: 50 }), "zh-CN")
+    images.update(imageSettings({ mode: "auto", maxPerMessage: 2, minSide: 50 }))
     await until(() => expect(sent(request, "translate")).toHaveLength(2))
     images.stop()
     images.start(run({ mode: "auto", maxPerMessage: 2, minSide: 50 }))
@@ -388,7 +414,7 @@ describe("the limits and the layout of a message", () => {
     await nextTask()
     expect(new Set(sent(request, "translate").map((req) => JSON.stringify(req.source))).size).toBe(2)
     images.start(run({ mode: "auto", maxPerMessage: 2, minSide: 50 }, { fresh: true }))
-    await until(() => expect(sent(request, "translate").filter((req) => req.fresh)).toHaveLength(2))
+    await until(() => expect(sent(request, "peek").filter((req) => req.fresh)).toHaveLength(3))
   })
 
   it("S6: counts copies of one image once in mode auto", async () => {
@@ -407,6 +433,30 @@ describe("the limits and the layout of a message", () => {
     expect(sent(request, "peek")).toHaveLength(10)
   })
 
+  it("A1: asks again for each message when the host of the service changed, and when the setting goes off", async () => {
+    const need = { id: "openai", host: "api.openai.com" }
+    const { images, request, review, run } = mount()
+    images.start(run({ consent: need, confirmEachMessage: true }))
+    await until(() => expect(buttons()).toHaveLength(3))
+    buttons()[0].click()
+    await until(() => expect(document.querySelector(".tt-image-consent")).not.toBeNull())
+    document.querySelector<HTMLButtonElement>(".tt-image-consent button")!.click()
+    await until(() => expect(sent(request, "translate")).toHaveLength(1))
+    expect(review).toHaveBeenCalledWith(expect.objectContaining({ need: { id: "openai", host: "api.openai.com" }, each: true }))
+    // The endpoint moved to another host: the next click asks again.
+    images.update(imageSettings({ mode: "ask", consent: { id: "openai", host: "other.example" }, confirmEachMessage: true }))
+    buttons()[0].click()
+    await until(() => expect(document.querySelector(".tt-image-consent")).not.toBeNull())
+    expect(sent(request, "translate")).toHaveLength(1)
+    document.querySelectorAll<HTMLButtonElement>(".tt-image-consent button")[1].click()
+    // Asked for every message no longer, and not recorded: the panel asks again.
+    images.update(imageSettings({ mode: "ask", consent: need }))
+    await until(() => expect(buttons()).toHaveLength(2))
+    buttons()[0].click()
+    await until(() => expect(document.querySelector(".tt-image-consent")).not.toBeNull())
+    expect(sent(request, "translate")).toHaveLength(1)
+  })
+
   it("S1: asks again after the consent was taken back or is asked for each message", async () => {
     const need = { id: "openai", host: "api.openai.com" }
     const { images, run } = mount()
@@ -417,8 +467,8 @@ describe("the limits and the layout of a message", () => {
     document.querySelector<HTMLButtonElement>(".tt-image-consent button")!.click()
     await until(() => expect(document.querySelectorAll(".tt-image-result")).toHaveLength(1))
     // The settings record it; then the settings page takes it back.
-    images.update(imageSettings({ mode: "ask", consent: null }), "zh-CN")
-    images.update(imageSettings({ mode: "ask", consent: need }), "zh-CN")
+    images.update(imageSettings({ mode: "ask", consent: null }))
+    images.update(imageSettings({ mode: "ask", consent: need }))
     await until(() => expect(buttons().length).toBeGreaterThan(0))
     buttons().at(-1)!.click()
     await until(() => expect(document.querySelector(".tt-image-consent")).not.toBeNull())
@@ -470,7 +520,7 @@ describe("with the controller", () => {
     expect(images.start).toHaveBeenCalledWith({ settings: imageSettings({ mode: "ask" }), targetLang: "zh-CN", units: expect.any(Array), context: expect.any(String) })
     // A new display mode or Markdown switch: the images get the settings, which change nothing for them.
     await c.updateSettings(tieredSettings(["ai"], { precise: true, mode: "translation-only", image: imageSettings({ mode: "auto" }) }))
-    expect(images.update).toHaveBeenLastCalledWith(imageSettings({ mode: "auto" }), "zh-CN")
+    expect(images.update).toHaveBeenLastCalledWith(imageSettings({ mode: "auto" }))
     await c.retranslate()
     expect(images.start).toHaveBeenLastCalledWith(expect.objectContaining({ fresh: true }))
     c.stop()
@@ -506,8 +556,12 @@ describe("over the Port of the client", () => {
     buttons()[0].click()
     await until(() => expect(document.querySelector(".tt-image-consent")).not.toBeNull())
     document.querySelector<HTMLButtonElement>(".tt-image-consent button")!.click()
+    // S1: the question goes to the popup; the image goes once the popup allowed.
+    expect(port.posted("consentAsk")).toEqual([{ type: "consentAsk", question: { kind: "image", need: { id: "openai", host: "api.openai.com" }, count: 0, each: false, glossary: false, maxLongEdge: 1568, format: "JPEG" } }])
+    await nextTask()
+    expect(port.posted("image")).toHaveLength(1)
+    port.push({ type: "consentAnswer", kind: "image", allowed: true })
     await until(() => expect(port.posted("image")).toHaveLength(2))
-    expect(port.posted("imageConsent")).toEqual([{ type: "imageConsent", ids: ["openai"], hosts: ["api.openai.com"] }])
     port.disconnect()
     await until(() => expect(document.querySelector(".tt-image")!.textContent).toContain(ENGLISH.t("errUnknown")))
     // Without the Port, a request fails at once.
@@ -529,15 +583,17 @@ describe("over the Port of the client", () => {
 })
 
 describe("translation-only display", () => {
-  it("keeps the images of a paragraph after its translation, except remote ones, and puts the original back", () => {
-    document.body.innerHTML = `<p>See <img src="${part("1.2")}" alt="chart"> and <img src="https://example.com/r.png"> here.</p>`
+  it("D2: keeps the images of a paragraph after its translation, remote ones at the address they show, and puts the original back", () => {
+    document.body.innerHTML = `<p>See <img src="${part("1.2")}" alt="chart"> and <img src="https://example.com/r.png" srcset="https://example.com/r2.png 2x"> here.</p>`
     const p = document.querySelector("p")!
     const original = p.innerHTML
+    const remote = p.querySelectorAll("img")[1]
+    Object.defineProperty(remote, "currentSrc", { value: "https://example.com/r2.png", configurable: true })
     const renderer = new Renderer(document)
     const unit: Unit = { el: p, text: "See and here.", pre: false }
     renderer.showTranslation(unit, "看这里。", "translation-only")
-    const kept = Array.from(p.querySelectorAll(".tt-translation img"), (img) => img.getAttribute("src"))
-    expect(kept).toEqual([part("1.2")])
+    const kept = Array.from(p.querySelectorAll<HTMLImageElement>(".tt-translation img"), (img) => [img.getAttribute("src"), img.getAttribute("srcset")])
+    expect(kept).toEqual([[part("1.2"), null], ["https://example.com/r2.png", null]])
     renderer.clear(unit)
     expect(p.innerHTML).toBe(original)
     renderer.showTranslation(unit, "看这里。", "bilingual")
@@ -608,11 +664,32 @@ describe("remote images", () => {
     expect(requestAccess).toHaveBeenCalledTimes(3)
     // Allowed in the popup: the settings come again with a new count of the host permissions.
     access.granted = true
-    images.update(imageSettings({ mode: "ask", hostAccess: 1 }), "zh-CN")
+    images.update(imageSettings({ mode: "ask", hostAccess: 1 }))
     await until(() => expect(document.querySelector(".tt-image-result")).not.toBeNull())
     expect(sent(request, "translate").map((req) => req.source)).toEqual([{ url: R1 }])
     expect(noticeLines()).toEqual([ENGLISH.t("imageNoticeUnloaded", [1]), ENGLISH.t("imageNoticeUnreadable", [1])])
     expect(reportRemote).toHaveBeenLastCalledWith(0)
+  })
+
+  it("IM5: the click that waited for the access is used up when the image goes by itself in mode on", async () => {
+    const access = { granted: false }
+    const { images, request, run, requestAccess } = mount((req) => {
+      if ("url" in req.source && !access.granted) return { status: "access" }
+      return req.action === "peek" ? { status: "ready" } : { status: "error", error: "rate limit" }
+    }, REMOTE_BODY)
+    sizeImages({ r2: [0, 0], beacon: [0, 0], sig: [0, 0], tiny: [16, 16] })
+    images.start(run())
+    await until(() => expect(buttons()).toHaveLength(1))
+    buttons()[0].click()
+    await until(() => expect(requestAccess).toHaveBeenCalledTimes(1))
+    access.granted = true
+    images.update(imageSettings({ mode: "auto", hostAccess: 1 }))
+    await until(() => expect(sent(request, "translate")).toHaveLength(1))
+    // The translation failed; back to ask, the image waits for a click instead of going again.
+    images.update(imageSettings({ mode: "ask", hostAccess: 1 }))
+    await until(() => expect(sent(request, "peek").length).toBeGreaterThan(1))
+    await nextTask()
+    expect(sent(request, "translate")).toHaveLength(1)
   })
 
   it("in mode auto sends nothing without the access and the remote images once it is there", async () => {
@@ -621,7 +698,7 @@ describe("remote images", () => {
     await until(() => expect(buttons()).toHaveLength(1))
     expect(sent(request, "translate")).toEqual([])
     access.granted = true
-    images.update(imageSettings({ mode: "auto", hostAccess: 1 }), "zh-CN")
+    images.update(imageSettings({ mode: "auto", hostAccess: 1 }))
     await until(() => expect(document.querySelector(".tt-image-result")).not.toBeNull())
     expect(sent(request, "translate").map((req) => req.source)).toEqual([{ url: R1 }])
   })
@@ -691,6 +768,21 @@ describe("remote images", () => {
     for (const answer of answers) answer({ status: "access" })
     await nextTask()
     expect(late.images.leftOut.access).toBe(0)
+  })
+
+  it("D2: takes a remote image of a paragraph that loads after translation-only display hid it", async () => {
+    const { images, run, units } = mountRemote({ granted: true })
+    const late = document.getElementById("r1") as HTMLImageElement
+    Object.defineProperty(late, "complete", { value: false, configurable: true })
+    images.start(run())
+    await nextTask()
+    new Renderer(document).showTranslation(units[0], "本周：", "translation-only")
+    expect(late.closest(".tt-original")).not.toBeNull()
+    // Hidden: drawn at no size.
+    late.getBoundingClientRect = () => ({ width: 0, height: 0, x: 0, y: 0, top: 0, left: 0, right: 0, bottom: 0, toJSON: () => ({}) })
+    Object.defineProperty(late, "complete", { value: true, configurable: true })
+    late.dispatchEvent(new Event("load"))
+    await until(() => expect(buttons()).toHaveLength(1))
   })
 
   it("counts a remote image that fails to load after the start", async () => {

@@ -145,7 +145,7 @@ describe("the summary request of the translation service", () => {
     const [prompt, opts] = summarize.mock.calls[0]
     expect(prompt).toBe(buildSummaryPrompt("Hallo Tom, could we move the acceptance to Thursday? ...", header))
     expect(opts).toMatchObject({ systemPrompt: buildSummarySystem(DEFAULT_PROMPTS.summary, "German", SUMMARY_PARTS), targetLanguageName: "German", maxOutputTokens: 600 })
-    expect(opts.provider).toMatchObject({ id: "openai", model: "gpt-4.1-mini" })
+    expect(opts.provider).toMatchObject({ id: "openai", model: "gpt-6-luna" })
     // The cache answers the same message; "Regenerate" asks again.
     expect((await service.summarize("Hallo Tom, could we move the acceptance to Thursday? ...", header)).ok).toBe(true)
     expect(summarize).toHaveBeenCalledTimes(1)
@@ -166,6 +166,37 @@ describe("the summary request of the translation service", () => {
     })
     expect((await service.summarize("Text", null)) as { service: string }).toMatchObject({ ok: true, service: "Anthropic Claude" })
     expect(summarize.mock.calls[0][1].provider).toMatchObject({ id: "anthropic", model: "claude-sonnet-5-5" })
+  })
+
+  it("clears the summaries kept in memory with the cache", async () => {
+    const { service, cache, summarize } = setup()
+    await service.summarize("Text", null)
+    // The memory of the service answers although the stored copy is gone.
+    await cache.clear()
+    await service.summarize("Text", null)
+    expect(summarize).toHaveBeenCalledTimes(1)
+    service.clearMemory()
+    await service.summarize("Text", null)
+    expect(summarize).toHaveBeenCalledTimes(2)
+  })
+
+  it("C1: the answer of the request started last stays in the cache, whichever ends last", async () => {
+    const { service, settings, cache, summarize } = setup()
+    const text = "Hallo Tom, could we move the acceptance to Thursday? ..."
+    const older = JSON.stringify({ ...JSON.parse(ANSWER), summary: ["Older."] })
+    const newer = JSON.stringify({ ...JSON.parse(ANSWER), summary: ["Newer."] })
+    let release!: () => void
+    summarize.mockImplementationOnce(() => new Promise<string>((resolve) => (release = () => resolve(older))))
+    const first = service.summarize(text, header)
+    await until(() => expect(summarize).toHaveBeenCalledTimes(1))
+    summarize.mockImplementationOnce(async () => newer)
+    expect(await service.summarize(text, header, true)).toMatchObject({ raw: newer })
+    release()
+    expect(await first).toMatchObject({ raw: older })
+    expect(await service.summarize(text, header)).toMatchObject({ raw: newer })
+    const later = createService(settings, { llm: { summarize }, cache, i18n: () => ENGLISH }).service
+    expect(await later.summarize(text, header)).toMatchObject({ raw: newer })
+    expect(summarize).toHaveBeenCalledTimes(2)
   })
 
   it("keeps an answer it cannot read out of the cache and hands it over as it is", async () => {
@@ -291,6 +322,36 @@ describe("one request for the analysis of precise translation and the summary", 
     expect(llm.summarize).toHaveBeenCalledTimes(1)
     expect(llm.summarize.mock.calls[0][0]).toContain("- Acme Cloud → Acme-Wolke")
     expect(llm.analyzeAndSummarize).toHaveBeenCalledTimes(1)
+  })
+
+  it("C1: a regenerated summary replaces the one of the analysis, also with the cache off", async () => {
+    for (const cacheOn of [true, false]) {
+      const { service, llm, context, cache } = setup()
+      if (!cacheOn) cache.configure(false, 0)
+      service.setContext(context)
+      await service.summarize(context.text, header)
+      expect(llm.analyzeAndSummarize).toHaveBeenCalledTimes(1)
+      const again = JSON.stringify({ ...JSON.parse(ANSWER), summary: ["Regenerated."] })
+      llm.summarize.mockResolvedValue(again)
+      expect(await service.summarize(context.text, header, true)).toMatchObject({ raw: again })
+      expect(await service.summarize(context.text, header)).toMatchObject({ raw: again })
+      expect([cacheOn, llm.summarize.mock.calls.length]).toEqual([cacheOn, 1])
+    }
+  })
+
+  it("C4: a summary made before the analysis is found once the analysis is there, with another model for the summary", async () => {
+    const { service, llm, context, translate } = setup(COMBINED, (s) => (s.summary.model = "gpt-6.1-terra"))
+    service.setContext(context)
+    expect((await service.summarize(context.text, header)).ok).toBe(true)
+    expect(llm.summarize).toHaveBeenCalledTimes(1)
+    expect(llm.summarize.mock.calls[0][0]).not.toContain("Acme-Wolke")
+    await translate()
+    expect(llm.analyze).toHaveBeenCalledTimes(1)
+    expect((await service.summarize(context.text, header)).ok).toBe(true)
+    expect([llm.summarize, llm.analyzeAndSummarize].map((fn) => fn.mock.calls.length)).toEqual([1, 0])
+    // "Regenerate" asks with the glossary.
+    await service.summarize(context.text, header, true)
+    expect(llm.summarize.mock.calls[1][0]).toContain("- Acme Cloud → Acme-Wolke")
   })
 
   it("caches both parts under their own keys: a new background script asks nothing; with the cache off the summary still comes from the request", async () => {
@@ -533,6 +594,52 @@ describe("the panel above the message", () => {
     expect(summaryMarkdown({ summary: [], actions: [], questions: [], dates: [{ what: "Lunch", when: "", where: "" }] })).toBe("## Dates and meetings\n- Lunch")
   })
 
+  it("CT5: writes a line with a line break or Markdown characters as one literal line", () => {
+    const bs = String.fromCharCode(92)
+    const text = ["Send C:", bs, "data", bs, "a_b.xlsx\n## not a heading\n- not an item"].join("")
+    const markdown = summaryMarkdown({ summary: [text], actions: [{ who: "Anna*", task: "Call `Tom`", due: "", dueText: "", quote: "", unverified: false }], questions: [], dates: [] })
+    const escaped = ["Send C:", bs, bs, "data", bs, bs, "a", bs, "_b.xlsx ## not a heading - not an item"].join("")
+    expect(markdown).toBe(["## Summary", `- ${escaped}`, "", "## To-dos", `- **Anna${bs}***: Call ${bs}\`Tom${bs}\``].join("\n"))
+  })
+
+  it("CT4: the title line keeps the focus when the panel is drawn again, and the Summary button takes it when the panel closes", async () => {
+    answer({ ok: true, service: "OpenAI", summary: SUMMARY, raw: ANSWER })
+    const summary = new SummaryPanel({ root, request, collapsed: () => false })
+    const button = new SummaryButton({ root, onClick: () => {} })
+    button.sync(true)
+    await summary.show()
+    panel()!.querySelector<HTMLElement>("summary")!.focus()
+    expect(document.activeElement).toBe(panel()!.querySelector("summary"))
+    answer({ ok: true, service: "OpenAI", summary: SUMMARY, raw: ANSWER })
+    await summary.show(true)
+    expect(document.activeElement).toBe(panel()!.querySelector("summary"))
+    summary.close()
+    expect(document.activeElement).toBe(document.querySelector(".tt-summary-button button"))
+  })
+
+  it("D5: gives the focus back to the button pressed, once drawn again", async () => {
+    answer({ ok: true, service: "OpenAI", summary: SUMMARY, raw: ANSWER })
+    const summary = new SummaryPanel({ root, request, collapsed: () => false })
+    await summary.show()
+    buttons()[1].focus()
+    answer({ ok: true, service: "OpenAI", summary: SUMMARY, raw: ANSWER })
+    buttons()[1].click()
+    await until(() => expect(sections().length).toBeGreaterThan(0))
+    expect(document.activeElement).toBe(buttons()[1])
+    expect(buttons()[1].textContent).toBe(ENGLISH.t("summaryRegenerate"))
+    // Copy is disabled while the summary is generated: the title line has the focus meanwhile.
+    buttons()[0].focus()
+    request.mockReturnValueOnce(new Promise(() => {}))
+    void summary.show(true)
+    expect(document.activeElement).toBe(panel()!.querySelector("summary"))
+  })
+
+  it("D3: writes its lines in the direction of the target language", async () => {
+    answer({ ok: true, service: "OpenAI", summary: SUMMARY, raw: ANSWER })
+    await new SummaryPanel({ root, request, collapsed: () => false, lang: () => "ar" }).show()
+    expect(Array.from(panel()!.querySelectorAll("li"), (li) => [li.dir, li.lang])).toEqual(Array(5).fill(["rtl", "ar"]))
+  })
+
   it("copies the Markdown with the Clipboard API, else with the copy command, and no button opens or closes the panel", async () => {
     const writeText = vi.fn(async () => {})
     vi.stubGlobal("navigator", { clipboard: { writeText } })
@@ -696,7 +803,7 @@ describe("the content script", () => {
     port.push({ type: "settings", settings: summaryOn({ consent: { id: "openai", host: "api.openai.com" } }) })
     port.push({ type: "summarize" })
     await until(() => expect(document.querySelector(".tt-consent")).not.toBeNull())
-    expect(document.querySelector(".tt-consent")!.textContent).toContain(ENGLISH.t("consentBodyPrecise"))
+    expect(document.querySelector(".tt-consent")!.textContent).toContain(ENGLISH.t("consentBodySummary"))
     const [, cancel] = Array.from(document.querySelectorAll<HTMLButtonElement>(".tt-consent button"))
     cancel.click()
     await until(() => expect(document.querySelector(".tt-consent")).toBeNull())
@@ -704,7 +811,8 @@ describe("the content script", () => {
     port.push({ type: "summarize" })
     await until(() => expect(document.querySelector(".tt-consent")).not.toBeNull())
     document.querySelector<HTMLButtonElement>(".tt-consent button")!.click()
-    await until(() => expect(sendMessage).toHaveBeenCalledWith({ type: "grantConsent", ids: ["openai"], hosts: ["api.openai.com"] }))
+    expect(port.posted("consentAsk")).toEqual([{ type: "consentAsk", question: { kind: "text", needs: [{ id: "openai", host: "api.openai.com" }], uses: ["summary"] } }])
+    port.push({ type: "consentAnswer", kind: "text", allowed: true })
     await until(() => expect(port.posted("summary")).toHaveLength(1))
     // Allowed once: the next summary asks no more, also before the new settings arrive.
     port.push({ type: "summarize" })

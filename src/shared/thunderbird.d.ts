@@ -17,8 +17,3 @@ declare namespace browser.messages {
   /** The parts of a message with the decoded text of its text parts (MessagePart). */
   function getFull(messageId: number): Promise<{ contentType?: string; body?: string; parts?: unknown[] }>
 }
-
-/** Thunderbird 113 and later: opens the popup of the button without a user action; false when the button is not in a toolbar. */
-declare namespace browser.messageDisplayAction {
-  function openPopup(options?: { windowId?: number }): Promise<boolean>
-}

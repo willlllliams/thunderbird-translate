@@ -333,7 +333,7 @@ describe("resolved provider configuration", () => {
       id: "openai",
       apiKey: "sk",
       baseURL: "https://proxy.example.com/v1",
-      model: "gpt-4.1-mini",
+      model: "gpt-6-luna",
       temperature: 0.3,
       thinking: false,
       mode: "free",

@@ -20,7 +20,7 @@ export function onStoredSettings(listener: (stored: unknown) => void): void {
   })
 }
 
-async function saveSettings(settings: Settings): Promise<void> {
+export async function saveSettings(settings: Settings): Promise<void> {
   await ext.storage.local.set({ [SETTINGS_KEY]: settings })
 }
 

@@ -10,7 +10,7 @@
     <header class="top">
       <img src="icons/icon-16.svg" alt="" width="32" height="32" />
       <h1 data-i18n="optionsTitle"></h1>
-      <span id="saved" class="saved" data-i18n="saved" data-i18n-title="tipSaved"></span>
+      <span id="saved" class="saved" role="status" data-i18n-title="tipSaved"></span>
       <button type="button" id="openWelcome" data-i18n="openWelcome" data-i18n-title="tipOpenWelcome"></button>
     </header>
 
@@ -275,12 +275,7 @@
       <section>
         <h2 data-i18n="sectionStyle"></h2>
         <div id="styleControls" class="grid"></div>
-        <div class="preview" id="preview">
-          <p>
-            <span data-i18n="stylePreviewOriginal"></span>
-            <span id="previewTranslation" class="tt-translation tt-bilingual tt-flow" data-i18n="stylePreviewTranslation"></span>
-          </p>
-        </div>
+        <div class="preview" id="preview"></div>
         <label class="check" data-i18n-title="tipRenderMarkdown">
           <input type="checkbox" id="renderMarkdown" aria-describedby="renderMarkdownHint" />
           <span data-i18n="labelRenderMarkdown"></span>

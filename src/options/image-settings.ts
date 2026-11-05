@@ -18,7 +18,7 @@ import { getI18n, t } from "../shared/i18n"
 import { imagePromptTokens } from "../shared/image-prompt"
 import { getLanguage } from "../shared/languages"
 import { send } from "../shared/messages"
-import { $, fillSelect, showImagePreciseNote, visionHint } from "../shared/page"
+import { $, fillAiServiceSelect, fillSelect, showImagePreciseNote, visionHint } from "../shared/page"
 import { promptText } from "../shared/prompts"
 import { getPreset, providerDisplayName, tierOf } from "../shared/providers"
 import { addedProviders, emptyProviderConfig, IMAGE_DECIMALS, type ImageSettings, imageStatus, resolveProvider, type Settings } from "../shared/settings"
@@ -80,6 +80,8 @@ export function costHint(settings: Settings): string {
 
 export class ImageSettingsSection {
   private readonly result = $("imageTestResult")
+  /** Counts the reads of the access to remote images: only the latest one draws. */
+  private remoteCalls = 0
 
   constructor(private readonly session: SettingsSession) {
     fillSelect($<HTMLSelectElement>("imageFormat"), FORMATS.map(([value, name]) => new Option(name, value)), session.settings.image.format)
@@ -90,7 +92,8 @@ export class ImageSettingsSection {
     for (const [id, key] of SWITCHES) session.bindCheck(id, () => s()[key] as boolean, (v) => set(key, v as never))
     session.bindCheck("imageInline", () => s().sources.inline, (v) => (s().sources.inline = v))
     session.bindCheck("imageAttachments", () => s().sources.attachments, (v) => (s().sources.attachments = v))
-    session.bind("imageProvider", "change", () => this.refresh(), (el) => {
+    // Drawn by refresh(), which follows every change of the settings: once per change taken over (remoteChanged()).
+    session.bind("imageProvider", "change", () => {}, (el) => {
       s().provider = el.value || null
       this.refresh()
     })
@@ -98,8 +101,6 @@ export class ImageSettingsSection {
       s().model = el.value.trim()
       this.refresh()
     })
-    // The model and the estimate follow every change that bears on them, also made elsewhere.
-    session.track($("imageCost"), () => this.refresh())
     for (const id of ["imageMode", "imageDetail", "imageOutput", "imageNoText", "imageShowSource"]) $(id).addEventListener("change", () => this.refresh())
     $("imageTest").addEventListener("click", () => void this.test())
     // permissions.request() is the first call of the click handler: Thunderbird asks the user only from a user action.
@@ -114,13 +115,15 @@ export class ImageSettingsSection {
     void this.refreshRemote()
   }
 
-  /** The line about the access to remote images, and the services that connect only through it. */
+  /** The line about the access to remote images, and the services that connect only through it; the answer of an earlier call that comes late is dropped. */
   async refreshRemote(): Promise<void> {
+    const call = ++this.remoteCalls
     const allowed = await ext.permissions.contains({ origins: [...REMOTE_ORIGINS] }).catch(() => false)
+    const through = allowed ? await this.throughRemoteAccess() : []
+    if (call !== this.remoteCalls) return
     $("imageRemoteState").textContent = t(allowed ? "optionsRemoteAllowed" : "optionsRemoteMissing")
     $("imageRemoteAllow").hidden = allowed
     $("imageRemoteRevoke").hidden = !allowed
-    const through = allowed ? await this.throughRemoteAccess() : []
     $("imageRemoteServices").hidden = through.length === 0
     $("imageRemoteServices").textContent = through.length ? t("optionsRemoteRevokeServices", [through.join(", ")]) : ""
   }
@@ -146,13 +149,9 @@ export class ImageSettingsSection {
   refresh(): void {
     const settings = this.session.settings
     $<HTMLFieldSetElement>("imageGroup").disabled = !showImagePreciseNote(settings)
-    const chosen = settings.image.provider
-    const services = addedProviders(settings).filter((p) => tierOf(p) === "ai")
-    fillSelect($<HTMLSelectElement>("imageProvider"), [new Option(t("summaryProviderTier"), ""), ...services.map((p) => new Option(providerDisplayName(p), p.id))], chosen && settings.providers[chosen]?.enabled ? chosen : "")
     const status = imageStatus(settings)
     const preset = status.id ? getPreset(status.id) : undefined
-    const model = $<HTMLInputElement>("imageModel")
-    model.placeholder = status.id ? (settings.providers[status.id]?.model || preset?.defaultModel || "") : ""
+    fillAiServiceSelect($<HTMLSelectElement>("imageProvider"), $<HTMLInputElement>("imageModel"), settings, settings.image.provider, status.id)
     const suggested = status.id ? SUGGESTED_VISION_MODELS[status.id] : undefined
     $("imageModels").replaceChildren(...[...new Set([...(suggested ? [suggested] : []), ...(preset?.models ?? [])])].map((m) => h("option", { value: m })))
     const hint = visionHint(status)

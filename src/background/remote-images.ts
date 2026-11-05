@@ -17,27 +17,25 @@
  * requests, which Thunderbird's display of the message does not fill, so in
  * practice the image is requested once more. It follows redirects, and the
  * answer is dropped unless its final address is on a public host as well; it
- * ends after REMOTE_TIMEOUT_MS, and a response larger than REMOTE_MAX_BYTES
+ * ends after REMOTE_TIMEOUT_MS, and a response larger than IMAGE_MAX_BYTES
  * is dropped, by its Content-Length before anything is read, otherwise as
  * soon as the bytes read pass the limit.
  */
 
 import { BodyTooLargeError, readBody } from "../shared/download"
 import { isPublicHost } from "../shared/hosts"
-import { remoteImageUrl, sniffImageType } from "../shared/image"
+import { IMAGE_MAX_BYTES, remoteImageUrl } from "../shared/image"
+import { sniffImageType } from "./image-format"
 import { RequestQueue } from "./queue/request-queue"
 
-/** The largest remote image read, in bytes: well above the images of a newsletter, and the size decoding still copes with. */
-export const REMOTE_MAX_BYTES = 15 * 1024 * 1024
-
 /** How long reading a remote image may take. */
-export const REMOTE_TIMEOUT_MS = 20_000
+const REMOTE_TIMEOUT_MS = 20_000
 
 /** The bytes of remote images one session keeps between the peek and the translation. */
-export const HELD_BYTES = 16 * 1024 * 1024
+const HELD_BYTES = 16 * 1024 * 1024
 
 /** The bytes of remote images all sessions keep together; beyond it the oldest go first. */
-export const HELD_TOTAL = 32 * 1024 * 1024
+const HELD_TOTAL = 32 * 1024 * 1024
 
 /** Remote images of one session read at the same time; a slow server holds back the remote images of its own message only. */
 const REMOTE_CONCURRENCY = 2
@@ -160,7 +158,7 @@ const UNTYPED = new Set(["", "application/octet-stream", "binary/octet-stream"])
  * application/octet-stream counts as an image when its first bytes are those of PNG, GIF, JPEG or WebP. Throws only
  * when `signal` aborted.
  */
-export async function fetchRemoteImage(url: string, { fetchFn = fetch, signal, maxBytes = REMOTE_MAX_BYTES, timeoutMs = REMOTE_TIMEOUT_MS, localOrigin }: RemoteFetchOptions = {}): Promise<{ bytes: Uint8Array; type: string } | "large" | null> {
+export async function fetchRemoteImage(url: string, { fetchFn = fetch, signal, maxBytes = IMAGE_MAX_BYTES, timeoutMs = REMOTE_TIMEOUT_MS, localOrigin }: RemoteFetchOptions = {}): Promise<{ bytes: Uint8Array; type: string } | "large" | null> {
   if (!remoteImageUrl(url) || !readableHost(url, localOrigin)) return null
   const timeout = AbortSignal.timeout(timeoutMs)
   const both = signal ? AbortSignal.any([signal, timeout]) : timeout
@@ -217,8 +215,8 @@ export class HeldImages {
     return `${this.keys.get(owner)}|${url}`
   }
 
-  /** The bytes of all sessions together, for the tests. */
-  get size(): number {
+  /** The bytes kept. */
+  get bytes(): number {
     return this.total
   }
 
@@ -318,7 +316,7 @@ export class RemoteImages {
     this.deps.held.release(this, url)
   }
 
-  /** A retranslation, or the session ended: nothing is kept. */
+  /** The session ended (its content script went away, or newer sessions pushed it out): nothing is kept. */
   clear(): void {
     this.deps.held.clear(this)
   }

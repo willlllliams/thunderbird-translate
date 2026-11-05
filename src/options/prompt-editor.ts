@@ -77,10 +77,7 @@ export class PromptEditor {
     const box = h("textarea", { id: `prompt-${kind}`, rows: "9", spellcheck: "false", placeholder: DEFAULT_PROMPTS[kind], "data-i18n-title": "tipPrompt" })
     this.boxes[kind] = box
     s.track(box, () => (box.value = promptText(s.settings.prompts, kind)))
-    box.addEventListener("input", () => {
-      s.settings.prompts[kind] = box.value.trim() === DEFAULT_PROMPTS[kind] ? "" : box.value
-      s.save()
-    })
+    s.typed(box, () => (s.settings.prompts[kind] = box.value.trim() === DEFAULT_PROMPTS[kind] ? "" : box.value))
     const reset = h("button", { type: "button", id: `reset-${kind}`, "data-i18n": "buttonResetPrompt", "data-i18n-title": "tipResetPrompt" })
     reset.addEventListener("click", () => this.setPrompt(kind, ""))
     return h("div", { className: "prompt" }, h("label", { for: box.id, "data-i18n": KIND_LABELS[kind] }), box, reset)

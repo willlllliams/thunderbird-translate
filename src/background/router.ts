@@ -6,11 +6,11 @@
  */
 
 import { describeError } from "../shared/errors"
-import { ext } from "../shared/ext"
+import { ext, isExtensionPage } from "../shared/ext"
 import { openOptionsAt } from "../shared/options-tab"
 import { getI18n } from "../shared/i18n"
 import { type BackgroundHandlers, type LocaleMessages, type OfflineItem, type OfflineStatus, type PageNotice, type RequestType } from "../shared/messages"
-import { grantedEntries, type TierSettings } from "../shared/settings"
+import type { TierSettings } from "../shared/settings"
 import { updateSettings } from "../shared/settings-store"
 import type { OfflineManager } from "../offline/manager"
 import type { OfflineService } from "../shared/offline-needs"
@@ -21,8 +21,8 @@ import type { TranslationService } from "./service"
 import type { TabRegistry } from "./tabs"
 
 export interface RouterDeps {
-  tabs: Pick<TabRegistry, "postToTab" | "stateOf" | "broadcast">
-  service: Pick<TranslationService, "testProvider">
+  tabs: Pick<TabRegistry, "postToTab" | "stateOf" | "broadcast" | "answerConsent">
+  service: Pick<TranslationService, "testProvider" | "clearMemory">
   /** The test image of the settings page; without it the test fails. */
   images?: Pick<ImageService, "test">
   /** The interface messages of a language for a content script. */
@@ -32,11 +32,9 @@ export interface RouterDeps {
   /** What the offline services among `tiers` lack for the languages. */
   offlineStatus: (sourceLang: string, targetLang: string, tiers: TierSettings) => Promise<OfflineStatus>
   cache: Pick<PersistentCache, "clear" | "size">
-  /** Settings a request has just written, taken over before their storage event arrives. */
-  adoptSettings?: (stored: unknown) => void
 }
 
-export function createHandlers({ tabs, service, images, localeMessages, offlineManager, offlineStatus, cache, adoptSettings }: RouterDeps): BackgroundHandlers {
+export function createHandlers({ tabs, service, images, localeMessages, offlineManager, offlineStatus, cache }: RouterDeps): BackgroundHandlers {
   /** A notice to the extension pages; without an open page it goes nowhere. */
   const toPages = (notice: PageNotice) => void ext.runtime.sendMessage(notice).catch(() => {})
   return {
@@ -72,18 +70,15 @@ export function createHandlers({ tabs, service, images, localeMessages, offlineM
         }
         s.offlineMutedPairs = [...muted]
       })),
-    // The user allowed online services to receive the text of messages, in the panel above a message. Only online
-    // services are recorded, each with the host it sends to; nothing goes back.
-    grantConsent: async (req) => {
-      const stored = await updateSettings((s) => {
-        const granted = grantedEntries(s, req.ids, Array.isArray(req.hosts) ? req.hosts : undefined)
-        s.onlineConsent = [...new Set([...s.onlineConsent, ...granted])]
-      })
-      adoptSettings?.(stored)
-    },
+    // The popup answers a consent panel of the message: only a page of the extension, which the message cannot style or cover. It names the question it shows.
+    answerConsent: async (req) => void (await tabs.answerConsent(req.tabId, req.kind === "image" ? "image" : "text", req.id, req.allowed === true)),
     // Dictionary packs or offline models changed: content scripts forget their results, pages show the new state.
     ...offlineHandlers({ manager: offlineManager, contentScripts: () => tabs.broadcast({ type: "offlineDataChanged" }), pages: toPages }),
-    clearCache: () => cache.clear(),
+    // The summaries and analyses the service keeps in memory go with the stored ones.
+    clearCache: async () => {
+      service.clearMemory()
+      await cache.clear()
+    },
     cacheStats: async () => ({ size: await cache.size() }),
   }
 }
@@ -93,12 +88,7 @@ export function createHandlers({ tabs, service, images, localeMessages, offlineM
  * runs inside a displayed message, next to its content, so it gets nothing
  * else: no settings, keys, cache or offline data.
  */
-export const CONTENT_REQUESTS: ReadonlySet<RequestType> = new Set<RequestType>(["getLocaleMessages", "openOptions", "muteOfflinePairs", "grantConsent"])
-
-/** Whether a message comes from a page of the extension (popup, settings page, setup guide); a content script has the address of its message. */
-function fromExtensionPage(sender: browser.runtime.MessageSender | undefined): boolean {
-  return typeof sender?.url === "string" && sender.url.startsWith(ext.runtime.getURL(""))
-}
+export const CONTENT_REQUESTS: ReadonlySet<RequestType> = new Set<RequestType>(["getLocaleMessages", "openOptions", "muteOfflinePairs"])
 
 /**
  * For runtime.onMessage: the answer of the handler of a request, once
@@ -111,7 +101,7 @@ export function createDispatch(handlers: BackgroundHandlers, ready: () => Promis
     const type = (message as { type?: unknown } | null | undefined)?.type
     // Only own properties: a request named after a property of Object.prototype ("toString") is unknown too.
     if (typeof type !== "string" || !Object.hasOwn(handlers, type)) return undefined
-    if (!CONTENT_REQUESTS.has(type as RequestType) && !fromExtensionPage(sender)) return undefined
+    if (!CONTENT_REQUESTS.has(type as RequestType) && !isExtensionPage(sender)) return undefined
     const handler = handlers[type as keyof BackgroundHandlers] as (req: unknown) => unknown
     return ready().then(() => handler(message))
   }

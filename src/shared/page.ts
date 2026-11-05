@@ -9,7 +9,7 @@ import { LOCALE_NATIVE_NAMES, localeToLanguageTag, matchUiLocale, SUPPORTED_LOCA
 import { type OfflineStatus, type OptionsPlace, send } from "./messages"
 import { lacksData, type OfflineService, offlineServiceOf } from "./offline-needs"
 import { PROVIDER_PRESETS, providerDisplayName, type Tier, TIER_NAME_KEYS, TIERS, tierOf } from "./providers"
-import { addedProviders, type ImageStatus, type Settings, type TierSettings, tiersValid } from "./settings"
+import { addedProviders, type ImageStatus, preciseApplies, resolveProvider, type Settings, type TierSettings, tiersValid } from "./settings"
 import { SUGGESTED_VISION_MODELS } from "./vision"
 
 export const $ = <T extends HTMLElement>(id: string) => document.getElementById(id) as T
@@ -145,7 +145,12 @@ export function showSaved(): void {
   saved.title = t("tipSaved")
   saved.classList.remove("error")
   saved.classList.add("show")
-  setTimeout(() => saved.classList.contains("error") || saved.classList.remove("show"), 1200)
+  // Empty again, so that the next "Saved" is a change of the status that a screen reader announces.
+  setTimeout(() => {
+    if (saved.classList.contains("error")) return
+    saved.classList.remove("show")
+    saved.textContent = ""
+  }, 1200)
 }
 
 /** Show in place of the "Saved" note that saving failed, until a save succeeds. */
@@ -163,7 +168,7 @@ export function showSaveError(error: unknown): void {
  * #imagePreciseOn turns precise translation on.
  */
 export function showImagePreciseNote(settings: Pick<Settings, "precise" | "tiers">): boolean {
-  const precise = settings.precise.enabled && settings.tiers.ai !== null
+  const precise = preciseApplies(settings)
   $("imagePreciseOff").hidden = precise
   $("imagePreciseOffText").textContent = t(settings.tiers.ai ? "hintImageNeedsPrecise" : "hintImageNeedsAi")
   $("imagePreciseOn").hidden = !settings.tiers.ai
@@ -176,4 +181,41 @@ export function visionHint({ id, model, support }: ImageStatus): string {
   if (support === "unknown") return t("hintVisionUnknown", [model])
   const suggested = SUGGESTED_VISION_MODELS[id]
   return suggested ? t("hintVisionNo", [model, suggested]) : t("hintVisionNoSuggestion", [model])
+}
+
+/**
+ * The AI services a task (the summary, the images) can use in `select`: the one of the AI tier, then every added AI
+ * service, `chosen` selected while it is added; the placeholder of `model` is the model of `inUse`, the service in use.
+ */
+export function fillAiServiceSelect(select: HTMLSelectElement, model: HTMLInputElement, settings: Settings, chosen: string | null, inUse: string | null): void {
+  const services = addedProviders(settings).filter((p) => tierOf(p) === "ai")
+  fillSelect(select, [new Option(t("aiServiceOfTier"), ""), ...services.map((p) => new Option(providerDisplayName(p), p.id))], chosen && settings.providers[chosen]?.enabled ? chosen : "")
+  model.placeholder = inUse ? resolveProvider(settings, inUse).model : ""
+}
+
+/**
+ * The radio buttons named `name`: a change of the checked one goes to `set`; the returned function checks the one of
+ * `get()` and enables them by `enabled`.
+ */
+export function bindRadios<V extends string>(name: string, get: () => V, set: (value: V) => void): (enabled?: boolean) => void {
+  const radios = Array.from(document.querySelectorAll<HTMLInputElement>(`input[name="${name}"]`))
+  for (const radio of radios) radio.addEventListener("change", () => radio.checked && set(radio.value as V))
+  return (enabled = true) => {
+    for (const radio of radios) {
+      radio.checked = radio.value === get()
+      radio.disabled = !enabled
+    }
+  }
+}
+
+/** Under the image modes: the model of the vision service that reads no images, while image translation `applies`. */
+export function showVisionUnsupported(status: ImageStatus, applies: boolean): void {
+  const hint = applies && status.support === "no" ? visionHint(status) : ""
+  $("imageUnsupported").hidden = !hint
+  $("imageUnsupported").textContent = hint
+}
+
+/** The line that says the source and the target language are the same. */
+export function showSameLanguage(settings: Pick<Settings, "sourceLang" | "targetLang">): void {
+  $("sameLanguage").hidden = settings.sourceLang !== settings.targetLang
 }

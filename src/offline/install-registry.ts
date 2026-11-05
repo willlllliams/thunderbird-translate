@@ -16,7 +16,7 @@ export type InstallOutcome = { ok: true } | { ok: false; cancelled: true } | { o
 
 
 /** Installations of one service that run at the same time. */
-export const INSTALL_LIMIT = 2
+const INSTALL_LIMIT = 2
 
 export interface InstallRegistryOptions {
   /** The pair key of a direction, the same for every spelling of its languages. */

@@ -53,14 +53,16 @@
  * becomes their last child, so the layout of the table or the list stays.
  */
 
+import { type ConsentQuestion, consentText } from "../shared/consent"
 import { button, h } from "../shared/dom"
-import { getI18n, type MessageKey, t } from "../shared/i18n"
-import { filterImage, filterShape, imageSource } from "../shared/image"
+import { getI18n, t } from "../shared/i18n"
+import { textDirection } from "../shared/locales"
+import { filterShape, imageSource } from "../shared/image"
 import { TABLE_HEADER } from "../shared/image-prompt"
 import { markdownFragment } from "../shared/markdown"
 import type { ImageRequest, ImageResponse } from "../shared/messages"
-import { getPreset, providerDisplayName } from "../shared/providers"
 import type { ConsentNeed, PublicImageSettings } from "../shared/settings"
+import { MessageConsent } from "./consent"
 import { noticeBox } from "./notice"
 import { CLS_IMAGE, CLS_ORIGINAL, type Unit } from "./paragraphs"
 
@@ -83,16 +85,18 @@ function hiddenByStyle(img: HTMLImageElement): boolean {
 /** A length of the attributes or the inline style of an image in pixels ("1", "1px"); NaN for none or another unit. */
 const pixels = (value: string | null) => (value && /^\s*\d+(\.\d+)?\s*(px)?\s*$/i.test(value) ? Number.parseFloat(value) : Number.NaN)
 
+/** Whether the attributes or the inline style of `img` draw it at 2 px or less, as a tracking pixel. */
+const tiny = (img: HTMLImageElement) => [img.getAttribute("width"), img.getAttribute("height"), img.style.width, img.style.height].some((value) => pixels(value) <= 2)
 
-/** What the consent panel says about the data policy of a service; the others handle images by their own privacy policy. */
-const POLICY_KEYS: Record<string, MessageKey> = { anthropic: "imageConsentPolicyAnthropic", gemini: "imageConsentPolicyGemini", openai: "imageConsentPolicyOpenai" }
 
 export interface ImageTranslatorDeps {
   root: () => HTMLElement | null
   /** An image request to the background script. */
   request: (req: ImageRequest) => Promise<ImageResponse>
-  /** The user allowed `ids` to receive images at the `hosts` the panel named; `message`: for this message only. */
-  grant: (ids: string[], message: boolean, hosts?: string[]) => void
+  /** "Allow…" under an image: the question goes to the popup of the message, which answers through answerConsent(); the background script records the answer. */
+  review: (question: Extract<ConsentQuestion, { kind: "image" }>) => void
+  /** The panel went without an answer of the popup. */
+  closed: () => void
   /** The user asked for the access to remote images: the background script opens the popup, which can request it. */
   requestAccess?: () => void
   /** The count of remote images on screen that wait for that access, for the popup. */
@@ -128,9 +132,9 @@ export class ImageTranslator {
   /** The images sent by themselves ("auto") for this message, by sourceKey(); a retranslation counts again. */
   private sent = new Set<string>()
   /** Services allowed in a panel of this message, before the settings that record them arrive. */
-  private allowed = new Set<string>()
-  /** The open consent panel and its answer, shared by every image that waits for it. */
-  private consent: { el: HTMLElement; answer: Promise<boolean>; settle: (allowed: boolean) => void } | null = null
+  private allowed = new MessageConsent()
+  /** The open consent panel, its question and answer, shared by every image that waits for it. */
+  private consent: { el: HTMLElement; question: Extract<ConsentQuestion, { kind: "image" }>; answer: Promise<boolean>; settle: (allowed: boolean) => void } | null = null
   /** Results of this page by image and signature of the settings: a new mode draws them again without asking. */
   private memo = new Map<string, ImageResponse>()
   /** The remote images on screen that wait for the access to remote images, by sourceKey(). */
@@ -138,6 +142,8 @@ export class ImageTranslator {
   /** Remote images Thunderbird did not load, and loaded images whose address cannot be read, that would pass the filters otherwise; by address, so copies count once. */
   private unloaded = new Set<string>()
   private unreadable = new Set<string>()
+  /** The images of a retranslation that already asked past the cache, by sourceKey(): only the first request of an image does, so a copy of it finds the result its twin just cached. */
+  private freshAsked = new Set<string>()
   /** The image whose button was clicked while the access was missing, by sourceKey(): sent once the access is there. */
   private pending: string | null = null
   /** The notice above the message, and whether the user closed it (for the message). */
@@ -159,6 +165,7 @@ export class ImageTranslator {
     if (run.fresh) {
       this.memo.clear()
       this.sent.clear()
+      this.freshAsked.clear()
       this.pending = null
     }
     this.run = run
@@ -174,14 +181,15 @@ export class ImageTranslator {
    * New settings while the message is translated: everything is drawn again when anything of the images changed,
    * except the consent, which the settings record after a panel of this page allowed it while images are on their way.
    */
-  update(next: PublicImageSettings, targetLang: string): void {
+  update(next: PublicImageSettings): void {
     const run = this.run
     if (!run) return
     const prev = run.settings
-    // The consent was taken back, or is asked for every message now: the panel asks again.
-    if ((next.consent && !prev.consent) || (next.confirmEachMessage && !prev.confirmEachMessage)) this.allowed.clear()
+    // Asked for every message now, or no longer, the consent was taken back or the host changed: the panel asks again.
+    if (next.confirmEachMessage !== prev.confirmEachMessage) this.allowed.clear()
+    else this.allowed.follow(prev.consent ? [prev.consent] : [], next.consent ? [next.consent] : [])
     const drawn = ({ consent: _consent, collapsed: _collapsed, showUsage: _showUsage, ...rest }: PublicImageSettings) => JSON.stringify(rest)
-    if (drawn(prev) !== drawn(next) || run.targetLang !== targetLang) return this.start({ ...run, settings: next, targetLang, fresh: false })
+    if (drawn(prev) !== drawn(next)) return this.start({ ...run, settings: next, fresh: false })
     run.settings = next
     // Only how the results show changed: they are drawn again where they are.
     if (prev.collapsed !== next.collapsed || prev.showUsage !== next.showUsage) {
@@ -196,6 +204,7 @@ export class ImageTranslator {
   stop(): void {
     this.round++
     this.run = null
+    if (this.consent) this.deps.closed()
     this.consent?.settle(false)
     for (const [img, listener] of this.waiting) {
       img.removeEventListener("load", listener)
@@ -210,6 +219,11 @@ export class ImageTranslator {
     this.note?.remove()
     this.note = null
     this.report()
+  }
+
+  /** The answer of the popup to the consent panel on screen, recorded by the background script already. */
+  answerConsent(allowed: boolean): void {
+    this.consent?.settle(allowed)
   }
 
   /** Remote images waiting for the access, unloaded and unreadable images: on screen in the notice, the first count to the popup. */
@@ -283,40 +297,43 @@ export class ImageTranslator {
     if (img.naturalWidth === 0) {
       // No pixels: a remote image Thunderbird blocked or could not load counts by the size of its attributes and of its
       // inline style; a tracking pixel and a hidden image never.
-      const tiny = [img.getAttribute("width"), img.getAttribute("height"), img.style.width, img.style.height].some((value) => pixels(value) <= 2)
-      if (source.kind === "remote" && !tiny && !hiddenByStyle(img) && !(place.inSignature && run.settings.skipSignature) && run.settings.sources.inline) {
+      if (source && "url" in source && !tiny(img) && !hiddenByStyle(img) && !(place.inSignature && run.settings.skipSignature) && run.settings.sources.inline) {
         this.unloaded.add(source.url)
         this.drawNote()
       }
       return
     }
     const candidate = { width: img.naturalWidth, height: img.naturalHeight, src, ...place }
-    if (source.kind === "other") {
+    if (!source) {
       if (filterShape(candidate, run.settings) === null) {
         this.unreadable.add(src)
         this.drawNote()
       }
       return
     }
-    // A remote image the reader does not see is a beacon, whatever its natural size: it is not read again.
-    if (source.kind === "remote") {
-      const drawn = img.getBoundingClientRect()
-      if (drawn.width <= 2 || drawn.height <= 2 || hiddenByStyle(img)) return
+    // A remote image the reader does not see is a beacon, whatever its natural size: it is not read again. An original
+    // that translation-only display hid shows as its copy, at the size of its attributes.
+    if ("url" in source) {
+      const drawn = img.closest(`.${CLS_ORIGINAL}`) ? null : img.getBoundingClientRect()
+      if ((drawn ? drawn.width <= 2 || drawn.height <= 2 : tiny(img)) || hiddenByStyle(img)) return
     }
-    if (filterImage(candidate, run.settings) !== null) return
+    if (filterShape(candidate, run.settings) !== null) return
     const anchor = img.closest(".moz-attached-image-container") ?? run.units.find((unit) => unit.el.contains(img))?.el ?? img.closest("a") ?? img
-    const slot = h("div", { className: CLS_IMAGE, lang: getI18n().lang, dir: getI18n().dir })
+    // Focusable from a script only: it keeps the focus of the button a click replaces.
+    const slot = h("div", { className: CLS_IMAGE, lang: getI18n().lang, dir: getI18n().dir, tabindex: "-1" })
     // After the anchor (inside a cell or a list item, at its end), and after the slots of the images before this one under the same anchor.
     const last = this.entries.filter((e) => e.anchor === anchor).at(-1)?.slot
     if (last) last.after(slot)
     else if (INSIDE.has(anchor.tagName)) anchor.append(slot)
     else anchor.after(slot)
-    const from: ImageRequest["source"] = source.kind === "part" ? { part: source.part, ...(source.name ? { name: source.name } : {}) } : source.kind === "remote" ? { url: source.url } : { data: source.data }
-    this.entries.push({ img, source: from, index: this.entries.length + 1, anchor, slot })
+    this.entries.push({ img, source, index: this.entries.length + 1, anchor, slot })
   }
 
   private request(entry: Entry, action: ImageRequest["action"]): Promise<ImageResponse> {
     const run = this.run!
+    const key = sourceKey(entry)
+    const fresh = run.fresh === true && !this.freshAsked.has(key)
+    this.freshAsked.add(key)
     return this.deps.request({
       source: entry.source,
       width: entry.img.naturalWidth,
@@ -325,12 +342,12 @@ export class ImageTranslator {
       action,
       round: this.round,
       ...(run.context ? { context: run.context } : {}),
-      ...(run.fresh ? { fresh: true } : {}),
+      ...(fresh ? { fresh: true } : {}),
     })
   }
 
   private memoKey(entry: Entry): string {
-    return `${this.run!.settings.signature}|${this.run!.targetLang}|${JSON.stringify(entry.source)}`
+    return `${this.run!.settings.signature}|${this.run!.targetLang}|${sourceKey(entry)}`
   }
 
   /**
@@ -356,6 +373,8 @@ export class ImageTranslator {
       if (answer.status !== "ready") return this.show(entry, answer, false)
       if (auto && (this.sent.has(key) || this.sent.size < max)) {
         this.sent.add(key)
+        // Sent by itself: the click of an earlier mode is not waiting for it any more.
+        if (this.pending === key) this.pending = null
         send.push(entry)
       } else if (this.pending === key && !clicked) clicked = entry
       else this.showButton(entry)
@@ -364,7 +383,7 @@ export class ImageTranslator {
     // The image whose button was clicked before the access was there: sent now, as by a click.
     if (clicked) {
       this.pending = null
-      void this.click(clicked)
+      void this.click(clicked, false)
     }
     if (send.length === 0) return
     if (!(await this.ensureConsent(send[0], new Set(send.map(sourceKey)).size))) {
@@ -395,14 +414,16 @@ export class ImageTranslator {
     if (answer.status === "access") {
       this.access.add(sourceKey(entry))
       this.drawNote()
-      return this.click(entry)
+      return this.click(entry, false)
     }
     if (answer.status === "done" || answer.status === "noText") this.memo.set(this.memoKey(entry), { ...answer, ...(answer.status === "done" ? { cached: true, usage: undefined } : {}) })
     this.show(entry, answer, true)
   }
 
-  /** A click on the button: the access to remote images when it is missing, the consent, then the image. */
-  private async click(entry: Entry): Promise<void> {
+  /** A click on the button: the access to remote images when it is missing, the consent, then the image; `byUser`: the click itself, not a click before the access was there. */
+  private async click(entry: Entry, byUser = true): Promise<void> {
+    // The button goes with the next drawing of the slot, which keeps its focus.
+    if (byUser && entry.slot.contains(entry.slot.ownerDocument.activeElement)) entry.slot.focus({ preventScroll: true })
     const key = sourceKey(entry)
     if (this.access.has(key)) {
       this.pending = key
@@ -410,63 +431,77 @@ export class ImageTranslator {
       return this.askAccess()
     }
     const round = this.round
-    if (!(await this.ensureConsent(entry))) {
+    if (!(await this.ensureConsent(entry, 0, byUser))) {
       if (round === this.round) this.showButton(entry)
       return
     }
     if (round === this.round) await this.translate(entry, round)
   }
 
-  /** Whether the vision service may receive images: allowed already, or allowed now in the panel under `entry`; `count`: the images "auto" sends once allowed. */
-  private ensureConsent(entry: Entry, count = 0): Promise<boolean> {
+  /**
+   * Whether the vision service may receive images: allowed already, or allowed now in the panel under `entry`; `count`:
+   * the images "auto" sends once allowed. `focus`: after a click, the panel takes the focus; the panel itself, never a
+   * button, so no key pressed by chance answers it. A panel of "auto" leaves the focus where it is.
+   */
+  private ensureConsent(entry: Entry, count = 0, focus = false): Promise<boolean> {
     const need = this.run!.settings.consent
-    if (!need || this.allowed.has(need.id)) return Promise.resolve(true)
-    if (this.consent) return this.consent.answer
+    if (!need || this.allowed.allows(need)) return Promise.resolve(true)
+    if (this.consent) {
+      if (focus) this.consent.el.focus()
+      return this.consent.answer
+    }
     let settle!: (allowed: boolean) => void
     const answer = new Promise<boolean>((resolve) => (settle = resolve))
-    const el = this.consentPanel(need, count)
+    const s = this.run!.settings
+    const question: Extract<ConsentQuestion, { kind: "image" }> = {
+      kind: "image",
+      need,
+      count,
+      each: s.confirmEachMessage,
+      glossary: s.glossary && Boolean(this.run!.context),
+      maxLongEdge: s.maxLongEdge,
+      format: s.format === "image/png" ? "PNG" : s.format === "image/webp" ? "WebP" : "JPEG",
+    }
+    const el = this.consentPanel(question)
     this.consent = {
       el,
+      question,
       answer,
       settle: (allowed) => {
+        const focused = el.contains(el.ownerDocument.activeElement)
         el.remove()
+        if (focused) entry.slot.focus({ preventScroll: true })
         this.consent = null
-        if (allowed) {
-          this.allowed.add(need.id)
-          this.deps.grant([need.id], this.run?.settings.confirmEachMessage === true, [need.host])
-        }
+        if (allowed) this.allowed.allow(need)
         settle(allowed)
       },
     }
     entry.slot.replaceChildren(el)
-    el.querySelector<HTMLButtonElement>("button")?.focus({ preventScroll: true })
+    if (focus) el.focus()
     return answer
   }
 
   /**
-   * The panel that asks before images go to a service: what is sent (in "auto" how many images, `count`, and the
-   * glossary of the message when it goes along), where to, the data policy of the service, and the two buttons.
+   * The panel that asks before images go to a service: what is sent (in "auto" how many images, and the glossary of
+   * the message when it goes along), where to, the data policy of the service; "Allow…" hands the question to the
+   * popup, "Cancel" answers here.
    */
-  private consentPanel(need: ConsentNeed, count: number): HTMLElement {
-    const run = this.run!
-    const s = run.settings
-    const preset = getPreset(need.id)
-    const name = preset ? providerDisplayName(preset) : need.id
-    const format = s.format === "image/png" ? "PNG" : s.format === "image/webp" ? "WebP" : "JPEG"
-    const title = count > 1 ? t("imageConsentTitleAuto", [count, name]) : t("imageConsentTitle", [name])
-    const allow = t(count > 1 ? "imageConsentAllowAuto" : "imageConsentAllow")
+  private consentPanel(question: Extract<ConsentQuestion, { kind: "image" }>): HTMLElement {
+    const text = consentText(question)
+    const cancel = () => {
+      this.deps.closed()
+      this.consent?.settle(false)
+    }
     return noticeBox(
       "div",
       "tt-consent tt-image-consent",
-      title,
-      {},
-      h("strong", { text: title }),
-      h("p", { text: t("imageConsentWhat", [s.maxLongEdge, format]) }),
-      s.glossary && run.context ? h("p", { text: t("imageConsentGlossary") }) : null,
-      h("ul", {}, h("li", { text: need.host ? t("consentService", [name, need.host]) : name })),
-      h("p", { text: t(POLICY_KEYS[need.id] ?? "imageConsentPolicyOther") }),
-      h("p", { text: t(s.confirmEachMessage ? "imageConsentEach" : "imageConsentOnce") }),
-      h("div", { className: "tt-notice-actions" }, button(allow, () => this.consent?.settle(true), true, t("tipImageConsentAllow")), button(t("consentCancel"), () => this.consent?.settle(false), false, t("tipImageConsentCancel"))),
+      text.title,
+      { tabindex: "-1" },
+      h("strong", { text: text.title }),
+      ...text.before.map((line) => h("p", { text: line })),
+      h("ul", {}, ...text.services.map((line) => h("li", { text: line }))),
+      ...text.after.map((line) => h("p", { text: line })),
+      h("div", { className: "tt-notice-actions" }, button(t("consentReview"), () => this.deps.review(question), true, t("tipConsentReview")), button(t("consentCancel"), cancel, false, t("tipImageConsentCancel"))),
     )
   }
 
@@ -508,7 +543,7 @@ export class ImageTranslator {
     const run = this.run!
     const doc = this.deps.root()!.ownerDocument
     const extra = answer.cached ? t("imageCached") : answer.usage ? t("imageUsage", [answer.usage.input, answer.usage.output]) : ""
-    const body = h("div", { className: "tt-translation tt-image-body", dir: "auto", lang: run.targetLang })
+    const body = h("div", { className: "tt-translation tt-image-body", dir: textDirection(run.targetLang), lang: run.targetLang })
     body.appendChild(markdownFragment(doc, answer.text, { rich: true, header: { from: TABLE_HEADER, to: [t("imageOriginal"), t("imageTranslation")] } }))
     if (answer.truncated) body.appendChild(h("p", { className: "tt-image-note", text: t("imageTruncated") }))
     return h("details", { className: "tt-image-result", open: !run.settings.collapsed }, h("summary", { title: t("tipImageResult") }, [t("imageResultTitle", [answer.service]), ...(extra && (answer.cached || run.settings.showUsage) ? [extra] : [])].join(" · ")), body)

@@ -2,6 +2,69 @@
 
 All notable changes to this project are documented in this file, with the date of each version. It lists what users of the extension notice. The record up to 1.12.0 with the internal changes is kept in [docs/archive/CHANGELOG-full.md](docs/archive/CHANGELOG-full.md). Versions follow [Semantic Versioning](https://semver.org/).
 
+## 3.1.2 - 2026-11-04
+
+### Consent
+
+- "Allow…" in the panel above a message, or under an image, opens the popup of the message header button with the same question; you allow there. The message itself can restyle its panel, so before this version a message could hide the button that allows under a click elsewhere. When the button is not in a toolbar, the popup opens in a window of its own.
+- No panel puts the focus on a button: a key pressed while reading no longer answers it. A panel that opens by itself, with automatic translation, automatic summary or the image mode "On", leaves the focus where it is.
+- With "Ask again for every message", a service whose address changes while the message is open asks again for the new address, as text and the summary already did.
+- One consent per service covers the translation and the summary of a message: a service you allowed for the translation is not asked again for the summary. The panel and the popup say what is sent: the paragraphs, with precise translation the whole message, and for a summary the whole message with its sender, date and subject. The button in the popup reads "Allow" in both cases.
+- The popup answers the question it shows. If the panel asked for another service meanwhile, the answer is not recorded and the popup shows the new question.
+- When the button is not in a toolbar, a message has one popup window: another question focuses it instead of opening a second one, and it closes when no question is left.
+
+### AI services
+
+- New default models for the services whose models were retired or are about to be: OpenAI `gpt-6-luna`, Azure OpenAI `gpt-5.6-luna`, Google Gemini `gemini-3.5-flash-lite`, Groq `openai/gpt-oss-120b`, Moonshot / Kimi `kimi-k3.1-pro`, OpenRouter `openai/gpt-6-luna`, Together AI `Qwen/Qwen3.8-Flash`, Fireworks AI `accounts/fireworks/models/glm-5p3-flash`. The suggestions of the model field leave out the retired models of these services and of Cerebras, DashScope and SiliconFlow. A model you typed yourself stays.
+- Kimi K3 models get no temperature, which they fix themselves. The Google Gemini preset sends none by default either, since Gemini 3.5 Flash-Lite ignores it and later models answer with an error.
+- Thinking mode off follows what each model's documentation allows: Gemini 3.5 Flash-Lite and 3.6 Flash go to their lowest level "minimal" instead of "low", GPT-6.1 Terra no longer thinks at the default level against your wish, and GLM-5.3 on Fireworks AI and Together AI, which cannot stop thinking, no longer gets a value its service may refuse. Together AI's `gpt-oss-120b` gets the lowest effort. Summaries and image reading leave these models room for their reasoning.
+- Zhipu GLM: the default model is `glm-4.7-flash`, and the suggestions are models of Zhipu's model overview (`glm-4.5-air`, `glm-4-flash-250414`).
+- OpenRouter requests carry the header `X-Title` with the name of the extension; the privacy policy and the provider documentation now say so.
+- xAI no longer keeps the text of your requests: every request says `store: false`, which teams with Zero Data Retention need as well.
+- A translation that the service cut at its output limit is no longer shown as complete or cached; the paragraph says so and can be retried.
+
+### Summary
+
+- "Regenerate" keeps the new summary: opening the message again showed the summary written together with the analysis of precise translation, and an older request could still overwrite the new one.
+- A summary written before precise translation analysed the message is found again afterwards, instead of being generated and paid for a second time.
+- "Copy as Markdown" writes a line with a line break or with characters such as `*` and `_` as one literal line. The title line of the panel keeps the keyboard focus when the summary arrives, and "Close" hands it to the "Summary" button.
+
+### Display
+
+- Translation only: remote images inside a paragraph stay visible after its translation, like the other images.
+- A translation into Arabic, Persian or Hebrew reads right to left also when it starts with a Latin name; the same holds for the text of images and the summary.
+- Plain-text messages in Chinese or Japanese have their wrapped lines joined again, without a space between them.
+- "Regenerate", the retry of a paragraph and the buttons under an image keep the keyboard focus where the button was.
+- Popup: "Cancel" of a consent question stays inside the window; the display mode and the image mode can be chosen with the keyboard; "Summary and to-dos" looks disabled when it is.
+- Pressing Alt+A while the consent panel is open no longer starts the translation twice, which left extra wrappers in the message after "Show original".
+
+### Settings and performance
+
+- The settings page stores a prompt, a model, an endpoint, a key or a temperature once you leave the field or press Enter, and a translated message asks its service again once the settings rest for 1.5 seconds. Typing no longer sends the message to the service at every pause.
+- The translation cache moves from the extension storage into its own database, one entry at a time: saving it no longer copies the whole cache to every open page. The cache of earlier versions moves at the first use.
+- "Clear cache" also clears the summaries and analyses the extension keeps in memory.
+- If the cache of an earlier version cannot be moved into the new database, for example after a downgrade and an update, the extension no longer reads it again with every translated paragraph: it works with the new cache and tries again after a minute. Adopting unchanged settings no longer opens the cache database.
+- The style preview on the settings page follows a change of the interface language.
+- A jump to a section of the settings page, from the popup or from a message, no longer hides the heading under the page header.
+- Text still being typed when you close the settings page is written at once, without waiting for an answer of the storage, which the closing page might not outlive.
+- Keyboard: after "Add" or "Use this service" on the settings page, and after "Download common languages", the focus stays on the next button instead of falling to the top of the page. The "Saved" and "Saving failed" note is announced by screen readers and readable in the dark theme.
+- Remote images: an image whose server answers the second request with other bytes, or with a format whose size cannot be read, is no longer decoded and sent. The next request reads such an image anew and sends it, and a request that failed is tried again with the bytes already read.
+- "Retranslate" asks past the cache once for each image: a copy of an image in the same message finds the result its twin has just stored instead of being sent again.
+- A result shown from the cache in the mode "On" stays when you switch to "Ask under each image".
+- A click on an image that waited for the access to remote images no longer sends the image without a click after the mode changed.
+- Images larger than 15 MB are left out, whether they are attached, embedded in the message or remote.
+
+### Texts
+
+- The hints of the image settings and the settings documentation name the remote images among the images of the body.
+- The privacy policy and the notes to reviewers now say what the cache holds (summaries with quotes of the message, analyses, text found in images, not only hashes), that the sample message of the setup guide, "Test connection" and "Test image" send built-in content after your click without a consent panel, and that OpenRouter requests carry the header `X-Title`.
+- A URL with a stray percent sign in its path no longer turns a failed request into "URI malformed" instead of the real error.
+- The privacy policy names the image attachments that are sent, and "Test image" and "Skip this step" among the buttons that ask for the site of a service.
+
+### Dependencies
+
+- zod 4.6.7 and undici 7.30.1, past security advisories published since 3.1.1.
+
 ## 3.1.1 - 2026-10-22
 
 ### Fixed

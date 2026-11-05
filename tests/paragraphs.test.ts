@@ -85,6 +85,14 @@ describe("paragraph detection", () => {
 
   it("does not join a line after a short one", () => {
     expect(unwrapPlainText("Short line\nnext line")).toBe("Short line\nnext line")
+    // D4: 35 Japanese characters fill 70 columns; the lines join without a space.
+    const ja = "お世話になっております。来週の打ち合わせの件ですが、会議室の都合により"
+    expect(unwrapPlainText(`${ja}\n月曜日の午後に変更させてください。`)).toBe(`${ja}月曜日の午後に変更させてください。`)
+    expect(unwrapPlainText(`${ja}\n> 引用`)).toBe(`${ja}\n> 引用`)
+    expect(unwrapPlainText("短い行\n次の行")).toBe("短い行\n次の行")
+    // Korean breaks at a space.
+    const ko = "안녕하세요. 다음 주 회의 건으로 연락드립니다. 회의실 사정으로"
+    expect(unwrapPlainText(`${ko}\n월요일 오후로 바꿔 주세요.`)).toBe(`${ko} 월요일 오후로 바꿔 주세요.`)
     expect(unwrapPlainText("")).toBe("")
   })
 })
@@ -123,7 +131,21 @@ describe("rendering and restoring", () => {
     const node = unit.el.querySelector(".tt-translation")!
     expect(node.className).toBe("tt-translation tt-bilingual tt-style-border tt-pre")
     expect(node.getAttribute("lang")).toBe("zh-CN")
-    expect(node.getAttribute("dir")).toBe("auto")
+    expect(node.getAttribute("dir")).toBe("ltr")
+  })
+
+  it("D3: gives a translation the direction of the target language, whatever its first letters; none without a language", () => {
+    document.body.innerHTML = "<p>You have a new message in Teams</p><p>Second paragraph here</p>"
+    const [first, second] = collectParagraphs(document.body).units
+    const r = new Renderer(document)
+    r.showTranslation(first, "Microsoft Teams: لديك رسالة جديدة", "bilingual", "ar")
+    expect(first.el.querySelector(".tt-translation")!.getAttribute("dir")).toBe("rtl")
+    r.showTranslation(first, "Microsoft Teams: لديك رسالة جديدة", "translation-only", "ar")
+    expect(first.el.querySelector(".tt-translation")!.classList.contains("tt-turned")).toBe(true)
+    r.showTranslation(second, "第二段", "translation-only", "zh-CN")
+    expect(second.el.querySelector(".tt-translation")!.getAttribute("dir")).toBe("ltr")
+    r.showTranslation(second, "第二段", "bilingual")
+    expect(second.el.querySelector(".tt-translation")!.getAttribute("dir")).toBe("auto")
   })
 
   it("shows the original as tooltip in translation-only mode, cut after 600 characters", () => {

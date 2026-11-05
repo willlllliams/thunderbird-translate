@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest"
-import { errorContext } from "../src/background/service"
+import { errorContext } from "../src/background/requests"
 import { AZURE_LIMITS, buildAzureRequest, microsoftTranslateBatch } from "../src/background/translators/microsoft"
 import { describeError } from "../src/shared/errors"
 import { MS_EDGE_TRANSLATE_URL } from "../src/shared/hosts"

@@ -1,11 +1,12 @@
 import { generateText } from "ai"
 import { describe, expect, it, vi } from "vitest"
 import { buildProviderSettings, createLanguageModel } from "../src/background/providers/factory"
-import { supportsThinkingControl, thinkingOptions } from "../src/shared/thinking"
+import { modelRejectsTemperature, outputLimit, supportsThinkingControl, thinkingOptions } from "../src/shared/thinking"
 import { llmAnalyzeMail, llmTranslateBatch, llmTranslateSingle } from "../src/background/translators/llm"
 import { BatchParseError } from "../src/background/translators/common"
-import { PROVIDER_PRESETS } from "../src/shared/providers"
+import { getPreset, PROVIDER_PRESETS } from "../src/shared/providers"
 import { createDefaultSettings, DEFAULT_DEEPL, resolveProvider, resolveProviderConfig } from "../src/shared/settings"
+import { ENGLISH } from "../src/shared/i18n"
 import { anthropicMessage, chatCompletion, jsonResponse, useFakeTimers } from "./helpers"
 
 const LLM_PRESETS = PROVIDER_PRESETS.filter((p) => p.kind === "llm")
@@ -55,6 +56,55 @@ describe("provider presets", () => {
     expect(LLM_PRESETS.length).toBeGreaterThanOrEqual(20)
     expect(PROVIDER_PRESETS.map((p) => p.id)).toEqual(expect.arrayContaining(["google-free", "microsoft-free", "deeplx", "custom"]))
     expect(new Set(PROVIDER_PRESETS.map((p) => p.id)).size).toBe(PROVIDER_PRESETS.length)
+  })
+
+  /**
+   * P1–P5: models the services retired or retire soon, with the day they stop answering (the first day of the month
+   * where the page names no day) and where it says so. No preset suggests one that stops within 90 days of the
+   * release; a default must not be listed at all.
+   */
+  const RETIRED: [preset: string, model: string, shutdown: string, source: string][] = [
+    ["openai", "gpt-4.1-nano", "2026-10-23", "https://developers.openai.com/api/docs/deprecations"],
+    ["openai", "gpt-5", "2026-12-11", "https://developers.openai.com/api/docs/deprecations"],
+    ["openai", "gpt-5-mini", "2026-12-11", "https://developers.openai.com/api/docs/deprecations"],
+    ["openai", "gpt-5-nano", "2026-12-11", "https://developers.openai.com/api/docs/deprecations"],
+    ["openai", "gpt-4.1", "2027-01-14", "https://developers.openai.com/api/docs/deprecations"],
+    ["openai", "gpt-4.1-mini", "2027-01-14", "https://developers.openai.com/api/docs/deprecations"],
+    ["openai", "gpt-4o", "2027-01-14", "https://developers.openai.com/api/docs/deprecations"],
+    ["openai", "gpt-4o-mini", "2027-01-14", "https://developers.openai.com/api/docs/deprecations"],
+    ["openrouter", "openai/gpt-4.1-mini", "2027-01-14", "https://developers.openai.com/api/docs/deprecations"],
+    ["openrouter", "google/gemini-2.5-flash", "2026-12-01", "https://aistudio.google.com/docs/deprecations"],
+    ["gemini", "gemini-2.5-flash", "2026-12-01", "https://aistudio.google.com/docs/deprecations"],
+    ["gemini", "gemini-2.5-pro", "2026-12-01", "https://aistudio.google.com/docs/deprecations"],
+    ["groq", "llama-3.3-70b-versatile", "2026-08-16", "https://console.groq.com/docs/deprecations"],
+    ["groq", "llama-3.1-8b-instant", "2026-08-16", "https://console.groq.com/docs/deprecations"],
+    ["groq", "qwen/qwen3.6-27b", "2026-09-14", "https://console.groq.com/docs/deprecations"],
+    ["moonshot", "kimi-k2-turbo-preview", "2026-05-25", "https://platform.kimi.ai/docs/models"],
+    ["moonshot", "kimi-k2-0905-preview", "2026-05-25", "https://platform.kimi.ai/docs/models"],
+    ["moonshot", "moonshot-v1-8k", "2026-08-31", "https://platform.kimi.ai/docs/models"],
+    ["moonshot", "moonshot-v1-32k", "2026-08-31", "https://platform.kimi.ai/docs/models"],
+    ["cerebras", "qwen-3-32b", "2026-02-16", "https://inference-docs.cerebras.ai/support/deprecation"],
+    ["cerebras", "llama3.1-8b", "2026-05-27", "https://inference-docs.cerebras.ai/support/deprecation"],
+    ["togetherai", "meta-llama/Llama-3.3-70B-Instruct-Turbo", "2026-10-22", "https://docs.together.ai/docs/deprecations"],
+    ["togetherai", "Qwen/Qwen2.5-72B-Instruct-Turbo", "2026-02-06", "https://docs.together.ai/docs/deprecations"],
+    ["togetherai", "deepseek-ai/DeepSeek-V3", "2026-05-14", "https://docs.together.ai/docs/deprecations"],
+    ["fireworks", "accounts/fireworks/models/llama-v3p3-70b-instruct", "2026-05-14", "https://docs.fireworks.ai/updates/changelog"],
+    ["dashscope", "qwen-turbo", "2026-10-10", "https://help.aliyun.com/zh/model-studio/model-depreciation"],
+    ["siliconflow", "THUDM/glm-4-9b-chat", "2026-03-17", "https://api-docs.siliconflow.cn/docs/release-notes/overview"],
+  ]
+
+  it("P1–P5: suggests no model that stops answering within 90 days of the release, and no listed model as default", () => {
+    const release = new Date("2026-11-04")
+    const limit = new Date(release.getTime() + 90 * 86_400_000).toISOString().slice(0, 10)
+    for (const preset of LLM_PRESETS) {
+      const retired = RETIRED.filter(([id]) => id === preset.id)
+      expect([preset.id, retired.filter(([, model]) => model === preset.defaultModel)]).toEqual([preset.id, []])
+      expect([preset.id, retired.filter(([, model, shutdown]) => preset.models.includes(model) && shutdown < limit)]).toEqual([preset.id, []])
+    }
+  })
+
+  it("A9: marks the servers on this computer as local, which the request timeouts read, not by the name of the preset", () => {
+    expect(PROVIDER_PRESETS.filter((p) => p.local).map((p) => p.id)).toEqual(["ollama", "lmstudio"])
   })
 
   it("defaults to the free Google service as machine translation tier", () => {
@@ -141,6 +191,11 @@ describe("thinking switch", () => {
     ["openai", "gpt-4.1-mini", undefined, undefined],
     ["openai", "gpt-5-mini", { openai: { reasoningEffort: "minimal" } }, { openai: { reasoningEffort: "medium" } }],
     ["openai", "gpt-5.1", { openai: { reasoningEffort: "none" } }, { openai: { reasoningEffort: "medium" } }],
+    ["openai", "gpt-6-luna", { openai: { reasoningEffort: "none" } }, { openai: { reasoningEffort: "medium" } }],
+    ["openai", "gpt-6-sol", { openai: { reasoningEffort: "none" } }, { openai: { reasoningEffort: "medium" } }],
+    // The SDK drops "none" for the other GPT-6 models, which would then think at "medium".
+    ["openai", "gpt-6.1-terra", { openai: { reasoningEffort: "low" } }, { openai: { reasoningEffort: "medium" } }],
+    ["azure", "gpt-6.1-sol", { openai: { reasoningEffort: "low" } }, { openai: { reasoningEffort: "medium" } }],
     ["openai", "o4-mini", { openai: { reasoningEffort: "low" } }, { openai: { reasoningEffort: "medium" } }],
     ["azure", "gpt-5-nano", { openai: { reasoningEffort: "minimal" } }, { openai: { reasoningEffort: "medium" } }],
     ["anthropic", "claude-haiku-5-5", { anthropic: { thinking: { type: "disabled" } } }, { anthropic: { thinking: { type: "adaptive" } } }],
@@ -148,6 +203,9 @@ describe("thinking switch", () => {
     ["gemini", "gemini-2.5-flash-lite", { google: { thinkingConfig: { thinkingBudget: 0 } } }, { google: { thinkingConfig: { thinkingBudget: -1 } } }],
     ["gemini", "gemini-2.5-pro", { google: { thinkingConfig: { thinkingBudget: 128 } } }, { google: { thinkingConfig: { thinkingBudget: -1 } } }],
     ["gemini", "gemini-3-flash", { google: { thinkingConfig: { thinkingLevel: "low" } } }, { google: { thinkingConfig: { thinkingLevel: "high" } } }],
+    ["gemini", "gemini-3.5-flash-lite", { google: { thinkingConfig: { thinkingLevel: "minimal" } } }, { google: { thinkingConfig: { thinkingLevel: "high" } } }],
+    ["gemini", "gemini-3.6-flash", { google: { thinkingConfig: { thinkingLevel: "minimal" } } }, { google: { thinkingConfig: { thinkingLevel: "high" } } }],
+    ["gemini", "gemini-3.8-flash", { google: { thinkingConfig: { thinkingLevel: "low" } } }, { google: { thinkingConfig: { thinkingLevel: "high" } } }],
     ["deepseek", "deepseek-flash", { deepseek: { thinking: { type: "disabled" } } }, { deepseek: { thinking: { type: "enabled" } } }],
     ["xai", "grok-4.5", { xai: { reasoningEffort: "low" } }, { xai: { reasoningEffort: "high" } }],
     ["xai", "grok-4.7", { xai: { reasoningEffort: "low" } }, { xai: { reasoningEffort: "high" } }],
@@ -158,7 +216,12 @@ describe("thinking switch", () => {
     ["groq", "openai/gpt-oss-20b", { groq: { reasoningEffort: "low" } }, { groq: { reasoningEffort: "medium" } }],
     ["mistral", "mistral-small-latest", { mistral: { reasoningEffort: "none" } }, { mistral: { reasoningEffort: "high" } }],
     ["togetherai", "meta-llama/Llama-3.3-70B-Instruct-Turbo", undefined, undefined],
+    ["togetherai", "openai/gpt-oss-120b", { togetherai: { reasoningEffort: "low" } }, { togetherai: { reasoningEffort: "medium" } }],
+    ["togetherai", "zai-org/GLM-5.3-Flash", undefined, { togetherai: { reasoning: { enabled: true } } }],
+    ["togetherai", "zai-org/GLM-4.6", { togetherai: { reasoning: { enabled: false } } }, { togetherai: { reasoning: { enabled: true } } }],
     ["togetherai", "Qwen/Qwen3-235B-A22B", { togetherai: { reasoning: { enabled: false } } }, { togetherai: { reasoning: { enabled: true } } }],
+    ["fireworks", "accounts/fireworks/models/glm-5p3-flash", { fireworks: { reasoningEffort: "low" } }, { fireworks: { reasoningEffort: "medium" } }],
+    ["fireworks", "accounts/fireworks/models/glm-5p2", { fireworks: { reasoningEffort: "none" } }, { fireworks: { reasoningEffort: "medium" } }],
     ["fireworks", "accounts/fireworks/models/deepseek-v3p1", { fireworks: { reasoningEffort: "none" } }, { fireworks: { reasoningEffort: "medium" } }],
     ["deepinfra", "deepseek-ai/DeepSeek-V3", { deepinfra: { reasoningEffort: "none" } }, { deepinfra: { reasoningEffort: "high" } }],
     ["cerebras", "gpt-oss-120b", { cerebras: { reasoningEffort: "low" } }, { cerebras: { reasoningEffort: "medium" } }],
@@ -169,6 +232,8 @@ describe("thinking switch", () => {
     ["openrouter", "openai/gpt-4.1-mini", { openrouter: { reasoning: { enabled: false } } }, { openrouter: { reasoning: { enabled: true } } }],
     ["openrouter", "openai/gpt-5-mini", { openrouter: { reasoning: { effort: "low" } } }, { openrouter: { reasoning: { enabled: true } } }],
     ["zhipu", "glm-4-flash", undefined, undefined],
+    ["zhipu", "glm-4.7-flash", { zhipu: { thinking: { type: "disabled" } } }, { zhipu: { thinking: { type: "enabled" } } }],
+    ["zhipu", "glm-5.3", undefined, { zhipu: { thinking: { type: "enabled" } } }],
     ["zhipu", "glm-4.5-air", { zhipu: { thinking: { type: "disabled" } } }, { zhipu: { thinking: { type: "enabled" } } }],
     ["siliconflow", "Qwen/Qwen3-8B", { siliconflow: { enable_thinking: false } }, { siliconflow: { enable_thinking: true } }],
     ["doubao", "doubao-seed-2-0-mini-260428", { doubao: { thinking: { type: "disabled" } } }, { doubao: { thinking: { type: "enabled" } } }],
@@ -176,6 +241,27 @@ describe("thinking switch", () => {
   ])("%s %s", (id, model, expectedOff, expectedOn) => {
     expect(off(id, model)).toEqual(expectedOff)
     expect(on(id, model)).toEqual(expectedOn)
+  })
+
+  it("PV1-PV6: gives a model that cannot stop thinking room for its reasoning, and one that can no more than the answer", () => {
+    expect(outputLimit("openai", "gpt-6.1-terra", false, 800)).toBe(4896)
+    expect(outputLimit("openai", "gpt-6-luna", false, 800)).toBe(800)
+    expect(outputLimit("gemini", "gemini-3.5-flash-lite", false, 800)).toBe(4896)
+    expect(outputLimit("fireworks", "accounts/fireworks/models/glm-5p3-flash", false, 800)).toBe(4896)
+    expect(outputLimit("togetherai", "openai/gpt-oss-120b", false, 800)).toBe(4896)
+    expect(outputLimit("togetherai", "zai-org/GLM-5.3-Flash", false, 800)).toBe(4896)
+  })
+
+  it("PV4: the Gemini preset sends no temperature by default, and none to the models from 3.5 on whatever the field holds", () => {
+    expect(getPreset("gemini")!.defaultTemperature).toBeNull()
+    for (const model of ["gemini-3.5-flash-lite", "gemini-3.6-flash", "gemini-3.8-flash", "gemini-4-flash"]) expect([model, modelRejectsTemperature("gemini", model)]).toEqual([model, true])
+    for (const model of ["gemini-2.5-flash-lite", "gemini-3-flash", "gemini-3.1-pro-preview"]) expect([model, modelRejectsTemperature("gemini", model)]).toEqual([model, false])
+    expect(modelRejectsTemperature("openai", "gemini-3.5-flash-lite")).toBe(false)
+  })
+
+  it("PV5: the default and the suggestions of the Zhipu preset are models of its model overview", () => {
+    const zhipu = getPreset("zhipu")!
+    expect([zhipu.defaultModel, zhipu.models]).toEqual(["glm-4.7-flash", ["glm-4.7-flash", "glm-4.5-air", "glm-4-flash-250414"]])
   })
 
   it("is not offered by providers without a thinking parameter", () => {
@@ -214,8 +300,10 @@ describe("thinking switch", () => {
 
   it("sends the switch in each provider's own format", async () => {
     expect((await requestBody("anthropic", false)).thinking).toEqual({ type: "disabled" })
-    expect(((await requestBody("gemini", false)).generationConfig as Record<string, unknown>).thinkingConfig).toEqual({ thinkingBudget: 0 })
-    expect((await requestBody("openai", false)).reasoning_effort).toBeUndefined()
+    expect(((await requestBody("gemini", false)).generationConfig as Record<string, unknown>).thinkingConfig).toEqual({ thinkingLevel: "minimal" })
+    // The Gemini preset sends no temperature.
+    expect(((await requestBody("gemini", false)).generationConfig as Record<string, unknown>).temperature).toBeUndefined()
+    expect((await requestBody("openai", false)).reasoning_effort).toBe("none")
     expect((await requestBody("dashscope", false)).enable_thinking).toBe(false)
     expect((await requestBody("ollama", false)).reasoning_effort).toBe("none")
   })
@@ -255,7 +343,7 @@ describe("LLM calls", () => {
     await llmTranslateSingle({ text: "Hello" }, opts({ ...configFor("openai"), temperature: 0.2 }, fetchFn))
     await llmTranslateSingle({ text: "Hello" }, opts({ ...configFor("openai"), temperature: null }, fetchFn))
     expect(bodies.map((b) => b.temperature)).toEqual([0.2, undefined])
-    expect((bodies[0].messages as { role: string; content: string }[])[0]).toEqual({ role: "system", content: "Into Chinese." })
+    expect((bodies[0].messages as { role: string; content: string }[])[0].content).toBe("Into Chinese.")
   })
 
   it("leaves the temperature out for Claude models that reject it", async () => {
@@ -268,6 +356,33 @@ describe("LLM calls", () => {
     expect(body.temperature).toBeUndefined()
     await llmTranslateSingle({ text: "Hello" }, opts({ ...configFor("anthropic"), model: "claude-haiku-4-5", temperature: 0.3 }, fetchFn))
     expect(body.temperature).toBe(0.3)
+  })
+
+  it("P7: refuses a translation the service cut at its output limit; a batch falls back to one request per paragraph", async () => {
+    const cut = (async () => chatCompletion("半截", "length")) as unknown as typeof fetch
+    await expect(llmTranslateSingle({ text: "Hello" }, opts(configFor("openai"), cut))).rejects.toThrow(ENGLISH.t("errTranslationCutOff"))
+    await expect(llmTranslateBatch([{ text: "a" }, { text: "b" }], opts(configFor("openai"), (async () => chatCompletion("1. foo\n2. ba", "length")) as unknown as typeof fetch))).rejects.toBeInstanceOf(BatchParseError)
+  })
+
+  it("P6: tells xAI not to store the request, beside the thinking switch", async () => {
+    let body: Record<string, unknown> = {}
+    const fetchFn = (async (input: RequestInfo | URL, init?: RequestInit) => {
+      body = JSON.parse(String(init?.body))
+      return fakeResponse(String(input))
+    }) as typeof fetch
+    await llmTranslateSingle({ text: "Hello" }, opts({ ...configFor("xai"), thinking: false }, fetchFn))
+    expect(body.store).toBe(false)
+    expect(body.reasoning).toMatchObject({ effort: "none" })
+    await llmTranslateSingle({ text: "Hello" }, opts(configFor("openai"), fetchFn))
+    expect(body.store).toBeUndefined()
+  })
+
+  it("P2: leaves the temperature out for Kimi K3 models, which fix it, and sends the low effort with thinking off", async () => {
+    const { bodies, fetchFn } = recorder()
+    expect(configFor("moonshot")).toMatchObject({ model: "kimi-k3.1-pro", temperature: null })
+    await llmTranslateSingle({ text: "Hello" }, opts({ ...configFor("moonshot"), temperature: 0.3 }, fetchFn))
+    expect(bodies[0].temperature).toBeUndefined()
+    expect(bodies[0].reasoning_effort).toBe("low")
   })
 
   it("leaves no timer behind a request with a timeout, answered or failed", async () => {

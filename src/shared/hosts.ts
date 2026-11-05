@@ -19,6 +19,7 @@
  * users of 3.0 and earlier keep the access to their services.
  */
 
+import { offlineServiceOf } from "./offline-needs"
 import { getPreset } from "./providers"
 import type { ResolvedProvider } from "./settings"
 
@@ -98,7 +99,7 @@ export function patternHost(pattern: string): string {
 /** The URL that requests of a service go to; null for the offline services. */
 export function requestUrl(provider: ResolvedProvider): string | null {
   const kind = getPreset(provider.id)?.kind
-  if (kind === undefined || kind === "dictionary" || kind === "bergamot") return null
+  if (kind === undefined || offlineServiceOf(provider.id)) return null
   if (kind === "microsoft" && provider.mode !== "key") return MS_EDGE_TRANSLATE_URL
   return provider.baseURL
 }

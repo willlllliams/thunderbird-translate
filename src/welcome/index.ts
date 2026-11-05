@@ -11,26 +11,21 @@ import { type ContentClient, connectContent } from "../content/client"
 import { sampleRenderer } from "../content/render"
 import { ext } from "../shared/ext"
 import { getI18n, t } from "../shared/i18n"
-import { localizeDocument } from "../shared/i18n-dom"
-import { followUiLanguage, loadExtensionI18n } from "../shared/i18n-ext"
-import { normalizeUiLanguageSetting } from "../shared/locales"
-import { $, fillSelect, fillTierSelects, languageOptions, onTierChange, showSaved, showSaveError, sourceLanguageOptions, tierOptions, uiLanguageOptions, visionHint } from "../shared/page"
+import { $, bindRadios, fillSelect, fillTierSelects, onTierChange, showSameLanguage as showSameLanguagePage, showVisionUnsupported, tierOptions } from "../shared/page"
 import { PROMPT_KINDS } from "../shared/prompts"
 import { getPreset, type Tier } from "../shared/providers"
 import { addProvidersInUse, type DisplayMode, type ImageMode, imageStatus, type Settings } from "../shared/settings"
 import type { BergamotSection } from "../options/bergamot"
 import type { DictionarySection } from "../options/dictionaries"
 import { h } from "../shared/dom"
-import { loadSystemLanguages } from "../options/offline-list"
-import { offlineSections } from "../options/offline-sections"
-import { PromptEditor } from "../options/prompt-editor"
+import type { PromptEditor } from "../options/prompt-editor"
 import { requestHostAccess } from "../options/host-access"
 import { providerConfig, servicePanel } from "../options/provider-panel"
-import { SettingsSession } from "../options/session"
-import { mountStyleControls } from "../options/style-controls"
+import type { SettingsSession } from "../options/session"
 import { welcomeProbe } from "../hooks/welcome"
 import { TierDemo, TierTour } from "./demo"
 import { neighbourStep, resumeStep, STEP_IDS, STEP_TITLE_KEYS, type StepId, stepNeeded, TRY_MAIL, trialLanguage, WELCOME_KEY, type WelcomeState } from "./steps"
+import { fillLanguageControls, openSettingsPage } from "../options/page-setup"
 
 declare const __DEBUG__: boolean
 
@@ -49,6 +44,9 @@ let toured = false
 let offlineLanguages = ""
 /** Number of directions "Download selected" is downloading; 0 when it does not run. */
 let downloading = 0
+/** Check the radio buttons of the display mode and the image mode as the settings say; bound in main(). */
+let showModes: () => void = () => {}
+let showImageModes: () => void = () => {}
 /** How the last "Download selected" ended. */
 let downloadResult = ""
 
@@ -142,7 +140,7 @@ const finish = () => leave({ step, finished: true })
 /* ---------- step 1: languages ---------- */
 
 function showSameLanguage(): void {
-  $("sameLanguage").hidden = settings.sourceLang !== settings.targetLang
+  showSameLanguagePage(settings)
 }
 
 /* ---------- step 2: display mode ---------- */
@@ -155,7 +153,7 @@ function renderModePreview(): void {
   box.replaceChildren(...originals)
   const sample = sampleRenderer(box, settings.style)
   originals.forEach((el, i) => sample.show(el, translations[i], settings.mode))
-  for (const radio of Array.from(document.querySelectorAll<HTMLInputElement>('input[name="mode"]'))) radio.checked = radio.value === settings.mode
+  showModes()
 }
 
 /* ---------- step 3: tiers ---------- */
@@ -247,11 +245,8 @@ function fillAiServices(): void {
 /** The mode of image translation under precise translation, greyed out while precise translation is off; a model of the AI service that reads no images is named, as in the popup. */
 function showImageMode(): void {
   $<HTMLFieldSetElement>("imageModeGroup").disabled = !settings.precise.enabled
-  for (const radio of Array.from(document.querySelectorAll<HTMLInputElement>('input[name="imageMode"]'))) radio.checked = radio.value === settings.image.mode
-  const status = imageStatus(settings)
-  const hint = status.support === "no" ? visionHint(status) : ""
-  $("imageUnsupported").hidden = !hint
-  $("imageUnsupported").textContent = hint
+  showImageModes()
+  showVisionUnsupported(imageStatus(settings), true)
 }
 
 /* ---------- step 8: trial ---------- */
@@ -279,11 +274,7 @@ async function tryIt(): Promise<void> {
 /* ---------- language of the page ---------- */
 
 function applyLanguage(): void {
-  const i18n = getI18n()
-  localizeDocument(i18n)
-  fillSelect($<HTMLSelectElement>("uiLanguage"), uiLanguageOptions(i18n), settings.uiLanguage)
-  fillSelect($<HTMLSelectElement>("sourceLang"), sourceLanguageOptions(i18n), settings.sourceLang)
-  fillSelect($<HTMLSelectElement>("targetLang"), languageOptions(i18n), settings.targetLang)
+  fillLanguageControls(settings)
   fillTierSelects(settings, true)
   renderStepList()
   prompts.refresh()
@@ -296,13 +287,8 @@ function applyLanguage(): void {
   enterStep()
 }
 
-/** Set once the page has its first language. */
-let followLanguage: (setting: unknown) => Promise<void> = async () => {}
-
-async function changeUiLanguage(value: unknown): Promise<void> {
-  settings.uiLanguage = normalizeUiLanguageSetting(value)
-  await followLanguage(settings.uiLanguage)
-}
+/** Set once the page has its first language (openSettingsPage()). */
+let changeUiLanguage: (value: unknown) => Promise<void> = async () => {}
 
 /** Changes made elsewhere (popup, settings page) were taken over. */
 function remoteChanged(before: Settings): void {
@@ -317,28 +303,20 @@ function remoteChanged(before: Settings): void {
 }
 
 async function main(): Promise<void> {
-  session = await SettingsSession.open()
-  settings = session.settings
-  session.onRemoteChange = remoteChanged
-  session.onSaved = showSaved
-  session.onSaveError = showSaveError
-  ;({ dictionaries, bergamot } = offlineSections(() => settings, { pick: true, onRender: showDownloadState }))
-  prompts = new PromptEditor($("promptEditor"), session, PROMPT_KINDS)
-  mountStyleControls($("styleControls"), session, renderModePreview)
   demo = new TierDemo($("tierDemo"), $("demoStatus"))
   tour = new TierTour(() => {
     toured = true
     void saveState({ step })
   })
-  await Promise.all([loadExtensionI18n(settings.uiLanguage), loadSystemLanguages()])
-  followLanguage = followUiLanguage(settings.uiLanguage, applyLanguage)
+  ;({ session, settings, dictionaries, bergamot, prompts, changeUiLanguage } = await openSettingsPage({
+    kinds: PROMPT_KINDS,
+    offline: { pick: true, onRender: showDownloadState },
+    stylePreview: renderModePreview,
+    applyLanguage,
+    onRemoteChange: remoteChanged,
+  }))
 
   // Step 1
-  const uiLanguage = $<HTMLSelectElement>("uiLanguage")
-  uiLanguage.addEventListener("change", () => {
-    void changeUiLanguage(uiLanguage.value)
-    session.save()
-  })
   for (const id of ["sourceLang", "targetLang"] as const) {
     session.bind(id, "change", (el) => (el.value = settings[id]), (el) => {
       settings[id] = el.value
@@ -348,14 +326,12 @@ async function main(): Promise<void> {
   showSameLanguage()
 
   // Step 2
-  for (const radio of Array.from(document.querySelectorAll<HTMLInputElement>('input[name="mode"]'))) {
-    radio.addEventListener("change", () => {
-      if (!radio.checked) return
-      settings.mode = radio.value as DisplayMode
-      renderModePreview()
-      session.save()
-    })
-  }
+  showModes = bindRadios<DisplayMode>("mode", () => settings.mode, (mode) => {
+    settings.mode = mode
+    renderModePreview()
+    session.save()
+  })
+  showModes()
 
   // Step 3: at least one tier keeps a service.
   onTierChange(() => settings.tiers, setTier)
@@ -368,8 +344,6 @@ async function main(): Promise<void> {
 
   // Step 4
   $("downloadPicked").addEventListener("click", () => void downloadPicked())
-  $("dictFilter").addEventListener("input", () => dictionaries.render())
-  $("bergamotFilter").addEventListener("input", () => bergamot.render())
 
   // Step 6
   const aiService = $<HTMLSelectElement>("aiService")
@@ -381,14 +355,12 @@ async function main(): Promise<void> {
     settings.precise.enabled = v
     showImageMode()
   })
-  session.track($("imageModeGroup"), showImageMode)
-  for (const radio of Array.from(document.querySelectorAll<HTMLInputElement>('input[name="imageMode"]'))) {
-    radio.addEventListener("change", () => {
-      if (!radio.checked) return
-      settings.image.mode = radio.value as ImageMode
-      session.save()
-    })
-  }
+  session.onRemote(showImageMode)
+  showImageModes = bindRadios<ImageMode>("imageMode", () => settings.image.mode, (mode) => {
+    settings.image.mode = mode
+    session.save()
+  })
+  showImageModes()
 
   // Step 8
   session.bindCheck("autoTranslate", () => settings.autoTranslate, (v) => (settings.autoTranslate = v))
@@ -411,11 +383,6 @@ async function main(): Promise<void> {
   $("nextStep").addEventListener("click", forward)
   $("skipStep").addEventListener("click", forward)
   $("exitGuide").addEventListener("click", () => void exit())
-  // The progress of the downloads, also those another page started, and installed or deleted packs and models.
-  ext.runtime.onMessage.addListener((message: unknown) => {
-    dictionaries.receive(message)
-    bergamot.receive(message)
-  })
 
   const stored = (await ext.storage.local.get(WELCOME_KEY))[WELCOME_KEY] as WelcomeState | undefined
   toured = stored?.toured === true

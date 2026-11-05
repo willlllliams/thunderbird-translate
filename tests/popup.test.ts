@@ -49,6 +49,35 @@ describe("translation state", () => {
     expect($("lastError").hidden).toBe(true)
   })
 
+  it("S1: shows the questions of the consent panels of the message, answers them, and takes the focus on them, not on a button", async () => {
+    const text = { kind: "text" as const, needs: [{ id: "google-free", host: "translate.googleapis.com" }], uses: ["paragraphs" as const, "summary" as const], id: 11 }
+    const image = { id: 12, kind: "image" as const, need: { id: "openai", host: "api.openai.com" }, count: 3, each: false, glossary: true, maxLongEdge: 1568, format: "JPEG" }
+    let questions = [text, image]
+    const page = await popup(() => tabState({ consent: questions }))
+    await until(() => expect($("consentAsk").hidden).toBe(false))
+    const groups = Array.from($("consentAsk").querySelectorAll<HTMLElement>("[role=group]"))
+    expect(groups.map((g) => g.getAttribute("aria-label"))).toEqual([ENGLISH.t("consentTitle"), ENGLISH.t("imageConsentTitleAuto", [3, "OpenAI"])])
+    expect(groups[0].querySelector("li")!.textContent).toBe(ENGLISH.t("consentService", ["Google Translate (free)", "translate.googleapis.com"]))
+    // What is sent: the paragraphs to translate and the message with sender, date and subject to summarize; one neutral button.
+    expect(groups[0].textContent).toContain(ENGLISH.t("consentBody"))
+    expect(groups[0].textContent).toContain(ENGLISH.t("consentBodySummary"))
+    expect(groups[0].querySelector("button")!.textContent).toBe(ENGLISH.t("consentAllow"))
+    expect(groups[1].textContent).toContain(ENGLISH.t("imageConsentGlossary"))
+    expect(Array.from(groups[1].querySelectorAll("button"), (b) => [b.textContent, b.title])).toEqual([
+      [ENGLISH.t("imageConsentAllowAuto"), ENGLISH.t("tipImageConsentAllow")],
+      [ENGLISH.t("consentCancel"), ENGLISH.t("tipImageConsentCancel")],
+    ])
+    expect(document.activeElement).toBe($("consentAsk"))
+    questions = [image]
+    groups[0].querySelector<HTMLButtonElement>("button")!.click()
+    await until(() => expect(page.sendMessage).toHaveBeenCalledWith({ type: "answerConsent", tabId: 3, kind: "text", id: 11, allowed: true }))
+    await until(() => expect($("consentAsk").querySelectorAll("[role=group]")).toHaveLength(1))
+    questions = []
+    $("consentAsk").querySelectorAll<HTMLButtonElement>("button")[1].click()
+    await until(() => expect(page.sendMessage).toHaveBeenCalledWith({ type: "answerConsent", tabId: 3, kind: "image", id: 12, allowed: false }))
+    await until(() => expect($("consentAsk").hidden).toBe(true))
+  })
+
   it("shows the first line of the most recent failure, shortened, with the full text as tooltip", async () => {
     const lastError = `OpenAI: HTTP 429 Too Many Requests ${"x".repeat(120)}\nTry again later.`
     await popup(tabState({ active: true, total: 2, done: 1, failed: 1, lastError }))
@@ -206,7 +235,7 @@ describe("interface language", () => {
 
 describe("summary and to-dos", () => {
   it("asks the content script for the summary, with an AI service of its own or of the AI tier", async () => {
-    const page = await popup(tabState({}))
+    await popup(tabState({}))
     const summarize = $<HTMLButtonElement>("summarize")
     expect([summarize.disabled, summarize.title]).toEqual([true, ENGLISH.t("tipSummarizeNone")])
     const settings = createDefaultSettings("en")
@@ -216,7 +245,6 @@ describe("summary and to-dos", () => {
     expect($("summarize").title).toBe(ENGLISH.t("tipSummarize"))
     $("summarize").click()
     await until(() => expect(ready.sendMessage).toHaveBeenCalledWith({ type: "summarizeTab", tabId: 3 }))
-    expect(page).toBeDefined()
   })
 
   it("is disabled without a content script", async () => {

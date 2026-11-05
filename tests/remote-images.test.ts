@@ -5,9 +5,12 @@
  * for the access; the address of a remote image as the content script reads it (shared/image.ts).
  */
 import { describe, expect, it, vi } from "vitest"
-import { fetchRemoteImage, HeldImages, imageUrlsOf, messageImageUrls, offerRemoteAccess, readableHost, REMOTE_MAX_BYTES, RemoteImages, srcsetUrls } from "../src/background/remote-images"
+import { fetchRemoteImage, HeldImages, imageUrlsOf, messageImageUrls, offerRemoteAccess, readableHost, RemoteImages, srcsetUrls } from "../src/background/remote-images"
+import { IMAGE_MAX_BYTES } from "../src/shared/image"
 import { messageImageAddresses } from "../src/background/displayed"
-import { imageSource, remoteImageUrl, sniffImageType } from "../src/shared/image"
+import { imageSource, remoteImageUrl } from "../src/shared/image"
+import { sniffImageType } from "../src/background/image-format"
+import { until } from "./helpers"
 
 const parse = (html: string) => new DOMParser().parseFromString(html, "text/html")
 
@@ -32,9 +35,9 @@ describe("the address of a remote image", () => {
     expect(remoteImageUrl("https://cdn.example.com/a b.png")).toBe("https://cdn.example.com/a%20b.png")
     expect(remoteImageUrl("HTTP://Example.COM/x.png")).toBe("http://example.com/x.png")
     for (const src of ["https://user:pw@example.com/a.png", "https://user@example.com/a.png", "ftp://example.com/a.png", "data:image/png;base64,AA", "mailbox:///x?part=1.2", "not a url"]) expect(remoteImageUrl(src)).toBeNull()
-    expect(imageSource("https://example.com/r.png")).toEqual({ kind: "remote", url: "https://example.com/r.png" })
+    expect(imageSource("https://example.com/r.png")).toEqual({ url: "https://example.com/r.png" })
     // An address with credentials is no source the extension reads.
-    expect(imageSource("https://user:pw@example.com/r.png")).toEqual({ kind: "other" })
+    expect(imageSource("https://user:pw@example.com/r.png")).toBeNull()
   })
 })
 
@@ -151,7 +154,7 @@ describe("the request of a remote image", () => {
   })
 
   it("drops a larger image by its Content-Length before reading, and while reading once the bytes pass the limit", async () => {
-    const declared = streamed([bytes(10)], { "content-type": "image/jpeg", "content-length": String(REMOTE_MAX_BYTES + 1) })
+    const declared = streamed([bytes(10)], { "content-type": "image/jpeg", "content-length": String(IMAGE_MAX_BYTES + 1) })
     expect(await fetchRemoteImage("https://example.com/a.jpg", { fetchFn: async () => declared.response })).toBe("large")
     expect(declared.cancel).toHaveBeenCalled()
     // No Content-Length: the third chunk passes the limit of 10 bytes, and the reading stops there.
@@ -192,28 +195,31 @@ describe("the bytes kept from a peek", () => {
     held.hold(a, "1", original(6))
     held.hold(a, "2", original(6))
     // The second image of the session would pass its limit of 10.
-    expect([held.get(a, "1")?.bytes.length, held.get(a, "2"), held.size]).toEqual([6, undefined, 6])
+    expect([held.get(a, "1")?.bytes.length, held.get(a, "2")]).toEqual([6, undefined])
     held.hold(a, "3", original(4))
     held.hold(b, "1", original(8))
     // 18 of 16: the oldest image of the other session goes.
-    expect([held.get(a, "1"), held.get(a, "3")?.bytes.length, held.get(b, "1")?.bytes.length, held.size]).toEqual([undefined, 4, 8, 12])
+    expect([held.get(a, "1"), held.get(a, "3")?.bytes.length, held.get(b, "1")?.bytes.length]).toEqual([undefined, 4, 8])
     // An image larger than all is not kept.
     held.hold(b, "2", original(20))
     held.hold(b, "3", original(2))
-    expect([held.get(b, "2"), held.get(b, "3")?.bytes.length, held.size]).toEqual([undefined, 2, 14])
+    expect([held.get(b, "2"), held.get(b, "3")?.bytes.length]).toEqual([undefined, 2])
     // Room for a new image of the first session: the oldest image of the other one goes, never one of its own.
     held.hold(a, "4", original(5))
-    expect([held.get(b, "1"), held.get(a, "3")?.bytes.length, held.get(a, "4")?.bytes.length, held.size]).toEqual([undefined, 4, 5, 11])
+    expect([held.get(b, "1"), held.get(a, "3")?.bytes.length, held.get(a, "4")?.bytes.length]).toEqual([undefined, 4, 5])
+    // 11 of 16 held: a release frees its bytes, so an image of 7 fits beside the others (7 + 9 = 16).
     held.release(b, "3")
     held.release(b, "nothing")
-    expect(held.size).toBe(9)
+    held.hold(b, "5", original(7))
+    expect([held.get(b, "3"), held.get(b, "5")?.bytes.length, held.get(a, "3")?.bytes.length, held.get(a, "4")?.bytes.length]).toEqual([undefined, 7, 4, 5])
     held.clear(a)
-    expect([held.get(a, "3"), held.size]).toEqual([undefined, 0])
+    held.clear(b)
+    expect([held.get(a, "3"), held.get(b, "5")]).toEqual([undefined, undefined])
     // Only the images of the session itself would make room: the new one is not kept.
     const tight = new HeldImages(10, 8)
     tight.hold(a, "1", original(5))
     tight.hold(a, "2", original(4))
-    expect([tight.get(a, "2"), tight.size]).toEqual([undefined, 5])
+    expect([tight.get(a, "2"), tight.get(a, "1")?.bytes.length]).toEqual([undefined, 5])
   })
 
   it("A7: are read two at a time per message, so another message does not wait for a slow server", async () => {
@@ -227,13 +233,13 @@ describe("the bytes kept from a peek", () => {
     const slow = new RemoteImages({ imageUrls: async () => new Set(urls), fetchFn: fetchFn as unknown as typeof fetch, held })
     const signal = new AbortController().signal
     const reads = urls.map((url) => slow.bytes(1, url, signal))
-    await vi.waitFor(() => expect(fetchFn).toHaveBeenCalledTimes(2))
+    await until(() => expect(fetchFn).toHaveBeenCalledTimes(2))
     // Another message reads at once.
     const other = new RemoteImages({ imageUrls: async () => new Set(urls), fetchFn: async () => streamed([new Uint8Array([2])]).response, held })
     expect(await other.bytes(2, urls[0], signal)).toEqual({ bytes: new Uint8Array([2]), type: "image/png" })
     expect(fetchFn).toHaveBeenCalledTimes(2)
     waiting.shift()!()
-    await vi.waitFor(() => expect(fetchFn).toHaveBeenCalledTimes(3))
+    await until(() => expect(fetchFn).toHaveBeenCalledTimes(3))
     for (const resolve of waiting.splice(0)) resolve()
     expect((await Promise.all(reads)).map((r) => r && r !== "large" && r.bytes[0])).toEqual([1, 1, 1])
     // Without the addresses of the message nothing is read.

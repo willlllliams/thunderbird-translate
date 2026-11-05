@@ -4,6 +4,7 @@ import { getPreset } from "../src/shared/providers"
 import {
   addedByDefault,
   addedProviders,
+  consentKey,
   consentNeeds,
   consentParts,
   createDefaultSettings,
@@ -314,6 +315,8 @@ describe("consent to online services", () => {
     s.providers.ollama.baseURL = "http://localhost:11434/v1"
     expect(hasConsent(s, "onlineConsent", "ollama")).toBe(true)
     expect(consentParts("ollama@localhost")).toEqual({ id: "ollama", host: "localhost" })
+    // A16: one form of the entry, written and read.
+    for (const entry of ["ollama@localhost", "custom@", "openai@api.openai.com"]) expect(consentKey(consentParts(entry))).toBe(entry)
   })
 })
 

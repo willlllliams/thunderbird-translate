@@ -1,3 +1,5 @@
+import { type AskedQuestion, consentText } from "../shared/consent"
+import { button, h } from "../shared/dom"
 import { firstLine, truncate } from "../shared/errors"
 import { ext } from "../shared/ext"
 import { t } from "../shared/i18n"
@@ -5,7 +7,7 @@ import { localizeDocument } from "../shared/i18n-dom"
 import { followUiLanguage, loadExtensionI18n } from "../shared/i18n-ext"
 import { REMOTE_ORIGINS } from "../shared/hosts"
 import { IDLE_TAB_STATE, type OfflineStatus, type OptionsPlace, type PageNotice, send, type TabState } from "../shared/messages"
-import { $, fillSelect, fillTierSelects, languageOptions, offlineStatus, onTierChange, showImagePreciseNote, showOfflineHint, sourceLanguageOptions, visionHint } from "../shared/page"
+import { $, bindRadios, fillSelect, fillTierSelects, languageOptions, offlineStatus, onTierChange, showImagePreciseNote, showOfflineHint, showSameLanguage, showVisionUnsupported, sourceLanguageOptions } from "../shared/page"
 import { type DisplayMode, type ImageMode, imageStatus, summaryProvider } from "../shared/settings"
 import { loadSettings, onStoredSettings, readSettings, updateSettings } from "../shared/settings-store"
 import { REFRESH_AFTER_ACTION_MS, REFRESH_INTERVAL_MS } from "./timing"
@@ -14,8 +16,10 @@ async function main(): Promise<void> {
   let settings = await loadSettings()
   await loadExtensionI18n(settings.uiLanguage)
   localizeDocument()
-  const [tab] = await ext.tabs.query({ active: true, currentWindow: true })
-  const tabId = tab?.id
+  // In a window of its own (the message header button is not in a toolbar), the page names the tab of the message.
+  const named = Number(new URLSearchParams(location.search).get("tab"))
+  const [tab] = named ? [] : await ext.tabs.query({ active: true, currentWindow: true })
+  const tabId = named || tab?.id
 
   const toggle = $<HTMLButtonElement>("toggle")
   const retranslate = $<HTMLButtonElement>("retranslate")
@@ -45,39 +49,23 @@ async function main(): Promise<void> {
     offline = await offlineStatus(settings)
     fillSelects()
   }
-  const modeRadios = Array.from(document.querySelectorAll<HTMLInputElement>('input[name="mode"]'))
-  const imageRadios = Array.from(document.querySelectorAll<HTMLInputElement>('input[name="imageMode"]'))
+  const showModes = bindRadios<DisplayMode>("mode", () => settings.mode, (mode) => void updateSettings((s) => (s.mode = mode)))
+  const showImageModes = bindRadios<ImageMode>("imageMode", () => settings.image.mode, (mode) => void updateSettings((s) => (s.image.mode = mode)))
   // The switches follow settings changed elsewhere, e.g. on the settings page. Precise translation applies to the AI tier only.
   const showSwitches = () => {
     autoTranslate.checked = settings.autoTranslate
-    for (const radio of modeRadios) radio.checked = radio.value === settings.mode
+    showModes()
     $("preciseRow").hidden = !settings.tiers.ai
     preciseEnabled.checked = settings.precise.enabled
     // Image translation needs precise translation: always on screen, greyed out with a note while that is off; a model that refuses images is named under the switch.
     const precise = showImagePreciseNote(settings)
     $("imageModes").setAttribute("aria-disabled", String(!precise))
-    for (const radio of imageRadios) {
-      radio.checked = radio.value === settings.image.mode
-      radio.disabled = !precise
-    }
-    const status = imageStatus(settings)
-    const hint = precise && status.support === "no" ? visionHint(status) : ""
-    $("imageUnsupported").hidden = !hint
-    $("imageUnsupported").textContent = hint
-    $("sameLanguage").hidden = settings.sourceLang !== settings.targetLang
+    showImageModes(precise)
+    showVisionUnsupported(imageStatus(settings), precise)
+    showSameLanguage(settings)
   }
   fillSelects()
   showSwitches()
-  for (const radio of modeRadios) {
-    radio.addEventListener("change", () => {
-      if (radio.checked) void updateSettings((s) => (s.mode = radio.value as DisplayMode))
-    })
-  }
-  for (const radio of imageRadios) {
-    radio.addEventListener("change", () => {
-      if (radio.checked) void updateSettings((s) => (s.image.mode = radio.value as ImageMode))
-    })
-  }
 
   sourceLang.addEventListener("change", () => void updateSettings((s) => (s.sourceLang = sourceLang.value)))
   targetLang.addEventListener("change", () => void updateSettings((s) => (s.targetLang = targetLang.value)))
@@ -113,9 +101,44 @@ async function main(): Promise<void> {
       .then(() => checkRemote())
   })
 
+  // The questions of the consent panels of the message, with the buttons that decide.
+  const consentBox = $("consentAsk")
+  let asked = ""
+  /** Answers the question as it was shown; the background script ignores the answer when the question changed meanwhile, and the next refresh shows the new one. */
+  const answerConsent = async ({ kind, id }: AskedQuestion, allowed: boolean) => {
+    if (tabId === undefined) return
+    await send({ type: "answerConsent", tabId, kind, id, allowed }).catch(() => {})
+    await refresh()
+    // The window of its own goes once nothing is asked.
+    if (named && !last.consent?.length) window.close()
+  }
+  const renderConsent = (questions: AskedQuestion[] = []) => {
+    if (JSON.stringify(questions) === asked) return
+    asked = JSON.stringify(questions)
+    consentBox.hidden = questions.length === 0
+    consentBox.replaceChildren(
+      ...questions.map((q) => {
+        const text = consentText(q)
+        const [allowTip, cancelTip] = q.kind === "text" ? [t("tipConsentAllow"), t("tipConsentCancel")] : [t("tipImageConsentAllow"), t("tipImageConsentCancel")]
+        return h(
+          "div",
+          { role: "group", "aria-label": text.title },
+          h("strong", { text: text.title }),
+          ...text.before.map((line) => h("p", { text: line })),
+          h("ul", {}, ...text.services.map((line) => h("li", { text: line }))),
+          ...text.after.map((line) => h("p", { text: line })),
+          h("div", { className: "row" }, button(text.allow, () => void answerConsent(q, true), true, allowTip), button(t("consentCancel"), () => void answerConsent(q, false), false, cancelTip)),
+        )
+      }),
+    )
+    // The questions take the focus, no button of them: a key pressed by chance answers nothing.
+    if (questions.length > 0) consentBox.focus()
+  }
+
   let last = IDLE_TAB_STATE
   const render = (st: TabState) => {
     last = st
+    renderConsent(st.consent)
     const remote = st.connected && !remoteAllowed ? (st.remoteImages ?? 0) : 0
     $("remoteAccess").hidden = remote === 0
     $("remoteAccessText").textContent = remote > 0 ? t("popupRemoteImages", [remote]) : ""

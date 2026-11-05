@@ -18,8 +18,9 @@
 //    nothing installed: the notice about missing offline data appears, is muted,
 //    stays away when translating again, and stays away with Google instead.
 // 6. The "consent" run opens the HTML message with no online service allowed:
-//    the consent panel appears, nothing reaches the mock server before
-//    "Allow and translate", and the message is translated after it.
+//    the consent panel appears, nothing reaches the mock server before its
+//    "Allow…" and the answer the probe gives in place of the popup, and the
+//    message is translated after it.
 // 7. The "machine-deepl", "machine-baidu", "machine-youdao" and "machine-caiyun"
 //    runs open the HTML message with the machine translator of the name as the
 //    only tier: every paragraph gets its translation, with the
@@ -31,7 +32,7 @@
 //    The "image-ask", "image-auto", "image-off" and "image-switch" runs open image.eml (a chart and a receipt that
 //    pass the filters, a tracking pixel, an animated GIF and a logo in the signature) with precise translation and
 //    image translation in the mode of the run: only the chart and the receipt get a button; in "image-ask" nothing
-//    reaches the AI service before "Allow and translate image", the result is a table with the column names of the
+//    reaches the AI service before "Allow…" and the answer in place of the popup, the result is a table with the column names of the
 //    interface, the message comes back as it was, and translated again the cache answers; in "image-auto" the chart
 //    goes by itself and the receipt keeps its button (one image per message); in "image-off" nothing appears and
 //    nothing is sent; in "image-switch" the mode changes three times while the message stays translated.
@@ -80,7 +81,7 @@ const SCENARIOS = [
   // Simplified Chinese except for one English line, which a started translation would request.
   { name: "auto-skip", eml: "zh.eml", scenario: "auto-skip" },
   { name: "missing", eml: "html.eml", scenario: "missing", paragraphs: 7 },
-  // No online service allowed yet: the consent panel, no request before "Allow and translate", the translation after it.
+  // No online service allowed yet: the consent panel, no request before the answer in place of the popup, the translation after it.
   { name: "consent", eml: "html.eml", scenario: "consent", paragraphs: 7 },
   // The machine translators with a key of their own, each as the only tier.
   ...["deepl", "baidu", "youdao", "caiyun"].map((service) => ({ name: `machine-${service}`, eml: "html.eml", scenario: `machine-${service}`, paragraphs: 7, service })),
@@ -293,6 +294,8 @@ function checkConsent(c, ready, report, calls) {
   expect(panel?.buttons?.length === 2, "the panel needs two buttons", panel?.buttons)
   expect(report.beforeAllow?.tierResults === 0 && report.beforeAllow.active === false && report.beforeAllow.shown === 0, "something was translated before the consent", report.beforeAllow)
   const online = calls.filter((x) => x.type === "google" || x.type === "ai")
+  // A comparison with a missing time is always false: without the time the check below would pass for nothing.
+  expect(typeof report.allowedAt === "number", "the probe reported no time of the consent")
   const early = online.filter((x) => x.at < report.allowedAt)
   expect(early.length === 0, "a service was requested before the consent", early)
   expect(online.some((x) => x.type === "google") && online.some((x) => x.type === "ai"), "Google and the AI service were not both requested after the consent", online)
@@ -337,6 +340,7 @@ function checkSummary(ready, report, calls) {
   if (report.error) return [...failures, `content script: ${report.error}`]
   const summaries = calls.filter((x) => x.type === "ai" && x.mode === "summary")
   expect(report.beforeAllow?.panel === null && report.beforeAllow.services?.length === 1 && report.beforeAllow.services[0].includes("127.0.0.1"), "the consent panel does not name the AI service alone, or the summary came before it", report.beforeAllow)
+  expect(typeof report.allowedAt === "number", "the probe reported no time of the consent")
   expect(!summaries.some((x) => x.at < report.allowedAt), "the AI service got the message before the consent", summaries)
   const first = report.first
   expect(first?.atTop === true && first.open === true && first.copyDisabled === false && first.markup === 0, "the panel is not open at the top of the message with its copy button", first)
@@ -417,6 +421,7 @@ function checkImage(c, ready, report, calls) {
     return failures
   }
   // "image-ask"
+  expect(typeof report.allowedAt === "number", "the probe reported no time of the consent")
   expect(!images.some((x) => x.at < report.allowedAt), "the AI service got an image before the consent", images)
   expect(report.panel?.title === "Send this image to Custom OpenAI-compatible?" && report.panel.lines.some((line) => line.includes("127.0.0.1")) && report.panel.lines.some((line) => /1,?568 pixels/.test(line) && line.includes("JPEG")), "the consent panel does not say what is sent where", report.panel)
   expect(report.panel?.slots.find((slot) => slot.consent)?.part === IMAGE_PARTS.chart, "the consent panel is not under the clicked image", report.panel?.slots)
@@ -604,7 +609,7 @@ ${JSON.stringify(report, null, 2)}`)
           failures = checkConsent(c, ready, report, server.calls)
           if (failures.length) failures.push(`report of the content script:\n${JSON.stringify(report, null, 2)}`)
           const online = server.calls.filter((x) => x.type === "google" || x.type === "ai")
-          console.log(`  ${c.name}: panel ${JSON.stringify(report.panel?.services)}; ${online.filter((x) => x.at < report.allowedAt).length} requests before "Allow and translate", ${online.length} after; ${report.translated?.state?.done ?? "?"} paragraphs translated; ${systemLanguages}`)
+          console.log(`  ${c.name}: panel ${JSON.stringify(report.panel?.services)}; ${online.filter((x) => x.at < report.allowedAt).length} requests before "Allow", ${online.length} after; ${report.translated?.state?.done ?? "?"} paragraphs translated; ${systemLanguages}`)
         } else if (c.scenario?.startsWith("machine-")) {
           failures = checkMachine(c, ready, report, server.calls)
           if (failures.length) failures.push(`report of the content script:\n${JSON.stringify(report, null, 2)}`)

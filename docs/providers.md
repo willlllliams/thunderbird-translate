@@ -156,34 +156,36 @@ Baidu 52001 and 52002 and Youdao 207 are passing failures and are tried again. A
 
 All AI providers are called through `generateText` of the Vercel AI SDK. Providers with an official `@ai-sdk/*` package use that package. The others use `@ai-sdk/openai-compatible`.
 
-Endpoint, API key, model and temperature can be changed for every provider. The model field suggests common models and accepts any model name. The default temperature is 0.3, except for DeepSeek (1.3) and Anthropic Claude (none sent).
+Endpoint, API key, model and temperature can be changed for every provider. The model field suggests common models and accepts any model name. The default temperature is 0.3, except for DeepSeek (1.3), Anthropic Claude, Google Gemini and Moonshot / Kimi (none sent).
 
 | Provider | SDK package | Default endpoint | Default model | Key | Get a key |
 | --- | --- | --- | --- | --- | --- |
-| OpenAI | `@ai-sdk/openai` | `https://api.openai.com/v1` | `gpt-4.1-mini` | Yes | [platform.openai.com](https://platform.openai.com/api-keys) |
+| OpenAI | `@ai-sdk/openai` | `https://api.openai.com/v1` | `gpt-6-luna` | Yes | [platform.openai.com](https://platform.openai.com/api-keys) |
 | Anthropic Claude | `@ai-sdk/anthropic` | `https://api.anthropic.com/v1` | `claude-haiku-5-5` | Yes | [console.anthropic.com](https://console.anthropic.com/settings/keys) |
-| Google Gemini | `@ai-sdk/google` | `https://generativelanguage.googleapis.com/v1beta` | `gemini-2.5-flash-lite` | Yes | [aistudio.google.com](https://aistudio.google.com/apikey) |
+| Google Gemini | `@ai-sdk/google` | `https://generativelanguage.googleapis.com/v1beta` | `gemini-3.5-flash-lite` | Yes | [aistudio.google.com](https://aistudio.google.com/apikey) |
 | DeepSeek | `@ai-sdk/deepseek` | `https://api.deepseek.com` | `deepseek-flash` | Yes | [platform.deepseek.com](https://platform.deepseek.com/api_keys) |
 | xAI Grok | `@ai-sdk/xai` | `https://api.x.ai/v1` | `grok-4.3` | Yes | [console.x.ai](https://console.x.ai/) |
-| Groq | `@ai-sdk/groq` | `https://api.groq.com/openai/v1` | `llama-3.3-70b-versatile` | Yes | [console.groq.com](https://console.groq.com/keys) |
+| Groq | `@ai-sdk/groq` | `https://api.groq.com/openai/v1` | `openai/gpt-oss-120b` | Yes | [console.groq.com](https://console.groq.com/keys) |
 | Mistral AI | `@ai-sdk/mistral` | `https://api.mistral.ai/v1` | `mistral-small-latest` | Yes | [console.mistral.ai](https://console.mistral.ai/api-keys) |
 | Ollama (local) | `@ai-sdk/openai-compatible` | `http://localhost:11434/v1` | `qwen2.5:7b` | No | [ollama.com](https://ollama.com/) |
-| OpenRouter | `@ai-sdk/openai-compatible` | `https://openrouter.ai/api/v1` | `openai/gpt-4.1-mini` | Yes | [openrouter.ai](https://openrouter.ai/keys) |
-| Together AI | `@ai-sdk/togetherai` | `https://api.together.xyz/v1` | `meta-llama/Llama-3.3-70B-Instruct-Turbo` | Yes | [api.together.ai](https://api.together.ai/settings/api-keys) |
-| Fireworks AI | `@ai-sdk/fireworks` | `https://api.fireworks.ai/inference/v1` | `accounts/fireworks/models/llama-v3p3-70b-instruct` | Yes | [fireworks.ai](https://fireworks.ai/account/api-keys) |
+| OpenRouter | `@ai-sdk/openai-compatible` | `https://openrouter.ai/api/v1` | `openai/gpt-6-luna` | Yes | [openrouter.ai](https://openrouter.ai/keys) |
+| Together AI | `@ai-sdk/togetherai` | `https://api.together.xyz/v1` | `Qwen/Qwen3.8-Flash` | Yes | [api.together.ai](https://api.together.ai/settings/api-keys) |
+| Fireworks AI | `@ai-sdk/fireworks` | `https://api.fireworks.ai/inference/v1` | `accounts/fireworks/models/glm-5p3-flash` | Yes | [fireworks.ai](https://fireworks.ai/account/api-keys) |
 | DeepInfra | `@ai-sdk/deepinfra` | `https://api.deepinfra.com/v1` | `meta-llama/Llama-3.3-70B-Instruct-Turbo` | Yes | [deepinfra.com](https://deepinfra.com/dash/api_keys) |
 | Cerebras | `@ai-sdk/cerebras` | `https://api.cerebras.ai/v1` | `gpt-oss-120b` | Yes | [cloud.cerebras.ai](https://cloud.cerebras.ai/) |
 | Perplexity | `@ai-sdk/perplexity` | `https://api.perplexity.ai` | `perplexity/sonar` | Yes | [perplexity.ai](https://www.perplexity.ai/settings/api) |
-| Moonshot / Kimi | `@ai-sdk/moonshotai` | `https://api.moonshot.cn/v1` | `kimi-k2-turbo-preview` | Yes | [platform.moonshot.cn](https://platform.moonshot.cn/console/api-keys) |
-| 智谱 GLM (Zhipu) | `@ai-sdk/openai-compatible` | `https://open.bigmodel.cn/api/paas/v4` | `glm-4-flash` | Yes | [open.bigmodel.cn](https://open.bigmodel.cn/usercenter/apikeys) |
+| Moonshot / Kimi | `@ai-sdk/moonshotai` | `https://api.moonshot.cn/v1` | `kimi-k3.1-pro` | Yes | [platform.moonshot.cn](https://platform.moonshot.cn/console/api-keys) |
+| 智谱 GLM (Zhipu) | `@ai-sdk/openai-compatible` | `https://open.bigmodel.cn/api/paas/v4` | `glm-4.7-flash` | Yes | [open.bigmodel.cn](https://open.bigmodel.cn/usercenter/apikeys) |
 | 通义千问 / 阿里云百炼 (DashScope) | `@ai-sdk/alibaba` | `https://dashscope.aliyuncs.com/compatible-mode/v1` | `qwen-plus` | Yes | [bailian.console.aliyun.com](https://bailian.console.aliyun.com/) |
 | 硅基流动 SiliconFlow | `@ai-sdk/openai-compatible` | `https://api.siliconflow.cn/v1` | `Qwen/Qwen2.5-7B-Instruct` | Yes | [cloud.siliconflow.cn](https://cloud.siliconflow.cn/account/ak) |
 | 火山引擎豆包 (Volcengine Ark) | `@ai-sdk/openai-compatible` | `https://ark.cn-beijing.volces.com/api/v3` | `doubao-seed-2-0-mini-260428` | Yes | [console.volcengine.com](https://console.volcengine.com/ark) |
-| Azure OpenAI | `@ai-sdk/azure` | Must be filled in | `gpt-4.1-mini` | Yes | [Azure OpenAI documentation](https://learn.microsoft.com/azure/ai-services/openai/) |
+| Azure OpenAI | `@ai-sdk/azure` | Must be filled in | `gpt-5.6-luna` | Yes | [Azure OpenAI documentation](https://learn.microsoft.com/azure/ai-services/openai/) |
 | LM Studio (local) | `@ai-sdk/openai-compatible` | `http://localhost:1234/v1` | `qwen2.5-7b-instruct` | No | [lmstudio.ai](https://lmstudio.ai/) |
 | Custom OpenAI-compatible | `@ai-sdk/openai-compatible` | Must be filled in | Must be filled in | No | none |
 
 The "Get a key / docs" link next to the key field of the settings page opens the same address.
+
+The default models and the suggestions of the model field were checked on 2026-11-04 against the model lists and deprecation pages of the services: [OpenAI deprecations](https://developers.openai.com/api/docs/deprecations), [Gemini deprecations](https://aistudio.google.com/docs/deprecations), [Groq deprecations](https://console.groq.com/docs/deprecations), [Kimi models](https://platform.kimi.ai/docs/models), [Cerebras models](https://inference-docs.cerebras.ai/models/overview), [Together AI deprecations](https://docs.together.ai/docs/deprecations), [Fireworks changelog](https://docs.fireworks.ai/updates/changelog), [OpenRouter models](https://openrouter.ai/models), [Zhipu model overview](https://docs.bigmodel.cn/cn/guide/start/model-overview) (checked on 2026-11-05: the default `glm-4.7-flash` and the suggestions `glm-4.5-air` and `glm-4-flash-250414` are listed there; the undated `glm-4-flash`, `glm-4-air` and `glm-4-plus` are not). Google gives the 2.5 models only to projects that used them before, so `gemini-2.5-flash-lite` stays among the suggestions for those projects and is no longer the default.
 
 ## Provider notes
 
@@ -191,8 +193,11 @@ Some providers have extra requirements.
 
 - Anthropic Claude: the extension adds the header `anthropic-dangerous-direct-browser-access: true`, which Anthropic requires for requests from a browser context. The Claude 5 series and Opus 4.7 and 4.8 reject a custom temperature. The extension sends no temperature for these models, and the temperature field of the default model is empty.
 - Azure OpenAI: the endpoint is `https://<resource>.openai.azure.com/openai`. The model field takes the deployment name.
+- Google Gemini: Gemini 3.5 Flash-Lite and 3.6 Flash ignore `temperature`, `top_p` and `top_k`, and Google announces an HTTP 400 for the models after them. The extension sends no temperature for `gemini-3.5` and later, whatever the temperature field holds, and the temperature field of the default model is empty.
+- OpenRouter: every request carries the header `X-Title: Multi Translate for Thunderbird`, which OpenRouter uses to attribute traffic to an application. It holds the name of the extension and nothing else. The privacy policy names it.
 - Ollama: by default Ollama rejects cross-origin requests from extension pages. Start Ollama with the environment variable `OLLAMA_ORIGINS=moz-extension://*`.
-- Moonshot: the default endpoint is the China site `api.moonshot.cn`. Accounts on the international site use `https://api.moonshot.ai/v1`.
+- Moonshot: the default endpoint is the China site `api.moonshot.cn`. Accounts on the international site use `https://api.moonshot.ai/v1`. Kimi K3 models fix their temperature; the extension sends none for `kimi-k3` and later, whatever the temperature field holds.
+- xAI Grok: `@ai-sdk/xai` sends its requests to the Responses API, which keeps the input and the answer for later retrieval unless the request says `store: false`. The extension says so in every request; a team with Zero Data Retention needs it as well.
 - Volcengine Doubao: the model field takes either a model name or the ID of an inference endpoint created in the Ark console.
 - Ollama, LM Studio and any model with thinking mode on wait three times the request timeout of the settings, see [batching.md](batching.md#timeouts).
 
@@ -200,20 +205,22 @@ The endpoint field warns when it holds the address of a provider's web console, 
 
 ## Thinking mode
 
-Each AI provider has a "Thinking mode" switch, off by default. Translation does not need the model to reason first, and reasoning makes requests slower and more expensive. Several current models reason unless told otherwise, for example `deepseek-flash`, `claude-haiku-5-5` and `gemini-2.5-flash`, so "off" is sent explicitly.
+Each AI provider has a "Thinking mode" switch, off by default. Translation does not need the model to reason first, and reasoning makes requests slower and more expensive. Several current models reason unless told otherwise, for example `deepseek-flash`, `claude-haiku-5-5` and `gemini-3.5-flash-lite`, so "off" is sent explicitly.
 
 Every provider spells the switch differently, and within one provider only some models accept it. The extension matches the model name against the patterns below and sends the provider options of the first match. A model without a match gets no thinking parameter. While thinking is on, no temperature is sent for models that match a pattern in the table, because reasoning models ignore or reject it.
 
 | Provider | Models | Off | On | Source |
 | --- | --- | --- | --- | --- |
-| OpenAI, Azure OpenAI | `gpt-5.1` and later | `openai.reasoningEffort: "none"` | `"medium"` | [OpenAI reasoning guide](https://developers.openai.com/api/docs/guides/reasoning) |
+| OpenAI, Azure OpenAI | `gpt-5.1` and later, `gpt-6-sol`, `gpt-6-luna` | `openai.reasoningEffort: "none"` | `"medium"` | [OpenAI reasoning guide](https://developers.openai.com/api/docs/guides/reasoning) |
+| | other GPT-6 models (`gpt-6.1-terra`, `gpt-6.1-sol`) | `"low"`: OpenAI lists `none` for Terra, but `@ai-sdk/openai` drops it for every GPT-6 model except `gpt-6-sol` and `gpt-6-luna`, so the model would think at `medium` | `"medium"` | same |
 | | `gpt-5`, `gpt-5-mini`, `gpt-5-nano` | `"minimal"` | `"medium"` | same |
 | | `o1`, `o3`, `o4-mini` … | `"low"` (cannot be turned off) | `"medium"` | same |
 | Anthropic | Claude 5 series, Opus 4.7/4.8 | `anthropic.thinking: { type: "disabled" }` | `{ type: "adaptive" }` | [Extended thinking](https://platform.claude.com/docs/en/build-with-claude/extended-thinking) |
 | | Claude 3.7 and 4.x | nothing (off by default) | `{ type: "enabled", budgetTokens: 1024 }` | same |
 | Google Gemini | `gemini-2.5-pro` | `google.thinkingConfig: { thinkingBudget: 128 }` (minimum, cannot be turned off) | `{ thinkingBudget: -1 }` | [Gemini thinking](https://ai.google.dev/gemini-api/docs/generate-content/thinking) |
 | | other `gemini-2.5-*` | `{ thinkingBudget: 0 }` | `{ thinkingBudget: -1 }` | same |
-| | Gemini 3 and later | `{ thinkingLevel: "low" }` (no full off) | `{ thinkingLevel: "high" }` | same |
+| | `gemini-3.5-flash-lite`, `gemini-3.6-flash` | `{ thinkingLevel: "minimal" }` (the default of 3.5 Flash-Lite; no full off) | `{ thinkingLevel: "high" }` | [Thinking](https://aistudio.google.com/docs/thinking) |
+| | other Gemini 3 and later (`gemini-3.8-flash`, the Pro models) | `{ thinkingLevel: "low" }` (their lowest level, no full off) | `{ thinkingLevel: "high" }` | same |
 | DeepSeek | all | `deepseek.thinking: { type: "disabled" }` | `{ type: "enabled" }` | [Thinking mode](https://api-docs.deepseek.com/guides/thinking_mode) |
 | xAI Grok | `grok-4.3` | `xai.reasoningEffort: "none"` | `"high"` | [xAI reasoning](https://docs.x.ai/developers/model-capabilities/text/reasoning) |
 | | `grok-4.5`, `grok-4.6`, `grok-4.7` | `"low"` (cannot be turned off) | `"high"` | same |
@@ -221,7 +228,10 @@ Every provider spells the switch differently, and within one provider only some 
 | | `gpt-oss` | `"low"` | `"medium"` | same |
 | Mistral AI | all (the SDK sends it only for models that accept it) | `mistral.reasoningEffort: "none"` | `"high"` | [Mistral reasoning](https://docs.mistral.ai/studio/conversations/reasoning) |
 | Together AI | Qwen3, GLM-4/5, DeepSeek V4, Kimi K3, MiniMax M3 | `togetherai.reasoning: { enabled: false }` | `{ enabled: true }` | [Together reasoning](https://docs.together.ai/docs/inference/chat/reasoning) |
+| | GLM-5.3 (cannot stop thinking) | nothing | `{ enabled: true }` | same |
+| | `gpt-oss` (effort levels, no off) | `togetherai.reasoningEffort: "low"` | `"medium"` | same |
 | Fireworks AI | DeepSeek V3.1/3.2/V4, GLM, Kimi K3, Qwen3 | `fireworks.reasoningEffort: "none"` | `"medium"` | [Fireworks reasoning](https://docs.fireworks.ai/guides/reasoning) |
+| | GLM-5.3 (`glm-5p3-*`; Zhipu accepts the efforts max, high and low) | `"low"` | `"medium"` | [GLM thinking](https://docs.bigmodel.cn/cn/guide/capabilities/thinking) |
 | | `gpt-oss` | `"low"` | `"medium"` | same |
 | DeepInfra | all (ignored by models without reasoning) | `deepinfra.reasoningEffort: "none"` | `"high"` | [DeepInfra reasoning](https://docs.deepinfra.com/chat/reasoning) |
 | Cerebras | Qwen | `cerebras.reasoningEffort: "none"` | `"medium"` | [Cerebras reasoning](https://inference-docs.cerebras.ai/capabilities/reasoning) |
@@ -248,22 +258,25 @@ Image translation ([settings.md](settings.md#image-translation)) needs a model t
 
 | Preset | Default model | Reads images | Vision model to choose |
 | --- | --- | --- | --- |
-| OpenAI | `gpt-4.1-mini` | yes | the default |
+| OpenAI | `gpt-6-luna` | yes | the default |
 | Anthropic | `claude-haiku-5-5` | yes | the default |
-| Google Gemini | `gemini-2.5-flash-lite` | yes | the default |
+| Google Gemini | `gemini-3.5-flash-lite` | yes | the default |
 | DeepSeek | `deepseek-flash` | yes (`deepseek-v4-pro` does not) | the default |
 | xAI Grok | `grok-4.3` | yes, JPEG and PNG only | the default |
 | Mistral AI | `mistral-small-latest` | yes | the default |
-| OpenRouter | `openai/gpt-4.1-mini` | yes | the default |
+| OpenRouter | `openai/gpt-6-luna` | yes | the default |
 | Volcengine Doubao | `doubao-seed-2-0-mini-260428` | yes | the default |
-| Zhipu GLM | `glm-4-flash` | no | `glm-4.6v-flash` (free) |
+| Zhipu GLM | `glm-4.7-flash` | no | `glm-4.6v-flash` (free) |
 | DashScope (Qwen) | `qwen-plus` | unknown | `qwen3-vl-plus` |
 | SiliconFlow | `Qwen/Qwen2.5-7B-Instruct` | no | `Qwen/Qwen2.5-VL-72B-Instruct` |
-| Moonshot / Kimi | `kimi-k2-turbo-preview` | unknown | `kimi-k3` |
+| Moonshot / Kimi | `kimi-k3.1-pro` | yes | the default |
 | Ollama | `qwen2.5:7b` | no | `qwen3-vl:8b` |
-| Groq | `llama-3.3-70b-versatile` | no | `qwen/qwen3.8-27b` (at most 3 images per request) |
-| Together AI, Fireworks AI, DeepInfra, Cerebras | Llama and gpt-oss text models | no | one you choose |
-| Azure OpenAI, LM Studio, custom | the name of the deployment or model | by the name: `gpt-4o`, `gpt-4.1`, `gpt-5`, `claude-`, `gemini-`, `-vl`, `vision`, `llava`, `gemma3` and similar names read images | one you choose |
+| Groq | `openai/gpt-oss-120b` | no | `qwen/qwen3.8-27b` (at most 3 images per request) |
+| Cerebras | `gpt-oss-120b` | no | `qwen-3.8-27b` |
+| Fireworks AI | `accounts/fireworks/models/glm-5p3-flash` | yes | the default |
+| Together AI | `Qwen/Qwen3.8-Flash` | unknown | `Qwen/Qwen3.5-9B` |
+| DeepInfra | `meta-llama/Llama-3.3-70B-Instruct-Turbo` | no | one you choose |
+| Azure OpenAI, LM Studio, custom | the name of the deployment or model | by the name: `gpt-4o`, `gpt-4.1`, `gpt-5`, `gpt-6`, `claude-`, `gemini-`, `-vl`, `vision`, `llava`, `gemma3` and similar names read images | one you choose |
 
 GLM-4V-Flash takes no base64 image, the only form the extension sends, and counts as "no".
 
@@ -300,7 +313,7 @@ The settings page estimates the input tokens of an image of 1024 × 768 pixels b
 
 | Models | Formula | 1024 × 768 |
 | --- | --- | --- |
-| OpenAI `gpt-4.1-mini`, `gpt-4.1-nano`, `gpt-5-mini`, `gpt-5-nano` | 32 px patches, `ceil(w/32) × ceil(h/32)`, times 1.62, 2.46, 1.2 or 1.5 | 1245, 1890, 922, 1152 |
+| OpenAI `gpt-4.1-mini`, `gpt-4.1-nano`, `gpt-5-mini`, `gpt-5-nano`, `gpt-5.6-luna` | 32 px patches, `ceil(w/32) × ceil(h/32)`, times 1.62, 2.46, 1.2, 1.5 or 1.2 | 1245, 1890, 922, 1152, 922 |
 | OpenAI `gpt-4o-mini` | 2833, plus 5667 per 512 px tile of the image fitted into 2048 × 2048 with its short side at most 768 px | 25501 (2833 with detail "low") |
 | OpenAI `gpt-4o`, `gpt-4.1` | the same with 85 and 170 | 765 |
 | Anthropic | `ceil(w/28) × ceil(h/28)`, at most 1568 | 1036 |
@@ -309,7 +322,7 @@ The settings page estimates the input tokens of an image of 1024 × 768 pixels b
 | Doubao seed 2.0 | `w × h / 1764`; 1280 with detail "high" | 446 (1280) |
 | Mistral Small 3.2 and later | about `w × h / 784` | 1003 |
 
-The prompts add about 450 tokens; the line on the settings page computes them from the prompt in use. For other models, DeepSeek included, the line gives the prompt tokens only.
+The prompts add about 450 tokens; the line on the settings page computes them from the prompt in use. For other models, the line gives the prompt tokens only: OpenAI publishes no factor for `gpt-6-luna`, Google none for Gemini 3, DeepSeek none at all.
 
 Sources, checked on 2026-10-21: [OpenAI images and vision](https://developers.openai.com/api/docs/guides/images-vision), [Anthropic vision](https://platform.claude.com/docs/en/build-with-claude/vision), [Gemini image understanding](https://ai.google.dev/gemini-api/docs/image-understanding), [Qwen vision](https://help.aliyun.com/zh/model-studio/vision), [GLM-4.6V-Flash](https://docs.bigmodel.cn/cn/guide/models/free/glm-4.6v-flash), [Doubao image understanding](https://docs.volcengine.com/docs/ark/image-understanding), [xAI image understanding](https://docs.x.ai/docs/guides/image-understanding), [Mistral vision](https://docs.mistral.ai/studio/conversations/vision), [DeepSeek vision](https://api-docs.deepseek.com/guides/vision), [OpenRouter images](https://openrouter.ai/docs/guides/overview/multimodal/image-understanding), [Ollama OpenAI compatibility](https://docs.ollama.com/api/openai-compatibility), [Kimi vision](https://platform.kimi.com/docs/guide/use-kimi-vision-model).
 

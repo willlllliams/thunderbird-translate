@@ -74,6 +74,12 @@
   font-size: inherit;
 }
 
+/* Translation only, in the other direction than the original: a line of its own, aligned to its start. */
+.tt-translation.tt-only.tt-turned {
+  display: inline-block;
+  width: 100%;
+}
+
 .tt-status {
   display: inline-block;
   margin-inline-start: 0.4em;

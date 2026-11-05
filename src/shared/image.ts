@@ -10,10 +10,8 @@
  * password is never read.
  */
 
+import type { ImageRequest } from "./messages"
 import type { PublicImageSettings } from "./settings"
-
-/** Where an image comes from: a part of the message (with the file name of its address), a data: URI, a remote address (http, https), or anything else (an unreplaced cid:, a blob:). */
-export type ImageSource = { kind: "part"; part: string; name?: string } | { kind: "data"; data: string } | { kind: "remote"; url: string } | { kind: "other" }
 
 /** The address of a remote image as the extension may read it: http or https, with a host and without a user name or password; null otherwise. */
 export function remoteImageUrl(src: string): string | null {
@@ -26,29 +24,35 @@ export function remoteImageUrl(src: string): string | null {
   }
 }
 
+/** The largest image read, in bytes, whether it comes from a remote server, a part of the message or a data: URI: well above the images of a newsletter, and the size decoding still copes with. */
+export const IMAGE_MAX_BYTES = 15 * 1024 * 1024
+
 /** A part number as libmime writes it: "1.2", "1.1.3". */
 const PART = /^\d+(?:\.\d+)*$/
 
 /**
- * The source of an image by its address. Thunderbird puts the address of the message part in place of a cid:
- * reference and of an image attachment it shows under the body, with the part number in the parameter "part"
- * (mailbox:, imap:, news:, file: messages alike), and its file name in "filename" when the part has one.
+ * Where an image comes from, by its address, as an image request names it: a part of the message, a data: URI or a
+ * remote address (http, https); null for anything else (an unreplaced cid:, a blob:). Thunderbird puts the address
+ * of the message part in place of a cid: reference and of an image attachment it shows under the body, with the part
+ * number in the parameter "part" (mailbox:, imap:, news:, file: messages alike), and its file name in "filename" when
+ * the part has one. A data: URI above the largest image is no source: it would cross to the background script three
+ * times to be refused there.
  */
-export function imageSource(src: string): ImageSource {
-  if (/^data:image\//i.test(src)) return { kind: "data", data: src }
+export function imageSource(src: string): ImageRequest["source"] | null {
+  if (/^data:image\//i.test(src)) return src.length > (IMAGE_MAX_BYTES * 4) / 3 + 1000 ? null : { data: src }
   if (/^https?:/i.test(src)) {
     const url = remoteImageUrl(src)
-    return url ? { kind: "remote", url } : { kind: "other" }
+    return url ? { url } : null
   }
   try {
     const params = new URL(src).searchParams
     const part = params.get("part")
     const name = params.get("filename")
-    if (part && PART.test(part)) return { kind: "part", part, ...(name ? { name } : {}) }
+    if (part && PART.test(part)) return { part, ...(name ? { name } : {}) }
   } catch {
     // Not an address.
   }
-  return { kind: "other" }
+  return null
 }
 
 /** What the content script knows of an image: its natural size, its address, whether it lies in a signature and whether it is an attachment shown under the body. */
@@ -64,17 +68,10 @@ export interface ImageCandidate {
 export type ImageFilterReason = "source" | "tracking" | "signature" | "small" | "area" | "aspect"
 
 /**
- * The reason the content script leaves an image out, null when it passes: the sources of the settings (a remote
- * image is an image of the body); a side of 2 px or less is a tracking pixel, always; images in a signature; the
- * short side, the area and the ratio of the long side to the short one, on the natural size.
+ * The reason the content script leaves an image whose source it reads out, null when it passes: the sources of the
+ * settings (a remote image is an image of the body); a side of 2 px or less is a tracking pixel, always; images in a
+ * signature; the short side, the area and the ratio of the long side to the short one, on the natural size.
  */
-export function filterImage(c: ImageCandidate, s: Pick<PublicImageSettings, "sources" | "skipSignature" | "minSide" | "minArea" | "maxAspect">): ImageFilterReason | null {
-  const source = imageSource(c.src)
-  if (source.kind === "other") return "source"
-  return filterShape(c, s)
-}
-
-/** The filters of filterImage() after the kind of the source: the sources of the settings, the place and the natural size. */
 export function filterShape(c: Omit<ImageCandidate, "src">, s: Pick<PublicImageSettings, "sources" | "skipSignature" | "minSide" | "minArea" | "maxAspect">): ImageFilterReason | null {
   if (!(c.attachment ? s.sources.attachments : s.sources.inline)) return "source"
   if (c.width <= 2 || c.height <= 2) return "tracking"
@@ -86,12 +83,3 @@ export function filterShape(c: Omit<ImageCandidate, "src">, s: Pick<PublicImageS
   return null
 }
 
-/** The media type of an image read off the first bytes of its file: PNG, GIF, JPEG or WebP; null for anything else. */
-export function sniffImageType(bytes: Uint8Array): string | null {
-  const ascii = (at: number, length: number) => String.fromCharCode(...bytes.subarray(at, at + length))
-  if (bytes[0] === 0x89 && ascii(1, 3) === "PNG") return "image/png"
-  if (ascii(0, 4) === "GIF8") return "image/gif"
-  if (bytes[0] === 0xff && bytes[1] === 0xd8 && bytes[2] === 0xff) return "image/jpeg"
-  if (ascii(0, 4) === "RIFF" && ascii(8, 4) === "WEBP") return "image/webp"
-  return null
-}

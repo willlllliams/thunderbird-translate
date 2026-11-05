@@ -1,3 +1,4 @@
+import type { AskedQuestion, ConsentKind, ConsentQuestion } from "./consent"
 import type { MissingData } from "./errors"
 import { ext } from "./ext"
 import type { OfflineService, OfflineState } from "./offline-needs"
@@ -32,15 +33,14 @@ export interface BackgroundApi {
   openOptions: { req: { place: OptionsPlace }; res: void }
   /** The notice about missing offline data stays away (or comes back) for these services and language pairs ("dictionary:ja>zh-Hans"). */
   muteOfflinePairs: { req: { pairs: string[]; muted: boolean }; res: void }
-  /** The user allowed these online services to receive the text of messages, in the panel above a message. */
-  /** `hosts`: the host the panel named for each service, in the order of `ids`; a service whose host changed meanwhile is not recorded. */
-  grantConsent: { req: { ids: string[]; hosts?: string[] }; res: void }
+  /** The popup answers the question `id` of the consent panel of `kind` in the message of tab `tabId`: allowed, the background script records the consent first. A question that has changed since is not answered. */
+  answerConsent: { req: { tabId: number; kind: ConsentKind; id: number; allowed: boolean }; res: void }
   /** The offline services among the tiers, for these languages. */
   offlineStatus: { req: { sourceLang: string; targetLang: string; tiers: TierSettings }; res: OfflineStatus }
   /** The directions of an offline service; `refresh` reads its catalog again, `tag` names the release of the dictionary packs (the page's, which may not be saved yet). */
   offlineList: { req: { service: OfflineService; refresh?: boolean; tag?: string }; res: OfflineListResult }
   /** Installs directions in the background script, also after the page is closed; answers when every one of them has ended, with the result of each in the order of `pairs`. */
-  offlineInstall: { req: { service: OfflineService; pairs: OfflinePair[]; tag?: string }; res: OfflineResult[] }
+  offlineInstall: { req: { service: OfflineService; tag?: string } & OfflinePair; res: OfflineResult }
   /** Cancels the installation of a direction. */
   offlineCancel: { req: { service: OfflineService } & OfflinePair; res: void }
   /** The installations of every service that have not ended. */
@@ -193,6 +193,8 @@ export interface TabState {
   lastError?: string
   /** Remote images on screen that image translation could read once the extension may read remote images (the popup offers the access). */
   remoteImages?: number
+  /** The questions of the consent panels in the message that wait for the popup ("Allow…"). */
+  consent?: AskedQuestion[]
 }
 
 /** State of a tab without a connected content script. */
@@ -253,6 +255,8 @@ export type PortPush =
   | { type: "done"; id: number }
   /** Dictionary packs or offline models were installed or removed: results received before may be outdated. Pages get the same notice (PageNotice). */
   | { type: "offlineDataChanged" }
+  /** The popup answered the consent panel of `kind`; allowed, the consent is recorded already. */
+  | { type: "consentAnswer"; kind: ConsentKind; allowed: boolean }
 
 /** Messages sent from content scripts to background over the Port. */
 export type PortReport =
@@ -264,8 +268,10 @@ export type PortReport =
   | { type: "summary"; id: number; text: string; bypassCache?: boolean }
   /** An image of the displayed message; answered with an "imageResult" push of the same id. */
   | { type: "image"; id: number; image: ImageRequest }
-  /** The user allowed these services to receive the images of messages, in the panel under an image; `message`: for the displayed message only. */
-  | { type: "imageConsent"; ids: string[]; hosts?: string[]; message?: boolean }
+  /** "Allow…" in a consent panel: the background script keeps the question for the popup of the tab and opens it. */
+  | { type: "consentAsk"; question: ConsentQuestion }
+  /** The consent panel of `kind` went without an answer of the popup. */
+  | { type: "consentClosed"; kind: ConsentKind }
   /** Remote images on screen that wait for the access to remote images; the popup offers it while the count is above 0. */
   | { type: "remoteImages"; count: number }
   /** The user clicked a button that asks for the access to remote images: the background script opens the popup, which can ask for it. */
@@ -280,7 +286,7 @@ function ofTypes<T extends { type: string }>(types: Record<T["type"], true>) {
 }
 
 /** A push of the background script, as the content script receives it over the Port. */
-export const isPortPush = /* @__PURE__ */ ofTypes<PortPush>({ settings: true, toggle: true, retranslate: true, summarize: true, summary: true, imageResult: true, tier: true, done: true, offlineDataChanged: true })
+export const isPortPush = /* @__PURE__ */ ofTypes<PortPush>({ settings: true, toggle: true, retranslate: true, summarize: true, summary: true, imageResult: true, tier: true, done: true, offlineDataChanged: true, consentAnswer: true })
 
 /** A report of a content script, as the background script receives it over the Port. */
-export const isPortReport = /* @__PURE__ */ ofTypes<PortReport>({ state: true, context: true, translate: true, summary: true, image: true, imageConsent: true, remoteImages: true, remoteAccess: true })
+export const isPortReport = /* @__PURE__ */ ofTypes<PortReport>({ state: true, context: true, translate: true, summary: true, image: true, consentAsk: true, consentClosed: true, remoteImages: true, remoteAccess: true })

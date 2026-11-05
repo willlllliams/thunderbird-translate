@@ -4,13 +4,15 @@
  * storage, so changes made elsewhere in the meantime survive; changes made
  * elsewhere are taken over, except for the settings the page has changed
  * and not stored yet. A control being edited shows such a change once it
- * loses the focus. A failed save is reported through onSaveError; its edits
- * stay pending and go with the next save.
+ * loses the focus. Text typed into a control is stored once it is committed
+ * (blur, Enter) or the page goes, so that a half-typed prompt, model or key
+ * never reaches the messages on screen. A failed save is reported through
+ * onSaveError; its edits stay pending and go with the next save.
  */
 
 import { $ } from "../shared/page"
 import type { Settings } from "../shared/settings"
-import { loadSettings, mergeChanges, onStoredSettings, readSettings, saveChanges } from "../shared/settings-store"
+import { loadSettings, mergeChanges, onStoredSettings, readSettings, saveChanges, saveSettings } from "../shared/settings-store"
 
 /** Edits are saved this long after the last change, together. */
 export const SAVE_DELAY_MS = 300
@@ -36,6 +38,8 @@ export class SettingsSession {
   private saving: Promise<boolean> = Promise.resolve(true)
   /** Redraw the control of one setting; run again when the settings change elsewhere. */
   private readonly controls: (() => void)[] = []
+  /** Redraw what is no control, after the controls. */
+  private readonly followers: (() => void)[] = []
 
   private constructor(public readonly settings: Settings) {
     this.baseline = structuredClone(settings)
@@ -49,6 +53,8 @@ export class SettingsSession {
       if (session.writing) session.remote = remote
       else session.absorb(remote)
     })
+    // Text still being typed when the page goes.
+    addEventListener("pagehide", () => session.leave())
     return session
   }
 
@@ -63,6 +69,7 @@ export class SettingsSession {
     mergeChanges(this.settings, this.baseline, remote, sent ? [this.baseline, sent] : [this.baseline])
     this.baseline = structuredClone(remote)
     for (const show of this.controls) show()
+    for (const follow of this.followers) follow()
     this.onRemoteChange(before)
   }
 
@@ -71,6 +78,32 @@ export class SettingsSession {
     this.dirty = true
     if (this.timer) clearTimeout(this.timer)
     this.timer = setTimeout(() => void this.flush(), SAVE_DELAY_MS)
+  }
+
+  /** The page changed a setting with text still being typed: stored with the next save, the commit of the text included. */
+  edit(): void {
+    this.dirty = true
+  }
+
+  /** A text control whose every input `apply` takes into the settings of the page, which are stored once the text is committed. */
+  typed(el: HTMLElement, apply: () => void): void {
+    el.addEventListener("input", () => {
+      apply()
+      this.edit()
+    })
+    el.addEventListener("change", () => this.save())
+  }
+
+  /**
+   * The page goes: what is pending is written at once, from the settings the page holds (the stored ones as last read,
+   * with its edits), without reading storage first. The page may be gone before an answer to a read comes.
+   */
+  private leave(): void {
+    if (this.timer) clearTimeout(this.timer)
+    this.timer = null
+    if (!this.dirty) return
+    this.dirty = false
+    void saveSettings(structuredClone(this.settings)).catch(() => {})
   }
 
   /** Save now what is pending. Resolves with false when the save failed; never rejects. */
@@ -100,6 +133,12 @@ export class SettingsSession {
     return this.saving
   }
 
+  /** Something that is no control and shows settings, e.g. a line about them: drawn now and each time the settings were taken over. */
+  onRemote(follow: () => void): void {
+    this.followers.push(follow)
+    follow()
+  }
+
   /** A control that shows a setting. The one being edited shows a change made elsewhere once it loses the focus. */
   track(input: HTMLElement, show: () => void): void {
     let stale = false
@@ -117,14 +156,19 @@ export class SettingsSession {
     update()
   }
 
-  /** A control of the page bound to one setting: `show` draws the setting, `apply` takes the control's value, then the settings are saved. */
+  /**
+   * A control of the page bound to one setting: `show` draws the setting, `apply` takes the control's value at each
+   * `event`, then the settings are saved; at each "input" they are stored once the value is committed (typed()).
+   */
   bind(id: string, event: "input" | "change", show: (el: Control) => void, apply: (el: Control) => void): Control {
     const el = $<Control>(id)
     this.track(el, () => show(el))
-    el.addEventListener(event, () => {
-      apply(el)
-      this.save()
-    })
+    if (event === "input") this.typed(el, () => apply(el))
+    else
+      el.addEventListener("change", () => {
+        apply(el)
+        this.save()
+      })
     return el
   }
 

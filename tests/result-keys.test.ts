@@ -57,6 +57,8 @@ function variation(name: string): { settings: Settings; req: TranslateRequest } 
   const settings = createDefaultSettings()
   settings.tiers = { dictionary: "dictionary", machine: "microsoft-free", ai: "openai" }
   settings.providers.openai.apiKey = "sk-test"
+  // The model the keys were pinned with, the default model of OpenAI before 3.1.2: the keys pin their form, not the default.
+  settings.providers.openai.model = "gpt-4.1-mini"
   const req = request()
   VARIATIONS.find(([n]) => n === name)![1](settings, req)
   return { settings, req }

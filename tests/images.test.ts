@@ -7,13 +7,16 @@
  */
 import { afterEach, describe, expect, it, vi } from "vitest"
 import { PersistentCache } from "../src/background/cache"
-import { browserCodec, dataBytes, encodeAttempts, type ImageDeps, ImageService, imageSize, isAnimated, readImageAnswer } from "../src/background/images"
+import { HeldImages } from "../src/background/remote-images"
+import { browserCodec, encodeAttempts, type ImageDeps, ImageService, readImageAnswer } from "../src/background/images"
+import { dataBytes, imageSize, isAnimated, sniffImageType } from "../src/background/image-format"
 import { createHandlers } from "../src/background/router"
 import { displayedMessageId, messagePart } from "../src/background/displayed"
 import { createTabRegistry } from "../src/background/tabs"
 import { type ImageAnswer, type ImageInput, llmReadImage } from "../src/background/translators/llm"
 import type { LlmCallOptions } from "../src/background/translators/llm"
 import { ENGLISH } from "../src/shared/i18n"
+import { IMAGE_MAX_BYTES } from "../src/shared/image"
 import { createMailContext } from "../src/shared/mail-context"
 import type { ImageRequest, ImageResponse } from "../src/shared/messages"
 import { createDefaultSettings, defaultImageSettings, resolveProviderConfig, type Settings, toPublicSettings } from "../src/shared/settings"
@@ -222,7 +225,7 @@ describe("an image request", () => {
     expect(image).toEqual({ bytes: new Uint8Array(2000), mediaType: "image/jpeg" })
     expect(text).toBe("Image 1 of the email. Target language: English.")
     expect(opts).toMatchObject({ systemPrompt: expect.stringContaining("Output format (follow exactly):"), targetLanguageName: "English", timeoutMs: 90_000, maxOutputTokens: 1024 })
-    expect(opts.provider).toMatchObject({ id: "openai", model: "gpt-4.1-mini", thinking: false })
+    expect(opts.provider).toMatchObject({ id: "openai", model: "gpt-6-luna", thinking: false })
     expect(codec.closed).toBe(1)
     // The cache answers a peek and a request; the image is still read on this computer, nothing is sent.
     expect(await ask({ action: "peek" })).toEqual({ status: "done", text: TABLE, service: "OpenAI", cached: true })
@@ -406,13 +409,24 @@ describe("the consent for images", () => {
   it("holds for one message only with \"confirm each message\", even for a service allowed before", async () => {
     const s = service({ settings: settingsWithImages((x) => (x.image.confirmEachMessage = true)) })
     expect((await s.ask()).status).toBe("error")
-    await s.images.grant("s1", ["openai"], true)
+    await s.images.grant("s1", ["openai"], true, ["api.openai.com"])
     expect(s.recordConsent).not.toHaveBeenCalled()
     expect((await s.ask()).status).toBe("done")
     // Another content script, another message: asked again.
     expect((await s.ask({ round: 1, fresh: true }, "s2")).status).toBe("error")
     s.images.forget("s1")
     expect((await s.ask({ fresh: true })).status).toBe("error")
+  })
+
+  it("C3: holds for one message only at the host the panel named", async () => {
+    const s = service({ settings: settingsWithImages((x) => (x.image.confirmEachMessage = true)), deps: { hasOrigin: async () => true } })
+    s.images.open("s1", 3)
+    await s.images.grant("s1", ["openai"], true, ["api.openai.com"])
+    s.settings.providers.openai.baseURL = "https://other.example/v1"
+    expect(await s.ask()).toEqual({ status: "error", error: expect.stringContaining(ENGLISH.t("errImageConsent", ["OpenAI"]).split(".")[0]) })
+    expect(s.read).not.toHaveBeenCalled()
+    s.settings.providers.openai.baseURL = ""
+    expect((await s.ask()).status).toBe("done")
   })
 
   it("B1: is checked again when the request leaves the queue: an image waiting there is not sent after the consent went", async () => {
@@ -620,7 +634,7 @@ describe("the test image", () => {
     expect(text).toBe("Image 1 of the email. Target language: English.")
     expect(opts.provider).toMatchObject({ model: "gpt-4.1", thinking: false, apiKey: "sk-test" })
     await s.images.test("openai", config, " ")
-    expect(s.read.mock.calls[1][2].provider.model).toBe("gpt-4.1-mini")
+    expect(s.read.mock.calls[1][2].provider.model).toBe("gpt-6-luna")
   })
 
   it("fails with the answer, or with the description of the error without the key", async () => {
@@ -688,7 +702,7 @@ describe("the session of a content script", () => {
     let recorded!: () => void
     s.recordConsent.mockImplementationOnce(() => new Promise<undefined>((r) => (recorded = () => r(undefined))))
     const granted = s.images.grant("s1", ["gemini"], false)
-    const allowed = s.images.grant("s1", ["openai"], true)
+    const allowed = s.images.grant("s1", ["openai"], true, ["api.openai.com"])
     const answer = s.ask()
     await nextTask()
     expect(s.read).not.toHaveBeenCalled()
@@ -756,6 +770,17 @@ describe("the session of a content script", () => {
 })
 
 describe("the size of an image from its header", () => {
+  it("A14: reads the type, the size and the animation of a file by one sniffing of its type", () => {
+    const files = [png(), gif(2), webp(0x02), new Uint8Array([0xff, 0xd8, 0x00, 0x00]), new Uint8Array([0x42, 0x4d, 0, 0])]
+    expect(files.map((bytes) => [sniffImageType(bytes), imageSize(bytes) !== null, isAnimated(bytes)])).toEqual([
+      ["image/png", true, false],
+      ["image/gif", true, true],
+      ["image/webp", false, true],
+      [null, false, false],
+      [null, false, false],
+    ])
+  })
+
   it("reads PNG, GIF, JPEG and the three kinds of WebP, and null for a file that ends before its size", () => {
     expect(imageSize(png(100, false, [640, 480]))).toEqual({ width: 640, height: 480 })
     expect(imageSize(gif(1))).toEqual({ width: 1, height: 1 })
@@ -777,28 +802,89 @@ describe("the Port and the other requests", () => {
     const order: string[] = []
     const openSession = vi.fn()
     const image = vi.fn(async (session: string, tabId: number, req: ImageRequest): Promise<ImageResponse> => (order.push(`image ${session} ${tabId} ${req.index}`), { status: "ready" }))
-    const imageConsent = vi.fn(async (session: string, ids: string[], message: boolean) => void order.push(`consent ${session} ${ids} ${message}`))
     const forgetSession = vi.fn()
-    const tabs = createTabRegistry({ ready: async () => {}, publicSettings: () => toPublicSettings(createDefaultSettings()), setContext: () => {}, translate: async () => {}, summarize: async () => ({ ok: false, error: "" }), openSession, image, imageConsent, forgetSession })
+    const tabs = createTabRegistry({ ready: async () => {}, publicSettings: () => toPublicSettings(createDefaultSettings()), setContext: () => {}, translate: async () => {}, summarize: async () => ({ ok: false, error: "" }), openSession, image, forgetSession })
     const port = backgroundPort(5)
     tabs.connect(port as unknown as browser.runtime.Port)
     expect(openSession).toHaveBeenCalledWith("5:1", 5)
-    port.send({ type: "imageConsent", ids: ["openai"], message: true })
     port.send({ type: "image", id: 7, image: { source: { part: "1.2" }, width: 400, height: 200, index: 1, action: "translate", round: 1 } })
     await until(() => expect(port.posted.at(-1)).toEqual({ type: "imageResult", id: 7, result: { status: "ready" } }))
-    expect(order).toEqual(["consent 5:1 openai true", "image 5:1 5 1"])
-    port.send({ type: "imageConsent", ids: ["gemini"] })
-    await until(() => expect(imageConsent).toHaveBeenLastCalledWith("5:1", ["gemini"], false, undefined))
-    // A second content script of the tab is a session of its own; a failing consent does not block the images.
-    imageConsent.mockRejectedValueOnce(new Error("storage"))
+    expect(order).toEqual(["image 5:1 5 1"])
+    // A second content script of the tab is a session of its own.
     const second = backgroundPort(5)
     tabs.connect(second as unknown as browser.runtime.Port)
-    second.send({ type: "imageConsent", ids: ["openai"] })
     second.send({ type: "image", id: 8, image: { source: { data: "data:image/png;base64,AA==" }, width: 400, height: 200, index: 1, action: "peek", round: 1 } })
     await until(() => expect(second.posted.at(-1)).toMatchObject({ type: "imageResult", id: 8 }))
     expect(image).toHaveBeenLastCalledWith("5:2", 5, expect.objectContaining({ action: "peek" }))
     port.disconnect()
     expect(forgetSession).toHaveBeenCalledWith("5:1")
+  })
+
+  it("S1: keeps the question of a consent panel for the popup of its tab, records the answer of the popup, then tells the panel", async () => {
+    stubBrowser()
+    const question = { kind: "image" as const, need: { id: "openai", host: "api.openai.com" }, count: 0, each: true, glossary: false, maxLongEdge: 1568, format: "JPEG" }
+    const text = { kind: "text" as const, needs: [{ id: "google-free", host: "translate.googleapis.com" }], uses: ["paragraphs" as const] }
+    const grantConsent = vi.fn(async (_session: string, _question: unknown) => {})
+    const consentAsked = vi.fn()
+    const consentOver = vi.fn()
+    const tabs = createTabRegistry({ ready: async () => {}, publicSettings: () => toPublicSettings(createDefaultSettings()), setContext: () => {}, translate: async () => {}, summarize: async () => ({ ok: false, error: "" }), grantConsent, consentAsked, consentOver })
+    const port = backgroundPort(5)
+    tabs.connect(port as unknown as browser.runtime.Port)
+    port.send({ type: "consentAsk", question })
+    port.send({ type: "consentAsk", question: text })
+    expect(consentAsked).toHaveBeenCalledTimes(2)
+    // Each question has an id that changes when the question is asked again.
+    expect(tabs.stateOf(5).consent).toEqual([{ ...question, id: 1 }, { ...text, id: 2 }])
+    expect(tabs.stateOf(6).consent).toBeUndefined()
+    // An answer to a question that is not the one asked now records nothing and tells the panel nothing.
+    expect(await tabs.answerConsent(5, "image", 2, true)).toBe(false)
+    expect(grantConsent).not.toHaveBeenCalled()
+    expect(port.posted.filter((msg) => msg.type === "consentAnswer")).toEqual([])
+    expect(consentOver).not.toHaveBeenCalled()
+    expect(await tabs.answerConsent(5, "image", 1, true)).toBe(true)
+    expect(grantConsent).toHaveBeenCalledWith("5:1", { ...question, id: 1 })
+    expect(port.posted.at(-1)).toEqual({ type: "consentAnswer", kind: "image", allowed: true })
+    expect(tabs.stateOf(5).consent).toEqual([{ ...text, id: 2 }])
+    // One question is left in the tab: its window stays.
+    expect(consentOver).not.toHaveBeenCalled()
+    // Not recorded: no consent. An answer without a question does nothing.
+    grantConsent.mockRejectedValueOnce(new Error("storage"))
+    await tabs.answerConsent(5, "text", 2, true)
+    expect(port.posted.at(-1)).toEqual({ type: "consentAnswer", kind: "text", allowed: false })
+    expect(consentOver).toHaveBeenLastCalledWith(5)
+    const posted = port.posted.length
+    expect(await tabs.answerConsent(5, "text", 2, true)).toBe(false)
+    expect(port.posted).toHaveLength(posted)
+    // Cancel answers nothing to record; a panel that went takes its question along, and so does a content script that went: the tab has none left.
+    port.send({ type: "consentAsk", question: text })
+    await tabs.answerConsent(5, "text", 3, false)
+    expect(grantConsent).toHaveBeenCalledTimes(2)
+    expect(port.posted.at(-1)).toEqual({ type: "consentAnswer", kind: "text", allowed: false })
+    port.send({ type: "consentAsk", question: text })
+    consentOver.mockClear()
+    port.send({ type: "consentClosed", kind: "text" })
+    expect(tabs.stateOf(5).consent).toBeUndefined()
+    expect(consentOver).toHaveBeenCalledWith(5)
+    port.send({ type: "consentAsk", question: text })
+    consentOver.mockClear()
+    port.disconnect()
+    expect(tabs.stateOf(5).consent).toBeUndefined()
+    expect(consentOver).toHaveBeenCalledWith(5)
+    // A page of the extension asks nothing, and a question of an unknown kind is dropped.
+    const page = backgroundPort(7, undefined, "moz-extension://test/welcome.html")
+    tabs.connect(page as unknown as browser.runtime.Port)
+    page.send({ type: "consentAsk", question: text })
+    const script = backgroundPort(8)
+    tabs.connect(script as unknown as browser.runtime.Port)
+    script.send({ type: "consentAsk", question: { kind: "other" } as never })
+    expect([tabs.stateOf(7).consent, tabs.stateOf(8).consent]).toEqual([undefined, undefined])
+    // Without a record, nothing is allowed.
+    const bare = createTabRegistry({ ready: async () => {}, publicSettings: () => toPublicSettings(createDefaultSettings()), setContext: () => {}, translate: async () => {}, summarize: async () => ({ ok: false, error: "" }) })
+    const lone = backgroundPort(9)
+    bare.connect(lone as unknown as browser.runtime.Port)
+    lone.send({ type: "consentAsk", question: text })
+    await bare.answerConsent(9, "text", 1, true)
+    expect(lone.posted.at(-1)).toEqual({ type: "consentAnswer", kind: "text", allowed: false })
   })
 
   it("answers an image request it cannot serve with an error: a page of the extension, a failing service, no image service", async () => {
@@ -810,7 +896,6 @@ describe("the Port and the other requests", () => {
     const page = backgroundPort(5, undefined, "moz-extension://test/welcome.html")
     tabs.connect(page as unknown as browser.runtime.Port)
     page.send(request)
-    page.send({ type: "imageConsent", ids: ["openai"] })
     const script = backgroundPort(6)
     tabs.connect(script as unknown as browser.runtime.Port)
     script.send(request)
@@ -818,7 +903,6 @@ describe("the Port and the other requests", () => {
     const other = backgroundPort(7)
     bare.connect(other as unknown as browser.runtime.Port)
     other.send(request)
-    other.send({ type: "imageConsent", ids: ["openai"] })
     const error = { type: "imageResult", id: 1, result: { status: "error", error: ENGLISH.t("errUnknown") } }
     for (const port of [page, script, other]) await until(() => expect(port.posted.at(-1)).toEqual(error))
     expect(failing).toHaveBeenCalledTimes(1)
@@ -930,6 +1014,22 @@ describe("a remote image", () => {
     expect(remoteFetch).toHaveBeenCalledTimes(2)
   })
 
+  it("C2: sends nothing when the server answers the second read with other bytes, or with a format whose size cannot be read", async () => {
+    const unreadable = { status: "skipped", reason: ENGLISH.t("imageUnreadable") }
+    let reads = 0
+    const changing = remote({ respond: () => pngResponse(++reads === 1 ? png() : png(5000, false, [10000, 10000])) })
+    expect((await changing.askRemote()).status).toBe("done")
+    // The retranslation reads the image again: the server gives a huge image instead.
+    expect(await changing.askRemote(URL_A, { round: 2, fresh: true })).toEqual(unreadable)
+    expect([changing.remoteFetch.mock.calls.length, changing.codec.encoded.length, changing.read.mock.calls.length]).toEqual([2, 1, 1])
+    // A BMP header tells no size the extension reads: never decoded.
+    const bmp = new Uint8Array(6000)
+    bmp.set([0x42, 0x4d])
+    const odd = remote({ respond: () => new Response(bmp, { headers: { "content-type": "image/bmp" } }) })
+    expect(await odd.askRemote()).toEqual(unreadable)
+    expect([odd.codec.encoded.length, odd.read.mock.calls.length]).toEqual([0, 0])
+  })
+
   it("is never read at an address the message does not name, nor once the tab shows another message", async () => {
     const unreadable = { status: "skipped", reason: ENGLISH.t("imageUnreadable") }
     const other = remote({ urls: ["https://cdn.example.com/other.png"] })
@@ -1022,6 +1122,66 @@ describe("a remote image", () => {
     const gone = remote({ mode: "ask", deps: { displayed: async () => null } })
     expect(await gone.askRemote(URL_A, { action: "peek" })).toEqual({ status: "ready" })
     expect([other.remoteFetch.mock.calls.length, gone.remoteFetch.mock.calls.length]).toEqual([0, 0])
+  })
+
+  it("IM1: after the server answered with other bytes the next request reads the image anew; a request that failed is tried again with the bytes kept", async () => {
+    const unreadable = { status: "skipped", reason: ENGLISH.t("imageUnreadable") }
+    let reads = 0
+    const changing = remote({ respond: () => pngResponse(png(5000 + ++reads)) })
+    expect((await changing.askRemote()).status).toBe("done")
+    // A retranslation reads the image again and gets other bytes: not sent.
+    expect(await changing.askRemote(URL_A, { round: 2, fresh: true })).toEqual(unreadable)
+    // The next request reads and filters the image anew, under its new SHA-256, and sends it.
+    expect((await changing.askRemote(URL_A, { round: 3 })).status).toBe("done")
+    expect([changing.remoteFetch.mock.calls.length, changing.read.mock.calls.length]).toEqual([3, 2])
+    // The AI request fails (a server that gives other bytes every time): the retry uses the bytes held, so it matches.
+    let served = 0
+    const flaky = remote({ respond: () => pngResponse(png(5000 + ++served)) })
+    flaky.read.mockRejectedValueOnce(Object.assign(new Error("Incorrect API key"), { statusCode: 401, isRetryable: false }))
+    expect((await flaky.askRemote()).status).toBe("error")
+    expect((await flaky.askRemote()).status).toBe("done")
+    expect(flaky.remoteFetch).toHaveBeenCalledTimes(1)
+  })
+
+  it("IM2: a result shown from the cache in mode on is still found after the mode changes to ask", async () => {
+    const s = remote({ urls: [URL_A, URL_B] })
+    expect((await s.askRemote(URL_A)).status).toBe("done")
+    // The same bytes at another address: the peek shows the cached result.
+    expect(await s.askRemote(URL_B, { action: "peek" })).toMatchObject({ status: "done", cached: true })
+    s.settings.image.mode = "ask"
+    const fetched = s.remoteFetch.mock.calls.length
+    expect(await s.askRemote(URL_B, { action: "peek" })).toMatchObject({ status: "done", cached: true })
+    expect(s.remoteFetch).toHaveBeenCalledTimes(fetched)
+  })
+
+  it("IM4: lets go of the bytes of an image the filters leave out or the cache answers, and of those of a session pushed out", async () => {
+    const held = new HeldImages()
+    const small = remote({ respond: () => pngResponse(png(3000)), deps: { held } })
+    expect((await small.askRemote(URL_A, { action: "peek" })).status).toBe("skipped")
+    expect(held.bytes).toBe(0)
+    const cached = remote({ urls: [URL_A, URL_B], deps: { held } })
+    await cached.askRemote(URL_A)
+    expect(await cached.askRemote(URL_B, { action: "peek" })).toMatchObject({ cached: true })
+    expect(held.bytes).toBe(0)
+    // A peek that finds nothing keeps the image for its translation; the 51st session pushes the first out.
+    const keeping = remote({ deps: { held } })
+    expect(await keeping.askRemote(URL_A, { action: "peek" })).toEqual({ status: "ready" })
+    expect(held.bytes).toBeGreaterThan(0)
+    for (let i = 2; i <= 51; i++) keeping.images.open(`s${i}`, 3)
+    expect(held.bytes).toBe(0)
+  })
+
+  it("IM8: leaves out a part or a data: image above the limit of one image without reading it", async () => {
+    const tooLarge = { status: "skipped", reason: ENGLISH.t("imageRemoteTooLarge", [15]) }
+    const file = new File([png()], "chart.png", { type: "image/png" })
+    Object.defineProperty(file, "size", { value: IMAGE_MAX_BYTES + 1 })
+    const part = service({ file })
+    expect(await part.ask({ action: "peek" })).toEqual(tooLarge)
+    const data = service()
+    const uri = `data:image/png;base64,${"A".repeat(Math.ceil(((IMAGE_MAX_BYTES + 10) * 4) / 3))}`
+    expect(await data.ask({ source: { data: uri }, action: "peek" })).toEqual(tooLarge)
+    expect(dataBytes(uri)).toBe("large")
+    expect(dataBytes("data:image/png;base64,AAEC")).toEqual({ bytes: new Uint8Array([0, 1, 2]), type: "image/png" })
   })
 
   it("A9: tells for an image beyond the ones peeked at whether the access is there, and reads nothing", async () => {

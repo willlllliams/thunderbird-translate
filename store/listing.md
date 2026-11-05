@@ -17,7 +17,7 @@ Translate the message you read, in place: bilingual or translation only. Three t
 ## Description
 
 ```text
-Your message text goes only to the translation services you choose. The online machine translators and the AI services receive the paragraphs of the message you translate (with precise translation, the whole message as context); the AI service of a summary receives the whole message with its sender, date and subject, when you ask for the summary or turn on the automatic summary. An image goes to an AI service only with precise translation on, after a click under it (or by itself if you turn image translation on), scaled down and without its file name or metadata; a remote image only once Thunderbird shows it and you allowed reading remote images. The extension asks once per service and address before it sends anything there, for images apart from text. The offline dictionary and the offline Bergamot models translate on your computer and send nothing. API keys stay in your Thunderbird profile and go only to their own service. The extension collects no statistics.
+Your message text goes only to the translation services you choose. The online machine translators and the AI services receive the paragraphs of the message you translate (with precise translation, the whole message as context); the AI service of a summary receives the whole message with its sender, date and subject, when you ask for the summary or turn on the automatic summary. An image goes to an AI service only with precise translation on, after a click under it (or by itself if you turn image translation on), scaled down and without its file name or metadata; a remote image only once Thunderbird shows it and you allowed reading remote images, and the extension then requests it once more from its own server. The extension asks once per service and address before it sends anything there (one answer covers translation and summary), for images apart from text. The offline dictionary and the offline Bergamot models translate on your computer and send nothing. API keys stay in your Thunderbird profile and go only to their own service. The extension collects no statistics.
 
 Multi Translate for Thunderbird translates the body of the message you are reading, directly in the message pane. It works right after installation with the free Google Translate, and you can add offline translation and AI services when you want them.
 
@@ -39,11 +39,11 @@ What it does
 How to use it
 - Open a message and click "Translate message" in the message header toolbar, or press Alt+A. The popup switches the display, the languages and the services of the three tiers.
 - Alt+S switches between bilingual and translation only; Alt+R translates the message again past the cache.
-- The first time a message would go to an online service, a panel above the message names the service and its address; nothing is sent until you click "Allow and translate".
+- The first time a message would go to an online service, a panel above the message names the service and its address; nothing is sent until you click "Allow…" there and "Allow" in the window of the extension that opens, which the message cannot change.
 
 How to set it up
 - After installation a setup guide opens: languages, display, the three tiers, offline downloads, machine translation, AI service and prompts. You can skip any step.
-- All settings are on the settings page (the "Options" button of the extension in the Add-ons Manager). A service with your key (DeepL, the AI services) and an endpoint you type yourself, such as a local Ollama, need your permission once when you set them up: click "Allow access" or "Test connection", or "Next" in the setup guide.
+- All settings are on the settings page (the "Options" button of the extension in the Add-ons Manager). A service with your key (DeepL, the AI services) and an endpoint you type yourself, such as a local Ollama, need your permission once when you set them up: click "Allow access", "Test connection" or "Test image", or "Next" or "Skip this step" in the setup guide.
 
 Interface languages: English, 简体中文, 繁體中文, 日本語, 한국어, Français, Deutsch, Español, Português (Brasil), Русский, Türkçe, Tiếng Việt.
 

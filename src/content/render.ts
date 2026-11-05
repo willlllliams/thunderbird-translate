@@ -7,9 +7,12 @@
  *   which move into a hidden span (CLS_ORIGINAL) and come back on clear().
  *   They stay in the document, so a content script that replaces this one
  *   (the extension was updated) finds them (restoreLeftovers()). The images
- *   of the unit stay: copies of them follow the translation, except remote
- *   ones, whose copies would be fetched again. What images.ts put under an
- *   image inside the unit stays where it is.
+ *   of the unit stay: copies of them follow the translation, at the address
+ *   the original shows. A copy of an image the message has loaded takes it
+ *   from the list of available images of the document (HTML, "update the
+ *   image data"), so a remote image is not requested again, and a blocked
+ *   one stays blocked. What images.ts put under an image inside the unit
+ *   stays where it is.
  *
  * A translation can carry a mark: a provisional result of a lower tier while
  * the highest tier runs, or a lower result kept after the highest tier failed.
@@ -19,6 +22,7 @@
  */
 
 import { getI18n } from "../shared/i18n"
+import { textDirection } from "../shared/locales"
 import { markdownFragment } from "../shared/markdown"
 import type { DisplayMode, Settings, StylePreset } from "../shared/settings"
 import { CLS_IMAGE, CLS_ORIGINAL, CLS_STATUS, CLS_TRANSLATION, type Unit } from "./paragraphs"
@@ -51,6 +55,17 @@ export function sampleRenderer(box: HTMLElement, style: Settings["style"]) {
     show: (el: HTMLElement, text: string, mode: DisplayMode, mark?: TranslationMark) => renderer.showTranslation(unit(el), text, mode, getI18n().lang, mark),
     loading: (el: HTMLElement, label: string) => renderer.showLoading(unit(el), label),
   }
+}
+
+/** A copy of `img` at the address it shows: a srcset or a picture around it could choose another one. */
+function copyOf(img: HTMLImageElement): HTMLImageElement {
+  const copy = img.cloneNode(false) as HTMLImageElement
+  if (img.currentSrc) {
+    copy.removeAttribute("srcset")
+    copy.removeAttribute("sizes")
+    copy.src = img.currentSrc
+  }
+  return copy
 }
 
 interface UnitDom {
@@ -148,7 +163,9 @@ export class Renderer {
     ].join(" ")
     if (format === "markdown") node.appendChild(markdownFragment(this.doc, text))
     else node.textContent = text
-    node.setAttribute("dir", "auto")
+    // The direction of the target language: a translation into Arabic that starts with a product name is still right to left.
+    const dir = lang ? textDirection(lang) : "auto"
+    node.setAttribute("dir", dir)
     if (lang) node.setAttribute("lang", lang)
     if (mark) {
       const title = mark.onRetry && mark.retryHint ? `${mark.title}\n${mark.retryHint}` : mark.title
@@ -161,7 +178,9 @@ export class Renderer {
       s.added = node
     } else {
       node.title = unit.text.length > 600 ? `${unit.text.slice(0, 600)}…` : unit.text
-      for (const img of Array.from(unit.el.querySelectorAll("img"))) if (!/^https?:/i.test(img.getAttribute("src") ?? "") && !img.closest(`.${CLS_IMAGE}`)) node.appendChild(img.cloneNode(false))
+      // In place of an original of the other direction, the translation takes the line, so that it is aligned by its own.
+      if (dir !== "auto" && this.doc.defaultView?.getComputedStyle(unit.el).direction !== dir) node.classList.add("tt-turned")
+      for (const img of Array.from(unit.el.querySelectorAll("img"))) if (!img.closest(`.${CLS_IMAGE}`)) node.appendChild(copyOf(img))
       const original = this.doc.createElement("span")
       original.className = CLS_ORIGINAL
       original.hidden = true

@@ -46,7 +46,7 @@ Code, paragraphs already in the target language, numbers, bare links and whitesp
 
 ## Settings page
 
-Open the settings page with the "Options" button of this extension in the Add-ons Manager. Settings are saved automatically. "Saved" appears in the top right corner once they are written. When a save fails, the error appears in its place and the change goes with the next save. The "Setup guide" button next to it opens the setup guide.
+Open the settings page with the "Options" button of this extension in the Add-ons Manager. Settings are saved automatically: a choice at once, a text field (a prompt, a model, an endpoint, a key, a temperature) once you leave it or press Enter, and whatever is still typed when the page closes. A translated message on screen asks a service again once its settings stayed the same for 1.5 seconds; a new display mode asks at once. "Saved" appears in the top right corner once they are written. When a save fails, the error appears in its place and the change goes with the next save. The "Setup guide" button next to it opens the setup guide.
 
 Resting the mouse on any control of the settings page, the popup or the setup guide shows one short sentence about what it is or what it does; the buttons of the notice above a message have one too.
 
@@ -194,11 +194,13 @@ Before the text of a message first goes to an online service, the extension asks
 When a translation starts (the toolbar button, Alt+A, automatic translation, Retranslate) and a tier in use has an online service that is not allowed yet, a panel appears above the message instead of the translation:
 
 - It names each such service with the host its requests go to, for example "Google Translate (free): translate.googleapis.com".
-- It says that the paragraphs of the message go to these services, with precise translation also the whole message as context of the AI service, and that a saved API key goes only to its own service.
-- "Allow and translate" records the services in the settings, each with the host the panel named, and translates the message. "Cancel" leaves the message as it is and sends nothing.
-- Asked for the summary while the panel of the translation is open (or the other way round), the same panel lists the services of both and, when the summary is among them, says that the whole message goes to its service; one answer covers both, and only services the panel listed are recorded.
+- It says what is sent: the paragraphs of the message for a translation, with precise translation also the whole message as context of the AI service, and for a summary the whole message with its sender, date and subject. It also says that a saved API key goes only to its own service.
+- "Allow…" opens the popup of the message header button (a window of its own when the button is not in a toolbar), which shows the same question. Its "Allow" records the services in the settings, each with the host the panel named, and the translation or summary that asked goes on. "Cancel", in the panel or in the popup, leaves the message as it is and sends nothing.
+- The decision is made in the popup because the panel stands in the message, whose own style sheet applies to it: a message could hide the panel and stretch its button over the whole message. A page of the extension is out of its reach. Neither the panel nor the popup gives the focus to a button, so a key pressed while reading answers nothing; a panel opened by automatic translation leaves the focus where it is.
+- Asked for the summary while the panel of the translation is open (or the other way round), the same panel lists the services of both and says what each sends; one answer covers both, and only services the panel listed are recorded.
+- One consent per service covers translation and summary. A service allowed for the translation is not asked again for the summary, and the other way round, also before the settings that record the consent have arrived.
 
-Until a service is allowed, no request reaches it: the background script refuses a request for it as well, also a request that already waits in its queue when the consent is revoked, and reports "<service> has not been allowed to receive message text yet. Translate the message again and choose “Allow and translate”.". A tier changed to a service not allowed yet, while a message is translated, makes the panel appear again.
+Until a service is allowed, no request reaches it: the background script refuses a request for it as well, also a request that already waits in its queue when the consent is revoked, and reports "<service> has not been allowed to receive message text yet. Translate the message again and choose “Allow”.". A tier changed to a service not allowed yet, while a message is translated, makes the panel appear again.
 
 The allowed services are listed in the Translation tiers section of the settings page, each with its host and "Revoke"; after a revocation the panel asks again, also in the message on screen, and the requests of the service still waiting in a queue are not sent. Settings saved before 3.0.0 hold the services alone; they count as allowed for the endpoint the service has when the settings are read. The sample message of the setup guide is built into the extension and is no mail of yours, so its trial translation asks nothing.
 
@@ -351,7 +353,7 @@ The service answers with a JSON object, and the extension draws the panel from i
 
 The request carries the message text as the content script finds it (up to 20,000 characters, as for precise translation), with the sender, date and subject of the message, which the background script reads with `messageDisplay.getDisplayedMessage()`: the date of the message turns "next Wednesday" into a date. The date goes in the time zone of the computer with its offset, for example `2026-10-22T07:00+08:00`, so that "tomorrow" is the day after the date the reader sees. When precise translation has analyzed the same message, the glossary of the analysis goes with it, so that names and terms are written as in the translation.
 
-The summary uses the consent of the translation. Its service gets the message only once it is allowed to receive message text; otherwise the consent panel appears first, with the text of precise translation, since the whole message goes to the AI service. While the cache is on (see [Retranslate and the cache](#retranslate-and-the-cache)), a summary that could be read is cached under the service, the model, the target language, the request and a hash of endpoint, prompt, part list, length limit, temperature and thinking switch.
+The summary uses the consent of the translation, the same record and the same state in the message. Its service gets the message only once it is allowed to receive message text; otherwise the consent panel appears first and says that the whole message goes to the service with its sender, date and subject. While the cache is on (see [Retranslate and the cache](#retranslate-and-the-cache)), a summary that could be read is cached under the service, the model, the target language, the request and a hash of endpoint, prompt, part list, length limit, temperature and thinking switch.
 
 ### Automatic summary
 
@@ -373,7 +375,7 @@ A summary that opens by itself asks for the consent of its service the first tim
 | --- | --- | --- | --- |
 | Service | Same as the AI tier | the added AI services | without an AI tier and without a service of its own, the popup button is disabled |
 | Model | empty | any model name | empty uses the model of the service |
-| Answer length limit (tokens) | 800 | 200–4000 | the length of the summary, sent as `maxOutputTokens`; a model that reasons first (thinking on, or a model that reasons with thinking off, such as `gpt-5-mini`) gets 4096 more for its reasoning, which most services count within the limit; Anthropic's SDK adds it by itself. An answer cut at the limit fails with a message that names the limit |
+| Answer length limit (tokens) | 800 | 200–4000 | the length of the summary, sent as `maxOutputTokens`; a model that reasons first (thinking on, or a model that reasons with thinking off, such as `gemini-3.5-flash-lite`) gets 4096 more for its reasoning, which most services count within the limit; Anthropic's SDK adds it by itself. An answer cut at the limit fails with a message that names the limit |
 | Panel | Expanded | Expanded, Collapsed | how the panel opens |
 | Automatic summary | Off | Off, When the message is translated, For every opened message | see [Automatic summary](#automatic-summary) |
 | Include | all four parts | Summary, To-dos, Questions to answer, Dates and meetings | the parts left out are asked as empty lists, which shortens the answer, and are not shown |
@@ -430,10 +432,11 @@ The background script reads the bytes of an image that passes: an image of the b
 
 | Rule | Default | Effect |
 | --- | --- | --- |
+| a file above 15 MB, whether a part, a `data:` image or a remote one | always | "The image is larger than 15 MB and is not read."; a part is judged by its size and a `data:` image by its length, before anything is decoded |
 | a file under "Smallest file (KB)" | 4 KB | left out: solid blocks, minimal icons |
 | animated: a GIF with a second image, a WebP with the animation flag, a PNG with an `acTL` chunk (APNG), read from the content, not the name | "Leave out" | "Send the first frame" sends the first frame as a still image |
 | more than 40 megapixels, from the header of the file (PNG, GIF, JPEG, WebP) or the natural size | always | "This image has more than 40 megapixels; it is not read.": nothing is decoded |
-| the same image twice in one message (SHA-256 of the bytes) | | sent once; each copy shows the result |
+| the same image twice in one message (SHA-256 of the bytes) | | sent once; each copy shows the result, also after "Retranslate", which asks past the cache once per image |
 | more images sent than "Images per message" | 5 | "This message has already sent 5 images, the limit per message." |
 | more bytes sent than "Limit per message (MB)" | 6 MB | the image is not sent |
 
@@ -515,7 +518,7 @@ The text beside the image is "Image <n> of the email. Target language: <language
 
 The result is a collapsible block after the image (after the container of an attachment, after the paragraph or link that holds the image); in a table cell, a list item or a caption it becomes their last child, so the table or the list keeps its layout. Its title reads "Image text · <service>" with the input and output tokens of the request while "Show the tokens of each image" is on, or "cached". It opens expanded, or collapsed with "Result: Collapsed"; changing this or the tokens switch draws the results again in place, without a request. The table shows its header in the interface language. An answer that reached "Answer length limit (tokens)" ends with a note that it may be incomplete. An image without text, after a click, shows "This image has no text to translate." for three seconds; in "On" it shows nothing.
 
-The result is always rendered as Markdown with tables ([Markdown in AI translations](#markdown-in-ai-translations)), whatever the switch of AI translations says: a table is unreadable as its characters. Both display modes leave the image as it is; the result does not change with the display mode. In translation-only mode, an image that sits inside a paragraph stays as a copy after the translation of that paragraph.
+The result is always rendered as Markdown with tables ([Markdown in AI translations](#markdown-in-ai-translations)), whatever the switch of AI translations says: a table is unreadable as its characters. Both display modes leave the image as it is; the result does not change with the display mode. In translation-only mode, an image that sits inside a paragraph stays as a copy after the translation of that paragraph, a remote image too: the copy takes the image Thunderbird already loaded and requests nothing.
 
 ### Consent for images
 
@@ -525,7 +528,7 @@ Images are allowed apart from the text of messages, per service, in `Settings.im
 - where to: the service and the host of its endpoint;
 - the data policy of the service, for the services checked: Anthropic states that it does not train its models on images sent through its API; on the free tier of the Gemini API, Google may have people review the input and use it to improve its products; OpenAI does not train on API data by default and keeps abuse monitoring logs for up to 30 days. For any other service: it handles the image under its own privacy policy.
 
-"Allow and translate image" records the service with its host and sends the image; "Cancel" sends nothing and brings the button back. The background script checks the consent again when an image request arrives and when it leaves the queue, together with the mode and the vision service of the settings, and refuses one without it: an image that waits in the queue is not sent once the consent is revoked, image translation is turned off or the content script went away. A consent revoked while the message is on screen, or "Ask again for every message" turned on, makes the panel ask again. With "Ask again for every message" on, the panel asks before the first image of every message and records nothing. The Translation tiers section of the settings page lists the services allowed to receive text and those allowed to receive images in two columns, each with "Revoke".
+"Allow…" shows the question in the popup, where "Allow and translate image" records the service with its host and sends the image; "Cancel" sends nothing and brings the button back. The background script checks the consent again when an image request arrives and when it leaves the queue, together with the mode and the vision service of the settings, and refuses one without it: an image that waits in the queue is not sent once the consent is revoked, image translation is turned off or the content script went away. A consent revoked while the message is on screen, or "Ask again for every message" turned on, makes the panel ask again. With "Ask again for every message" on, the panel asks before the first image of every message and records nothing. The Translation tiers section of the settings page lists the services allowed to receive text and those allowed to receive images in two columns, each with "Revoke".
 
 ### Cache of images
 
@@ -538,8 +541,8 @@ While the cache is on, a result is cached under the service, the vision model, t
 | Image translation | Ask under each image | Off, Ask under each image, On | see [Modes](#modes); greyed out with "Requires precise translation." and "Turn on precise translation" while precise translation is off, its value kept |
 | Vision service | Same as the AI tier | the added AI services | another service needs its own consent and access to its endpoint |
 | Model | empty | any model name | empty uses the model of the service; the line under it names a model that does not accept images, with one that does |
-| Translate inline images of the body | on | | `cid:` and `data:` images |
-| Translate image attachments | on | | remote images are not translated |
+| Translate inline images of the body | on | | `cid:`, `data:` and remote images (see [Remote images](#remote-images)) |
+| Translate image attachments | on | | the images Thunderbird shows under the body |
 | Images per message | 5 | 1–20 | "On" sends the first ones; a click after them says the limit is reached |
 | Shortest side (px) | 100 | 16–1000 | of the natural size |
 | Smallest area (px²) | 40000 | 0–4000000 | 0 = no limit |
@@ -682,7 +685,7 @@ In the popup and on the settings page, a selected dictionary or Bergamot that la
 
 "Show original" followed by "Translate this message" translates from what the page remembers and sends no request.
 
-The Cache section turns the cache on or off (on by default), sets the maximum number of cached paragraphs (5000 by default, 0–100000), shows the current number of entries and clears the cache. The cache is stored in `storage.local` of the Thunderbird profile and evicts the least recently used entries. Every write stores the whole list, so it goes to storage 5 seconds after a new result and then at most every 30 seconds while results keep coming, and once more after the last one.
+The Cache section turns the cache on or off (on by default), sets the maximum number of cached paragraphs (5000 by default, 0–100000), shows the current number of entries and clears the cache. The cache is stored in the IndexedDB storage of the extension in the Thunderbird profile, one record per entry with the time it was used last, and drops the least recently used entries beyond the maximum. New results and uses go to the database together, 5 seconds after the first of them. Up to version 3.1.1 the cache was one list in `storage.local`, which the first use moves into the database.
 
 ## Translation style
 
@@ -775,15 +778,16 @@ Settings saved before version 3.0.0 have no image settings, no image prompt and 
 | `messagesModify` | showing translations inside the displayed message: Thunderbird runs the content script of `messageDisplayScripts` and injects it into a message already on screen only with this permission. The extension changes no stored message. |
 | `messagesRead` | reading the header of the displayed message with `messageDisplay.getDisplayedMessage()`: its sender, date and subject go with the request of its summary. The extension reads no message body this way and stores no header. Image translation reads the id of the displayed message and, with `messages.getAttachmentFile()`, the image parts of that message whose images pass the filters of [Which images](#which-images): inline images of the body and image attachments, never another attachment. For a remote image it reads the HTML of that message with `messages.getFull()`, to check that the message names the address of the image. |
 | `sensitiveDataUpload` | sending the paragraphs of a message to the online services of the tiers in use, the message to the AI service of its summary, and the images you ask to translate, or that mode "On" takes, to the vision service |
-| `storage` | the settings, the translation cache and the state of the setup guide in `storage.local` |
-| `unlimitedStorage` | the dictionary packs and Bergamot models in IndexedDB, 13 to 48 MB per direction, which the browser then neither evicts nor caps |
+| `storage` | the settings and the state of the setup guide in `storage.local` |
+| `unlimitedStorage` | the dictionary packs, the Bergamot models (13 to 48 MB per direction) and the translation cache in IndexedDB, which the browser then neither evicts nor caps |
 | host permissions | the addresses that work without an account, listed as `FIXED_HOSTS` in `src/shared/hosts.ts`: Google Translate, the free route of Microsoft Translator, Mozilla Remote Settings with its attachment CDN, and the GitHub releases with the host GitHub redirects downloads to |
 | optional host permissions | the default addresses of the services that need your key (`KEYED_HOSTS`): Microsoft Translator with an Azure key, both DeepL addresses (free and Pro keys), Baidu Translate, Youdao, Caiyun and the default endpoint of every AI preset; then `http://*/*` and `https://*/*` for any other address |
 
 The address of a service with your key and an address you type need your permission once. The first are the default endpoints above; the second are the endpoint of Ollama, LM Studio, DeepLX, Azure OpenAI, a custom OpenAI-compatible service or Azure Translator, and a changed endpoint of any preset. The installation therefore lists only the addresses without an account, and the extension asks only for the host of the service you set up:
 
 - While the permission is missing, a line under the endpoint field, or under the key for Baidu, Youdao and Caiyun, reads "The extension may not connect to <host> yet." with an "Allow access" button. Thunderbird then shows its own prompt.
-- In the setup guide, "Next" on the step of a service asks for its permission when it is missing.
+- In the setup guide, "Next" and "Skip this step" on the step of a service ask for its permission when it is missing; a skipped step keeps the service chosen in it.
+- "Test image" under the vision service asks for the permission of the vision service first.
 - An update from 3.0 or earlier keeps the permissions of the services that version had as host permissions: Thunderbird keeps a permission granted when an update moves it from the required to the optional permissions.
 - "Test connection" asks for the permission first, so testing a new endpoint grants it in one step.
 - The permission covers the host with every port and path. The line disappears once it is granted, also when it was granted on another page.
@@ -823,7 +827,6 @@ The endpoint field of a local service notes that `localhost` is this computer (t
 - Precise translation identifies a message by a hash of its body text. Two copies of the same text share their translations and their analysis.
 - Prompt caching is up to the provider, see [Precise translation](#precise-translation).
 - The thinking switch works by matching model names, see [providers.md](providers.md#thinking-mode). So does the line that says whether a vision model accepts images, see [providers.md](providers.md#image-translation); a model it does not know is sent images, and "Test image" tells whether it reads them.
-- Remote images are not translated, see [Which images](#which-images).
 - "Image detail" reaches OpenAI and DeepSeek only. The AI SDK puts the options of an OpenAI-compatible service beside the image part instead of into it, so Doubao and SiliconFlow, which read a detail, get none.
 - Image translation takes the part number in the address of an image as the part name of `messages.getAttachmentFile()`. A part that does not turn out to be an image is reported as unreadable.
 - Every tier in use sends its own requests. With the AI tier and the machine tier both in use, each message also costs requests to the machine translator.
