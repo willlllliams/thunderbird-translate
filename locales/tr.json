@@ -445,7 +445,7 @@
   "tipFontScale": "İleti metnine göre boyut, 0,7 ile 1,5 arası",
   "tipCacheEnabled": "Önceki çevirileri yeni istek göndermeden kullanır",
   "tipCacheMax": "Bunun ötesinde en uzun süredir kullanılmayan girdiler önce silinir",
-  "tipClearCache": "Saklanan tüm çevirileri siler",
+  "tipClearCache": "Saklanan çevirileri, özetleri ve görsel sonuçlarını siler",
   "tipPickItem": "İşaretli öğeleri Seçilenleri indir düğmesi indirir",
   "tipLangTarget": "Hedef diliniz için önerilir",
   "tipLangSource": "Kaynak diliniz için önerilir",

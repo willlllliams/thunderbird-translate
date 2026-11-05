@@ -442,7 +442,7 @@
   "tipFontScale": "相對郵件內文的字級，0.7 到 1.5",
   "tipCacheEnabled": "重複使用先前的譯文，不再送出請求",
   "tipCacheMax": "超出後先刪除最久未用的項目",
-  "tipClearCache": "刪除所有已儲存的譯文",
+  "tipClearCache": "刪除已儲存的譯文、摘要和圖片辨識結果",
   "tipPickItem": "勾選的項目由「下載所選項目」下載",
   "tipLangTarget": "因目標語言而推薦",
   "tipLangSource": "因來源語言而推薦",

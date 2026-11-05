@@ -83,7 +83,11 @@ Web Crypto 不提供 MD5，所以 `src/shared/md5.ts` 按 RFC 1321 直接实现�
 
 ## 3.1.2 起：在弹出窗口中给出同意
 
-同意面板位于邮件之中，邮件自带的 CSS（HTML 邮件的 `<style>`）同样作用于面板：邮件可以把表示允许的按钮设为透明并铺满整封邮件，邮件中任何一次点击都会变成允许。从 3.1.2 起，邮件中的面板只负责询问。它的“允许…”按钮把问题交给后台脚本（经内容脚本的 Port 发送 `consentAsk`，见 `src/background/tabs.ts`），后台脚本用 `messageDisplayAction.openPopup()` 打开这封邮件的弹出窗口；按钮不在工具栏中时，用 `windows.create()` 在单独的窗口中打开 `popup.html?tab=<id>`。弹出窗口和面板一样列出各服务及其主机和发送的内容，并提供“允许”和“取消”（`src/popup/index.ts` 的 `renderConsent()`）；它的回答发给后台脚本（`answerConsent`，只接受扩展页面发来的请求），后台脚本先记录同意，再通知面板。内容脚本已经没有能记录同意的请求：`grantConsent` 和 Port 消息 `imageConsent` 都已删除。面板和弹出窗口都不把焦点放在按钮上，阅读时误按一个键不会作出任何回答。
+同意面板位于邮件之中，邮件自带的 CSS（HTML 邮件的 `<style>`）同样作用于面板：邮件可以把表示允许的按钮设为透明并铺满整封邮件，邮件中任何一次点击都会变成允许。从 3.1.2 起，邮件中的面板只负责询问。它的“允许…”按钮把问题交给后台脚本（经内容脚本的 Port 发送 `consentAsk`，见 `src/background/tabs.ts`），后台脚本用 `messageDisplayAction.openPopup()` 打开这封邮件的弹出窗口；按钮不在工具栏中时，用 `windows.create()` 在单独的窗口中打开 `popup.html?tab=<id>`。弹出窗口和面板一样列出各服务及其主机和发送的内容，并提供“允许”和“取消”（`src/popup/index.ts` 的 `renderConsent()`）；它的回答发给后台脚本（`answerConsent`，只接受扩展页面发来的请求），后台脚本先记录同意，再通知面板。内容脚本已经没有能记录同意的请求：`grantConsent` 和 Port 消息 `imageConsent` 都已删除。面板和弹出窗口都不把焦点放在按钮上，阅读时误按一个键不会作出任何回答。后台脚本给每个问题一个随问题变化的编号，弹出窗口回答时带上它所显示问题的编号；问题在此期间变了（面板又询问了另一个服务），这个回答就不记录。翻译和摘要共用每个服务的一项同意。一个标签页至多有一个弹出窗口：下一个问题时聚焦它，没有问题时关闭它（`src/background/consent-window.ts`）。
+
+### 由点击触发、发送内置内容的请求
+
+有三种请求不经同意面板就到达服务，因为它们发送的是扩展内置的内容，不含用户的邮件，并且都由扩展页面上的一次点击触发。设置向导的“翻译示例邮件”按钮把页面内置的示例邮件发给所设置层级的服务，其中 AI 服务会带上密钥；`src/background/service.ts` 的 `translateForPage()` 对这种请求跳过同意检查，是否属于这种请求由 `src/background/tabs.ts` 的 `isExtensionPage(port.sender)` 判定，内容脚本的发送者地址是邮件的地址，因此无法冒充。“测试连接”（`testProvider()`）向被测试的服务发送一句固定的英文句子，“测试图片”（`ImageService.test()`）向被测试的视觉服务发送一张由扩展绘制、写着“TEST 42”的小图。翻译缓存除译文外还保存摘要（含待办的原句，每条 120 个字符）、精翻的分析和图片中识别出的文字；它在 IndexedDB 中，没有加密，隐私政策已经写明。发往 OpenRouter 的请求带有请求头 `X-Title`，内容是扩展名称（`src/background/providers/factory.ts`），OpenRouter 用它归属流量；隐私政策已经写明。
 
 ## 3.0.0 起：免费线路的连接检查
 

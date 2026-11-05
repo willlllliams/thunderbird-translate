@@ -140,6 +140,11 @@ describe("secrets in error texts", () => {
     expect(redactUrl(url)).toBe(expected)
   })
 
+  it("PV7: leaves a path with a stray percent sign as it is, and still hides a token after it", () => {
+    expect(redactUrl("https://host.example/100%/v1")).toBe("https://host.example/100%/v1")
+    expect(redactUrl("https://host.example/100%zz/abcdefghij1234567890KLMN/v1")).toBe("https://host.example/100%zz/***/v1")
+  })
+
   it("never shows the DeepLX token of the request, in the URL line, the hints or the server message", async () => {
     const token = "tok-12/ab"
     const provider = resolveProviderConfig("deeplx", { apiKey: token, baseURL: "https://dlx.example/{{apiKey}}/translate", model: "" })

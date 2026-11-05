@@ -102,6 +102,15 @@ const SECRET_PARAM = /key|token|auth|secret|sig|pass|credential|session/i
 /** A path segment that looks like a token: 20 or more characters with letters and digits, no dot. */
 const TOKEN_SEGMENT = /^(?=.*\d)(?=.*[A-Za-z])[\w:-]{20,}$/
 
+/** A path segment as text; one with a stray % (a URL keeps it as written) is taken as it is. */
+function safeDecode(segment: string): string {
+  try {
+    return decodeURIComponent(segment)
+  } catch {
+    return segment
+  }
+}
+
 /** The URL with user info, token-like path segments and credential parameters replaced by ***. */
 export function redactUrl(url: string): string {
   let u: URL
@@ -112,7 +121,7 @@ export function redactUrl(url: string): string {
   }
   const secretParams = [...new Set(u.searchParams.keys())].filter((key) => SECRET_PARAM.test(key))
   const segments = u.pathname.split("/")
-  const tokens = segments.filter((segment) => TOKEN_SEGMENT.test(decodeURIComponent(segment)))
+  const tokens = segments.filter((segment) => TOKEN_SEGMENT.test(safeDecode(segment)))
   if (!u.username && !u.password && tokens.length === 0 && secretParams.length === 0) return url
   if (u.username) u.username = "***"
   if (u.password) u.password = "***"

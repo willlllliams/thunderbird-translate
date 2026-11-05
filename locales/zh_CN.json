@@ -442,7 +442,7 @@
   "tipFontScale": "相对邮件正文的字号，0.7 到 1.5",
   "tipCacheEnabled": "复用以前的译文，不再发送请求",
   "tipCacheMax": "超出后先删除最久未用的条目",
-  "tipClearCache": "删除所有已保存的译文",
+  "tipClearCache": "删除已保存的译文、摘要和图片识别结果",
   "tipPickItem": "勾选的项由“下载所选项”下载",
   "tipLangTarget": "因目标语言而推荐",
   "tipLangSource": "因源语言而推荐",

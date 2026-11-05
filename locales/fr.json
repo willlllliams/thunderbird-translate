@@ -442,7 +442,7 @@
   "tipFontScale": "Taille relative au texte du message, de 0,7 à 1,5",
   "tipCacheEnabled": "Réutilise les traductions précédentes sans nouvelle requête",
   "tipCacheMax": "Au-delà, les entrées les moins récemment utilisées partent d’abord",
-  "tipClearCache": "Supprime toutes les traductions stockées",
+  "tipClearCache": "Supprime traductions, résumés et résultats d’images stockés",
   "tipPickItem": "Les éléments cochés sont téléchargés par « Télécharger la sélection »",
   "tipLangTarget": "Recommandé pour votre langue cible",
   "tipLangSource": "Recommandé pour votre langue source",

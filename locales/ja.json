@@ -442,7 +442,7 @@
   "tipFontScale": "メッセージ本文に対する文字サイズ（0.7〜1.5）",
   "tipCacheEnabled": "以前の訳文を新たな要求なしで再利用します",
   "tipCacheMax": "超えると最近使っていない項目から削除",
-  "tipClearCache": "保存済みの訳文をすべて削除します",
+  "tipClearCache": "保存済みの訳文、要約、画像の認識結果を削除します",
   "tipPickItem": "チェックした項目は「選択したものをダウンロード」で取得",
   "tipLangTarget": "翻訳先の言語におすすめ",
   "tipLangSource": "翻訳元の言語におすすめ",

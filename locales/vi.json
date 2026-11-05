@@ -442,7 +442,7 @@
   "tipFontScale": "Cỡ chữ so với văn bản trong thư, từ 0,7 đến 1,5",
   "tipCacheEnabled": "Dùng lại bản dịch trước đó mà không gửi yêu cầu mới",
   "tipCacheMax": "Vượt mức này, các mục lâu không dùng nhất bị xóa trước",
-  "tipClearCache": "Xóa mọi bản dịch đã lưu",
+  "tipClearCache": "Xóa bản dịch, tóm tắt và kết quả ảnh đã lưu",
   "tipPickItem": "Các mục được chọn sẽ được tải bằng \"Tải mục đã chọn\"",
   "tipLangTarget": "Khuyên dùng cho ngôn ngữ đích của bạn",
   "tipLangSource": "Khuyên dùng cho ngôn ngữ nguồn của bạn",

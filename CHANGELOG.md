@@ -57,6 +57,8 @@ All notable changes to this project are documented in this file, with the date o
 ### Texts
 
 - The hints of the image settings and the settings documentation name the remote images among the images of the body.
+- The privacy policy and the notes to reviewers now say what the cache holds (summaries with quotes of the message, analyses, text found in images, not only hashes), that the sample message of the setup guide, "Test connection" and "Test image" send built-in content after your click without a consent panel, and that OpenRouter requests carry the header `X-Title`.
+- A URL with a stray percent sign in its path no longer turns a failed request into "URI malformed" instead of the real error.
 - The privacy policy names the image attachments that are sent, and "Test image" and "Skip this step" among the buttons that ask for the site of a service.
 
 ## 3.1.1 - 2026-10-22
