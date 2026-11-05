@@ -1,4 +1,4 @@
-import { type ConsentQuestion, consentText } from "../shared/consent"
+import { type AskedQuestion, consentText } from "../shared/consent"
 import { button, h } from "../shared/dom"
 import { firstLine, truncate } from "../shared/errors"
 import { ext } from "../shared/ext"
@@ -104,14 +104,15 @@ async function main(): Promise<void> {
   // The questions of the consent panels of the message, with the buttons that decide.
   const consentBox = $("consentAsk")
   let asked = ""
-  const answerConsent = async (kind: ConsentQuestion["kind"], allowed: boolean) => {
+  /** Answers the question as it was shown; the background script ignores the answer when the question changed meanwhile, and the next refresh shows the new one. */
+  const answerConsent = async ({ kind, id }: AskedQuestion, allowed: boolean) => {
     if (tabId === undefined) return
-    await send({ type: "answerConsent", tabId, kind, allowed }).catch(() => {})
+    await send({ type: "answerConsent", tabId, kind, id, allowed }).catch(() => {})
     await refresh()
     // The window of its own goes once nothing is asked.
     if (named && !last.consent?.length) window.close()
   }
-  const renderConsent = (questions: ConsentQuestion[] = []) => {
+  const renderConsent = (questions: AskedQuestion[] = []) => {
     if (JSON.stringify(questions) === asked) return
     asked = JSON.stringify(questions)
     consentBox.hidden = questions.length === 0
@@ -126,7 +127,7 @@ async function main(): Promise<void> {
           ...text.before.map((line) => h("p", { text: line })),
           h("ul", {}, ...text.services.map((line) => h("li", { text: line }))),
           ...text.after.map((line) => h("p", { text: line })),
-          h("div", { className: "row" }, button(text.allow, () => void answerConsent(q.kind, true), true, allowTip), button(t("consentCancel"), () => void answerConsent(q.kind, false), false, cancelTip)),
+          h("div", { className: "row" }, button(text.allow, () => void answerConsent(q, true), true, allowTip), button(t("consentCancel"), () => void answerConsent(q, false), false, cancelTip)),
         )
       }),
     )

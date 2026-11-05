@@ -39,11 +39,11 @@ const g = globalThis as unknown as { messenger?: Ext; browser?: Ext }
  * In Thunderbird the namespace exists before any script runs and never
  * changes; the unit tests install a fake one per test.
  */
+export const ext: Ext = new Proxy({} as Ext, {
+  get: (_target, key) => Reflect.get((g.messenger ?? g.browser) as Ext, key),
+})
+
 /** Whether a message comes from a page of the extension (popup, settings page, setup guide); a content script has the address of its message. */
 export function isExtensionPage(sender: { url?: string } | undefined): boolean {
   return typeof sender?.url === "string" && sender.url.startsWith(ext.runtime.getURL(""))
 }
-
-export const ext: Ext = new Proxy({} as Ext, {
-  get: (_target, key) => Reflect.get((g.messenger ?? g.browser) as Ext, key),
-})

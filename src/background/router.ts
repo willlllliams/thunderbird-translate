@@ -22,7 +22,7 @@ import type { TabRegistry } from "./tabs"
 
 export interface RouterDeps {
   tabs: Pick<TabRegistry, "postToTab" | "stateOf" | "broadcast" | "answerConsent">
-  service: Pick<TranslationService, "testProvider">
+  service: Pick<TranslationService, "testProvider" | "clearMemory">
   /** The test image of the settings page; without it the test fails. */
   images?: Pick<ImageService, "test">
   /** The interface messages of a language for a content script. */
@@ -70,11 +70,15 @@ export function createHandlers({ tabs, service, images, localeMessages, offlineM
         }
         s.offlineMutedPairs = [...muted]
       })),
-    // The popup answers a consent panel of the message: only a page of the extension, which the message cannot style or cover.
-    answerConsent: async (req) => void (await tabs.answerConsent(req.tabId, req.kind === "image" ? "image" : "text", req.allowed === true)),
+    // The popup answers a consent panel of the message: only a page of the extension, which the message cannot style or cover. It names the question it shows.
+    answerConsent: async (req) => void (await tabs.answerConsent(req.tabId, req.kind === "image" ? "image" : "text", req.id, req.allowed === true)),
     // Dictionary packs or offline models changed: content scripts forget their results, pages show the new state.
     ...offlineHandlers({ manager: offlineManager, contentScripts: () => tabs.broadcast({ type: "offlineDataChanged" }), pages: toPages }),
-    clearCache: () => cache.clear(),
+    // The summaries and analyses the service keeps in memory go with the stored ones.
+    clearCache: async () => {
+      service.clearMemory()
+      await cache.clear()
+    },
     cacheStats: async () => ({ size: await cache.size() }),
   }
 }

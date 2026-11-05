@@ -6,14 +6,16 @@
  * as arguments.
  */
 
+import type { ConsentKind } from "../shared/consent"
 import { ext } from "../shared/ext"
 import { getI18n } from "../shared/i18n"
 import { loadExtensionI18n, thunderbirdUiLanguage } from "../shared/i18n-ext"
 import { createDefaultSettings, grantedEntries, toPublicSettings } from "../shared/settings"
-import { onStoredSettings } from "../shared/settings-store"
+import { onStoredSettings, updateSettings } from "../shared/settings-store"
 import { sourceDetector } from "../shared/lang-detect"
 import { type KeyValueStorage, PersistentCache } from "./cache"
 import { createCommandRunner } from "./commands"
+import { createConsentWindows } from "./consent-window"
 import { registerContentScripts } from "./content-scripts"
 import { createLocaleTables } from "./locale-tables"
 import { createOfflineStatus } from "./offline-status"
@@ -23,7 +25,6 @@ import { displayedHeader, displayedMessageId, messageImageAddresses, messagePart
 import { ImageService } from "./images"
 import { offerRemoteAccess } from "./remote-images"
 import { openOptionsAt } from "../shared/options-tab"
-import { updateSettings } from "../shared/settings-store"
 import { createTabRegistry } from "./tabs"
 import { getBergamot } from "../offline/bergamot"
 import { DictionaryManager } from "../offline/dictionary/manager"
@@ -61,7 +62,7 @@ const runCommand = (command: string, tab?: browser.tabs.Tab) => commandRunner(co
 const settings = createSettingsState({
   storage,
   // Test build (npm run e2e): settings and dictionary pack of the local mock server, before anything is translated.
-  beforeRead: beforeSettingsRead && (() => beforeSettingsRead!({ storage, dictionary, runCommand, answerConsent: (tabId, kind, allowed) => tabs.answerConsent(tabId, kind, allowed) })),
+  beforeRead: beforeSettingsRead && (() => beforeSettingsRead!({ storage, dictionary, runCommand, answerConsent: (tabId, kind, allowed) => answerAsked(tabId, kind, allowed) })),
   onAdopt: (s) => {
     cache.configure(s.cache.enabled, s.cache.maxEntries)
     // The AI SDK is a chunk of its own (scripts/build.mjs), loaded once the AI tier is in use; a failure shows with the first AI request.
@@ -94,6 +95,9 @@ const publicSettings = () => toPublicSettings(settings.current(), settings.crede
 const recordConsent = async (list: "onlineConsent" | "imageConsent", ids: string[], hosts?: string[]) =>
   settings.adopt(await updateSettings((s) => void (s[list] = [...new Set([...s[list], ...grantedEntries(s, ids, hosts)])])))
 
+/** The popup page in a window of its own, for the tabs whose message header button is in no toolbar. */
+const consentWindows = createConsentWindows()
+
 const openPopup = (windowId: number | undefined) => ext.messageDisplayAction.openPopup(windowId === undefined ? {} : { windowId })
 
 // Images go to their own queue per service; the AI SDK is loaded with the first of them, as with text.
@@ -125,14 +129,15 @@ const tabs = createTabRegistry({
     if (question.kind === "image") return images.grant(session, [question.need.id], question.each, [question.need.host])
     await recordConsent("onlineConsent", question.needs.map((need) => need.id), question.needs.map((need) => need.host))
   },
-  // The popup of the message shows the question; without the button in a toolbar, the popup page in a window of its own.
+  // The popup of the message shows the question; without the button in a toolbar, the popup page in a window of its own, which closes with the last question.
   consentAsked: (tab) =>
     void openPopup(tab.windowId)
       .catch(() => false)
       .then(async (opened) => {
-        if (!opened) await ext.windows.create({ type: "popup", url: ext.runtime.getURL(`popup.html?tab=${tab.id}`), width: 420, height: 640 })
+        if (!opened && tab.id !== undefined) await consentWindows.show(tab.id)
       })
       .catch(() => {}),
+  consentOver: (tabId) => consentWindows.close(tabId),
   forgetSession: (session) => images.forget(session),
   // Only a page of the extension may ask for a permission, from a click: the popup of the message, else the settings page.
   remoteAccess: (tab) =>
@@ -141,6 +146,12 @@ const tabs = createTabRegistry({
       openOptions: () => openOptionsAt({ section: "imageRemote" }),
     }),
 })
+
+/** Test build (npm run e2e): answers the question the panel of `kind` asks in place of the popup, which names the question it shows. */
+const answerAsked = async (tabId: number, kind: ConsentKind, allowed: boolean) => {
+  const question = tabs.stateOf(tabId).consent?.find((q) => q.kind === kind)
+  return question !== undefined && (await tabs.answerConsent(tabId, kind, question.id, allowed))
+}
 
 async function applyUiLanguage(uiLanguage: string): Promise<void> {
   const i18n = await loadExtensionI18n(uiLanguage)

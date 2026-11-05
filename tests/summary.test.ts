@@ -168,6 +168,18 @@ describe("the summary request of the translation service", () => {
     expect(summarize.mock.calls[0][1].provider).toMatchObject({ id: "anthropic", model: "claude-sonnet-5-5" })
   })
 
+  it("clears the summaries kept in memory with the cache", async () => {
+    const { service, cache, summarize } = setup()
+    await service.summarize("Text", null)
+    // The memory of the service answers although the stored copy is gone.
+    await cache.clear()
+    await service.summarize("Text", null)
+    expect(summarize).toHaveBeenCalledTimes(1)
+    service.clearMemory()
+    await service.summarize("Text", null)
+    expect(summarize).toHaveBeenCalledTimes(2)
+  })
+
   it("C1: the answer of the request started last stays in the cache, whichever ends last", async () => {
     const { service, settings, cache, summarize } = setup()
     const text = "Hallo Tom, could we move the acceptance to Thursday? ..."
@@ -582,6 +594,29 @@ describe("the panel above the message", () => {
     expect(summaryMarkdown({ summary: [], actions: [], questions: [], dates: [{ what: "Lunch", when: "", where: "" }] })).toBe("## Dates and meetings\n- Lunch")
   })
 
+  it("CT5: writes a line with a line break or Markdown characters as one literal line", () => {
+    const bs = String.fromCharCode(92)
+    const text = ["Send C:", bs, "data", bs, "a_b.xlsx\n## not a heading\n- not an item"].join("")
+    const markdown = summaryMarkdown({ summary: [text], actions: [{ who: "Anna*", task: "Call `Tom`", due: "", dueText: "", quote: "", unverified: false }], questions: [], dates: [] })
+    const escaped = ["Send C:", bs, bs, "data", bs, bs, "a", bs, "_b.xlsx ## not a heading - not an item"].join("")
+    expect(markdown).toBe(["## Summary", `- ${escaped}`, "", "## To-dos", `- **Anna${bs}***: Call ${bs}\`Tom${bs}\``].join("\n"))
+  })
+
+  it("CT4: the title line keeps the focus when the panel is drawn again, and the Summary button takes it when the panel closes", async () => {
+    answer({ ok: true, service: "OpenAI", summary: SUMMARY, raw: ANSWER })
+    const summary = new SummaryPanel({ root, request, collapsed: () => false })
+    const button = new SummaryButton({ root, onClick: () => {} })
+    button.sync(true)
+    await summary.show()
+    panel()!.querySelector<HTMLElement>("summary")!.focus()
+    expect(document.activeElement).toBe(panel()!.querySelector("summary"))
+    answer({ ok: true, service: "OpenAI", summary: SUMMARY, raw: ANSWER })
+    await summary.show(true)
+    expect(document.activeElement).toBe(panel()!.querySelector("summary"))
+    summary.close()
+    expect(document.activeElement).toBe(document.querySelector(".tt-summary-button button"))
+  })
+
   it("D5: gives the focus back to the button pressed, once drawn again", async () => {
     answer({ ok: true, service: "OpenAI", summary: SUMMARY, raw: ANSWER })
     const summary = new SummaryPanel({ root, request, collapsed: () => false })
@@ -768,7 +803,7 @@ describe("the content script", () => {
     port.push({ type: "settings", settings: summaryOn({ consent: { id: "openai", host: "api.openai.com" } }) })
     port.push({ type: "summarize" })
     await until(() => expect(document.querySelector(".tt-consent")).not.toBeNull())
-    expect(document.querySelector(".tt-consent")!.textContent).toContain(ENGLISH.t("consentBodyPrecise"))
+    expect(document.querySelector(".tt-consent")!.textContent).toContain(ENGLISH.t("consentBodySummary"))
     const [, cancel] = Array.from(document.querySelectorAll<HTMLButtonElement>(".tt-consent button"))
     cancel.click()
     await until(() => expect(document.querySelector(".tt-consent")).toBeNull())
@@ -776,7 +811,7 @@ describe("the content script", () => {
     port.push({ type: "summarize" })
     await until(() => expect(document.querySelector(".tt-consent")).not.toBeNull())
     document.querySelector<HTMLButtonElement>(".tt-consent button")!.click()
-    expect(port.posted("consentAsk")).toEqual([{ type: "consentAsk", question: { kind: "text", needs: [{ id: "openai", host: "api.openai.com" }], precise: true } }])
+    expect(port.posted("consentAsk")).toEqual([{ type: "consentAsk", question: { kind: "text", needs: [{ id: "openai", host: "api.openai.com" }], uses: ["summary"] } }])
     port.push({ type: "consentAnswer", kind: "text", allowed: true })
     await until(() => expect(port.posted("summary")).toHaveLength(1))
     // Allowed once: the next summary asks no more, also before the new settings arrive.

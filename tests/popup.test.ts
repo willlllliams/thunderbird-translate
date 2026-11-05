@@ -50,14 +50,18 @@ describe("translation state", () => {
   })
 
   it("S1: shows the questions of the consent panels of the message, answers them, and takes the focus on them, not on a button", async () => {
-    const text = { kind: "text" as const, needs: [{ id: "google-free", host: "translate.googleapis.com" }], precise: false }
-    const image = { kind: "image" as const, need: { id: "openai", host: "api.openai.com" }, count: 3, each: false, glossary: true, maxLongEdge: 1568, format: "JPEG" }
+    const text = { kind: "text" as const, needs: [{ id: "google-free", host: "translate.googleapis.com" }], uses: ["paragraphs" as const, "summary" as const], id: 11 }
+    const image = { id: 12, kind: "image" as const, need: { id: "openai", host: "api.openai.com" }, count: 3, each: false, glossary: true, maxLongEdge: 1568, format: "JPEG" }
     let questions = [text, image]
     const page = await popup(() => tabState({ consent: questions }))
     await until(() => expect($("consentAsk").hidden).toBe(false))
     const groups = Array.from($("consentAsk").querySelectorAll<HTMLElement>("[role=group]"))
     expect(groups.map((g) => g.getAttribute("aria-label"))).toEqual([ENGLISH.t("consentTitle"), ENGLISH.t("imageConsentTitleAuto", [3, "OpenAI"])])
     expect(groups[0].querySelector("li")!.textContent).toBe(ENGLISH.t("consentService", ["Google Translate (free)", "translate.googleapis.com"]))
+    // What is sent: the paragraphs to translate and the message with sender, date and subject to summarize; one neutral button.
+    expect(groups[0].textContent).toContain(ENGLISH.t("consentBody"))
+    expect(groups[0].textContent).toContain(ENGLISH.t("consentBodySummary"))
+    expect(groups[0].querySelector("button")!.textContent).toBe(ENGLISH.t("consentAllow"))
     expect(groups[1].textContent).toContain(ENGLISH.t("imageConsentGlossary"))
     expect(Array.from(groups[1].querySelectorAll("button"), (b) => [b.textContent, b.title])).toEqual([
       [ENGLISH.t("imageConsentAllowAuto"), ENGLISH.t("tipImageConsentAllow")],
@@ -66,11 +70,11 @@ describe("translation state", () => {
     expect(document.activeElement).toBe($("consentAsk"))
     questions = [image]
     groups[0].querySelector<HTMLButtonElement>("button")!.click()
-    await until(() => expect(page.sendMessage).toHaveBeenCalledWith({ type: "answerConsent", tabId: 3, kind: "text", allowed: true }))
+    await until(() => expect(page.sendMessage).toHaveBeenCalledWith({ type: "answerConsent", tabId: 3, kind: "text", id: 11, allowed: true }))
     await until(() => expect($("consentAsk").querySelectorAll("[role=group]")).toHaveLength(1))
     questions = []
     $("consentAsk").querySelectorAll<HTMLButtonElement>("button")[1].click()
-    await until(() => expect(page.sendMessage).toHaveBeenCalledWith({ type: "answerConsent", tabId: 3, kind: "image", allowed: false }))
+    await until(() => expect(page.sendMessage).toHaveBeenCalledWith({ type: "answerConsent", tabId: 3, kind: "image", id: 12, allowed: false }))
     await until(() => expect($("consentAsk").hidden).toBe(true))
   })
 

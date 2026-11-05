@@ -16,14 +16,13 @@ import type { PublicSettings } from "../shared/settings"
 import type { SummaryResponse } from "../shared/summary"
 import { CONTENT_PORT_NAME, type ImageResponse, isPortPush, type LocaleMessages, type PortReport, send, type TabState, type TranslateResponse } from "../shared/messages"
 import type { Tier } from "../shared/providers"
-import { hasTranslatableText } from "../shared/text"
 import type { ContentProbe } from "../hooks/content"
 import { ConsentPanel, MessageConsent } from "./consent"
 import { TranslationController } from "./controller"
 import { ImageTranslator } from "./images"
 import { MissingNotice } from "./notice"
 import { restoreLeftovers } from "./paragraphs"
-import { SummaryButton, SummaryPanel } from "./summary"
+import { SummaryButton, SummaryPanel, summaryOpener } from "./summary"
 
 declare const __DEBUG__: boolean
 
@@ -117,17 +116,13 @@ export function connectContent({ root, contentScript = false, probe }: ClientOpt
 
   // For a displayed message; the extension pages translate their own sample text. The popup answers the panel.
   const consentPanel = contentScript
-    ? new ConsentPanel({ root, review: (needs, precise) => void post({ type: "consentAsk", question: { kind: "text", needs, precise } }), closed: () => void post({ type: "consentClosed", kind: "text" }) })
+    ? new ConsentPanel({ root, review: (needs, uses) => void post({ type: "consentAsk", question: { kind: "text", needs, uses } }), closed: () => void post({ type: "consentClosed", kind: "text" }) })
     : undefined
-  const consent = consentPanel && {
-    ask: (needs: Parameters<ConsentPanel["ask"]>[0], precise: boolean, focus: boolean) => consentPanel.ask(needs, precise, focus),
-    clear: () => consentPanel.clear(),
-  }
+  /** The services allowed in the consent panel of the message, before the settings that record them arrive: for its translation and for its summary. */
+  const allowed = new MessageConsent()
 
   /** The settings applied last. */
   let current: PublicSettings | null = null
-  /** The service of the summary, allowed in the consent panel before the settings that record it arrive. */
-  const summaryAllowed = new MessageConsent()
   // Only the content script has a message to summarize.
   const summaryPanel = contentScript
     ? new SummaryPanel({
@@ -137,26 +132,8 @@ export function connectContent({ root, contentScript = false, probe }: ClientOpt
         request: (fresh) => summaryRequests.ask((id) => post({ type: "summary", id, text: controller.messageText(), ...(fresh ? { bypassCache: true } : {}) })),
       })
     : undefined
-  /** The summary of the message, once the user allowed its service to receive the text; `byUser`: asked for by the user, not by itself. */
-  const summarize = async (byUser: boolean) => {
-    const need = current?.summary.available ? current.summary.consent : undefined
-    if (!summaryPanel || need === undefined) return
-    if (need && !summaryAllowed.allows(need)) {
-      // The summary sends the whole message, as precise translation does.
-      if (!(await consent!.ask([need], true, byUser))) return
-      summaryAllowed.allow(need)
-    }
-    await summaryPanel.show()
-  }
-  /** The summary opened by itself for this message, or the user's answer to its consent panel: it is not asked for again. */
-  let autoSummarized = false
-  /** The summary by itself (Settings.summary.auto): once, for a message with text, unless the panel is open already. */
-  const autoSummary = () => {
-    if (autoSummarized || !summaryPanel || summaryPanel.shown || !hasTranslatableText(controller.messageText())) return
-    autoSummarized = true
-    void summarize(false)
-  }
-  const summaryButton = summaryPanel ? new SummaryButton({ root, onClick: () => void summarize(true) }) : undefined
+  const summary = summaryPanel && consentPanel && summaryOpener({ panel: summaryPanel, consent: consentPanel, allowed, current: () => current, messageText: () => controller.messageText() })
+  const summaryButton = summary ? new SummaryButton({ root, onClick: () => void summary.open(true) }) : undefined
   const showSummaryButton = (active: boolean) => summaryButton?.sync(active && current?.summary.available === true && current.summary.inlineButton)
 
   // Only a displayed message has images to translate.
@@ -173,7 +150,8 @@ export function connectContent({ root, contentScript = false, probe }: ClientOpt
 
   const controller = new TranslationController({
     notice,
-    consent,
+    consent: consentPanel,
+    allowed,
     images,
     root,
     translate: (request, onTier) =>
@@ -193,7 +171,7 @@ export function connectContent({ root, contentScript = false, probe }: ClientOpt
       probe?.state(state)
       showSummaryButton(state.active)
       // A translation started: with either automatic mode the summary comes with it, in one request with the analysis of precise translation where it can.
-      if (state.active && state.total > 0 && current && current.summary.auto !== "off") autoSummary()
+      if (state.active && state.total > 0 && current && current.summary.auto !== "off") summary?.auto()
       post({ type: "state", state })
     },
   })
@@ -210,9 +188,9 @@ export function connectContent({ root, contentScript = false, probe }: ClientOpt
     if (msg.type === "settings") {
       const next = msg.settings
       mutedPairs = next.offlineMutedPairs
-      // The service of the summary asked for anew is asked for again, as the controller does for translation.
+      // The service of the summary asked for anew is asked for again, as the controller does for the services of the translation.
       const needs = (consent: PublicSettings["summary"]["consent"] | undefined) => (consent ? [consent] : [])
-      summaryAllowed.follow(needs(current?.summary.consent), needs(next.summary.consent))
+      allowed.follow(needs(current?.summary.consent), needs(next.summary.consent))
       current = next
       settingsApplied = settingsApplied.then(async () => {
         if (contentScript && next.uiLanguage !== uiLanguage && (await loadLabels(next.uiLanguage))) uiLanguage = next.uiLanguage
@@ -224,14 +202,14 @@ export function connectContent({ root, contentScript = false, probe }: ClientOpt
         if (!contentScript) return
         const started = __DEBUG__ ? controller.start() : controller.maybeAutoStart()
         // "For every message": after the decision on automatic translation, so that a translation that starts takes the summary along.
-        if (next.summary.auto === "always") void started.then(autoSummary, autoSummary)
+        if (next.summary.auto === "always") void started.then(() => summary?.auto(), () => summary?.auto())
       })
     } else if (msg.type === "toggle") {
       void controller.toggle()
     } else if (msg.type === "retranslate") {
       void controller.retranslate()
     } else if (msg.type === "summarize") {
-      void summarize(true)
+      void summary?.open(true)
     } else if (msg.type === "summary") {
       summaryRequests.settle(msg.id, msg.result)
     } else if (msg.type === "consentAnswer") {

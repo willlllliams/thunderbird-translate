@@ -9,6 +9,9 @@ All notable changes to this project are documented in this file, with the date o
 - "Allow…" in the panel above a message, or under an image, opens the popup of the message header button with the same question; you allow there. The message itself can restyle its panel, so before this version a message could hide the button that allows under a click elsewhere. When the button is not in a toolbar, the popup opens in a window of its own.
 - No panel puts the focus on a button: a key pressed while reading no longer answers it. A panel that opens by itself, with automatic translation, automatic summary or the image mode "On", leaves the focus where it is.
 - With "Ask again for every message", a service whose address changes while the message is open asks again for the new address, as text and the summary already did.
+- One consent per service covers the translation and the summary of a message: a service you allowed for the translation is not asked again for the summary. The panel and the popup say what is sent: the paragraphs, with precise translation the whole message, and for a summary the whole message with its sender, date and subject. The button in the popup reads "Allow" in both cases.
+- The popup answers the question it shows. If the panel asked for another service meanwhile, the answer is not recorded and the popup shows the new question.
+- When the button is not in a toolbar, a message has one popup window: another question focuses it instead of opening a second one, and it closes when no question is left.
 
 ### AI services
 
@@ -21,6 +24,7 @@ All notable changes to this project are documented in this file, with the date o
 
 - "Regenerate" keeps the new summary: opening the message again showed the summary written together with the analysis of precise translation, and an older request could still overwrite the new one.
 - A summary written before precise translation analysed the message is found again afterwards, instead of being generated and paid for a second time.
+- "Copy as Markdown" writes a line with a line break or with characters such as `*` and `_` as one literal line. The title line of the panel keeps the keyboard focus when the summary arrives, and "Close" hands it to the "Summary" button.
 
 ### Display
 
@@ -28,11 +32,14 @@ All notable changes to this project are documented in this file, with the date o
 - A translation into Arabic, Persian or Hebrew reads right to left also when it starts with a Latin name; the same holds for the text of images and the summary.
 - Plain-text messages in Chinese or Japanese have their wrapped lines joined again, without a space between them.
 - "Regenerate", the retry of a paragraph and the buttons under an image keep the keyboard focus where the button was.
+- Popup: "Cancel" of a consent question stays inside the window; the display mode and the image mode can be chosen with the keyboard; "Summary and to-dos" looks disabled when it is.
+- Pressing Alt+A while the consent panel is open no longer starts the translation twice, which left extra wrappers in the message after "Show original".
 
 ### Settings and performance
 
 - The settings page stores a prompt, a model, an endpoint, a key or a temperature once you leave the field or press Enter, and a translated message asks its service again once the settings rest for 1.5 seconds. Typing no longer sends the message to the service at every pause.
 - The translation cache moves from the extension storage into its own database, one entry at a time: saving it no longer copies the whole cache to every open page. The cache of earlier versions moves at the first use.
+- "Clear cache" also clears the summaries and analyses the extension keeps in memory.
 - Remote images: an image whose server answers the second request with other bytes, or with a format whose size cannot be read, is no longer decoded and sent.
 
 ### Texts

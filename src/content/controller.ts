@@ -43,6 +43,7 @@ import { createMailContext, type MailContext } from "../shared/mail-context"
 import type { TabState, TranslateRequest, TranslateResponse } from "../shared/messages"
 import { type Tier, TIER_NAME_KEYS, TIERS } from "../shared/providers"
 import type { ConsentNeed, PublicSettings } from "../shared/settings"
+import type { TextUse } from "../shared/consent"
 import { MessageConsent } from "./consent"
 import type { ImageTranslator } from "./images"
 import { type Collected, collectParagraphs, extractText, STYLE_ID, type Unit } from "./paragraphs"
@@ -64,7 +65,9 @@ export interface ControllerDeps {
    * (and recorded by the background script). `focus`: the user asked for the translation, the panel takes the focus.
    * Without it nothing is asked: the extension pages translate their own sample.
    */
-  consent?: { ask(needs: ConsentNeed[], precise: boolean, focus: boolean): Promise<boolean>; clear(): void }
+  consent?: { ask(needs: ConsentNeed[], use: TextUse, focus: boolean): Promise<boolean>; clear(): void }
+  /** The services allowed in the consent panel of this message; the summary of the message shares it. */
+  allowed?: MessageConsent
   /** The text of the images of the message; the content script only. */
   images?: Pick<ImageTranslator, "start" | "update" | "stop">
 }
@@ -113,14 +116,16 @@ export class TranslationController {
   private bypassCache = false
   private lastError = ""
   /** Online services allowed in the consent panel of this message, before the settings that record them arrive. */
-  private allowed = new MessageConsent()
+  private readonly allowed: MessageConsent
   private reportTimer: ReturnType<typeof setTimeout> | null = null
   private reportPending = false
   /** The settings the results on screen were asked with, and the request of new results while the settings change. */
   private asked: PublicSettings | null = null
   private settleTimer: ReturnType<typeof setTimeout> | null = null
 
-  constructor(private readonly deps: ControllerDeps) {}
+  constructor(private readonly deps: ControllerDeps) {
+    this.allowed = deps.allowed ?? new MessageConsent()
+  }
 
   /** Send the state now, or once the interval since the last report has passed. */
   private report(): void {
@@ -249,13 +254,13 @@ export class TranslationController {
     return this.deps.consent ? s.consent.filter((need) => !this.allowed.allows(need)) : []
   }
 
-  /** The settings to translate with once the user allowed the online services `needs`; null when the user declined or the state changed meanwhile. */
+  /** The settings to translate with once the user allowed the online services `needs`; null when the user declined or the settings changed meanwhile. */
   private async consented(s: PublicSettings, needs: ConsentNeed[], byUser: boolean): Promise<PublicSettings | null> {
-    if (!(await this.deps.consent!.ask(needs, s.precise, byUser))) return null
+    if (!(await this.deps.consent!.ask(needs, s.precise ? "message" : "paragraphs", byUser))) return null
     for (const need of needs) this.allowed.allow(need)
     // The settings may have changed while the panel was open.
     const now = this.settings!
-    return this.active || this.consentNeeds(now).length > 0 ? null : now
+    return this.consentNeeds(now).length > 0 ? null : now
   }
 
   /** `byUser`: a command of the user, not automatic translation or new settings; a consent panel then takes the focus. */
@@ -264,7 +269,8 @@ export class TranslationController {
     const needs = this.consentNeeds(this.settings)
     // Without a question the translation starts at once.
     const s = needs.length === 0 ? this.settings : await this.consented(this.settings, needs, byUser)
-    if (!s) return
+    // Two starts that waited for the same panel resume one after the other: the second finds the message started.
+    if (!s || this.active) return
     const root = this.deps.root()
     if (!root) return
     this.active = true

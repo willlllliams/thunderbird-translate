@@ -151,10 +151,15 @@ describe("content script ports", () => {
     // The content script of the message cannot record a consent; the popup answers its panel, recorded before the
     // panel hears it, and the next request goes out before the storage event arrives.
     expect(await bg.send({ type: "grantConsent", ids: ["google-free"] }, { tab: { id: 4 } })).toBeUndefined()
-    port.send({ type: "consentAsk", question: { kind: "text", needs: [{ id: "google-free", host: "translate.googleapis.com" }], precise: false } })
+    port.send({ type: "consentAsk", question: { kind: "text", needs: [{ id: "google-free", host: "translate.googleapis.com" }], uses: ["paragraphs"] } })
     await until(() => expect(bg.api.messageDisplayAction.openPopup).toHaveBeenCalled())
-    expect(await bg.send({ type: "getTabState", tabId: 4 })).toMatchObject({ consent: [{ kind: "text" }] })
-    expect(await bg.send({ type: "answerConsent", tabId: 4, kind: "text", allowed: true })).toBeUndefined()
+    const asked = (await bg.send({ type: "getTabState", tabId: 4 })) as { consent: { kind: string; id: number }[] }
+    expect(asked.consent).toMatchObject([{ kind: "text" }])
+    // An answer to another question than the one asked is not recorded.
+    await bg.send({ type: "answerConsent", tabId: 4, kind: "text", id: asked.consent[0].id + 1, allowed: true })
+    expect(port.posted.at(-1)).not.toEqual({ type: "consentAnswer", kind: "text", allowed: true })
+    expect((bg.local[SETTINGS_KEY] as Settings).onlineConsent).toEqual([])
+    expect(await bg.send({ type: "answerConsent", tabId: 4, kind: "text", id: asked.consent[0].id, allowed: true })).toBeUndefined()
     expect(port.posted.at(-1)).toEqual({ type: "consentAnswer", kind: "text", allowed: true })
     expect((bg.local[SETTINGS_KEY] as Settings).onlineConsent).toEqual(["google-free@translate.googleapis.com"])
     port.send({ type: "translate", id: 2, request: request("Hello") })
@@ -462,11 +467,13 @@ describe("images of the displayed message", () => {
     expect(bodies).toEqual([])
     // The button of the message is in no toolbar: the popup page opens in a window of its own for the tab.
     bg.api.messageDisplayAction.openPopup.mockResolvedValue(false)
-    const create = vi.fn(async (_options: unknown) => ({}))
-    ;(bg.api as unknown as { windows: unknown }).windows = { create }
+    const { create } = bg.api.windows
     port.send({ type: "consentAsk", question: { kind: "image", need: { id: "openai", host: "api.openai.com" }, count: 0, each: false, glossary: false, maxLongEdge: 1568, format: "JPEG" } })
     await until(() => expect(create).toHaveBeenCalledWith(expect.objectContaining({ type: "popup", url: "moz-extension://test/popup.html?tab=3" })))
-    await bg.send({ type: "answerConsent", tabId: 3, kind: "image", allowed: true })
+    const [question] = ((await bg.send({ type: "getTabState", tabId: 3 })) as { consent: { id: number }[] }).consent
+    await bg.send({ type: "answerConsent", tabId: 3, kind: "image", id: question.id, allowed: true })
+    // The last question is answered: the window of the popup page closes.
+    await until(() => expect(bg.api.windows.remove).toHaveBeenCalledWith(1))
     port.send({ type: "image", id: 2, image })
     await until(() => expect(port.posted.at(-1)).toMatchObject({ type: "imageResult", id: 2, result: { status: "done", service: "OpenAI", cached: false } }))
     expect(getAttachmentFile).toHaveBeenCalledWith(42, "1.2")
@@ -485,10 +492,10 @@ describe("installation and content scripts", () => {
     expect(bg.api.tabs.create).toHaveBeenCalledWith({ url: "moz-extension://test/welcome.html" })
   })
 
-  it("registers its five listeners while the entry module runs, before the content script and without waiting for anything", async () => {
+  it("registers its eight listeners while the entry module runs, before the content script and without waiting for anything", async () => {
     const bg = stubBackgroundApi({ stored: stored(createDefaultSettings()) })
-    const { storage, runtime, commands } = bg.api
-    const listeners = () => [storage.onChanged, runtime.onConnect, runtime.onMessage, commands.onCommand, runtime.onInstalled].map((event) => event.listeners.length)
+    const { storage, runtime, commands, permissions, windows } = bg.api
+    const listeners = () => [storage.onChanged, runtime.onConnect, runtime.onMessage, commands.onCommand, runtime.onInstalled, permissions.onAdded, permissions.onRemoved, windows.onRemoved].map((event) => event.listeners.length)
     let atRegistration: number[] | undefined
     bg.api.messageDisplayScripts.register.mockImplementation(async () => {
       atRegistration ??= listeners()
@@ -497,7 +504,7 @@ describe("installation and content scripts", () => {
     // Thunderbird delivers an event that woke the background page only to listeners registered in its first run.
     vi.resetModules()
     await import("../src/background/index")
-    expect(atRegistration).toEqual([1, 1, 1, 1, 1])
+    expect(atRegistration).toEqual([1, 1, 1, 1, 1, 1, 1, 1])
     expect(bg.api.messageDisplayScripts.register).toHaveBeenCalledWith({ js: [{ file: "/content.js" }], css: [{ file: "/content.css" }] })
   })
 })

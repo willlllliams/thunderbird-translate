@@ -97,6 +97,8 @@ export function fakeBrowser({
   const origins = new Set([...FIXED_HOSTS, ...granted])
   /** As Gecko matches them: a host is covered by its own pattern or by the pattern of every host of its scheme. */
   const covered = (origin: string) => origins.has(origin) || origins.has(`${origin.split("//")[0]}//*/*`)
+  const windowRemoved = fakeEvent<[number]>()
+  let lastWindow = 0
   const permissionAdded = fakeEvent<[{ origins?: string[] }]>()
   const permissionRemoved = fakeEvent<[{ origins?: string[] }]>()
   const api = {
@@ -121,6 +123,12 @@ export function fakeBrowser({
       remove: vi.fn(async (id: number) => void removed.push(id)),
       insertCSS: vi.fn(async (_tabId: number, _details: object) => {}),
       executeScript: vi.fn(async (_tabId: number, _details: object) => []),
+    },
+    windows: {
+      create: vi.fn(async (_options: object) => ({ id: ++lastWindow })),
+      update: vi.fn(async (_id: number, _info: object) => ({})),
+      remove: vi.fn(async (id: number) => void windowRemoved.fire(id)),
+      onRemoved: windowRemoved,
     },
     commands: { onCommand: events.command },
     i18n: { getUILanguage: () => uiLanguage, ...(systemLanguages ? { getPreferredSystemLanguages: async () => systemLanguages } : {}) },

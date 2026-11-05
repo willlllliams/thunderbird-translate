@@ -409,6 +409,12 @@ export class TranslationService {
     await Promise.all(jobs.map(async ([tier, job]) => onTier(tier, await this.settle(job))))
   }
 
+  /** "Clear cache": the summaries and analyses kept in memory go with the stored ones, so the next request asks the service again. */
+  clearMemory(): void {
+    this.summaries.clear()
+    this.analyses.clear()
+  }
+
   /** Translate with an unsaved configuration, bypassing cache and batching. */
   async testProvider(providerId: string, config: Omit<ProviderConfig, "enabled">, targetLang: string): Promise<string> {
     const provider = resolveProviderConfig(providerId, config)

@@ -4,6 +4,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest"
 import { connectContent } from "../src/content/client"
 import { ConsentPanel } from "../src/content/consent"
 import { TranslationController } from "../src/content/controller"
+import type { TextUse } from "../src/shared/consent"
 import { ENGLISH, setI18n } from "../src/shared/i18n"
 import type { BackgroundRequest } from "../src/shared/messages"
 import type { ConsentNeed } from "../src/shared/settings"
@@ -30,7 +31,7 @@ describe("consent panel", () => {
     const review = vi.fn()
     const closed = vi.fn()
     const consent = new ConsentPanel({ root: () => document.body, review, closed })
-    const answer = consent.ask([GOOGLE, CUSTOM], false)
+    const answer = consent.ask([GOOGLE, CUSTOM], "paragraphs")
     expect(document.body.firstElementChild).toBe(panel())
     expect(consent.shown).toBe(true)
     expect(panel()!.getAttribute("aria-label")).toBe(ENGLISH.t("consentTitle"))
@@ -42,10 +43,10 @@ describe("consent panel", () => {
       [ENGLISH.t("consentCancel"), ENGLISH.t("tipConsentCancel")],
     ])
     // Asked again while open: the same question.
-    expect(consent.ask([GOOGLE], false)).toBe(answer)
+    expect(consent.ask([GOOGLE], "paragraphs")).toBe(answer)
     // S1: "Allow…" hands the question to the popup; the panel waits for its answer.
     click("consentReview")
-    expect(review).toHaveBeenCalledWith([GOOGLE, CUSTOM], false)
+    expect(review).toHaveBeenCalledWith([GOOGLE, CUSTOM], ["paragraphs"])
     let answered = false
     void answer.then(() => (answered = true))
     await nextTask()
@@ -59,9 +60,9 @@ describe("consent panel", () => {
 
   it("U1: asked for another service while open, lists both and says the whole message goes, with the same answer", async () => {
     const consent = new ConsentPanel({ root: () => document.body, review: vi.fn(), closed: vi.fn() })
-    const first = consent.ask([GOOGLE], false)
+    const first = consent.ask([GOOGLE], "paragraphs")
     buttons()[0].focus()
-    expect(consent.ask([OPENAI], true)).toBe(first)
+    expect(consent.ask([OPENAI], "message")).toBe(first)
     expect(document.querySelectorAll(".tt-consent")).toHaveLength(1)
     expect(Array.from(panel()!.querySelectorAll("li")).map((li) => li.textContent)).toEqual([
       ENGLISH.t("consentService", ["Google Translate (free)", "translate.googleapis.com"]),
@@ -73,7 +74,7 @@ describe("consent panel", () => {
     consent.answer(true)
     expect(await first).toBe(true)
     // The next question starts from what it needs alone.
-    void consent.ask([GOOGLE], false)
+    void consent.ask([GOOGLE], "paragraphs")
     expect(panel()!.querySelectorAll("li")).toHaveLength(1)
     expect(panel()!.textContent).toContain(ENGLISH.t("consentBody"))
   })
@@ -81,11 +82,11 @@ describe("consent panel", () => {
   it("D1: takes the focus only when asked to, on itself and never on a button, so no key answers it", async () => {
     const consent = new ConsentPanel({ root: () => document.body, review: vi.fn(), closed: vi.fn() })
     const before = document.activeElement
-    void consent.ask([GOOGLE], false)
+    void consent.ask([GOOGLE], "paragraphs")
     expect(document.activeElement).toBe(before)
     consent.clear()
     let answered = false
-    void consent.ask([GOOGLE], false, true).then(() => (answered = true))
+    void consent.ask([GOOGLE], "paragraphs", true).then(() => (answered = true))
     expect(document.activeElement).toBe(panel())
     expect(panel()!.tabIndex).toBe(-1)
     for (const key of [" ", "Enter"]) for (const type of ["keydown", "keypress", "keyup"]) document.activeElement!.dispatchEvent(new KeyboardEvent(type, { key, bubbles: true }))
@@ -94,30 +95,72 @@ describe("consent panel", () => {
     // Asked again by the user while the panel is open: the focus goes back to it.
     buttons()[1].blur()
     document.body.focus()
-    void consent.ask([GOOGLE], false, true)
+    void consent.ask([GOOGLE], "paragraphs", true)
     expect(document.activeElement).toBe(panel())
   })
 
   it("says that precise translation sends the whole message, answers no on Cancel, when cleared and without a message", async () => {
     const consent = new ConsentPanel({ root: () => document.body, review: vi.fn(), closed: vi.fn() })
-    const first = consent.ask([GOOGLE], true)
+    const first = consent.ask([GOOGLE], "message")
     expect(panel()!.textContent).toContain(ENGLISH.t("consentBodyPrecise"))
     click("consentCancel")
     expect(await first).toBe(false)
-    const second = consent.ask([GOOGLE], false)
+    const second = consent.ask([GOOGLE], "paragraphs")
     consent.clear()
     expect(await second).toBe(false)
     expect(panel()).toBeNull()
-    expect(await new ConsentPanel({ root: () => null, review: vi.fn(), closed: vi.fn() }).ask([GOOGLE], false)).toBe(false)
+    expect(await new ConsentPanel({ root: () => null, review: vi.fn(), closed: vi.fn() }).ask([GOOGLE], "paragraphs")).toBe(false)
     // An id without a preset shows as it is.
-    void consent.ask([{ id: "gone", host: "" }], false)
+    void consent.ask([{ id: "gone", host: "" }], "paragraphs")
     expect(panel()!.querySelector("li")!.textContent).toBe("gone")
   })
 })
 
+describe("what is sent", () => {
+  it("names the sender, date and subject for a summary, and the paragraphs or the whole message for a translation, in one panel for both", () => {
+    const consent = new ConsentPanel({ root: () => document.body, review: vi.fn(), closed: vi.fn() })
+    void consent.ask([GOOGLE], "summary")
+    expect(panel()!.textContent).toContain(ENGLISH.t("consentBodySummary"))
+    expect(panel()!.textContent).not.toContain(ENGLISH.t("consentBody"))
+    // The translation asks for the same service while the panel is open: the panel says both, and the popup gets both.
+    void consent.ask([GOOGLE], "paragraphs")
+    expect(panel()!.textContent).toContain(ENGLISH.t("consentBody"))
+    expect(panel()!.textContent).toContain(ENGLISH.t("consentBodySummary"))
+    expect(panel()!.querySelectorAll("li")).toHaveLength(1)
+    // The whole message for precise translation says what the paragraphs line says.
+    void consent.ask([GOOGLE], "message")
+    expect(panel()!.textContent).toContain(ENGLISH.t("consentBodyPrecise"))
+    expect(panel()!.textContent).not.toContain(`${ENGLISH.t("consentBody")}`)
+    expect(panel()!.textContent).toContain(ENGLISH.t("consentBodySummary"))
+    expect(buttons().map((b) => b.textContent)).toEqual([ENGLISH.t("consentReview"), ENGLISH.t("consentCancel")])
+  })
+})
+
 describe("controller", () => {
+  it("CT1: two starts that wait for the same panel start the message once and leave it as it was", async () => {
+    const translate = answering((text) => ({ ok: true, text }))
+    // The panel answers a question asked again while it is open with the same promise.
+    let allow!: (ok: boolean) => void
+    const pending = new Promise<boolean>((resolve) => (allow = resolve))
+    const consent = { ask: vi.fn(() => pending), clear: vi.fn() }
+    // Loose text beside a block is wrapped in a segment while the message is translated.
+    document.body.innerHTML = "<div>Loose text<p>Block text</p></div>"
+    const original = document.body.innerHTML
+    const c = new TranslationController({ root: () => document.body, translate, consent })
+    await c.updateSettings(publicSettings({ consent: [GOOGLE] }))
+    const first = c.start()
+    // Alt+A while the panel waits.
+    const second = c.toggle()
+    allow(true)
+    await Promise.all([first, second])
+    expect(translate).toHaveBeenCalledTimes(2)
+    expect(document.querySelectorAll(".tt-seg")).toHaveLength(1)
+    c.stop()
+    expect(document.body.innerHTML).toBe(original)
+  })
+
   const consentDeps = (answers: boolean[]) => {
-    const ask = vi.fn(async (_needs: ConsentNeed[], _precise: boolean) => answers.shift() ?? false)
+    const ask = vi.fn(async (_needs: ConsentNeed[], _use: TextUse) => answers.shift() ?? false)
     return { ask, clear: vi.fn() }
   }
 
@@ -127,12 +170,12 @@ describe("controller", () => {
     const c = new TranslationController({ root: () => document.body, translate, consent })
     await c.updateSettings(publicSettings({ consent: [GOOGLE] }))
     await c.start()
-    expect(consent.ask).toHaveBeenCalledWith([GOOGLE], false, false)
+    expect(consent.ask).toHaveBeenCalledWith([GOOGLE], "paragraphs", false)
     expect(translate).not.toHaveBeenCalled()
     expect(c.active).toBe(false)
     // A command of the user: the panel takes the focus.
     await c.toggle()
-    expect(consent.ask).toHaveBeenLastCalledWith([GOOGLE], false, true)
+    expect(consent.ask).toHaveBeenLastCalledWith([GOOGLE], "paragraphs", true)
     expect(translate).toHaveBeenCalledTimes(1)
     expect(c.active).toBe(true)
     // The settings that record the consent have not arrived yet: translating again asks nothing.
@@ -166,7 +209,7 @@ describe("controller", () => {
     await c.start()
     expect(c.active).toBe(true)
     await c.updateSettings(tieredSettings(["dictionary", "machine"], { consent: [GOOGLE] }))
-    expect(consent.ask).toHaveBeenCalledWith([GOOGLE], false, false)
+    expect(consent.ask).toHaveBeenCalledWith([GOOGLE], "paragraphs", false)
     expect(c.active).toBe(false)
     expect(translate).toHaveBeenCalledTimes(1)
   })
@@ -183,7 +226,7 @@ describe("controller", () => {
     await c.updateSettings(publicSettings({ consent: [at("b.example")] }))
     c.stop()
     await c.start()
-    expect(consent.ask).toHaveBeenLastCalledWith([at("b.example")], false, false)
+    expect(consent.ask).toHaveBeenLastCalledWith([at("b.example")], "paragraphs", false)
     // Recorded, then taken back on the settings page.
     await c.updateSettings(publicSettings({ consent: [] }))
     await c.updateSettings(publicSettings({ consent: [at("b.example")] }))
@@ -230,7 +273,7 @@ describe("content client", () => {
     // D1: asked by a command, the panel itself takes the focus.
     expect(document.activeElement).toBe(panel())
     click("consentReview")
-    expect(port.posted("consentAsk")).toEqual([{ type: "consentAsk", question: { kind: "text", needs: [GOOGLE], precise: false } }])
+    expect(port.posted("consentAsk")).toEqual([{ type: "consentAsk", question: { kind: "text", needs: [GOOGLE], uses: ["paragraphs"] } }])
     await nextTask()
     expect(port.posted("translate")).toEqual([])
     port.push({ type: "consentAnswer", kind: "text", allowed: true })
@@ -294,10 +337,49 @@ describe("content client", () => {
     port.push({ type: "summarize" })
     await until(() => expect(panel()!.querySelectorAll("li")).toHaveLength(2))
     // Already with the popup: the popup shows the question as it is now.
-    expect(port.posted("consentAsk").at(-1)).toEqual({ type: "consentAsk", question: { kind: "text", needs: [GOOGLE, OPENAI], precise: true } })
+    expect(port.posted("consentAsk").at(-1)).toEqual({ type: "consentAsk", question: { kind: "text", needs: [GOOGLE, OPENAI], uses: ["paragraphs", "summary"] } })
     port.push({ type: "consentAnswer", kind: "text", allowed: true })
     await until(() => expect(port.posted("translate")).toHaveLength(1))
     await until(() => expect(port.posted("summary")).toHaveLength(1))
+  })
+
+  it("CT2: a service allowed for the translation is not asked again for the summary of the message, and the summary panel says what it sends", async () => {
+    const port = pagePort()
+    vi.stubGlobal("browser", {
+      runtime: { connect: () => port, sendMessage: vi.fn(async () => undefined) },
+      i18n: { detectLanguage: async () => ({ isReliable: false, languages: [] }) },
+    })
+    const client = connectContent({ root: () => document.body, contentScript: true })
+    const summary = { available: true, inlineButton: false, auto: "off" as const, collapsed: false, consent: GOOGLE }
+    port.push({ type: "settings", settings: publicSettings({ consent: [GOOGLE], summary }) })
+    await client.ready
+    port.push({ type: "toggle" })
+    await until(() => expect(panel()).not.toBeNull())
+    click("consentReview")
+    port.push({ type: "consentAnswer", kind: "text", allowed: true })
+    await until(() => expect(port.posted("translate")).toHaveLength(1))
+    // The settings that record the consent have not arrived: the summary opens without a second panel.
+    port.push({ type: "summarize" })
+    await until(() => expect(port.posted("summary")).toHaveLength(1))
+    expect(panel()).toBeNull()
+    expect(port.posted("consentAsk")).toHaveLength(1)
+  })
+
+  it("asks for the summary alone with the sender, date and subject named", async () => {
+    const port = pagePort()
+    vi.stubGlobal("browser", {
+      runtime: { connect: () => port, sendMessage: vi.fn(async () => undefined) },
+      i18n: { detectLanguage: async () => ({ isReliable: false, languages: [] }) },
+    })
+    const client = connectContent({ root: () => document.body, contentScript: true })
+    port.push({ type: "settings", settings: publicSettings({ summary: { available: true, inlineButton: false, auto: "off", collapsed: false, consent: OPENAI } }) })
+    await client.ready
+    port.push({ type: "summarize" })
+    await until(() => expect(panel()).not.toBeNull())
+    expect(panel()!.textContent).toContain(ENGLISH.t("consentBodySummary"))
+    expect(panel()!.textContent).not.toContain(ENGLISH.t("consentBody"))
+    click("consentReview")
+    expect(port.posted("consentAsk")).toEqual([{ type: "consentAsk", question: { kind: "text", needs: [OPENAI], uses: ["summary"] } }])
   })
 
   it("asks nothing on an extension page: it translates its own sample text", async () => {

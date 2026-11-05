@@ -57,7 +57,7 @@ button.secondary[hidden] {
   display: none;
 }
 
-button.primary:disabled {
+button:disabled {
   opacity: 0.5;
   cursor: default;
 }
@@ -148,6 +148,11 @@ select {
   margin-top: 6px;
 }
 
+/* The buttons of a question share the row; the full-width rule of the main button belongs to .actions. */
+.consent .row button {
+  flex: 1 1 auto;
+}
+
 .warning {
   margin: -4px 0 10px;
   color: #b06000;
@@ -201,13 +206,22 @@ select.missing option:not(.missing) {
 }
 
 .segmented label {
+  position: relative;
   flex: 1;
   text-align: center;
   cursor: pointer;
 }
 
+/* Hidden to the eye only: the radio stays in the Tab order and the arrow keys move between the choices. */
 .segmented input {
-  display: none;
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.segmented label:focus-within {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
 }
 
 .segmented span {

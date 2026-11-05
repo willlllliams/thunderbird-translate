@@ -14,7 +14,7 @@
  * switches to Google without the dictionary and translates once more.
  * In the "consent" scenario (no online service allowed yet) it starts the
  * translation, which shows the consent panel and requests nothing; after a
- * while it clicks "Allow and translate" and waits for the translation.
+ * while it clicks "Allow" and waits for the translation.
  * In the "machine-…" scenarios (one machine translator with a key of its
  * own) it translates once and reports the translations. In the "summary"
  * scenario it asks for the summary with the keyboard command, allows the AI
@@ -171,7 +171,7 @@ export function createContentProbe(): ContentProbe {
     report.google = { state: last, notice: noticeShown(), entries: entries(), shown: snapshot(root()!) }
   }
 
-  /** The "consent" scenario: nothing goes out before "Allow and translate", everything after it. */
+  /** The "consent" scenario: nothing goes out before "Allow", everything after it. */
   async function consent(report: Record<string, unknown>): Promise<void> {
     const { controller } = parts!
     void controller.start()

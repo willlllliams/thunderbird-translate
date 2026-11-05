@@ -31,9 +31,9 @@ function router(settings: Settings = createDefaultSettings()) {
       postToTab: (tabId: number, msg: PortPush) => void pushed.push([tabId, msg]),
       broadcast: (msg: PortPush) => void pushed.push(["all", msg]),
       stateOf: vi.fn(() => IDLE_TAB_STATE),
-      answerConsent: vi.fn(async (_tabId: number, _kind: string, _allowed: boolean) => true),
+      answerConsent: vi.fn(async (_tabId: number, _kind: string, _id: number, _allowed: boolean) => true),
     },
-    service: { testProvider: vi.fn(async () => "Hallo") },
+    service: { testProvider: vi.fn(async () => "Hallo"), clearMemory: vi.fn() },
     localeMessages: vi.fn(async () => ({ locale: "de" as const, messages: {} })),
     offlineManager: () => bergamot,
     offlineStatus: vi.fn(async () => ({})),
@@ -125,11 +125,11 @@ describe("requests from pages", () => {
 
   it("S1: hands the answer of the popup to a consent panel to the tabs; a content script cannot answer", async () => {
     const { handlers, deps, send } = router()
-    expect(await send({ type: "answerConsent", tabId: 4, kind: "image", allowed: true })).toBeUndefined()
-    expect(deps.tabs.answerConsent).toHaveBeenLastCalledWith(4, "image", true)
-    await send({ type: "answerConsent", tabId: 4, kind: "other" as never, allowed: "yes" as never })
-    expect(deps.tabs.answerConsent).toHaveBeenLastCalledWith(4, "text", false)
-    expect(await createDispatch(handlers, () => Promise.resolve())({ type: "answerConsent", tabId: 4, kind: "text", allowed: true }, CONTENT)).toBeUndefined()
+    expect(await send({ type: "answerConsent", tabId: 4, kind: "image", id: 6, allowed: true })).toBeUndefined()
+    expect(deps.tabs.answerConsent).toHaveBeenLastCalledWith(4, "image", 6, true)
+    await send({ type: "answerConsent", tabId: 4, kind: "other" as never, id: 7, allowed: "yes" as never })
+    expect(deps.tabs.answerConsent).toHaveBeenLastCalledWith(4, "text", 7, false)
+    expect(await createDispatch(handlers, () => Promise.resolve())({ type: "answerConsent", tabId: 4, kind: "text", id: 7, allowed: true }, CONTENT)).toBeUndefined()
     expect(deps.tabs.answerConsent).toHaveBeenCalledTimes(2)
   })
 
@@ -138,6 +138,7 @@ describe("requests from pages", () => {
     expect(await send({ type: "cacheStats" })).toEqual({ size: 2 })
     await send({ type: "clearCache" })
     expect(deps.cache.clear).toHaveBeenCalledTimes(1)
+    expect(deps.service.clearMemory).toHaveBeenCalledTimes(1)
   })
 
   it("has one handler for each request of BackgroundApi, and no other", () => {

@@ -821,39 +821,53 @@ describe("the Port and the other requests", () => {
   it("S1: keeps the question of a consent panel for the popup of its tab, records the answer of the popup, then tells the panel", async () => {
     stubBrowser()
     const question = { kind: "image" as const, need: { id: "openai", host: "api.openai.com" }, count: 0, each: true, glossary: false, maxLongEdge: 1568, format: "JPEG" }
-    const text = { kind: "text" as const, needs: [{ id: "google-free", host: "translate.googleapis.com" }], precise: false }
+    const text = { kind: "text" as const, needs: [{ id: "google-free", host: "translate.googleapis.com" }], uses: ["paragraphs" as const] }
     const grantConsent = vi.fn(async (_session: string, _question: unknown) => {})
     const consentAsked = vi.fn()
-    const tabs = createTabRegistry({ ready: async () => {}, publicSettings: () => toPublicSettings(createDefaultSettings()), setContext: () => {}, translate: async () => {}, summarize: async () => ({ ok: false, error: "" }), grantConsent, consentAsked })
+    const consentOver = vi.fn()
+    const tabs = createTabRegistry({ ready: async () => {}, publicSettings: () => toPublicSettings(createDefaultSettings()), setContext: () => {}, translate: async () => {}, summarize: async () => ({ ok: false, error: "" }), grantConsent, consentAsked, consentOver })
     const port = backgroundPort(5)
     tabs.connect(port as unknown as browser.runtime.Port)
     port.send({ type: "consentAsk", question })
     port.send({ type: "consentAsk", question: text })
     expect(consentAsked).toHaveBeenCalledTimes(2)
-    expect(tabs.stateOf(5).consent).toEqual([question, text])
+    // Each question has an id that changes when the question is asked again.
+    expect(tabs.stateOf(5).consent).toEqual([{ ...question, id: 1 }, { ...text, id: 2 }])
     expect(tabs.stateOf(6).consent).toBeUndefined()
-    expect(await tabs.answerConsent(5, "image", true)).toBe(true)
-    expect(grantConsent).toHaveBeenCalledWith("5:1", question)
+    // An answer to a question that is not the one asked now records nothing and tells the panel nothing.
+    expect(await tabs.answerConsent(5, "image", 2, true)).toBe(false)
+    expect(grantConsent).not.toHaveBeenCalled()
+    expect(port.posted.filter((msg) => msg.type === "consentAnswer")).toEqual([])
+    expect(consentOver).not.toHaveBeenCalled()
+    expect(await tabs.answerConsent(5, "image", 1, true)).toBe(true)
+    expect(grantConsent).toHaveBeenCalledWith("5:1", { ...question, id: 1 })
     expect(port.posted.at(-1)).toEqual({ type: "consentAnswer", kind: "image", allowed: true })
-    expect(tabs.stateOf(5).consent).toEqual([text])
+    expect(tabs.stateOf(5).consent).toEqual([{ ...text, id: 2 }])
+    // One question is left in the tab: its window stays.
+    expect(consentOver).not.toHaveBeenCalled()
     // Not recorded: no consent. An answer without a question does nothing.
     grantConsent.mockRejectedValueOnce(new Error("storage"))
-    await tabs.answerConsent(5, "text", true)
+    await tabs.answerConsent(5, "text", 2, true)
     expect(port.posted.at(-1)).toEqual({ type: "consentAnswer", kind: "text", allowed: false })
+    expect(consentOver).toHaveBeenLastCalledWith(5)
     const posted = port.posted.length
-    expect(await tabs.answerConsent(5, "text", true)).toBe(false)
+    expect(await tabs.answerConsent(5, "text", 2, true)).toBe(false)
     expect(port.posted).toHaveLength(posted)
-    // Cancel answers nothing to record; a panel that went takes its question along, and so does a content script that went.
+    // Cancel answers nothing to record; a panel that went takes its question along, and so does a content script that went: the tab has none left.
     port.send({ type: "consentAsk", question: text })
-    await tabs.answerConsent(5, "text", false)
+    await tabs.answerConsent(5, "text", 3, false)
     expect(grantConsent).toHaveBeenCalledTimes(2)
     expect(port.posted.at(-1)).toEqual({ type: "consentAnswer", kind: "text", allowed: false })
     port.send({ type: "consentAsk", question: text })
+    consentOver.mockClear()
     port.send({ type: "consentClosed", kind: "text" })
     expect(tabs.stateOf(5).consent).toBeUndefined()
+    expect(consentOver).toHaveBeenCalledWith(5)
     port.send({ type: "consentAsk", question: text })
+    consentOver.mockClear()
     port.disconnect()
     expect(tabs.stateOf(5).consent).toBeUndefined()
+    expect(consentOver).toHaveBeenCalledWith(5)
     // A page of the extension asks nothing, and a question of an unknown kind is dropped.
     const page = backgroundPort(7, undefined, "moz-extension://test/welcome.html")
     tabs.connect(page as unknown as browser.runtime.Port)
@@ -867,7 +881,7 @@ describe("the Port and the other requests", () => {
     const lone = backgroundPort(9)
     bare.connect(lone as unknown as browser.runtime.Port)
     lone.send({ type: "consentAsk", question: text })
-    await bare.answerConsent(9, "text", true)
+    await bare.answerConsent(9, "text", 1, true)
     expect(lone.posted.at(-1)).toEqual({ type: "consentAnswer", kind: "text", allowed: false })
   })
 

@@ -11,10 +11,14 @@
  * above a translated message opens it, when the settings ask for it.
  */
 
+import type { TextUse } from "../shared/consent"
 import { button, h } from "../shared/dom"
 import { type MessageKey, t } from "../shared/i18n"
 import { textDirection } from "../shared/locales"
+import type { ConsentNeed, PublicSettings } from "../shared/settings"
 import { type MailSummary, SUMMARY_ME, type SummaryResponse } from "../shared/summary"
+import { hasTranslatableText } from "../shared/text"
+import type { MessageConsent } from "./consent"
 import { noticeBox } from "./notice"
 
 const CLS_SUMMARY = "tt-summary"
@@ -39,11 +43,14 @@ function partLines(summary: MailSummary): [MessageKey, { strong?: string; text: 
   ]
 }
 
+/** A line of the summary as one Markdown line: line breaks become spaces, and the characters that mark Markdown are escaped. */
+const markdownLine = (text: string) => text.replace(/\s*\n\s*/g, " ").replace(/[\\`*_]/g, "\\$&")
+
 /** The summary as Markdown: a heading per part that has lines, a list item per line. */
 export function summaryMarkdown(summary: MailSummary): string {
   return partLines(summary)
     .filter(([, lines]) => lines.length > 0)
-    .map(([key, lines]) => [`## ${t(key)}`, ...lines.map((line) => `- ${line.strong ? `**${line.strong}**: ` : ""}${line.text}`)].join("\n"))
+    .map(([key, lines]) => [`## ${t(key)}`, ...lines.map((line) => `- ${line.strong ? `**${markdownLine(line.strong)}**: ` : ""}${markdownLine(line.text)}`)].join("\n"))
     .join("\n\n")
 }
 
@@ -109,14 +116,20 @@ export class SummaryPanel {
   /** Removes the panel; an answer still on its way is dropped. */
   close(): void {
     this.run++
-    this.el?.remove()
+    const el = this.el
+    // The panel that had the focus is gone: the "Summary" button takes it.
+    const focused = el?.contains(el.ownerDocument.activeElement) === true
+    el?.remove()
     this.el = null
+    if (focused) this.deps.root()?.ownerDocument.querySelector<HTMLElement>(`.${CLS_SUMMARY_BUTTON} button`)?.focus({ preventScroll: true })
   }
 
-  /** The title line with its buttons, then `body`; "Copy as Markdown" needs a summary. A button that had the focus has it again. */
+  /** The title line with its buttons, then `body`; "Copy as Markdown" needs a summary. A button or the title line that had the focus has it again. */
   private draw(service: string | undefined, body: HTMLElement[], summary?: MailSummary): void {
     const el = this.el!
-    const focused = el.contains(el.ownerDocument.activeElement) ? (el.ownerDocument.activeElement as HTMLElement).dataset.action : undefined
+    const active = el.contains(el.ownerDocument.activeElement) ? (el.ownerDocument.activeElement as HTMLElement) : null
+    /** The action of the button that had the focus; empty for the title line or the text; null when the panel had none. */
+    const focused = active ? (active.dataset.action ?? "") : null
     // A button in the title line must not open or close the panel.
     const action = (key: MessageKey, tip: MessageKey, run: () => void) => {
       const b = button(t(key), run, false, t(tip))
@@ -143,9 +156,9 @@ export class SummaryPanel {
       ),
       ...body,
     )
-    if (!focused) return
-    // "Copy" waits disabled for the summary: the title line keeps the focus meanwhile.
-    const again = el.querySelector<HTMLButtonElement>(`[data-action="${focused}"]`)
+    if (focused === null) return
+    // "Copy" waits disabled for the summary: the title line takes the focus meanwhile.
+    const again = focused ? el.querySelector<HTMLButtonElement>(`[data-action="${focused}"]`) : null
     ;(again && !again.disabled ? again : el.querySelector("summary"))?.focus({ preventScroll: true })
   }
 
@@ -183,5 +196,44 @@ export class SummaryButton {
     if (this.el || !root) return
     this.el = noticeBox("div", CLS_SUMMARY_BUTTON, null, {}, button(t("summaryButton"), this.deps.onClick, false, t("tipSummaryButton")))
     root.prepend(this.el)
+  }
+}
+
+export interface SummaryOpenerDeps {
+  panel: SummaryPanel
+  /** The consent panel of the message and the services allowed in it, which its translation uses as well. */
+  consent: { ask(needs: ConsentNeed[], use: TextUse, focus: boolean): Promise<boolean> }
+  allowed: MessageConsent
+  /** The settings applied last. */
+  current: () => PublicSettings | null
+  messageText: () => string
+}
+
+/**
+ * Opens the summary of the message: for a click or command of the user, and by itself when the settings ask for it
+ * (Settings.summary.auto), once per message and only for a message with text. The first time, the service of the
+ * summary is asked in the consent panel of the message, which its translation shares.
+ */
+export function summaryOpener({ panel, consent, allowed, current, messageText }: SummaryOpenerDeps): { open: (byUser: boolean) => Promise<void>; auto: () => void } {
+  /** The summary opened by itself for this message, or the user's answer to its consent panel: it is not asked for again. */
+  let autoSummarized = false
+  /** `byUser`: asked for by the user, not by itself. */
+  const open = async (byUser: boolean) => {
+    const s = current()
+    const need = s?.summary.available ? s.summary.consent : undefined
+    if (need === undefined) return
+    if (need && !allowed.allows(need)) {
+      if (!(await consent.ask([need], "summary", byUser))) return
+      allowed.allow(need)
+    }
+    await panel.show()
+  }
+  return {
+    open,
+    auto() {
+      if (autoSummarized || panel.shown || !hasTranslatableText(messageText())) return
+      autoSummarized = true
+      void open(false)
+    },
   }
 }

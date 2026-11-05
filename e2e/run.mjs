@@ -605,7 +605,7 @@ ${JSON.stringify(report, null, 2)}`)
           failures = checkConsent(c, ready, report, server.calls)
           if (failures.length) failures.push(`report of the content script:\n${JSON.stringify(report, null, 2)}`)
           const online = server.calls.filter((x) => x.type === "google" || x.type === "ai")
-          console.log(`  ${c.name}: panel ${JSON.stringify(report.panel?.services)}; ${online.filter((x) => x.at < report.allowedAt).length} requests before "Allow and translate", ${online.length} after; ${report.translated?.state?.done ?? "?"} paragraphs translated; ${systemLanguages}`)
+          console.log(`  ${c.name}: panel ${JSON.stringify(report.panel?.services)}; ${online.filter((x) => x.at < report.allowedAt).length} requests before "Allow", ${online.length} after; ${report.translated?.state?.done ?? "?"} paragraphs translated; ${systemLanguages}`)
         } else if (c.scenario?.startsWith("machine-")) {
           failures = checkMachine(c, ready, report, server.calls)
           if (failures.length) failures.push(`report of the content script:\n${JSON.stringify(report, null, 2)}`)

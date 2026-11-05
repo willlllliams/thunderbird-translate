@@ -6,6 +6,7 @@
 import { readdirSync, readFileSync } from "node:fs"
 import { join } from "node:path"
 import { describe, expect, it } from "vitest"
+import { CONTENT_REQUESTS } from "../src/background/router"
 import { SUPPORTED_LOCALES } from "../src/shared/locales"
 import { PROVIDER_PRESETS, tierOf } from "../src/shared/providers"
 
@@ -74,7 +75,13 @@ describe("facts in the documents", () => {
     }
   })
 
-  it("P6: name the version of the manifest as the one the webext-linter run of the reviewer notes checked", () => {
+  it("BG2: list in the development guide the requests a content script gets answered, as CONTENT_REQUESTS holds them", () => {
+    const sentence = read("docs/development.md").match(/It gets answers only to the \w+ requests it sends, (.+?) \(`CONTENT_REQUESTS`\)/)?.[1] ?? ""
+    const named = [...sentence.matchAll(/`(\w+)`/g)].map((m) => m[1])
+    expect(named.sort()).toEqual([...CONTENT_REQUESTS].sort())
+  })
+
+  it("P6: state in the reviewer notes the version of the manifest as the one the webext-linter run checked (the run itself is a step of the release, see development.md)", () => {
     const version = (JSON.parse(read("static/manifest.json")) as { version: string }).version
     expect(read("store/reviewer-notes.md").match(/webext-linter [\d.]+ on the xpi of (\d+\.\d+\.\d+)/)?.[1]).toBe(version)
     expect(read("store/reviewer-notes.zh-CN.md").match(/webext-linter [\d.]+ 检查 (\d+\.\d+\.\d+) 的 xpi/)?.[1]).toBe(version)

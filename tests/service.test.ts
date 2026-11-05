@@ -465,6 +465,21 @@ describe("TranslationService: tiers, caps and precise mode details", () => {
       expect(new Set(prefixes)).toEqual(new Set([""]))
     })
 
+    it("clears the analyses kept in memory with the cache", async () => {
+      const { llm } = fakeLlm(ANALYSIS)
+      const { service, cache } = setup(precise, { llm })
+      await translateMail(service, PARAGRAPHS)
+      expect(llm.analyze).toHaveBeenCalledTimes(1)
+      // The memory of the service answers although the stored copies are gone.
+      await cache.clear()
+      await translateMail(service, PARAGRAPHS)
+      expect(llm.analyze).toHaveBeenCalledTimes(1)
+      await cache.clear()
+      service.clearMemory()
+      await translateMail(service, PARAGRAPHS)
+      expect(llm.analyze).toHaveBeenCalledTimes(2)
+    })
+
     it("counts targets outside the message as empty", async () => {
       const { llm } = fakeLlm(null)
       const { service } = setup((s) => {

@@ -1,4 +1,4 @@
-import type { ConsentKind, ConsentQuestion } from "./consent"
+import type { AskedQuestion, ConsentKind, ConsentQuestion } from "./consent"
 import type { MissingData } from "./errors"
 import { ext } from "./ext"
 import type { OfflineService, OfflineState } from "./offline-needs"
@@ -33,8 +33,8 @@ export interface BackgroundApi {
   openOptions: { req: { place: OptionsPlace }; res: void }
   /** The notice about missing offline data stays away (or comes back) for these services and language pairs ("dictionary:ja>zh-Hans"). */
   muteOfflinePairs: { req: { pairs: string[]; muted: boolean }; res: void }
-  /** The popup answers the consent panel of `kind` in the message of tab `tabId`: allowed, the background script records the consent first. */
-  answerConsent: { req: { tabId: number; kind: ConsentKind; allowed: boolean }; res: void }
+  /** The popup answers the question `id` of the consent panel of `kind` in the message of tab `tabId`: allowed, the background script records the consent first. A question that has changed since is not answered. */
+  answerConsent: { req: { tabId: number; kind: ConsentKind; id: number; allowed: boolean }; res: void }
   /** The offline services among the tiers, for these languages. */
   offlineStatus: { req: { sourceLang: string; targetLang: string; tiers: TierSettings }; res: OfflineStatus }
   /** The directions of an offline service; `refresh` reads its catalog again, `tag` names the release of the dictionary packs (the page's, which may not be saved yet). */
@@ -194,7 +194,7 @@ export interface TabState {
   /** Remote images on screen that image translation could read once the extension may read remote images (the popup offers the access). */
   remoteImages?: number
   /** The questions of the consent panels in the message that wait for the popup ("Allow…"). */
-  consent?: ConsentQuestion[]
+  consent?: AskedQuestion[]
 }
 
 /** State of a tab without a connected content script. */
