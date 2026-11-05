@@ -5,7 +5,8 @@
  * for the access; the address of a remote image as the content script reads it (shared/image.ts).
  */
 import { describe, expect, it, vi } from "vitest"
-import { fetchRemoteImage, HeldImages, imageUrlsOf, messageImageUrls, offerRemoteAccess, readableHost, REMOTE_MAX_BYTES, RemoteImages, srcsetUrls } from "../src/background/remote-images"
+import { fetchRemoteImage, HeldImages, imageUrlsOf, messageImageUrls, offerRemoteAccess, readableHost, RemoteImages, srcsetUrls } from "../src/background/remote-images"
+import { IMAGE_MAX_BYTES } from "../src/shared/image"
 import { messageImageAddresses } from "../src/background/displayed"
 import { imageSource, remoteImageUrl } from "../src/shared/image"
 import { sniffImageType } from "../src/background/image-format"
@@ -153,7 +154,7 @@ describe("the request of a remote image", () => {
   })
 
   it("drops a larger image by its Content-Length before reading, and while reading once the bytes pass the limit", async () => {
-    const declared = streamed([bytes(10)], { "content-type": "image/jpeg", "content-length": String(REMOTE_MAX_BYTES + 1) })
+    const declared = streamed([bytes(10)], { "content-type": "image/jpeg", "content-length": String(IMAGE_MAX_BYTES + 1) })
     expect(await fetchRemoteImage("https://example.com/a.jpg", { fetchFn: async () => declared.response })).toBe("large")
     expect(declared.cancel).toHaveBeenCalled()
     // No Content-Length: the third chunk passes the limit of 10 bytes, and the reading stops there.

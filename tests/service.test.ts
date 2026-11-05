@@ -72,6 +72,14 @@ describe("LRU cache", () => {
 })
 
 describe("TranslationService with Google", () => {
+  it("BG4: asks the cache once for a paragraph of the highest tier that it does not hold", async () => {
+    const fetchFn = vi.fn(async (_url: string, init: RequestInit) => jsonResponse(new URLSearchParams(String(init.body)).getAll("q").map((q) => [`ZH(${q})`, "en"])))
+    const { service, cache } = setup(() => {}, { fetchFn })
+    const get = vi.spyOn(cache, "get")
+    expect(await translateOne(service, { text: "Hello", targetLang: "zh-CN", providerId: "google-free" })).toBe("ZH(Hello)")
+    expect(get).toHaveBeenCalledTimes(1)
+  })
+
   it("R1: a page that asks for a paragraph whose request was dropped gets a request of its own", async () => {
     let release!: () => void
     const gate = new Promise<void>((r) => (release = r))

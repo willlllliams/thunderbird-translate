@@ -315,8 +315,20 @@ describe("settings changes, retranslation and stop", () => {
     await until(() => expect(document.querySelectorAll(".tt-image-result")).toHaveLength(3))
     images.start(run({ mode: "auto" }, { fresh: true }))
     await until(() => expect(sent(request, "translate")).toHaveLength(6))
-    expect(sent(request, "translate").slice(3).every((req) => req.fresh === true)).toBe(true)
+    // Only the first request of an image passes the cache: the peek forgets the result, the translation then finds a copy's result.
     expect(sent(request, "peek").slice(3).every((req) => req.fresh === true)).toBe(true)
+    expect(sent(request, "translate").slice(3).some((req) => req.fresh)).toBe(false)
+  })
+
+  it("IM3: of the copies of an image in a retranslation only the first request passes the cache", async () => {
+    const copy = `<img src="${part("1.2")}">`
+    const { images, request, run } = mount(undefined, `<p id="para">${copy}${copy}<img src="${part("1.3")}"></p>`)
+    images.start(run({ mode: "auto" }, { fresh: true }))
+    await until(() => expect(sent(request, "translate")).toHaveLength(3))
+    const asked = sent(request, "peek").concat(sent(request, "translate"))
+    const bySource = (key: string) => asked.filter((req) => JSON.stringify(req.source).includes(key))
+    expect(bySource("1.2").filter((req) => req.fresh)).toHaveLength(1)
+    expect(bySource("1.3").filter((req) => req.fresh)).toHaveLength(1)
   })
 
   it("removes every element on stop and drops answers that come later", async () => {
@@ -402,7 +414,7 @@ describe("the limits and the layout of a message", () => {
     await nextTask()
     expect(new Set(sent(request, "translate").map((req) => JSON.stringify(req.source))).size).toBe(2)
     images.start(run({ mode: "auto", maxPerMessage: 2, minSide: 50 }, { fresh: true }))
-    await until(() => expect(sent(request, "translate").filter((req) => req.fresh)).toHaveLength(2))
+    await until(() => expect(sent(request, "peek").filter((req) => req.fresh)).toHaveLength(3))
   })
 
   it("S6: counts copies of one image once in mode auto", async () => {
@@ -657,6 +669,27 @@ describe("remote images", () => {
     expect(sent(request, "translate").map((req) => req.source)).toEqual([{ url: R1 }])
     expect(noticeLines()).toEqual([ENGLISH.t("imageNoticeUnloaded", [1]), ENGLISH.t("imageNoticeUnreadable", [1])])
     expect(reportRemote).toHaveBeenLastCalledWith(0)
+  })
+
+  it("IM5: the click that waited for the access is used up when the image goes by itself in mode on", async () => {
+    const access = { granted: false }
+    const { images, request, run, requestAccess } = mount((req) => {
+      if ("url" in req.source && !access.granted) return { status: "access" }
+      return req.action === "peek" ? { status: "ready" } : { status: "error", error: "rate limit" }
+    }, REMOTE_BODY)
+    sizeImages({ r2: [0, 0], beacon: [0, 0], sig: [0, 0], tiny: [16, 16] })
+    images.start(run())
+    await until(() => expect(buttons()).toHaveLength(1))
+    buttons()[0].click()
+    await until(() => expect(requestAccess).toHaveBeenCalledTimes(1))
+    access.granted = true
+    images.update(imageSettings({ mode: "auto", hostAccess: 1 }))
+    await until(() => expect(sent(request, "translate")).toHaveLength(1))
+    // The translation failed; back to ask, the image waits for a click instead of going again.
+    images.update(imageSettings({ mode: "ask", hostAccess: 1 }))
+    await until(() => expect(sent(request, "peek").length).toBeGreaterThan(1))
+    await nextTask()
+    expect(sent(request, "translate")).toHaveLength(1)
   })
 
   it("in mode auto sends nothing without the access and the remote images once it is there", async () => {

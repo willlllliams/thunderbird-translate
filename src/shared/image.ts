@@ -24,6 +24,9 @@ export function remoteImageUrl(src: string): string | null {
   }
 }
 
+/** The largest image read, in bytes, whether it comes from a remote server, a part of the message or a data: URI: well above the images of a newsletter, and the size decoding still copes with. */
+export const IMAGE_MAX_BYTES = 15 * 1024 * 1024
+
 /** A part number as libmime writes it: "1.2", "1.1.3". */
 const PART = /^\d+(?:\.\d+)*$/
 
@@ -32,10 +35,11 @@ const PART = /^\d+(?:\.\d+)*$/
  * remote address (http, https); null for anything else (an unreplaced cid:, a blob:). Thunderbird puts the address
  * of the message part in place of a cid: reference and of an image attachment it shows under the body, with the part
  * number in the parameter "part" (mailbox:, imap:, news:, file: messages alike), and its file name in "filename" when
- * the part has one.
+ * the part has one. A data: URI above the largest image is no source: it would cross to the background script three
+ * times to be refused there.
  */
 export function imageSource(src: string): ImageRequest["source"] | null {
-  if (/^data:image\//i.test(src)) return { data: src }
+  if (/^data:image\//i.test(src)) return src.length > (IMAGE_MAX_BYTES * 4) / 3 + 1000 ? null : { data: src }
   if (/^https?:/i.test(src)) {
     const url = remoteImageUrl(src)
     return url ? { url } : null

@@ -79,6 +79,8 @@ interface Job {
   mail?: { context: MailContext; index: number }
   /** Retranslation: neither the cache nor a running request answers; the result replaces the cached one. */
   fresh?: boolean
+  /** The cache was asked for this key already and had nothing. */
+  missed?: boolean
   /** Dictionary and Bergamot: the signature of the installed data when the job started, and how to read it again. */
   data?: OfflineData
   /** The built-in sample of an extension page or a connection test, not a message: it needs no consent. */
@@ -303,7 +305,7 @@ export class TranslationService {
    * that waits for it went away (`job.signal`).
    */
   private async run(job: Job): Promise<string> {
-    const cached = job.fresh ? undefined : await this.deps.cache.get(job.key)
+    const cached = job.fresh || job.missed ? undefined : await this.deps.cache.get(job.key)
     if (cached !== undefined) return cached
     let running = job.fresh ? undefined : this.inflight.get(job.key)
     // A request whose pages all went away fails; a page that asks now gets a request of its own.
@@ -406,6 +408,8 @@ export class TranslationService {
     if (!top) return
     const cached = req.bypassCache ? undefined : await this.deps.cache.get(top[1].key)
     if (cached !== undefined) return onTier(top[0], { ok: true, text: cached })
+    // Not asked again when the request runs.
+    top[1].missed = true
     await Promise.all(jobs.map(async ([tier, job]) => onTier(tier, await this.settle(job))))
   }
 

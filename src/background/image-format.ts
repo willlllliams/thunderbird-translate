@@ -3,6 +3,8 @@
  * is animated, its size, and the bytes of a data: URI. Every parser starts from the type of sniffImageType().
  */
 
+import { IMAGE_MAX_BYTES } from "../shared/image"
+
 const ascii = (bytes: Uint8Array, at: number, length: number) => String.fromCharCode(...bytes.subarray(at, at + length))
 
 /** The media type of an image read off the first bytes of its file: PNG, GIF, JPEG or WebP; null for anything else. */
@@ -109,10 +111,11 @@ export function imageSize(bytes: Uint8Array): { width: number; height: number } 
   }
 }
 
-/** The bytes and media type of a data: URI; null unless it is base64. */
-export function dataBytes(uri: string): { bytes: Uint8Array; type: string } | null {
+/** The bytes and media type of a data: URI; null unless it is base64, "large" above `maxBytes` (read from its length, before anything is decoded). */
+export function dataBytes(uri: string, maxBytes = IMAGE_MAX_BYTES): { bytes: Uint8Array; type: string } | "large" | null {
   const m = /^data:(image\/[\w.+-]+)(?:;[\w-]+=[^;,]*)*;base64,([A-Za-z0-9+/=\s]*)$/i.exec(uri)
   if (!m) return null
+  if ((m[2].length * 3) / 4 > maxBytes + 3) return "large"
   try {
     return { bytes: Uint8Array.from(atob(m[2].replace(/\s+/g, "")), (c) => c.charCodeAt(0)), type: m[1].toLowerCase() }
   } catch {

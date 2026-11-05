@@ -11,7 +11,7 @@ afterEach(() => vi.useRealTimers())
 describe("LruCache", () => {
   it("shrinks to a lower maximum, oldest first, and holds nothing at 0", () => {
     const lru = new LruCache<number>(5)
-    lru.load([["a", 1], ["b", 2], ["c", 3], ["d", 4]])
+    for (const [key, value] of [["a", 1], ["b", 2], ["c", 3], ["d", 4]] as const) lru.set(key, value)
     lru.setMaxEntries(2)
     expect(lru.entries()).toEqual([["c", 3], ["d", 4]])
     lru.setMaxEntries(-3)
@@ -20,15 +20,13 @@ describe("LruCache", () => {
     expect(lru.get("e")).toBeUndefined()
   })
 
-  it("overwrites a key as the newest entry and evicts on load", () => {
+  it("overwrites a key as the newest entry", () => {
     const lru = new LruCache<number>(2)
     lru.set("a", 1)
     lru.set("b", 2)
     lru.set("a", 3)
     lru.set("c", 4)
     expect(lru.entries()).toEqual([["a", 3], ["c", 4]])
-    lru.load([["x", 1], ["y", 2], ["z", 3]])
-    expect(lru.entries().map(([k]) => k)).toEqual(["y", "z"])
     lru.clear()
     expect(lru.size).toBe(0)
   })
@@ -59,18 +57,75 @@ describe("PersistentCache", () => {
     expect(remove).toHaveBeenCalledTimes(1)
     expect(storage.data.has(CACHE_STORAGE_KEY)).toBe(false)
     expect(await reopen(idb).size()).toBe(3)
-    // A read of storage.local that fails is tried again with the next use.
+    // A read of storage.local that fails is tried again later, not with every use.
+    useFakeTimers(new Date())
     const busy = memoryStorage()
     busy.data.set(CACHE_STORAGE_KEY, [["a", "1"]])
-    vi.spyOn(busy, "get").mockRejectedValueOnce(new Error("storage busy"))
+    const read = vi.spyOn(busy, "get").mockRejectedValueOnce(new Error("storage busy"))
     const retried = open(10, new IDBFactory(), busy).cache
     expect(await retried.get("a")).toBeUndefined()
+    expect(await retried.get("a")).toBeUndefined()
+    expect(read).toHaveBeenCalledTimes(1)
+    await vi.advanceTimersByTimeAsync(61_000)
     expect(await retried.get("a")).toBe("1")
+    vi.useRealTimers()
     // Stored data that is not a list goes as well.
     const odd = memoryStorage()
     odd.data.set(CACHE_STORAGE_KEY, { not: "a list" })
     expect(await open(5, new IDBFactory(), odd).cache.size()).toBe(0)
     expect(odd.data.has(CACHE_STORAGE_KEY)).toBe(false)
+  })
+
+  it("BG1: moves the old cache although the database holds some of its keys already, and removes it from storage.local", async () => {
+    const idb = new IDBFactory()
+    const first = open(10, idb).cache
+    await first.set("known", "newer")
+    expect(await first.size()).toBe(1)
+    const storage = memoryStorage()
+    storage.data.set(CACHE_STORAGE_KEY, [["known", "older"], ["other", "2"]])
+    const { cache } = open(10, idb, storage)
+    expect([await cache.get("known"), await cache.get("other")]).toEqual(["newer", "2"])
+    expect(storage.data.has(CACHE_STORAGE_KEY)).toBe(false)
+  })
+
+  it("RG3: reads storage.local once, not with every use, while the database cannot take the old cache", async () => {
+    useFakeTimers(new Date())
+    const storage = memoryStorage()
+    storage.data.set(CACHE_STORAGE_KEY, [["a", "1"]])
+    const read = vi.spyOn(storage, "get")
+    const store = memoryCacheStore()
+    store.addMissing = async () => {
+      throw new Error("quota")
+    }
+    const cache = new PersistentCache(storage, 10, 10, store)
+    for (let i = 0; i < 100; i++) expect(await cache.get(`k${i}`)).toBeUndefined()
+    expect(read).toHaveBeenCalledTimes(1)
+    expect(storage.data.has(CACHE_STORAGE_KEY)).toBe(true)
+    // The write of results goes on, and the old cache is tried again a minute later.
+    await cache.set("k", "v")
+    expect(await cache.get("k")).toBe("v")
+    store.addMissing = async (list) => void list.forEach(([key, entry]) => store.data.set(key, entry))
+    await vi.advanceTimersByTimeAsync(61_000)
+    expect(await cache.get("a")).toBe("1")
+    expect(storage.data.has(CACHE_STORAGE_KEY)).toBe(false)
+    vi.useRealTimers()
+  })
+
+  it("RG8: adopting the same settings again touches no database; a lower maximum trims with the next write", async () => {
+    useFakeTimers()
+    const store = memoryCacheStore()
+    const write = vi.spyOn(store, "write")
+    const trim = vi.spyOn(store, "trim")
+    const cache = new PersistentCache(memoryStorage(), 10, 10, store)
+    cache.configure(true, 10)
+    cache.configure(true, 10)
+    await vi.advanceTimersByTimeAsync(100)
+    expect([write.mock.calls.length, trim.mock.calls.length]).toEqual([0, 0])
+    cache.configure(true, 5)
+    await vi.advanceTimersByTimeAsync(100)
+    expect([write.mock.calls.length, trim.mock.calls.length]).toEqual([0, 1])
+    expect(trim).toHaveBeenCalledWith(5)
+    vi.useRealTimers()
   })
 
   it("F1: drops the entries used least recently beyond the maximum", async () => {

@@ -7,6 +7,7 @@
  */
 import { afterEach, describe, expect, it, vi } from "vitest"
 import { PersistentCache } from "../src/background/cache"
+import { HeldImages } from "../src/background/remote-images"
 import { browserCodec, encodeAttempts, type ImageDeps, ImageService, readImageAnswer } from "../src/background/images"
 import { dataBytes, imageSize, isAnimated, sniffImageType } from "../src/background/image-format"
 import { createHandlers } from "../src/background/router"
@@ -15,6 +16,7 @@ import { createTabRegistry } from "../src/background/tabs"
 import { type ImageAnswer, type ImageInput, llmReadImage } from "../src/background/translators/llm"
 import type { LlmCallOptions } from "../src/background/translators/llm"
 import { ENGLISH } from "../src/shared/i18n"
+import { IMAGE_MAX_BYTES } from "../src/shared/image"
 import { createMailContext } from "../src/shared/mail-context"
 import type { ImageRequest, ImageResponse } from "../src/shared/messages"
 import { createDefaultSettings, defaultImageSettings, resolveProviderConfig, type Settings, toPublicSettings } from "../src/shared/settings"
@@ -1120,6 +1122,66 @@ describe("a remote image", () => {
     const gone = remote({ mode: "ask", deps: { displayed: async () => null } })
     expect(await gone.askRemote(URL_A, { action: "peek" })).toEqual({ status: "ready" })
     expect([other.remoteFetch.mock.calls.length, gone.remoteFetch.mock.calls.length]).toEqual([0, 0])
+  })
+
+  it("IM1: after the server answered with other bytes the next request reads the image anew; a request that failed is tried again with the bytes kept", async () => {
+    const unreadable = { status: "skipped", reason: ENGLISH.t("imageUnreadable") }
+    let reads = 0
+    const changing = remote({ respond: () => pngResponse(png(5000 + ++reads)) })
+    expect((await changing.askRemote()).status).toBe("done")
+    // A retranslation reads the image again and gets other bytes: not sent.
+    expect(await changing.askRemote(URL_A, { round: 2, fresh: true })).toEqual(unreadable)
+    // The next request reads and filters the image anew, under its new SHA-256, and sends it.
+    expect((await changing.askRemote(URL_A, { round: 3 })).status).toBe("done")
+    expect([changing.remoteFetch.mock.calls.length, changing.read.mock.calls.length]).toEqual([3, 2])
+    // The AI request fails (a server that gives other bytes every time): the retry uses the bytes held, so it matches.
+    let served = 0
+    const flaky = remote({ respond: () => pngResponse(png(5000 + ++served)) })
+    flaky.read.mockRejectedValueOnce(Object.assign(new Error("Incorrect API key"), { statusCode: 401, isRetryable: false }))
+    expect((await flaky.askRemote()).status).toBe("error")
+    expect((await flaky.askRemote()).status).toBe("done")
+    expect(flaky.remoteFetch).toHaveBeenCalledTimes(1)
+  })
+
+  it("IM2: a result shown from the cache in mode on is still found after the mode changes to ask", async () => {
+    const s = remote({ urls: [URL_A, URL_B] })
+    expect((await s.askRemote(URL_A)).status).toBe("done")
+    // The same bytes at another address: the peek shows the cached result.
+    expect(await s.askRemote(URL_B, { action: "peek" })).toMatchObject({ status: "done", cached: true })
+    s.settings.image.mode = "ask"
+    const fetched = s.remoteFetch.mock.calls.length
+    expect(await s.askRemote(URL_B, { action: "peek" })).toMatchObject({ status: "done", cached: true })
+    expect(s.remoteFetch).toHaveBeenCalledTimes(fetched)
+  })
+
+  it("IM4: lets go of the bytes of an image the filters leave out or the cache answers, and of those of a session pushed out", async () => {
+    const held = new HeldImages()
+    const small = remote({ respond: () => pngResponse(png(3000)), deps: { held } })
+    expect((await small.askRemote(URL_A, { action: "peek" })).status).toBe("skipped")
+    expect(held.bytes).toBe(0)
+    const cached = remote({ urls: [URL_A, URL_B], deps: { held } })
+    await cached.askRemote(URL_A)
+    expect(await cached.askRemote(URL_B, { action: "peek" })).toMatchObject({ cached: true })
+    expect(held.bytes).toBe(0)
+    // A peek that finds nothing keeps the image for its translation; the 51st session pushes the first out.
+    const keeping = remote({ deps: { held } })
+    expect(await keeping.askRemote(URL_A, { action: "peek" })).toEqual({ status: "ready" })
+    expect(held.bytes).toBeGreaterThan(0)
+    for (let i = 2; i <= 51; i++) keeping.images.open(`s${i}`, 3)
+    expect(held.bytes).toBe(0)
+  })
+
+  it("IM8: leaves out a part or a data: image above the limit of one image without reading it", async () => {
+    const tooLarge = { status: "skipped", reason: ENGLISH.t("imageRemoteTooLarge", [15]) }
+    const file = new File([png()], "chart.png", { type: "image/png" })
+    Object.defineProperty(file, "size", { value: IMAGE_MAX_BYTES + 1 })
+    const part = service({ file })
+    expect(await part.ask({ action: "peek" })).toEqual(tooLarge)
+    const data = service()
+    const uri = `data:image/png;base64,${"A".repeat(Math.ceil(((IMAGE_MAX_BYTES + 10) * 4) / 3))}`
+    expect(await data.ask({ source: { data: uri }, action: "peek" })).toEqual(tooLarge)
+    expect(dataBytes(uri)).toBe("large")
+    expect(dataBytes("data:image/png;base64,AAEC")).toEqual({ bytes: new Uint8Array([0, 1, 2]), type: "image/png" })
   })
 
   it("A9: tells for an image beyond the ones peeked at whether the access is there, and reads nothing", async () => {

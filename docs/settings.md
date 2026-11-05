@@ -432,10 +432,11 @@ The background script reads the bytes of an image that passes: an image of the b
 
 | Rule | Default | Effect |
 | --- | --- | --- |
+| a file above 15 MB, whether a part, a `data:` image or a remote one | always | "The image is larger than 15 MB and is not read."; a part is judged by its size and a `data:` image by its length, before anything is decoded |
 | a file under "Smallest file (KB)" | 4 KB | left out: solid blocks, minimal icons |
 | animated: a GIF with a second image, a WebP with the animation flag, a PNG with an `acTL` chunk (APNG), read from the content, not the name | "Leave out" | "Send the first frame" sends the first frame as a still image |
 | more than 40 megapixels, from the header of the file (PNG, GIF, JPEG, WebP) or the natural size | always | "This image has more than 40 megapixels; it is not read.": nothing is decoded |
-| the same image twice in one message (SHA-256 of the bytes) | | sent once; each copy shows the result |
+| the same image twice in one message (SHA-256 of the bytes) | | sent once; each copy shows the result, also after "Retranslate", which asks past the cache once per image |
 | more images sent than "Images per message" | 5 | "This message has already sent 5 images, the limit per message." |
 | more bytes sent than "Limit per message (MB)" | 6 MB | the image is not sent |
 

@@ -30,7 +30,6 @@ export interface NoticeDeps {
   send: (req: BackgroundRequest) => void
 }
 
-/** Key of a notice entry, as muted in the settings. */
 /**
  * The frame of a panel above the message or under an image (the missing data, the consent, the summary): the class
  * of the notices and `extra`, a region named `label`, in the interface language.
@@ -40,6 +39,7 @@ export function noticeBox<K extends "div" | "details">(tag: K, extra: string, la
   return h(tag, { className: extra ? `${CLS_NOTICE} ${extra}` : CLS_NOTICE, ...(label ? { role: "region", "aria-label": label } : {}), lang: i18n.lang, dir: i18n.dir, ...props }, ...children)
 }
 
+/** Key of a notice entry, as muted in the settings. */
 export const muteKey = ({ service, pair }: Pick<MissingData, "service" | "pair">) => `${service}:${pair}`
 
 export class MissingNotice {

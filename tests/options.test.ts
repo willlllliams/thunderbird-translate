@@ -75,6 +75,9 @@ describe("general settings", () => {
     await until(() => expect(document.documentElement.lang).toBe("fr"))
     expect(document.querySelector("h1")!.textContent).toBe(fr.optionsTitle)
     expect($("tierLabel-machine").textContent).toContain(fr.tierMachine)
+    // RG1: the sample sentences of the style preview follow.
+    await until(() => expect($("preview").querySelector("p")!.firstChild!.textContent).toBe(fr.stylePreviewOriginal))
+    expect($("preview").querySelector(".tt-translation")!.textContent).toBe(fr.stylePreviewTranslation)
     await flushSave()
     expect(page.stored().uiLanguage).toBe("fr")
     expect($<HTMLSelectElement>("uiLanguage").value).toBe("fr")

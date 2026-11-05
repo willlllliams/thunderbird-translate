@@ -40,7 +40,13 @@ All notable changes to this project are documented in this file, with the date o
 - The settings page stores a prompt, a model, an endpoint, a key or a temperature once you leave the field or press Enter, and a translated message asks its service again once the settings rest for 1.5 seconds. Typing no longer sends the message to the service at every pause.
 - The translation cache moves from the extension storage into its own database, one entry at a time: saving it no longer copies the whole cache to every open page. The cache of earlier versions moves at the first use.
 - "Clear cache" also clears the summaries and analyses the extension keeps in memory.
-- Remote images: an image whose server answers the second request with other bytes, or with a format whose size cannot be read, is no longer decoded and sent.
+- If the cache of an earlier version cannot be moved into the new database, for example after a downgrade and an update, the extension no longer reads it again with every translated paragraph: it works with the new cache and tries again after a minute. Adopting unchanged settings no longer opens the cache database.
+- The style preview on the settings page follows a change of the interface language.
+- Remote images: an image whose server answers the second request with other bytes, or with a format whose size cannot be read, is no longer decoded and sent. The next request reads such an image anew and sends it, and a request that failed is tried again with the bytes already read.
+- "Retranslate" asks past the cache once for each image: a copy of an image in the same message finds the result its twin has just stored instead of being sent again.
+- A result shown from the cache in the mode "On" stays when you switch to "Ask under each image".
+- A click on an image that waited for the access to remote images no longer sends the image without a click after the mode changed.
+- Images larger than 15 MB are left out, whether they are attached, embedded in the message or remote.
 
 ### Texts
 

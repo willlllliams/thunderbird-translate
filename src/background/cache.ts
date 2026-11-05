@@ -19,7 +19,11 @@ export function cacheKey(providerId: string, model: string, languages: string, t
 export class LruCache<V> {
   private map = new Map<string, V>()
 
-  constructor(private maxEntries: number) {}
+  /** `onEvict`: told of each entry that leaves because the cache is full, not of one that is deleted or cleared. */
+  constructor(
+    private maxEntries: number,
+    private readonly onEvict?: (value: V) => void,
+  ) {}
 
   get size(): number {
     return this.map.size
@@ -57,16 +61,12 @@ export class LruCache<V> {
     return [...this.map.entries()]
   }
 
-  load(entries: [string, V][]): void {
-    this.map.clear()
-    for (const [k, v] of entries) this.map.set(k, v)
-    this.evict()
-  }
-
   private evict(): void {
     while (this.map.size > this.maxEntries) {
       const oldest = this.map.keys().next().value as string
+      const value = this.map.get(oldest) as V
       this.map.delete(oldest)
+      this.onEvict?.(value)
     }
   }
 }
@@ -113,8 +113,13 @@ export function idbCacheStore(factory: () => IDBFactory = () => indexedDB): Cach
     },
     async addMissing(list) {
       const store = await entries("readwrite")
-      // A key stored already keeps its newer value; the failed add does not abort the transaction.
-      for (const [key, entry] of list) store.add(entry, key).onerror = (event) => event.preventDefault()
+      // A key stored already keeps its newer value; the failed add aborts nothing and is no error of the transaction.
+      for (const [key, entry] of list) {
+        store.add(entry, key).onerror = (event) => {
+          event.preventDefault()
+          event.stopPropagation()
+        }
+      }
       await idbCommit(store.transaction)
     },
     count: async () => idbRequest((await entries("readonly")).count()),
@@ -139,6 +144,8 @@ export function idbCacheStore(factory: () => IDBFactory = () => indexedDB): Cach
 
 /** A write goes to the database this long after it, together with the writes until then. */
 const SAVE_DELAY_MS = 5000
+/** After a failed move of the old cache, the next use tries again this much later; until then the cache works in memory and storage.local stays unread. */
+const MIGRATE_RETRY_MS = 60_000
 /** Entries kept in memory as well, the ones used last. */
 const HOT_ENTRIES = 2000
 
@@ -148,13 +155,16 @@ export class PersistentCache {
   /** What goes to the database with the next write: new values and times of use, and deleted keys. */
   private pending = new Map<string, CacheEntry>()
   private deleted = new Set<string>()
-  /** The move of the cache of storage.local into the database; tried again after a failure. */
+  /** The move of the cache of storage.local into the database; tried again some time after a failure. */
   private migrated: Promise<void> | null = null
+  private retryMigrationAt = 0
   private saveTimer: ReturnType<typeof setTimeout> | null = null
   private clock = 0
   /** Counts the clears: a read of the database that started before one answers nothing. */
   private epoch = 0
   private enabled = true
+  /** The maximum went down: the entries beyond it go with the next write. */
+  private trimDue = false
 
   /** `storage`: storage.local, which held the cache up to version 3.1. */
   constructor(
@@ -169,14 +179,17 @@ export class PersistentCache {
 
   configure(enabled: boolean, maxEntries: number): void {
     this.enabled = enabled
+    const before = this.maxEntries
     this.maxEntries = Math.max(0, maxEntries)
     this.lru.setMaxEntries(Math.min(this.maxEntries, HOT_ENTRIES))
-    // A lower maximum drops the oldest entries with the next write.
-    if (enabled) this.scheduleSave()
+    // A lower maximum drops the oldest entries with the next write; the same settings again do not touch the database.
+    if (this.maxEntries < before) this.trimDue = true
+    if (enabled && this.trimDue) this.scheduleSave()
   }
 
   /** The entries of storage.local, oldest first, into the database, older than every entry written since. */
   private migrate(): Promise<void> {
+    if (!this.migrated && Date.now() < this.retryMigrationAt) return Promise.resolve()
     this.migrated ??= (async () => {
       const stored = await this.storage.get(CACHE_STORAGE_KEY)
       if (stored === undefined) return
@@ -185,6 +198,7 @@ export class PersistentCache {
       await this.storage.remove(CACHE_STORAGE_KEY)
     })().catch(() => {
       this.migrated = null
+      this.retryMigrationAt = Date.now() + MIGRATE_RETRY_MS
     })
     return this.migrated
   }
@@ -262,9 +276,10 @@ export class PersistentCache {
     const [put, deleted] = [this.pending, this.deleted]
     this.pending = new Map()
     this.deleted = new Set()
-    await this.store
-      .write(put, deleted)
-      .then(() => this.store.trim(this.maxEntries))
+    const trim = put.size > 0 || this.trimDue
+    this.trimDue = false
+    await (put.size > 0 || deleted.size > 0 ? this.store.write(put, deleted) : Promise.resolve())
+      .then(() => (trim ? this.store.trim(this.maxEntries) : undefined))
       .catch(() => {})
   }
 }

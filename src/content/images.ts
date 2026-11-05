@@ -142,6 +142,8 @@ export class ImageTranslator {
   /** Remote images Thunderbird did not load, and loaded images whose address cannot be read, that would pass the filters otherwise; by address, so copies count once. */
   private unloaded = new Set<string>()
   private unreadable = new Set<string>()
+  /** The images of a retranslation that already asked past the cache, by sourceKey(): only the first request of an image does, so a copy of it finds the result its twin just cached. */
+  private freshAsked = new Set<string>()
   /** The image whose button was clicked while the access was missing, by sourceKey(): sent once the access is there. */
   private pending: string | null = null
   /** The notice above the message, and whether the user closed it (for the message). */
@@ -163,6 +165,7 @@ export class ImageTranslator {
     if (run.fresh) {
       this.memo.clear()
       this.sent.clear()
+      this.freshAsked.clear()
       this.pending = null
     }
     this.run = run
@@ -328,6 +331,9 @@ export class ImageTranslator {
 
   private request(entry: Entry, action: ImageRequest["action"]): Promise<ImageResponse> {
     const run = this.run!
+    const key = sourceKey(entry)
+    const fresh = run.fresh === true && !this.freshAsked.has(key)
+    this.freshAsked.add(key)
     return this.deps.request({
       source: entry.source,
       width: entry.img.naturalWidth,
@@ -336,7 +342,7 @@ export class ImageTranslator {
       action,
       round: this.round,
       ...(run.context ? { context: run.context } : {}),
-      ...(run.fresh ? { fresh: true } : {}),
+      ...(fresh ? { fresh: true } : {}),
     })
   }
 
@@ -367,6 +373,8 @@ export class ImageTranslator {
       if (answer.status !== "ready") return this.show(entry, answer, false)
       if (auto && (this.sent.has(key) || this.sent.size < max)) {
         this.sent.add(key)
+        // Sent by itself: the click of an earlier mode is not waiting for it any more.
+        if (this.pending === key) this.pending = null
         send.push(entry)
       } else if (this.pending === key && !clicked) clicked = entry
       else this.showButton(entry)

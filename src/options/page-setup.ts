@@ -5,9 +5,11 @@
  */
 
 import { ext } from "../shared/ext"
+import { getI18n } from "../shared/i18n"
+import { localizeDocument } from "../shared/i18n-dom"
 import { followUiLanguage, loadExtensionI18n } from "../shared/i18n-ext"
 import { normalizeUiLanguageSetting } from "../shared/locales"
-import { $, showSaved, showSaveError } from "../shared/page"
+import { $, fillSelect, languageOptions, showSaved, showSaveError, sourceLanguageOptions, uiLanguageOptions } from "../shared/page"
 import type { PromptName } from "../shared/prompts"
 import type { Settings } from "../shared/settings"
 import type { BergamotSection } from "./bergamot"
@@ -17,6 +19,15 @@ import { offlineSections } from "./offline-sections"
 import { PromptEditor } from "./prompt-editor"
 import { SettingsSession } from "./session"
 import { mountStyleControls } from "./style-controls"
+
+/** The start of `applyLanguage()` on both pages: every text in the interface language, and the three language selects. */
+export function fillLanguageControls(settings: Settings): void {
+  const i18n = getI18n()
+  localizeDocument(i18n)
+  fillSelect($<HTMLSelectElement>("uiLanguage"), uiLanguageOptions(i18n), settings.uiLanguage)
+  fillSelect($<HTMLSelectElement>("sourceLang"), sourceLanguageOptions(i18n), settings.sourceLang)
+  fillSelect($<HTMLSelectElement>("targetLang"), languageOptions(i18n), settings.targetLang)
+}
 
 export interface SettingsPage {
   session: SettingsSession

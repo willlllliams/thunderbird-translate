@@ -11,8 +11,7 @@ import { type ContentClient, connectContent } from "../content/client"
 import { sampleRenderer } from "../content/render"
 import { ext } from "../shared/ext"
 import { getI18n, t } from "../shared/i18n"
-import { localizeDocument } from "../shared/i18n-dom"
-import { $, bindRadios, fillSelect, fillTierSelects, languageOptions, onTierChange, showSameLanguage as showSameLanguagePage, showVisionUnsupported, sourceLanguageOptions, tierOptions, uiLanguageOptions } from "../shared/page"
+import { $, bindRadios, fillSelect, fillTierSelects, onTierChange, showSameLanguage as showSameLanguagePage, showVisionUnsupported, tierOptions } from "../shared/page"
 import { PROMPT_KINDS } from "../shared/prompts"
 import { getPreset, type Tier } from "../shared/providers"
 import { addProvidersInUse, type DisplayMode, type ImageMode, imageStatus, type Settings } from "../shared/settings"
@@ -26,7 +25,7 @@ import type { SettingsSession } from "../options/session"
 import { welcomeProbe } from "../hooks/welcome"
 import { TierDemo, TierTour } from "./demo"
 import { neighbourStep, resumeStep, STEP_IDS, STEP_TITLE_KEYS, type StepId, stepNeeded, TRY_MAIL, trialLanguage, WELCOME_KEY, type WelcomeState } from "./steps"
-import { openSettingsPage } from "../options/page-setup"
+import { fillLanguageControls, openSettingsPage } from "../options/page-setup"
 
 declare const __DEBUG__: boolean
 
@@ -275,11 +274,7 @@ async function tryIt(): Promise<void> {
 /* ---------- language of the page ---------- */
 
 function applyLanguage(): void {
-  const i18n = getI18n()
-  localizeDocument(i18n)
-  fillSelect($<HTMLSelectElement>("uiLanguage"), uiLanguageOptions(i18n), settings.uiLanguage)
-  fillSelect($<HTMLSelectElement>("sourceLang"), sourceLanguageOptions(i18n), settings.sourceLang)
-  fillSelect($<HTMLSelectElement>("targetLang"), languageOptions(i18n), settings.targetLang)
+  fillLanguageControls(settings)
   fillTierSelects(settings, true)
   renderStepList()
   prompts.refresh()

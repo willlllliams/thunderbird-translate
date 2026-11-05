@@ -1,10 +1,9 @@
 import { sampleRenderer } from "../content/render"
 import { ext } from "../shared/ext"
 import { getI18n, t } from "../shared/i18n"
-import { localizeDocument } from "../shared/i18n-dom"
 import { type OfflineStatus, type OptionsPlace, type PageNotice, send } from "../shared/messages"
 import type { OfflineService } from "../shared/offline-needs"
-import { $, fillAiServiceSelect, fillSelect, fillTierSelects, showSameLanguage, languageOptions, offlineName, offlineStatus, onTierChange, showOfflineHint, sourceLanguageOptions, uiLanguageOptions } from "../shared/page"
+import { $, fillAiServiceSelect, fillSelect, fillTierSelects, showSameLanguage, offlineName, offlineStatus, onTierChange, showOfflineHint } from "../shared/page"
 import { getPreset, PROVIDER_PRESETS, providerDisplayName, type ProviderPreset, type Tier, TIER_NAME_KEYS, TIERS, tierOf } from "../shared/providers"
 import { addedProviders, addProvidersInUse, consentParts, type DisplayMode, enabledTiers, removalBlocker, resolveProvider, type Settings, SUMMARY_AUTO, SUMMARY_PARTS, summaryProvider } from "../shared/settings"
 import type { BergamotSection } from "./bergamot"
@@ -14,7 +13,7 @@ import { ImageSettingsSection } from "./image-settings"
 import type { PromptEditor } from "./prompt-editor"
 import { providerConfig, servicePanel } from "./provider-panel"
 import type { SettingsSession } from "./session"
-import { openSettingsPage } from "./page-setup"
+import { fillLanguageControls, openSettingsPage } from "./page-setup"
 
 let session: SettingsSession
 /** Settings as edited on this page. */
@@ -226,11 +225,9 @@ async function refreshCacheCount(): Promise<void> {
 
 /** Write every text of the page in the current interface language. */
 function applyLanguage(): void {
-  const i18n = getI18n()
-  localizeDocument(i18n)
-  fillSelect($<HTMLSelectElement>("uiLanguage"), uiLanguageOptions(i18n), settings.uiLanguage)
-  fillSelect($<HTMLSelectElement>("sourceLang"), sourceLanguageOptions(i18n), settings.sourceLang)
-  fillSelect($<HTMLSelectElement>("targetLang"), languageOptions(i18n), settings.targetLang)
+  fillLanguageControls(settings)
+  // The sample sentences of the style preview are text of the page as well.
+  applyPreview()
   fillSelect($<HTMLSelectElement>("providerTierFilter"), [new Option(t("providerFilterAll"), ""), ...TIERS.map((tier) => new Option(t(TIER_NAME_KEYS[tier]), tier))], providerTier)
   fillTiers()
   renderMuted()
