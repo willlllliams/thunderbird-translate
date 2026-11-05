@@ -35,7 +35,7 @@ const BY_SERVICE: Record<string, VisionRule[]> = {
   ],
   mistral: [{ models: /^mistral-(?:small|medium)/, vision: "yes" }],
   // GLM-4V-Flash takes no base64 image, the only form the extension sends.
-  zhipu: [{ models: /^glm-4v-flash$|^glm-4-(?:flash|air|plus)|^glm-4\.5-air/i, vision: "no" }],
+  zhipu: [{ models: /^glm-4v-flash$|^glm-4-(?:flash|air|plus)|^glm-4\.5-air|^glm-4\.7-flash/i, vision: "no" }],
   siliconflow: [{ models: /^Qwen\/Qwen2\.5-\d+B-Instruct$|^deepseek-ai\/DeepSeek-V3$|^THUDM\/(?:glm-4-9b-chat|GLM-4-9B-0414)$/, vision: "no" }],
   ollama: [{ models: /^(?:qwen2\.5|qwen3|llama3\.1):/, vision: "no" }],
   groq: [

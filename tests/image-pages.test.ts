@@ -61,7 +61,7 @@ describe("popup", () => {
   it("names a model that does not accept images", async () => {
     await openPage("popup", precise((s) => ((s.tiers.ai = "zhipu"), (s.providers.zhipu.enabled = true))), { activeTab: { id: 3 }, respond: (req) => (req.type === "getTabState" ? IDLE_TAB_STATE : undefined) })
     await until(() => expect($("imageUnsupported").hidden).toBe(false))
-    expect($("imageUnsupported").textContent).toBe(ENGLISH.t("hintVisionNo", ["glm-4-flash", "glm-4.6v-flash"]))
+    expect($("imageUnsupported").textContent).toBe(ENGLISH.t("hintVisionNo", ["glm-4.7-flash", "glm-4.6v-flash"]))
   })
 
   it("without an AI tier names the tier that precise translation needs, without the button", async () => {
@@ -166,7 +166,7 @@ describe("settings page", () => {
     expect($<HTMLAnchorElement>("imagePrices").hidden).toBe(false)
     expect($<HTMLAnchorElement>("imagePrices").href).toBe("https://developers.openai.com/api/docs/pricing")
     set("imageProvider", "zhipu")
-    expect($("imageSupport").textContent).toBe(ENGLISH.t("hintVisionNo", ["glm-4-flash", "glm-4.6v-flash"]))
+    expect($("imageSupport").textContent).toBe(ENGLISH.t("hintVisionNo", ["glm-4.7-flash", "glm-4.6v-flash"]))
     expect(Array.from($("imageModels").querySelectorAll("option"), (o) => o.value)[0]).toBe("glm-4.6v-flash")
     expect($<HTMLAnchorElement>("imagePrices").hidden).toBe(true)
     set("imageModel", "glm-4.6v-flash", "input")

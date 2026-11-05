@@ -1,10 +1,10 @@
 import { generateText } from "ai"
 import { describe, expect, it, vi } from "vitest"
 import { buildProviderSettings, createLanguageModel } from "../src/background/providers/factory"
-import { supportsThinkingControl, thinkingOptions } from "../src/shared/thinking"
+import { modelRejectsTemperature, outputLimit, supportsThinkingControl, thinkingOptions } from "../src/shared/thinking"
 import { llmAnalyzeMail, llmTranslateBatch, llmTranslateSingle } from "../src/background/translators/llm"
 import { BatchParseError } from "../src/background/translators/common"
-import { PROVIDER_PRESETS } from "../src/shared/providers"
+import { getPreset, PROVIDER_PRESETS } from "../src/shared/providers"
 import { createDefaultSettings, DEFAULT_DEEPL, resolveProvider, resolveProviderConfig } from "../src/shared/settings"
 import { ENGLISH } from "../src/shared/i18n"
 import { anthropicMessage, chatCompletion, jsonResponse, useFakeTimers } from "./helpers"
@@ -191,6 +191,11 @@ describe("thinking switch", () => {
     ["openai", "gpt-4.1-mini", undefined, undefined],
     ["openai", "gpt-5-mini", { openai: { reasoningEffort: "minimal" } }, { openai: { reasoningEffort: "medium" } }],
     ["openai", "gpt-5.1", { openai: { reasoningEffort: "none" } }, { openai: { reasoningEffort: "medium" } }],
+    ["openai", "gpt-6-luna", { openai: { reasoningEffort: "none" } }, { openai: { reasoningEffort: "medium" } }],
+    ["openai", "gpt-6-sol", { openai: { reasoningEffort: "none" } }, { openai: { reasoningEffort: "medium" } }],
+    // The SDK drops "none" for the other GPT-6 models, which would then think at "medium".
+    ["openai", "gpt-6.1-terra", { openai: { reasoningEffort: "low" } }, { openai: { reasoningEffort: "medium" } }],
+    ["azure", "gpt-6.1-sol", { openai: { reasoningEffort: "low" } }, { openai: { reasoningEffort: "medium" } }],
     ["openai", "o4-mini", { openai: { reasoningEffort: "low" } }, { openai: { reasoningEffort: "medium" } }],
     ["azure", "gpt-5-nano", { openai: { reasoningEffort: "minimal" } }, { openai: { reasoningEffort: "medium" } }],
     ["anthropic", "claude-haiku-5-5", { anthropic: { thinking: { type: "disabled" } } }, { anthropic: { thinking: { type: "adaptive" } } }],
@@ -198,6 +203,9 @@ describe("thinking switch", () => {
     ["gemini", "gemini-2.5-flash-lite", { google: { thinkingConfig: { thinkingBudget: 0 } } }, { google: { thinkingConfig: { thinkingBudget: -1 } } }],
     ["gemini", "gemini-2.5-pro", { google: { thinkingConfig: { thinkingBudget: 128 } } }, { google: { thinkingConfig: { thinkingBudget: -1 } } }],
     ["gemini", "gemini-3-flash", { google: { thinkingConfig: { thinkingLevel: "low" } } }, { google: { thinkingConfig: { thinkingLevel: "high" } } }],
+    ["gemini", "gemini-3.5-flash-lite", { google: { thinkingConfig: { thinkingLevel: "minimal" } } }, { google: { thinkingConfig: { thinkingLevel: "high" } } }],
+    ["gemini", "gemini-3.6-flash", { google: { thinkingConfig: { thinkingLevel: "minimal" } } }, { google: { thinkingConfig: { thinkingLevel: "high" } } }],
+    ["gemini", "gemini-3.8-flash", { google: { thinkingConfig: { thinkingLevel: "low" } } }, { google: { thinkingConfig: { thinkingLevel: "high" } } }],
     ["deepseek", "deepseek-flash", { deepseek: { thinking: { type: "disabled" } } }, { deepseek: { thinking: { type: "enabled" } } }],
     ["xai", "grok-4.5", { xai: { reasoningEffort: "low" } }, { xai: { reasoningEffort: "high" } }],
     ["xai", "grok-4.7", { xai: { reasoningEffort: "low" } }, { xai: { reasoningEffort: "high" } }],
@@ -208,7 +216,12 @@ describe("thinking switch", () => {
     ["groq", "openai/gpt-oss-20b", { groq: { reasoningEffort: "low" } }, { groq: { reasoningEffort: "medium" } }],
     ["mistral", "mistral-small-latest", { mistral: { reasoningEffort: "none" } }, { mistral: { reasoningEffort: "high" } }],
     ["togetherai", "meta-llama/Llama-3.3-70B-Instruct-Turbo", undefined, undefined],
+    ["togetherai", "openai/gpt-oss-120b", { togetherai: { reasoningEffort: "low" } }, { togetherai: { reasoningEffort: "medium" } }],
+    ["togetherai", "zai-org/GLM-5.3-Flash", undefined, { togetherai: { reasoning: { enabled: true } } }],
+    ["togetherai", "zai-org/GLM-4.6", { togetherai: { reasoning: { enabled: false } } }, { togetherai: { reasoning: { enabled: true } } }],
     ["togetherai", "Qwen/Qwen3-235B-A22B", { togetherai: { reasoning: { enabled: false } } }, { togetherai: { reasoning: { enabled: true } } }],
+    ["fireworks", "accounts/fireworks/models/glm-5p3-flash", { fireworks: { reasoningEffort: "low" } }, { fireworks: { reasoningEffort: "medium" } }],
+    ["fireworks", "accounts/fireworks/models/glm-5p2", { fireworks: { reasoningEffort: "none" } }, { fireworks: { reasoningEffort: "medium" } }],
     ["fireworks", "accounts/fireworks/models/deepseek-v3p1", { fireworks: { reasoningEffort: "none" } }, { fireworks: { reasoningEffort: "medium" } }],
     ["deepinfra", "deepseek-ai/DeepSeek-V3", { deepinfra: { reasoningEffort: "none" } }, { deepinfra: { reasoningEffort: "high" } }],
     ["cerebras", "gpt-oss-120b", { cerebras: { reasoningEffort: "low" } }, { cerebras: { reasoningEffort: "medium" } }],
@@ -219,6 +232,8 @@ describe("thinking switch", () => {
     ["openrouter", "openai/gpt-4.1-mini", { openrouter: { reasoning: { enabled: false } } }, { openrouter: { reasoning: { enabled: true } } }],
     ["openrouter", "openai/gpt-5-mini", { openrouter: { reasoning: { effort: "low" } } }, { openrouter: { reasoning: { enabled: true } } }],
     ["zhipu", "glm-4-flash", undefined, undefined],
+    ["zhipu", "glm-4.7-flash", { zhipu: { thinking: { type: "disabled" } } }, { zhipu: { thinking: { type: "enabled" } } }],
+    ["zhipu", "glm-5.3", undefined, { zhipu: { thinking: { type: "enabled" } } }],
     ["zhipu", "glm-4.5-air", { zhipu: { thinking: { type: "disabled" } } }, { zhipu: { thinking: { type: "enabled" } } }],
     ["siliconflow", "Qwen/Qwen3-8B", { siliconflow: { enable_thinking: false } }, { siliconflow: { enable_thinking: true } }],
     ["doubao", "doubao-seed-2-0-mini-260428", { doubao: { thinking: { type: "disabled" } } }, { doubao: { thinking: { type: "enabled" } } }],
@@ -226,6 +241,27 @@ describe("thinking switch", () => {
   ])("%s %s", (id, model, expectedOff, expectedOn) => {
     expect(off(id, model)).toEqual(expectedOff)
     expect(on(id, model)).toEqual(expectedOn)
+  })
+
+  it("PV1-PV6: gives a model that cannot stop thinking room for its reasoning, and one that can no more than the answer", () => {
+    expect(outputLimit("openai", "gpt-6.1-terra", false, 800)).toBe(4896)
+    expect(outputLimit("openai", "gpt-6-luna", false, 800)).toBe(800)
+    expect(outputLimit("gemini", "gemini-3.5-flash-lite", false, 800)).toBe(4896)
+    expect(outputLimit("fireworks", "accounts/fireworks/models/glm-5p3-flash", false, 800)).toBe(4896)
+    expect(outputLimit("togetherai", "openai/gpt-oss-120b", false, 800)).toBe(4896)
+    expect(outputLimit("togetherai", "zai-org/GLM-5.3-Flash", false, 800)).toBe(4896)
+  })
+
+  it("PV4: the Gemini preset sends no temperature by default, and none to the models from 3.5 on whatever the field holds", () => {
+    expect(getPreset("gemini")!.defaultTemperature).toBeNull()
+    for (const model of ["gemini-3.5-flash-lite", "gemini-3.6-flash", "gemini-3.8-flash", "gemini-4-flash"]) expect([model, modelRejectsTemperature("gemini", model)]).toEqual([model, true])
+    for (const model of ["gemini-2.5-flash-lite", "gemini-3-flash", "gemini-3.1-pro-preview"]) expect([model, modelRejectsTemperature("gemini", model)]).toEqual([model, false])
+    expect(modelRejectsTemperature("openai", "gemini-3.5-flash-lite")).toBe(false)
+  })
+
+  it("PV5: the default and the suggestions of the Zhipu preset are models of its model overview", () => {
+    const zhipu = getPreset("zhipu")!
+    expect([zhipu.defaultModel, zhipu.models]).toEqual(["glm-4.7-flash", ["glm-4.7-flash", "glm-4.5-air", "glm-4-flash-250414"]])
   })
 
   it("is not offered by providers without a thinking parameter", () => {
@@ -264,7 +300,9 @@ describe("thinking switch", () => {
 
   it("sends the switch in each provider's own format", async () => {
     expect((await requestBody("anthropic", false)).thinking).toEqual({ type: "disabled" })
-    expect(((await requestBody("gemini", false)).generationConfig as Record<string, unknown>).thinkingConfig).toEqual({ thinkingLevel: "low" })
+    expect(((await requestBody("gemini", false)).generationConfig as Record<string, unknown>).thinkingConfig).toEqual({ thinkingLevel: "minimal" })
+    // The Gemini preset sends no temperature.
+    expect(((await requestBody("gemini", false)).generationConfig as Record<string, unknown>).temperature).toBeUndefined()
     expect((await requestBody("openai", false)).reasoning_effort).toBe("none")
     expect((await requestBody("dashscope", false)).enable_thinking).toBe(false)
     expect((await requestBody("ollama", false)).reasoning_effort).toBe("none")

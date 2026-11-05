@@ -16,7 +16,10 @@ All notable changes to this project are documented in this file, with the date o
 ### AI services
 
 - New default models for the services whose models were retired or are about to be: OpenAI `gpt-6-luna`, Azure OpenAI `gpt-5.6-luna`, Google Gemini `gemini-3.5-flash-lite`, Groq `openai/gpt-oss-120b`, Moonshot / Kimi `kimi-k3.1-pro`, OpenRouter `openai/gpt-6-luna`, Together AI `Qwen/Qwen3.8-Flash`, Fireworks AI `accounts/fireworks/models/glm-5p3-flash`. The suggestions of the model field leave out the retired models of these services and of Cerebras, DashScope and SiliconFlow. A model you typed yourself stays.
-- Kimi K3 models get no temperature, which they fix themselves.
+- Kimi K3 models get no temperature, which they fix themselves. The Google Gemini preset sends none by default either, since Gemini 3.5 Flash-Lite ignores it and later models answer with an error.
+- Thinking mode off follows what each model's documentation allows: Gemini 3.5 Flash-Lite and 3.6 Flash go to their lowest level "minimal" instead of "low", GPT-6.1 Terra no longer thinks at the default level against your wish, and GLM-5.3 on Fireworks AI and Together AI, which cannot stop thinking, no longer gets a value its service may refuse. Together AI's `gpt-oss-120b` gets the lowest effort. Summaries and image reading leave these models room for their reasoning.
+- Zhipu GLM: the default model is `glm-4.7-flash`, and the suggestions are models of Zhipu's model overview (`glm-4.5-air`, `glm-4-flash-250414`).
+- OpenRouter requests carry the header `X-Title` with the name of the extension; the privacy policy and the provider documentation now say so.
 - xAI no longer keeps the text of your requests: every request says `store: false`, which teams with Zero Data Retention need as well.
 - A translation that the service cut at its output limit is no longer shown as complete or cached; the paragraph says so and can be retried.
 

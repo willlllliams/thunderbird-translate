@@ -156,7 +156,7 @@ Baidu 52001 and 52002 and Youdao 207 are passing failures and are tried again. A
 
 All AI providers are called through `generateText` of the Vercel AI SDK. Providers with an official `@ai-sdk/*` package use that package. The others use `@ai-sdk/openai-compatible`.
 
-Endpoint, API key, model and temperature can be changed for every provider. The model field suggests common models and accepts any model name. The default temperature is 0.3, except for DeepSeek (1.3), Anthropic Claude and Moonshot / Kimi (none sent).
+Endpoint, API key, model and temperature can be changed for every provider. The model field suggests common models and accepts any model name. The default temperature is 0.3, except for DeepSeek (1.3), Anthropic Claude, Google Gemini and Moonshot / Kimi (none sent).
 
 | Provider | SDK package | Default endpoint | Default model | Key | Get a key |
 | --- | --- | --- | --- | --- | --- |
@@ -175,7 +175,7 @@ Endpoint, API key, model and temperature can be changed for every provider. The 
 | Cerebras | `@ai-sdk/cerebras` | `https://api.cerebras.ai/v1` | `gpt-oss-120b` | Yes | [cloud.cerebras.ai](https://cloud.cerebras.ai/) |
 | Perplexity | `@ai-sdk/perplexity` | `https://api.perplexity.ai` | `perplexity/sonar` | Yes | [perplexity.ai](https://www.perplexity.ai/settings/api) |
 | Moonshot / Kimi | `@ai-sdk/moonshotai` | `https://api.moonshot.cn/v1` | `kimi-k3.1-pro` | Yes | [platform.moonshot.cn](https://platform.moonshot.cn/console/api-keys) |
-| 智谱 GLM (Zhipu) | `@ai-sdk/openai-compatible` | `https://open.bigmodel.cn/api/paas/v4` | `glm-4-flash` | Yes | [open.bigmodel.cn](https://open.bigmodel.cn/usercenter/apikeys) |
+| 智谱 GLM (Zhipu) | `@ai-sdk/openai-compatible` | `https://open.bigmodel.cn/api/paas/v4` | `glm-4.7-flash` | Yes | [open.bigmodel.cn](https://open.bigmodel.cn/usercenter/apikeys) |
 | 通义千问 / 阿里云百炼 (DashScope) | `@ai-sdk/alibaba` | `https://dashscope.aliyuncs.com/compatible-mode/v1` | `qwen-plus` | Yes | [bailian.console.aliyun.com](https://bailian.console.aliyun.com/) |
 | 硅基流动 SiliconFlow | `@ai-sdk/openai-compatible` | `https://api.siliconflow.cn/v1` | `Qwen/Qwen2.5-7B-Instruct` | Yes | [cloud.siliconflow.cn](https://cloud.siliconflow.cn/account/ak) |
 | 火山引擎豆包 (Volcengine Ark) | `@ai-sdk/openai-compatible` | `https://ark.cn-beijing.volces.com/api/v3` | `doubao-seed-2-0-mini-260428` | Yes | [console.volcengine.com](https://console.volcengine.com/ark) |
@@ -185,7 +185,7 @@ Endpoint, API key, model and temperature can be changed for every provider. The 
 
 The "Get a key / docs" link next to the key field of the settings page opens the same address.
 
-The default models and the suggestions of the model field were checked on 2026-11-04 against the model lists and deprecation pages of the services: [OpenAI deprecations](https://developers.openai.com/api/docs/deprecations), [Gemini deprecations](https://aistudio.google.com/docs/deprecations), [Groq deprecations](https://console.groq.com/docs/deprecations), [Kimi models](https://platform.kimi.ai/docs/models), [Cerebras models](https://inference-docs.cerebras.ai/models/overview), [Together AI deprecations](https://docs.together.ai/docs/deprecations), [Fireworks changelog](https://docs.fireworks.ai/updates/changelog), [OpenRouter models](https://openrouter.ai/models). Google gives the 2.5 models only to projects that used them before, so `gemini-2.5-flash-lite` stays among the suggestions for those projects and is no longer the default.
+The default models and the suggestions of the model field were checked on 2026-11-04 against the model lists and deprecation pages of the services: [OpenAI deprecations](https://developers.openai.com/api/docs/deprecations), [Gemini deprecations](https://aistudio.google.com/docs/deprecations), [Groq deprecations](https://console.groq.com/docs/deprecations), [Kimi models](https://platform.kimi.ai/docs/models), [Cerebras models](https://inference-docs.cerebras.ai/models/overview), [Together AI deprecations](https://docs.together.ai/docs/deprecations), [Fireworks changelog](https://docs.fireworks.ai/updates/changelog), [OpenRouter models](https://openrouter.ai/models), [Zhipu model overview](https://docs.bigmodel.cn/cn/guide/start/model-overview) (checked on 2026-11-05: the default `glm-4.7-flash` and the suggestions `glm-4.5-air` and `glm-4-flash-250414` are listed there; the undated `glm-4-flash`, `glm-4-air` and `glm-4-plus` are not). Google gives the 2.5 models only to projects that used them before, so `gemini-2.5-flash-lite` stays among the suggestions for those projects and is no longer the default.
 
 ## Provider notes
 
@@ -193,6 +193,8 @@ Some providers have extra requirements.
 
 - Anthropic Claude: the extension adds the header `anthropic-dangerous-direct-browser-access: true`, which Anthropic requires for requests from a browser context. The Claude 5 series and Opus 4.7 and 4.8 reject a custom temperature. The extension sends no temperature for these models, and the temperature field of the default model is empty.
 - Azure OpenAI: the endpoint is `https://<resource>.openai.azure.com/openai`. The model field takes the deployment name.
+- Google Gemini: Gemini 3.5 Flash-Lite and 3.6 Flash ignore `temperature`, `top_p` and `top_k`, and Google announces an HTTP 400 for the models after them. The extension sends no temperature for `gemini-3.5` and later, whatever the temperature field holds, and the temperature field of the default model is empty.
+- OpenRouter: every request carries the header `X-Title: Multi Translate for Thunderbird`, which OpenRouter uses to attribute traffic to an application. It holds the name of the extension and nothing else. The privacy policy names it.
 - Ollama: by default Ollama rejects cross-origin requests from extension pages. Start Ollama with the environment variable `OLLAMA_ORIGINS=moz-extension://*`.
 - Moonshot: the default endpoint is the China site `api.moonshot.cn`. Accounts on the international site use `https://api.moonshot.ai/v1`. Kimi K3 models fix their temperature; the extension sends none for `kimi-k3` and later, whatever the temperature field holds.
 - xAI Grok: `@ai-sdk/xai` sends its requests to the Responses API, which keeps the input and the answer for later retrieval unless the request says `store: false`. The extension says so in every request; a team with Zero Data Retention needs it as well.
@@ -209,14 +211,16 @@ Every provider spells the switch differently, and within one provider only some 
 
 | Provider | Models | Off | On | Source |
 | --- | --- | --- | --- | --- |
-| OpenAI, Azure OpenAI | `gpt-5.1` and later | `openai.reasoningEffort: "none"` | `"medium"` | [OpenAI reasoning guide](https://developers.openai.com/api/docs/guides/reasoning) |
+| OpenAI, Azure OpenAI | `gpt-5.1` and later, `gpt-6-sol`, `gpt-6-luna` | `openai.reasoningEffort: "none"` | `"medium"` | [OpenAI reasoning guide](https://developers.openai.com/api/docs/guides/reasoning) |
+| | other GPT-6 models (`gpt-6.1-terra`, `gpt-6.1-sol`) | `"low"`: OpenAI lists `none` for Terra, but `@ai-sdk/openai` drops it for every GPT-6 model except `gpt-6-sol` and `gpt-6-luna`, so the model would think at `medium` | `"medium"` | same |
 | | `gpt-5`, `gpt-5-mini`, `gpt-5-nano` | `"minimal"` | `"medium"` | same |
 | | `o1`, `o3`, `o4-mini` … | `"low"` (cannot be turned off) | `"medium"` | same |
 | Anthropic | Claude 5 series, Opus 4.7/4.8 | `anthropic.thinking: { type: "disabled" }` | `{ type: "adaptive" }` | [Extended thinking](https://platform.claude.com/docs/en/build-with-claude/extended-thinking) |
 | | Claude 3.7 and 4.x | nothing (off by default) | `{ type: "enabled", budgetTokens: 1024 }` | same |
 | Google Gemini | `gemini-2.5-pro` | `google.thinkingConfig: { thinkingBudget: 128 }` (minimum, cannot be turned off) | `{ thinkingBudget: -1 }` | [Gemini thinking](https://ai.google.dev/gemini-api/docs/generate-content/thinking) |
 | | other `gemini-2.5-*` | `{ thinkingBudget: 0 }` | `{ thinkingBudget: -1 }` | same |
-| | Gemini 3 and later | `{ thinkingLevel: "low" }` (no full off) | `{ thinkingLevel: "high" }` | same |
+| | `gemini-3.5-flash-lite`, `gemini-3.6-flash` | `{ thinkingLevel: "minimal" }` (the default of 3.5 Flash-Lite; no full off) | `{ thinkingLevel: "high" }` | [Thinking](https://aistudio.google.com/docs/thinking) |
+| | other Gemini 3 and later (`gemini-3.8-flash`, the Pro models) | `{ thinkingLevel: "low" }` (their lowest level, no full off) | `{ thinkingLevel: "high" }` | same |
 | DeepSeek | all | `deepseek.thinking: { type: "disabled" }` | `{ type: "enabled" }` | [Thinking mode](https://api-docs.deepseek.com/guides/thinking_mode) |
 | xAI Grok | `grok-4.3` | `xai.reasoningEffort: "none"` | `"high"` | [xAI reasoning](https://docs.x.ai/developers/model-capabilities/text/reasoning) |
 | | `grok-4.5`, `grok-4.6`, `grok-4.7` | `"low"` (cannot be turned off) | `"high"` | same |
@@ -224,7 +228,10 @@ Every provider spells the switch differently, and within one provider only some 
 | | `gpt-oss` | `"low"` | `"medium"` | same |
 | Mistral AI | all (the SDK sends it only for models that accept it) | `mistral.reasoningEffort: "none"` | `"high"` | [Mistral reasoning](https://docs.mistral.ai/studio/conversations/reasoning) |
 | Together AI | Qwen3, GLM-4/5, DeepSeek V4, Kimi K3, MiniMax M3 | `togetherai.reasoning: { enabled: false }` | `{ enabled: true }` | [Together reasoning](https://docs.together.ai/docs/inference/chat/reasoning) |
+| | GLM-5.3 (cannot stop thinking) | nothing | `{ enabled: true }` | same |
+| | `gpt-oss` (effort levels, no off) | `togetherai.reasoningEffort: "low"` | `"medium"` | same |
 | Fireworks AI | DeepSeek V3.1/3.2/V4, GLM, Kimi K3, Qwen3 | `fireworks.reasoningEffort: "none"` | `"medium"` | [Fireworks reasoning](https://docs.fireworks.ai/guides/reasoning) |
+| | GLM-5.3 (`glm-5p3-*`; Zhipu accepts the efforts max, high and low) | `"low"` | `"medium"` | [GLM thinking](https://docs.bigmodel.cn/cn/guide/capabilities/thinking) |
 | | `gpt-oss` | `"low"` | `"medium"` | same |
 | DeepInfra | all (ignored by models without reasoning) | `deepinfra.reasoningEffort: "none"` | `"high"` | [DeepInfra reasoning](https://docs.deepinfra.com/chat/reasoning) |
 | Cerebras | Qwen | `cerebras.reasoningEffort: "none"` | `"medium"` | [Cerebras reasoning](https://inference-docs.cerebras.ai/capabilities/reasoning) |
@@ -259,7 +266,7 @@ Image translation ([settings.md](settings.md#image-translation)) needs a model t
 | Mistral AI | `mistral-small-latest` | yes | the default |
 | OpenRouter | `openai/gpt-6-luna` | yes | the default |
 | Volcengine Doubao | `doubao-seed-2-0-mini-260428` | yes | the default |
-| Zhipu GLM | `glm-4-flash` | no | `glm-4.6v-flash` (free) |
+| Zhipu GLM | `glm-4.7-flash` | no | `glm-4.6v-flash` (free) |
 | DashScope (Qwen) | `qwen-plus` | unknown | `qwen3-vl-plus` |
 | SiliconFlow | `Qwen/Qwen2.5-7B-Instruct` | no | `Qwen/Qwen2.5-VL-72B-Instruct` |
 | Moonshot / Kimi | `kimi-k3.1-pro` | yes | the default |

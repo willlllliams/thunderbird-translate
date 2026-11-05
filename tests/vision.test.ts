@@ -305,7 +305,7 @@ describe("image settings", () => {
     s.tiers.ai = "zhipu"
     s.providers.zhipu.enabled = true
     s.image.model = ""
-    expect(imageStatus(s)).toEqual({ id: "zhipu", model: "glm-4-flash", support: "no", active: false })
+    expect(imageStatus(s)).toEqual({ id: "zhipu", model: "glm-4.7-flash", support: "no", active: false })
     expect(toPublicSettings(s).image.mode).toBe("off")
     expect(imageStatus(createDefaultSettings("en"))).toEqual({ id: null, model: "", support: null, active: false })
   })
