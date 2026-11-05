@@ -61,6 +61,10 @@ All notable changes to this project are documented in this file, with the date o
 - A URL with a stray percent sign in its path no longer turns a failed request into "URI malformed" instead of the real error.
 - The privacy policy names the image attachments that are sent, and "Test image" and "Skip this step" among the buttons that ask for the site of a service.
 
+### Dependencies
+
+- zod 4.6.7 and undici 7.30.1, past security advisories published since 3.1.1.
+
 ## 3.1.1 - 2026-10-22
 
 ### Fixed
