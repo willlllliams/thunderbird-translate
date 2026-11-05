@@ -93,8 +93,8 @@ describe("workflows", () => {
     expect(step).toMatch(/rm -rf "\$rebuild"\n\s+mkdir -p "\$rebuild"\n\s+unzip -q "web-ext-artifacts\/thunderbird-translate-\$version-source\.zip" -d "\$rebuild"/)
     expect(step).toContain('(cd "$rebuild" && npm ci && npm run build)')
     expect(step).toContain('cmp "web-ext-artifacts/thunderbird-translate-$version.xpi" "$rebuild/web-ext-artifacts/thunderbird-translate-$version.xpi"')
-    // Not on a pull request, where nothing is released.
-    expect(step).toContain("github.event_name != 'pull_request'")
+    // Also on a pull request, so a broken archive shows before it reaches main.
+    expect(step).not.toContain("if:")
   })
 
   it("T1: replace the packs of dicts-v1 from main only, and build them without a write token", () => {

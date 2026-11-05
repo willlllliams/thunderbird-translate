@@ -59,6 +59,16 @@ describe("consent windows", () => {
     await Promise.resolve()
     expect(windows.remove).toHaveBeenCalledTimes(1)
   })
+
+  it("tries again for the next question when a window failed to open", async () => {
+    const { windows, api } = windowsApi()
+    const consent = createConsentWindows(api, tabUrl)
+    windows.create.mockRejectedValueOnce(new Error("no window"))
+    await expect(consent.show(5)).rejects.toThrow("no window")
+    await consent.show(5)
+    expect(windows.create).toHaveBeenCalledTimes(2)
+    expect(windows.update).not.toHaveBeenCalled()
+  })
 })
 
 describe("consent windows of the extension API", () => {

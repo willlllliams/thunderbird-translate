@@ -33,7 +33,8 @@ export function createConsentWindows(api: { windows: WindowsApi } = ext, url: (t
         if (id !== undefined && (await api.windows.update(id, { focused: true }).then(() => true, () => false))) return id
         return (await api.windows.create({ type: "popup", url: url(tabId), width: 420, height: 640 })).id
       })
-      open.set(tabId, shown)
+      // A window that failed to open is kept as none, so the next question tries again.
+      open.set(tabId, shown.catch(() => undefined))
       await shown
     },
     close(tabId) {

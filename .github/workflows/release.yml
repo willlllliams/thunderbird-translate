@@ -43,9 +43,8 @@ jobs:
 
       # What the reviewers of addons.thunderbird.net do (SOURCE-BUILD.md): unpack the source archive into an empty
       # directory, install and build there. The xpi must be the one released, byte for byte; a file the build reads that
-      # the archive lacks fails here and not at the review.
+      # the archive lacks fails here, already on a pull request, and not at the review.
       - name: Rebuild the xpi from the source archive
-        if: github.event_name != 'pull_request'
         run: |
           version="$(node -p "require('./static/manifest.json').version")"
           rebuild="$RUNNER_TEMP/source-rebuild"
