@@ -6,7 +6,6 @@
  * as arguments.
  */
 
-import type { ConsentKind } from "../shared/consent"
 import { ext } from "../shared/ext"
 import { getI18n } from "../shared/i18n"
 import { loadExtensionI18n, thunderbirdUiLanguage } from "../shared/i18n-ext"
@@ -62,7 +61,7 @@ const runCommand = (command: string, tab?: browser.tabs.Tab) => commandRunner(co
 const settings = createSettingsState({
   storage,
   // Test build (npm run e2e): settings and dictionary pack of the local mock server, before anything is translated.
-  beforeRead: beforeSettingsRead && (() => beforeSettingsRead!({ storage, dictionary, runCommand, answerConsent: (tabId, kind, allowed) => answerAsked(tabId, kind, allowed) })),
+  beforeRead: beforeSettingsRead && (() => beforeSettingsRead!({ storage, dictionary, runCommand, tabs })),
   onAdopt: (s) => {
     cache.configure(s.cache.enabled, s.cache.maxEntries)
     // The AI SDK is a chunk of its own (scripts/build.mjs), loaded once the AI tier is in use; a failure shows with the first AI request.
@@ -146,12 +145,6 @@ const tabs = createTabRegistry({
       openOptions: () => openOptionsAt({ section: "imageRemote" }),
     }),
 })
-
-/** Test build (npm run e2e): answers the question the panel of `kind` asks in place of the popup, which names the question it shows. */
-const answerAsked = async (tabId: number, kind: ConsentKind, allowed: boolean) => {
-  const question = tabs.stateOf(tabId).consent?.find((q) => q.kind === kind)
-  return question !== undefined && (await tabs.answerConsent(tabId, kind, question.id, allowed))
-}
 
 async function applyUiLanguage(uiLanguage: string): Promise<void> {
   const i18n = await loadExtensionI18n(uiLanguage)

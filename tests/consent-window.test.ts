@@ -1,6 +1,7 @@
 /** The window of the popup page that shows the consent questions of a tab when the message header button is in no toolbar (background/consent-window.ts). */
 import { describe, expect, it, vi } from "vitest"
 import { createConsentWindows } from "../src/background/consent-window"
+import { stubBrowser } from "./fixtures/browser"
 import { fakeEvent } from "./fixtures/events"
 
 function windowsApi() {
@@ -57,5 +58,16 @@ describe("consent windows", () => {
     consent.close(3)
     await Promise.resolve()
     expect(windows.remove).toHaveBeenCalledTimes(1)
+  })
+})
+
+describe("consent windows of the extension API", () => {
+  it("opens the popup page of the tab through the API of the moment", async () => {
+    const { api } = stubBrowser()
+    const consent = createConsentWindows()
+    await consent.show(3)
+    expect(api.windows.create).toHaveBeenCalledWith({ type: "popup", url: "moz-extension://test/popup.html?tab=3", width: 420, height: 640 })
+    consent.close(3)
+    await vi.waitFor(() => expect(api.windows.remove).toHaveBeenCalledWith(1))
   })
 })
